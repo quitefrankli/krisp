@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "validation_layer.hpp"
+#include "queues.hpp"
 
 class HelloTriangleApplication {
 public:
@@ -33,6 +34,7 @@ private:
     }
     void initVulkan() {
 		createInstance();
+		pick_physical_device();
     }
 
 	void createInstance() 
@@ -83,6 +85,43 @@ private:
 		VkResult result = vkCreateInstance(&create_info, nullptr, &instance);
 		if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
  		   	throw std::runtime_error("failed to create instance!");
+		}
+	}
+
+	void pick_physical_device()
+	{
+		uint32_t deviceCount = 0;
+		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+		if (deviceCount == 0) {
+			throw std::runtime_error("failed to find GPUs with Vulkan support!");
+		}
+		std::vector<VkPhysicalDevice> devices(deviceCount);
+		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+		auto isDeviceSuitable = [](VkPhysicalDevice device)
+		{
+			// basic properties
+			VkPhysicalDeviceProperties deviceProperties;
+			// more advanced properties
+			VkPhysicalDeviceFeatures deviceFeatures;
+			vkGetPhysicalDeviceProperties(device, &deviceProperties);
+			vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+			return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+				deviceFeatures.geometryShader && findQueueFamilies(device).isComplete();
+		};
+
+		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		for (const auto& device : devices) {
+			if (isDeviceSuitable(device)) {
+				physicalDevice = device;
+				break;
+			}
+		}
+		if (physicalDevice == VK_NULL_HANDLE) {
+			throw std::runtime_error("failed to find a suitable GPU!");
+		} else {
+			std::cout << "found a suitable GPU!\n";
 		}
 	}
 
