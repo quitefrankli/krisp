@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <vector>
 
+#include "validation_layer.hpp"
+
 class HelloTriangleApplication {
 public:
 	void run() {
@@ -46,7 +48,15 @@ private:
 		VkInstanceCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		create_info.pApplicationInfo = &app_info;
-
+		if (enableValidationLayers) { // see validation_layer.hpp
+			if (!checkValidationLayerSupport()) {
+				throw std::runtime_error("validation layers requested, but not available!");
+			}
+			create_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			create_info.ppEnabledLayerNames = validationLayers.data();
+		} else {
+			create_info.enabledLayerCount = 0;
+		}
 
 		uint32_t glfwExtensionCount;
 
@@ -69,7 +79,7 @@ private:
 		for (const auto& extension : extensions) {
 			std::cout << '\t' << extension.extensionName << '\n';
 		}
-	// return;
+
 		VkResult result = vkCreateInstance(&create_info, nullptr, &instance);
 		if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
  		   	throw std::runtime_error("failed to create instance!");
