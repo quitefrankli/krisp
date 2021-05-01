@@ -23,6 +23,9 @@ private:
 	// the instance is the connection between application and Vulkan library
 	// its creation involves specifying some details about your application to the driver
 	VkInstance instance; 
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+	VkDevice logical_device;
+	VkQueue graphics_queue;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
 
@@ -35,6 +38,7 @@ private:
     void initVulkan() {
 		createInstance();
 		pick_physical_device();
+		create_logical_device();
     }
 
 	void createInstance() 
@@ -111,18 +115,53 @@ private:
 				deviceFeatures.geometryShader && findQueueFamilies(device).isComplete();
 		};
 
-		VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+		physicalDevice = VK_NULL_HANDLE;
 		for (const auto& device : devices) {
 			if (isDeviceSuitable(device)) {
 				physicalDevice = device;
 				break;
 			}
 		}
+
 		if (physicalDevice == VK_NULL_HANDLE) {
 			throw std::runtime_error("failed to find a suitable GPU!");
 		} else {
 			std::cout << "found a suitable GPU!\n";
 		}
+	}
+
+	void create_logical_device()
+	{
+		QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+		VkDeviceQueueCreateInfo queue_create_info{};
+		queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queue_create_info.queueFamilyIndex = indices.graphicsFamily.value();
+		queue_create_info.queueCount = 1; // there really is not a need for more than 1 queue per physical device
+		// vulkan allows for some queues to have higher priority than others
+		float queue_priority = 1.0f;
+		queue_create_info.pQueuePriorities = &queue_priority;
+		VkPhysicalDeviceFeatures deviceFeatures{}; // special features, don't need atm
+		
+		VkDeviceCreateInfo create_info{};
+		create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		create_info.pQueueCreateInfos = &queue_create_info;
+		create_info.queueCreateInfoCount = queue_create_info.queueCount;
+		create_info.pEnabledFeatures = &deviceFeatures;
+		create_info.enabledExtensionCount = 0;
+		if (enableValidationLayers)
+		{
+			create_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			create_info.ppEnabledLayerNames = validationLayers.data();
+		} else {
+			create_info.enabledLayerCount = 0;
+		}
+
+		if (vkCreateDevice(physicalDevice, &create_info, nullptr, &logical_device) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create logical device!");
+		}
+
+		vkGetDeviceQueue(logical_device, indices.graphicsFamily.value(), 0, &graphics_queue);
 	}
 
     void mainLoop() {
@@ -133,6 +172,7 @@ private:
 
     void cleanup() {
 		vkDestroyInstance(instance, nullptr);
+		vkDestroyDevice(logical_device, nullptr);
 		glfwDestroyWindow(window);
    	 	glfwTerminate();
     }
