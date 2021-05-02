@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "validation_layer.hpp"
+#include "utility_functions.hpp"
 
 class HelloTriangleApplication {
 public:
@@ -58,17 +59,16 @@ private:
 			create_info.enabledLayerCount = 0;
 		}
 
-		uint32_t glfwExtensionCount;
-
 		// vulkan is platform agnostic and therefore an extension is necessary 
-		const char** glfwExtensions;
-		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		std::vector<std::string> required_extensions = get_required_extensions();
 		std::cout << "required extensions:\n";
-		for (int i = 0; i < glfwExtensionCount; i++)
-			std::cout << '\t' << glfwExtensions[i] << '\n';
-
-		create_info.enabledExtensionCount = glfwExtensionCount;
-		create_info.ppEnabledExtensionNames = glfwExtensions;
+		for (auto& required_extension : required_extensions)
+		{
+			std::cout << '\t' << required_extension << '\n';
+		}
+		auto required_extensions_old = c_style_str_array(required_extensions);
+		create_info.enabledExtensionCount = required_extensions_old.size();
+		create_info.ppEnabledExtensionNames = required_extensions_old.data();
 		create_info.enabledLayerCount = 0;
 		
 		uint32_t extensionCount = 0;
@@ -86,6 +86,20 @@ private:
 		}
 	}
 
+	std::vector<std::string> get_required_extensions()
+	{
+		uint32_t glfwExtensionCount;
+		const char** glfwExtensions;
+		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+		auto required_extensions = char_ptr_arr_to_str_vec(glfwExtensions, glfwExtensionCount);
+		if (enableValidationLayers)
+		{
+			required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		}
+		return required_extensions;
+	}
+
     void mainLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
@@ -93,8 +107,9 @@ private:
     }
 
     void cleanup() {
-		vkDestroyInstance(instance, nullptr);
-		glfwDestroyWindow(window);
+		std::cout<<"cleaning up\n";
+		// vkDestroyInstance(instance, nullptr);
+		// glfwDestroyWindow(window);
    	 	glfwTerminate();
     }
 };
