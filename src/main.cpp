@@ -219,7 +219,7 @@ private:
 
 		return indices;
 	}
-	
+
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
 		createInfo = {};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -299,14 +299,14 @@ private:
     }
 
     void cleanup() {
-		vkDestroySurfaceKHR(instance, window_surface, nullptr);
 		std::cout<<"cleaning up\n";
+		vkDestroyDevice(logical_device, nullptr);
+		vkDestroySurfaceKHR(instance, window_surface, nullptr);
 		if (enableValidationLayers)
 		{
 			DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
 		}
 		vkDestroyInstance(instance, nullptr);
-		vkDestroyDevice(logical_device, nullptr);
 		glfwDestroyWindow(window);
    	 	glfwTerminate();
     }
