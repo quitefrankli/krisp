@@ -23,6 +23,7 @@ private:
 	// the instance is the connection between application and Vulkan library
 	// its creation involves specifying some details about your application to the driver
 	VkInstance instance; 
+	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
 
@@ -34,6 +35,7 @@ private:
     }
     void initVulkan() {
 		createInstance();
+		setupDebugMessenger();
     }
 
 	void createInstance() 
@@ -59,6 +61,11 @@ private:
 			create_info.enabledLayerCount = 0;
 		}
 
+		// validation layer stuff
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+		populateDebugMessengerCreateInfo(debugCreateInfo);
+		create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+
 		// vulkan is platform agnostic and therefore an extension is necessary 
 		std::vector<std::string> required_extensions = get_required_extensions();
 		std::cout << "required extensions:\n";
@@ -69,7 +76,6 @@ private:
 		auto required_extensions_old = c_style_str_array(required_extensions);
 		create_info.enabledExtensionCount = required_extensions_old.size();
 		create_info.ppEnabledExtensionNames = required_extensions_old.data();
-		create_info.enabledLayerCount = 0;
 		
 		uint32_t extensionCount = 0;
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
@@ -84,6 +90,64 @@ private:
 		if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
  		   	throw std::runtime_error("failed to create instance!");
 		}
+	}
+
+	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
+		createInfo = {};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+		createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+		createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+		createInfo.pfnUserCallback = debug_callback;
+	}
+
+	void setupDebugMessenger() {
+		if (!enableValidationLayers)
+		{
+			return;
+		}
+
+		VkDebugUtilsMessengerCreateInfoEXT createInfo;
+		populateDebugMessengerCreateInfo(createInfo);
+
+		if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debug_messenger) != VK_SUCCESS) {
+			throw std::runtime_error("failed to set up debug messenger!");
+		}
+	}
+
+	VkResult CreateDebugUtilsMessengerEXT(
+		VkInstance instance, 
+		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
+		const VkAllocationCallbacks* pAllocator, 
+		VkDebugUtilsMessengerEXT* pDebugMessenger) 
+	{
+		// loads up function from dynamic library
+		auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+		if (func != nullptr) {
+			return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+		} else {
+			return VK_ERROR_EXTENSION_NOT_PRESENT;
+		}
+	}
+
+	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+		auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+		if (func != nullptr) {
+			func(instance, debugMessenger, pAllocator);
+		}
+	}
+
+	static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
+		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+		VkDebugUtilsMessageTypeFlagsEXT messageType,
+		const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+		void* pUserData) 
+	{
+		if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+		{
+			std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+		}
+
+		return VK_FALSE;
 	}
 
 	std::vector<std::string> get_required_extensions()
@@ -108,8 +172,12 @@ private:
 
     void cleanup() {
 		std::cout<<"cleaning up\n";
-		// vkDestroyInstance(instance, nullptr);
-		// glfwDestroyWindow(window);
+		if (enableValidationLayers)
+		{
+			DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+		}
+		vkDestroyInstance(instance, nullptr);
+		glfwDestroyWindow(window);
    	 	glfwTerminate();
     }
 };
