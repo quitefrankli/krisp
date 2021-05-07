@@ -1,8 +1,11 @@
+#pragma once
+
 #include <vector>
 #include <string>
 #include <functional>
+#include <stdexcept>
 
-std::vector<std::string> char_ptr_arr_to_str_vec(const char** char_arr, int size)
+inline std::vector<std::string> char_ptr_arr_to_str_vec(const char** char_arr, int size)
 {
 	std::vector<std::string> str_vec;
 	for (int i = 0; i < size; i++)
