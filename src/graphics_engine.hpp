@@ -45,6 +45,7 @@ private:
 	std::vector<VkImage> swap_chain_images; // handle of the swap chain images
 	VkFormat swap_chain_image_format;
 	VkExtent2D swap_chain_extent;
+	std::vector<VkImageView> swap_chain_image_views;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
@@ -64,6 +65,7 @@ private:
 		pick_physical_device();
 		create_logical_device();
 		create_swap_chain();
+		create_image_views();
     }
 
 	void createInstance() 
@@ -190,6 +192,9 @@ public: // swap chain
 	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 
+public: // image views
+	void create_image_views();
+
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
 	{
 		uint32_t extensionCount;
@@ -312,6 +317,10 @@ public: // swap chain
 
     void cleanup() {
 		std::cout<<"cleaning up\n";
+		for (auto& image_view : swap_chain_image_views)
+		{
+			vkDestroyImageView(logical_device, image_view, nullptr);
+		}
 		vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
 		vkDestroyDevice(logical_device, nullptr);
 		vkDestroySurfaceKHR(instance, window_surface, nullptr);
