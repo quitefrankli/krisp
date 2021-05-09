@@ -48,6 +48,7 @@ private:
 	VkPipelineLayout pipeline_layout;
 	std::vector<VkImageView> swap_chain_image_views;
 	VkRenderPass render_pass;
+	VkPipeline graphics_engine_pipeline;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
@@ -293,7 +294,6 @@ public: // image views
 
 public: // graphics pipeline
 	void create_graphics_pipeline();
-	void fixed_functions();
 	void create_render_pass();
 	
 public: // validation layer
@@ -333,6 +333,7 @@ public: // validation layer
 			vkDestroyImageView(logical_device, image_view, nullptr);
 		}
 		vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
+		vkDestroyPipeline(logical_device, graphics_engine_pipeline, nullptr);
 		vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
 		vkDestroyRenderPass(logical_device, render_pass, nullptr);
 		vkDestroyDevice(logical_device, nullptr);

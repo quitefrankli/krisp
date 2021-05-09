@@ -57,8 +57,6 @@ void GraphicsEngine::create_graphics_pipeline() {
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_shader_create_info, fragment_shader_create_info };
 
-	fixed_functions();
-
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
 	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	pipeline_layout_create_info.setLayoutCount = 0; // Optional
@@ -70,12 +68,10 @@ void GraphicsEngine::create_graphics_pipeline() {
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
 
-	vkDestroyShaderModule(logical_device, vertex_shader, nullptr);
-	vkDestroyShaderModule(logical_device, fragment_shader, nullptr);
-}
+	//
+	// fixed functions
+	//
 
-void GraphicsEngine::fixed_functions()
-{
 	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{};
 	vertex_input_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertex_input_create_info.vertexBindingDescriptionCount = 0;
@@ -153,7 +149,34 @@ void GraphicsEngine::fixed_functions()
 	color_blending_create_info.blendConstants[1] = 0.0f; // Optional
 	color_blending_create_info.blendConstants[2] = 0.0f; // Optional
 	color_blending_create_info.blendConstants[3] = 0.0f; // Optional
-};
+
+	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info{};
+	graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	graphics_pipeline_create_info.stageCount = 2;
+	graphics_pipeline_create_info.pStages = shader_stages;
+	graphics_pipeline_create_info.pVertexInputState = &vertex_input_create_info;
+	graphics_pipeline_create_info.pInputAssemblyState = &input_assembly;
+	graphics_pipeline_create_info.pViewportState = &view_port_state_create_info;
+	graphics_pipeline_create_info.pRasterizationState = &rasterizer_create_info;
+	graphics_pipeline_create_info.pMultisampleState = &multisampling_create_info;
+	graphics_pipeline_create_info.pDepthStencilState = nullptr;
+	graphics_pipeline_create_info.pColorBlendState = &color_blending_create_info;
+	graphics_pipeline_create_info.pDynamicState = nullptr;
+	graphics_pipeline_create_info.layout = pipeline_layout;
+	graphics_pipeline_create_info.renderPass = render_pass;
+	graphics_pipeline_create_info.subpass = 0;
+	graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE; // vulkan allows pipeline inheritance, will require setting VK_PIPELINE_CREATE_DERIVATIVE_BIT flag in VkGraphicsPipelineCreateInfo
+	graphics_pipeline_create_info.basePipelineIndex = -1;
+
+	// pipeline cache can be used to significantly speed up pipeline creation
+	if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &graphics_engine_pipeline) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create graphics pipeline!");
+	}
+
+	vkDestroyShaderModule(logical_device, vertex_shader, nullptr);
+	vkDestroyShaderModule(logical_device, fragment_shader, nullptr);
+}
 
 void GraphicsEngine::create_render_pass()
 {
@@ -193,5 +216,5 @@ void GraphicsEngine::create_render_pass()
 	if (vkCreateRenderPass(logical_device, &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create render pass!");
-	}	
+	}
 }
