@@ -52,6 +52,8 @@ private:
 	std::vector<VkFramebuffer> swap_chain_frame_buffers;
 	VkCommandPool command_pool;
 	std::vector<VkCommandBuffer> command_buffers;
+	VkSemaphore semaphore_image_available;
+	VkSemaphore semaphore_render_finished;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
@@ -78,6 +80,7 @@ private:
 		create_frame_buffers();
 		create_command_pool();
 		create_command_buffers();
+		create_semaphores();
     }
 
 	void createInstance() 
@@ -287,6 +290,17 @@ private:
 		return indices;
 	}
 
+	void create_semaphores()
+	{
+		VkSemaphoreCreateInfo semaphore_create_info{};
+		semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		if (vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &semaphore_image_available) != VK_SUCCESS ||
+			vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &semaphore_render_finished) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create semaphores!");
+		}
+	}
+
 public: // swap chain
 	void create_swap_chain();
 	SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice device);
@@ -333,14 +347,73 @@ public: // validation layer
 		return required_extensions;
 	}
 
+	void draw_frame()
+	{
+		// 1. acquire image from swap chain
+		// 2. execute command buffer with image as attachment in the frame buffer
+		// 3. return the image to swap chain for presentation
+
+		unsigned image_index;
+		// using uint64 max disables timeout
+		vkAcquireNextImageKHR(logical_device, swap_chain, UINT64_MAX, semaphore_image_available, VK_NULL_HANDLE, &image_index);
+
+		//
+		// submitting the command buffer
+		//
+
+		VkSubmitInfo submitInfo{};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+		VkSemaphore waitSemaphores[] = {semaphore_image_available};
+		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+		// here we specify which semaphore to wait on before execution begins and in which stage of the pipeline to wait
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+
+		// here we specify which command buffers to actually submit for execution
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &command_buffers[image_index];
+
+		// here we specify the semaphores to signal once the command buffer has finished execution
+		VkSemaphore signal_semaphores[] = { semaphore_render_finished };
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signal_semaphores;
+
+		if (vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to submit draw command buffer!");
+		}
+
+		//
+		// presentation
+		//
+
+		VkPresentInfoKHR present_info{};
+		present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		present_info.waitSemaphoreCount = 1;
+		present_info.pWaitSemaphores = signal_semaphores;
+
+		VkSwapchainKHR swap_chains[] = { swap_chain };
+		present_info.swapchainCount = 1;
+		present_info.pSwapchains = swap_chains;
+		present_info.pImageIndices = &image_index;
+		present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
+
+		vkQueuePresentKHR(present_queue, &present_info);
+	}
+
     void mainLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
+			draw_frame();
 		}
     }
 
     void cleanup() {
 		std::cout<<"cleaning up\n";
+		vkDestroySemaphore(logical_device, semaphore_image_available, nullptr);
+		vkDestroySemaphore(logical_device, semaphore_render_finished, nullptr);
 		vkDestroyCommandPool(logical_device, command_pool, nullptr);
 		for (auto& swap_chain_frame_buffer : swap_chain_frame_buffers)
 		{
