@@ -57,6 +57,141 @@ void GraphicsEngine::create_graphics_pipeline() {
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_shader_create_info, fragment_shader_create_info };
 
+	fixed_functions();
+
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
+	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipeline_layout_create_info.setLayoutCount = 0; // Optional
+	pipeline_layout_create_info.pSetLayouts = nullptr; // Optional
+	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
+	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
+
+	if (vkCreatePipelineLayout(logical_device, &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create pipeline layout!");
+	}
+
 	vkDestroyShaderModule(logical_device, vertex_shader, nullptr);
 	vkDestroyShaderModule(logical_device, fragment_shader, nullptr);
+}
+
+void GraphicsEngine::fixed_functions()
+{
+	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{};
+	vertex_input_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	vertex_input_create_info.vertexBindingDescriptionCount = 0;
+	vertex_input_create_info.pVertexBindingDescriptions = nullptr;
+	vertex_input_create_info.vertexAttributeDescriptionCount = 0;
+	vertex_input_create_info.pVertexAttributeDescriptions = nullptr;
+
+	// describes what kind of geomertry will be drawn from the vertices and if primitive restart should be enabled
+	VkPipelineInputAssemblyStateCreateInfo input_assembly{};
+	input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	input_assembly.primitiveRestartEnable = VK_FALSE;
+
+	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
+	view_port.x = 0.0f;
+	view_port.y = 0.0f;
+	view_port.width = (float)swap_chain_extent.width;
+	view_port.height = (float)swap_chain_extent.height;
+	view_port.minDepth = 0.0f;
+	view_port.maxDepth = 1.0f;
+
+	VkRect2D scissor{}; // any pixels outside scissor is omitted by rasterizer
+	scissor.offset = { 0, 0 };
+	scissor.extent = swap_chain_extent;
+
+	VkPipelineViewportStateCreateInfo view_port_state_create_info{};
+	view_port_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	view_port_state_create_info.viewportCount = 1;
+	view_port_state_create_info.pViewports = &view_port;
+	view_port_state_create_info.scissorCount = 1;
+	view_port_state_create_info.pScissors = &scissor;
+
+	VkPipelineRasterizationStateCreateInfo rasterizer_create_info{}; // takes the geometry shaped by vertices and turns it into fragments to be colored by fragment shader
+	rasterizer_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	rasterizer_create_info.depthClampEnable = VK_FALSE; // true = fragments beyond near and far planes are clamped, false = discarded
+	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
+	rasterizer_create_info.polygonMode = VK_POLYGON_MODE_FILL;
+	rasterizer_create_info.lineWidth = 1.0f;
+	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
+	rasterizer_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE; // culling is determined by either clockerwise or counter clockwise vertex order
+	// rasterizer can alter depth by adding bias (either constant or sloped), can be useful for shadow mapping
+	rasterizer_create_info.depthBiasEnable = VK_FALSE;
+	rasterizer_create_info.depthBiasConstantFactor = 0.0f;
+	rasterizer_create_info.depthBiasClamp = 0.0f;
+	rasterizer_create_info.depthBiasSlopeFactor = 0.0f;
+
+	// multisampling is one way of performing anti-aliasing, by combining fragments that lie ontop of the same pixel
+	VkPipelineMultisampleStateCreateInfo multisampling_create_info{};
+	multisampling_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	multisampling_create_info.sampleShadingEnable = VK_FALSE;
+	multisampling_create_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	multisampling_create_info.minSampleShading = 1.0f;
+	multisampling_create_info.pSampleMask = nullptr;
+	multisampling_create_info.alphaToCoverageEnable = VK_FALSE;
+	multisampling_create_info.alphaToOneEnable = VK_FALSE;
+
+	// after fragment shader returned a color, it must be combined with color already on the framebuffer
+	VkPipelineColorBlendAttachmentState color_blend_attachment{};
+	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+	color_blend_attachment.blendEnable = VK_FALSE;
+	color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+	color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+	color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+	color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+	VkPipelineColorBlendStateCreateInfo color_blending_create_info{};
+	color_blending_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	color_blending_create_info.logicOpEnable = VK_FALSE;
+	color_blending_create_info.logicOp = VK_LOGIC_OP_COPY; // Optional
+	color_blending_create_info.attachmentCount = 1;
+	color_blending_create_info.pAttachments = &color_blend_attachment;
+	color_blending_create_info.blendConstants[0] = 0.0f; // Optional
+	color_blending_create_info.blendConstants[1] = 0.0f; // Optional
+	color_blending_create_info.blendConstants[2] = 0.0f; // Optional
+	color_blending_create_info.blendConstants[3] = 0.0f; // Optional
+};
+
+void GraphicsEngine::create_render_pass()
+{
+	VkAttachmentDescription color_attachment{};
+	color_attachment.format = swap_chain_image_format;
+	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT; // >1 if we are doing multisampling	
+	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
+	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
+	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // specifies which layout the image will have before the render pass begins
+	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
+
+	// subpasses and attachment references
+	// a single render pass can consist of multiple subpasses
+	VkAttachmentReference color_attachment_ref{};
+	color_attachment_ref.attachment = 0; // only works since we only have 1 attachment description
+	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // as opposed to compute subpass
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments = &color_attachment_ref;
+	// subpass.pInputAttachments // attachments that read from a shader
+	// subpass.pResolveAttachments // attachments used for multisampling color attachments
+	// subpass.pDepthStencilAttachment // attachment for depth and stencil data
+	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
+
+	// render pass
+	VkRenderPassCreateInfo render_pass_create_info{};
+	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	render_pass_create_info.attachmentCount = 1;
+	render_pass_create_info.pAttachments = &color_attachment;
+	render_pass_create_info.subpassCount = 1;
+	render_pass_create_info.pSubpasses = &subpass;
+
+	if (vkCreateRenderPass(logical_device, &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create render pass!");
+	}	
 }

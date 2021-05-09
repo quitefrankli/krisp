@@ -45,7 +45,9 @@ private:
 	std::vector<VkImage> swap_chain_images; // handle of the swap chain images
 	VkFormat swap_chain_image_format;
 	VkExtent2D swap_chain_extent;
+	VkPipelineLayout pipeline_layout;
 	std::vector<VkImageView> swap_chain_image_views;
+	VkRenderPass render_pass;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
@@ -58,7 +60,8 @@ private:
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
     }
-    void initVulkan() {
+    
+	void initVulkan() {
 		createInstance();
 		create_window_surface();
 		setupDebugMessenger();
@@ -66,6 +69,7 @@ private:
 		create_logical_device();
 		create_swap_chain();
 		create_image_views();
+		create_render_pass();
 		create_graphics_pipeline();
     }
 
@@ -289,7 +293,9 @@ public: // image views
 
 public: // graphics pipeline
 	void create_graphics_pipeline();
-
+	void fixed_functions();
+	void create_render_pass();
+	
 public: // validation layer
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 	void setupDebugMessenger();
@@ -327,6 +333,8 @@ public: // validation layer
 			vkDestroyImageView(logical_device, image_view, nullptr);
 		}
 		vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
+		vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
+		vkDestroyRenderPass(logical_device, render_pass, nullptr);
 		vkDestroyDevice(logical_device, nullptr);
 		vkDestroySurfaceKHR(instance, window_surface, nullptr);
 		if (enableValidationLayers)
