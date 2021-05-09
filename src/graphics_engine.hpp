@@ -50,6 +50,8 @@ private:
 	VkRenderPass render_pass;
 	VkPipeline graphics_engine_pipeline;
 	std::vector<VkFramebuffer> swap_chain_frame_buffers;
+	VkCommandPool command_pool;
+	std::vector<VkCommandBuffer> command_buffers;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
@@ -74,6 +76,8 @@ private:
 		create_render_pass();
 		create_graphics_pipeline();
 		create_frame_buffers();
+		create_command_pool();
+		create_command_buffers();
     }
 
 	void createInstance() 
@@ -301,6 +305,10 @@ public: // graphics pipeline
 public: // frame buffer
 	void create_frame_buffers();
 
+public: // command buffer
+	void create_command_pool();
+	void create_command_buffers();
+
 public: // validation layer
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 	void setupDebugMessenger();
@@ -333,6 +341,7 @@ public: // validation layer
 
     void cleanup() {
 		std::cout<<"cleaning up\n";
+		vkDestroyCommandPool(logical_device, command_pool, nullptr);
 		for (auto& swap_chain_frame_buffer : swap_chain_frame_buffers)
 		{
 			vkDestroyFramebuffer(logical_device, swap_chain_frame_buffer, nullptr);
