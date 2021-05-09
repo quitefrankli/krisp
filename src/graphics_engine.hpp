@@ -66,6 +66,7 @@ private:
 		create_logical_device();
 		create_swap_chain();
 		create_image_views();
+		create_graphics_pipeline();
     }
 
 	void createInstance() 
@@ -184,17 +185,6 @@ private:
 		}
 	}
 
-public: // swap chain
-	void create_swap_chain();
-	SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice device);
-	VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& available_formats);
-	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
-	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
-	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
-
-public: // image views
-	void create_image_views();
-
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
 	{
 		uint32_t extensionCount;
@@ -286,6 +276,21 @@ public: // image views
 		return indices;
 	}
 
+public: // swap chain
+	void create_swap_chain();
+	SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice device);
+	VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& available_formats);
+	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
+	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
+	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+public: // image views
+	void create_image_views();
+
+public: // graphics pipeline
+	void create_graphics_pipeline();
+
+public: // validation layer
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 	void setupDebugMessenger();
 	VkResult CreateDebugUtilsMessengerEXT(
