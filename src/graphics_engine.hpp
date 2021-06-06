@@ -22,6 +22,8 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
+void frame_buffer_resize_callback(GLFWwindow* window, int width, int height);
+
 class GraphicsEngine {
 public:
 	void run() {
@@ -29,6 +31,11 @@ public:
 		initVulkan();
 		mainLoop();
 		cleanup();
+	}
+
+	void set_frame_buffer_resized()
+	{
+		frame_buffer_resized = true;
 	}
 
 private:
@@ -62,13 +69,17 @@ private:
 	// swap chain
 	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	int current_frame = 0;
+	bool frame_buffer_resized = false;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 
     void initWindow() {
 		glfwInit();
+
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+		// glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, frame_buffer_resize_callback);
     }
     
 	void initVulkan() {
@@ -319,6 +330,9 @@ private:
 		}
 	}
 
+// if confused about the different vulkan definitions see here
+// https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
+
 public: // swap chain
 	void create_swap_chain();
 	SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice device);
@@ -326,6 +340,9 @@ public: // swap chain
 	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
 	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+	void recreate_swap_chain(); // useful for when size of window is changing
+	void clean_up_swap_chain();
 
 public: // image views
 	void create_image_views();
@@ -376,8 +393,14 @@ public: // validation layer
 
 		unsigned image_index;
 		// using uint64 max disables timeout
-		vkAcquireNextImageKHR(logical_device, swap_chain, std::numeric_limits<uint64_t>::max(), 
+		VkResult result = vkAcquireNextImageKHR(logical_device, swap_chain, std::numeric_limits<uint64_t>::max(), 
 			image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            recreate_swap_chain();
+            return;
+        } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            throw std::runtime_error("failed to acquire swap chain image!");
+        }
 
 		// check if a previous frame is using this image (i.e. there is it fence to wait on)
 		if (images_in_flight[image_index] != VK_NULL_HANDLE)
@@ -410,7 +433,6 @@ public: // validation layer
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signal_semaphores;
 
-		// vkQueueWaitIdle(graphics_queue); // delete me
 		vkResetFences(logical_device, 1, &in_flight_fences[current_frame]);
 		if (vkQueueSubmit(graphics_queue, 1, &submitInfo, in_flight_fences[current_frame]) != VK_SUCCESS)
 		{
@@ -434,8 +456,13 @@ public: // validation layer
 
 		current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
-		vkQueuePresentKHR(present_queue, &present_info);
-		// vkQueueWaitIdle(present_queue); // DELETE ME
+		result = vkQueuePresentKHR(present_queue, &present_info);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) {
+            frame_buffer_resized = false;
+            recreate_swap_chain();
+        } else if (result != VK_SUCCESS) {
+            throw std::runtime_error("failed to present swap chain image!");
+        }
 	}
 
     void mainLoop() {
@@ -448,6 +475,8 @@ public: // validation layer
     void cleanup() {
 		std::cout<<"cleaning up\n";
 		vkDeviceWaitIdle(logical_device);
+
+		clean_up_swap_chain();
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
 			vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);
@@ -455,26 +484,21 @@ public: // validation layer
 			vkDestroyFence(logical_device, in_flight_fences[i], nullptr);
 		}
 		vkDestroyCommandPool(logical_device, command_pool, nullptr);
-		for (auto& swap_chain_frame_buffer : swap_chain_frame_buffers)
-		{
-			vkDestroyFramebuffer(logical_device, swap_chain_frame_buffer, nullptr);
-		}
-		for (auto& image_view : swap_chain_image_views)
-		{
-			vkDestroyImageView(logical_device, image_view, nullptr);
-		}
-		vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
-		vkDestroyPipeline(logical_device, graphics_engine_pipeline, nullptr);
-		vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
-		vkDestroyRenderPass(logical_device, render_pass, nullptr);
+
 		vkDestroyDevice(logical_device, nullptr);
-		vkDestroySurfaceKHR(instance, window_surface, nullptr);
 		if (enableValidationLayers)
 		{
 			DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
 		}
+		vkDestroySurfaceKHR(instance, window_surface, nullptr);
 		vkDestroyInstance(instance, nullptr);
 		glfwDestroyWindow(window);
    	 	glfwTerminate();
     }
 };
+
+static void frame_buffer_resize_callback(GLFWwindow* window, int width, int height)
+{
+	auto app = reinterpret_cast<GraphicsEngine*>(glfwGetWindowUserPointer(window));
+	app->set_frame_buffer_resized();
+}

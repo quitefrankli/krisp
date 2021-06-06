@@ -141,3 +141,45 @@ VkExtent2D GraphicsEngine::choose_swap_extent(const VkSurfaceCapabilitiesKHR& ca
 		return actual_extent;
 	}
 }
+
+void GraphicsEngine::recreate_swap_chain()
+{
+	// for when window is minimised
+	int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+
+	vkDeviceWaitIdle(logical_device); // we want to wait until resource is no longer in use
+
+	clean_up_swap_chain();
+
+	create_swap_chain();
+	create_image_views();
+	create_render_pass();
+	create_graphics_pipeline();
+	create_frame_buffers();
+	create_command_buffers();
+}
+
+void GraphicsEngine::clean_up_swap_chain()
+{
+	for (auto& frame_buffer : swap_chain_frame_buffers)
+	{
+		vkDestroyFramebuffer(logical_device, frame_buffer, nullptr);
+	}
+
+	vkFreeCommandBuffers(logical_device, command_pool, static_cast<uint32_t>(command_buffers.size()), command_buffers.data());
+	vkDestroyPipeline(logical_device, graphics_engine_pipeline, nullptr);
+	vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
+	vkDestroyRenderPass(logical_device, render_pass, nullptr);
+
+	for (auto& swap_chain_image : swap_chain_image_views)
+	{
+		vkDestroyImageView(logical_device, swap_chain_image, nullptr);
+	}
+
+	vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
+}
