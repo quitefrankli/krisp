@@ -20,7 +20,7 @@ class c_style_str_array
 {
 	using c_style_str = char*;
 	c_style_str* _data;
-	int num_strs;
+	size_t num_strs;
 	
 public:
 	c_style_str_array(const std::vector<std::string>& str_vec)
@@ -30,7 +30,7 @@ public:
 		for (int i = 0; i < num_strs; i++)
 		{
 			_data[i] = new char[str_vec[i].size() + 1];
-			strcpy(_data[i], str_vec[i].data());
+			strcpy_s(_data[i], str_vec[i].size() + 1, str_vec[i].data());
 		}
 	}
 

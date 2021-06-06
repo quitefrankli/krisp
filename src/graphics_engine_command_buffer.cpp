@@ -17,7 +17,7 @@ void GraphicsEngine::create_command_pool()
 void GraphicsEngine::create_command_buffers()
 {
 	command_buffers.resize(swap_chain_frame_buffers.size());
-
+	std::cout<<"cmd buffer size " <<command_buffers.size()<<std::endl;
 	VkCommandBufferAllocateInfo allocation_info{};
 	allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocation_info.commandPool = command_pool;

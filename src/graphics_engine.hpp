@@ -52,13 +52,17 @@ private:
 	std::vector<VkFramebuffer> swap_chain_frame_buffers;
 	VkCommandPool command_pool;
 	std::vector<VkCommandBuffer> command_buffers;
-	VkSemaphore semaphore_image_available;
-	VkSemaphore semaphore_render_finished;
+	std::vector<VkSemaphore> image_available_semaphores;
+	std::vector<VkSemaphore> render_finished_semaphores;
+	std::vector<VkFence> in_flight_fences;
+	std::vector<VkFence> images_in_flight;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	const uint32_t WIDTH = 800;
 	const uint32_t HEIGHT = 600;
 	// swap chain
 	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	int current_frame = 0;
+	const int MAX_FRAMES_IN_FLIGHT = 2;
 
     void initWindow() {
 		glfwInit();
@@ -80,7 +84,7 @@ private:
 		create_frame_buffers();
 		create_command_pool();
 		create_command_buffers();
-		create_semaphores();
+		create_synchronisation_objects();
     }
 
 	void createInstance() 
@@ -107,7 +111,7 @@ private:
 		}
 
 		// validation layer stuff
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
 		populateDebugMessengerCreateInfo(debugCreateInfo);
 		create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 
@@ -244,7 +248,7 @@ private:
 		create_info.pQueueCreateInfos = queue_create_infos.data();
 		create_info.queueCreateInfoCount = queue_create_infos.size();
 		create_info.pEnabledFeatures = &deviceFeatures;
-		create_info.enabledExtensionCount = device_extensions.size();
+		create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
 		c_style_str_array c_style_device_extensions(device_extensions);
 		create_info.ppEnabledExtensionNames = c_style_device_extensions.data();
 		if (enableValidationLayers)
@@ -290,14 +294,28 @@ private:
 		return indices;
 	}
 
-	void create_semaphores()
+	void create_synchronisation_objects() // semaphores and fences, for GPU-GPU and CPU-GPU synchronisation
 	{
+		image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+		render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
+		in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
+		images_in_flight.resize(swap_chain_images.size(), VK_NULL_HANDLE);
+
 		VkSemaphoreCreateInfo semaphore_create_info{};
 		semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		if (vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &semaphore_image_available) != VK_SUCCESS ||
-			vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &semaphore_render_finished) != VK_SUCCESS)
+
+		VkFenceCreateInfo fence_create_info{};
+		fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 		{
-			throw std::runtime_error("failed to create semaphores!");
+			if (vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &image_available_semaphores[i]) != VK_SUCCESS ||
+				vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &render_finished_semaphores[i]) != VK_SUCCESS ||
+				vkCreateFence(logical_device, &fence_create_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS)
+			{
+				throw std::runtime_error("failed to create semaphores!");
+			}
 		}
 	}
 
@@ -353,9 +371,21 @@ public: // validation layer
 		// 2. execute command buffer with image as attachment in the frame buffer
 		// 3. return the image to swap chain for presentation
 
+		// CPU-GPU synchronisation for in flight images
+		vkWaitForFences(logical_device, 1, &in_flight_fences[current_frame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+
 		unsigned image_index;
 		// using uint64 max disables timeout
-		vkAcquireNextImageKHR(logical_device, swap_chain, UINT64_MAX, semaphore_image_available, VK_NULL_HANDLE, &image_index);
+		vkAcquireNextImageKHR(logical_device, swap_chain, std::numeric_limits<uint64_t>::max(), 
+			image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
+
+		// check if a previous frame is using this image (i.e. there is it fence to wait on)
+		if (images_in_flight[image_index] != VK_NULL_HANDLE)
+		{
+			vkWaitForFences(logical_device, 1, &images_in_flight[image_index], VK_TRUE, std::numeric_limits<uint64_t>::max());
+		}
+		// mark the image as now being in use by this frame
+		images_in_flight[image_index] = in_flight_fences[current_frame];		
 
 		//
 		// submitting the command buffer
@@ -364,7 +394,7 @@ public: // validation layer
 		VkSubmitInfo submitInfo{};
 		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-		VkSemaphore waitSemaphores[] = {semaphore_image_available};
+		VkSemaphore waitSemaphores[] = { image_available_semaphores[current_frame] };
 		VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
 		// here we specify which semaphore to wait on before execution begins and in which stage of the pipeline to wait
 		submitInfo.waitSemaphoreCount = 1;
@@ -376,11 +406,13 @@ public: // validation layer
 		submitInfo.pCommandBuffers = &command_buffers[image_index];
 
 		// here we specify the semaphores to signal once the command buffer has finished execution
-		VkSemaphore signal_semaphores[] = { semaphore_render_finished };
+		VkSemaphore signal_semaphores[] = { render_finished_semaphores[current_frame] };
 		submitInfo.signalSemaphoreCount = 1;
 		submitInfo.pSignalSemaphores = signal_semaphores;
 
-		if (vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+		// vkQueueWaitIdle(graphics_queue); // delete me
+		vkResetFences(logical_device, 1, &in_flight_fences[current_frame]);
+		if (vkQueueSubmit(graphics_queue, 1, &submitInfo, in_flight_fences[current_frame]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to submit draw command buffer!");
 		}
@@ -400,7 +432,10 @@ public: // validation layer
 		present_info.pImageIndices = &image_index;
 		present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
 
+		current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 		vkQueuePresentKHR(present_queue, &present_info);
+		// vkQueueWaitIdle(present_queue); // DELETE ME
 	}
 
     void mainLoop() {
@@ -412,8 +447,13 @@ public: // validation layer
 
     void cleanup() {
 		std::cout<<"cleaning up\n";
-		vkDestroySemaphore(logical_device, semaphore_image_available, nullptr);
-		vkDestroySemaphore(logical_device, semaphore_render_finished, nullptr);
+		vkDeviceWaitIdle(logical_device);
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+		{
+			vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);
+			vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
+			vkDestroyFence(logical_device, in_flight_fences[i], nullptr);
+		}
 		vkDestroyCommandPool(logical_device, command_pool, nullptr);
 		for (auto& swap_chain_frame_buffer : swap_chain_frame_buffers)
 		{
