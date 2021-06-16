@@ -3,6 +3,10 @@
 #include <vector>
 #include <fstream>
 
+//
+// static functions
+//
+
 static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
@@ -34,6 +38,10 @@ static VkShaderModule create_shader_module(const std::vector<char>& code, VkDevi
 
 	return shader_module;
 }
+
+//
+// graphics engine
+// 
 
 void GraphicsEngine::create_graphics_pipeline() {
     auto vertShaderCode = readFile("vertex_shader.spv");
@@ -74,10 +82,10 @@ void GraphicsEngine::create_graphics_pipeline() {
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{};
 	vertex_input_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_create_info.vertexBindingDescriptionCount = 0;
-	vertex_input_create_info.pVertexBindingDescriptions = nullptr;
-	vertex_input_create_info.vertexAttributeDescriptionCount = 0;
-	vertex_input_create_info.pVertexAttributeDescriptions = nullptr;
+	vertex_input_create_info.vertexBindingDescriptionCount = 1;
+	vertex_input_create_info.pVertexBindingDescriptions = &binding_description;
+	vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
+	vertex_input_create_info.pVertexAttributeDescriptions = attribute_descriptions.data();
 
 	// describes what kind of geomertry will be drawn from the vertices and if primitive restart should be enabled
 	VkPipelineInputAssemblyStateCreateInfo input_assembly{};

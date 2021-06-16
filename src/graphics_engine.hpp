@@ -14,7 +14,6 @@
 #include "queues.hpp"
 #include "utility_functions.hpp"
 
-
 struct SwapChainSupportDetails
 {
 	VkSurfaceCapabilitiesKHR capabilities;
@@ -137,5 +136,9 @@ public: // validation layer
     }
 
     void cleanup();
+
+public:
+	VkVertexInputBindingDescription binding_description;
+	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 };
 
