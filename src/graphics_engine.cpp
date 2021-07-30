@@ -249,12 +249,59 @@ void GraphicsEngine::draw_frame()
 	}
 }
 
+void GraphicsEngine::create_vertex_buffer()
+{
+	if (vertices.size() == 0)
+	{
+		throw std::runtime_error("vertices cannot be 0");
+	}
+	VkBufferCreateInfo buffer_create_info{};
+	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	buffer_create_info.size = sizeof(vertices[0]) * vertices.size();
+	buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
+
+	if (vkCreateBuffer(logical_device, &buffer_create_info, nullptr, &vertex_buffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create vertex buffer!");
+	}
+
+	vkGetBufferMemoryRequirements(logical_device, vertex_buffer, &memory_requirements);
+
+	// graphics cards offer different types of memory to allocate from, each type of memory varies
+	// in therms of allowed operations and performance characteristics
+	auto find_memory_type = [this](uint32_t type_filter, VkMemoryPropertyFlags property_flags)
+	{
+		VkPhysicalDeviceMemoryProperties memory_properties;
+		vkGetPhysicalDeviceMemoryProperties(this->physicalDevice, &memory_properties);
+
+		for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
+		{
+			if ((type_filter & (i << i)) && ((memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags))
+			{
+				return i;
+			}
+
+			throw std::runtime_error("failed to find suitable memory type!");
+		}
+	};
+
+	VkMemoryAllocateInfo memory_allocate_info{};
+	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memory_allocate_info.allocationSize = memory_requirements.size;
+	memory_allocate_info.memoryTypeIndex = find_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+}
+
 void GraphicsEngine::cleanup() 
 {
 	std::cout<<"cleaning up\n";
 	vkDeviceWaitIdle(logical_device);
 
 	clean_up_swap_chain();
+
+	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
+
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);

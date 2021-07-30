@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
 #include <iostream>
 #include <stdexcept>
@@ -10,6 +11,7 @@
 #include <optional>
 #include <set>
 
+#include "vertex.hpp"
 #include "graphics_engine_validation_layer.hpp"
 #include "queues.hpp"
 #include "utility_functions.hpp"
@@ -69,6 +71,15 @@ private:
 	bool frame_buffer_resized = false;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 
+public: // vertix buffers
+	VkVertexInputBindingDescription binding_description;
+	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
+	std::vector<Vertex> vertices;
+	VkBuffer vertex_buffer;
+	VkMemoryRequirements memory_requirements;
+	VkDeviceMemory vertex_buffer_memory;
+
+private:
     void initWindow();
     
 	void initVulkan();
@@ -116,6 +127,14 @@ public: // command buffer
 	void create_command_pool();
 	void create_command_buffers();
 
+public: // vertex buffer
+	void create_vertex_buffer();
+
+	void set_vertices(std::vector<Vertex> vertices_)
+	{
+		vertices = vertices_;
+	}
+
 public: // validation layer
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 	void setupDebugMessenger();
@@ -136,9 +155,5 @@ public: // validation layer
     }
 
     void cleanup();
-
-public:
-	VkVertexInputBindingDescription binding_description;
-	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 };
 
