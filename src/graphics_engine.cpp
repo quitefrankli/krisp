@@ -291,6 +291,16 @@ void GraphicsEngine::create_vertex_buffer()
 	memory_allocate_info.allocationSize = memory_requirements.size;
 	memory_allocate_info.memoryTypeIndex = find_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	// allocate memory
+	if (vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &vertex_buffer_memory) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate vertex buffer memory!");
+	}
+
+	// bind memory
+	vkBindBufferMemory(logical_device, vertex_buffer, vertex_buffer_memory, 0);
+
 }
 
 void GraphicsEngine::cleanup() 
@@ -301,7 +311,8 @@ void GraphicsEngine::cleanup()
 	clean_up_swap_chain();
 
 	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
-
+	vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);
+	
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);

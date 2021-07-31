@@ -76,8 +76,8 @@ public: // vertix buffers
 	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 	std::vector<Vertex> vertices;
 	VkBuffer vertex_buffer;
-	VkMemoryRequirements memory_requirements;
 	VkDeviceMemory vertex_buffer_memory;
+	VkMemoryRequirements memory_requirements;
 
 private:
     void initWindow();
