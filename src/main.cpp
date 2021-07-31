@@ -17,6 +17,7 @@ int main() {
 	graphics_engine.attribute_descriptions = std::vector<VkVertexInputAttributeDescription>(
 		attribute_descriptions.begin(), attribute_descriptions.end()
 	);
+	//graphics_engine.create_vertex_buffer();
 
     try {
         graphics_engine.run();

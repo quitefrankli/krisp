@@ -55,9 +55,24 @@ void GraphicsEngine::create_command_buffers()
 		vkCmdBeginRenderPass(command_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
 		vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_engine_pipeline); // bind the graphics pipeline
+
+		//
+		// binding the vertex buffer
+		//
+
+		VkBuffer vertex_buffers[] = { vertex_buffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(
+			command_buffers[i], 
+			0, 					// offset
+			1, 					// number of bindings
+			vertex_buffers, 	// array of vertex buffers to bind
+			offsets				// byte offset to start from for each buffer
+		);
+
 		vkCmdDraw(
 			command_buffers[i], 
-			3, // vertex count
+			static_cast<uint32_t>(vertices.size()), // vertex count
 			1, // instance count (only used for instance rendering)
 			0, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 			0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex

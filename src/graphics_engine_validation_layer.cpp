@@ -7,6 +7,8 @@
 #include "graphics_engine_validation_layer.hpp"
 #include "graphics_engine.hpp"
 
+#include <unordered_set>
+
 bool checkValidationLayerSupport() {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -14,19 +16,21 @@ bool checkValidationLayerSupport() {
     std::vector<VkLayerProperties> availableLayers(layerCount);
     vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-	std::cout << "available validation layers\n";
-	for (const char* layerName : validationLayers) {
-		bool layerFound = false;
+	std::unordered_set<std::string> available_layers_set; // for hash table
 
-		for (const auto& layerProperties : availableLayers) {
-			std::cout << layerProperties.layerName << ' ' << layerProperties.description << '\n';
-			if (strcmp(layerName, layerProperties.layerName) == 0) {
-				layerFound = true;
-				break;
-			}
-		}
+	std::cout << "Available Validation Layers:\n";
+	std::for_each(availableLayers.begin(), availableLayers.end(), [&available_layers_set](const auto& layer)
+		{
+			printf("\t%s - %s\n", layer.layerName, layer.description);
+			available_layers_set.emplace(layer.layerName);
+		});
 
-		if (!layerFound) {
+	std::cout << "Required Valiation Layers:\n";
+	for (const char* layer : validationLayers)
+	{
+		printf("\t%s\n", layer);
+		if (available_layers_set.find(std::string(layer)) == available_layers_set.end())
+		{
 			return false;
 		}
 	}

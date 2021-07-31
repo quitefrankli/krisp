@@ -90,8 +90,6 @@ private:
 
 	void pick_physical_device();
 
-	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);
-
 	void create_logical_device();
 
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
@@ -144,7 +142,11 @@ public: // validation layer
 		const VkAllocationCallbacks* pAllocator, 
 		VkDebugUtilsMessengerEXT* pDebugMessenger);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
-	
+
+public: // extensions
+	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);
+
+public: // main
 	void draw_frame();
 
     void mainLoop() {

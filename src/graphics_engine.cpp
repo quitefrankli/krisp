@@ -25,7 +25,7 @@ static void frame_buffer_resize_callback(GLFWwindow* window, int width, int heig
 }
 
 //
-//
+// static functions
 //
 
 void GraphicsEngine::initWindow() {
@@ -50,8 +50,10 @@ void GraphicsEngine::initVulkan() {
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_command_pool();
+	create_vertex_buffer(); // remove this
 	create_command_buffers();
 	create_synchronisation_objects();
+	create_vertex_buffer();
 }
 
 void GraphicsEngine::createInstance() 
@@ -102,7 +104,6 @@ void GraphicsEngine::createInstance()
 		std::cout << '\t' << extension.extensionName << '\n';
 	}
 
-	VkResult result = vkCreateInstance(&create_info, nullptr, &instance);
 	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create instance!");
 	}
@@ -277,13 +278,13 @@ void GraphicsEngine::create_vertex_buffer()
 
 		for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
 		{
-			if ((type_filter & (i << i)) && ((memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags))
+			if ((type_filter & (1 << i)) && ((memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags))
 			{
 				return i;
 			}
-
-			throw std::runtime_error("failed to find suitable memory type!");
 		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
 	};
 
 	VkMemoryAllocateInfo memory_allocate_info{};
@@ -314,8 +315,6 @@ void GraphicsEngine::create_vertex_buffer()
 	vkMapMemory(logical_device, vertex_buffer_memory, 0, buffer_create_info.size, 0, &data);
 	memcpy(data, vertices.data(), static_cast<size_t>(buffer_create_info.size));
 	vkUnmapMemory(logical_device, vertex_buffer_memory);
-
-
 }
 
 void GraphicsEngine::cleanup() 
