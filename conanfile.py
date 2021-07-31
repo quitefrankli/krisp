@@ -1,4 +1,4 @@
-from conans import ConanFile, CMake
+from conans import ConanFile, CMake, MSBuild
 
 class vulkan_conan(ConanFile):
 	settings = (
@@ -27,6 +27,10 @@ class vulkan_conan(ConanFile):
 		self.copy("*.dylib*", dst="bin", src="lib")
 
 	def build(self):
-		cmake = CMake(self)
+		cmake = CMake(self, build_type='Debug')
 		cmake.configure()
-		cmake.build()
+		
+		self.run('sh ../compile.sh')
+
+		msbuild = MSBuild(self)
+		msbuild.build('Vulkan.sln')
