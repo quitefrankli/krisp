@@ -289,8 +289,11 @@ void GraphicsEngine::create_vertex_buffer()
 	VkMemoryAllocateInfo memory_allocate_info{};
 	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memory_allocate_info.allocationSize = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = find_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	memory_allocate_info.memoryTypeIndex = find_memory_type(
+		memory_requirements.memoryTypeBits, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT); // make sure that the memory heap is host coherent
+		// this is because the driver may not immediately copy the data into the buffer memory
 
 	// allocate memory
 	if (vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &vertex_buffer_memory) != VK_SUCCESS)
@@ -300,6 +303,18 @@ void GraphicsEngine::create_vertex_buffer()
 
 	// bind memory
 	vkBindBufferMemory(logical_device, vertex_buffer, vertex_buffer_memory, 0);
+
+	//
+	// filling the vertex buffer
+	//
+
+	// copy the vertex data to the buffer, this is done by mapping the buffer memory into CPU accessible memory with vkMapMemory
+	void* data;
+	// access a region of the specified memory resource
+	vkMapMemory(logical_device, vertex_buffer_memory, 0, buffer_create_info.size, 0, &data);
+	memcpy(data, vertices.data(), static_cast<size_t>(buffer_create_info.size));
+	vkUnmapMemory(logical_device, vertex_buffer_memory);
+
 
 }
 
@@ -312,7 +327,7 @@ void GraphicsEngine::cleanup()
 
 	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
 	vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);
-	
+
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);
