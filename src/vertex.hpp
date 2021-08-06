@@ -23,7 +23,7 @@ struct Vertex
 		// move to the next data entry after each vertex
 		binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 		// move to the next data entry after each instance
-		binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+		// binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE; // wow this was a source of alot of pain... 07/08/2021
 
 		return binding_description;
 	}
