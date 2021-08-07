@@ -83,9 +83,18 @@ void GraphicsEngine::createInstance()
 	populateDebugMessengerCreateInfo(debugCreateInfo);
 	create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 
+	uint32_t extensionCount = 0;
+	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+	std::vector<VkExtensionProperties> extensions(extensionCount);
+	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+	std::cout << "Available extensions:\n";
+	for (const auto& extension : extensions) {
+		std::cout << '\t' << extension.extensionName << '\n';
+	}
+
 	// vulkan is platform agnostic and therefore an extension is necessary 
 	std::vector<std::string> required_extensions = get_required_extensions();
-	std::cout << "required extensions:\n";
+	std::cout << "Required extensions:\n";
 	for (auto& required_extension : required_extensions)
 	{
 		std::cout << '\t' << required_extension << '\n';
@@ -93,15 +102,6 @@ void GraphicsEngine::createInstance()
 	auto required_extensions_old = c_style_str_array(required_extensions);
 	create_info.enabledExtensionCount = required_extensions_old.size();
 	create_info.ppEnabledExtensionNames = required_extensions_old.data();
-	
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-	std::vector<VkExtensionProperties> extensions(extensionCount);
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-	std::cout << "available extensions:\n";
-	for (const auto& extension : extensions) {
-		std::cout << '\t' << extension.extensionName << '\n';
-	}
 
 	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create instance!");
@@ -126,7 +126,7 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 
 	for (int i = 0; i < queueFamilies.size(); i++)
 	{
-		if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) // GRAPHICS_BIT also implicitly supports VK_QUEUE_TRANSFER_BIT
 		{
 			indices.graphicsFamily = i;
 		}
@@ -249,71 +249,11 @@ void GraphicsEngine::draw_frame()
 	}
 }
 
-void GraphicsEngine::create_vertex_buffer()
-{
-	if (vertices.size() == 0)
-	{
-		throw std::runtime_error("vertices cannot be 0");
+void GraphicsEngine::mainLoop() {
+	while (!glfwWindowShouldClose(window)) {
+		glfwPollEvents();
+		draw_frame();
 	}
-	VkBufferCreateInfo buffer_create_info{};
-	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	buffer_create_info.size = sizeof(vertices[0]) * vertices.size();
-	buffer_create_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
-
-	if (vkCreateBuffer(logical_device, &buffer_create_info, nullptr, &vertex_buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create vertex buffer!");
-	}
-
-	vkGetBufferMemoryRequirements(logical_device, vertex_buffer, &memory_requirements);
-
-	// graphics cards offer different types of memory to allocate from, each type of memory varies
-	// in therms of allowed operations and performance characteristics
-	auto find_memory_type = [this](uint32_t type_filter, VkMemoryPropertyFlags property_flags)
-	{
-		VkPhysicalDeviceMemoryProperties memory_properties;
-		vkGetPhysicalDeviceMemoryProperties(this->physicalDevice, &memory_properties);
-
-		for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
-		{
-			if ((type_filter & (1 << i)) && ((memory_properties.memoryTypes[i].propertyFlags & property_flags) == property_flags))
-			{
-				return i;
-			}
-		}
-
-		throw std::runtime_error("failed to find suitable memory type!");
-	};
-
-	VkMemoryAllocateInfo memory_allocate_info{};
-	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memory_allocate_info.allocationSize = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = find_memory_type(
-		memory_requirements.memoryTypeBits, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT); // make sure that the memory heap is host coherent
-		// this is because the driver may not immediately copy the data into the buffer memory
-
-	// allocate memory
-	if (vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &vertex_buffer_memory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate vertex buffer memory!");
-	}
-
-	// bind memory
-	vkBindBufferMemory(logical_device, vertex_buffer, vertex_buffer_memory, 0);
-
-	//
-	// filling the vertex buffer
-	//
-
-	// copy the vertex data to the buffer, this is done by mapping the buffer memory into CPU accessible memory with vkMapMemory
-	void* data;
-	// access a region of the specified memory resource
-	vkMapMemory(logical_device, vertex_buffer_memory, 0, buffer_create_info.size, 0, &data);
-	memcpy(data, vertices.data(), static_cast<size_t>(buffer_create_info.size));
-	vkUnmapMemory(logical_device, vertex_buffer_memory);
 }
 
 void GraphicsEngine::cleanup() 

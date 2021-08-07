@@ -77,7 +77,6 @@ public: // vertix buffers
 	std::vector<Vertex> vertices;
 	VkBuffer vertex_buffer;
 	VkDeviceMemory vertex_buffer_memory;
-	VkMemoryRequirements memory_requirements;
 
 private:
     void initWindow();
@@ -128,10 +127,18 @@ public: // command buffer
 public: // vertex buffer
 	void create_vertex_buffer();
 
+	void create_buffer(size_t size, 
+					   VkBufferUsageFlags usage_flags, 
+					   VkMemoryPropertyFlags memory_flags, 
+					   VkBuffer& buffer, 
+					   VkDeviceMemory& device_memory);
+
 	void set_vertices(std::vector<Vertex> vertices_)
 	{
 		vertices = vertices_;
 	}
+
+	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 
 public: // validation layer
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
@@ -149,12 +156,7 @@ public: // extensions
 public: // main
 	void draw_frame();
 
-    void mainLoop() {
-		while (!glfwWindowShouldClose(window)) {
-			glfwPollEvents();
-			draw_frame();
-		}
-    }
+    void mainLoop();
 
     void cleanup();
 };
