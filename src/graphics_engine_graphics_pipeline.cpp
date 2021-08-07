@@ -96,8 +96,8 @@ void GraphicsEngine::create_graphics_pipeline() {
 	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
 	view_port.x = 0.0f;
 	view_port.y = 0.0f;
-	view_port.width = (float)swap_chain_extent.width;
-	view_port.height = (float)swap_chain_extent.height;
+	view_port.width = static_cast<float>(swap_chain_extent.width);
+	view_port.height = static_cast<float>(swap_chain_extent.height);
 	view_port.minDepth = 0.0f;
 	view_port.maxDepth = 1.0f;
 

@@ -27,7 +27,7 @@ class vulkan_conan(ConanFile):
 		self.copy("*.dylib*", dst="bin", src="lib")
 
 	def build(self):
-		cmake = CMake(self, build_type='Debug')
+		cmake = CMake(self)
 		cmake.configure()
 		
 		self.run('sh ../compile.sh')

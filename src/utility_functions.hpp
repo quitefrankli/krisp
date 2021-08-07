@@ -50,7 +50,7 @@ public:
 		}
 		return _data;
 	}
-	int size() { return num_strs; }
+	int size() { return static_cast<int>(num_strs); }
 };
 
 //using c_style_str_smart_ptr = std::unique_ptr<c_style_str, std::function<void(c_style_str*)>>;

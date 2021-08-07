@@ -16,6 +16,7 @@ find_package(glm REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAkE_CXX_STANDARD_REQUIRED True)
+# set(CMAKE_CXX_FLAGS_DEBUG  "-g")
 
 file(GLOB SOURCES "src/*.cpp" "src/*.hpp")
 

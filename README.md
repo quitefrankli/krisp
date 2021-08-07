@@ -6,7 +6,7 @@ git clone ...
 mkdir build && cd build
 
 ### Using conan build
-conan install ..
+conan install -s build_type=[Debug/Release] ..
 conan build ..
 bin/Vulkan.exe
 

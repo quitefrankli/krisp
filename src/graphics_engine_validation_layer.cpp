@@ -44,9 +44,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData) 
 {
-	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+	std::string error(pCallbackData->pMessage);
+	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT &&
+		error.find("Epic Games") == std::string::npos)
 	{
-		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+		std::cerr << "validation layer: " << error << std::endl;
 	}
 
 	return VK_FALSE;

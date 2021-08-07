@@ -50,10 +50,9 @@ void GraphicsEngine::initVulkan() {
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_command_pool();
-	create_vertex_buffer(); // remove this
+	create_vertex_buffer();
 	create_command_buffers();
 	create_synchronisation_objects();
-	create_vertex_buffer();
 }
 
 void GraphicsEngine::createInstance() 

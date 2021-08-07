@@ -97,7 +97,7 @@ void GraphicsEngine::create_logical_device()
 	VkDeviceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	create_info.pQueueCreateInfos = queue_create_infos.data();
-	create_info.queueCreateInfoCount = queue_create_infos.size();
+	create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
 	create_info.pEnabledFeatures = &deviceFeatures;
 	create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
 	c_style_str_array c_style_device_extensions(device_extensions);
