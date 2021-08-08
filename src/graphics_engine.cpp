@@ -39,6 +39,8 @@ void GraphicsEngine::initWindow() {
 	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 	glfwSetWindowUserPointer(window, this);
 	glfwSetFramebufferSizeCallback(window, frame_buffer_resize_callback);
+
+	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
 }
 
 void GraphicsEngine::initVulkan() {
@@ -56,6 +58,8 @@ void GraphicsEngine::initVulkan() {
 	create_command_pool();
 	create_vertex_buffer();
 	create_uniform_buffers();
+	create_descriptor_pool();
+	create_descriptor_sets();
 	create_command_buffers();
 	create_synchronisation_objects();
 }
@@ -317,6 +321,68 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	vkMapMemory(logical_device, uniform_buffers_memory[image_index], 0, sizeof(ubo), 0, &data);
 	memcpy(data, &ubo, sizeof(ubo));
 	vkUnmapMemory(logical_device, uniform_buffers_memory[image_index]);
+}
+
+void GraphicsEngine::create_descriptor_pool()
+{
+	VkDescriptorPoolSize poolSize{};
+	poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	poolSize.descriptorCount = static_cast<uint32_t>(swap_chain_images.size());
+
+	// allocate a descriptor for ever image in the swap chain
+	VkDescriptorPoolCreateInfo poolInfo{};
+	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	poolInfo.poolSizeCount = 1;
+	poolInfo.pPoolSizes = &poolSize;
+
+	// defines maximum number of descriptor sets that may be allocated
+	poolInfo.maxSets = static_cast<uint32_t>(poolSize.descriptorCount);
+
+	if (vkCreateDescriptorPool(logical_device, &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsEngine::create_descriptor_pool: failed to create descriptor pool!");
+	}
+}
+
+void GraphicsEngine::create_descriptor_sets()
+{
+	std::vector<VkDescriptorSetLayout> layouts(swap_chain_images.size(), descriptor_set_layout);
+	VkDescriptorSetAllocateInfo alloc_info{};
+	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	alloc_info.descriptorPool = descriptor_pool;
+	alloc_info.descriptorSetCount = static_cast<uint32_t>(swap_chain_images.size());
+	alloc_info.pSetLayouts = layouts.data();
+
+	descriptor_sets.resize(swap_chain_images.size());
+
+	// allocates all descriptor sets within the descriptor pool
+	if (vkAllocateDescriptorSets(logical_device, &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsEngine::create_descriptor_sets: failed to allocate descriptor sets!");
+	}
+
+	// configure the descriptors
+	for (size_t i = 0; i < swap_chain_images.size(); i++)
+	{
+		VkDescriptorBufferInfo buffer_info{};
+		buffer_info.buffer = uniform_buffers[i];
+		buffer_info.offset = 0;
+		buffer_info.range = sizeof(UniformBufferObject);
+
+		VkWriteDescriptorSet descriptor_write{};
+		descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptor_write.dstSet = descriptor_sets[i];
+		descriptor_write.dstBinding = 0; // also set to 0 in the shader
+		descriptor_write.dstArrayElement = 0; // offset
+		descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptor_write.descriptorCount = 1;
+		descriptor_write.pBufferInfo = &buffer_info;
+		descriptor_write.pImageInfo = nullptr;
+		descriptor_write.pTexelBufferView = nullptr;
+
+		vkUpdateDescriptorSets(logical_device, 1, &descriptor_write, 0, nullptr);
+	}
+
 }
 
 void GraphicsEngine::mainLoop() {

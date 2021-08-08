@@ -162,6 +162,8 @@ void GraphicsEngine::recreate_swap_chain()
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_uniform_buffers();
+	create_descriptor_pool();
+	create_descriptor_sets();
 	create_command_buffers();
 }
 
@@ -189,4 +191,6 @@ void GraphicsEngine::clean_up_swap_chain()
 		vkDestroyBuffer(logical_device, uniform_buffers[i], nullptr);
 		vkFreeMemory(logical_device, uniform_buffers_memory[i], nullptr);
 	}
+
+	vkDestroyDescriptorPool(logical_device, descriptor_pool, nullptr);
 }

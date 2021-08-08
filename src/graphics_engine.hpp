@@ -23,6 +23,7 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
+// be vary of alignment issues
 struct UniformBufferObject
 {
 	glm::mat4 model;
@@ -90,6 +91,9 @@ public: // vertix buffers
 	std::vector<VkBuffer> uniform_buffers;
 	std::vector<VkDeviceMemory> uniform_buffers_memory;
 
+	VkDescriptorPool descriptor_pool;
+	std::vector<VkDescriptorSet> descriptor_sets;
+
 private:
     void initWindow();
     
@@ -153,6 +157,10 @@ public: // vertex buffer
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 
 	void update_uniform_buffer(uint32_t current_image);
+
+	void create_descriptor_pool();
+
+	void create_descriptor_sets();
 
 private: //uniform buffer
 	void create_descriptor_set_layout();

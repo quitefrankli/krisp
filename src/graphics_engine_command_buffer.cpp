@@ -70,6 +70,16 @@ void GraphicsEngine::create_command_buffers()
 			offsets				// byte offset to start from for each buffer
 		);
 
+		// descriptor binding, ew need to bind the descriptor set for each swap chain image
+		vkCmdBindDescriptorSets(command_buffers[i], 
+								VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
+								pipeline_layout, 
+								0, // offset
+								1, // number of sets to bind
+								&descriptor_sets[i],
+								0,
+								nullptr);
+
 		vkCmdDraw(
 			command_buffers[i], 
 			static_cast<uint32_t>(vertices.size()), // vertex count
