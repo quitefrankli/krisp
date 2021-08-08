@@ -23,6 +23,13 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
+struct UniformBufferObject
+{
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
+
 class GraphicsEngine {
 public:
 	void run() {
@@ -51,6 +58,7 @@ private:
 	std::vector<VkImage> swap_chain_images; // handle of the swap chain images
 	VkFormat swap_chain_image_format;
 	VkExtent2D swap_chain_extent;
+	VkDescriptorSetLayout descriptor_set_layout;
 	VkPipelineLayout pipeline_layout;
 	std::vector<VkImageView> swap_chain_image_views;
 	VkRenderPass render_pass;
@@ -77,6 +85,10 @@ public: // vertix buffers
 	std::vector<Vertex> vertices;
 	VkBuffer vertex_buffer;
 	VkDeviceMemory vertex_buffer_memory;
+
+	// as opposed to vertex_buffers we expect to change uniform buffer every frame
+	std::vector<VkBuffer> uniform_buffers;
+	std::vector<VkDeviceMemory> uniform_buffers_memory;
 
 private:
     void initWindow();
@@ -139,6 +151,12 @@ public: // vertex buffer
 	}
 
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
+
+	void update_uniform_buffer(uint32_t current_image);
+
+private: //uniform buffer
+	void create_descriptor_set_layout();
+	void create_uniform_buffers();
 
 public: // validation layer
 	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);

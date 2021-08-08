@@ -161,6 +161,7 @@ void GraphicsEngine::recreate_swap_chain()
 	create_render_pass();
 	create_graphics_pipeline();
 	create_frame_buffers();
+	create_uniform_buffers();
 	create_command_buffers();
 }
 
@@ -182,4 +183,10 @@ void GraphicsEngine::clean_up_swap_chain()
 	}
 
 	vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
+
+	for (size_t i = 0; i < swap_chain_images.size(); i++)
+	{
+		vkDestroyBuffer(logical_device, uniform_buffers[i], nullptr);
+		vkFreeMemory(logical_device, uniform_buffers_memory[i], nullptr);
+	}
 }

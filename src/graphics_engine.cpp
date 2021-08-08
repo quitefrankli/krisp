@@ -1,5 +1,8 @@
 #include "graphics_engine.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
+
 //
 // static functions
 //
@@ -47,10 +50,12 @@ void GraphicsEngine::initVulkan() {
 	create_swap_chain();
 	create_image_views();
 	create_render_pass();
+	create_descriptor_set_layout();
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_command_pool();
 	create_vertex_buffer();
+	create_uniform_buffers();
 	create_command_buffers();
 	create_synchronisation_objects();
 }
@@ -194,6 +199,8 @@ void GraphicsEngine::draw_frame()
 	// mark the image as now being in use by this frame
 	images_in_flight[image_index] = in_flight_fences[current_frame];		
 
+	update_uniform_buffer(image_index);
+
 	//
 	// submitting the command buffer
 	//
@@ -241,12 +248,75 @@ void GraphicsEngine::draw_frame()
 	current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 	result = vkQueuePresentKHR(present_queue, &present_info);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) {
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window
 		frame_buffer_resized = false;
 		recreate_swap_chain();
 	} else if (result != VK_SUCCESS) {
 		throw std::runtime_error("failed to present swap chain image!");
 	}
+}
+
+void GraphicsEngine::create_descriptor_set_layout()
+{
+	VkDescriptorSetLayoutBinding ubo_layout_binding{};
+	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	ubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
+	ubo_layout_binding.descriptorCount = 1;
+	ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
+	ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
+
+	VkDescriptorSetLayoutCreateInfo layout_info{};
+	layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layout_info.bindingCount = 1;
+	layout_info.pBindings = &ubo_layout_binding;
+
+	if (vkCreateDescriptorSetLayout(logical_device, &layout_info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
+}
+
+void GraphicsEngine::create_uniform_buffers()
+{
+	VkDeviceSize buffer_size = sizeof(UniformBufferObject);
+
+	uniform_buffers.resize(swap_chain_images.size());
+	uniform_buffers_memory.resize(swap_chain_images.size());
+
+	for (size_t i = 0; i < swap_chain_images.size(); i++)
+	{
+		create_buffer(buffer_size,
+					  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+					  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+					  uniform_buffers[i],
+					  uniform_buffers_memory[i]);
+	}
+}
+
+void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
+{
+	static auto start_time = std::chrono::high_resolution_clock::now(); // static here means that start_time is initialised only once
+	auto current_time = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
+
+	UniformBufferObject ubo{};
+	ubo.model = glm::rotate(glm::mat4(1.0f), // transformation matrix (here we just use identity)
+							time * 1.0f, // amount to rotate (rads)
+							glm::vec3(0.0f, 0.0f, 1.0f)); // axis of rotation
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), // camera pos
+						   glm::vec3(0.0f, 0.0f, 0.0f), // focus point
+						   glm::vec3(0.0f, 0.0f, 1.0f)); // upvector, it gives view 'rotation' in most cases this would be actually up, however sometimes we may want it to look upside down
+	ubo.proj = glm::perspective(3.1415f * 45.0f/180.0f, // 45deg fov
+								(float)swap_chain_extent.width / (float)swap_chain_extent.height, // aspect ratio same as window
+								0.1f, // near plane clipping, closest an object can be to camera
+								10.0f); // far plane clipping, furthest away an object can be to camera		
+
+	ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
+
+	void* data;
+	vkMapMemory(logical_device, uniform_buffers_memory[image_index], 0, sizeof(ubo), 0, &data);
+	memcpy(data, &ubo, sizeof(ubo));
+	vkUnmapMemory(logical_device, uniform_buffers_memory[image_index]);
 }
 
 void GraphicsEngine::mainLoop() {
@@ -262,6 +332,8 @@ void GraphicsEngine::cleanup()
 	vkDeviceWaitIdle(logical_device);
 
 	clean_up_swap_chain();
+
+	vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, nullptr);
 
 	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
 	vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);

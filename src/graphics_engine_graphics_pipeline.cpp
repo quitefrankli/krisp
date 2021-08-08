@@ -67,8 +67,8 @@ void GraphicsEngine::create_graphics_pipeline() {
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
 	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeline_layout_create_info.setLayoutCount = 0; // Optional
-	pipeline_layout_create_info.pSetLayouts = nullptr; // Optional
+	pipeline_layout_create_info.setLayoutCount = 1; // for our 1x ubo_descriptor in our descriptor set layout
+	pipeline_layout_create_info.pSetLayouts = &descriptor_set_layout;
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 
