@@ -20,24 +20,6 @@ void GraphicsEngine::create_buffer(size_t size,
 	VkMemoryRequirements memory_requirements;
 	vkGetBufferMemoryRequirements(logical_device, buffer, &memory_requirements);
 	
-	// graphics cards offer different types of memory to allocate from, each type of memory varies
-	// in therms of allowed operations and performance characteristics
-	auto find_memory_type = [this](uint32_t type_filter, VkMemoryPropertyFlags flags)
-	{
-		VkPhysicalDeviceMemoryProperties memory_properties;
-		vkGetPhysicalDeviceMemoryProperties(this->physicalDevice, &memory_properties);
-
-		for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
-		{
-			if ((type_filter & (1 << i)) && ((memory_properties.memoryTypes[i].propertyFlags & flags) == flags))
-			{
-				return i;
-			}
-		}
-
-		throw std::runtime_error("failed to find suitable memory type!");
-	};
-
 	VkMemoryAllocateInfo memory_allocate_info{};
 	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	memory_allocate_info.allocationSize = memory_requirements.size;

@@ -12,7 +12,8 @@ class vulkan_conan(ConanFile):
 		"glm/0.9.8.5@bincrafters/stable",
 		"vulkan-headers/1.2.172",
 		"vulkan-loader/1.2.172",
-		"vulkan-validationlayers/1.2.154.0"
+		"vulkan-validationlayers/1.2.154.0",
+		"stb/20190512@conan/stable"
 	) 
 	generators = (
 		"cmake",

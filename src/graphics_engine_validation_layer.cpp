@@ -1,12 +1,11 @@
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "graphics_engine_validation_layer.hpp"
+
+#include "graphics_engine.hpp"
+
+#include <vulkan/vulkan.hpp>
 
 #include <vector>
 #include <iostream>
-
-#include "graphics_engine_validation_layer.hpp"
-#include "graphics_engine.hpp"
-
 #include <unordered_set>
 
 bool checkValidationLayerSupport() {

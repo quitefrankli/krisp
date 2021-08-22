@@ -56,6 +56,7 @@ void GraphicsEngine::initVulkan() {
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_command_pool();
+	texture_mgr.init();
 	create_vertex_buffer();
 	create_uniform_buffers();
 	create_descriptor_pool();
@@ -391,6 +392,22 @@ void GraphicsEngine::mainLoop() {
 		draw_frame();
 	}
 }
+
+int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags)
+{
+	VkPhysicalDeviceMemoryProperties memory_properties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memory_properties);
+
+	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
+	{
+		if ((type_filter & (1 << i)) && ((memory_properties.memoryTypes[i].propertyFlags & flags) == flags))
+		{
+			return i;
+		}
+	}
+
+	throw std::runtime_error("failed to find suitable memory type!");
+};
 
 void GraphicsEngine::cleanup() 
 {

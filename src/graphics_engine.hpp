@@ -15,6 +15,7 @@
 #include "graphics_engine_validation_layer.hpp"
 #include "queues.hpp"
 #include "utility_functions.hpp"
+#include "graphics_engine_texture.hpp"
 
 struct SwapChainSupportDetails
 {
@@ -93,6 +94,8 @@ public: // vertix buffers
 
 	VkDescriptorPool descriptor_pool;
 	std::vector<VkDescriptorSet> descriptor_sets;
+
+	GraphicsEngineTexture texture_mgr;
 
 private:
     void initWindow();
@@ -176,8 +179,14 @@ public: // validation layer
 		VkDebugUtilsMessengerEXT* pDebugMessenger);
 	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
 
+public: // getters
+	VkDevice& get_logical_device() { return logical_device; }
+
 public: // extensions
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);
+	// graphics cards offer different types of memory to allocate from, each type of memory varies
+	// in therms of allowed operations and performance characteristics
+	int find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags);
 
 public: // main
 	void draw_frame();

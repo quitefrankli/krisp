@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <vector>
+
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
