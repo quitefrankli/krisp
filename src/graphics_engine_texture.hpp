@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vulkan/vulkan.hpp>
 
 class GraphicsEngine;
@@ -15,7 +17,7 @@ class GraphicsEngineTexture
 	GraphicsEngine* graphics_engine = nullptr;
 
 public:
-	void init(GraphicsEngine*);
+	void init(GraphicsEngine* graphics_engine);
 
 	void create_image(uint32_t width, 
 					  uint32_t height, 
@@ -25,4 +27,9 @@ public:
 					  VkMemoryPropertyFlags properties,
 					  VkImage& image,
 					  VkDeviceMemory& image_memory);
+
+	// handle layout transition so that image is in right layout
+	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
+
+	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 };

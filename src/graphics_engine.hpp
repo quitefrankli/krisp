@@ -142,6 +142,8 @@ public: // frame buffer
 public: // command buffer
 	void create_command_pool();
 	void create_command_buffers();
+	VkCommandBuffer begin_single_time_commands();
+	void end_single_time_commands(VkCommandBuffer command_buffer);
 
 public: // vertex buffer
 	void create_vertex_buffer();

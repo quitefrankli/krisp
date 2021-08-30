@@ -56,7 +56,7 @@ void GraphicsEngine::initVulkan() {
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_command_pool();
-	texture_mgr.init();
+	texture_mgr.init(this);
 	create_vertex_buffer();
 	create_uniform_buffers();
 	create_descriptor_pool();

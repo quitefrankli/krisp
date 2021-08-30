@@ -18,6 +18,7 @@ void GraphicsEngine::create_command_buffers()
 {
 	command_buffers.resize(swap_chain_frame_buffers.size());
 	std::cout<<"cmd buffer size " <<command_buffers.size()<<std::endl;
+
 	VkCommandBufferAllocateInfo allocation_info{};
 	allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocation_info.commandPool = command_pool;
@@ -94,4 +95,41 @@ void GraphicsEngine::create_command_buffers()
 			throw std::runtime_error("failed to record command buffer!");
 		}
 	}
+}
+
+VkCommandBuffer GraphicsEngine::begin_single_time_commands()
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = command_pool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(logical_device, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+ 	// start recording the command buffer
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void GraphicsEngine::end_single_time_commands(VkCommandBuffer command_buffer)
+{
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &command_buffer;
+
+	// note that unlike draw stage, we don't need to wait for anything here except for the queue to become idle
+    vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphics_queue);
+
+    vkFreeCommandBuffers(logical_device, command_pool, 1, &command_buffer);
 }
