@@ -416,6 +416,8 @@ void GraphicsEngine::cleanup()
 
 	clean_up_swap_chain();
 
+	texture_mgr.cleanup();
+
 	vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, nullptr);
 
 	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);

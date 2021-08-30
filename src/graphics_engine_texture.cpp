@@ -73,10 +73,17 @@ void GraphicsEngineTexture::create_texture_image()
 	int width, height, channels;
 	const std::string texture_path = TEXTURE_PATH + "texture.jpg";
 	std::unique_ptr<stbi_uc, std::function<void(stbi_uc*)>> pixels(
-		stbi_load(texture_path.c_str(), &width, &height, &channels, STBI_rgb_alpha), 
-		[](stbi_uc* ptr) { stbi_image_free(ptr); });
+		stbi_load(texture_path.c_str(), &width, &height, &channels, STBI_rgb_alpha),
 
-	VkDeviceSize size = width * height * channels;
+		// custom unique_ptr destructor
+		[](stbi_uc* ptr) 
+		{ 
+			stbi_image_free(ptr); 
+		}
+	);
+
+	// VkDeviceSize size = width * height * channels; // for some reason channels = 3?
+	VkDeviceSize size = width * height * 4;
 	if (!pixels.get())
 	{
 		throw std::runtime_error("failed to load texture image!");
@@ -112,6 +119,9 @@ void GraphicsEngineTexture::create_texture_image()
 
 	// transition one more time for shader access
 	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	vkDestroyBuffer(graphics_engine->get_logical_device(), staging_buffer, nullptr);
+	vkFreeMemory(graphics_engine->get_logical_device(), staging_buffer_memory, nullptr);
 }
 
 // handle layout transition so that image is in right layout
@@ -136,10 +146,29 @@ void GraphicsEngineTexture::transition_image_layout(VkImage image, VkFormat form
 	barrier.srcAccessMask = 0;
 	barrier.dstAccessMask = 0;
 
+	// transition types:
+	//  * undefined -> transfer destination: transfer writes that don't need to wait on anything
+	//  * transfer destination -> shader reading: shader reads should wait on transfer writes
+	//		specifically the shader reads in the fragment shader
+	VkPipelineStageFlags sourceStage, destinationStage;
+	if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	} else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	} else {
+		throw std::invalid_argument("unsupported layout transition!");
+	}
+
 	vkCmdPipelineBarrier(
 		command_buffer,
-		0, // which pipeline stage the operation should occur before the barrier
-		0, // pipeline stage in which the operation will wait on the barrier
+		sourceStage, // which pipeline stage the operation should occur before the barrier
+		destinationStage, // pipeline stage in which the operation will wait on the barrier
 		0, // 
 		0,
 		nullptr,
@@ -183,4 +212,10 @@ void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image,
 	);
 
 	graphics_engine->end_single_time_commands(command_buffer);
+}
+
+void GraphicsEngineTexture::cleanup()
+{
+	vkDestroyImage(graphics_engine->get_logical_device(), texture_image, nullptr);
+	vkFreeMemory(graphics_engine->get_logical_device(), texture_image_memory, nullptr);
 }
