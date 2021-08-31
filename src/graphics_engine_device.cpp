@@ -35,6 +35,11 @@ void GraphicsEngine::pick_physical_device()
 			return false;
 		}
 
+		if (!deviceFeatures.samplerAnisotropy)
+		{
+			return false;
+		}
+
 		return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
 			deviceFeatures.geometryShader;
 	};
@@ -92,7 +97,8 @@ void GraphicsEngine::create_logical_device()
 		queue_create_info.pQueuePriorities = &queue_priority;
 		queue_create_infos.push_back(queue_create_info);
 	}
-	VkPhysicalDeviceFeatures deviceFeatures{}; // special features, don't need atm
+	VkPhysicalDeviceFeatures deviceFeatures{}; // special features, we request
+	deviceFeatures.samplerAnisotropy = true;
 	
 	VkDeviceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;

@@ -167,6 +167,20 @@ public: // vertex buffer
 
 	void create_descriptor_sets();
 
+	bool bPhysicalDevicePropertiesCached = false;
+	VkPhysicalDeviceProperties physical_device_properties;
+	const VkPhysicalDeviceProperties& get_physical_device_properties()
+	{
+		// may want to add an assert here to make sure physical device is initialised
+		if (!bPhysicalDevicePropertiesCached)
+		{
+			vkGetPhysicalDeviceProperties(physicalDevice, &physical_device_properties);			
+			std::cout << "Cached physical device properties\n";
+		}
+
+		return physical_device_properties;
+	}
+
 private: //uniform buffer
 	void create_descriptor_set_layout();
 	void create_uniform_buffers();

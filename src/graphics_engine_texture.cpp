@@ -13,6 +13,8 @@ void GraphicsEngineTexture::init(GraphicsEngine* graphics_engiine)
 {
 	this->graphics_engine = graphics_engiine;
 	create_texture_image();
+	create_texture_image_view();
+	create_texture_sampler();
 }
 
 void GraphicsEngineTexture::create_image(uint32_t width, 
@@ -43,7 +45,7 @@ void GraphicsEngineTexture::create_image(uint32_t width,
 	image_info.samples = VK_SAMPLE_COUNT_1_BIT; // for multisampling
 	image_info.flags = 0;
 
-	if (vkCreateImage(graphics_engine->get_logical_device(), &image_info, nullptr, &image) != VK_SUCCESS)
+	if (vkCreateImage(device(), &image_info, nullptr, &image) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create image!");
 	}
@@ -53,18 +55,18 @@ void GraphicsEngineTexture::create_image(uint32_t width,
 	//
 
 	VkMemoryRequirements mem_req;
-	vkGetImageMemoryRequirements(graphics_engine->get_logical_device(), image, &mem_req);
+	vkGetImageMemoryRequirements(device(), image, &mem_req);
 	VkMemoryAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc_info.allocationSize = mem_req.size;
 	alloc_info.memoryTypeIndex = graphics_engine->find_memory_type(mem_req.memoryTypeBits, properties);
 
-	if (vkAllocateMemory(graphics_engine->get_logical_device(), &alloc_info, nullptr, &image_memory) != VK_SUCCESS)
+	if (vkAllocateMemory(device(), &alloc_info, nullptr, &image_memory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate image memory!");
 	}
 
-	vkBindImageMemory(graphics_engine->get_logical_device(), image, image_memory, 0);
+	vkBindImageMemory(device(), image, image_memory, 0);
 }
 
 // load image and upload it into a vulkan image object
@@ -99,9 +101,9 @@ void GraphicsEngineTexture::create_texture_image()
 				  staging_buffer_memory);
 
 	void* data;
-	vkMapMemory(graphics_engine->get_logical_device(), staging_buffer_memory, 0, size, 0, &data);
+	vkMapMemory(device(), staging_buffer_memory, 0, size, 0, &data);
 	memcpy(data, pixels.get(), static_cast<size_t>(size));
-	vkUnmapMemory(graphics_engine->get_logical_device(), staging_buffer_memory);
+	vkUnmapMemory(device(), staging_buffer_memory);
 
 	create_image(width, 
 				 height, 
@@ -120,8 +122,8 @@ void GraphicsEngineTexture::create_texture_image()
 	// transition one more time for shader access
 	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkDestroyBuffer(graphics_engine->get_logical_device(), staging_buffer, nullptr);
-	vkFreeMemory(graphics_engine->get_logical_device(), staging_buffer_memory, nullptr);
+	vkDestroyBuffer(device(), staging_buffer, nullptr);
+	vkFreeMemory(device(), staging_buffer_memory, nullptr);
 }
 
 // handle layout transition so that image is in right layout
@@ -214,8 +216,69 @@ void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image,
 	graphics_engine->end_single_time_commands(command_buffer);
 }
 
+void GraphicsEngineTexture::create_texture_image_view()
+{
+	VkImageViewCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	create_info.image = texture_image;
+	create_info.viewType = VK_IMAGE_VIEW_TYPE_2D; // specifies how the image data should be interpreted
+													// i.e. treat images as 1D, 2D, 3D textures and cube maps
+	create_info.format = VK_FORMAT_R8G8B8A8_SRGB;
+	create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // describes image purpose and which part should be accessed
+	create_info.subresourceRange.baseMipLevel = 0;
+	create_info.subresourceRange.levelCount = 1;
+	create_info.subresourceRange.baseArrayLayer = 0;
+	create_info.subresourceRange.layerCount = 1;
+
+	if (vkCreateImageView(device(), &create_info, nullptr, &texture_image_view) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create image views!");
+	}
+}
+
+void GraphicsEngineTexture::create_texture_sampler()
+{
+	VkSamplerCreateInfo sampler_info{};
+	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
+	sampler_info.minFilter = VK_FILTER_LINEAR; // how to interpolate texels that are minimised, solves undersampling
+	// U,V,W is convention for texture space dimensions
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.anisotropyEnable = true; // small performance hiccup
+	sampler_info.maxAnisotropy = graphics_engine->get_physical_device_properties().limits.maxSamplerAnisotropy; // higher = slower
+	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
+												  // so that you can use textures of varying resolutions with same coordinates
+	sampler_info.compareEnable = false; // if enabled, texels will first be compared to a value and the result of comparison is used in filtering
+	sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //
+	sampler_info.mipLodBias = 0.0f;
+	sampler_info.minLod = 0.0f;
+	sampler_info.maxLod = 0.0f;
+	std::cout << "texture sampler chosen max anisotropy=" << sampler_info.maxAnisotropy << std::endl;
+
+	if (vkCreateSampler(device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create texture sampler!");
+	}
+}
+
+VkDevice& GraphicsEngineTexture::device()
+{
+	if (!graphics_engine)
+	{
+		throw std::runtime_error("GraphicsEngineTexture: graphics_engine not initialised!");
+	}
+
+	return graphics_engine->get_logical_device();
+}
+
 void GraphicsEngineTexture::cleanup()
 {
-	vkDestroyImage(graphics_engine->get_logical_device(), texture_image, nullptr);
-	vkFreeMemory(graphics_engine->get_logical_device(), texture_image_memory, nullptr);
+	vkDestroySampler(device(), texture_sampler, nullptr);
+	vkDestroyImageView(device(), texture_image_view, nullptr); // note we destroy the view before the actual image
+	vkDestroyImage(device(), texture_image, nullptr);
+	vkFreeMemory(device(), texture_image_memory, nullptr);
 }
