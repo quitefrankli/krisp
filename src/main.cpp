@@ -7,19 +7,16 @@ int main() {
     GraphicsEngine graphics_engine;
 	std::vector<Vertex> vertices
 	{
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-		{{0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, 
+		{{0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}
 	};
 	graphics_engine.set_vertices(vertices);
 	graphics_engine.binding_description = Vertex::get_binding_description();
-	auto attribute_descriptions = Vertex::get_attribute_descriptions();
-	graphics_engine.attribute_descriptions = std::vector<VkVertexInputAttributeDescription>(
-		attribute_descriptions.begin(), attribute_descriptions.end()
-	);
+	graphics_engine.attribute_descriptions = Vertex::get_attribute_descriptions();
 
     try {
         graphics_engine.run();

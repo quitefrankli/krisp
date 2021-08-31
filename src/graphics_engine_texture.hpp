@@ -49,5 +49,8 @@ public:
 					  VkImage& image,
 					  VkDeviceMemory& image_memory);
 
+	VkImageView& get_texture_image() { return texture_image_view; }
+	VkSampler& get_texture_sampler() { return texture_sampler; }
+
 	void cleanup();
 };

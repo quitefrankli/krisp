@@ -183,6 +183,8 @@ public: // vertex buffer
 
 private: //uniform buffer
 	void create_descriptor_set_layout();
+	
+private: //uniform buffer
 	void create_uniform_buffers();
 
 public: // validation layer

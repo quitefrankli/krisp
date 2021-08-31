@@ -4,13 +4,15 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-#include <array>
+#include <vector>
+
 
 struct Vertex
 {
 	glm::vec2 pos;
 	glm::vec3 color;
-
+	glm::vec2 texCoord;
+	
 	static VkVertexInputBindingDescription get_binding_description()
 	{
 		// describes at which rate to load data from memory thoughout the vertices
@@ -28,21 +30,29 @@ struct Vertex
 		return binding_description;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 2> get_attribute_descriptions()
+	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions()
 	{
 		// how to handle the vertex input
+		std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
+		VkVertexInputAttributeDescription position_attr, color_attr, texCoord_attr;
+		position_attr.binding = 0;
+		position_attr.location = 0; // specify in shader
+		position_attr.format = VK_FORMAT_R32G32_SFLOAT;
+		position_attr.offset = offsetof(Vertex, pos);
 
-		// one attribute for pos and another for color
-		std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions{};
-		attribute_descriptions[0].binding = 0;
-		attribute_descriptions[0].location = 0;
-		attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-		attribute_descriptions[0].offset = offsetof(Vertex, pos);
+		color_attr.binding = 0;
+		color_attr.location = 1; // specify in shader
+		color_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+		color_attr.offset = offsetof(Vertex, color);
 
-		attribute_descriptions[1].binding = 0;
-		attribute_descriptions[1].location = 1;
-		attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-		attribute_descriptions[1].offset = offsetof(Vertex, color);
+		texCoord_attr.binding = 0;
+		texCoord_attr.location = 2; // specify in shader
+		texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+		texCoord_attr.offset = offsetof(Vertex, texCoord);
+
+		attribute_descriptions.push_back(position_attr);
+		attribute_descriptions.push_back(color_attr);
+		attribute_descriptions.push_back(texCoord_attr);
 
 		return attribute_descriptions;
 	}
