@@ -17,6 +17,9 @@
 #include "utility_functions.hpp"
 #include "graphics_engine_texture.hpp"
 
+// forward declares
+class Camera;
+
 struct SwapChainSupportDetails
 {
 	VkSurfaceCapabilitiesKHR capabilities;
@@ -34,6 +37,9 @@ struct UniformBufferObject
 
 class GraphicsEngine {
 public:
+	GraphicsEngine();
+	~GraphicsEngine();
+
 	void run() {
 		initWindow();
 		initVulkan();
@@ -44,6 +50,11 @@ public:
 	void set_frame_buffer_resized()
 	{
 		frame_buffer_resized = true;
+	}
+
+	void shutdown()
+	{
+		should_shutdown = true;
 	}
 
 private:
@@ -80,6 +91,9 @@ private:
 	int current_frame = 0;
 	bool frame_buffer_resized = false;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
+	bool should_shutdown = false;
+	bool is_initialised = false;
+	std::unique_ptr<Camera> camera;
 
 public: // vertix buffers
 	VkVertexInputBindingDescription binding_description;
@@ -199,6 +213,10 @@ public: // validation layer
 
 public: // getters
 	VkDevice& get_logical_device() { return logical_device; }
+	
+public: // camera
+	void create_camera();
+	Camera* get_camera() { return camera.get(); }
 
 public: // extensions
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);

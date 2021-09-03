@@ -1,5 +1,7 @@
 #include "graphics_engine.hpp"
 
+#include "camera.hpp"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <chrono>
 
@@ -31,6 +33,14 @@ static void frame_buffer_resize_callback(GLFWwindow* window, int width, int heig
 // static functions
 //
 
+GraphicsEngine::GraphicsEngine()
+{
+}
+
+GraphicsEngine::~GraphicsEngine() 
+{
+}
+
 void GraphicsEngine::initWindow() {
 	glfwInit();
 
@@ -40,6 +50,46 @@ void GraphicsEngine::initWindow() {
 	glfwSetFramebufferSizeCallback(window, frame_buffer_resize_callback);
 
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
+
+	glfwSetWindowUserPointer(window, this);
+	auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mode)
+	{
+		auto engine = static_cast<GraphicsEngine*>(glfwGetWindowUserPointer(window));
+		//std::cout << glfwGetKeyName(key, scancode) << '\n';
+		switch (key)
+		{
+			case GLFW_KEY_ESCAPE:
+				engine->shutdown();
+				break;
+			case GLFW_KEY_P:
+			{
+				glm::vec3 pos = engine->get_camera()->get_position();
+				pos.z += 0.5f;
+				engine->get_camera()->set_position(pos);
+				break;
+			}
+
+			case GLFW_KEY_L:
+			{
+				glm::vec3 pos = engine->get_camera()->get_position();
+				pos.z -= 0.5f;
+				engine->get_camera()->set_position(pos);
+				break;		
+			}
+
+			case GLFW_KEY_LEFT:
+				engine->get_camera()->rotate_by(glm::vec3(1.0f, 0.0f, 0.0f), 30.0f);
+				break;
+
+			case GLFW_KEY_RIGHT:
+				engine->get_camera()->rotate_by(glm::vec3(0.0f, 0.0f, 1.0f), -30.0f);
+				break;
+
+			default:
+				break;
+		}
+	};
+	glfwSetKeyCallback(window, key_callback);
 }
 
 void GraphicsEngine::initVulkan() {
@@ -62,6 +112,8 @@ void GraphicsEngine::initVulkan() {
 	create_descriptor_sets();
 	create_command_buffers();
 	create_synchronisation_objects();
+	create_camera();
+	is_initialised = true;
 }
 
 void GraphicsEngine::createInstance() 
@@ -125,6 +177,11 @@ void GraphicsEngine::create_window_surface()
 	}
 }
 
+void GraphicsEngine::create_camera()
+{
+	camera = std::make_unique<Camera>((float)swap_chain_extent.width / (float)swap_chain_extent.height);
+}
+
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 	QueueFamilyIndices indices;
 	uint32_t queueFamilyCount = 0;
@@ -148,31 +205,6 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 	}
 
 	return indices;
-}
-
-void GraphicsEngine::create_synchronisation_objects()
-{
-	image_available_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	render_finished_semaphores.resize(MAX_FRAMES_IN_FLIGHT);
-	in_flight_fences.resize(MAX_FRAMES_IN_FLIGHT);
-	images_in_flight.resize(swap_chain_images.size(), VK_NULL_HANDLE);
-
-	VkSemaphoreCreateInfo semaphore_create_info{};
-	semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-	VkFenceCreateInfo fence_create_info{};
-	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		if (vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &image_available_semaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &render_finished_semaphores[i]) != VK_SUCCESS ||
-			vkCreateFence(logical_device, &fence_create_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create semaphores!");
-		}
-	}
 }
 
 void GraphicsEngine::draw_frame()
@@ -285,15 +317,10 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 
 	UniformBufferObject ubo{};
 	ubo.model = glm::rotate(glm::mat4(1.0f), // transformation matrix (here we just use identity)
-							time * 1.0f, // amount to rotate (rads)
+							0.0f, //time * 1.0f, // amount to rotate (rads)
 							glm::vec3(0.0f, 0.0f, 1.0f)); // axis of rotation
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), // camera pos
-						   glm::vec3(0.0f, 0.0f, 0.0f), // focus point
-						   glm::vec3(0.0f, 0.0f, 1.0f)); // upvector, it gives view 'rotation' in most cases this would be actually up, however sometimes we may want it to look upside down
-	ubo.proj = glm::perspective(3.1415f * 45.0f/180.0f, // 45deg fov
-								(float)swap_chain_extent.width / (float)swap_chain_extent.height, // aspect ratio same as window
-								0.1f, // near plane clipping, closest an object can be to camera
-								10.0f); // far plane clipping, furthest away an object can be to camera		
+	ubo.view = camera->get_view();
+	ubo.proj = camera->get_perspective();	
 
 	ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
@@ -414,7 +441,7 @@ void GraphicsEngine::create_descriptor_sets()
 }
 
 void GraphicsEngine::mainLoop() {
-	while (!glfwWindowShouldClose(window)) {
+	while (!should_shutdown && !glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		draw_frame();
 	}
