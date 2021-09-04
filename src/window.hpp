@@ -17,6 +17,7 @@ namespace App {
 	public:
 		Window() = delete;
 		Window(GameEngine* game_engine);
+		~Window();
 
 		GLFWwindow* get_window();
 	};

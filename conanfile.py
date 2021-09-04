@@ -8,7 +8,7 @@ class vulkan_conan(ConanFile):
 		"arch"
 	)
 	requires = (
-		"glfw/3.3.2@bincrafters/stable",
+		"glfw/3.3.4",
 		"glm/0.9.8.5@bincrafters/stable",
 		"vulkan-headers/1.2.172",
 		"vulkan-loader/1.2.172",

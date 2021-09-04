@@ -54,9 +54,30 @@ void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int sc
 	engine->handle_window_callback_impl(glfw_window, key, scan_code, action, mode);
 }
 
-void GameEngine::handle_window_callback_impl(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
+static int inc = 0;
+
+void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code, int action, int mode)
 {
-	// std::cout << glfwGetKeyName(key, scan_code) << '\n';
+	auto pressed_key = glfwGetKeyName(key, scan_code);
+
+	printf("input detected [%d], key:=%d, scan_code:=%d, action:=%d, mode:=%d, translated_key:=%s\n", 
+		   inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+
+	// if (glfwGetKey(window.get_window(), key) == GLFW_RELEASE)
+	// {
+	// 	return; // ignore key releases
+	// }
+
+	// if (action == GLFW_REPEAT)
+	// {
+	// 	return; // ignore held keys
+	// }
+
+	if (action == GLFW_RELEASE)
+	{
+		return; // ignore held keys
+	}
+
 	glm::vec3 pos;
 	switch (key)
 	{

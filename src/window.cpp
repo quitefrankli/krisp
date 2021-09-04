@@ -22,6 +22,12 @@ App::Window::Window(GameEngine* game_engine)
 	glfwSetKeyCallback(get_window(), GameEngine::handle_window_callback);
 }
 
+App::Window::~Window()
+{
+	glfwDestroyWindow(get_window());
+	glfwTerminate();
+}
+
 GLFWwindow* App::Window::get_window()
 {
 	return window.get();

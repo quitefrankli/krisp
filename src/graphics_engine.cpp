@@ -45,6 +45,33 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) : game_engine(_game_eng
 
 GraphicsEngine::~GraphicsEngine() 
 {
+	std::cout<<"cleaning up\n";
+	vkDeviceWaitIdle(logical_device);
+
+	clean_up_swap_chain();
+
+	texture_mgr.cleanup();
+
+	vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, nullptr);
+
+	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
+	vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);
+		vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
+		vkDestroyFence(logical_device, in_flight_fences[i], nullptr);
+	}
+	vkDestroyCommandPool(logical_device, command_pool, nullptr);
+
+	vkDestroyDevice(logical_device, nullptr);
+	if (enableValidationLayers)
+	{
+		DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+	}
+	vkDestroySurfaceKHR(instance, window_surface, nullptr);
+	vkDestroyInstance(instance, nullptr);
 }
 
 Camera* GraphicsEngine::get_camera()
@@ -409,36 +436,3 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 
 	throw std::runtime_error("failed to find suitable memory type!");
 };
-
-void GraphicsEngine::cleanup() 
-{
-	std::cout<<"cleaning up\n";
-	vkDeviceWaitIdle(logical_device);
-
-	clean_up_swap_chain();
-
-	texture_mgr.cleanup();
-
-	vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, nullptr);
-
-	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
-	vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);
-		vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
-		vkDestroyFence(logical_device, in_flight_fences[i], nullptr);
-	}
-	vkDestroyCommandPool(logical_device, command_pool, nullptr);
-
-	vkDestroyDevice(logical_device, nullptr);
-	if (enableValidationLayers)
-	{
-		DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
-	}
-	vkDestroySurfaceKHR(instance, window_surface, nullptr);
-	vkDestroyInstance(instance, nullptr);
-	glfwDestroyWindow(get_window());
-	glfwTerminate();
-}

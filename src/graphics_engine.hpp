@@ -50,7 +50,6 @@ public:
 	void run() 
 	{
 		mainLoop();
-		cleanup();
 	}
 
 	void set_frame_buffer_resized()
@@ -231,7 +230,5 @@ public: // main
 	void draw_frame();
 
     void mainLoop();
-
-    void cleanup();
 };
 
