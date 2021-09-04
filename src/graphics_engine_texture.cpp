@@ -1,17 +1,19 @@
 #include "graphics_engine_texture.hpp"
-
 #include "graphics_engine.hpp"
-
-#include "vulkan/vulkan.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 const std::string TEXTURE_PATH = "../resources/textures/";
 
-void GraphicsEngineTexture::init(GraphicsEngine* graphics_engiine)
+GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
-	this->graphics_engine = graphics_engiine;
+
+}
+
+void GraphicsEngineTexture::init()
+{
 	create_texture_image();
 	create_texture_image_view();
 	create_texture_sampler();
@@ -45,7 +47,7 @@ void GraphicsEngineTexture::create_image(uint32_t width,
 	image_info.samples = VK_SAMPLE_COUNT_1_BIT; // for multisampling
 	image_info.flags = 0;
 
-	if (vkCreateImage(device(), &image_info, nullptr, &image) != VK_SUCCESS)
+	if (vkCreateImage(get_logical_device(), &image_info, nullptr, &image) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create image!");
 	}
@@ -55,18 +57,18 @@ void GraphicsEngineTexture::create_image(uint32_t width,
 	//
 
 	VkMemoryRequirements mem_req;
-	vkGetImageMemoryRequirements(device(), image, &mem_req);
+	vkGetImageMemoryRequirements(get_logical_device(), image, &mem_req);
 	VkMemoryAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc_info.allocationSize = mem_req.size;
-	alloc_info.memoryTypeIndex = graphics_engine->find_memory_type(mem_req.memoryTypeBits, properties);
+	alloc_info.memoryTypeIndex = get_graphics_engine().find_memory_type(mem_req.memoryTypeBits, properties);
 
-	if (vkAllocateMemory(device(), &alloc_info, nullptr, &image_memory) != VK_SUCCESS)
+	if (vkAllocateMemory(get_logical_device(), &alloc_info, nullptr, &image_memory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate image memory!");
 	}
 
-	vkBindImageMemory(device(), image, image_memory, 0);
+	vkBindImageMemory(get_logical_device(), image, image_memory, 0);
 }
 
 // load image and upload it into a vulkan image object
@@ -94,16 +96,16 @@ void GraphicsEngineTexture::create_texture_image()
 	VkBuffer staging_buffer;
 	VkDeviceMemory staging_buffer_memory;
 
-	graphics_engine->create_buffer(size, 
+	get_graphics_engine().create_buffer(size, 
 				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				  staging_buffer,
 				  staging_buffer_memory);
 
 	void* data;
-	vkMapMemory(device(), staging_buffer_memory, 0, size, 0, &data);
+	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, size, 0, &data);
 	memcpy(data, pixels.get(), static_cast<size_t>(size));
-	vkUnmapMemory(device(), staging_buffer_memory);
+	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
 
 	create_image(width, 
 				 height, 
@@ -122,14 +124,14 @@ void GraphicsEngineTexture::create_texture_image()
 	// transition one more time for shader access
 	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkDestroyBuffer(device(), staging_buffer, nullptr);
-	vkFreeMemory(device(), staging_buffer_memory, nullptr);
+	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
 }
 
 // handle layout transition so that image is in right layout
 void GraphicsEngineTexture::transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout)
 {
-	VkCommandBuffer command_buffer = graphics_engine->begin_single_time_commands();
+	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
 
 	// pipeline barrier to synchronize access to resources
 	VkImageMemoryBarrier barrier{};
@@ -180,12 +182,12 @@ void GraphicsEngineTexture::transition_image_layout(VkImage image, VkFormat form
 		&barrier
 	);
 
-	graphics_engine->end_single_time_commands(command_buffer);
+	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
 void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 {
-	VkCommandBuffer command_buffer = graphics_engine->begin_single_time_commands();
+	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
 
 	VkBufferImageCopy region{};
 	region.bufferOffset = 0;
@@ -213,7 +215,7 @@ void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image,
 		&region
 	);
 
-	graphics_engine->end_single_time_commands(command_buffer);
+	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
 void GraphicsEngineTexture::create_texture_image_view()
@@ -230,7 +232,7 @@ void GraphicsEngineTexture::create_texture_image_view()
 	create_info.subresourceRange.baseArrayLayer = 0;
 	create_info.subresourceRange.layerCount = 1;
 
-	if (vkCreateImageView(device(), &create_info, nullptr, &texture_image_view) != VK_SUCCESS)
+	if (vkCreateImageView(get_logical_device(), &create_info, nullptr, &texture_image_view) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create image views!");
 	}
@@ -247,7 +249,7 @@ void GraphicsEngineTexture::create_texture_sampler()
 	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.anisotropyEnable = true; // small performance hiccup
-	sampler_info.maxAnisotropy = graphics_engine->get_physical_device_properties().limits.maxSamplerAnisotropy; // higher = slower
+	sampler_info.maxAnisotropy = get_graphics_engine().get_physical_device_properties().limits.maxSamplerAnisotropy; // higher = slower
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
 												  // so that you can use textures of varying resolutions with same coordinates
@@ -259,26 +261,16 @@ void GraphicsEngineTexture::create_texture_sampler()
 	sampler_info.maxLod = 0.0f;
 	std::cout << "texture sampler chosen max anisotropy=" << sampler_info.maxAnisotropy << std::endl;
 
-	if (vkCreateSampler(device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)
+	if (vkCreateSampler(get_logical_device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create texture sampler!");
 	}
 }
 
-VkDevice& GraphicsEngineTexture::device()
-{
-	if (!graphics_engine)
-	{
-		throw std::runtime_error("GraphicsEngineTexture: graphics_engine not initialised!");
-	}
-
-	return graphics_engine->get_logical_device();
-}
-
 void GraphicsEngineTexture::cleanup()
 {
-	vkDestroySampler(device(), texture_sampler, nullptr);
-	vkDestroyImageView(device(), texture_image_view, nullptr); // note we destroy the view before the actual image
-	vkDestroyImage(device(), texture_image, nullptr);
-	vkFreeMemory(device(), texture_image_memory, nullptr);
+	vkDestroySampler(get_logical_device(), texture_sampler, nullptr);
+	vkDestroyImageView(get_logical_device(), texture_image_view, nullptr); // note we destroy the view before the actual image
+	vkDestroyImage(get_logical_device(), texture_image, nullptr);
+	vkFreeMemory(get_logical_device(), texture_image_memory, nullptr);
 }

@@ -1,11 +1,15 @@
 #pragma once
 
+#include "graphics_engine_base_module.hpp"
+
 #include <vulkan/vulkan.hpp>
+
 
 class GraphicsEngine;
 
-class GraphicsEngineTexture
+class GraphicsEngineTexture : public GraphicsEngineBaseModule
 {
+private:
 	// while shaders can access pixel values in the buffer,
 	// it's better to use Vk Image Objects as there are some optimisations due
 	// to the 2D nature of textures
@@ -24,8 +28,6 @@ class GraphicsEngineTexture
 
 	void create_texture_image();
 
-	GraphicsEngine* graphics_engine = nullptr;
-
 	// handle layout transition so that image is in right layout
 	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
 
@@ -35,10 +37,10 @@ class GraphicsEngineTexture
 
 	void create_texture_sampler();
 
-	VkDevice& device();
-
 public:
-	void init(GraphicsEngine* graphics_engine);
+	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
+
+	void init();
 
 	void create_image(uint32_t width, 
 					  uint32_t height, 

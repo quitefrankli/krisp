@@ -1,10 +1,12 @@
 #include "game_engine.hpp"
 
+#include "shapes.hpp"
+
+#include <GLFW/glfw3.h>
+
 #include <vector>
 #include <thread>
 #include <chrono>
-
-#include <GLFW/glfw3.h>
 
 
 GameEngine::GameEngine() :
@@ -12,18 +14,18 @@ GameEngine::GameEngine() :
 	graphics_engine(*this),
 	camera(graphics_engine.get_window_width<float>() / graphics_engine.get_window_width<float>())
 {
-	std::vector<Vertex> vertices
-	{
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, 
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-		{{0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-	};
-	graphics_engine.set_vertices(vertices);
 	graphics_engine.binding_description = Vertex::get_binding_description();
 	graphics_engine.attribute_descriptions = Vertex::get_attribute_descriptions();
+
+	shapes.emplace_back(Plane());
+
+	std::vector<Vertex> all_vertices;
+	for (auto& shape : shapes)
+	{	
+		all_vertices.insert(all_vertices.end(), shape.get_vertices().begin(), shape.get_vertices().end());
+	}
+	graphics_engine.set_vertices(all_vertices);
+
 
 	graphics_engine.setup();
 }
@@ -41,11 +43,6 @@ void GameEngine::run()
 	shutdown();
 
 	graphics_engine_thread.join();
-}
-
-void GameEngine::run_impl()
-{
-	
 }
 
 void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
@@ -98,7 +95,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			break;		
 
 		case GLFW_KEY_LEFT:
-			get_camera().rotate_by(glm::vec3(1.0f, 0.0f, 0.0f), 30.0f);
+			get_camera().rotate_by(glm::vec3(1.0f, 0.0f, 0.0f), 5.0f);
 			break;
 
 		case GLFW_KEY_RIGHT:

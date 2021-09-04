@@ -19,7 +19,10 @@ void GraphicsEngine::create_swap_chain()
 	if (swap_chain_support.capabilities.maxImageCount > 0) // 0 is a special number meaning there is unlimited number
 	{
 		image_count = std::min(image_count, swap_chain_support.capabilities.maxImageCount);
-	}	
+	} else
+	{
+		throw std::runtime_error("create_swap_chain: infinite swap chains!");
+	}
 
 	VkSwapchainCreateInfoKHR create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -65,7 +68,7 @@ void GraphicsEngine::create_swap_chain()
 	swap_chain_image_format = surface_format.format;
 	swap_chain_extent = extent;
 
-	std::cout << "swap chain created\n";
+	std::cout << "swap chain created, count=" << image_count << std::endl;
 }
 
 SwapChainSupportDetails GraphicsEngine::query_swap_chain_support(VkPhysicalDevice device)
@@ -162,7 +165,7 @@ void GraphicsEngine::recreate_swap_chain()
 	create_graphics_pipeline();
 	create_frame_buffers();
 	create_uniform_buffers();
-	create_descriptor_pool();
+	create_descriptor_pools();
 	create_descriptor_sets();
 	create_command_buffers();
 }

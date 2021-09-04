@@ -17,6 +17,7 @@
 #include "utility_functions.hpp"
 #include "graphics_engine_texture.hpp"
 
+
 // forward declares
 class Camera;
 class GameEngine;
@@ -42,25 +43,11 @@ public:
 	GraphicsEngine(GameEngine& _game_engine);
 	~GraphicsEngine();
 
-	void setup()
-	{
-		initVulkan();
-	}
-
-	void run() 
-	{
-		mainLoop();
-	}
-
-	void set_frame_buffer_resized()
-	{
-		frame_buffer_resized = true;
-	}
-
-	void shutdown()
-	{
-		should_shutdown = true;
-	}
+	void setup() { initVulkan(); }
+	void run() { mainLoop(); }
+	void set_frame_buffer_resized() { frame_buffer_resized = true; }
+	void shutdown() { should_shutdown = true; }
+	const std::vector<VkImage>& get_swap_chain() { return swap_chain_images; }
 
 public: // getters and setters
 	template<class T> 
@@ -115,10 +102,8 @@ public: // vertix buffers
 	// as opposed to vertex_buffers we expect to change uniform buffer every frame
 	std::vector<VkBuffer> uniform_buffers;
 	std::vector<VkDeviceMemory> uniform_buffers_memory;
-
 	VkDescriptorPool descriptor_pool;
 	std::vector<VkDescriptorSet> descriptor_sets;
-
 	GraphicsEngineTexture texture_mgr;
 
 private:
@@ -183,7 +168,7 @@ public: // vertex buffer
 
 	void update_uniform_buffer(uint32_t current_image);
 
-	void create_descriptor_pool();
+	void create_descriptor_pools();
 
 	void create_descriptor_sets();
 
@@ -203,8 +188,6 @@ public: // vertex buffer
 
 private: //uniform buffer
 	void create_descriptor_set_layout();
-	
-private: //uniform buffer
 	void create_uniform_buffers();
 
 public: // validation layer
