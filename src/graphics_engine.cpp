@@ -1,8 +1,10 @@
 #include "graphics_engine.hpp"
 
 #include "camera.hpp"
+#include "game_engine.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <thread>
 #include <chrono>
 
 //
@@ -23,82 +25,39 @@ static std::vector<std::string> get_required_extensions()
 	return required_extensions;
 }
 
-static void frame_buffer_resize_callback(GLFWwindow* window, int width, int height)
-{
-	auto app = reinterpret_cast<GraphicsEngine*>(glfwGetWindowUserPointer(window));
-	app->set_frame_buffer_resized();
-}
-
 //
 // static functions
 //
 
-GraphicsEngine::GraphicsEngine()
+GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) : game_engine(_game_engine)
 {
+	createInstance();
+	if (glfwCreateWindowSurface(instance, get_window(), nullptr, &window_surface) != VK_SUCCESS) // create window surface
+	{
+		throw std::runtime_error("failed to create window surface!");
+	}
+
+	setupDebugMessenger();
+	pick_physical_device();
+	create_logical_device();
+	create_swap_chain();
 }
 
 GraphicsEngine::~GraphicsEngine() 
 {
 }
 
-void GraphicsEngine::initWindow() {
-	glfwInit();
+Camera* GraphicsEngine::get_camera()
+{
+	return &(game_engine.get_camera());
+}
 
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-	glfwSetWindowUserPointer(window, this);
-	glfwSetFramebufferSizeCallback(window, frame_buffer_resize_callback);
-
-	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
-
-	glfwSetWindowUserPointer(window, this);
-	auto key_callback = [](GLFWwindow* window, int key, int scancode, int action, int mode)
-	{
-		auto engine = static_cast<GraphicsEngine*>(glfwGetWindowUserPointer(window));
-		//std::cout << glfwGetKeyName(key, scancode) << '\n';
-		switch (key)
-		{
-			case GLFW_KEY_ESCAPE:
-				engine->shutdown();
-				break;
-			case GLFW_KEY_P:
-			{
-				glm::vec3 pos = engine->get_camera()->get_position();
-				pos.z += 0.5f;
-				engine->get_camera()->set_position(pos);
-				break;
-			}
-
-			case GLFW_KEY_L:
-			{
-				glm::vec3 pos = engine->get_camera()->get_position();
-				pos.z -= 0.5f;
-				engine->get_camera()->set_position(pos);
-				break;		
-			}
-
-			case GLFW_KEY_LEFT:
-				engine->get_camera()->rotate_by(glm::vec3(1.0f, 0.0f, 0.0f), 30.0f);
-				break;
-
-			case GLFW_KEY_RIGHT:
-				engine->get_camera()->rotate_by(glm::vec3(0.0f, 0.0f, 1.0f), -30.0f);
-				break;
-
-			default:
-				break;
-		}
-	};
-	glfwSetKeyCallback(window, key_callback);
+GLFWwindow* GraphicsEngine::get_window()
+{
+	return game_engine.get_window();
 }
 
 void GraphicsEngine::initVulkan() {
-	createInstance();
-	create_window_surface();
-	setupDebugMessenger();
-	pick_physical_device();
-	create_logical_device();
-	create_swap_chain();
 	create_image_views();
 	create_render_pass();
 	create_descriptor_set_layout();
@@ -112,7 +71,6 @@ void GraphicsEngine::initVulkan() {
 	create_descriptor_sets();
 	create_command_buffers();
 	create_synchronisation_objects();
-	create_camera();
 	is_initialised = true;
 }
 
@@ -120,7 +78,7 @@ void GraphicsEngine::createInstance()
 {
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	app_info.pApplicationName = "Hello Triangle";
+	app_info.pApplicationName = "PNG VIEWER";
 	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	app_info.pEngineName = "No Engine";
 	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -167,19 +125,6 @@ void GraphicsEngine::createInstance()
 	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create instance!");
 	}
-}
-
-void GraphicsEngine::create_window_surface()
-{
-	if (glfwCreateWindowSurface(instance, window, nullptr, &window_surface) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create window surface!");
-	}
-}
-
-void GraphicsEngine::create_camera()
-{
-	camera = std::make_unique<Camera>((float)swap_chain_extent.width / (float)swap_chain_extent.height);
 }
 
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
@@ -319,8 +264,8 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	ubo.model = glm::rotate(glm::mat4(1.0f), // transformation matrix (here we just use identity)
 							0.0f, //time * 1.0f, // amount to rotate (rads)
 							glm::vec3(0.0f, 0.0f, 1.0f)); // axis of rotation
-	ubo.view = camera->get_view();
-	ubo.proj = camera->get_perspective();	
+	ubo.view = get_camera()->get_view();
+	ubo.proj = get_camera()->get_perspective();	
 
 	ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
@@ -441,9 +386,11 @@ void GraphicsEngine::create_descriptor_sets()
 }
 
 void GraphicsEngine::mainLoop() {
-	while (!should_shutdown && !glfwWindowShouldClose(window)) {
-		glfwPollEvents();
+	while (!should_shutdown)
+	{
 		draw_frame();
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 }
 
@@ -492,6 +439,6 @@ void GraphicsEngine::cleanup()
 	}
 	vkDestroySurfaceKHR(instance, window_surface, nullptr);
 	vkDestroyInstance(instance, nullptr);
-	glfwDestroyWindow(window);
+	glfwDestroyWindow(get_window());
 	glfwTerminate();
 }

@@ -19,6 +19,7 @@
 
 // forward declares
 class Camera;
+class GameEngine;
 
 struct SwapChainSupportDetails
 {
@@ -37,12 +38,17 @@ struct UniformBufferObject
 
 class GraphicsEngine {
 public:
-	GraphicsEngine();
+	GraphicsEngine() = delete;
+	GraphicsEngine(GameEngine& _game_engine);
 	~GraphicsEngine();
 
-	void run() {
-		initWindow();
+	void setup()
+	{
 		initVulkan();
+	}
+
+	void run() 
+	{
 		mainLoop();
 		cleanup();
 	}
@@ -57,8 +63,15 @@ public:
 		should_shutdown = true;
 	}
 
+public: // getters and setters
+	template<class T> 
+	T get_window_width() { return (T)swap_chain_extent.width; }
+	template<class T>
+	T get_window_height() { return (T)swap_chain_extent.height; }
+	GLFWwindow* get_window();
+	Camera* get_camera();
+
 private:
-	GLFWwindow* window;
 	// the instance is the connection between application and Vulkan library
 	// its creation involves specifying some details about your application to the driver
 	VkInstance instance; 
@@ -84,8 +97,6 @@ private:
 	std::vector<VkFence> in_flight_fences;
 	std::vector<VkFence> images_in_flight;
 	VkDebugUtilsMessengerEXT debug_messenger;
-	const uint32_t WIDTH = 800;
-	const uint32_t HEIGHT = 600;
 	// swap chain
 	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	int current_frame = 0;
@@ -93,7 +104,7 @@ private:
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	bool should_shutdown = false;
 	bool is_initialised = false;
-	std::unique_ptr<Camera> camera;
+	GameEngine& game_engine;
 
 public: // vertix buffers
 	VkVertexInputBindingDescription binding_description;
@@ -112,13 +123,9 @@ public: // vertix buffers
 	GraphicsEngineTexture texture_mgr;
 
 private:
-    void initWindow();
-    
 	void initVulkan();
 
 	void createInstance();
-
-	void create_window_surface();
 
 	void pick_physical_device();
 
@@ -213,10 +220,6 @@ public: // validation layer
 
 public: // getters
 	VkDevice& get_logical_device() { return logical_device; }
-	
-public: // camera
-	void create_camera();
-	Camera* get_camera() { return camera.get(); }
 
 public: // extensions
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);

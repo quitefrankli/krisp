@@ -2,10 +2,10 @@
 // and which part of the image to access
 // it's essentially a 2D texture depth texture without any mipmapping levels
 
-#define GLFW_INCLUDE_VULKAN
+#include "graphics_engine.hpp"
+
 #include <GLFW/glfw3.h>
 
-#include "graphics_engine.hpp"
 
 void GraphicsEngine::create_image_views()
 {

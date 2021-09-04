@@ -1,25 +1,13 @@
-#include "graphics_engine.hpp"
-#include "vertex.hpp"
+#include "game_engine.hpp"
 
-#include <glm/glm.hpp>
+#include <thread>
 
 int main() {
-    GraphicsEngine graphics_engine;
-	std::vector<Vertex> vertices
-	{
-		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, 
-		{{0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-		{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-		{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}
-	};
-	graphics_engine.set_vertices(vertices);
-	graphics_engine.binding_description = Vertex::get_binding_description();
-	graphics_engine.attribute_descriptions = Vertex::get_attribute_descriptions();
+	// seems like glfw window must be on main thread otherwise it wont work, therefore engine should always be on its own thread
+	GameEngine engine;
 
     try {
-        graphics_engine.run();
+		engine.run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;

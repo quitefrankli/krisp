@@ -129,7 +129,7 @@ VkExtent2D GraphicsEngine::choose_swap_extent(const VkSurfaceCapabilitiesKHR& ca
 	} else 
 	{
 		int width, height;
-		glfwGetFramebufferSize(window, &width, &height);
+		glfwGetFramebufferSize(get_window(), &width, &height);
 		VkExtent2D actual_extent = {
 			static_cast<uint32_t>(width),
 			static_cast<uint32_t>(height)
@@ -146,9 +146,9 @@ void GraphicsEngine::recreate_swap_chain()
 {
 	// for when window is minimised
 	int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
+    glfwGetFramebufferSize(get_window(), &width, &height);
     while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(window, &width, &height);
+        glfwGetFramebufferSize(get_window(), &width, &height);
         glfwWaitEvents();
     }
 
