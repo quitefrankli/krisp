@@ -38,12 +38,12 @@ void GraphicsEngine::create_buffer(size_t size,
 
 void GraphicsEngine::create_vertex_buffer()
 {
-	if (vertices.size() == 0)
+	// this will need to be updated
+	size_t buffer_size = 0;
+	for (auto& vertex_set : vertices)
 	{
-		throw std::runtime_error("vertices cannot be 0");
+		buffer_size += vertex_set.size() * sizeof(vertex_set[0]);
 	}
-
-	const size_t buffer_size = sizeof(vertices[0]) * vertices.size();
 
 	// staging buffer, used for copying the data from staging to vertex buffer
 	VkBuffer staging_buffer;
@@ -70,7 +70,16 @@ void GraphicsEngine::create_vertex_buffer()
 	void* data;
 	// access a region of the specified memory resource
 	vkMapMemory(logical_device, staging_buffer_memory, 0, buffer_size, 0, &data);
-	memcpy(data, vertices.data(), static_cast<size_t>(buffer_size));
+	
+	// super duper inefficient, will need to improve this
+	std::vector<Vertex> copy_of_data;
+	for (auto& vertex_set : vertices)
+	{
+		copy_of_data.insert(copy_of_data.end(), vertex_set.begin(), vertex_set.end());
+	}	
+	// super duper inefficient, will need to improve this
+
+	memcpy(data, copy_of_data.data(), static_cast<size_t>(buffer_size));
 	vkUnmapMemory(logical_device, staging_buffer_memory);
 
 	// issue the command to copy from staging to device

@@ -57,10 +57,7 @@ void GraphicsEngine::create_command_buffers()
 
 		vkCmdBindPipeline(command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_engine_pipeline); // bind the graphics pipeline
 
-		//
 		// binding the vertex buffer
-		//
-
 		VkBuffer vertex_buffers[] = { vertex_buffer };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(
@@ -71,23 +68,30 @@ void GraphicsEngine::create_command_buffers()
 			offsets				// byte offset to start from for each buffer
 		);
 
-		// descriptor binding, ew need to bind the descriptor set for each swap chain image
-		vkCmdBindDescriptorSets(command_buffers[i], 
-								VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
-								pipeline_layout, 
-								0, // offset
-								1, // number of sets to bind
-								&descriptor_sets[i],
-								0,
-								nullptr);
+		int total_vertex_offset = 0;
+		for (int j = 0; j < vertices.size(); j++)
+		{
 
-		vkCmdDraw(
-			command_buffers[i], 
-			static_cast<uint32_t>(vertices.size()), // vertex count
-			1, // instance count (only used for instance rendering)
-			0, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
-			0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
-		);
+			// descriptor binding, ew need to bind the descriptor set for each swap chain image
+			vkCmdBindDescriptorSets(command_buffers[i], 
+									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
+									pipeline_layout, 
+									0, // offset
+									1, // number of sets to bind
+									&descriptor_sets[i * nObjects + j],
+									0,
+									nullptr);
+
+			vkCmdDraw(
+				command_buffers[i], 
+				static_cast<uint32_t>(vertices[j].size()), // vertex count
+				1, // instance count (only used for instance rendering)
+				total_vertex_offset, // total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
+				0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
+			);
+
+			total_vertex_offset += vertices[j].size();
+		}
 
 		vkCmdEndRenderPass(command_buffers[i]);
 		if (vkEndCommandBuffer(command_buffers[i]) != VK_SUCCESS)

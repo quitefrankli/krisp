@@ -1,5 +1,12 @@
 #include "graphics_engine.hpp"
 
+
+/*
+	a descriptor layout is used to "drag" out descriptor sets from a descriptor pool
+	
+
+*/
+
 void GraphicsEngine::create_descriptor_set_layout()
 {
 	VkDescriptorSetLayoutBinding ubo_layout_binding{};
@@ -30,21 +37,24 @@ void GraphicsEngine::create_descriptor_set_layout()
 
 void GraphicsEngine::create_descriptor_pools()
 {
+	// 1x uniform descriptor per descriptor set
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uniform_buffer_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size());
+	uniform_buffer_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
+
+	// 1x texture descriptor per descriptor set
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	combined_image_sampler_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size());
+	combined_image_sampler_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
 	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
 
-	// allocate a descriptor for ever image in the swap chain
+	// allocate a descriptor for every image in the swap chain
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = pool_sizes.size();
 	poolInfo.pPoolSizes = pool_sizes.data();
 	// defines maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = static_cast<uint32_t>(swap_chain_images.size());
+	poolInfo.maxSets = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
 
 	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
 	{
@@ -54,14 +64,14 @@ void GraphicsEngine::create_descriptor_pools()
 
 void GraphicsEngine::create_descriptor_sets()
 {
-	std::vector<VkDescriptorSetLayout> layouts(static_cast<uint32_t>(swap_chain_images.size()), descriptor_set_layout);
+	std::vector<VkDescriptorSetLayout> layouts(static_cast<uint32_t>(swap_chain_images.size()) * nObjects, descriptor_set_layout);
 	VkDescriptorSetAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	alloc_info.descriptorPool = descriptor_pool;
-	alloc_info.descriptorSetCount = static_cast<uint32_t>(swap_chain_images.size());
+	alloc_info.descriptorSetCount = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
 	alloc_info.pSetLayouts = layouts.data();
 
-	descriptor_sets.resize(static_cast<uint32_t>(swap_chain_images.size()));
+	descriptor_sets.resize(static_cast<uint32_t>(swap_chain_images.size()) * nObjects);
 
 	// allocates all descriptor sets within the descriptor pool
 	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
@@ -70,43 +80,50 @@ void GraphicsEngine::create_descriptor_sets()
 	}
 
 	// configure the descriptors
+	
 	for (size_t i = 0; i < static_cast<uint32_t>(swap_chain_images.size()); i++)
 	{
-		VkDescriptorBufferInfo buffer_info{};
-		buffer_info.buffer = uniform_buffers[i];
-		buffer_info.offset = 0;
-		buffer_info.range = sizeof(UniformBufferObject);
+		for (int j = 0; j < nObjects; j++)
+		{
+			VkDescriptorBufferInfo buffer_info{};
+			buffer_info.buffer = uniform_buffers[i];
+			buffer_info.offset = sizeof(UniformBufferObject) * j;
+			buffer_info.range = sizeof(UniformBufferObject);
 
-		VkDescriptorImageInfo image_info{};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView = texture_mgr.get_texture_image();
-		image_info.sampler = texture_mgr.get_texture_sampler();
+			VkWriteDescriptorSet uniform_buffer_descriptor_set{};
+			uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			uniform_buffer_descriptor_set.dstSet = descriptor_sets[i * nObjects + j];
+			uniform_buffer_descriptor_set.dstBinding = 0; // also set to 0 in the shader
+			uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
+			uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			uniform_buffer_descriptor_set.descriptorCount = 1;
+			uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
+			uniform_buffer_descriptor_set.pImageInfo = nullptr;
+			uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
 
-		std::vector<VkWriteDescriptorSet> descriptor_writes(2);
-		descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes[0].dstSet = descriptor_sets[i];
-		descriptor_writes[0].dstBinding = 0; // also set to 0 in the shader
-		descriptor_writes[0].dstArrayElement = 0; // offset
-		descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		descriptor_writes[0].descriptorCount = 1;
-		descriptor_writes[0].pBufferInfo = &buffer_info;
-		descriptor_writes[0].pImageInfo = nullptr;
-		descriptor_writes[0].pTexelBufferView = nullptr;
+			VkDescriptorImageInfo image_info{};
+			image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			image_info.imageView = texture_mgr.get_texture_image();
+			image_info.sampler = texture_mgr.get_texture_sampler();
 
-		descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		descriptor_writes[1].dstSet = descriptor_sets[i];
-		descriptor_writes[1].dstBinding = 1; // also set to 1 in the shader
-		descriptor_writes[1].dstArrayElement = 0; // offset
-		descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		descriptor_writes[1].descriptorCount = 1;
-		descriptor_writes[1].pBufferInfo = nullptr; 
-		descriptor_writes[1].pImageInfo = &image_info;
-		descriptor_writes[1].pTexelBufferView = nullptr;
+			VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
+			combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			combined_image_sampler_descriptor_set.dstSet = descriptor_sets[i * nObjects + j];
+			combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
+			combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+			combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			combined_image_sampler_descriptor_set.descriptorCount = 1;
+			combined_image_sampler_descriptor_set.pBufferInfo = nullptr; 
+			combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+			combined_image_sampler_descriptor_set.pTexelBufferView = nullptr;
 
-		vkUpdateDescriptorSets(get_logical_device(), 
-							   static_cast<uint32_t>(descriptor_writes.size()), 
-							   descriptor_writes.data(), 
-							   0, 
-							   nullptr);
+			std::vector<VkWriteDescriptorSet> descriptor_writes{ uniform_buffer_descriptor_set, combined_image_sampler_descriptor_set };
+
+			vkUpdateDescriptorSets(get_logical_device(), 
+								static_cast<uint32_t>(descriptor_writes.size()), 
+								descriptor_writes.data(), 
+								0, 
+								nullptr);
+		}
 	}
 }

@@ -56,6 +56,11 @@ public: // getters and setters
 	T get_window_height() { return (T)swap_chain_extent.height; }
 	GLFWwindow* get_window();
 	Camera* get_camera();
+	void set_vertices(std::vector<std::vector<Vertex>>& new_vertices) 
+	{ 
+		vertices = new_vertices; 
+		nObjects = vertices.size();
+	}
 
 private:
 	// the instance is the connection between application and Vulkan library
@@ -83,6 +88,7 @@ private:
 	std::vector<VkFence> in_flight_fences;
 	std::vector<VkFence> images_in_flight;
 	VkDebugUtilsMessengerEXT debug_messenger;
+	std::vector<std::vector<Vertex>> vertices;
 	// swap chain
 	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	int current_frame = 0;
@@ -95,9 +101,9 @@ private:
 public: // vertix buffers
 	VkVertexInputBindingDescription binding_description;
 	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-	std::vector<Vertex> vertices;
 	VkBuffer vertex_buffer;
 	VkDeviceMemory vertex_buffer_memory;
+	int nObjects = -1;
 
 	// as opposed to vertex_buffers we expect to change uniform buffer every frame
 	std::vector<VkBuffer> uniform_buffers;
@@ -158,11 +164,6 @@ public: // vertex buffer
 					   VkMemoryPropertyFlags memory_flags, 
 					   VkBuffer& buffer, 
 					   VkDeviceMemory& device_memory);
-
-	void set_vertices(std::vector<Vertex> vertices_)
-	{
-		vertices = vertices_;
-	}
 
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 

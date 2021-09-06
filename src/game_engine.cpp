@@ -17,15 +17,23 @@ GameEngine::GameEngine() :
 	graphics_engine.binding_description = Vertex::get_binding_description();
 	graphics_engine.attribute_descriptions = Vertex::get_attribute_descriptions();
 
+	shapes.emplace_back(Triangle());
 	shapes.emplace_back(Plane());
+	// shapes.emplace_back(Plane());
 
-	std::vector<Vertex> all_vertices;
+	// std::vector<Vertex> all_vertices;
+	// for (auto& shape : shapes)
+	// {	
+	// 	all_vertices.insert(all_vertices.end(), shape.get_vertices().begin(), shape.get_vertices().end());
+	// }
+	// graphics_engine.set_vertices(all_vertices);
+
+	std::vector<std::vector<Vertex>> vertices;
 	for (auto& shape : shapes)
-	{	
-		all_vertices.insert(all_vertices.end(), shape.get_vertices().begin(), shape.get_vertices().end());
+	{
+		vertices.push_back(shape.get_vertices());
 	}
-	graphics_engine.set_vertices(all_vertices);
-
+	graphics_engine.set_vertices(vertices);
 
 	graphics_engine.setup();
 }

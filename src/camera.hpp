@@ -20,7 +20,7 @@
 class Camera
 {
 private:
-	glm::vec3 position = glm::vec3(2.0f, 0.0f, -5.0f);
+	glm::vec3 position = glm::vec3(0.0f, 0.0f, -5.0f);
 	glm::vec3 focus = glm::vec3(0.0f, 0.0f, 0.0f);
 	glm::vec3 up_vector = glm::vec3(0.0f, 0.0f, 1.0f);
 

@@ -268,7 +268,7 @@ void GraphicsEngine::draw_frame()
 
 void GraphicsEngine::create_uniform_buffers()
 {
-	VkDeviceSize buffer_size = sizeof(UniformBufferObject);
+	VkDeviceSize buffer_size = sizeof(UniformBufferObject) * nObjects;
 
 	uniform_buffers.resize(swap_chain_images.size());
 	uniform_buffers_memory.resize(swap_chain_images.size());
@@ -289,18 +289,21 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	auto current_time = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
 
-	UniformBufferObject ubo{};
-	ubo.model = glm::rotate(glm::mat4(1.0f), // transformation matrix (here we just use identity)
-							0.0f, //time * 1.0f, // amount to rotate (rads)
-							glm::vec3(0.0f, 0.0f, 1.0f)); // axis of rotation
-	ubo.view = get_camera()->get_view();
-	ubo.proj = get_camera()->get_perspective();	
+	UniformBufferObject default_ubo{};
+	default_ubo.view = get_camera()->get_view();
+	default_ubo.proj = get_camera()->get_perspective();	
+	default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
-	ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
+	std::vector<UniformBufferObject> ubos(nObjects, default_ubo);
+	for (int i = 0; i < ubos.size(); i++)
+	{
+		ubos[i].model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f) * float(i));
+	}
 
 	void* data;
-	vkMapMemory(logical_device, uniform_buffers_memory[image_index], 0, sizeof(ubo), 0, &data);
-	memcpy(data, &ubo, sizeof(ubo));
+	int size = ubos.size() * sizeof(ubos[0]);
+	vkMapMemory(logical_device, uniform_buffers_memory[image_index], 0, size, 0, &data);
+	memcpy(data, ubos.data(), size);
 	vkUnmapMemory(logical_device, uniform_buffers_memory[image_index]);
 }
 
