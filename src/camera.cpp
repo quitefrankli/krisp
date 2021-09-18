@@ -2,6 +2,8 @@
 
 #include "maths.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
+
 Camera::Camera(float aspect_ratio)
 {
 	perspective.fov = Maths::deg2rad(45.0f);

@@ -2,17 +2,19 @@
 
 #include "vertex.hpp"
 
+#include <glm/glm.hpp>
+
 class Shape
 {
-
 protected:
 	std::vector<Vertex> vertices;
 
 public:
-	const std::vector<Vertex>& get_vertices() { return vertices; }
-
 	Shape() {}
 	~Shape() {}
+
+	const std::vector<Vertex>& get_vertices() const { return vertices; }
+	void transform_vertices(const glm::mat4& transform);
 };
 
 class Plane : public Shape
