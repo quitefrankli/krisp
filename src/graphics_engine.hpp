@@ -32,7 +32,7 @@ struct SwapChainSupportDetails
 // be vary of alignment issues
 struct UniformBufferObject
 {
-	glm::mat4 model;
+	glm::mat4 model{};
 	glm::mat4 view;
 	glm::mat4 proj;
 };
@@ -51,9 +51,9 @@ public:
 
 public: // getters and setters
 	template<class T> 
-	T get_window_width() { return (T)swap_chain_extent.width; }
+	T get_window_width() const { return (T)swap_chain_extent.width; }
 	template<class T>
-	T get_window_height() { return (T)swap_chain_extent.height; }
+	T get_window_height() const { return (T)swap_chain_extent.height; }
 	GLFWwindow* get_window();
 	Camera* get_camera();
 	void set_vertices(std::vector<std::vector<Vertex>>& new_vertices) 

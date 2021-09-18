@@ -4,6 +4,7 @@
 #include "game_engine.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <thread>
 #include <chrono>
 
@@ -293,7 +294,8 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	default_ubo.view = get_camera()->get_view();
 	default_ubo.proj = get_camera()->get_perspective();	
 	default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
-
+	// std::cout << glm::to_string(get_camera()->get_perspective()) << '\n';
+	// std::cout << glm::to_string(default_ubo.view) << '\n';
 	std::vector<UniformBufferObject> ubos(nObjects, default_ubo);
 	for (int i = 0; i < ubos.size(); i++)
 	{

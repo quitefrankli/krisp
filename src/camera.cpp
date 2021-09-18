@@ -29,5 +29,12 @@ void Camera::rotate_by(glm::vec3 axis, float deg)
 {
 	glm::mat4 rotation_matrix = glm::rotate(glm::mat4(1), Maths::deg2rad(deg), axis);
 	position = glm::vec3(rotation_matrix * glm::vec4(position, 1));
-	std::cout << position.y << ' ' << position.z << std::endl;
+	// std::cout << position.y << ' ' << position.z << std::endl;
+}
+
+void Camera::rotate_from_original_position(glm::vec3 axis, float deg)
+{
+	glm::mat4 rotation_matrix = glm::rotate(glm::mat4(1), Maths::deg2rad(deg), axis);
+	position = glm::vec3(rotation_matrix * glm::vec4(original_position, 1));
+	// std::cout << position.y << ' ' << position.z << std::endl;
 }

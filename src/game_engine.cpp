@@ -11,6 +11,7 @@
 
 GameEngine::GameEngine() :
 	window(this),
+	mouse(window),
 	graphics_engine(*this),
 	camera(graphics_engine.get_window_width<float>() / graphics_engine.get_window_width<float>())
 {
@@ -45,6 +46,12 @@ void GameEngine::run()
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		glfwPollEvents();
+		if (mouse.rmb_down) 
+		{
+			mouse.update_pos();
+			float deg = (mouse.click_drag_orig_pos.y - mouse.current_pos.y) * 150;
+			get_camera().rotate_from_original_position(glm::vec3(1, 0, 0), deg);
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 
@@ -122,6 +129,26 @@ void GameEngine::handle_window_resize_callback(GLFWwindow* glfw_window, int widt
 void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
 {
 	graphics_engine.set_frame_buffer_resized();
+}
+
+void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
+{
+	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_mouse_button_callback_impl(glfw_window, button, action, mode);
+}
+
+void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
+{
+	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+	{
+		mouse.rmb_down = true;
+		mouse.update_pos();
+		mouse.click_drag_orig_pos = mouse.current_pos;
+		camera.set_original_position(camera.get_position());
+	} else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+	{
+		mouse.rmb_down = false;
+		get_camera().reset_position();
+	}
 }
 
 void GameEngine::shutdown_impl()

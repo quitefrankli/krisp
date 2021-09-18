@@ -31,6 +31,7 @@ private:
 public: // getters and setters
 	Camera& get_camera() { return camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
+	const GraphicsEngine& get_graphics_engine() const { return graphics_engine; }
 
 public:
 	GameEngine();
@@ -43,10 +44,12 @@ public:
 public: // callbacks
 	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
 	static void handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height);
+	static void handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode);
 
 private: // callbacks
 	void handle_window_callback_impl(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
 	void handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height);
+	void handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode);
 
 	// void pause();
 };

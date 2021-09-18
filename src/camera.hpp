@@ -22,7 +22,8 @@ class Camera
 private:
 	glm::vec3 position = glm::vec3(0.0f, 0.0f, -5.0f);
 	glm::vec3 focus = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 up_vector = glm::vec3(0.0f, 0.0f, 1.0f);
+	glm::vec3 up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 original_position = position; // for temporary shifting
 
 	struct Perspective
 	{
@@ -43,4 +44,10 @@ public:
 	void set_position(glm::vec3 new_position);
 	
 	void rotate_by(glm::vec3 axis, float deg);
+
+	void set_original_position(glm::vec3 pos) { original_position = pos; }
+
+	void rotate_from_original_position(glm::vec3 axis, float deg);
+
+	void reset_position() { position = original_position; }
 };

@@ -5,6 +5,7 @@
 
 App::Window::Window(GameEngine* game_engine)
 {
+	this->game_engine = game_engine;
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -20,6 +21,17 @@ App::Window::Window(GameEngine* game_engine)
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
 
 	glfwSetKeyCallback(get_window(), GameEngine::handle_window_callback);
+	glfwSetMouseButtonCallback(get_window(), GameEngine::handle_mouse_button_callback);
+}
+
+float App::Window::get_width()
+{
+	return game_engine->get_graphics_engine().get_window_width<float>();
+}
+
+float App::Window::get_height()
+{
+	return game_engine->get_graphics_engine().get_window_height<float>();
 }
 
 App::Window::~Window()
