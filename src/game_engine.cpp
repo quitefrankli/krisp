@@ -49,8 +49,10 @@ void GameEngine::run()
 		if (mouse.rmb_down) 
 		{
 			mouse.update_pos();
-			float deg = (mouse.click_drag_orig_pos.y - mouse.current_pos.y) * 150;
-			get_camera().rotate_from_original_position(glm::vec3(1, 0, 0), deg);
+			float deg = (mouse.click_drag_orig_pos.x - mouse.current_pos.x) * 150;
+			// std::cout << deg << '\n';
+			get_camera().rotate_from_original_position(glm::vec3(0, 1, 0), deg);
+			std::cout << get_camera().get_position().y << ' ' << get_camera().get_position().z << '\n';
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
