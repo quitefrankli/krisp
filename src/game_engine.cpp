@@ -20,21 +20,11 @@ GameEngine::GameEngine() :
 
 	shapes.emplace_back(Triangle());
 	shapes.emplace_back(Plane());
-	// shapes.emplace_back(Plane());
 
-	// std::vector<Vertex> all_vertices;
-	// for (auto& shape : shapes)
-	// {	
-	// 	all_vertices.insert(all_vertices.end(), shape.get_vertices().begin(), shape.get_vertices().end());
-	// }
-	// graphics_engine.set_vertices(all_vertices);
-
-	std::vector<std::vector<Vertex>> vertices;
 	for (auto& shape : shapes)
 	{
-		vertices.push_back(shape.get_vertices());
+		graphics_engine.add_vertex_set(shape.get_vertices());
 	}
-	graphics_engine.set_vertices(vertices);
 
 	graphics_engine.setup();
 }

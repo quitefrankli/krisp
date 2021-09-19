@@ -40,12 +40,12 @@ void GraphicsEngine::create_descriptor_pools()
 	// 1x uniform descriptor per descriptor set
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uniform_buffer_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
+	uniform_buffer_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size();
 
 	// 1x texture descriptor per descriptor set
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	combined_image_sampler_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
+	combined_image_sampler_pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size();
 	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
 
 	// allocate a descriptor for every image in the swap chain
@@ -54,7 +54,7 @@ void GraphicsEngine::create_descriptor_pools()
 	poolInfo.poolSizeCount = pool_sizes.size();
 	poolInfo.pPoolSizes = pool_sizes.data();
 	// defines maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
+	poolInfo.maxSets = static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size();
 
 	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
 	{
@@ -64,14 +64,14 @@ void GraphicsEngine::create_descriptor_pools()
 
 void GraphicsEngine::create_descriptor_sets()
 {
-	std::vector<VkDescriptorSetLayout> layouts(static_cast<uint32_t>(swap_chain_images.size()) * nObjects, descriptor_set_layout);
+	std::vector<VkDescriptorSetLayout> layouts(static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size(), descriptor_set_layout);
 	VkDescriptorSetAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	alloc_info.descriptorPool = descriptor_pool;
-	alloc_info.descriptorSetCount = static_cast<uint32_t>(swap_chain_images.size()) * nObjects;
+	alloc_info.descriptorSetCount = static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size();
 	alloc_info.pSetLayouts = layouts.data();
 
-	descriptor_sets.resize(static_cast<uint32_t>(swap_chain_images.size()) * nObjects);
+	descriptor_sets.resize(static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size());
 
 	// allocates all descriptor sets within the descriptor pool
 	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
@@ -83,7 +83,7 @@ void GraphicsEngine::create_descriptor_sets()
 	
 	for (size_t i = 0; i < static_cast<uint32_t>(swap_chain_images.size()); i++)
 	{
-		for (int j = 0; j < nObjects; j++)
+		for (int j = 0; j < get_vertex_sets().size(); j++) // create a descriptor set for every triangle
 		{
 			VkDescriptorBufferInfo buffer_info{};
 			buffer_info.buffer = uniform_buffers[i];
@@ -92,7 +92,7 @@ void GraphicsEngine::create_descriptor_sets()
 
 			VkWriteDescriptorSet uniform_buffer_descriptor_set{};
 			uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			uniform_buffer_descriptor_set.dstSet = descriptor_sets[i * nObjects + j];
+			uniform_buffer_descriptor_set.dstSet = descriptor_sets[i * get_vertex_sets().size() + j];
 			uniform_buffer_descriptor_set.dstBinding = 0; // also set to 0 in the shader
 			uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
 			uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -108,7 +108,7 @@ void GraphicsEngine::create_descriptor_sets()
 
 			VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
 			combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			combined_image_sampler_descriptor_set.dstSet = descriptor_sets[i * nObjects + j];
+			combined_image_sampler_descriptor_set.dstSet = descriptor_sets[i * get_vertex_sets().size() + j];
 			combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
 			combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
 			combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
