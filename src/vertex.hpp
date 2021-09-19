@@ -37,7 +37,7 @@ struct Vertex
 		VkVertexInputAttributeDescription position_attr, color_attr, texCoord_attr;
 		position_attr.binding = 0;
 		position_attr.location = 0; // specify in shader
-		position_attr.format = VK_FORMAT_R32G32_SFLOAT;
+		position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
 		position_attr.offset = offsetof(Vertex, pos);
 
 		color_attr.binding = 0;
