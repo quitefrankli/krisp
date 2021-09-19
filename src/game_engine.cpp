@@ -1,5 +1,6 @@
 #include "game_engine.hpp"
 
+#include "objects.hpp"
 #include "shapes.hpp"
 
 #include <GLFW/glfw3.h>
@@ -18,12 +19,20 @@ GameEngine::GameEngine() :
 	graphics_engine.binding_description = Vertex::get_binding_description();
 	graphics_engine.attribute_descriptions = Vertex::get_attribute_descriptions();
 
-	shapes.emplace_back(Triangle());
-	shapes.emplace_back(Plane());
+	// shapes.emplace_back(Triangle());
+	// shapes.emplace_back(Plane());
 
-	for (auto& shape : shapes)
+	// for (auto& shape : shapes)
+	// {
+	// 	graphics_engine.add_vertex_set(shape.get_vertices());
+	// }
+
+	std::vector<Object> objects;
+	objects.emplace_back(Cube());
+
+	for (auto& object : objects)
 	{
-		graphics_engine.add_vertex_set(shape.get_vertices());
+		graphics_engine.insert_object(&object);
 	}
 
 	graphics_engine.setup();

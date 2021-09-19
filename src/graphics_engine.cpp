@@ -2,6 +2,7 @@
 
 #include "camera.hpp"
 #include "game_engine.hpp"
+#include "objects.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -85,6 +86,14 @@ Camera* GraphicsEngine::get_camera()
 GLFWwindow* GraphicsEngine::get_window()
 {
 	return game_engine.get_window();
+}
+
+void GraphicsEngine::insert_object(Object* object)
+{
+	for (auto& vertex_set : object->get_vertex_sets())
+	{
+		vertex_sets.emplace_back(vertex_set);
+	}
 }
 
 void GraphicsEngine::initVulkan() {
@@ -291,15 +300,16 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
 
 	UniformBufferObject default_ubo{};
+	default_ubo.model = glm::mat4(1);
 	default_ubo.view = get_camera()->get_view(); // we can move this to push constant
 	default_ubo.proj = get_camera()->get_perspective(); // we can move this to push constant
 	default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
 	std::vector<UniformBufferObject> ubos(get_vertex_sets().size(), default_ubo);
-	for (int i = 0; i < ubos.size(); i++)
-	{
-		ubos[i].model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f) * float(i));
-	}
+	// for (int i = 0; i < ubos.size(); i++)
+	// {
+	// 	ubos[i].model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f) * float(i));
+	// }
 
 	void* data;
 	size_t size = ubos.size() * sizeof(ubos[0]);

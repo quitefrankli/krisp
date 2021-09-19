@@ -4,7 +4,7 @@
 #include "input.hpp"
 #include "camera.hpp"
 #include "window.hpp"
-#include "shapes.hpp"
+#include "objects.hpp"
 
 #include <atomic>
 
@@ -22,8 +22,7 @@ private:
 	Camera camera;
 	std::atomic<bool> should_shutdown = false;
 
-	std::vector<Shape> shapes; // we will want to eventually encapsulate this in "objects"
-
+	std::vector<Object> objects;
 private:
 	void create_camera();
 	void shutdown_impl();

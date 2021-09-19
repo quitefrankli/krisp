@@ -24,6 +24,10 @@ public:
 	~Plane() {}
 };
 
+class Square : public Plane
+{
+};
+
 class Triangle : public Shape
 {
 public:

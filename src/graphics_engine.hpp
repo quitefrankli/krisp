@@ -21,6 +21,7 @@
 // forward declares
 class Camera;
 class GameEngine;
+class Object;
 
 struct SwapChainSupportDetails
 {
@@ -58,6 +59,7 @@ public: // getters and setters
 	Camera* get_camera();
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets() { return vertex_sets; }
+	void insert_object(Object* object);
 
 private:
 	// the instance is the connection between application and Vulkan library
