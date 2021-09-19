@@ -40,7 +40,7 @@ void GraphicsEngine::create_vertex_buffer()
 {
 	// this will need to be updated
 	size_t buffer_size = 0;
-	for (auto& vertex_set : vertices)
+	for (auto& vertex_set : get_vertex_sets())
 	{
 		buffer_size += vertex_set.size() * sizeof(vertex_set[0]);
 	}
@@ -70,16 +70,13 @@ void GraphicsEngine::create_vertex_buffer()
 	void* data;
 	// access a region of the specified memory resource
 	vkMapMemory(logical_device, staging_buffer_memory, 0, buffer_size, 0, &data);
-	
-	// super duper inefficient, will need to improve this
-	std::vector<Vertex> copy_of_data;
-	for (auto& vertex_set : vertices)
+	size_t offset = 0;
+	for (auto& vertex_set : get_vertex_sets())
 	{
-		copy_of_data.insert(copy_of_data.end(), vertex_set.begin(), vertex_set.end());
-	}	
-	// super duper inefficient, will need to improve this
-
-	memcpy(data, copy_of_data.data(), static_cast<size_t>(buffer_size));
+		size_t size = vertex_set.size() * sizeof(vertex_set[0]);
+		memcpy((char*)data + offset, vertex_set.data(), size);
+		offset += size;
+	}
 	vkUnmapMemory(logical_device, staging_buffer_memory);
 
 	// issue the command to copy from staging to device

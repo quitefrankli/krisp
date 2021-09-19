@@ -69,7 +69,7 @@ void GraphicsEngine::create_command_buffers()
 		);
 
 		int total_vertex_offset = 0;
-		for (int j = 0; j < vertices.size(); j++)
+		for (int j = 0; j < get_vertex_sets().size(); j++)
 		{
 
 			// descriptor binding, ew need to bind the descriptor set for each swap chain image
@@ -78,19 +78,19 @@ void GraphicsEngine::create_command_buffers()
 									pipeline_layout, 
 									0, // offset
 									1, // number of sets to bind
-									&descriptor_sets[i * nObjects + j],
+									&descriptor_sets[i * get_vertex_sets().size() + j],
 									0,
 									nullptr);
 
 			vkCmdDraw(
 				command_buffers[i], 
-				static_cast<uint32_t>(vertices[j].size()), // vertex count
+				get_vertex_sets()[j].size(), // vertex count
 				1, // instance count (only used for instance rendering)
 				total_vertex_offset, // total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 				0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
 			);
 
-			total_vertex_offset += vertices[j].size();
+			total_vertex_offset += get_vertex_sets()[j].size();
 		}
 
 		vkCmdEndRenderPass(command_buffers[i]);
