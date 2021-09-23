@@ -304,7 +304,7 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	default_ubo.model = glm::mat4(1);
 	default_ubo.view = get_camera()->get_view(); // we can move this to push constant
 	default_ubo.proj = get_camera()->get_perspective(); // we can move this to push constant
-	default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
+	// default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
 	std::vector<UniformBufferObject> ubos(get_objects().size(), default_ubo);
 	for (int i = 0; i < ubos.size(); i++)
@@ -312,6 +312,7 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 		ubos[i].model = objects[i]->get_transformation();
 	}
 
+	// should we keep this data mapped?
 	void* data;
 	size_t size = ubos.size() * sizeof(ubos[0]);
 	vkMapMemory(logical_device, uniform_buffers_memory[image_index], 0, size, 0, &data);

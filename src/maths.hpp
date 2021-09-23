@@ -4,11 +4,11 @@ namespace Maths
 
 	inline float deg2rad(float deg)
 	{
-		return PI * deg / 360.0f;
+		return PI * deg / 180.0f;
 	}
 
 	inline float rad2deg(float rad)
 	{
-		return rad * 360.0f / PI;
+		return rad * 180.0f / PI;
 	}
 };

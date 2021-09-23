@@ -118,7 +118,8 @@ void GraphicsEngine::create_graphics_pipeline() {
 	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
 	rasterizer_create_info.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer_create_info.lineWidth = 1.0f;
-	rasterizer_create_info.cullMode = VK_CULL_MODE_NONE; // VK_CULL_MODE_BACK_BIT; 
+	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
+	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
 	rasterizer_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //VK_FRONT_FACE_CLOCKWISE; // culling is determined by either clockerwise or counter clockwise vertex order
 	// rasterizer can alter depth by adding bias (either constant or sloped), can be useful for shadow mapping
 	rasterizer_create_info.depthBiasEnable = VK_FALSE;
