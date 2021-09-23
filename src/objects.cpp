@@ -6,7 +6,7 @@
 #include <iostream>
 
 
-std::vector<std::vector<Vertex>> Object::get_vertex_sets()
+std::vector<std::vector<Vertex>>& Object::get_vertex_sets()
 {
 	if (!cached_vertex_sets.empty())
 	{

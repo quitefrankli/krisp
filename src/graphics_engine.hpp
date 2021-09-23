@@ -60,6 +60,7 @@ public: // getters and setters
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets() { return vertex_sets; }
 	void insert_object(Object* object);
+	std::vector<Object*>& get_objects() { return objects; }
 
 private:
 	// the instance is the connection between application and Vulkan library
@@ -88,6 +89,7 @@ private:
 	std::vector<VkFence> images_in_flight;
 	VkDebugUtilsMessengerEXT debug_messenger;
 	std::vector<std::vector<Vertex>> vertex_sets;
+	std::vector<Object*> objects;
 	// swap chain
 	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	int current_frame = 0;

@@ -71,8 +71,8 @@ void GraphicsEngine::create_command_buffers()
 		int total_vertex_offset = 0;
 		for (int j = 0; j < get_vertex_sets().size(); j++)
 		{
+			// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
 
-			// descriptor binding, ew need to bind the descriptor set for each swap chain image
 			vkCmdBindDescriptorSets(command_buffers[i], 
 									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
 									pipeline_layout, 
@@ -86,7 +86,7 @@ void GraphicsEngine::create_command_buffers()
 				command_buffers[i], 
 				get_vertex_sets()[j].size(), // vertex count
 				1, // instance count (only used for instance rendering)
-				total_vertex_offset, // total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
+				total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 				0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
 			);
 

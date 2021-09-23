@@ -90,6 +90,7 @@ GLFWwindow* GraphicsEngine::get_window()
 
 void GraphicsEngine::insert_object(Object* object)
 {
+	objects.push_back(object);
 	for (auto& vertex_set : object->get_vertex_sets())
 	{
 		vertex_sets.emplace_back(vertex_set);
@@ -278,9 +279,9 @@ void GraphicsEngine::draw_frame()
 
 void GraphicsEngine::create_uniform_buffers()
 {
-	VkDeviceSize buffer_size = sizeof(UniformBufferObject) * get_vertex_sets().size();
+	const uint32_t buffer_size = sizeof(UniformBufferObject) * get_objects().size();
 
-	uniform_buffers.resize(swap_chain_images.size());
+	uniform_buffers.resize(swap_chain_images.size()); // 1 giant uniform buffer for all the objects
 	uniform_buffers_memory.resize(swap_chain_images.size());
 
 	for (size_t i = 0; i < swap_chain_images.size(); i++)
@@ -305,11 +306,11 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	default_ubo.proj = get_camera()->get_perspective(); // we can move this to push constant
 	default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
-	std::vector<UniformBufferObject> ubos(get_vertex_sets().size(), default_ubo);
-	// for (int i = 0; i < ubos.size(); i++)
-	// {
-	// 	ubos[i].model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f) * float(i));
-	// }
+	std::vector<UniformBufferObject> ubos(get_objects().size(), default_ubo);
+	for (int i = 0; i < ubos.size(); i++)
+	{
+		ubos[i].model = objects[i]->get_transformation();
+	}
 
 	void* data;
 	size_t size = ubos.size() * sizeof(ubos[0]);

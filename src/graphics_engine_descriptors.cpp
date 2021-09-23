@@ -1,5 +1,6 @@
 #include "graphics_engine.hpp"
 
+#include "objects.hpp"
 
 /*
 	a descriptor layout is used to "drag" out descriptor sets from a descriptor pool
@@ -80,50 +81,64 @@ void GraphicsEngine::create_descriptor_sets()
 	}
 
 	// configure the descriptors
-	
-	for (size_t i = 0; i < static_cast<uint32_t>(swap_chain_images.size()); i++)
+	int global_descriptor_sets_offset = 0; // this is really bad TODO: make this better
+	for (int swap_chain_index = 0; swap_chain_index < static_cast<uint32_t>(swap_chain_images.size()); swap_chain_index++)
 	{
-		for (int j = 0; j < get_vertex_sets().size(); j++) // create a descriptor set for every triangle
+		for (int object_index = 0; object_index < get_objects().size(); object_index++)
 		{
-			VkDescriptorBufferInfo buffer_info{};
-			buffer_info.buffer = uniform_buffers[i];
-			buffer_info.offset = sizeof(UniformBufferObject) * j;
-			buffer_info.range = sizeof(UniformBufferObject);
+ 			// create a descriptor set for every vertex set, TODO: this is quite inefficient as a single object contains multiple vertex sets
+			Object* object = get_objects()[object_index];
+			std::vector<std::vector<Vertex>>& cur_vertex_sets = object->get_vertex_sets();
 
-			VkWriteDescriptorSet uniform_buffer_descriptor_set{};
-			uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			uniform_buffer_descriptor_set.dstSet = descriptor_sets[i * get_vertex_sets().size() + j];
-			uniform_buffer_descriptor_set.dstBinding = 0; // also set to 0 in the shader
-			uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
-			uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			uniform_buffer_descriptor_set.descriptorCount = 1;
-			uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
-			uniform_buffer_descriptor_set.pImageInfo = nullptr;
-			uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
+			for (int vertex_set_index = 0; vertex_set_index < cur_vertex_sets.size(); vertex_set_index++)
+			{
+				VkDescriptorBufferInfo buffer_info{};
+				buffer_info.buffer = uniform_buffers[swap_chain_index];
+				buffer_info.offset = sizeof(UniformBufferObject) * object_index;
+				buffer_info.range = sizeof(UniformBufferObject);
 
-			VkDescriptorImageInfo image_info{};
-			image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			image_info.imageView = texture_mgr.get_texture_image();
-			image_info.sampler = texture_mgr.get_texture_sampler();
+				VkWriteDescriptorSet uniform_buffer_descriptor_set{};
+				uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				uniform_buffer_descriptor_set.dstSet = descriptor_sets[global_descriptor_sets_offset];
+				uniform_buffer_descriptor_set.dstBinding = 0; // also set to 0 in the shader
+				uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
+				uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				uniform_buffer_descriptor_set.descriptorCount = 1;
+				uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
+				uniform_buffer_descriptor_set.pImageInfo = nullptr;
+				uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
 
-			VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
-			combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			combined_image_sampler_descriptor_set.dstSet = descriptor_sets[i * get_vertex_sets().size() + j];
-			combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
-			combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-			combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			combined_image_sampler_descriptor_set.descriptorCount = 1;
-			combined_image_sampler_descriptor_set.pBufferInfo = nullptr; 
-			combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-			combined_image_sampler_descriptor_set.pTexelBufferView = nullptr;
+				VkDescriptorImageInfo image_info{};
+				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				// some useful links when we get up to this part
+				// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
+				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
+				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
+				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
+				image_info.imageView = texture_mgr.get_texture_image(); // TODO: move this to object
+				image_info.sampler = texture_mgr.get_texture_sampler(); // TODO: move this to object
 
-			std::vector<VkWriteDescriptorSet> descriptor_writes{ uniform_buffer_descriptor_set, combined_image_sampler_descriptor_set };
+				VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
+				combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+				combined_image_sampler_descriptor_set.dstSet = descriptor_sets[global_descriptor_sets_offset];
+				combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
+				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				combined_image_sampler_descriptor_set.descriptorCount = 1;
+				combined_image_sampler_descriptor_set.pBufferInfo = nullptr; 
+				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+				combined_image_sampler_descriptor_set.pTexelBufferView = nullptr;
 
-			vkUpdateDescriptorSets(get_logical_device(), 
-								static_cast<uint32_t>(descriptor_writes.size()), 
-								descriptor_writes.data(), 
-								0, 
-								nullptr);
+				std::vector<VkWriteDescriptorSet> descriptor_writes{ uniform_buffer_descriptor_set, combined_image_sampler_descriptor_set };
+
+				vkUpdateDescriptorSets(get_logical_device(), 
+									static_cast<uint32_t>(descriptor_writes.size()), 
+									descriptor_writes.data(), 
+									0, 
+									nullptr);
+
+				global_descriptor_sets_offset++;
+			}
 		}
 	}
 }

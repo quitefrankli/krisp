@@ -4,6 +4,8 @@
 #include "shapes.hpp"
 
 #include <GLFW/glfw3.h>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <vector>
 #include <thread>
@@ -27,7 +29,6 @@ GameEngine::GameEngine() :
 	// 	graphics_engine.add_vertex_set(shape.get_vertices());
 	// }
 
-	std::vector<Object> objects;
 	objects.emplace_back(Cube());
 
 	for (auto& object : objects)
@@ -49,9 +50,26 @@ void GameEngine::run()
 		{
 			mouse.update_pos();
 			float deg = (mouse.click_drag_orig_pos.x - mouse.current_pos.x) * 150;
-			// std::cout << deg << '\n';
 			get_camera().rotate_from_original_position(glm::vec3(0, 1, 0), deg);
 			std::cout << get_camera().get_position().y << ' ' << get_camera().get_position().z << '\n';
+		} else if (mouse.lmb_down)
+		{
+			mouse.update_pos();
+			float rot_x_axis = -(mouse.click_drag_orig_pos.y - mouse.current_pos.y);
+			float rot_y_axis = -(mouse.click_drag_orig_pos.x - mouse.current_pos.x);
+			glm::vec3 vec(rot_x_axis, rot_y_axis, 0.0f);
+			float magnitude = glm::length(vec) * 2.0f;
+			vec = glm::normalize(vec);
+
+			glm::mat4 orig = objects[0].get_original_transformation();
+			glm::mat4 curr = objects[0].get_transformation();
+			glm::quat quaternion = glm::angleAxis(magnitude, vec);
+			glm::mat4 transform = glm::mat4_cast(quaternion);
+			glm::mat4 final_transform = transform * orig;
+			// glm::mat4 final_transform = orig * transform; // order matters! 
+			if (magnitude > 0) {
+				objects[0].set_transformation(final_transform);
+			}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
@@ -139,16 +157,31 @@ void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int butto
 
 void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
 {
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
 	{
-		mouse.rmb_down = true;
-		mouse.update_pos();
-		mouse.click_drag_orig_pos = mouse.current_pos;
-		camera.set_original_position(camera.get_position());
-	} else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
+		if (action == GLFW_PRESS)
+		{
+			mouse.rmb_down = true;
+			mouse.update_pos();
+			mouse.click_drag_orig_pos = mouse.current_pos;
+			camera.set_original_position(camera.get_position());
+		} else if (action == GLFW_RELEASE)
+		{
+			mouse.rmb_down = false;
+			get_camera().reset_position();
+		}
+	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
-		mouse.rmb_down = false;
-		get_camera().reset_position();
+		if (action == GLFW_PRESS)
+		{
+			mouse.lmb_down = true;
+			mouse.update_pos();
+			mouse.click_drag_orig_pos = mouse.current_pos;
+		} else if (action == GLFW_RELEASE)
+		{
+			mouse.lmb_down = false;
+			objects[0].set_original_transformation(objects[0].get_transformation());
+		}
 	}
 }
 
