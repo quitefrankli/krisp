@@ -29,7 +29,7 @@ void GraphicsEngine::create_image_views()
 		create_info.subresourceRange.baseArrayLayer = 0;
 		create_info.subresourceRange.layerCount = 1;
 
-		if (vkCreateImageView(logical_device, &create_info, nullptr, &swap_chain_image_views[i]) != VK_SUCCESS)
+		if (vkCreateImageView(get_logical_device(), &create_info, nullptr, &swap_chain_image_views[i]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create image views!");
 		}

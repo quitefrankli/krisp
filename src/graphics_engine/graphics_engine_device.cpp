@@ -1,10 +1,25 @@
 #include "graphics_engine.hpp"
+#include "queues.hpp"
+#include "utility_functions.hpp"
 
 #include <iostream>
 #include <set>
 
 
-void GraphicsEngine::pick_physical_device()
+GraphicsEngineDevice::GraphicsEngineDevice(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
+{
+	pick_physical_device();
+	create_logical_device();
+}
+
+GraphicsEngineDevice::~GraphicsEngineDevice()
+{
+	vkDestroyDevice(get_logical_device(), nullptr);
+	// note that physical device does not need to be destroyed
+}
+
+void GraphicsEngineDevice::pick_physical_device()
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(get_instance(), &deviceCount, nullptr);
@@ -28,12 +43,12 @@ void GraphicsEngine::pick_physical_device()
 			return false;
 		}
 
-		if (!findQueueFamilies(device).isComplete())
+		if (!get_graphics_engine().findQueueFamilies(device).isComplete())
 		{
 			return false;
 		}
 
-		SwapChainSupportDetails swap_chain_support = this->query_swap_chain_support(device);
+		SwapChainSupportDetails swap_chain_support = get_graphics_engine().query_swap_chain_support(device);
 		if (swap_chain_support.formats.empty() || swap_chain_support.presentModes.empty())
 		{
 			return false;
@@ -63,7 +78,7 @@ void GraphicsEngine::pick_physical_device()
 	}
 }
 
-bool GraphicsEngine::check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
+bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
 {
 	uint32_t extensionCount;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -81,9 +96,9 @@ bool GraphicsEngine::check_device_extension_support(VkPhysicalDevice device, std
 	return required_extensions.empty();
 }
 
-void GraphicsEngine::create_logical_device()
+void GraphicsEngineDevice::create_logical_device()
 {
-	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	QueueFamilyIndices indices = get_graphics_engine().findQueueFamilies(physicalDevice);
 
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
 	std::vector<uint32_t> uniqueue_queue_families{
@@ -122,6 +137,6 @@ void GraphicsEngine::create_logical_device()
 	}
 
 	// retrieves the queue handles
-	vkGetDeviceQueue(logical_device, indices.presentFamily.value(), 0, &present_queue);
-	vkGetDeviceQueue(logical_device, indices.graphicsFamily.value(), 0, &graphics_queue);
+	vkGetDeviceQueue(logical_device, indices.presentFamily.value(), 0, &get_graphics_engine().get_present_queue());
+	vkGetDeviceQueue(logical_device, indices.graphicsFamily.value(), 0, &get_graphics_engine().get_graphics_queue());
 }

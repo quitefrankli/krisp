@@ -47,8 +47,8 @@ void GraphicsEngine::create_graphics_pipeline() {
     auto vertShaderCode = readFile("vertex_shader.spv");
     auto fragShaderCode = readFile("fragment_shader.spv");
 
-	VkShaderModule vertex_shader = create_shader_module(vertShaderCode, logical_device);
-	VkShaderModule fragment_shader = create_shader_module(fragShaderCode, logical_device);
+	VkShaderModule vertex_shader = create_shader_module(vertShaderCode, get_logical_device());
+	VkShaderModule fragment_shader = create_shader_module(fragShaderCode, get_logical_device());
 
 	VkPipelineShaderStageCreateInfo vertex_shader_create_info{};
 	vertex_shader_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -72,7 +72,7 @@ void GraphicsEngine::create_graphics_pipeline() {
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 
-	if (vkCreatePipelineLayout(logical_device, &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
 
@@ -179,13 +179,13 @@ void GraphicsEngine::create_graphics_pipeline() {
 	graphics_pipeline_create_info.basePipelineIndex = -1;
 
 	// pipeline cache can be used to significantly speed up pipeline creation
-	if (vkCreateGraphicsPipelines(logical_device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &graphics_engine_pipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(get_logical_device(), VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &graphics_engine_pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
 
-	vkDestroyShaderModule(logical_device, vertex_shader, nullptr);
-	vkDestroyShaderModule(logical_device, fragment_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), vertex_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), fragment_shader, nullptr);
 }
 
 void GraphicsEngine::create_render_pass()
@@ -233,7 +233,7 @@ void GraphicsEngine::create_render_pass()
 	render_pass_create_info.dependencyCount = 1;
 	render_pass_create_info.pDependencies = &dependency;
 
-	if (vkCreateRenderPass(logical_device, &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
+	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create render pass!");
 	}

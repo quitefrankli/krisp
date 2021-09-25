@@ -12,13 +12,13 @@ void GraphicsEngine::create_buffer(size_t size,
 	buffer_create_info.usage = usage_flags;
 	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
 
-	if (vkCreateBuffer(logical_device, &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
+	if (vkCreateBuffer(get_logical_device(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsEngine::create_buffer: failed to create buffer!");
 	}
 
 	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(logical_device, buffer, &memory_requirements);
+	vkGetBufferMemoryRequirements(get_logical_device(), buffer, &memory_requirements);
 	
 	VkMemoryAllocateInfo memory_allocate_info{};
 	memory_allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -27,13 +27,13 @@ void GraphicsEngine::create_buffer(size_t size,
 
 	// allocate memory, note that this is quite inefficient, the correct way of doing this would be to 
 	// allocate 1 giant lump of memory and then use offsets to choose which section to use
-	if (vkAllocateMemory(logical_device, &memory_allocate_info, nullptr, &device_memory) != VK_SUCCESS)
+	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &device_memory) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate device buffer memory!");
 	}
 
 	// bind memory
-	vkBindBufferMemory(logical_device, buffer, device_memory, 0);
+	vkBindBufferMemory(get_logical_device(), buffer, device_memory, 0);
 }
 
 void GraphicsEngine::create_vertex_buffer()
@@ -69,7 +69,7 @@ void GraphicsEngine::create_vertex_buffer()
 	// copy the vertex data to the buffer, this is done by mapping the buffer memory into CPU accessible memory with vkMapMemory
 	void* data;
 	// access a region of the specified memory resource
-	vkMapMemory(logical_device, staging_buffer_memory, 0, buffer_size, 0, &data);
+	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, buffer_size, 0, &data);
 	size_t offset = 0;
 	for (auto& vertex_set : get_vertex_sets())
 	{
@@ -77,13 +77,13 @@ void GraphicsEngine::create_vertex_buffer()
 		memcpy((char*)data + offset, vertex_set.data(), size);
 		offset += size;
 	}
-	vkUnmapMemory(logical_device, staging_buffer_memory);
+	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
 
 	// issue the command to copy from staging to device
 	copy_buffer(staging_buffer, vertex_buffer, buffer_size);
 
-	vkDestroyBuffer(logical_device, staging_buffer, nullptr);
-	vkFreeMemory(logical_device, staging_buffer_memory, nullptr);
+	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
 }
 
 void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
@@ -106,7 +106,7 @@ void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size
 	// alloc_info.commandBufferCount = 1;
 
 	// VkCommandBuffer command_buffer;
-	// vkAllocateCommandBuffers(logical_device, &alloc_info, &command_buffer);
+	// vkAllocateCommandBuffers(get_logical_device(), &alloc_info, &command_buffer);
 
 	// // start recording the command buffer
 	// VkCommandBufferBeginInfo begin_info{};
@@ -134,5 +134,5 @@ void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size
 	// vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
 	// vkQueueWaitIdle(graphics_queue);
 
-	// vkFreeCommandBuffers(logical_device, command_pool, 1, &command_buffer);
+	// vkFreeCommandBuffers(get_logical_device(), command_pool, 1, &command_buffer);
 }

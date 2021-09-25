@@ -20,41 +20,33 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	game_engine(_game_engine),
 	instance(*this),
 	validation_layer(*this),
-	texture_mgr(*this)
+	texture_mgr(*this),
+	device(*this)
 {
-	if (glfwCreateWindowSurface(get_instance(), get_window(), nullptr, &window_surface) != VK_SUCCESS) // create window surface
-	{
-		throw std::runtime_error("failed to create window surface!");
-	}
-
-	pick_physical_device();
-	create_logical_device();
 	create_swap_chain();
 }
 
 GraphicsEngine::~GraphicsEngine() 
 {
 	std::cout<<"cleaning up\n";
-	vkDeviceWaitIdle(logical_device);
+	vkDeviceWaitIdle(get_logical_device());
 
 	clean_up_swap_chain();
 
 	texture_mgr.cleanup();
 
-	vkDestroyDescriptorSetLayout(logical_device, descriptor_set_layout, nullptr);
+	vkDestroyDescriptorSetLayout(get_logical_device(), descriptor_set_layout, nullptr);
 
-	vkDestroyBuffer(logical_device, vertex_buffer, nullptr);
-	vkFreeMemory(logical_device, vertex_buffer_memory, nullptr);
+	vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		vkDestroySemaphore(logical_device, image_available_semaphores[i], nullptr);
-		vkDestroySemaphore(logical_device, render_finished_semaphores[i], nullptr);
-		vkDestroyFence(logical_device, in_flight_fences[i], nullptr);
+		vkDestroySemaphore(get_logical_device(), image_available_semaphores[i], nullptr);
+		vkDestroySemaphore(get_logical_device(), render_finished_semaphores[i], nullptr);
+		vkDestroyFence(get_logical_device(), in_flight_fences[i], nullptr);
 	}
-	vkDestroyCommandPool(logical_device, command_pool, nullptr);
-
-	vkDestroyDevice(logical_device, nullptr);
+	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
 
 	vkDestroySurfaceKHR(get_instance(), window_surface, nullptr);
 }
@@ -91,7 +83,6 @@ std::vector<std::vector<Vertex>>& GraphicsEngine::get_vertex_sets()
 
 	return vertex_sets;
 }
-
 
 void GraphicsEngine::initVulkan() {
 	create_image_views();
@@ -142,11 +133,11 @@ void GraphicsEngine::draw_frame()
 	// 3. return the image to swap chain for presentation
 
 	// CPU-GPU synchronisation for in flight images
-	vkWaitForFences(logical_device, 1, &in_flight_fences[current_frame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(get_logical_device(), 1, &in_flight_fences[current_frame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 	unsigned image_index;
 	// using uint64 max disables timeout
-	VkResult result = vkAcquireNextImageKHR(logical_device, swap_chain, std::numeric_limits<uint64_t>::max(), 
+	VkResult result = vkAcquireNextImageKHR(get_logical_device(), swap_chain, std::numeric_limits<uint64_t>::max(), 
 		image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 		recreate_swap_chain();
@@ -158,7 +149,7 @@ void GraphicsEngine::draw_frame()
 	// check if a previous frame is using this image (i.e. there is it fence to wait on)
 	if (images_in_flight[image_index] != VK_NULL_HANDLE)
 	{
-		vkWaitForFences(logical_device, 1, &images_in_flight[image_index], VK_TRUE, std::numeric_limits<uint64_t>::max());
+		vkWaitForFences(get_logical_device(), 1, &images_in_flight[image_index], VK_TRUE, std::numeric_limits<uint64_t>::max());
 	}
 	// mark the image as now being in use by this frame
 	images_in_flight[image_index] = in_flight_fences[current_frame];		
@@ -188,7 +179,7 @@ void GraphicsEngine::draw_frame()
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signal_semaphores;
 
-	vkResetFences(logical_device, 1, &in_flight_fences[current_frame]);
+	vkResetFences(get_logical_device(), 1, &in_flight_fences[current_frame]);
 	if (vkQueueSubmit(graphics_queue, 1, &submitInfo, in_flight_fences[current_frame]) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
@@ -258,9 +249,9 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 	// should we keep this data mapped?
 	void* data;
 	size_t size = ubos.size() * sizeof(ubos[0]);
-	vkMapMemory(logical_device, uniform_buffers_memory[image_index], 0, size, 0, &data);
+	vkMapMemory(get_logical_device(), uniform_buffers_memory[image_index], 0, size, 0, &data);
 	memcpy(data, ubos.data(), size);
-	vkUnmapMemory(logical_device, uniform_buffers_memory[image_index]);
+	vkUnmapMemory(get_logical_device(), uniform_buffers_memory[image_index]);
 }
 
 void GraphicsEngine::mainLoop() {
@@ -275,7 +266,7 @@ void GraphicsEngine::mainLoop() {
 int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags)
 {
 	VkPhysicalDeviceMemoryProperties memory_properties;
-	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memory_properties);
+	vkGetPhysicalDeviceMemoryProperties(get_physical_device(), &memory_properties);
 
 	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
 	{
@@ -292,7 +283,7 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 {
 	if (!bPhysicalDevicePropertiesCached)
 	{
-		vkGetPhysicalDeviceProperties(physicalDevice, &physical_device_properties);			
+		vkGetPhysicalDeviceProperties(get_physical_device(), &physical_device_properties);			
 		std::cout << "Cached physical device properties\n";
 	}
 

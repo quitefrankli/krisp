@@ -4,15 +4,14 @@
 #include "graphics_engine_validation_layer.hpp"
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
+#include "graphics_engine_device.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
-#include "utility_functions.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
-// #include <cstdlib>
 #include <vector>
 
 
@@ -55,8 +54,7 @@ private:
 	GameEngine& game_engine;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VkDevice logical_device;
+	GraphicsEngineDevice device;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	VkSurfaceKHR window_surface;
@@ -81,7 +79,6 @@ private:
 
 	// swap chain
 	// GraphicsEngineSwapChain swapchain;
-	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	int current_frame = 0;
 	bool frame_buffer_resized = false;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -110,7 +107,6 @@ private:
 
 	void create_logical_device();
 
-	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 	// semaphores and fences, for GPU-GPU and CPU-GPU synchronisation
 	void create_synchronisation_objects();
@@ -171,14 +167,18 @@ private: //uniform buffer
 	void create_uniform_buffers();
 
 public: // getters
-	VkDevice& get_logical_device() { return logical_device; }
-	VkInstance& get_instance() { return instance.get(); }
+	inline VkDevice& get_logical_device() { return device.get_logical_device(); }
+	inline VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
+	inline VkInstance& get_instance() { return instance.get(); }
+	inline VkQueue& get_present_queue() { return present_queue; }
+	inline VkQueue& get_graphics_queue() { return graphics_queue; }
+	inline VkSurfaceKHR& get_window_surface() { return window_surface; }
 
-public: // extensions
-	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);
+public: // other
 	// graphics cards offer different types of memory to allocate from, each type of memory varies
 	// in therms of allowed operations and performance characteristics
 	int find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags);
+	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 public: // main
 	void draw_frame();

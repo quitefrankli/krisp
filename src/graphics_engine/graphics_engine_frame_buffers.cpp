@@ -15,7 +15,7 @@ void GraphicsEngine::create_frame_buffers()
 		frame_buffer_create_info.height = swap_chain_extent.height;
 		frame_buffer_create_info.layers = 1;
 
-		if (vkCreateFramebuffer(logical_device, &frame_buffer_create_info, nullptr, &swap_chain_frame_buffers[i]) != VK_SUCCESS)
+		if (vkCreateFramebuffer(get_logical_device(), &frame_buffer_create_info, nullptr, &swap_chain_frame_buffers[i]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create framebuffer!");
 		}

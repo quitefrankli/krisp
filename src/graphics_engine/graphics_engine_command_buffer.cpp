@@ -5,13 +5,13 @@
 
 void GraphicsEngine::create_command_pool()
 {
-	QueueFamilyIndices queue_family_indices = findQueueFamilies(physicalDevice);
+	QueueFamilyIndices queue_family_indices = findQueueFamilies(get_physical_device());
 	VkCommandPoolCreateInfo command_pool_create_info{};
 	command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	command_pool_create_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();
 	command_pool_create_info.flags = 0;
 
-	if (vkCreateCommandPool(logical_device, &command_pool_create_info, nullptr, &command_pool) != VK_SUCCESS)
+	if (vkCreateCommandPool(get_logical_device(), &command_pool_create_info, nullptr, &command_pool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create command pool!");
 	}
@@ -28,7 +28,7 @@ void GraphicsEngine::create_command_buffers()
 	allocation_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // specifies if allocated command buffers are primary or secondary command buffers, secondary can reuse primary
 	allocation_info.commandBufferCount = (uint32_t)command_buffers.size();
 
-	if (vkAllocateCommandBuffers(logical_device, &allocation_info, command_buffers.data()) != VK_SUCCESS)
+	if (vkAllocateCommandBuffers(get_logical_device(), &allocation_info, command_buffers.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
@@ -113,7 +113,7 @@ VkCommandBuffer GraphicsEngine::begin_single_time_commands()
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(logical_device, &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(get_logical_device(), &allocInfo, &commandBuffer);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -138,5 +138,5 @@ void GraphicsEngine::end_single_time_commands(VkCommandBuffer command_buffer)
     vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphics_queue);
 
-    vkFreeCommandBuffers(logical_device, command_pool, 1, &command_buffer);
+    vkFreeCommandBuffers(get_logical_device(), command_pool, 1, &command_buffer);
 }

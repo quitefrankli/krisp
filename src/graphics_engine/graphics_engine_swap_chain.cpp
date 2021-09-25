@@ -11,7 +11,7 @@
 
 void GraphicsEngine::create_swap_chain()
 {
-	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(physicalDevice);
+	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device());
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
 	VkPresentModeKHR present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	VkExtent2D extent = choose_swap_extent(swap_chain_support.capabilities);
@@ -37,7 +37,7 @@ void GraphicsEngine::create_swap_chain()
 	// color attachment bit refers to rendering directly, if we want post processing we should use something like VK_IMAGE_USAGE_TRANSFER_DST_BIT
 	create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+	QueueFamilyIndices indices = findQueueFamilies(get_physical_device());
 	uint32_t queue_family_indices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
 	if (indices.graphicsFamily != indices.presentFamily) {
 		create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT; // means image is owned by one queue family at a time, ownership must be explicitly transferred
@@ -58,14 +58,14 @@ void GraphicsEngine::create_swap_chain()
 	create_info.clipped = true;  // best performance (ignore pixels that are obscured by another window)
 	create_info.oldSwapchain = VK_NULL_HANDLE; // assume swap chain never gets invalidated (which can happen when we resize the window)
 
-	if (vkCreateSwapchainKHR(logical_device, &create_info, nullptr, &swap_chain) != VK_SUCCESS)
+	if (vkCreateSwapchainKHR(get_logical_device(), &create_info, nullptr, &swap_chain) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create swap chain!");
 	}
 
-	vkGetSwapchainImagesKHR(logical_device, swap_chain, &image_count, nullptr);
+	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, nullptr);
 	swap_chain_images.resize(image_count);
-	vkGetSwapchainImagesKHR(logical_device, swap_chain, &image_count, swap_chain_images.data());
+	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, swap_chain_images.data());
 
 	swap_chain_image_format = surface_format.format;
 	swap_chain_extent = extent;
@@ -157,7 +157,7 @@ void GraphicsEngine::recreate_swap_chain()
         glfwWaitEvents();
     }
 
-	vkDeviceWaitIdle(logical_device); // we want to wait until resource is no longer in use
+	vkDeviceWaitIdle(get_logical_device()); // we want to wait until resource is no longer in use
 
 	clean_up_swap_chain();
 
@@ -176,28 +176,28 @@ void GraphicsEngine::clean_up_swap_chain()
 {
 	for (auto& frame_buffer : swap_chain_frame_buffers)
 	{
-		vkDestroyFramebuffer(logical_device, frame_buffer, nullptr);
+		vkDestroyFramebuffer(get_logical_device(), frame_buffer, nullptr);
 	}
 
-	vkFreeCommandBuffers(logical_device, command_pool, static_cast<uint32_t>(command_buffers.size()), command_buffers.data());
-	vkDestroyPipeline(logical_device, graphics_engine_pipeline, nullptr);
-	vkDestroyPipelineLayout(logical_device, pipeline_layout, nullptr);
-	vkDestroyRenderPass(logical_device, render_pass, nullptr);
+	vkFreeCommandBuffers(get_logical_device(), command_pool, static_cast<uint32_t>(command_buffers.size()), command_buffers.data());
+	vkDestroyPipeline(get_logical_device(), graphics_engine_pipeline, nullptr);
+	vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);
+	vkDestroyRenderPass(get_logical_device(), render_pass, nullptr);
 
 	for (auto& swap_chain_image : swap_chain_image_views)
 	{
-		vkDestroyImageView(logical_device, swap_chain_image, nullptr);
+		vkDestroyImageView(get_logical_device(), swap_chain_image, nullptr);
 	}
 
-	vkDestroySwapchainKHR(logical_device, swap_chain, nullptr);
+	vkDestroySwapchainKHR(get_logical_device(), swap_chain, nullptr);
 
 	for (size_t i = 0; i < swap_chain_images.size(); i++)
 	{
-		vkDestroyBuffer(logical_device, uniform_buffers[i], nullptr);
-		vkFreeMemory(logical_device, uniform_buffers_memory[i], nullptr);
+		vkDestroyBuffer(get_logical_device(), uniform_buffers[i], nullptr);
+		vkFreeMemory(get_logical_device(), uniform_buffers_memory[i], nullptr);
 	}
 
-	vkDestroyDescriptorPool(logical_device, descriptor_pool, nullptr);
+	vkDestroyDescriptorPool(get_logical_device(), descriptor_pool, nullptr);
 }
 
 void GraphicsEngine::create_synchronisation_objects()
@@ -216,9 +216,9 @@ void GraphicsEngine::create_synchronisation_objects()
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		if (vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &image_available_semaphores[i]) != VK_SUCCESS ||
-			vkCreateSemaphore(logical_device, &semaphore_create_info, nullptr, &render_finished_semaphores[i]) != VK_SUCCESS ||
-			vkCreateFence(logical_device, &fence_create_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS)
+		if (vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &image_available_semaphores[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &render_finished_semaphores[i]) != VK_SUCCESS ||
+			vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &in_flight_fences[i]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create semaphores!");
 		}

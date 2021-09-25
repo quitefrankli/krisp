@@ -1,3 +1,4 @@
+#include "graphics_engine.hpp"
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_validation_layer.hpp"
 #include "utility_functions.hpp"
@@ -67,6 +68,11 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 
 	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create instance!");
+	}
+
+	if (glfwCreateWindowSurface(get_instance(), get_graphics_engine().get_window(), nullptr, &get_graphics_engine().get_window_surface()) != VK_SUCCESS) // create window surface
+	{
+		throw std::runtime_error("failed to create window surface!");
 	}
 }
 
