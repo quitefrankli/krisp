@@ -46,7 +46,7 @@ public: // getters and setters
 	GLFWwindow* get_window();
 	Camera* get_camera();
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
-	std::vector<std::vector<Vertex>>& get_vertex_sets() { return vertex_sets; }
+	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
 	std::vector<Object*>& get_objects() { return objects; }
 

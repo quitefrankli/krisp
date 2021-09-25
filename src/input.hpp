@@ -7,21 +7,26 @@ class Keyboard
 
 };
 
-class Mouse
+namespace Input
 {
-public:
 	struct Pos
 	{
 		double x = 0;
 		double y = 0;
 	};
 
-	Pos click_drag_orig_pos;
+	bool operator!=(const Pos& p1, const Pos& p2);
+}
 
+class Mouse
+{
 public:
 	Mouse(App::Window& window);
 
-	Pos current_pos;
+	bool is_different_pos() { return current_pos != previous_pos; }
+
+	Input::Pos click_drag_orig_pos;
+	Input::Pos current_pos;
 	bool rmb_down = false;
 	bool lmb_down = false;
 
@@ -29,9 +34,7 @@ public:
 
 private:
 	App::Window& window;
+	Input::Pos previous_pos;
 };
 
-class Input 
-{
 
-};

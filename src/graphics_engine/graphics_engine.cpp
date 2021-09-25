@@ -97,11 +97,26 @@ GLFWwindow* GraphicsEngine::get_window()
 void GraphicsEngine::insert_object(Object* object)
 {
 	objects.push_back(object);
-	for (auto& vertex_set : object->get_vertex_sets())
-	{
-		vertex_sets.emplace_back(vertex_set);
-	}
 }
+
+std::vector<std::vector<Vertex>>& GraphicsEngine::get_vertex_sets()
+{
+	if (!vertex_sets.empty())
+	{
+		return vertex_sets; 
+	}
+
+	for (auto object : objects)
+	{
+		for (auto& vertex_set : object->get_vertex_sets())
+		{
+			vertex_sets.emplace_back(vertex_set);
+		}
+	}
+
+	return vertex_sets;
+}
+
 
 void GraphicsEngine::initVulkan() {
 	create_image_views();

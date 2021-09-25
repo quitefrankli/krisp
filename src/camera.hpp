@@ -17,14 +17,12 @@
 // 							0.1f, // near plane clipping, closest an object can be to camera
 // 							10.0f); // far plane clipping, furthest away an object can be to camera	
 
-class Camera : public Object
+class Camera : public ObjectAbstract // in future we should we swap this for non-abstract Object
 {
 private:
-	// glm::vec3 position = glm::vec3(0.0f, 0.0f, -5.0f);
-	glm::vec3 position = glm::vec3(0.0f, 0.0f, 5.0f);
 	glm::vec3 focus = glm::vec3(0.0f, 0.0f, 0.0f);
-	glm::vec3 up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 original_position = position; // for temporary shifting
+	glm::vec3 original_up_vector = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 up_vector = original_up_vector;
 
 	struct Perspective
 	{
@@ -41,14 +39,9 @@ public:
 	glm::mat4 get_perspective();
 	glm::mat4 get_view();
 
-	glm::vec3 get_position() { return position; }
-	void set_position(glm::vec3 new_position);
-	
-	void rotate_by(glm::vec3 axis, float deg);
+	void reset_transformation();
 
-	void set_original_position(glm::vec3 pos) { original_position = pos; }
+	void set_transformation(const glm::mat4& transformation) override;
 
-	void rotate_from_original_position(glm::vec3 axis, float deg);
-
-	void reset_position() { position = original_position; }
+	void apply_transformation(const glm::mat4& transformation) override;
 };

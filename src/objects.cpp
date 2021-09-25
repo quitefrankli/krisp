@@ -6,6 +6,12 @@
 #include <iostream>
 
 
+void ObjectAbstract::apply_transformation(const glm::mat4& transformation)
+{
+	this->transformation = transformation * (this->transformation);
+	// this->transformation = (this->transformation) * transformation;
+}
+
 std::vector<std::vector<Vertex>>& Object::get_vertex_sets()
 {
 	if (!cached_vertex_sets.empty())

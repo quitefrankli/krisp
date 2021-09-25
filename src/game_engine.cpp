@@ -8,6 +8,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
 #include <vector>
@@ -50,12 +51,24 @@ void GameEngine::run()
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		glfwPollEvents();
-		if (mouse.rmb_down) 
+		if (mouse.rmb_down)
 		{
 			mouse.update_pos();
-			float deg = (mouse.click_drag_orig_pos.x - mouse.current_pos.x) * 150;
-			get_camera().rotate_from_original_position(glm::vec3(0, 1, 0), deg);
-			std::cout << get_camera().get_position().y << ' ' << get_camera().get_position().z << '\n';
+			float rot_x_axis = -(mouse.click_drag_orig_pos.y - mouse.current_pos.y);
+			float rot_y_axis = -(mouse.click_drag_orig_pos.x - mouse.current_pos.x);
+			glm::vec3 vec(rot_x_axis, rot_y_axis, 0.0f);
+			float magnitude = glm::length(vec) * 2.0f;
+			vec = glm::normalize(vec);
+
+			glm::mat4 orig = camera->get_original_transformation();
+			glm::mat4 curr = camera->get_transformation();
+			glm::quat quaternion = glm::angleAxis(magnitude, vec);
+			glm::mat4 transform = glm::mat4_cast(quaternion);
+			glm::mat4 final_transform = transform * orig;
+			// glm::mat4 final_transform = orig * transform; // order matters! 
+			if (magnitude > 0) {
+				camera->set_transformation(final_transform);
+			}
 		} else if (mouse.lmb_down)
 		{
 			mouse.update_pos();
@@ -133,11 +146,9 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			break;		
 
 		case GLFW_KEY_LEFT:
-			get_camera().rotate_by(glm::vec3(1.0f, 0.0f, 0.0f), 5.0f);
 			break;
 
 		case GLFW_KEY_RIGHT:
-			get_camera().rotate_by(glm::vec3(0.0f, 0.0f, 1.0f), -30.0f);
 			break;
 
 		default:
@@ -168,11 +179,12 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			mouse.rmb_down = true;
 			mouse.update_pos();
 			mouse.click_drag_orig_pos = mouse.current_pos;
-			get_camera().set_original_position(get_camera().get_position());
+			get_camera().set_original_transformation(get_camera().get_transformation());
+			// get_camera().set_original_position(get_camera().get_position());
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.rmb_down = false;
-			get_camera().reset_position();
+			// get_camera().reset_position();
 		}
 	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
