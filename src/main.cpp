@@ -1,5 +1,6 @@
 #include "game_engine.hpp"
 
+#include <iostream>
 #include <thread>
 
 int main() {

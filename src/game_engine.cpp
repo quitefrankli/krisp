@@ -1,12 +1,15 @@
 #include "game_engine.hpp"
 
+#include "camera.hpp"
 #include "objects.hpp"
 #include "shapes.hpp"
+#include "graphics_engine/graphics_engine.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
 
+#include <iostream>
 #include <vector>
 #include <thread>
 #include <chrono>
@@ -14,34 +17,35 @@
 
 GameEngine::GameEngine() :
 	window(this),
-	mouse(window),
-	graphics_engine(*this),
-	camera(graphics_engine.get_window_width<float>() / graphics_engine.get_window_width<float>())
+	mouse(window)
 {
-	graphics_engine.binding_description = Vertex::get_binding_description();
-	graphics_engine.attribute_descriptions = Vertex::get_attribute_descriptions();
+	graphics_engine = std::make_unique<GraphicsEngine>(*this);
+	graphics_engine->binding_description = Vertex::get_binding_description();
+	graphics_engine->attribute_descriptions = Vertex::get_attribute_descriptions();
+
+	camera = std::make_unique<Camera>(graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
 	// shapes.emplace_back(Triangle());
 	// shapes.emplace_back(Plane());
 
 	// for (auto& shape : shapes)
 	// {
-	// 	graphics_engine.add_vertex_set(shape.get_vertices());
+	// 	graphics_engine->add_vertex_set(shape.get_vertices());
 	// }
 
 	objects.emplace_back(Cube());
 
 	for (auto& object : objects)
 	{
-		graphics_engine.insert_object(&object);
+		graphics_engine->insert_object(&object);
 	}
 
-	graphics_engine.setup();
+	graphics_engine->setup();
 }
 
 void GameEngine::run()
 {
-	std::thread graphics_engine_thread(&GraphicsEngine::run, &graphics_engine);
+	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
@@ -147,7 +151,7 @@ void GameEngine::handle_window_resize_callback(GLFWwindow* glfw_window, int widt
 
 void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
 {
-	graphics_engine.set_frame_buffer_resized();
+	graphics_engine->set_frame_buffer_resized();
 }
 
 void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
@@ -164,7 +168,7 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			mouse.rmb_down = true;
 			mouse.update_pos();
 			mouse.click_drag_orig_pos = mouse.current_pos;
-			camera.set_original_position(camera.get_position());
+			get_camera().set_original_position(get_camera().get_position());
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.rmb_down = false;
@@ -193,12 +197,14 @@ void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double xoffset,
 void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset)
 {
 	float sensitivity = -0.2f;
-	glm::vec3 new_pos = camera.get_position() + glm::vec3(0.0f, 0.0f, yoffset) * sensitivity;
-	camera.set_position(new_pos);
+	glm::vec3 new_pos = get_camera().get_position() + glm::vec3(0.0f, 0.0f, yoffset) * sensitivity;
+	get_camera().set_position(new_pos);
 }
 
 void GameEngine::shutdown_impl()
 {
 	should_shutdown = true;
-	graphics_engine.shutdown();
+	graphics_engine->shutdown();
 }
+
+GameEngine::~GameEngine() = default;

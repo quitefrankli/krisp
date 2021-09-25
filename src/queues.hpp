@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <optional>
+
+
 struct QueueFamilyIndices {
 	std::optional<uint32_t> graphicsFamily;
 	std::optional<uint32_t> presentFamily; // as in present image to the window surface

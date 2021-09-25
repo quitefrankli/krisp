@@ -1,25 +1,24 @@
 #pragma once
 
-#include "graphics_engine.hpp"
 #include "input.hpp"
-#include "camera.hpp"
 #include "window.hpp"
 #include "objects.hpp"
-
 #include <atomic>
 
 
 class GLFWWindow;
 class Shape;
+class GraphicsEngine;
+class Camera;
 
 class GameEngine
 {
 private:
 	App::Window window;
-    GraphicsEngine graphics_engine;
+    std::unique_ptr<GraphicsEngine> graphics_engine;
+	std::unique_ptr<Camera> camera;
 	Keyboard keyboard;
 	Mouse mouse;
-	Camera camera;
 	std::atomic<bool> should_shutdown = false;
 
 	std::vector<Object> objects;
@@ -28,13 +27,13 @@ private:
 	void shutdown_impl();
 	
 public: // getters and setters
-	Camera& get_camera() { return camera; }
+	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
-	const GraphicsEngine& get_graphics_engine() const { return graphics_engine; }
+	const GraphicsEngine& get_graphics_engine() const { return *graphics_engine; }
 
 public:
 	GameEngine();
-	~GameEngine() {}
+	~GameEngine();
 
 	void run();
 	void shutdown() { shutdown_impl(); }

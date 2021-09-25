@@ -1,5 +1,6 @@
 #include "graphics_engine.hpp"
 
+#include "uniform_buffer_object.hpp"
 #include "objects.hpp"
 
 /*

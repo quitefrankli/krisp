@@ -1,5 +1,8 @@
 #include "graphics_engine.hpp"
 
+#include <iostream>
+
+
 void GraphicsEngine::create_command_pool()
 {
 	QueueFamilyIndices queue_family_indices = findQueueFamilies(physicalDevice);

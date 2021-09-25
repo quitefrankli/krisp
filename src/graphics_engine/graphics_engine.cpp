@@ -3,11 +3,17 @@
 #include "camera.hpp"
 #include "game_engine.hpp"
 #include "objects.hpp"
+#include "uniform_buffer_object.hpp"
 
+#include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
+
+#include <stdexcept>
 #include <thread>
 #include <chrono>
+#include <vector>
+#include <iostream>
 
 //
 // static functions
@@ -344,3 +350,14 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 
 	throw std::runtime_error("failed to find suitable memory type!");
 };
+
+const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties()
+{
+	if (!bPhysicalDevicePropertiesCached)
+	{
+		vkGetPhysicalDeviceProperties(physicalDevice, &physical_device_properties);			
+		std::cout << "Cached physical device properties\n";
+	}
+
+	return physical_device_properties;
+}

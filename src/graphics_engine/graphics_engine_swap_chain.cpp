@@ -3,9 +3,11 @@
 
 #pragma once
 
-#include <algorithm>
-
 #include "graphics_engine.hpp"
+
+#include <algorithm>
+#include <iostream>
+
 
 void GraphicsEngine::create_swap_chain()
 {

@@ -18,7 +18,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAkE_CXX_STANDARD_REQUIRED True)
 # set(CMAKE_CXX_FLAGS_DEBUG  "-g")
 
-file(GLOB SOURCES "src/*.cpp" "src/*.hpp")
+file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.hpp")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ PROPERTY VS_STARTUP_PROJECT Vulkan)
@@ -26,4 +26,5 @@ set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ PROPERTY VS_STARTUP_PROJECT 
 message(${CMAKE_CURRENT_SOURCE_DIR})
 add_executable(Vulkan ${SOURCES})
 
+target_include_directories(Vulkan PRIVATE "src/")
 target_link_libraries(Vulkan ${CONAN_LIBS})

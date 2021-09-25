@@ -4,6 +4,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+#include <iostream>
+
+
 const std::string TEXTURE_PATH = "../resources/textures/";
 
 GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngine& engine) :

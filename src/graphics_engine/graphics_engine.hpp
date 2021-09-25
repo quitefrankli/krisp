@@ -1,21 +1,17 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-
-#include <iostream>
-#include <stdexcept>
-#include <cstdlib>
-#include <vector>
-#include <optional>
-#include <set>
-
 #include "vertex.hpp"
 #include "graphics_engine_validation_layer.hpp"
 #include "queues.hpp"
 #include "utility_functions.hpp"
 #include "graphics_engine_texture.hpp"
+
+#include <vulkan/vulkan.hpp>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+
+#include <cstdlib>
+#include <vector>
 
 
 // forward declares
@@ -28,14 +24,6 @@ struct SwapChainSupportDetails
 	VkSurfaceCapabilitiesKHR capabilities;
 	std::vector<VkSurfaceFormatKHR> formats;
 	std::vector<VkPresentModeKHR> presentModes;
-};
-
-// be vary of alignment issues
-struct UniformBufferObject
-{
-	glm::mat4 model{};
-	glm::mat4 view;
-	glm::mat4 proj;
 };
 
 class GraphicsEngine {
@@ -175,17 +163,7 @@ public: // vertex buffer
 
 	bool bPhysicalDevicePropertiesCached = false;
 	VkPhysicalDeviceProperties physical_device_properties;
-	const VkPhysicalDeviceProperties& get_physical_device_properties()
-	{
-		// may want to add an assert here to make sure physical device is initialised
-		if (!bPhysicalDevicePropertiesCached)
-		{
-			vkGetPhysicalDeviceProperties(physicalDevice, &physical_device_properties);			
-			std::cout << "Cached physical device properties\n";
-		}
-
-		return physical_device_properties;
-	}
+	const VkPhysicalDeviceProperties& get_physical_device_properties();
 
 private: //uniform buffer
 	void create_descriptor_set_layout();

@@ -1,10 +1,9 @@
 #pragma once
 
-#include "graphics_engine.hpp"
-
 #include "objects.hpp"
 
-#include <glm/glm.hpp>
+#include <glm/mat4x4.hpp>
+#include <glm/vec3.hpp>
 
 //
 // for reference
