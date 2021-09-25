@@ -6,7 +6,7 @@
 
 Camera::Camera(float aspect_ratio)
 {
-	original_transformation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 5.0f));
+	original_transformation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.0f));
 	transformation = original_transformation;
 
 	perspective.fov = Maths::deg2rad(45.0f);

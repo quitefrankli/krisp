@@ -5,16 +5,38 @@
 
 #pragma once
 
+#include "graphics_engine_base_module.hpp"
+
+#include <vulkan/vulkan.hpp>
+
 #include <vector>
+#include <string>
 
-#ifdef NDEBUG
-    const bool enableValidationLayers = false;
-#else
-    const bool enableValidationLayers = true;
-#endif
 
-const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
+class GraphicsEngine;
+
+class GraphicsEngineValidationLayer : public GraphicsEngineBaseModule
+{
+private:
+	const static std::vector<const char*> REQUIRED_VALIDATION_LAYERS;
+
+public:
+	GraphicsEngineValidationLayer(GraphicsEngine& engine);
+	~GraphicsEngineValidationLayer();
+
+	static bool is_enabled()
+	{
+		return
+			#ifdef NDEBUG
+				false;
+			#else
+				true;
+			#endif
+	}
+	static bool check_validation_layer_support();
+	static std::vector<const char*> get_layers();
+	static VkDebugUtilsMessengerCreateInfoEXT get_messenger_create_info();
+
+private:
+	VkDebugUtilsMessengerEXT debug_messenger;
 };
-
-bool checkValidationLayerSupport();

@@ -14,7 +14,12 @@ VkDevice& GraphicsEngineBaseModule::get_logical_device()
 	return graphics_engine.get_logical_device();
 }
 
-uint32_t GraphicsEngineBaseModule::get_num_swap_chains()
+uint32_t GraphicsEngineBaseModule::get_num_swap_chains() const
 {
 	return graphics_engine.get_swap_chain().size();
+}
+
+VkInstance& GraphicsEngineBaseModule::get_instance()
+{
+	return graphics_engine.get_instance();
 }

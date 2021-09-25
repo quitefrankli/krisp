@@ -13,7 +13,8 @@ private:
 public:
 	GraphicsEngine& get_graphics_engine() { return graphics_engine; }
 	VkDevice& get_logical_device();
-	unsigned get_num_swap_chains();
+	unsigned get_num_swap_chains() const;
+	VkInstance& get_instance();
 
 public:
 	GraphicsEngineBaseModule() = delete;

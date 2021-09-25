@@ -1,14 +1,62 @@
 #include "graphics_engine_validation_layer.hpp"
 
-#include "graphics_engine.hpp"
-
 #include <vulkan/vulkan.hpp>
 
 #include <vector>
 #include <iostream>
 #include <unordered_set>
 
-bool checkValidationLayerSupport() {
+
+const std::vector<const char*> GraphicsEngineValidationLayer::REQUIRED_VALIDATION_LAYERS = {
+	"VK_LAYER_KHRONOS_validation"
+};
+
+GraphicsEngineValidationLayer::GraphicsEngineValidationLayer(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
+{
+	if (!is_enabled())
+	{
+		return;
+	}
+
+	VkDebugUtilsMessengerCreateInfoEXT createInfo = get_messenger_create_info();
+
+	// loads up function from dynamic library
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(get_instance(), "vkCreateDebugUtilsMessengerEXT");
+	if (!func || func(get_instance(), &createInfo, nullptr, &debug_messenger) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to set up debug messenger!");
+	}
+}
+
+GraphicsEngineValidationLayer::~GraphicsEngineValidationLayer()
+{
+	// loads up function from dynamic library
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(get_instance(), "vkDestroyDebugUtilsMessengerEXT");
+	if (!func)
+	{
+		throw std::runtime_error("failed to destroy debug messenger!");
+	}
+
+	func(get_instance(), debug_messenger, nullptr);
+}
+
+std::vector<const char*> GraphicsEngineValidationLayer::get_layers()
+{
+	if (!is_enabled())
+	{
+		return std::vector<const char*>{};
+	}
+
+	if (!check_validation_layer_support()) {
+		throw std::runtime_error("validation layers requested, but not available!");
+	}
+
+	return REQUIRED_VALIDATION_LAYERS;
+}
+
+bool GraphicsEngineValidationLayer::check_validation_layer_support()
+{
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -25,7 +73,7 @@ bool checkValidationLayerSupport() {
 		});
 
 	std::cout << "Required Valiation Layers:\n";
-	for (const char* layer : validationLayers)
+	for (const char* layer : REQUIRED_VALIDATION_LAYERS)
 	{
 		printf("\t%s\n", layer);
 		if (available_layers_set.find(std::string(layer)) == available_layers_set.end())
@@ -53,46 +101,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	return VK_FALSE;
 }
 
-void GraphicsEngine::populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+VkDebugUtilsMessengerCreateInfoEXT GraphicsEngineValidationLayer::get_messenger_create_info()
 {
+	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	createInfo.pfnUserCallback = debug_callback;
-}
 
-void GraphicsEngine::setupDebugMessenger() {
-	if (!enableValidationLayers)
-	{
-		return;
-	}
-
-	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-	populateDebugMessengerCreateInfo(createInfo);
-
-	if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debug_messenger) != VK_SUCCESS) {
-		throw std::runtime_error("failed to set up debug messenger!");
-	}
-}
-
-VkResult GraphicsEngine::CreateDebugUtilsMessengerEXT(
-	VkInstance instance, 
-	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
-	const VkAllocationCallbacks* pAllocator, 
-	VkDebugUtilsMessengerEXT* pDebugMessenger) 
-{
-	// loads up function from dynamic library
-	auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-	if (func != nullptr) {
-		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-	} else {
-		return VK_ERROR_EXTENSION_NOT_PRESENT;
-	}
-}
-
-void GraphicsEngine::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-	if (func != nullptr) {
-		func(instance, debugMessenger, pAllocator);
-	}
+	return createInfo;
 }

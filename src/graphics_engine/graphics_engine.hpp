@@ -1,20 +1,21 @@
 #pragma once
 
-#include "vertex.hpp"
+#include "graphics_engine_texture.hpp"
 #include "graphics_engine_validation_layer.hpp"
+#include "graphics_engine_swap_chain.hpp"
+#include "graphics_engine_instance.hpp"
+
+#include "vertex.hpp"
 #include "queues.hpp"
 #include "utility_functions.hpp"
-#include "graphics_engine_texture.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 
-#include <cstdlib>
+// #include <cstdlib>
 #include <vector>
 
 
-// forward declares
 class Camera;
 class GameEngine;
 class Object;
@@ -51,9 +52,9 @@ public: // getters and setters
 	std::vector<Object*>& get_objects() { return objects; }
 
 private:
-	// the instance is the connection between application and Vulkan library
-	// its creation involves specifying some details about your application to the driver
-	VkInstance instance; 
+	GameEngine& game_engine;
+	GraphicsEngineInstance instance;
+	GraphicsEngineValidationLayer validation_layer;
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 	VkDevice logical_device;
 	VkQueue graphics_queue;
@@ -75,17 +76,17 @@ private:
 	std::vector<VkSemaphore> render_finished_semaphores;
 	std::vector<VkFence> in_flight_fences;
 	std::vector<VkFence> images_in_flight;
-	VkDebugUtilsMessengerEXT debug_messenger;
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::vector<Object*> objects;
+
 	// swap chain
+	// GraphicsEngineSwapChain swapchain;
 	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 	int current_frame = 0;
 	bool frame_buffer_resized = false;
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	bool should_shutdown = false;
 	bool is_initialised = false;
-	GameEngine& game_engine;
 
 public: // vertix buffers
 	VkVertexInputBindingDescription binding_description;
@@ -169,18 +170,9 @@ private: //uniform buffer
 	void create_descriptor_set_layout();
 	void create_uniform_buffers();
 
-public: // validation layer
-	void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
-	void setupDebugMessenger();
-	VkResult CreateDebugUtilsMessengerEXT(
-		VkInstance instance, 
-		const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, 
-		const VkAllocationCallbacks* pAllocator, 
-		VkDebugUtilsMessengerEXT* pDebugMessenger);
-	void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator);
-
 public: // getters
 	VkDevice& get_logical_device() { return logical_device; }
+	VkInstance& get_instance() { return instance.get(); }
 
 public: // extensions
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);

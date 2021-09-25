@@ -15,39 +15,18 @@
 #include <vector>
 #include <iostream>
 
-//
-// static functions
-//
-
-static std::vector<std::string> get_required_extensions()
-{
-	uint32_t glfwExtensionCount;
-	const char** glfwExtensions;
-	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	auto required_extensions = char_ptr_arr_to_str_vec(glfwExtensions, glfwExtensionCount);
-	if (enableValidationLayers)
-	{
-		required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
-	return required_extensions;
-}
-
-//
-// static functions
-//
 
 GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) : 
 	game_engine(_game_engine),
+	instance(*this),
+	validation_layer(*this),
 	texture_mgr(*this)
 {
-	createInstance();
-	if (glfwCreateWindowSurface(instance, get_window(), nullptr, &window_surface) != VK_SUCCESS) // create window surface
+	if (glfwCreateWindowSurface(get_instance(), get_window(), nullptr, &window_surface) != VK_SUCCESS) // create window surface
 	{
 		throw std::runtime_error("failed to create window surface!");
 	}
 
-	setupDebugMessenger();
 	pick_physical_device();
 	create_logical_device();
 	create_swap_chain();
@@ -76,12 +55,8 @@ GraphicsEngine::~GraphicsEngine()
 	vkDestroyCommandPool(logical_device, command_pool, nullptr);
 
 	vkDestroyDevice(logical_device, nullptr);
-	if (enableValidationLayers)
-	{
-		DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
-	}
-	vkDestroySurfaceKHR(instance, window_surface, nullptr);
-	vkDestroyInstance(instance, nullptr);
+
+	vkDestroySurfaceKHR(get_instance(), window_surface, nullptr);
 }
 
 Camera* GraphicsEngine::get_camera()
@@ -133,59 +108,6 @@ void GraphicsEngine::initVulkan() {
 	create_command_buffers();
 	create_synchronisation_objects();
 	is_initialised = true;
-}
-
-void GraphicsEngine::createInstance() 
-{
-	VkApplicationInfo app_info{};
-	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	app_info.pApplicationName = "PNG VIEWER";
-	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	app_info.pEngineName = "No Engine";
-	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	app_info.apiVersion = VK_API_VERSION_1_0;
-
-	VkInstanceCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	create_info.pApplicationInfo = &app_info;
-	if (enableValidationLayers) { // see validation_layer.hpp
-		if (!checkValidationLayerSupport()) {
-			throw std::runtime_error("validation layers requested, but not available!");
-		}
-		create_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-		create_info.ppEnabledLayerNames = validationLayers.data();
-	} else {
-		create_info.enabledLayerCount = 0;
-	}
-
-	// validation layer stuff
-	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-	populateDebugMessengerCreateInfo(debugCreateInfo);
-	create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-	std::vector<VkExtensionProperties> extensions(extensionCount);
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-	std::cout << "Available extensions:\n";
-	for (const auto& extension : extensions) {
-		std::cout << '\t' << extension.extensionName << '\n';
-	}
-
-	// vulkan is platform agnostic and therefore an extension is necessary 
-	std::vector<std::string> required_extensions = get_required_extensions();
-	std::cout << "Required extensions:\n";
-	for (auto& required_extension : required_extensions)
-	{
-		std::cout << '\t' << required_extension << '\n';
-	}
-	auto required_extensions_old = c_style_str_array(required_extensions);
-	create_info.enabledExtensionCount = required_extensions_old.size();
-	create_info.ppEnabledExtensionNames = required_extensions_old.data();
-
-	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create instance!");
-	}
 }
 
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {

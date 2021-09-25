@@ -7,12 +7,12 @@
 void GraphicsEngine::pick_physical_device()
 {
 	uint32_t deviceCount = 0;
-	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+	vkEnumeratePhysicalDevices(get_instance(), &deviceCount, nullptr);
 	if (deviceCount == 0) {
 		throw std::runtime_error("failed to find GPUs with Vulkan support!");
 	}
 	std::vector<VkPhysicalDevice> devices(deviceCount);
-	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+	vkEnumeratePhysicalDevices(get_instance(), &deviceCount, devices.data());
 
 	auto isDeviceSuitable = [this](VkPhysicalDevice device)
 	{
@@ -112,13 +112,9 @@ void GraphicsEngine::create_logical_device()
 	create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
 	c_style_str_array c_style_device_extensions(device_extensions);
 	create_info.ppEnabledExtensionNames = c_style_device_extensions.data();
-	if (enableValidationLayers)
-	{
-		create_info.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-		create_info.ppEnabledLayerNames = validationLayers.data();
-	} else {
-		create_info.enabledLayerCount = 0;
-	}
+	auto validation_layers = GraphicsEngineValidationLayer::get_layers();
+	create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
+	create_info.ppEnabledLayerNames = validation_layers.data();
 
 	if (vkCreateDevice(physicalDevice, &create_info, nullptr, &logical_device) != VK_SUCCESS)
 	{
