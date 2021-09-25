@@ -117,6 +117,7 @@ void GraphicsEngine::create_graphics_pipeline() {
 	rasterizer_create_info.depthClampEnable = VK_FALSE; // true = fragments beyond near and far planes are clamped, false = discarded
 	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
 	rasterizer_create_info.polygonMode = VK_POLYGON_MODE_FILL;
+	// rasterizer_create_info.polygonMode = VK_POLYGON_MODE_LINE; // this could be useful for drawing grid lines
 	rasterizer_create_info.lineWidth = 1.0f;
 	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
 	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 

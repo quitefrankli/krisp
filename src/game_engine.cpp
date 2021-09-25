@@ -185,6 +185,18 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 	}
 }
 
+void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double xoffset, double yoffset)
+{
+	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_scroll_callback_impl(glfw_window, xoffset, yoffset);
+}
+
+void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset)
+{
+	float sensitivity = -0.2f;
+	glm::vec3 new_pos = camera.get_position() + glm::vec3(0.0f, 0.0f, yoffset) * sensitivity;
+	camera.set_position(new_pos);
+}
+
 void GameEngine::shutdown_impl()
 {
 	should_shutdown = true;

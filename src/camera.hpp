@@ -2,6 +2,8 @@
 
 #include "graphics_engine.hpp"
 
+#include "objects.hpp"
+
 #include <glm/glm.hpp>
 
 //
@@ -16,7 +18,7 @@
 // 							0.1f, // near plane clipping, closest an object can be to camera
 // 							10.0f); // far plane clipping, furthest away an object can be to camera	
 
-class Camera
+class Camera : public Object
 {
 private:
 	// glm::vec3 position = glm::vec3(0.0f, 0.0f, -5.0f);

@@ -44,11 +44,13 @@ public: // callbacks
 	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
 	static void handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height);
 	static void handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode);
+	static void handle_scroll_callback(GLFWwindow* glfw_window, double xoffset, double yoffset);
 
 private: // callbacks
 	void handle_window_callback_impl(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
 	void handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height);
 	void handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode);
+	void handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset);
 
 	// void pause();
 };

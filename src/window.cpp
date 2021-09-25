@@ -19,6 +19,7 @@ App::Window::Window(GameEngine* game_engine)
 	glfwSetFramebufferSizeCallback(window.get(), GameEngine::handle_window_resize_callback);
 
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
+	glfwSetScrollCallback(get_window(), GameEngine::handle_scroll_callback);
 
 	glfwSetKeyCallback(get_window(), GameEngine::handle_window_callback);
 	glfwSetMouseButtonCallback(get_window(), GameEngine::handle_mouse_button_callback);
