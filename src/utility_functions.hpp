@@ -53,21 +53,17 @@ public:
 	int size() { return static_cast<int>(num_strs); }
 };
 
-//using c_style_str_smart_ptr = std::unique_ptr<c_style_str, std::function<void(c_style_str*)>>;
-//std::pair<c_style_str_smart_ptr, int> str_vec_to_char_ptr_arr(const std::vector<std::string>& str_vec)
-//{
-//	using c_str = char*;
-//	c_style_str_smart_ptr char_ptr_arr(
-//		new c_str[str_vec.size()]
-//	);
-//	for (int i = 0; i < str_vec.size(); i++)
-//	{
-//		char_ptr_arr.get()[i] = new char[str_vec[i].size()];
-//		strcpy(char_ptr_arr.get()[i], str_vec[i].data());
-//	}
-//
-//	return std::pair<c_style_str_smart_ptr, int>{ 
-//		std::move(char_ptr_arr),
-//		static_cast<int>(str_vec.size()) 
-//	};
-//}
+class TimerImpl;
+
+class Timer
+{
+public:
+	Timer(const std::string& name = "A");
+	~Timer();
+
+	void print_time(const std::string& identifier = "");
+
+private:
+	TimerImpl* impl;
+	const std::string name_;
+};

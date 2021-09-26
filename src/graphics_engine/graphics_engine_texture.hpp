@@ -26,7 +26,7 @@ private:
 	VkImageView texture_image_view;
 	VkDeviceMemory texture_image_memory;
 
-	void create_texture_image();
+	void create_texture_image(const std::string& filename = "texture.jpg");
 
 	// handle layout transition so that image is in right layout
 	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
@@ -37,11 +37,6 @@ private:
 
 	void create_texture_sampler();
 
-public:
-	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
-
-	void init();
-
 	void create_image(uint32_t width, 
 					  uint32_t height, 
 					  VkFormat format, 
@@ -50,9 +45,15 @@ public:
 					  VkMemoryPropertyFlags properties,
 					  VkImage& image,
 					  VkDeviceMemory& image_memory);
+public:
+	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
+
+	void init();
 
 	VkImageView& get_texture_image() { return texture_image_view; }
 	VkSampler& get_texture_sampler() { return texture_sampler; }
 
 	void cleanup();
+
+	void change_texture(const std::string& filename);
 };

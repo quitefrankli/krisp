@@ -81,6 +81,11 @@ void GraphicsEngine::create_descriptor_sets()
 		throw std::runtime_error("GraphicsEngine::create_descriptor_sets: failed to allocate descriptor sets!");
 	}
 
+	update_descriptor_sets();
+}
+
+void GraphicsEngine::update_descriptor_sets()
+{
 	// configure the descriptors
 	int global_descriptor_sets_offset = 0; // this is really bad TODO: make this better
 	for (int swap_chain_index = 0; swap_chain_index < static_cast<uint32_t>(swap_chain_images.size()); swap_chain_index++)

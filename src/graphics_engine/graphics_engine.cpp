@@ -4,6 +4,7 @@
 #include "game_engine.hpp"
 #include "objects.hpp"
 #include "uniform_buffer_object.hpp"
+#include "utility_functions.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -257,6 +258,13 @@ void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
 void GraphicsEngine::mainLoop() {
 	while (!should_shutdown)
 	{
+		std::lock_guard<std::mutex> lock(ge_cmd_q_mutex);
+		if (!ge_cmd_q.empty())
+		{
+			ge_cmd_q.front()->process(this);
+			ge_cmd_q.pop();
+		}
+
 		draw_frame();
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -288,4 +296,25 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 	}
 
 	return physical_device_properties;
+}
+
+void GraphicsEngine::enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
+{
+	std::lock_guard<std::mutex> lock(ge_cmd_q_mutex);
+	ge_cmd_q.push(std::move(cmd));
+}
+
+void GraphicsEngine::change_texture(const std::string& str)
+{
+	// wait until vulkan commands finish processing
+	vkQueueWaitIdle(graphics_queue);
+
+	texture_mgr.change_texture(str);
+
+	// if updating an already bound descriptor set we must make sure the old sets don't get reused in the command buffers
+	vkFreeCommandBuffers(get_logical_device(), command_pool, static_cast<uint32_t>(command_buffers.size()), command_buffers.data());
+
+	update_descriptor_sets();
+
+	create_command_buffers();
 }

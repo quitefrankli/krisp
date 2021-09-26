@@ -5,6 +5,7 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
+#include "graphics_engine_commands.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -13,6 +14,8 @@
 #include <GLFW/glfw3.h>
 
 #include <vector>
+#include <mutex>
+#include <queue>
 
 
 class Camera;
@@ -26,7 +29,15 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-class GraphicsEngine {
+class GraphicsEngineCmd
+{
+public:
+	GraphicsEngineCmd(const std::string& str) : val(str) {}
+	std::string val;
+};
+
+class GraphicsEngine
+{
 public:
 	GraphicsEngine() = delete;
 	GraphicsEngine(GameEngine& _game_engine);
@@ -76,6 +87,8 @@ private:
 	std::vector<VkFence> images_in_flight;
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::vector<Object*> objects;
+	std::mutex ge_cmd_q_mutex;
+	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
 
 	// swap chain
 	// GraphicsEngineSwapChain swapchain;
@@ -100,14 +113,6 @@ public: // vertix buffers
 
 private:
 	void initVulkan();
-
-	void createInstance();
-
-	void pick_physical_device();
-
-	void create_logical_device();
-
-
 	// semaphores and fences, for GPU-GPU and CPU-GPU synchronisation
 	void create_synchronisation_objects();
 
@@ -121,19 +126,15 @@ public: // swap chain
 	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
 	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
-
 	void recreate_swap_chain(); // useful for when size of window is changing
 	void clean_up_swap_chain();
 
-public: // image views
 	void create_image_views();
+	void create_frame_buffers();
 
 public: // graphics pipeline
 	void create_graphics_pipeline();
 	void create_render_pass();
-
-public: // frame buffer
-	void create_frame_buffers();
 
 public: // command buffer
 	void create_command_pool();
@@ -143,21 +144,20 @@ public: // command buffer
 
 public: // vertex buffer
 	void create_vertex_buffer();
-
 	void create_buffer(size_t size, 
 					   VkBufferUsageFlags usage_flags, 
 					   VkMemoryPropertyFlags memory_flags, 
 					   VkBuffer& buffer, 
 					   VkDeviceMemory& device_memory);
-
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
-
 	void update_uniform_buffer(uint32_t current_image);
 
+private: // descriptors
 	void create_descriptor_pools();
-
 	void create_descriptor_sets();
+	void update_descriptor_sets();
 
+public:
 	bool bPhysicalDevicePropertiesCached = false;
 	VkPhysicalDeviceProperties physical_device_properties;
 	const VkPhysicalDeviceProperties& get_physical_device_properties();
@@ -180,9 +180,15 @@ public: // other
 	int find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
+public: // thread safe
+	void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
+
+private: // friends
+	friend ChangeTextureCmd;
+	void change_texture(const std::string& str);
+
 public: // main
 	void draw_frame();
-
     void mainLoop();
 };
 
