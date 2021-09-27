@@ -5,6 +5,7 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
+#include "graphics_engine_model_loader.hpp"
 #include "graphics_engine_commands.hpp"
 
 #include "vertex.hpp"
@@ -89,6 +90,7 @@ private:
 	std::vector<Object*> objects;
 	std::mutex ge_cmd_q_mutex;
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
+	GraphicsEngineModelLoader model_loader;
 
 	// swap chain
 	// GraphicsEngineSwapChain swapchain;

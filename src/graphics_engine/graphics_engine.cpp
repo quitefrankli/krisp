@@ -22,7 +22,8 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	instance(*this),
 	validation_layer(*this),
 	texture_mgr(*this),
-	device(*this)
+	device(*this),
+	model_loader(*this)
 {
 	create_swap_chain();
 }
