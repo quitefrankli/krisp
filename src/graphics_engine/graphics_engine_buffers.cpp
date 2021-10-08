@@ -98,41 +98,4 @@ void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size
 	vkCmdCopyBuffer(command_buffer, src_buffer, dest_buffer, 1, &copy_region);
 
 	end_single_time_commands(command_buffer);
-
-	// VkCommandBufferAllocateInfo alloc_info{};
-	// alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	// alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	// alloc_info.commandPool = command_pool;
-	// alloc_info.commandBufferCount = 1;
-
-	// VkCommandBuffer command_buffer;
-	// vkAllocateCommandBuffers(get_logical_device(), &alloc_info, &command_buffer);
-
-	// // start recording the command buffer
-	// VkCommandBufferBeginInfo begin_info{};
-	// begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	// // only going to use the command buffer once so we should let driver know our intent
-	// begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	// vkBeginCommandBuffer(command_buffer, &begin_info);
-
-	// // actual copy command
-	// VkBufferCopy copyRegion{};
-	// copyRegion.srcOffset = 0; // Optional
-	// copyRegion.dstOffset = 0; // Optional
-	// copyRegion.size = size;
-	// vkCmdCopyBuffer(command_buffer, src_buffer, dest_buffer, 1, &copyRegion);
-
-	// vkEndCommandBuffer(command_buffer); // stop recording commands
-
-	// VkSubmitInfo submitInfo{};
-	// submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	// submitInfo.commandBufferCount = 1;
-	// submitInfo.pCommandBuffers = &command_buffer;
-
-	// // note that unlike draw stage, we don't need to wait for anything here except for the queue to become idle
-	// vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
-	// vkQueueWaitIdle(graphics_queue);
-
-	// vkFreeCommandBuffers(get_logical_device(), command_pool, 1, &command_buffer);
 }
