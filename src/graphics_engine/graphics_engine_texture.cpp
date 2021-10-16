@@ -1,5 +1,6 @@
 #include "graphics_engine_texture.hpp"
 #include "graphics_engine.hpp"
+#include "utility_functions.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -20,6 +21,71 @@ void GraphicsEngineTexture::init()
 	create_texture_image();
 	create_texture_image_view();
 	create_texture_sampler();
+}
+
+void GraphicsEngineTexture::change_texture(const std::string& filename)
+{
+	cleanup(); 
+	create_texture_image(filename);
+	create_texture_image_view();
+	create_texture_sampler();
+}
+
+// load image and upload it into a vulkan image object
+void GraphicsEngineTexture::create_texture_image(const std::string& filename)
+{
+	int width, height, channels;
+	const std::string texture_path = TEXTURE_PATH + filename;
+	std::unique_ptr<stbi_uc, std::function<void(stbi_uc*)>> pixels(
+		stbi_load(texture_path.c_str(), &width, &height, &channels, STBI_rgb_alpha),
+
+		// custom unique_ptr destructor
+		[](stbi_uc* ptr) 
+		{ 
+			stbi_image_free(ptr); 
+		}
+	);
+
+	// VkDeviceSize size = width * height * channels; // for some reason channels = 3?
+	VkDeviceSize size = width * height * 4;
+	if (!pixels.get())
+	{
+		throw std::runtime_error("failed to load texture image!");
+	}
+
+	VkBuffer staging_buffer;
+	VkDeviceMemory staging_buffer_memory;
+
+	get_graphics_engine().create_buffer(size, 
+				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				  staging_buffer,
+				  staging_buffer_memory);
+
+	void* data;
+	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, size, 0, &data);
+	memcpy(data, pixels.get(), static_cast<size_t>(size));
+	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
+
+	create_image(width, 
+				 height, 
+				 VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB
+				 VK_IMAGE_TILING_OPTIMAL,
+				 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
+				 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+				 texture_image,
+				 texture_image_memory);
+
+	// copy the staging buffer to the texture image,
+	// undefined image layout works because we don't care about the contents before performing copy
+	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	copy_buffer_to_image(staging_buffer, texture_image, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+
+	// transition one more time for shader access
+	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
 }
 
 void GraphicsEngineTexture::create_image(uint32_t width, 
@@ -72,63 +138,6 @@ void GraphicsEngineTexture::create_image(uint32_t width,
 	}
 
 	vkBindImageMemory(get_logical_device(), image, image_memory, 0);
-}
-
-// load image and upload it into a vulkan image object
-void GraphicsEngineTexture::create_texture_image()
-{
-	int width, height, channels;
-	const std::string texture_path = TEXTURE_PATH + "texture.jpg";
-	std::unique_ptr<stbi_uc, std::function<void(stbi_uc*)>> pixels(
-		stbi_load(texture_path.c_str(), &width, &height, &channels, STBI_rgb_alpha),
-
-		// custom unique_ptr destructor
-		[](stbi_uc* ptr) 
-		{ 
-			stbi_image_free(ptr); 
-		}
-	);
-
-	// VkDeviceSize size = width * height * channels; // for some reason channels = 3?
-	VkDeviceSize size = width * height * 4;
-	if (!pixels.get())
-	{
-		throw std::runtime_error("failed to load texture image!");
-	}
-
-	VkBuffer staging_buffer;
-	VkDeviceMemory staging_buffer_memory;
-
-	get_graphics_engine().create_buffer(size, 
-				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  staging_buffer,
-				  staging_buffer_memory);
-
-	void* data;
-	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, size, 0, &data);
-	memcpy(data, pixels.get(), static_cast<size_t>(size));
-	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
-
-	create_image(width, 
-				 height, 
-				 VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB
-				 VK_IMAGE_TILING_OPTIMAL,
-				 VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
-				 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				 texture_image,
-				 texture_image_memory);
-
-	// copy the staging buffer to the texture image,
-	// undefined image layout works because we don't care about the contents before performing copy
-	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copy_buffer_to_image(staging_buffer, texture_image, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
-
-	// transition one more time for shader access
-	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
 }
 
 // handle layout transition so that image is in right layout

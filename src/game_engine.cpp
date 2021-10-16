@@ -4,6 +4,7 @@
 #include "objects.hpp"
 #include "shapes.hpp"
 #include "graphics_engine/graphics_engine.hpp"
+#include "graphics_engine/graphics_engine_commands.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
@@ -141,6 +142,14 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_RIGHT:
 			break;
+
+		case GLFW_KEY_N:
+		{
+			ChangeTextureCmd cmd;
+			cmd.filename = "texture2.jpg";
+			graphics_engine->enqueue_cmd(std::make_unique<ChangeTextureCmd>(cmd));
+			break;
+		}
 
 		default:
 			break;
