@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shapes.hpp"
+#include "graphics_engine/graphics_engine_object.hpp"
 
 #include <vector>
 
@@ -20,7 +21,7 @@ public:
 	virtual void set_original_transformation(glm::mat4 transformation) { original_transformation = transformation; }
 };
 
-class Object : public ObjectAbstract
+class Object : public ObjectAbstract, public GraphicsEngineObject
 {
 protected:
 	std::vector<Shape> shapes;

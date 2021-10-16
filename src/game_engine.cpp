@@ -26,22 +26,13 @@ GameEngine::GameEngine() :
 
 	camera = std::make_unique<Camera>(graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
-	// shapes.emplace_back(Triangle());
-	// shapes.emplace_back(Plane());
-
-	// for (auto& shape : shapes)
-	// {
-	// 	graphics_engine->add_vertex_set(shape.get_vertices());
-	// }
-
+	graphics_engine->setup();
+	
 	objects.emplace_back(Cube());
-
 	for (auto& object : objects)
 	{
-		graphics_engine->insert_object(&object);
+		graphics_engine->spawn_object(object);
 	}
-
-	graphics_engine->setup();
 }
 
 void GameEngine::run()
@@ -162,7 +153,8 @@ void GameEngine::handle_window_resize_callback(GLFWwindow* glfw_window, int widt
 
 void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
 {
-	graphics_engine->set_frame_buffer_resized();
+	// graphics_engine->set_frame_buffer_resized();
+	// TODO handle resizing of window
 }
 
 void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)

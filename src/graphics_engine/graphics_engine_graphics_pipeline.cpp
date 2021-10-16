@@ -93,17 +93,18 @@ void GraphicsEngine::create_graphics_pipeline() {
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
+	auto extent = swap_chain.get_extent();
 	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
 	view_port.x = 0.0f;
 	view_port.y = 0.0f;
-	view_port.width = static_cast<float>(swap_chain_extent.width);
-	view_port.height = static_cast<float>(swap_chain_extent.height);
+	view_port.width = extent.width;
+	view_port.height = extent.height;
 	view_port.minDepth = 0.0f;
 	view_port.maxDepth = 1.0f;
 
 	VkRect2D scissor{}; // any pixels outside scissor is omitted by rasterizer
 	scissor.offset = { 0, 0 };
-	scissor.extent = swap_chain_extent;
+	scissor.extent = extent;
 
 	VkPipelineViewportStateCreateInfo view_port_state_create_info{};
 	view_port_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -173,7 +174,7 @@ void GraphicsEngine::create_graphics_pipeline() {
 	graphics_pipeline_create_info.pColorBlendState = &color_blending_create_info;
 	graphics_pipeline_create_info.pDynamicState = nullptr;
 	graphics_pipeline_create_info.layout = pipeline_layout;
-	graphics_pipeline_create_info.renderPass = render_pass;
+	graphics_pipeline_create_info.renderPass = get_render_pass();
 	graphics_pipeline_create_info.subpass = 0;
 	graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE; // vulkan allows pipeline inheritance, will require setting VK_PIPELINE_CREATE_DERIVATIVE_BIT flag in VkGraphicsPipelineCreateInfo
 	graphics_pipeline_create_info.basePipelineIndex = -1;
@@ -186,55 +187,4 @@ void GraphicsEngine::create_graphics_pipeline() {
 
 	vkDestroyShaderModule(get_logical_device(), vertex_shader, nullptr);
 	vkDestroyShaderModule(get_logical_device(), fragment_shader, nullptr);
-}
-
-void GraphicsEngine::create_render_pass()
-{
-	VkAttachmentDescription color_attachment{};
-	color_attachment.format = swap_chain_image_format;
-	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT; // >1 if we are doing multisampling	
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
-	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
-	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // specifies which layout the image will have before the render pass begins
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
-
-	// subpasses and attachment references
-	// a single render pass can consist of multiple subpasses
-	VkAttachmentReference color_attachment_ref{};
-	color_attachment_ref.attachment = 0; // only works since we only have 1 attachment description
-	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // as opposed to compute subpass
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_attachment_ref;
-	// subpass.pInputAttachments // attachments that read from a shader
-	// subpass.pResolveAttachments // attachments used for multisampling color attachments
-	// subpass.pDepthStencilAttachment // attachment for depth and stencil data
-	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
-
-	// render pass
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkRenderPassCreateInfo render_pass_create_info{};
-	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	render_pass_create_info.attachmentCount = 1;
-	render_pass_create_info.pAttachments = &color_attachment;
-	render_pass_create_info.subpassCount = 1;
-	render_pass_create_info.pSubpasses = &subpass;
-	render_pass_create_info.dependencyCount = 1;
-	render_pass_create_info.pDependencies = &dependency;
-
-	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create render pass!");
-	}
 }
