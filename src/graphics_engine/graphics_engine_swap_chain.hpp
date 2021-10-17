@@ -30,17 +30,14 @@ public:
 	void draw();
 
 public: // getters
-	VkFormat get_image_format() { return swap_chain_image_format; }
+	VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	const VkExtent2D& get_extent() const { return swap_chain_extent; }
 	uint32_t get_num_images() const { return frames.size(); }
 	VkSwapchainKHR& get_swap_chain() { return swap_chain; }
-	VkRenderPass& get_render_pass() { return render_pass; }
 
 private:
 	VkSwapchainKHR swap_chain;
-	VkFormat swap_chain_image_format;
 	VkExtent2D swap_chain_extent;
-	VkRenderPass render_pass;
 	std::vector<GraphicsEngineFrame> frames;
 
 	VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& available_formats);
@@ -49,8 +46,6 @@ private:
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 	// void recreate_swap_chain(); // useful for when size of window is changing
-
-	void create_render_pass();
 
 private: // synchronisation
 	bool frame_buffer_resized = false;

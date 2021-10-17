@@ -14,6 +14,8 @@ class GraphicsEngineObject : public GraphicsEngineBaseModule, public ObjectAbstr
 public:
 	GraphicsEngineObject(GraphicsEngine& engine);
 	GraphicsEngineObject(GraphicsEngine& engine, Object& object);
+	GraphicsEngineObject(GraphicsEngineObject&& object) noexcept;
+
 	~GraphicsEngineObject();
 
 	std::vector<std::vector<Vertex>> vertex_sets;
@@ -24,4 +26,5 @@ public:
 	// as opposed to vertex_buffers we expect to change uniform buffer every frame
 	VkBuffer uniform_buffer;
 	VkDeviceMemory uniform_buffer_memory;
+	bool require_cleanup = true;
 };

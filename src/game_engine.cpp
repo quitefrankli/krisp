@@ -23,8 +23,6 @@ GameEngine::GameEngine() :
 	mouse(window)
 {
 	graphics_engine = std::make_unique<GraphicsEngine>(*this);
-	graphics_engine->binding_description = Vertex::get_binding_description();
-	graphics_engine->attribute_descriptions = Vertex::get_attribute_descriptions();
 
 	camera = std::make_unique<Camera>(graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
@@ -35,10 +33,6 @@ GameEngine::GameEngine() :
 
 void GameEngine::run()
 {
-	SpawnObjectCmd spawn_obj_cmd;
-	spawn_obj_cmd.object = objects[0];
-	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
-
 	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
@@ -157,6 +151,14 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			ChangeTextureCmd cmd;
 			cmd.filename = "texture2.jpg";
 			graphics_engine->enqueue_cmd(std::make_unique<ChangeTextureCmd>(cmd));
+			break;
+		}
+
+		case GLFW_KEY_S:
+		{
+			SpawnObjectCmd spawn_obj_cmd;
+			spawn_obj_cmd.object = objects[0];
+			graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
 			break;
 		}
 

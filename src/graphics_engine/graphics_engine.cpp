@@ -18,15 +18,17 @@
 
 
 GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) : 
+	binding_description(Vertex::get_binding_description()),
+	attribute_descriptions(Vertex::get_attribute_descriptions()),
 	game_engine(_game_engine),
 	instance(*this),
 	validation_layer(*this),
 	texture_mgr(*this),
 	device(*this),
 	pool(*this),
+	pipeline(*this),
 	swap_chain(*this)
 {
-
 }
 
 GraphicsEngine::~GraphicsEngine() 
@@ -34,13 +36,7 @@ GraphicsEngine::~GraphicsEngine()
 	std::cout<<"cleaning up\n";
 	vkDeviceWaitIdle(get_logical_device());
 
-	// TODO: might need to adjust order here
-	vkDestroyPipeline(get_logical_device(), graphics_engine_pipeline, nullptr);
-	vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);
-
 	texture_mgr.cleanup();
-
-	vkDestroyDescriptorSetLayout(get_logical_device(), descriptor_set_layout, nullptr);
 
 	// moved to graphics engine object
 	// vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
@@ -60,8 +56,8 @@ GLFWwindow* GraphicsEngine::get_window()
 }
 
 void GraphicsEngine::setup() {
-	create_descriptor_set_layout();
-	create_graphics_pipeline();
+	//create_descriptor_set_layout(); // moved to pool
+	//create_graphics_pipeline(); // moved to GraphicsEnginePipline
 	// create_frame_buffers();
 	// create_command_pool(); // moved to pool
 	texture_mgr.init();
@@ -98,117 +94,6 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 
 	return indices;
 }
-
-// void GraphicsEngine::draw_frame()
-// {
-// 	// 1. acquire image from swap chain
-// 	// 2. execute command buffer with image as attachment in the frame buffer
-// 	// 3. return the image to swap chain for presentation
-
-// 	// CPU-GPU synchronisation for in flight images
-// 	vkWaitForFences(get_logical_device(), 1, &in_flight_fences[current_frame], VK_TRUE, std::numeric_limits<uint64_t>::max());
-
-// 	unsigned image_index;
-// 	// using uint64 max disables timeout
-// 	VkResult result = vkAcquireNextImageKHR(get_logical_device(), swap_chain, std::numeric_limits<uint64_t>::max(), 
-// 		image_available_semaphores[current_frame], VK_NULL_HANDLE, &image_index);
-// 	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-// 		recreate_swap_chain();
-// 		return;
-// 	} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-// 		throw std::runtime_error("failed to acquire swap chain image!");
-// 	}
-
-// 	// check if a previous frame is using this image (i.e. there is it fence to wait on)
-// 	if (images_in_flight[image_index] != VK_NULL_HANDLE)
-// 	{
-// 		vkWaitForFences(get_logical_device(), 1, &images_in_flight[image_index], VK_TRUE, std::numeric_limits<uint64_t>::max());
-// 	}
-// 	// mark the image as now being in use by this frame
-// 	images_in_flight[image_index] = in_flight_fences[current_frame];		
-
-// 	update_uniform_buffer(image_index);
-
-// 	//
-// 	// submitting the command buffer
-// 	//
-
-// 	VkSubmitInfo submitInfo{};
-// 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-// 	VkSemaphore waitSemaphores[] = { image_available_semaphores[current_frame] };
-// 	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-// 	// here we specify which semaphore to wait on before execution begins and in which stage of the pipeline to wait
-// 	submitInfo.waitSemaphoreCount = 1;
-// 	submitInfo.pWaitSemaphores = waitSemaphores;
-// 	submitInfo.pWaitDstStageMask = waitStages;
-
-// 	// here we specify which command buffers to actually submit for execution
-// 	submitInfo.commandBufferCount = 1;
-// 	submitInfo.pCommandBuffers = &command_buffers[image_index];
-
-// 	// here we specify the semaphores to signal once the command buffer has finished execution
-// 	VkSemaphore signal_semaphores[] = { render_finished_semaphores[current_frame] };
-// 	submitInfo.signalSemaphoreCount = 1;
-// 	submitInfo.pSignalSemaphores = signal_semaphores;
-
-// 	vkResetFences(get_logical_device(), 1, &in_flight_fences[current_frame]);
-// 	if (vkQueueSubmit(graphics_queue, 1, &submitInfo, in_flight_fences[current_frame]) != VK_SUCCESS)
-// 	{
-// 		throw std::runtime_error("failed to submit draw command buffer!");
-// 	}
-
-// 	//
-// 	// presentation
-// 	//
-
-// 	VkPresentInfoKHR present_info{};
-// 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-// 	present_info.waitSemaphoreCount = 1;
-// 	present_info.pWaitSemaphores = signal_semaphores;
-
-// 	VkSwapchainKHR swap_chains[] = { swap_chain };
-// 	present_info.swapchainCount = 1;
-// 	present_info.pSwapchains = swap_chains;
-// 	present_info.pImageIndices = &image_index;
-// 	present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
-
-// 	current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-// 	result = vkQueuePresentKHR(present_queue, &present_info);
-// 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window
-// 		frame_buffer_resized = false;
-// 		recreate_swap_chain();
-// 	} else if (result != VK_SUCCESS) {
-// 		throw std::runtime_error("failed to present swap chain image!");
-// 	}
-// }
-
-// void GraphicsEngine::update_uniform_buffer(uint32_t image_index)
-// {
-// 	static auto start_time = std::chrono::high_resolution_clock::now(); // static here means that start_time is initialised only once
-// 	auto current_time = std::chrono::high_resolution_clock::now();
-// 	float time = std::chrono::duration<float, std::chrono::seconds::period>(current_time - start_time).count();
-
-// 	UniformBufferObject default_ubo{};
-// 	default_ubo.model = glm::mat4(1);
-// 	default_ubo.view = get_camera()->get_view(); // we can move this to push constant
-// 	default_ubo.proj = get_camera()->get_perspective(); // we can move this to push constant
-// 	// default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
-
-// 	std::vector<UniformBufferObject> ubos(get_objects().size(), default_ubo);
-// 	for (int i = 0; i < ubos.size(); i++)
-// 	{
-// 		ubos[i].model = objects[i]->get_transformation();
-// 	}
-
-// 	// should we keep this data mapped?
-// 	void* data;
-// 	size_t size = ubos.size() * sizeof(ubos[0]);
-// 	vkMapMemory(get_logical_device(), uniform_buffers_memory[image_index], 0, size, 0, &data);
-// 	memcpy(data, ubos.data(), size);
-// 	vkUnmapMemory(get_logical_device(), uniform_buffers_memory[image_index]);
-// }
 
 void GraphicsEngine::run() {
 	while (!should_shutdown)
@@ -306,4 +191,53 @@ void GraphicsEngine::change_texture(const std::string& str)
 	// update_descriptor_sets();
 
 	// create_command_buffers();
+}
+
+VkCommandBuffer GraphicsEngine::begin_single_time_commands()
+{
+	VkCommandBufferAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = get_command_pool();
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(get_logical_device(), &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+ 	// start recording the command buffer
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    return commandBuffer;
+}
+
+void GraphicsEngine::end_single_time_commands(VkCommandBuffer command_buffer)
+{
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &command_buffer;
+
+	// note that unlike draw stage, we don't need to wait for anything here except for the queue to become idle
+    vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphics_queue);
+
+    vkFreeCommandBuffers(get_logical_device(), get_command_pool(), 1, &command_buffer);
+}
+
+VkExtent2D GraphicsEngine::get_extent_unsafe()
+{
+	int width, height;
+	glfwGetWindowSize(get_window(), &width, &height);
+
+	VkExtent2D extent;
+	extent.width = width;
+	extent.height = height;
+
+	return extent;
 }

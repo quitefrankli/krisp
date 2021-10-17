@@ -15,11 +15,8 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine &engine) : Graph
 {
 	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), engine.get_window_surface());
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
-	swap_chain_image_format = surface_format.format;
 	VkPresentModeKHR present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	swap_chain_extent = choose_swap_extent(swap_chain_support.capabilities);
-
-	create_render_pass();
 
 	//+1 means that we won't have to wait for driver to complete internal operations before we can acquire another image to render
 	unsigned image_count = swap_chain_support.capabilities.minImageCount + 1;
@@ -124,8 +121,6 @@ GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 	//	vkDestroySemaphore(get_logical_device(), render_finished_semaphores[i], nullptr);
 	//	vkDestroyFence(get_logical_device(), in_flight_fences[i], nullptr);
 	//}
-	
-	vkDestroyRenderPass(get_logical_device(), render_pass, nullptr);
 }
 
 void GraphicsEngineSwapChain::reset()
@@ -165,7 +160,7 @@ VkSurfaceFormatKHR GraphicsEngineSwapChain::choose_swap_surface_format(const std
 {
 	for (const auto &format : available_formats)
 	{
-		if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		if (format.format == get_image_format() && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 		{
 			return format;
 		}
@@ -238,55 +233,4 @@ void GraphicsEngineSwapChain::draw()
 	frames[current_frame].draw();
 
 	current_frame = (current_frame + 1) % frames.size();
-}
-
-void GraphicsEngineSwapChain::create_render_pass()
-{
-	VkAttachmentDescription color_attachment{};
-	color_attachment.format = get_image_format();
-	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT; // >1 if we are doing multisampling	
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
-	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
-	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // specifies which layout the image will have before the render pass begins
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
-
-	// subpasses and attachment references
-	// a single render pass can consist of multiple subpasses
-	VkAttachmentReference color_attachment_ref{};
-	color_attachment_ref.attachment = 0; // only works since we only have 1 attachment description
-	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // as opposed to compute subpass
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_attachment_ref;
-	// subpass.pInputAttachments // attachments that read from a shader
-	// subpass.pResolveAttachments // attachments used for multisampling color attachments
-	// subpass.pDepthStencilAttachment // attachment for depth and stencil data
-	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
-
-	// render pass
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-	VkRenderPassCreateInfo render_pass_create_info{};
-	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	render_pass_create_info.attachmentCount = 1;
-	render_pass_create_info.pAttachments = &color_attachment;
-	render_pass_create_info.subpassCount = 1;
-	render_pass_create_info.pSubpasses = &subpass;
-	render_pass_create_info.dependencyCount = 1;
-	render_pass_create_info.pDependencies = &dependency;
-
-	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create render pass!");
-	}
 }

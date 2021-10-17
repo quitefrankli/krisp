@@ -10,7 +10,7 @@ class GraphicsEngineSwapChain;
 class GraphicsEngineObject;
 
 // Note that frame refers to swap_chain frame and not actual frames
-class GraphicsEngineFrame : GraphicsEngineBaseModule
+class GraphicsEngineFrame : public GraphicsEngineBaseModule
 {
 public:
 	GraphicsEngineFrame(GraphicsEngine& engine) = delete;
@@ -23,7 +23,8 @@ public:
 
 private:
 	void create_descriptor_sets(GraphicsEngineObject& object);
-	void create_command_buffer(GraphicsEngineObject& object);
+	void create_command_buffer();
+	void update_command_buffer();
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
 
@@ -33,7 +34,7 @@ public:
 	VkFramebuffer frame_buffer;
 
 	// descriptors
-	std::vector<VkDescriptorSet> descriptor_sets;
+	std::vector<VkDescriptorSet> descriptor_sets; // maybe consider moving this to GraphicsEngineObject?
 
 	VkCommandBuffer command_buffer;
 

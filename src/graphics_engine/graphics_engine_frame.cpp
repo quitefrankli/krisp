@@ -55,6 +55,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	}
 
 	create_synchronisation_objects();
+	create_command_buffer();
 }
 
 GraphicsEngineFrame::~GraphicsEngineFrame()
@@ -75,7 +76,7 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
 {
 	create_descriptor_sets(object);
-	create_command_buffer(object);
+	update_command_buffer();
 }
 
 void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
@@ -147,7 +148,7 @@ void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 	}
 }
 
-void GraphicsEngineFrame::create_command_buffer(GraphicsEngineObject& object)
+void GraphicsEngineFrame::create_command_buffer()
 {
 	VkCommandBufferAllocateInfo allocation_info{};
 	allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -159,6 +160,16 @@ void GraphicsEngineFrame::create_command_buffer(GraphicsEngineObject& object)
 	{
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
+
+	update_command_buffer();
+}
+
+void GraphicsEngineFrame::update_command_buffer()
+{
+	// wait until command buffer is not used anymore i.e. when frame is no longer inflight
+	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
+	VkCommandBufferResetFlags reset_flags = 0;
+	vkResetCommandBuffer(command_buffer, reset_flags);
 
 	// starting command buffer recording
 	VkCommandBufferBeginInfo begin_info{};
@@ -183,46 +194,55 @@ void GraphicsEngineFrame::create_command_buffer(GraphicsEngineObject& object)
 	render_pass_begin_info.pClearValues = &clear_color;
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline()); // bind the graphics pipeline
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline
 
-	// binding the vertex buffer
-	VkBuffer vertex_buffers[] = { object.vertex_buffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(
-		command_buffer, 
-		0, 					// offset
-		1, 					// number of bindings
-		vertex_buffers, 	// array of vertex buffers to bind
-		offsets				// byte offset to start from for each buffer
-	);
-
-	// this really should be per object, we will adjust in the future
-	int total_vertex_offset = 0;
-	for (int vertex_set_index = 0; vertex_set_index < object.vertex_sets.size(); vertex_set_index++)
+	auto per_obj_draw_fn = [&](GraphicsEngineObject& object)
 	{
-		// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
-
-		vkCmdBindDescriptorSets(command_buffer, 
-								VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
-								get_graphics_engine().pipeline_layout, 
-								0, // offset
-								1, // number of sets to bind
-								&descriptor_sets[vertex_set_index],
-								0,
-								nullptr);
-
-		vkCmdDraw(
+		// binding the vertex buffer
+		VkBuffer vertex_buffers[] = { object.vertex_buffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(
 			command_buffer, 
-			object.vertex_sets.size(), // vertex count
-			1, // instance count (only used for instance rendering)
-			total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
-			0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
+			0, 					// offset
+			1, 					// number of bindings
+			vertex_buffers, 	// array of vertex buffers to bind
+			offsets				// byte offset to start from for each buffer
 		);
 
-		total_vertex_offset += object.vertex_sets[vertex_set_index].size();
+		// this really should be per object, we will adjust in the future
+		int total_vertex_offset = 0;
+		for (int vertex_set_index = 0; vertex_set_index < object.vertex_sets.size(); vertex_set_index++)
+		{
+			// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
+
+			vkCmdBindDescriptorSets(command_buffer, 
+									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
+									get_graphics_engine().get_graphics_pipeline().pipeline_layout, 
+									0, // offset
+									1, // number of sets to bind
+									&descriptor_sets[vertex_set_index],
+									0,
+									nullptr);
+
+			vkCmdDraw(
+				command_buffer, 
+				object.vertex_sets.size(), // vertex count
+				1, // instance count (only used for instance rendering)
+				total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
+				0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
+			);
+
+			total_vertex_offset += object.vertex_sets[vertex_set_index].size();
+		}
+	};
+
+	for (auto& object : get_graphics_engine().get_objects())
+	{
+		per_obj_draw_fn(object);
 	}
 
 	vkCmdEndRenderPass(command_buffer);
+	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to record command buffer!");

@@ -9,34 +9,6 @@
 
 */
 
-void GraphicsEngine::create_descriptor_set_layout()
-{
-	VkDescriptorSetLayoutBinding ubo_layout_binding{};
-	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	ubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
-	ubo_layout_binding.descriptorCount = 1;
-	ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
-	ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
-
-	VkDescriptorSetLayoutBinding sampler_layout_binding{};
-	sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	sampler_layout_binding.binding = 1; // this must be synced with the one in the shaders
-	sampler_layout_binding.descriptorCount = 1;
-	sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
-	sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
-
-	std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
-	VkDescriptorSetLayoutCreateInfo layout_info{};
-	layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
-	layout_info.pBindings = bindings.data();
-
-	if (vkCreateDescriptorSetLayout(get_logical_device(), &layout_info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create descriptor set layout!");
-	}
-}
-
 // void GraphicsEngine::create_descriptor_sets()
 // {
 // 	std::vector<VkDescriptorSetLayout> layouts(static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size(), descriptor_set_layout);

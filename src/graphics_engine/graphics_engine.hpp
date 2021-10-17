@@ -8,6 +8,7 @@
 #include "graphics_engine_pool.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
+#include "graphics_engine_pipeline.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -46,12 +47,15 @@ public:
 	const int MAX_NUM_OBJECTS = 10;
 	const int MAX_NUM_DESCRIPTOR_SETS = MAX_NUM_OBJECTS * 100;
 	const int MAX_NUM_VERTICES = MAX_NUM_DESCRIPTOR_SETS * 3;
+	const VkVertexInputBindingDescription binding_description;
+	const std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 
 public: // getters and setters
 	template<class T> 
 	T get_window_width() const { return static_cast<T>(swap_chain.get_extent().width); }
 	template<class T>
 	T get_window_height() const { return static_cast<T>(swap_chain.get_extent().height); }
+	VkExtent2D get_extent_unsafe();
 	GLFWwindow* get_window();
 	Camera* get_camera();
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
@@ -65,24 +69,25 @@ public: // getters and setters
 	inline VkQueue& get_graphics_queue() { return graphics_queue; }
 	inline VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
-	VkRenderPass& get_render_pass() { return swap_chain.get_render_pass(); }
+	VkRenderPass& get_render_pass() { return pipeline.render_pass; }
 	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
-	VkDescriptorSetLayout& get_descriptor_set_layout() { return descriptor_set_layout; }
+	VkDescriptorSetLayout& get_descriptor_set_layout() { return pool.descriptor_set_layout; }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
-	VkPipeline& get_graphics_pipeline() { return graphics_engine_pipeline; }
+	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
 
-private:
+private: // core components
 	GameEngine& game_engine;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
 	GraphicsEnginePool pool;
+	GraphicsEnginePipeline pipeline;
 	GraphicsEngineSwapChain swap_chain;
+
+private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
-	VkDescriptorSetLayout descriptor_set_layout;
-	VkPipeline graphics_engine_pipeline;
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::vector<GraphicsEngineObject> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
@@ -92,14 +97,6 @@ private:
 	bool is_initialised = false;
 
 public:
-	VkPipelineLayout pipeline_layout;
-
-public: // vertex buffers
-	VkVertexInputBindingDescription binding_description;
-	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-	// VkBuffer vertex_buffer;
-	// VkDeviceMemory vertex_buffer_memory;
-
 	GraphicsEngineTexture texture_mgr;
 
 private:
@@ -124,9 +121,6 @@ public: // swap chain
 	void create_image_views();
 	void create_frame_buffers();
 
-public: // graphics pipeline
-	void create_graphics_pipeline();
-
 public: // command buffer
 	// void create_command_pool();
 	VkCommandBuffer begin_single_time_commands();
@@ -142,17 +136,10 @@ public: // vertex buffer
 					   VkDeviceMemory& device_memory);
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 
-	// void update_uniform_buffer(uint32_t current_image);
-	// void create_descriptor_sets(); // todo delete me
-
 public:
 	bool bPhysicalDevicePropertiesCached = false;
 	VkPhysicalDeviceProperties physical_device_properties;
 	const VkPhysicalDeviceProperties& get_physical_device_properties();
-
-private: //uniform buffer
-	void create_descriptor_set_layout();
-	// void create_uniform_buffers();
 
 public: // other
 	// graphics cards offer different types of memory to allocate from, each type of memory varies

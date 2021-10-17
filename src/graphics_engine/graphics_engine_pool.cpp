@@ -8,6 +8,7 @@ GraphicsEnginePool::GraphicsEnginePool(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
 	create_command_pool();
+	create_descriptor_set_layout();
 	create_descriptor_pool();
 }
 
@@ -16,6 +17,8 @@ GraphicsEnginePool::~GraphicsEnginePool()
 	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
 
 	vkDestroyDescriptorPool(get_logical_device(), get_graphics_engine().get_descriptor_pool(), nullptr);
+
+	vkDestroyDescriptorSetLayout(get_logical_device(), descriptor_set_layout, nullptr);
 }
 
 void GraphicsEnginePool::create_command_pool()
@@ -24,7 +27,7 @@ void GraphicsEnginePool::create_command_pool()
 	VkCommandPoolCreateInfo command_pool_create_info{};
 	command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	command_pool_create_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();
-	command_pool_create_info.flags = 0;
+	command_pool_create_info.flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
 	if (vkCreateCommandPool(get_logical_device(), &command_pool_create_info, nullptr, &command_pool) != VK_SUCCESS)
 	{
@@ -58,5 +61,33 @@ void GraphicsEnginePool::create_descriptor_pool()
 	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsEngine::create_descriptor_pool: failed to create descriptor pool!");
+	}
+}
+
+void GraphicsEnginePool::create_descriptor_set_layout()
+{
+	VkDescriptorSetLayoutBinding ubo_layout_binding{};
+	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	ubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
+	ubo_layout_binding.descriptorCount = 1;
+	ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
+	ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
+
+	VkDescriptorSetLayoutBinding sampler_layout_binding{};
+	sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	sampler_layout_binding.binding = 1; // this must be synced with the one in the shaders
+	sampler_layout_binding.descriptorCount = 1;
+	sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
+	sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
+
+	std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
+	VkDescriptorSetLayoutCreateInfo layout_info{};
+	layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+	layout_info.pBindings = bindings.data();
+
+	if (vkCreateDescriptorSetLayout(get_logical_device(), &layout_info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor set layout!");
 	}
 }
