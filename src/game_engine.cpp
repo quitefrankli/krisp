@@ -5,6 +5,7 @@
 #include "shapes.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
+#include "utility_functions.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
@@ -42,6 +43,7 @@ void GameEngine::run()
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
+		// Timer timer("GameEngine");
 		glfwPollEvents();
 		if (mouse.rmb_down)
 		{
@@ -79,7 +81,14 @@ void GameEngine::run()
 			if (magnitude > 0) {
 				objects[0].set_transformation(final_transform);
 			}
+
+			UpdateObjectUniformsCmd cmd;
+			cmd.object_id = objects[0].get_id();
+			cmd.transformation = objects[0].get_transformation();
+			graphics_engine->enqueue_cmd(std::make_unique<UpdateObjectUniformsCmd>(cmd));
 		}
+		// timer.print_time_us();
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 

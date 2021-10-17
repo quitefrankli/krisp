@@ -10,7 +10,7 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine) :
 }
 
 GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, Object& object) :
-	GraphicsEngineBaseModule(engine)
+	GraphicsEngineBaseModule(engine), ObjectAbstract(object.get_id())
 {
 	vertex_sets = object.get_vertex_sets();
 }

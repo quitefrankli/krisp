@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/mat4x4.hpp>
+
 #include <string>
 #include <memory>
 
@@ -18,13 +20,27 @@ public:
 class ChangeTextureCmd : public GraphicsEngineCommand
 {
 public:
-	std::string filename;
-
 	void process(GraphicsEngine* engine) override;
+
+	std::string filename;
 };
 
 class ToggleFPSCmd : public GraphicsEngineCommand
 {
 public:
 	void process(GraphicsEngine* engine) override;
+};
+
+class UpdateObjectCmd : public GraphicsEngineCommand
+{
+public:
+	uint64_t object_id;
+};
+
+class UpdateObjectUniformsCmd : public UpdateObjectCmd
+{
+public:
+	void process(GraphicsEngine* engine) override;
+
+	glm::mat4 transformation;
 };

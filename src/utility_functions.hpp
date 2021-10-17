@@ -61,7 +61,9 @@ public:
 	Timer(const std::string& name = "A");
 	~Timer();
 
+	void reset();
 	void print_time(const std::string& identifier = "");
+	void print_time_us(const std::string& identifier = "");
 
 private:
 	TimerImpl* impl;

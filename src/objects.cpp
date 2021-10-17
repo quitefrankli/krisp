@@ -13,6 +13,11 @@ ObjectAbstract::ObjectAbstract()
 	generate_new_id();
 }
 
+ObjectAbstract::ObjectAbstract(uint64_t id)
+{
+	this->id = id;
+}
+
 void ObjectAbstract::apply_transformation(const glm::mat4& transformation)
 {
 	this->transformation = transformation * (this->transformation);

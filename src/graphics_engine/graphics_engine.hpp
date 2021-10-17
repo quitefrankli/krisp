@@ -87,7 +87,7 @@ private:
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::vector<GraphicsEngineObject> objects;
 	VkDescriptorPool descriptor_pool; // TODO move this to GraphicsEnginePool
-	std::mutex ge_cmd_q_mutex;
+	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
 
 	bool should_shutdown = false;

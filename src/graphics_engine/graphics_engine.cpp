@@ -214,16 +214,16 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 void GraphicsEngine::run() {
 	while (!should_shutdown)
 	{
-		std::lock_guard<std::mutex> lock(ge_cmd_q_mutex);
-		if (!ge_cmd_q.empty())
+		ge_cmd_q_mutex.lock();
+		while (!ge_cmd_q.empty())
 		{
 			ge_cmd_q.front()->process(this);
 			ge_cmd_q.pop();
 		}
+		ge_cmd_q_mutex.unlock();
 
 		swap_chain.draw();
-
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
 

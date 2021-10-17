@@ -15,6 +15,7 @@ protected:
 
 public:
 	ObjectAbstract();
+	ObjectAbstract(uint64_t id);
 
 	virtual glm::vec3 get_position() const { return transformation[3]; }
 	virtual void set_position(const glm::vec3& pos) { transformation[3] = glm::vec4(pos, 1.0f); }
@@ -25,7 +26,7 @@ public:
 	virtual void set_original_transformation(glm::mat4 transformation) { original_transformation = transformation; }
 
 	uint64_t get_id() const { return id; }
-	void set_id(uint64_t id) { this->id = id; }
+	// void set_id(uint64_t id) { this->id = id; } ;// we don't really want to set id ever
 	void generate_new_id() { id = global_id++; }
 
 private:
