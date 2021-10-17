@@ -1,4 +1,6 @@
 #include "graphics_engine.hpp"
+#include "objects.hpp"
+
 
 void GraphicsEngine::create_buffer(size_t size, 
 								   VkBufferUsageFlags usage_flags, 
@@ -36,16 +38,17 @@ void GraphicsEngine::create_buffer(size_t size,
 	vkBindBufferMemory(get_logical_device(), buffer, device_memory, 0);
 }
 
-void GraphicsEngine::create_vertex_buffer()
+void GraphicsEngine::create_vertex_buffer(GraphicsEngineObject& object)
 {
 	// this will need to be updated
 	size_t buffer_size = 0;
-	for (auto& vertex_set : get_vertex_sets())
+	for (auto& vertex_set : object.vertex_sets)
 	{
 		buffer_size += vertex_set.size() * sizeof(vertex_set[0]);
 	}
 
 	// staging buffer, used for copying the data from staging to vertex buffer
+	// the staging buffer is the buffer that can be accessed by CPU
 	VkBuffer staging_buffer;
 	VkDeviceMemory staging_buffer_memory;
 	create_buffer(buffer_size,
@@ -56,14 +59,15 @@ void GraphicsEngine::create_vertex_buffer()
 				  staging_buffer,
 				  staging_buffer_memory);
 
-	// vertex buffer
+	// the device local buffer is most efficient for GPU access however CPU cannot access it
+	// which is why we need a staging buffer in the first place
 	create_buffer(buffer_size,
 				  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 				  // device local here means it basically lives on the graphics card hence we can't map it,
 				  // but it's alot faster than using COHERENT buffer
 				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				  vertex_buffer,
-				  vertex_buffer_memory);
+				  object.vertex_buffer,
+				  object.vertex_buffer_memory);
 
 	// filling the vertex buffer
 	// copy the vertex data to the buffer, this is done by mapping the buffer memory into CPU accessible memory with vkMapMemory
@@ -71,7 +75,7 @@ void GraphicsEngine::create_vertex_buffer()
 	// access a region of the specified memory resource
 	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, buffer_size, 0, &data);
 	size_t offset = 0;
-	for (auto& vertex_set : get_vertex_sets())
+	for (auto& vertex_set : object.vertex_sets)
 	{
 		size_t size = vertex_set.size() * sizeof(vertex_set[0]);
 		memcpy((char*)data + offset, vertex_set.data(), size);
@@ -80,7 +84,7 @@ void GraphicsEngine::create_vertex_buffer()
 	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
 
 	// issue the command to copy from staging to device
-	copy_buffer(staging_buffer, vertex_buffer, buffer_size);
+	copy_buffer(staging_buffer, object.vertex_buffer, buffer_size);
 
 	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
 	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);

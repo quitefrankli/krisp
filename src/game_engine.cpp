@@ -5,6 +5,7 @@
 #include "shapes.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
+#include "utility_functions.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
@@ -22,27 +23,12 @@ GameEngine::GameEngine() :
 	mouse(window)
 {
 	graphics_engine = std::make_unique<GraphicsEngine>(*this);
-	graphics_engine->binding_description = Vertex::get_binding_description();
-	graphics_engine->attribute_descriptions = Vertex::get_attribute_descriptions();
 
 	camera = std::make_unique<Camera>(graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
-	// shapes.emplace_back(Triangle());
-	// shapes.emplace_back(Plane());
-
-	// for (auto& shape : shapes)
-	// {
-	// 	graphics_engine->add_vertex_set(shape.get_vertices());
-	// }
-
-	objects.emplace_back(Cube());
-
-	for (auto& object : objects)
-	{
-		graphics_engine->insert_object(&object);
-	}
-
 	graphics_engine->setup();
+	
+	objects.emplace_back(Cube());
 }
 
 void GameEngine::run()
@@ -51,6 +37,7 @@ void GameEngine::run()
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
+		// Timer timer("GameEngine");
 		glfwPollEvents();
 		if (mouse.rmb_down)
 		{
@@ -88,7 +75,14 @@ void GameEngine::run()
 			if (magnitude > 0) {
 				objects[0].set_transformation(final_transform);
 			}
+
+			UpdateObjectUniformsCmd cmd;
+			cmd.object_id = objects[0].get_id();
+			cmd.transformation = objects[0].get_transformation();
+			graphics_engine->enqueue_cmd(std::make_unique<UpdateObjectUniformsCmd>(cmd));
 		}
+		// timer.print_time_us();
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
 
@@ -160,6 +154,14 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			break;
 		}
 
+		case GLFW_KEY_S:
+		{
+			SpawnObjectCmd spawn_obj_cmd;
+			spawn_obj_cmd.object = objects[0];
+			graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
+			break;
+		}
+
 		default:
 			break;
 	}
@@ -171,7 +173,8 @@ void GameEngine::handle_window_resize_callback(GLFWwindow* glfw_window, int widt
 
 void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
 {
-	graphics_engine->set_frame_buffer_resized();
+	// graphics_engine->set_frame_buffer_resized();
+	// TODO handle resizing of window
 }
 
 void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
