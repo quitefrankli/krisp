@@ -7,6 +7,7 @@
 #include "graphics_engine_device.hpp"
 #include "graphics_engine_pool.hpp"
 #include "graphics_engine_commands.hpp"
+#include "graphics_engine_object.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -21,7 +22,7 @@
 
 class Camera;
 class GameEngine;
-class Object;
+class GraphicsEngineObject;
 
 
 class GraphicsEngineCmd
@@ -56,7 +57,7 @@ public: // getters and setters
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
-	std::vector<Object*>& get_objects() { return objects; }
+	std::vector<GraphicsEngineObject>& get_objects() { return objects; }
 	inline VkDevice& get_logical_device() { return device.get_logical_device(); }
 	inline VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
 	inline VkInstance& get_instance() { return instance.get(); }
@@ -84,7 +85,7 @@ private:
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkPipeline graphics_engine_pipeline;
 	std::vector<std::vector<Vertex>> vertex_sets;
-	std::vector<Object*> objects;
+	std::vector<GraphicsEngineObject> objects;
 	VkDescriptorPool descriptor_pool; // TODO move this to GraphicsEnginePool
 	std::mutex ge_cmd_q_mutex;
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
@@ -134,7 +135,7 @@ public: // command buffer
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
 public: // vertex buffer
-	void create_vertex_buffer(Object& object);
+	void create_vertex_buffer(GraphicsEngineObject& object);
 
 	void create_buffer(size_t size, 
 					   VkBufferUsageFlags usage_flags, 

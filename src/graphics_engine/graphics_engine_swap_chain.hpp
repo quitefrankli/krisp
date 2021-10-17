@@ -7,7 +7,7 @@
 
 
 class GraphicsEngine;
-class Object;
+class GraphicsEngineObject;
 
 struct SwapChainSupportDetails
 {
@@ -26,7 +26,7 @@ public:
 
 	const int MAX_FRAMES_IN_FLIGHT = 2;
 	static SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface);
-	void spawn_object(Object& object);
+	void spawn_object(GraphicsEngineObject& object);
 	void draw();
 
 public: // getters

@@ -225,7 +225,7 @@ VkExtent2D GraphicsEngineSwapChain::choose_swap_extent(const VkSurfaceCapabiliti
 // 	// create_command_buffers(); // moved to on object spawn basis
 // }
 
-void GraphicsEngineSwapChain::spawn_object(Object &object)
+void GraphicsEngineSwapChain::spawn_object(GraphicsEngineObject& object)
 {
 	for (auto &frame : frames)
 	{

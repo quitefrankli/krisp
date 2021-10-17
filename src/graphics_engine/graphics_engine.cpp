@@ -60,24 +60,6 @@ GLFWwindow* GraphicsEngine::get_window()
 	return game_engine.get_window();
 }
 
-std::vector<std::vector<Vertex>>& GraphicsEngine::get_vertex_sets()
-{
-	if (!vertex_sets.empty())
-	{
-		return vertex_sets; 
-	}
-
-	for (auto object : objects)
-	{
-		for (auto& vertex_set : object->get_vertex_sets())
-		{
-			vertex_sets.emplace_back(vertex_set);
-		}
-	}
-
-	return vertex_sets;
-}
-
 void GraphicsEngine::setup() {
 	create_descriptor_set_layout();
 	create_graphics_pipeline();
@@ -274,16 +256,18 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 
 void GraphicsEngine::spawn_object(Object& object)
 {
-	objects.push_back(&object);
-	object.initialise(this);
-	create_vertex_buffer(object);
+	objects.emplace_back(*this, object);
+
+	auto& new_obj = objects.back();
+	create_vertex_buffer(new_obj);
+
 	// uniform buffer
 	create_buffer(sizeof(UniformBufferObject),
 				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  object.get_uniform_buffer(),
-				  object.get_uniform_buffer_memory());
-	swap_chain.spawn_object(object);
+				  new_obj.uniform_buffer,
+				  new_obj.uniform_buffer_memory);
+	swap_chain.spawn_object(new_obj);
 }
 
 void GraphicsEngine::recreate_swap_chain()

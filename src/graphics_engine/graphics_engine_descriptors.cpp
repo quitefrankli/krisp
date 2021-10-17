@@ -89,7 +89,7 @@ void GraphicsEngine::create_descriptor_pools()
 // 		{
 //  			// create a descriptor set for every vertex set, TODO: this is quite inefficient as a single object contains multiple vertex sets
 // 			Object* object = get_objects()[object_index];
-// 			std::vector<std::vector<Vertex>>& cur_vertex_sets = object->get_vertex_sets();
+// 			std::vector<std::vector<Vertex>>& cur_vertex_sets = object->vertex_sets;
 
 // 			for (int vertex_set_index = 0; vertex_set_index < cur_vertex_sets.size(); vertex_set_index++)
 // 			{
@@ -180,7 +180,7 @@ void GraphicsEngine::create_descriptor_pools()
 // 		{
 //  			// create a descriptor set for every vertex set, TODO: this is quite inefficient as a single object contains multiple vertex sets
 // 			Object* object = get_objects()[object_index];
-// 			std::vector<std::vector<Vertex>>& cur_vertex_sets = object->get_vertex_sets();
+// 			std::vector<std::vector<Vertex>>& cur_vertex_sets = object->vertex_sets;
 
 // 			for (int vertex_set_index = 0; vertex_set_index < cur_vertex_sets.size(); vertex_set_index++)
 // 			{

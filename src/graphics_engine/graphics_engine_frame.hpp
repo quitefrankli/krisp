@@ -7,7 +7,7 @@
 
 class GraphicsEngine;
 class GraphicsEngineSwapChain;
-class Object;
+class GraphicsEngineObject;
 
 // Note that frame refers to swap_chain frame and not actual frames
 class GraphicsEngineFrame : GraphicsEngineBaseModule
@@ -18,12 +18,12 @@ public:
 	~GraphicsEngineFrame();
 
 public:
-	void spawn_object(Object& object);
+	void spawn_object(GraphicsEngineObject& object);
 	void draw();
 
 private:
-	void create_descriptor_sets(Object& object);
-	void create_command_buffer(Object& object);
+	void create_descriptor_sets(GraphicsEngineObject& object);
+	void create_command_buffer(GraphicsEngineObject& object);
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
 

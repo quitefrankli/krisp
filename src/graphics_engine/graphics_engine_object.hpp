@@ -1,29 +1,25 @@
 #pragma once
 
+#include "graphics_engine_base_module.hpp"
+#include "objects.hpp"
+
 #include <vulkan/vulkan.hpp>
 
 
 class GraphicsEngine;
+class Object;
 
-class GraphicsEngineObject
+class GraphicsEngineObject : public GraphicsEngineBaseModule, public ObjectAbstract
 {
 public:
+	GraphicsEngineObject(GraphicsEngine& engine);
+	GraphicsEngineObject(GraphicsEngine& engine, Object& object);
 	~GraphicsEngineObject();
 
-public:
-	void initialise(GraphicsEngine* graphics_engine);
-	VkBuffer& get_vertex_buffer();
-	VkDeviceMemory& get_vertex_buffer_memory();
-	VkBuffer& get_uniform_buffer();
-	VkDeviceMemory& get_uniform_buffer_memory();
+	std::vector<std::vector<Vertex>> vertex_sets;
 
-private:
-	void check_initialisation();
-
-private:
 	VkBuffer vertex_buffer;
 	VkDeviceMemory vertex_buffer_memory;
-	GraphicsEngine* graphics_engine = nullptr;
 
 	// as opposed to vertex_buffers we expect to change uniform buffer every frame
 	VkBuffer uniform_buffer;

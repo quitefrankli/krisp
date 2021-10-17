@@ -67,15 +67,15 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr);
 }
 
-void GraphicsEngineFrame::spawn_object(Object& object)
+void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
 {
 	create_descriptor_sets(object);
 	create_command_buffer(object);
 }
 
-void GraphicsEngineFrame::create_descriptor_sets(Object& object)
+void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 {
-	std::vector<std::vector<Vertex>>& cur_vertex_sets = object.get_vertex_sets();
+	std::vector<std::vector<Vertex>>& cur_vertex_sets = object.vertex_sets;
 	std::vector<VkDescriptorSetLayout> layouts(cur_vertex_sets.size(), get_graphics_engine().get_descriptor_set_layout());
 
 	VkDescriptorSetAllocateInfo alloc_info{};
@@ -94,7 +94,7 @@ void GraphicsEngineFrame::create_descriptor_sets(Object& object)
 	for (int vertex_set_index = 0; vertex_set_index < cur_vertex_sets.size(); vertex_set_index++)
 	{
 		VkDescriptorBufferInfo buffer_info{};
-		buffer_info.buffer = object.get_uniform_buffer();
+		buffer_info.buffer = object.uniform_buffer;
 		buffer_info.offset = 0; // sizeof(UniformBufferObject)* (descriptor_sets.size() + vertex_set_index);
 		buffer_info.range = sizeof(UniformBufferObject);
 
@@ -142,7 +142,7 @@ void GraphicsEngineFrame::create_descriptor_sets(Object& object)
 	}
 }
 
-void GraphicsEngineFrame::create_command_buffer(Object& object)
+void GraphicsEngineFrame::create_command_buffer(GraphicsEngineObject& object)
 {
 	VkCommandBufferAllocateInfo allocation_info{};
 	allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -181,7 +181,7 @@ void GraphicsEngineFrame::create_command_buffer(Object& object)
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline()); // bind the graphics pipeline
 
 	// binding the vertex buffer
-	VkBuffer vertex_buffers[] = { object.get_vertex_buffer() };
+	VkBuffer vertex_buffers[] = { object.vertex_buffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(
 		command_buffer, 
@@ -193,7 +193,7 @@ void GraphicsEngineFrame::create_command_buffer(Object& object)
 
 	// this really should be per object, we will adjust in the future
 	int total_vertex_offset = 0;
-	for (int vertex_set_index = 0; vertex_set_index < object.get_vertex_sets().size(); vertex_set_index++)
+	for (int vertex_set_index = 0; vertex_set_index < object.vertex_sets.size(); vertex_set_index++)
 	{
 		// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
 
@@ -208,13 +208,13 @@ void GraphicsEngineFrame::create_command_buffer(Object& object)
 
 		vkCmdDraw(
 			command_buffer, 
-			object.get_vertex_sets().size(), // vertex count
+			object.vertex_sets.size(), // vertex count
 			1, // instance count (only used for instance rendering)
 			total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 			0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
 		);
 
-		total_vertex_offset += object.get_vertex_sets()[vertex_set_index].size();
+		total_vertex_offset += object.vertex_sets[vertex_set_index].size();
 	}
 
 	vkCmdEndRenderPass(command_buffer);
@@ -339,10 +339,10 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	size_t size = sizeof(UniformBufferObject);
 	for (auto& object : get_graphics_engine().get_objects())
 	{
-		default_ubo.model = object->get_transformation();
-		vkMapMemory(get_logical_device(), object->get_uniform_buffer_memory(), 0, size, 0, &data);
+		default_ubo.model = object.get_transformation();
+		vkMapMemory(get_logical_device(), object.uniform_buffer_memory, 0, size, 0, &data);
 		memcpy(data, &default_ubo, size);
-		vkUnmapMemory(get_logical_device(), object->get_uniform_buffer_memory());
+		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);
 	}
 }
 
