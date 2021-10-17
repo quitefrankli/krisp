@@ -1,5 +1,6 @@
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine.hpp"
+#include "objects.hpp"
 
 #include <mutex>
 
@@ -27,4 +28,9 @@ void UpdateObjectUniformsCmd::process(GraphicsEngine* engine)
 	}
 
 	throw std::runtime_error("could not find object!");
+}
+
+void SpawnObjectCmd::process(GraphicsEngine* engine)
+{
+	engine->spawn_object(object);
 }

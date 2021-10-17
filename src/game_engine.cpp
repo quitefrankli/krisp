@@ -31,14 +31,14 @@ GameEngine::GameEngine() :
 	graphics_engine->setup();
 	
 	objects.emplace_back(Cube());
-	for (auto& object : objects)
-	{
-		graphics_engine->spawn_object(object);
-	}
 }
 
 void GameEngine::run()
 {
+	SpawnObjectCmd spawn_obj_cmd;
+	spawn_obj_cmd.object = objects[0];
+	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
+
 	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
