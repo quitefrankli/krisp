@@ -196,6 +196,7 @@ void GraphicsEngineFrame::update_command_buffer()
 
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline
 
+	int total_descriptor_set_offest = 0;
 	auto per_obj_draw_fn = [&](GraphicsEngineObject& object)
 	{
 		// binding the vertex buffer
@@ -220,9 +221,10 @@ void GraphicsEngineFrame::update_command_buffer()
 									get_graphics_engine().get_graphics_pipeline().pipeline_layout, 
 									0, // offset
 									1, // number of sets to bind
-									&descriptor_sets[vertex_set_index],
+									&descriptor_sets[total_descriptor_set_offest],
 									0,
 									nullptr);
+			total_descriptor_set_offest ++;
 
 			vkCmdDraw(
 				command_buffer, 
@@ -235,6 +237,11 @@ void GraphicsEngineFrame::update_command_buffer()
 			total_vertex_offset += object.vertex_sets[vertex_set_index].size();
 		}
 	};
+
+	if (get_graphics_engine().get_objects().size() == 2)
+	{
+		volatile int a = 0;
+	}
 
 	for (auto& object : get_graphics_engine().get_objects())
 	{

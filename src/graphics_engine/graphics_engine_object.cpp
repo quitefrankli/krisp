@@ -10,7 +10,7 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine) :
 }
 
 GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, Object& object) :
-	GraphicsEngineBaseModule(engine), ObjectAbstract(object.get_id())
+	GraphicsEngineBaseModule(engine), ObjectAbstract(object)
 {
 	vertex_sets = object.get_vertex_sets();
 }
@@ -31,6 +31,7 @@ GraphicsEngineObject::~GraphicsEngineObject()
 
 GraphicsEngineObject::GraphicsEngineObject(GraphicsEngineObject&& object) noexcept :
 	GraphicsEngineBaseModule(std::move(object)),
+	ObjectAbstract(std::move(object)),
 	vertex_sets(std::move(object.vertex_sets))
 {
 	vertex_buffer = object.vertex_buffer;

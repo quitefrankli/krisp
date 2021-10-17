@@ -16,6 +16,9 @@ protected:
 public:
 	ObjectAbstract();
 	ObjectAbstract(uint64_t id);
+	ObjectAbstract(const ObjectAbstract& object);
+	ObjectAbstract(ObjectAbstract&& object) noexcept;
+	ObjectAbstract& operator=(const ObjectAbstract& object);
 
 	virtual glm::vec3 get_position() const { return transformation[3]; }
 	virtual void set_position(const glm::vec3& pos) { transformation[3] = glm::vec4(pos, 1.0f); }

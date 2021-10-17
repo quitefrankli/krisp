@@ -27,8 +27,6 @@ GameEngine::GameEngine() :
 	camera = std::make_unique<Camera>(graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
 	graphics_engine->setup();
-	
-	objects.emplace_back(Cube());
 }
 
 void GameEngine::run()
@@ -156,10 +154,26 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_S:
 		{
-			SpawnObjectCmd spawn_obj_cmd;
-			spawn_obj_cmd.object = objects[0];
-			graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
-			break;
+			{
+				Cube cube;
+				cube.set_transformation(glm::translate(cube.get_transformation(), glm::vec3(0.5f, 0.0f, 0.0f) * float(objects.size())));
+				SpawnObjectCmd spawn_obj_cmd;
+				spawn_obj_cmd.object_id = cube.get_id();
+				spawn_obj_cmd.object = cube;
+				graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
+				objects.push_back(std::move(cube));
+				// break;
+			}
+			// {
+			// 	Pyramid cube;
+			// 	cube.set_transformation(glm::translate(cube.get_transformation(), glm::vec3(0.5f, 0.0f, 0.0f)));
+			// 	SpawnObjectCmd spawn_obj_cmd;
+			// 	spawn_obj_cmd.object_id = cube.get_id();
+			// 	spawn_obj_cmd.object = cube;
+			// 	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
+			// 	objects.push_back(std::move(cube));
+			// 	break;
+			// }
 		}
 
 		default:
