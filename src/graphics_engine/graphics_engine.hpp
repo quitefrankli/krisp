@@ -63,12 +63,12 @@ public: // getters and setters
 	inline VkInstance& get_instance() { return instance.get(); }
 	inline VkQueue& get_present_queue() { return present_queue; }
 	inline VkQueue& get_graphics_queue() { return graphics_queue; }
-	inline VkSurfaceKHR& get_window_surface() { return window_surface; }
+	inline VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
 	VkRenderPass& get_render_pass() { return swap_chain.get_render_pass(); }
-	uint32_t get_num_swapchain_images() { return swap_chain.get_num_images(); }
+	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
 	VkDescriptorSetLayout& get_descriptor_set_layout() { return descriptor_set_layout; }
-	VkDescriptorPool& get_descriptor_pool() { return descriptor_pool; }
+	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	VkPipeline& get_graphics_pipeline() { return graphics_engine_pipeline; }
 
@@ -81,12 +81,10 @@ private:
 	GraphicsEngineSwapChain swap_chain;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
-	VkSurfaceKHR window_surface;
 	VkDescriptorSetLayout descriptor_set_layout;
 	VkPipeline graphics_engine_pipeline;
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::vector<GraphicsEngineObject> objects;
-	VkDescriptorPool descriptor_pool; // TODO move this to GraphicsEnginePool
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
 
@@ -145,10 +143,6 @@ public: // vertex buffer
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 
 	// void update_uniform_buffer(uint32_t current_image);
-
-private: // descriptors
-	void create_descriptor_pools();
-
 	// void create_descriptor_sets(); // todo delete me
 
 public:

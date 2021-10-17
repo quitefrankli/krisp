@@ -79,9 +79,9 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine &engine) : Graph
 	//GraphicsEngineFrame frame(get_graphics_engine(), *this, swap_chain_images[0]); // DELETE ME
 
 	frames.reserve(swap_chain_images.size());
-	if (frames.capacity() < swap_chain_images.size())
+	if (frames.capacity() < swap_chain_images.size() || swap_chain_images.size() != EXPECTED_NUM_SWAPCHAIN_IMAGES)
 	{
-		throw std::runtime_error("frame resize attempted");
+		throw std::runtime_error("GraphicsEngineSwapChain:: ERROR in num swapchain images!");
 	}
 	for (auto &handle : swap_chain_images)
 	{
@@ -97,7 +97,7 @@ GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 {
 	// for (auto& frame_buffer : swap_chain_frame_buffers)
 	// {
-	// 	vkDestroyFramebuffer(get_logical_device(), frame_buffer, nullptr);
+	// 	vkDestroyFramebuffer(get_logical_device(), frame_buffer, nullptr); // moved this to frame
 	// }
 
 	// vkFreeCommandBuffers(get_logical_device(), command_pool, static_cast<uint32_t>(command_buffers.size()), command_buffers.data()); // moved frame destructor
@@ -238,96 +238,6 @@ void GraphicsEngineSwapChain::draw()
 	frames[current_frame].draw();
 
 	current_frame = (current_frame + 1) % frames.size();
-
-	// // 1. acquire image from swap chain
-	// // 2. execute command buffer with image as attachment in the frame buffer
-	// // 3. return the image to swap chain for presentation
-
-	// // CPU-GPU synchronisation for in flight images
-	// vkWaitForFences(get_logical_device(), 1, &in_flight_fences[current_frame], VK_TRUE, std::numeric_limits<uint64_t>::max());
-
-	// uint32_t swap_chain_image_index;
-	// // waits until there's an image available to use in the swap chain
-	// VkResult result = vkAcquireNextImageKHR(get_logical_device(), 
-	// 										swap_chain, 
-	// 										std::numeric_limits<uint64_t>::max(), // wait time (ns)
-	// 										image_available_semaphores[current_frame], 
-	// 										VK_NULL_HANDLE, 
-	// 										&swap_chain_image_index); // image index of the available image
-	// if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-	// 	reset();
-	// 	return;
-	// } else if (image_index != swap_chain_image_index) {
-	// 	throw std::runtime_error("image_index and swap_chain_image_index mismatch!");
-	// } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-	// 	throw std::runtime_error("failed to acquire swap chain image!");
-	// }
-
-	// // check if a previous frame is using this image (i.e. there is a fence to wait on)
-	// if (images_in_flight[image_index] != VK_NULL_HANDLE)
-	// {
-	// 	vkWaitForFences(get_logical_device(), 1, &images_in_flight[image_index], VK_TRUE, std::numeric_limits<uint64_t>::max());
-	// }
-	// // mark the image as now being in use by this frame
-	// images_in_flight[image_index] = in_flight_fences[current_frame];		
-
-	// update_uniform_buffer(image_index);
-
-	// //
-	// // submitting the command buffer
-	// //
-
-	// VkSubmitInfo submitInfo{};
-	// submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-	// VkSemaphore waitSemaphores[] = { image_available_semaphores[current_frame] };
-	// VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	// // here we specify which semaphore to wait on before execution begins and in which stage of the pipeline to wait
-	// submitInfo.waitSemaphoreCount = 1;
-	// submitInfo.pWaitSemaphores = waitSemaphores;
-	// submitInfo.pWaitDstStageMask = waitStages;
-
-	// // here we specify which command buffers to actually submit for execution
-	// submitInfo.commandBufferCount = 1;
-	// submitInfo.pCommandBuffers = &command_buffers[image_index];
-
-	// // here we specify the semaphores to signal once the command buffer has finished execution
-	// VkSemaphore signal_semaphores[] = { render_finished_semaphores[current_frame] };
-	// submitInfo.signalSemaphoreCount = 1;
-	// submitInfo.pSignalSemaphores = signal_semaphores;
-
-	// vkResetFences(get_logical_device(), 1, &in_flight_fences[current_frame]);
-	// if (vkQueueSubmit(get_graphics_engine().get_graphics_queue(), 1, &submitInfo, in_flight_fences[current_frame]) != VK_SUCCESS)
-	// {
-	// 	throw std::runtime_error("failed to submit draw command buffer!");
-	// }
-
-	// //
-	// // Presentation
-	// // this step submits the result of the swapchain to have it eventually show up on the screen
-	// //
-
-	// VkPresentInfoKHR present_info{};
-	// present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-	// present_info.waitSemaphoreCount = 1;
-	// // the semaphore to wait on before presentation
-	// present_info.pWaitSemaphores = signal_semaphores;
-
-	// VkSwapchainKHR swap_chains[] = { swap_chain };
-	// present_info.swapchainCount = 1;
-	// present_info.pSwapchains = swap_chains;
-	// present_info.pImageIndices = &image_index;
-	// present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
-
-	// current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-	// result = vkQueuePresentKHR(get_graphics_engine().get_present_queue(), &present_info);
-	// if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window
-	// 	frame_buffer_resized = false;
-	// 	reset();
-	// } else if (result != VK_SUCCESS) {
-	// 	throw std::runtime_error("failed to present swap chain image!");
-	// }
 }
 
 void GraphicsEngineSwapChain::create_render_pass()

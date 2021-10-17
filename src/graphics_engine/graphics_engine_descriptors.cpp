@@ -37,33 +37,6 @@ void GraphicsEngine::create_descriptor_set_layout()
 	}
 }
 
-void GraphicsEngine::create_descriptor_pools()
-{
-	// 1x uniform descriptor per descriptor set
-	VkDescriptorPoolSize uniform_buffer_pool_size{};
-	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uniform_buffer_pool_size.descriptorCount = get_num_swapchain_images() * MAX_NUM_DESCRIPTOR_SETS;
-
-	// 1x texture descriptor per descriptor set
-	VkDescriptorPoolSize combined_image_sampler_pool_size{};
-	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	combined_image_sampler_pool_size.descriptorCount = get_num_swapchain_images() * MAX_NUM_DESCRIPTOR_SETS;
-	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
-
-	// allocate a descriptor for every image in the swap chain
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = pool_sizes.size();
-	poolInfo.pPoolSizes = pool_sizes.data();
-	// defines maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = get_num_swapchain_images() * MAX_NUM_DESCRIPTOR_SETS;
-
-	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("GraphicsEngine::create_descriptor_pool: failed to create descriptor pool!");
-	}
-}
-
 // void GraphicsEngine::create_descriptor_sets()
 // {
 // 	std::vector<VkDescriptorSetLayout> layouts(static_cast<uint32_t>(swap_chain_images.size()) * get_vertex_sets().size(), descriptor_set_layout);

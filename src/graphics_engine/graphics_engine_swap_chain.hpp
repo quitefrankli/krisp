@@ -24,7 +24,7 @@ public:
 
 	void reset();
 
-	const int MAX_FRAMES_IN_FLIGHT = 2;
+	static const int EXPECTED_NUM_SWAPCHAIN_IMAGES = 3;
 	static SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface);
 	void spawn_object(GraphicsEngineObject& object);
 	void draw();

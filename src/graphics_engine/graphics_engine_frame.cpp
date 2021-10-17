@@ -61,10 +61,15 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 {
 	global_image_index--;
 	vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
+
+	vkDestroyImageView(get_logical_device(), image_view, nullptr);
+	vkDestroyFramebuffer(get_logical_device(), frame_buffer, nullptr);
+
+	// cleanup synchronisation objects
 	vkDestroySemaphore(get_logical_device(), image_available_semaphore, nullptr);
 	vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
 	vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
-	vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr);
+	// vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr); // this isn't an actual fence it's rather a reference to the inflight frame fence
 }
 
 void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
@@ -226,7 +231,7 @@ void GraphicsEngineFrame::create_command_buffer(GraphicsEngineObject& object)
 
 void GraphicsEngineFrame::draw()
 {
-		// 1. acquire image from swap chain
+	// 1. acquire image from swap chain
 	// 2. execute command buffer with image as attachment in the frame buffer
 	// 3. return the image to swap chain for presentation
 
