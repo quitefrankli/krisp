@@ -2,6 +2,8 @@
 
 #include "graphics_engine_base_module.hpp"
 
+#include "analytics.hpp"
+
 #include <vulkan/vulkan.hpp>
 
 
@@ -60,4 +62,6 @@ private:
 	VkFence fence_image_inflight = VK_NULL_HANDLE; // check if a frame in flight is already using a swapchain image 
 
 	static int global_image_index;
+
+	Analytics analytics;
 };

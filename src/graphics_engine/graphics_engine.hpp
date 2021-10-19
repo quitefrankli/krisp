@@ -25,7 +25,6 @@ class Camera;
 class GameEngine;
 class GraphicsEngineObject;
 
-
 class GraphicsEngineCmd
 {
 public:

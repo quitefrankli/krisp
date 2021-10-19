@@ -6,6 +6,7 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"
+#include "analytics.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
@@ -32,10 +33,12 @@ GameEngine::GameEngine() :
 void GameEngine::run()
 {
 	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
-
+	Analytics analytics;
+	analytics.text = "GameEngine: average cycle ms";
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
-		// Timer timer("GameEngine");
+		analytics.start();
+
 		glfwPollEvents();
 		if (mouse.rmb_down)
 		{
@@ -79,9 +82,10 @@ void GameEngine::run()
 			cmd.transformation = objects[0].get_transformation();
 			graphics_engine->enqueue_cmd(std::make_unique<UpdateObjectUniformsCmd>(cmd));
 		}
-		// timer.print_time_us();
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+		analytics.stop();
 	}
 
 	shutdown();
@@ -162,18 +166,8 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 				spawn_obj_cmd.object = cube;
 				graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
 				objects.push_back(std::move(cube));
-				// break;
+				break;
 			}
-			// {
-			// 	Pyramid cube;
-			// 	cube.set_transformation(glm::translate(cube.get_transformation(), glm::vec3(0.5f, 0.0f, 0.0f)));
-			// 	SpawnObjectCmd spawn_obj_cmd;
-			// 	spawn_obj_cmd.object_id = cube.get_id();
-			// 	spawn_obj_cmd.object = cube;
-			// 	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
-			// 	objects.push_back(std::move(cube));
-			// 	break;
-			// }
 		}
 
 		default:

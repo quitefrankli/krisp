@@ -56,6 +56,8 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 
 	create_synchronisation_objects();
 	create_command_buffer();
+
+	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
 
 GraphicsEngineFrame::~GraphicsEngineFrame()
@@ -262,8 +264,10 @@ void GraphicsEngineFrame::draw()
 	// 2. execute command buffer with image as attachment in the frame buffer
 	// 3. return the image to swap chain for presentation
 
+	analytics.start();
 	// CPU-GPU synchronisation for in flight images
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
+	analytics.stop();
 
 	uint32_t swap_chain_image_index;
 	// waits until there's an image available to use in the swap chain

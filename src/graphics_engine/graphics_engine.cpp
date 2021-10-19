@@ -5,6 +5,7 @@
 #include "objects.hpp"
 #include "uniform_buffer_object.hpp"
 #include "utility_functions.hpp"
+#include "analytics.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -96,8 +97,11 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 }
 
 void GraphicsEngine::run() {
+	Analytics analytics;
+	analytics.text = "GraphicsEngine: average cycle ms";
 	while (!should_shutdown)
 	{
+		analytics.start();
 		ge_cmd_q_mutex.lock();
 		while (!ge_cmd_q.empty())
 		{
@@ -107,7 +111,9 @@ void GraphicsEngine::run() {
 		ge_cmd_q_mutex.unlock();
 
 		swap_chain.draw();
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+		analytics.stop();
 	}
 }
 

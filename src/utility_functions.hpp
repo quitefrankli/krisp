@@ -64,6 +64,8 @@ public:
 	void reset();
 	void print_time(const std::string& identifier = "");
 	void print_time_us(const std::string& identifier = "");
+	int64_t get_elapsed();
+	int64_t lap();
 
 private:
 	TimerImpl* impl;
