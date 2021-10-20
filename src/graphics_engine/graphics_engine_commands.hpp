@@ -55,3 +55,9 @@ public:
 
 	Object object;
 };
+
+class ShutdownCmd : public GraphicsEngineCommand
+{
+public:
+	void process(GraphicsEngine* engine) override;
+};

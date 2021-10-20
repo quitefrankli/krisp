@@ -33,12 +33,13 @@ GraphicsEngineValidationLayer::~GraphicsEngineValidationLayer()
 {
 	// loads up function from dynamic library
 	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(get_instance(), "vkDestroyDebugUtilsMessengerEXT");
-	if (!func)
+	if (func)
 	{
-		throw std::runtime_error("failed to destroy debug messenger!");
+		func(get_instance(), debug_messenger, nullptr);
+	} else {
+		// throw std::runtime_error("failed to destroy debug messenger!");
+		// I think there might be a bug here, the library seems to get unloaded as soon as this thread ends
 	}
-
-	func(get_instance(), debug_messenger, nullptr);
 }
 
 std::vector<const char*> GraphicsEngineValidationLayer::get_layers()

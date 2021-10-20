@@ -133,7 +133,6 @@ void GameEngine::run()
 	}
 
 	shutdown();
-
 	graphics_engine_thread.join();
 }
 
@@ -279,8 +278,13 @@ void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xof
 
 void GameEngine::shutdown_impl()
 {
+	if (should_shutdown)
+	{
+		return;
+	}
+
 	should_shutdown = true;
-	graphics_engine->shutdown();
+	graphics_engine->enqueue_cmd(std::make_unique<ShutdownCmd>());
 }
 
 GameEngine::~GameEngine() = default;

@@ -18,6 +18,7 @@ std::vector<std::string> GraphicsEngineInstance::get_required_extensions() const
 	if (GraphicsEngineValidationLayer::is_enabled())
 	{
 		required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+		required_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
 	return required_extensions;

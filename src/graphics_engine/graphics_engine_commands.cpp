@@ -34,3 +34,8 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 {
 	engine->spawn_object(object);
 }
+
+void ShutdownCmd::process(GraphicsEngine* engine)
+{
+	engine->shutdown();
+}
