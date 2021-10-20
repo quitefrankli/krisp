@@ -230,7 +230,7 @@ void GraphicsEngineFrame::update_command_buffer()
 
 			vkCmdDraw(
 				command_buffer, 
-				object.vertex_sets.size(), // vertex count
+				object.vertex_sets[vertex_set_index].size(), // vertex count
 				1, // instance count (only used for instance rendering)
 				total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 				0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
