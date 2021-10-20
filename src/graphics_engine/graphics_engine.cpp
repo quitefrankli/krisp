@@ -28,7 +28,8 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	device(*this),
 	pool(*this),
 	pipeline(*this),
-	swap_chain(*this)
+	swap_chain(*this),
+	model_loader(*this)
 {
 }
 

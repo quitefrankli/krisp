@@ -14,6 +14,7 @@ class vulkan_conan(ConanFile):
 		"vulkan-loader/1.2.172",
 		"vulkan-validationlayers/1.2.154.0",
 		"stb/20190512@conan/stable",
+		"tinyobjloader/1.0.6",
 		"quill/1.6.3"
 	) 
 	generators = (

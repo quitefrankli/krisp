@@ -8,6 +8,7 @@
 #include "utility_functions.hpp"
 #include "analytics.hpp"
 
+#include <tiny_obj_loader.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -33,8 +34,51 @@ GameEngine::GameEngine() :
 void GameEngine::run()
 {
 	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
+
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string err;
+	std::string path = "../resources/models/viking_room.obj";
+	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str()))
+	{
+		throw std::runtime_error(err);
+	}
+
+	Object mesh;
+	for (auto& shape : shapes)
+	{
+		Shape new_shape;
+		for (auto& index : shape.mesh.indices)
+		{
+			Vertex new_vertex;
+			new_vertex.pos = {
+				attrib.vertices[3 * index.vertex_index + 0],
+				attrib.vertices[3 * index.vertex_index + 1],
+				attrib.vertices[3 * index.vertex_index + 2]
+			};
+			new_vertex.texCoord = {
+				attrib.texcoords[2 * index.texcoord_index + 0],
+				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+			};
+			new_shape.vertices.push_back(std::move(new_vertex));
+		}
+		mesh.shapes.push_back(std::move(new_shape));
+	}
+
+	{
+		// Cube cube;
+		// mesh = cube;
+		SpawnObjectCmd spawn_obj_cmd;
+		spawn_obj_cmd.object_id = mesh.get_id();
+		spawn_obj_cmd.object = mesh;
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
+		objects.push_back(std::move(mesh));
+	}
+
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		analytics.start();

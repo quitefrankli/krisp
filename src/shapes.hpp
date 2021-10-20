@@ -6,13 +6,12 @@
 
 class Shape
 {
-protected:
-	std::vector<Vertex> vertices;
 
 public:
 	Shape() {}
 	~Shape() {}
 
+	std::vector<Vertex> vertices;
 	const std::vector<Vertex>& get_vertices() const { return vertices; }
 	void transform_vertices(const glm::mat4& transform);
 };
