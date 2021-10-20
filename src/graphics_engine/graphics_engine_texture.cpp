@@ -35,7 +35,7 @@ void GraphicsEngineTexture::change_texture(const std::string& filename)
 void GraphicsEngineTexture::create_texture_image(const std::string& filename)
 {
 	int width, height, channels;
-	const std::string texture_path = TEXTURE_PATH + filename;
+	const std::string texture_path = TEXTURE_PATH + "viking_room.png";
 	std::unique_ptr<stbi_uc, std::function<void(stbi_uc*)>> pixels(
 		stbi_load(texture_path.c_str(), &width, &height, &channels, STBI_rgb_alpha),
 

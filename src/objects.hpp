@@ -39,10 +39,8 @@ private:
 
 class Object : public ObjectAbstract
 {
-protected:
-	std::vector<Shape> shapes;
-
 public:
+	std::vector<Shape> shapes;
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 
 private:

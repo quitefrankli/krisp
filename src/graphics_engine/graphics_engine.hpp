@@ -84,6 +84,7 @@ private: // core components
 	GraphicsEnginePool pool;
 	GraphicsEnginePipeline pipeline;
 	GraphicsEngineSwapChain swap_chain;
+	GraphicsEngineModelLoader model_loader;
 
 private:
 	VkQueue graphics_queue;
@@ -92,7 +93,6 @@ private:
 	std::vector<GraphicsEngineObject> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
-	GraphicsEngineModelLoader model_loader;
 
 	bool should_shutdown = false;
 	bool is_initialised = false;
