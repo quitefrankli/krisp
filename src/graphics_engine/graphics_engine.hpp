@@ -77,6 +77,11 @@ public: // getters and setters
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
+	GraphicsEngineTexture& get_texture_mgr() { return texture_mgr; }
+
+private: // flags (these must be before core components)
+	bool should_shutdown = false;
+	bool bPhysicalDevicePropertiesCached = false;
 
 private: // core components
 	GameEngine& game_engine;
@@ -85,7 +90,7 @@ private: // core components
 	GraphicsEngineDevice device;
 	GraphicsEnginePool pool;
 	GraphicsEnginePipeline pipeline;
-public:	GraphicsEngineTexture texture_mgr; private:
+	GraphicsEngineTexture texture_mgr;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEngineModelLoader model_loader;
@@ -97,11 +102,7 @@ private:
 	std::vector<GraphicsEngineObject> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
-
-	bool should_shutdown = false;
-	bool is_initialised = false;
-
-	void createInstance();
+	VkPhysicalDeviceProperties physical_device_properties;
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
@@ -111,11 +112,7 @@ public: // swap chain
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void recreate_swap_chain(); // useful for when size of window is changing
 
-	void create_image_views();
-	void create_frame_buffers();
-
 public: // command buffer
-	// void create_command_pool();
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
@@ -130,8 +127,6 @@ public: // vertex buffer
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 
 public:
-	bool bPhysicalDevicePropertiesCached = false;
-	VkPhysicalDeviceProperties physical_device_properties;
 	const VkPhysicalDeviceProperties& get_physical_device_properties();
 
 public: // other
@@ -145,11 +140,9 @@ public: // thread safe
 
 private: // friends
 	friend ChangeTextureCmd;
+	friend SpawnObjectCmd;
 	void change_texture(const std::string& str);
 
-public: // main
 	void spawn_object(Object& obj);
-
-	// void draw_frame();
 };
 

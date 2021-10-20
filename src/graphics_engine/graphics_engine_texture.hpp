@@ -41,8 +41,7 @@ private:
 
 public:
 	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
-
-	void init();
+	~GraphicsEngineTexture();
 
 	void create_image(uint32_t width, 
 					  uint32_t height, 
@@ -59,8 +58,6 @@ public:
 
 	VkImageView& get_texture_image() { return texture_image_view; }
 	VkSampler& get_texture_sampler() { return texture_sampler; }
-
-	void cleanup();
 
 	void change_texture(const std::string& filename);
 };

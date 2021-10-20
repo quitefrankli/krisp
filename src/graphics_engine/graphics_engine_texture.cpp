@@ -13,22 +13,26 @@ const std::string TEXTURE_PATH = "../resources/textures/";
 GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
-
-}
-
-void GraphicsEngineTexture::init()
-{
 	create_texture_image();
 	create_image_view();
 	create_texture_sampler();
 }
 
+GraphicsEngineTexture::~GraphicsEngineTexture()
+{
+	vkDestroySampler(get_logical_device(), texture_sampler, nullptr);
+	vkDestroyImageView(get_logical_device(), texture_image_view, nullptr); // note we destroy the view before the actual image
+	vkDestroyImage(get_logical_device(), texture_image, nullptr);
+	vkFreeMemory(get_logical_device(), texture_image_memory, nullptr);
+}
+
 void GraphicsEngineTexture::change_texture(const std::string& filename)
 {
-	cleanup(); 
-	create_texture_image(filename);
-	create_image_view();
-	create_texture_sampler();
+	// TODO
+	// cleanup(); 
+	// create_texture_image(filename);
+	// create_image_view();
+	// create_texture_sampler();
 }
 
 // load image and upload it into a vulkan image object
@@ -287,12 +291,4 @@ void GraphicsEngineTexture::create_texture_sampler()
 	{
 		throw std::runtime_error("failed to create texture sampler!");
 	}
-}
-
-void GraphicsEngineTexture::cleanup()
-{
-	vkDestroySampler(get_logical_device(), texture_sampler, nullptr);
-	vkDestroyImageView(get_logical_device(), texture_image_view, nullptr); // note we destroy the view before the actual image
-	vkDestroyImage(get_logical_device(), texture_image, nullptr);
-	vkFreeMemory(get_logical_device(), texture_image_memory, nullptr);
 }

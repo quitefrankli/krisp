@@ -8,7 +8,7 @@ GraphicsEngineDepthBuffer::GraphicsEngineDepthBuffer(GraphicsEngine& engine) :
 {
 	VkFormat depth_format = findDepthFormat();
 	auto extent = get_graphics_engine().get_extent_unsafe();
-	get_graphics_engine().texture_mgr.create_image(extent.width,
+	get_graphics_engine().get_texture_mgr().create_image(extent.width,
 												   extent.height,
 												   depth_format,
 												   VK_IMAGE_TILING_OPTIMAL,
@@ -17,7 +17,7 @@ GraphicsEngineDepthBuffer::GraphicsEngineDepthBuffer(GraphicsEngine& engine) :
 												   image,
 												   memory);
 
-	view = get_graphics_engine().texture_mgr.create_image_view(image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
+	view = get_graphics_engine().get_texture_mgr().create_image_view(image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
 GraphicsEngineDepthBuffer::~GraphicsEngineDepthBuffer()

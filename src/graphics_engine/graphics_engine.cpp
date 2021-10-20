@@ -38,14 +38,6 @@ GraphicsEngine::~GraphicsEngine()
 {
 	std::cout<<"cleaning up\n";
 	vkDeviceWaitIdle(get_logical_device());
-
-	texture_mgr.cleanup();
-
-	// moved to graphics engine object
-	// vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
-	// vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
-
-	//vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
 }
 
 Camera* GraphicsEngine::get_camera()
@@ -59,18 +51,7 @@ GLFWwindow* GraphicsEngine::get_window()
 }
 
 void GraphicsEngine::setup() {
-	//create_descriptor_set_layout(); // moved to pool
-	//create_graphics_pipeline(); // moved to GraphicsEnginePipline
-	// create_frame_buffers();
-	// create_command_pool(); // moved to pool
-	texture_mgr.init();
-	// create_vertex_buffer(); // moved to graphics engine object
-	// create_uniform_buffers();
-	// create_descriptor_pools(); // moved to pool
-	// create_descriptor_sets(); // moved to swap_chain_frame
-	// create_command_buffers(); // moved to swap_chain_frame
-	// create_synchronisation_objects(); moveed to swap_chain
-	is_initialised = true;
+	// texture_mgr.init();
 }
 
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
