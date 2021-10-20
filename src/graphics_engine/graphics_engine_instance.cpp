@@ -70,7 +70,7 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 		throw std::runtime_error("failed to create instance!");
 	}
 
-	if (glfwCreateWindowSurface(get_instance(), get_graphics_engine().get_window(), nullptr, &get_graphics_engine().get_window_surface()) != VK_SUCCESS) // create window surface
+	if (glfwCreateWindowSurface(get_instance(), get_graphics_engine().get_window(), nullptr, &window_surface) != VK_SUCCESS) // create window surface
 	{
 		throw std::runtime_error("failed to create window surface!");
 	}
@@ -78,5 +78,7 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 
 GraphicsEngineInstance::~GraphicsEngineInstance()
 {
+	vkDestroySurfaceKHR(get_instance(), window_surface, nullptr);
+
 	vkDestroyInstance(instance, nullptr);
 }

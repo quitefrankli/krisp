@@ -6,6 +6,41 @@
 #include <iostream>
 
 
+uint64_t ObjectAbstract::global_id = 0;
+
+ObjectAbstract::ObjectAbstract()
+{
+	generate_new_id();
+}
+
+ObjectAbstract::ObjectAbstract(uint64_t id)
+{
+	this->id = id;
+}
+
+ObjectAbstract::ObjectAbstract(const ObjectAbstract& object) :
+	id(object.id),
+	transformation(object.transformation),
+	original_transformation(object.original_transformation)
+{
+}
+
+ObjectAbstract& ObjectAbstract::operator=(const ObjectAbstract& object)
+{
+	id = object.id;
+	transformation = object.transformation;
+	original_transformation = object.original_transformation;
+
+	return *this;
+}
+
+ObjectAbstract::ObjectAbstract(ObjectAbstract&& object) noexcept :
+	id(object.id),
+	transformation(std::move(object.transformation)),
+	original_transformation(std::move(object.original_transformation))
+{
+}
+
 void ObjectAbstract::apply_transformation(const glm::mat4& transformation)
 {
 	this->transformation = transformation * (this->transformation);

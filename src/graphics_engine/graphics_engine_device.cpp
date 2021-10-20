@@ -48,7 +48,7 @@ void GraphicsEngineDevice::pick_physical_device()
 			return false;
 		}
 
-		SwapChainSupportDetails swap_chain_support = get_graphics_engine().query_swap_chain_support(device);
+		SwapChainSupportDetails swap_chain_support = GraphicsEngineSwapChain::query_swap_chain_support(device, get_graphics_engine().get_window_surface());
 		if (swap_chain_support.formats.empty() || swap_chain_support.presentModes.empty())
 		{
 			return false;

@@ -6,7 +6,10 @@
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
 #include "graphics_engine_model_loader.hpp"
+#include "graphics_engine_pool.hpp"
 #include "graphics_engine_commands.hpp"
+#include "graphics_engine_object.hpp"
+#include "graphics_engine_pipeline.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -21,14 +24,7 @@
 
 class Camera;
 class GameEngine;
-class Object;
-
-struct SwapChainSupportDetails
-{
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-};
+class GraphicsEngineObject;
 
 class GraphicsEngineCmd
 {
@@ -44,137 +40,107 @@ public:
 	GraphicsEngine(GameEngine& _game_engine);
 	~GraphicsEngine();
 
-	void setup() { initVulkan(); }
-	void run() { mainLoop(); }
-	void set_frame_buffer_resized() { frame_buffer_resized = true; }
+	void setup();
+	void run();
 	void shutdown() { should_shutdown = true; }
-	const std::vector<VkImage>& get_swap_chain() { return swap_chain_images; }
+
+	const int MAX_NUM_OBJECTS = 10;
+	const int MAX_NUM_DESCRIPTOR_SETS = MAX_NUM_OBJECTS * 100;
+	const int MAX_NUM_VERTICES = MAX_NUM_DESCRIPTOR_SETS * 3;
+	const VkVertexInputBindingDescription binding_description;
+	const std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 
 public: // getters and setters
 	template<class T> 
-	T get_window_width() const { return (T)swap_chain_extent.width; }
+	T get_window_width() const { return static_cast<T>(swap_chain.get_extent().width); }
 	template<class T>
-	T get_window_height() const { return (T)swap_chain_extent.height; }
+	T get_window_height() const { return static_cast<T>(swap_chain.get_extent().height); }
+	VkExtent2D get_extent_unsafe();
 	GLFWwindow* get_window();
 	Camera* get_camera();
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
-	std::vector<Object*>& get_objects() { return objects; }
+	std::vector<GraphicsEngineObject>& get_objects() { return objects; }
+	inline VkDevice& get_logical_device() { return device.get_logical_device(); }
+	inline VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
+	inline VkInstance& get_instance() { return instance.get(); }
+	inline VkQueue& get_present_queue() { return present_queue; }
+	inline VkQueue& get_graphics_queue() { return graphics_queue; }
+	inline VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
+	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
+	VkRenderPass& get_render_pass() { return pipeline.render_pass; }
+	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
+	VkDescriptorSetLayout& get_descriptor_set_layout() { return pool.descriptor_set_layout; }
+	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
+	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
+	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
 
-private:
+private: // core components
 	GameEngine& game_engine;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
+	GraphicsEnginePool pool;
+	GraphicsEnginePipeline pipeline;
+	GraphicsEngineSwapChain swap_chain;
+
+private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
-	VkSurfaceKHR window_surface;
-	VkSwapchainKHR swap_chain;
-	std::vector<VkImage> swap_chain_images; // handle of the swap chain images
-	VkFormat swap_chain_image_format;
-	VkExtent2D swap_chain_extent;
-	VkDescriptorSetLayout descriptor_set_layout;
-	VkPipelineLayout pipeline_layout;
-	std::vector<VkImageView> swap_chain_image_views;
-	VkRenderPass render_pass;
-	VkPipeline graphics_engine_pipeline;
-	std::vector<VkFramebuffer> swap_chain_frame_buffers;
-	VkCommandPool command_pool;
-	std::vector<VkCommandBuffer> command_buffers;
-	std::vector<VkSemaphore> image_available_semaphores;
-	std::vector<VkSemaphore> render_finished_semaphores;
-	std::vector<VkFence> in_flight_fences;
-	std::vector<VkFence> images_in_flight;
 	std::vector<std::vector<Vertex>> vertex_sets;
-	std::vector<Object*> objects;
-	std::mutex ge_cmd_q_mutex;
+	std::vector<GraphicsEngineObject> objects;
+	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
 	GraphicsEngineModelLoader model_loader;
 
-	// swap chain
-	// GraphicsEngineSwapChain swapchain;
-	int current_frame = 0;
-	bool frame_buffer_resized = false;
-	const int MAX_FRAMES_IN_FLIGHT = 2;
 	bool should_shutdown = false;
 	bool is_initialised = false;
 
-public: // vertix buffers
-	VkVertexInputBindingDescription binding_description;
-	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-	VkBuffer vertex_buffer;
-	VkDeviceMemory vertex_buffer_memory;
-
-	// as opposed to vertex_buffers we expect to change uniform buffer every frame
-	std::vector<VkBuffer> uniform_buffers;
-	std::vector<VkDeviceMemory> uniform_buffers_memory;
-	VkDescriptorPool descriptor_pool;
-	std::vector<VkDescriptorSet> descriptor_sets;
+public:
 	GraphicsEngineTexture texture_mgr;
 
 private:
-	void initVulkan();
+	void createInstance();
+
+	void pick_physical_device();
+
+	void create_logical_device();
+
+
 	// semaphores and fences, for GPU-GPU and CPU-GPU synchronisation
-	void create_synchronisation_objects();
+	// void create_synchronisation_objects(); // moved to swap_chain
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
 
 public: // swap chain
-	void create_swap_chain();
-	SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice device);
-	VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& available_formats);
-	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
 	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void recreate_swap_chain(); // useful for when size of window is changing
-	void clean_up_swap_chain();
 
 	void create_image_views();
 	void create_frame_buffers();
 
-public: // graphics pipeline
-	void create_graphics_pipeline();
-	void create_render_pass();
-
 public: // command buffer
-	void create_command_pool();
-	void create_command_buffers();
+	// void create_command_pool();
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
 public: // vertex buffer
-	void create_vertex_buffer();
+	void create_vertex_buffer(GraphicsEngineObject& object);
+
 	void create_buffer(size_t size, 
 					   VkBufferUsageFlags usage_flags, 
 					   VkMemoryPropertyFlags memory_flags, 
 					   VkBuffer& buffer, 
 					   VkDeviceMemory& device_memory);
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
-	void update_uniform_buffer(uint32_t current_image);
-
-private: // descriptors
-	void create_descriptor_pools();
-	void create_descriptor_sets();
-	void update_descriptor_sets();
 
 public:
 	bool bPhysicalDevicePropertiesCached = false;
 	VkPhysicalDeviceProperties physical_device_properties;
 	const VkPhysicalDeviceProperties& get_physical_device_properties();
-
-private: //uniform buffer
-	void create_descriptor_set_layout();
-	void create_uniform_buffers();
-
-public: // getters
-	inline VkDevice& get_logical_device() { return device.get_logical_device(); }
-	inline VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
-	inline VkInstance& get_instance() { return instance.get(); }
-	inline VkQueue& get_present_queue() { return present_queue; }
-	inline VkQueue& get_graphics_queue() { return graphics_queue; }
-	inline VkSurfaceKHR& get_window_surface() { return window_surface; }
 
 public: // other
 	// graphics cards offer different types of memory to allocate from, each type of memory varies
@@ -190,7 +156,8 @@ private: // friends
 	void change_texture(const std::string& str);
 
 public: // main
-	void draw_frame();
-    void mainLoop();
+	void spawn_object(Object& obj);
+
+	// void draw_frame();
 };
 

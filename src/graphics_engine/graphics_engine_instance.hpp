@@ -19,6 +19,7 @@ public:
 	~GraphicsEngineInstance();
 
 	VkInstance& get() { return instance; }
+	VkSurfaceKHR window_surface;
 
 private:
 	const std::string APPLICATION_NAME = "My Application";
