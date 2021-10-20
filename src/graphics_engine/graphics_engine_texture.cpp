@@ -19,7 +19,7 @@ GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngine& engine) :
 void GraphicsEngineTexture::init()
 {
 	create_texture_image();
-	create_texture_image_view();
+	create_image_view();
 	create_texture_sampler();
 }
 
@@ -27,7 +27,7 @@ void GraphicsEngineTexture::change_texture(const std::string& filename)
 {
 	cleanup(); 
 	create_texture_image(filename);
-	create_texture_image_view();
+	create_image_view();
 	create_texture_sampler();
 }
 
@@ -230,24 +230,34 @@ void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image,
 	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
-void GraphicsEngineTexture::create_texture_image_view()
+VkImageView GraphicsEngineTexture::create_image_view(VkImage& image,
+											  VkFormat format,
+											  VkImageAspectFlags aspect_flags)
 {
 	VkImageViewCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	create_info.image = texture_image;
+	create_info.image = image;
 	create_info.viewType = VK_IMAGE_VIEW_TYPE_2D; // specifies how the image data should be interpreted
 													// i.e. treat images as 1D, 2D, 3D textures and cube maps
-	create_info.format = VK_FORMAT_R8G8B8A8_SRGB;
-	create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // describes image purpose and which part should be accessed
+	create_info.format = format;
+	create_info.subresourceRange.aspectMask = aspect_flags; // describes image purpose and which part should be accessed
 	create_info.subresourceRange.baseMipLevel = 0;
 	create_info.subresourceRange.levelCount = 1;
 	create_info.subresourceRange.baseArrayLayer = 0;
 	create_info.subresourceRange.layerCount = 1;
 
-	if (vkCreateImageView(get_logical_device(), &create_info, nullptr, &texture_image_view) != VK_SUCCESS)
+	VkImageView image_view;
+	if (vkCreateImageView(get_logical_device(), &create_info, nullptr, &image_view) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create image views!");
 	}
+
+	return image_view;
+}
+
+void GraphicsEngineTexture::create_image_view()
+{
+	texture_image_view = create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 void GraphicsEngineTexture::create_texture_sampler()

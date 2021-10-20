@@ -39,12 +39,13 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	}
 
 	// frame buffer
-	VkImageView attachments[] = { image_view };
+	// note that while the color image is different for every frame, the depth image can be the same
+	std::vector<VkImageView> attachments = { image_view, get_graphics_engine().get_depth_buffer().get_image_view() };
 	VkFramebufferCreateInfo frame_buffer_create_info{};
 	frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	frame_buffer_create_info.renderPass = get_graphics_engine().get_render_pass();
-	frame_buffer_create_info.attachmentCount = 1;
-	frame_buffer_create_info.pAttachments = attachments;
+	frame_buffer_create_info.attachmentCount = attachments.size();
+	frame_buffer_create_info.pAttachments = attachments.data();
 	frame_buffer_create_info.width = swap_chain.get_extent().width;
 	frame_buffer_create_info.height = swap_chain.get_extent().height;
 	frame_buffer_create_info.layers = 1;
@@ -191,9 +192,12 @@ void GraphicsEngineFrame::update_command_buffer()
 	render_pass_begin_info.framebuffer = frame_buffer;
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
 	render_pass_begin_info.renderArea.extent = swap_chain.get_extent();
-	VkClearValue clear_color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	render_pass_begin_info.clearValueCount = 1;
-	render_pass_begin_info.pClearValues = &clear_color;
+	
+	std::vector<VkClearValue> clear_values(2);
+	clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+	clear_values[1].depthStencil = { 1.0f, 0 };
+	render_pass_begin_info.clearValueCount = clear_values.size();
+	render_pass_begin_info.pClearValues = clear_values.data();
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline

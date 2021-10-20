@@ -33,9 +33,16 @@ private:
 
 	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
-	void create_texture_image_view();
-
 	void create_texture_sampler();
+
+	void create_image();
+	
+	void create_image_view();
+
+public:
+	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
+
+	void init();
 
 	void create_image(uint32_t width, 
 					  uint32_t height, 
@@ -45,10 +52,10 @@ private:
 					  VkMemoryPropertyFlags properties,
 					  VkImage& image,
 					  VkDeviceMemory& image_memory);
-public:
-	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
 
-	void init();
+	VkImageView create_image_view(VkImage& image,
+								VkFormat format,
+						   		VkImageAspectFlags aspect_flags);
 
 	VkImageView& get_texture_image() { return texture_image_view; }
 	VkSampler& get_texture_sampler() { return texture_sampler; }

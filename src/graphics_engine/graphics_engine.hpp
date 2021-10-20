@@ -10,6 +10,7 @@
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
 #include "graphics_engine_pipeline.hpp"
+#include "graphics_engine_depth_buffer.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -75,6 +76,7 @@ public: // getters and setters
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
+	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
 
 private: // core components
 	GameEngine& game_engine;
@@ -83,6 +85,8 @@ private: // core components
 	GraphicsEngineDevice device;
 	GraphicsEnginePool pool;
 	GraphicsEnginePipeline pipeline;
+public:	GraphicsEngineTexture texture_mgr; private:
+	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEngineModelLoader model_loader;
 
@@ -97,19 +101,7 @@ private:
 	bool should_shutdown = false;
 	bool is_initialised = false;
 
-public:
-	GraphicsEngineTexture texture_mgr;
-
-private:
 	void createInstance();
-
-	void pick_physical_device();
-
-	void create_logical_device();
-
-
-	// semaphores and fences, for GPU-GPU and CPU-GPU synchronisation
-	// void create_synchronisation_objects(); // moved to swap_chain
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan

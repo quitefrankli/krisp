@@ -28,6 +28,7 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	device(*this),
 	pool(*this),
 	pipeline(*this),
+	depth_buffer(*this),
 	swap_chain(*this),
 	model_loader(*this)
 {
