@@ -6,31 +6,29 @@
 
 class Shape
 {
-
 public:
-	Shape() {}
-	~Shape() {}
+	Shape() = default;
+	~Shape() = default;
+	Shape(const Shape& shape) = delete;
+	Shape& operator=(const Shape& shape) = delete;
+	Shape(Shape&& shape) noexcept = default;
 
 	std::vector<Vertex> vertices;
 	const std::vector<Vertex>& get_vertices() const { return vertices; }
 	void transform_vertices(const glm::mat4& transform);
 };
 
-class Plane : public Shape
+class Square : public Shape
 {
 public:
-	Plane();
-	~Plane() {}
-};
-
-class Square : public Plane
-{
+	Square();
+	Square(Square&& square) noexcept = default;
 };
 
 class Triangle : public Shape
 {
 public:
 	Triangle();
-	~Triangle() {}
+	Triangle(Triangle&& triangle) noexcept = default;
 };
 

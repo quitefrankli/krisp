@@ -3,6 +3,9 @@
 #include "input.hpp"
 #include "window.hpp"
 #include "objects.hpp"
+#include "resource_loader.hpp"
+
+#include <chrono>
 #include <atomic>
 
 
@@ -13,19 +16,6 @@ class Camera;
 
 class GameEngine
 {
-private:
-	App::Window window;
-    std::unique_ptr<GraphicsEngine> graphics_engine;
-	std::unique_ptr<Camera> camera;
-	Keyboard keyboard;
-	Mouse mouse;
-	std::atomic<bool> should_shutdown = false;
-
-	std::vector<Object> objects;
-private:
-	void create_camera();
-	void shutdown_impl();
-	
 public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
@@ -37,8 +27,24 @@ public:
 
 	void run();
 	void shutdown() { shutdown_impl(); }
+	template<typename Object_T, typename... Args>
+	Object_T& spawn_object(Args&&...);
 
+private:
+	App::Window window;
+    std::unique_ptr<GraphicsEngine> graphics_engine;
+	std::unique_ptr<Camera> camera;
+	Keyboard keyboard;
+	Mouse mouse;
+	ResourceLoader resource_loader;
 
+	std::atomic<bool> should_shutdown = false;
+	std::chrono::time_point<std::chrono::system_clock> time;
+	std::vector<std::shared_ptr<Object>> objects;
+
+	void create_camera();
+	void shutdown_impl();
+	
 public: // callbacks
 	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
 	static void handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height);

@@ -9,16 +9,16 @@
 class GraphicsEngine;
 class Object;
 
-class GraphicsEngineObject : public GraphicsEngineBaseModule, public ObjectAbstract
+class GraphicsEngineObject : public GraphicsEngineBaseModule
 {
 public:
 	GraphicsEngineObject(GraphicsEngine& engine);
-	GraphicsEngineObject(GraphicsEngine& engine, Object& object);
+	GraphicsEngineObject(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
 	GraphicsEngineObject(GraphicsEngineObject&& object) noexcept;
 
 	~GraphicsEngineObject();
 
-	std::vector<std::vector<Vertex>> vertex_sets;
+	std::shared_ptr<Object> object;
 
 	//
 	// I realised i messed up big time, these resources should be per swapchain image per object
@@ -33,4 +33,6 @@ public:
 	VkBuffer uniform_buffer;
 	VkDeviceMemory uniform_buffer_memory;
 	bool require_cleanup = true;
+
+	std::vector<std::vector<Vertex>>& get_vertex_sets();
 };

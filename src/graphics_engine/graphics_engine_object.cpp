@@ -9,10 +9,10 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine) :
 {
 }
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, Object& object) :
-	GraphicsEngineBaseModule(engine), ObjectAbstract(object)
+GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object) :
+	GraphicsEngineBaseModule(engine),
+	object(std::move(game_engine_object))
 {
-	vertex_sets = object.get_vertex_sets();
 }
 
 GraphicsEngineObject::~GraphicsEngineObject()
@@ -29,15 +29,19 @@ GraphicsEngineObject::~GraphicsEngineObject()
 	vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
 }
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngineObject&& object) noexcept :
-	GraphicsEngineBaseModule(std::move(object)),
-	ObjectAbstract(std::move(object)),
-	vertex_sets(std::move(object.vertex_sets))
+GraphicsEngineObject::GraphicsEngineObject(GraphicsEngineObject&& graphics_object) noexcept :
+	GraphicsEngineBaseModule(graphics_object.get_graphics_engine()),
+	object(std::move(graphics_object.object))
 {
-	vertex_buffer = object.vertex_buffer;
-	vertex_buffer_memory = object.vertex_buffer_memory;
-	uniform_buffer = object.uniform_buffer;
-	uniform_buffer_memory = object.uniform_buffer_memory;
+	vertex_buffer = graphics_object.vertex_buffer;
+	vertex_buffer_memory = graphics_object.vertex_buffer_memory;
+	uniform_buffer = graphics_object.uniform_buffer;
+	uniform_buffer_memory = graphics_object.uniform_buffer_memory;
 
-	object.require_cleanup = false;
+	graphics_object.require_cleanup = false;
+}
+
+std::vector<std::vector<Vertex>>& GraphicsEngineObject::get_vertex_sets()
+{
+	return object->get_vertex_sets();
 }

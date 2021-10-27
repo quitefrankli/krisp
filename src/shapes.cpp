@@ -9,7 +9,7 @@ void Shape::transform_vertices(const glm::mat4& transform)
 	}
 }
 
-Plane::Plane()
+Square::Square()
 {
 	vertices = 
 	{
@@ -20,11 +20,6 @@ Plane::Plane()
 		{{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
 		{{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
 	};
-
-	// for (int i = 0; i < 3; i++)
-	// {
-	// 	vertices[i].pos -= 0.3f;
-	// }
 }
 
 Triangle::Triangle()

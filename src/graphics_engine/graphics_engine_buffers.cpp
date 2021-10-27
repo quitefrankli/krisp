@@ -42,7 +42,7 @@ void GraphicsEngine::create_vertex_buffer(GraphicsEngineObject& object)
 {
 	// this will need to be updated
 	size_t buffer_size = 0;
-	for (auto& vertex_set : object.vertex_sets)
+	for (auto& vertex_set : object.get_vertex_sets())
 	{
 		buffer_size += vertex_set.size() * sizeof(vertex_set[0]);
 	}
@@ -75,7 +75,7 @@ void GraphicsEngine::create_vertex_buffer(GraphicsEngineObject& object)
 	// access a region of the specified memory resource
 	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, buffer_size, 0, &data);
 	size_t offset = 0;
-	for (auto& vertex_set : object.vertex_sets)
+	for (auto& vertex_set : object.get_vertex_sets())
 	{
 		size_t size = vertex_set.size() * sizeof(vertex_set[0]);
 		memcpy((char*)data + offset, vertex_set.data(), size);

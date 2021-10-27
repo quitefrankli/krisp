@@ -7,9 +7,6 @@ class GraphicsEngine;
 
 class GraphicsEngineBaseModule
 {
-private:
-	GraphicsEngine& graphics_engine;
-
 public:
 	virtual GraphicsEngine& get_graphics_engine() { return graphics_engine; }
 	virtual VkDevice& get_logical_device();
@@ -24,6 +21,12 @@ public:
 
 public:
 	GraphicsEngineBaseModule() = delete;
+	GraphicsEngineBaseModule(const GraphicsEngineBaseModule&) = delete;
+	GraphicsEngineBaseModule& operator=(const GraphicsEngineBaseModule&) = delete;
+
 	GraphicsEngineBaseModule(GraphicsEngine& graphics_engine);
-	GraphicsEngineBaseModule(const GraphicsEngineBaseModule& module);
+	GraphicsEngineBaseModule(GraphicsEngineBaseModule&& base_module) noexcept = default;
+
+private:
+	GraphicsEngine& graphics_engine;
 };

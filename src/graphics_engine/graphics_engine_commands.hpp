@@ -40,20 +40,12 @@ public:
 	uint64_t object_id;
 };
 
-class UpdateObjectUniformsCmd : public ObjectCommand
-{
-public:
-	void process(GraphicsEngine* engine) override;
-
-	glm::mat4 transformation;
-};
-
 class SpawnObjectCmd : public ObjectCommand
 {
 public:
 	void process(GraphicsEngine* engine) override;
 
-	Object object;
+	std::shared_ptr<Object> object;
 };
 
 class ShutdownCmd : public GraphicsEngineCommand

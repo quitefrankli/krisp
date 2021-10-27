@@ -8,7 +8,6 @@
 #include "utility_functions.hpp"
 #include "analytics.hpp"
 
-#include <tiny_obj_loader.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -35,52 +34,22 @@ void GameEngine::run()
 {
 	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
 
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string err;
 	std::string path = "../resources/models/viking_room.obj";
-	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str()))
-	{
-		throw std::runtime_error(err);
-	}
 
-	Object mesh;
-	for (auto& shape : shapes)
-	{
-		Shape new_shape;
-		for (auto& index : shape.mesh.indices)
-		{
-			Vertex new_vertex;
-			new_vertex.pos = {
-				attrib.vertices[3 * index.vertex_index + 0],
-				attrib.vertices[3 * index.vertex_index + 1],
-				attrib.vertices[3 * index.vertex_index + 2]
-			};
-			new_vertex.texCoord = {
-				attrib.texcoords[2 * index.texcoord_index + 0],
-				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-			};
-			new_shape.vertices.push_back(std::move(new_vertex));
-		}
-		mesh.shapes.push_back(std::move(new_shape));
-	}
-
-	{
-		// Cube cube;
-		// mesh = cube;
-		SpawnObjectCmd spawn_obj_cmd;
-		spawn_obj_cmd.object_id = mesh.get_id();
-		spawn_obj_cmd.object = mesh;
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
-		objects.push_back(std::move(mesh));
-	}
+	// theres a race condition here, the graphics engine is already running, if it starts processing the cmdq before a shape is generated then it will have a shape of 0
+	auto& mesh = spawn_object<Object>(resource_loader, path);
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
+		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
+		std::chrono::duration<float, std::milli> chrono_delta_time = new_time - time;
+		float delta_time = chrono_delta_time.count();
+		time = new_time;
+
 		analytics.start();
 
 		glfwPollEvents();
@@ -111,20 +80,15 @@ void GameEngine::run()
 			float magnitude = glm::length(vec) * 2.0f;
 			vec = glm::normalize(vec);
 
-			glm::mat4 orig = objects[0].get_original_transformation();
-			glm::mat4 curr = objects[0].get_transformation();
+			glm::mat4 orig = objects[0]->get_original_transformation();
+			glm::mat4 curr = objects[0]->get_transformation();
 			glm::quat quaternion = glm::angleAxis(magnitude, vec);
 			glm::mat4 transform = glm::mat4_cast(quaternion);
 			glm::mat4 final_transform = transform * orig;
 			// glm::mat4 final_transform = orig * transform; // order matters! 
 			if (magnitude > 0) {
-				objects[0].set_transformation(final_transform);
+				objects[0]->set_transformation(final_transform);
 			}
-
-			UpdateObjectUniformsCmd cmd;
-			cmd.object_id = objects[0].get_id();
-			cmd.transformation = objects[0].get_transformation();
-			graphics_engine->enqueue_cmd(std::make_unique<UpdateObjectUniformsCmd>(cmd));
 		}
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -201,16 +165,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_S:
 		{
-			{
-				Cube cube;
-				cube.set_transformation(glm::translate(cube.get_transformation(), glm::vec3(0.5f, 0.0f, 0.0f) * float(objects.size())));
-				SpawnObjectCmd spawn_obj_cmd;
-				spawn_obj_cmd.object_id = cube.get_id();
-				spawn_obj_cmd.object = cube;
-				graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(spawn_obj_cmd));
-				objects.push_back(std::move(cube));
-				break;
-			}
+			spawn_object<Cube>();
 		}
 
 		default:
@@ -259,7 +214,7 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.lmb_down = false;
-			objects[0].set_original_transformation(objects[0].get_transformation());
+			objects[0]->set_original_transformation(objects[0]->get_transformation());
 		}
 	}
 }
@@ -285,6 +240,18 @@ void GameEngine::shutdown_impl()
 
 	should_shutdown = true;
 	graphics_engine->enqueue_cmd(std::make_unique<ShutdownCmd>());
+}
+
+template<typename Object_T, typename... Args>
+Object_T& GameEngine::spawn_object(Args&&... args)
+{
+	objects.push_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
+	auto& object = objects.back();
+	SpawnObjectCmd cmd;
+	cmd.object = object;
+	cmd.object_id = object->get_id();
+	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(std::move(cmd)));
+	return *static_cast<Object_T*>(object.get());
 }
 
 GameEngine::~GameEngine() = default;

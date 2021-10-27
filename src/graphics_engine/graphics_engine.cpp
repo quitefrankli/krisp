@@ -127,10 +127,9 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 	return physical_device_properties;
 }
 
-void GraphicsEngine::spawn_object(Object& object)
+void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 {
-	objects.emplace_back(*this, object);
-
+	objects.emplace_back(*this, std::move(object));
 	auto& new_obj = objects.back();
 	create_vertex_buffer(new_obj);
 

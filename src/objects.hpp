@@ -6,6 +6,7 @@
 
 
 class GraphicsEngineObject;
+class ResourceLoader;
 
 class ObjectAbstract
 {
@@ -14,11 +15,13 @@ protected:
 	glm::mat4 original_transformation = glm::mat4(1.0f);
 
 public:
+	ObjectAbstract(const ObjectAbstract& object) = delete;
+	ObjectAbstract& operator=(const ObjectAbstract& object) = delete;
+
 	ObjectAbstract();
 	ObjectAbstract(uint64_t id);
-	ObjectAbstract(const ObjectAbstract& object);
-	ObjectAbstract(ObjectAbstract&& object) noexcept;
-	ObjectAbstract& operator=(const ObjectAbstract& object);
+	ObjectAbstract(ObjectAbstract&& object) noexcept = default;
+	~ObjectAbstract() = default;
 
 	virtual glm::vec3 get_position() const { return transformation[3]; }
 	virtual void set_position(const glm::vec3& pos) { transformation[3] = glm::vec4(pos, 1.0f); }
@@ -40,6 +43,13 @@ private:
 class Object : public ObjectAbstract
 {
 public:
+	Object(const Object& object) = delete;
+
+	Object() = default;
+	Object(std::vector<Shape>&& shapes_);
+	Object(Object&& object) noexcept = default;
+	Object(ResourceLoader& loader, std::string& path);
+
 	std::vector<Shape> shapes;
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 
@@ -51,10 +61,12 @@ class Pyramid : public Object
 {
 public:
 	Pyramid();
+	Pyramid(Pyramid&& pyramid) noexcept = default;
 };
 
 class Cube : public Object
 {
 public:
 	Cube();
+	Cube(Cube&& cube) noexcept = default;
 };

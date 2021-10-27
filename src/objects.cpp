@@ -1,5 +1,6 @@
 #include "objects.hpp"
 #include "maths.hpp"
+#include "resource_loader.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -18,33 +19,20 @@ ObjectAbstract::ObjectAbstract(uint64_t id)
 	this->id = id;
 }
 
-ObjectAbstract::ObjectAbstract(const ObjectAbstract& object) :
-	id(object.id),
-	transformation(object.transformation),
-	original_transformation(object.original_transformation)
-{
-}
-
-ObjectAbstract& ObjectAbstract::operator=(const ObjectAbstract& object)
-{
-	id = object.id;
-	transformation = object.transformation;
-	original_transformation = object.original_transformation;
-
-	return *this;
-}
-
-ObjectAbstract::ObjectAbstract(ObjectAbstract&& object) noexcept :
-	id(object.id),
-	transformation(std::move(object.transformation)),
-	original_transformation(std::move(object.original_transformation))
-{
-}
-
 void ObjectAbstract::apply_transformation(const glm::mat4& transformation)
 {
 	this->transformation = transformation * (this->transformation);
 	// this->transformation = (this->transformation) * transformation;
+}
+
+Object::Object(std::vector<Shape>&& shapes_) :
+	shapes(std::move(shapes_))
+{
+}
+
+Object::Object(ResourceLoader& loader, std::string& path)
+{
+	loader.load_mesh(*this, path);
 }
 
 std::vector<std::vector<Vertex>>& Object::get_vertex_sets()
@@ -90,7 +78,11 @@ Pyramid::Pyramid()
 		transform = glm::rotate(transform, Maths::deg2rad(-90.0f)*2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 		bottom.transform_vertices(transform);
 	}
-	shapes = std::vector<Shape>{ left, right, back, bottom };
+
+	shapes.push_back(std::move(left));
+	shapes.push_back(std::move(right));
+	shapes.push_back(std::move(back));
+	shapes.push_back(std::move(bottom));
 }
 
 Cube::Cube()
@@ -136,6 +128,11 @@ Cube::Cube()
 	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	bottom.transform_vertices(transform);
 
-	shapes = std::vector<Shape>{ left, right, front, back, top, bottom };
+	shapes.push_back(std::move(left));
+	shapes.push_back(std::move(right));
+	shapes.push_back(std::move(front));
+	shapes.push_back(std::move(back));
+	shapes.push_back(std::move(top));
+	shapes.push_back(std::move(bottom));
 }
 

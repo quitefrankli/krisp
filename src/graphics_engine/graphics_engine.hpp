@@ -143,6 +143,6 @@ private: // friends
 	friend SpawnObjectCmd;
 	void change_texture(const std::string& str);
 
-	void spawn_object(Object& obj);
+	void spawn_object(std::shared_ptr<Object>& object);
 };
 

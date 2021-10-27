@@ -8,12 +8,6 @@ GraphicsEngineBaseModule::GraphicsEngineBaseModule(GraphicsEngine& engine) :
 {
 }
 
-GraphicsEngineBaseModule::GraphicsEngineBaseModule(const GraphicsEngineBaseModule& module) :
-	graphics_engine(module.graphics_engine)
-{
-
-}
-
 VkDevice& GraphicsEngineBaseModule::get_logical_device()
 {
 	return graphics_engine.get_logical_device();
