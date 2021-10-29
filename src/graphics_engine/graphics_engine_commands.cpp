@@ -5,11 +5,6 @@
 #include <mutex>
 
 
-void ChangeTextureCmd::process(GraphicsEngine* engine)
-{
-	engine->change_texture(filename);
-}
-
 void ToggleFPSCmd::process(GraphicsEngine* engine)
 {
 

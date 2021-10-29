@@ -139,9 +139,7 @@ public: // thread safe
 	void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 
 private: // friends
-	friend ChangeTextureCmd;
 	friend SpawnObjectCmd;
-	void change_texture(const std::string& str);
 
 	void spawn_object(std::shared_ptr<Object>& object);
 };

@@ -40,7 +40,8 @@ void GameEngine::run()
 
 	const std::string mesh = "../resources/models/viking_room.obj";
 	const std::string texture = "../resources/textures/viking_room.png";
-	spawn_object<Object>(resource_loader, mesh, texture);
+	// spawn_object<Object>(resource_loader, mesh, texture);
+	spawn_object<Cube>("../resources/textures/texture.jpg");
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
@@ -152,14 +153,6 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_RIGHT:
 			break;
-
-		case GLFW_KEY_N:
-		{
-			ChangeTextureCmd cmd;
-			cmd.filename = "texture2.jpg";
-			graphics_engine->enqueue_cmd(std::make_unique<ChangeTextureCmd>(cmd));
-			break;
-		}
 
 		case GLFW_KEY_S:
 		{

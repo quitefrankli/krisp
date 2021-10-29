@@ -20,14 +20,6 @@ public:
 	virtual void process(GraphicsEngine* engine) = 0;
 };
 
-class ChangeTextureCmd : public GraphicsEngineCommand
-{
-public:
-	void process(GraphicsEngine* engine) override;
-
-	std::string filename;
-};
-
 class ToggleFPSCmd : public GraphicsEngineCommand
 {
 public:

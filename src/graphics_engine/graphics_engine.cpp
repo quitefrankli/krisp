@@ -169,25 +169,6 @@ void GraphicsEngine::enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
 	ge_cmd_q.push(std::move(cmd));
 }
 
-void GraphicsEngine::change_texture(const std::string& str)
-{
-	//
-	// TODO fix this maybe?
-	//
-
-	// // wait until vulkan commands finish processing
-	// vkQueueWaitIdle(graphics_queue);
-
-	// texture_mgr.change_texture(str);
-
-	// // if updating an already bound descriptor set we must make sure the old sets don't get reused in the command buffers
-	// vkFreeCommandBuffers(get_logical_device(), command_pool, static_cast<uint32_t>(command_buffers.size()), command_buffers.data());
-
-	// update_descriptor_sets();
-
-	// create_command_buffers();
-}
-
 VkCommandBuffer GraphicsEngine::begin_single_time_commands()
 {
 	VkCommandBufferAllocateInfo allocInfo{};
