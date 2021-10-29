@@ -5,11 +5,23 @@
 #include <vulkan/vulkan.hpp>
 
 
-class GraphicsEngine;
+class GraphicsEngineTextureManager;
 
 class GraphicsEngineTexture : public GraphicsEngineBaseModule
 {
+public:
+	GraphicsEngineTexture(GraphicsEngineTextureManager& manager_, std::string texture_path);
+	GraphicsEngineTexture(GraphicsEngineTexture&& other) noexcept;
+	~GraphicsEngineTexture();
+
+	VkImageView& get_texture_image_view() { return texture_image_view; }
+	VkSampler& get_texture_sampler() { return texture_sampler; }
+
 private:
+	bool require_cleanup = true;
+
+	GraphicsEngineTextureManager& manager;
+
 	// while shaders can access pixel values in the buffer,
 	// it's better to use Vk Image Objects as there are some optimisations due
 	// to the 2D nature of textures
@@ -26,7 +38,7 @@ private:
 	VkImageView texture_image_view;
 	VkDeviceMemory texture_image_memory;
 
-	void create_texture_image(const std::string& filename = "texture.jpg");
+	void create_texture_image(std::string filename);
 
 	// handle layout transition so that image is in right layout
 	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
@@ -34,30 +46,4 @@ private:
 	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 	void create_texture_sampler();
-
-	void create_image();
-	
-	void create_image_view();
-
-public:
-	GraphicsEngineTexture(GraphicsEngine& graphics_engine);
-	~GraphicsEngineTexture();
-
-	void create_image(uint32_t width, 
-					  uint32_t height, 
-					  VkFormat format, 
-					  VkImageTiling tiling,
-					  VkImageUsageFlags usage,
-					  VkMemoryPropertyFlags properties,
-					  VkImage& image,
-					  VkDeviceMemory& image_memory);
-
-	VkImageView create_image_view(VkImage& image,
-								VkFormat format,
-						   		VkImageAspectFlags aspect_flags);
-
-	VkImageView& get_texture_image() { return texture_image_view; }
-	VkSampler& get_texture_sampler() { return texture_sampler; }
-
-	void change_texture(const std::string& filename);
 };

@@ -38,11 +38,9 @@ void GameEngine::run()
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
 
-	std::string path = "../resources/models/viking_room.obj";
-
-	// theres a race condition here, the graphics engine is already running, if it starts processing the cmdq before a shape is generated then it will have a shape of 0
-	auto& mesh = spawn_object<Object>(resource_loader, path);
-
+	const std::string mesh = "../resources/models/viking_room.obj";
+	const std::string texture = "../resources/textures/viking_room.png";
+	spawn_object<Object>(resource_loader, mesh, texture);
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
@@ -165,7 +163,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_S:
 		{
-			spawn_object<Cube>();
+			spawn_object<Cube>("../resources/textures/texture.jpg");
 		}
 
 		default:

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "graphics_engine_texture.hpp"
 #include "graphics_engine_validation_layer.hpp"
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
@@ -11,6 +10,7 @@
 #include "graphics_engine_object.hpp"
 #include "graphics_engine_pipeline.hpp"
 #include "graphics_engine_depth_buffer.hpp"
+#include "graphics_engine_texture_manager.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -77,7 +77,7 @@ public: // getters and setters
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
-	GraphicsEngineTexture& get_texture_mgr() { return texture_mgr; }
+	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
 
 private: // flags (these must be before core components)
 	bool should_shutdown = false;
@@ -90,7 +90,7 @@ private: // core components
 	GraphicsEngineDevice device;
 	GraphicsEnginePool pool;
 	GraphicsEnginePipeline pipeline;
-	GraphicsEngineTexture texture_mgr;
+	GraphicsEngineTextureManager texture_mgr;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEngineModelLoader model_loader;

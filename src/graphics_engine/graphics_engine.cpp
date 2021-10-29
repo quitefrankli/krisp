@@ -130,16 +130,23 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 {
 	objects.emplace_back(*this, std::move(object));
-	auto& new_obj = objects.back();
-	create_vertex_buffer(new_obj);
+
+	auto& graphics_object = objects.back();
+	create_vertex_buffer(graphics_object);
 
 	// uniform buffer
 	create_buffer(sizeof(UniformBufferObject),
 				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  new_obj.uniform_buffer,
-				  new_obj.uniform_buffer_memory);
-	swap_chain.spawn_object(new_obj);
+				  graphics_object.uniform_buffer,
+				  graphics_object.uniform_buffer_memory);
+
+	if (!graphics_object.object->texture.empty())
+	{
+		graphics_object.texture = &texture_mgr.create_new_unit(graphics_object.object->texture);
+	}
+
+	swap_chain.spawn_object(graphics_object);
 }
 
 void GraphicsEngine::recreate_swap_chain()

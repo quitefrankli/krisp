@@ -125,8 +125,8 @@ void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 		// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
 		// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
 		// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-		image_info.imageView = get_graphics_engine().get_texture_mgr().get_texture_image(); // TODO: move this to object
-		image_info.sampler = get_graphics_engine().get_texture_mgr().get_texture_sampler(); // TODO: move this to object
+		image_info.imageView = object.get_texture_image_view();
+		image_info.sampler = object.get_texture_sampler();
 
 		VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
 		combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

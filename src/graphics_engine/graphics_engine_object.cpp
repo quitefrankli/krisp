@@ -15,6 +15,19 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, std::shared_p
 {
 }
 
+GraphicsEngineObject::GraphicsEngineObject(GraphicsEngineObject&& graphics_object) noexcept :
+	GraphicsEngineBaseModule(graphics_object.get_graphics_engine()),
+	object(std::move(graphics_object.object))
+{
+	vertex_buffer = graphics_object.vertex_buffer;
+	vertex_buffer_memory = graphics_object.vertex_buffer_memory;
+	uniform_buffer = graphics_object.uniform_buffer;
+	uniform_buffer_memory = graphics_object.uniform_buffer_memory;
+	texture = graphics_object.texture;
+
+	graphics_object.require_cleanup = false;
+}
+
 GraphicsEngineObject::~GraphicsEngineObject()
 {
 	if (!require_cleanup)
@@ -27,21 +40,20 @@ GraphicsEngineObject::~GraphicsEngineObject()
 
 	vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
 	vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
-}
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngineObject&& graphics_object) noexcept :
-	GraphicsEngineBaseModule(graphics_object.get_graphics_engine()),
-	object(std::move(graphics_object.object))
-{
-	vertex_buffer = graphics_object.vertex_buffer;
-	vertex_buffer_memory = graphics_object.vertex_buffer_memory;
-	uniform_buffer = graphics_object.uniform_buffer;
-	uniform_buffer_memory = graphics_object.uniform_buffer_memory;
-
-	graphics_object.require_cleanup = false;
 }
 
 std::vector<std::vector<Vertex>>& GraphicsEngineObject::get_vertex_sets()
 {
 	return object->get_vertex_sets();
+}
+
+VkImageView& GraphicsEngineObject::get_texture_image_view() 
+{
+	return texture->get_texture_image_view();
+}
+
+VkSampler& GraphicsEngineObject::get_texture_sampler() 
+{ 
+	return texture->get_texture_sampler();
 }
