@@ -9,15 +9,17 @@
 #include "analytics.hpp"
 
 #include <GLFW/glfw3.h>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/string_cast.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+#include <quill/Quill.h>
 
 #include <iostream>
 #include <vector>
 #include <thread>
 #include <chrono>
 
+
+extern quill::Logger* logger;
 
 GameEngine::GameEngine() :
 	window(this),
@@ -41,12 +43,16 @@ void GameEngine::run()
 	const std::string mesh = "../resources/models/viking_room.obj";
 	const std::string texture = "../resources/textures/viking_room.png";
 	// spawn_object<Object>(resource_loader, mesh, texture);
+
+	// spawn_object<Cube>("../resources/textures/texture2.jpg");
 	spawn_object<Cube>("../resources/textures/texture.jpg");
+	// spawn_object<Object>(resource_loader, "../resources/models/object.obj", "../resources/textures/object.png");
+
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
 		std::chrono::duration<float, std::milli> chrono_delta_time = new_time - time;
-		float delta_time = chrono_delta_time.count();
+		const float delta_time = chrono_delta_time.count();
 		time = new_time;
 
 		analytics.start();
@@ -55,37 +61,43 @@ void GameEngine::run()
 		if (mouse.rmb_down)
 		{
 			mouse.update_pos();
-			float rot_x_axis = -(mouse.click_drag_orig_pos.y - mouse.current_pos.y);
+			const float sensitivity = 0.2f;
+			const float min_threshold = 0.001f;
+			float rot_x_axis = (mouse.click_drag_orig_pos.y - mouse.current_pos.y);
 			float rot_y_axis = -(mouse.click_drag_orig_pos.x - mouse.current_pos.x);
-			glm::vec3 vec(rot_x_axis, rot_y_axis, 0.0f);
-			float magnitude = glm::length(vec) * 2.0f;
-			vec = glm::normalize(vec);
+			mouse.click_drag_orig_pos.y = mouse.current_pos.y;
+			mouse.click_drag_orig_pos.x = mouse.current_pos.x;
 
-			glm::mat4 orig = camera->get_original_transformation();
-			glm::mat4 curr = camera->get_transformation();
-			glm::quat quaternion = glm::angleAxis(magnitude, vec);
-			glm::mat4 transform = glm::mat4_cast(quaternion);
-			glm::mat4 final_transform = transform * orig;
-			// glm::mat4 final_transform = orig * transform; // order matters! 
-			if (magnitude > 0) {
+			glm::vec2 screen_axis(rot_x_axis, rot_y_axis);
+			float magnitude = glm::length(screen_axis);
+			if (magnitude > min_threshold) {
+				magnitude *= delta_time * sensitivity;
+				
+				glm::vec3 axis = camera->sync_to_camera(screen_axis);
+
+				glm::quat quaternion = glm::angleAxis(magnitude, axis);
+				glm::mat4 curr = camera->get_transformation();
+				glm::mat4 transform = glm::mat4_cast(quaternion);
+				glm::mat4 final_transform = transform * curr;
 				camera->set_transformation(final_transform);
 			}
 		} else if (mouse.lmb_down)
 		{
 			mouse.update_pos();
-			float rot_x_axis = -(mouse.click_drag_orig_pos.y - mouse.current_pos.y);
+			const float sensitivity = 2.0f;
+			const float min_threshold = 0.01f;
+			float rot_x_axis = (mouse.click_drag_orig_pos.y - mouse.current_pos.y);
 			float rot_y_axis = -(mouse.click_drag_orig_pos.x - mouse.current_pos.x);
-			glm::vec3 vec(rot_x_axis, rot_y_axis, 0.0f);
-			float magnitude = glm::length(vec) * 2.0f;
-			vec = glm::normalize(vec);
 
-			glm::mat4 orig = objects[0]->get_original_transformation();
-			glm::mat4 curr = objects[0]->get_transformation();
-			glm::quat quaternion = glm::angleAxis(magnitude, vec);
-			glm::mat4 transform = glm::mat4_cast(quaternion);
-			glm::mat4 final_transform = transform * orig;
-			// glm::mat4 final_transform = orig * transform; // order matters! 
-			if (magnitude > 0) {
+			glm::vec2 screen_axis(rot_x_axis, rot_y_axis);
+			float magnitude = glm::length(screen_axis);
+			if (std::fabsf(magnitude) > min_threshold && !objects.empty()) {
+				glm::vec3 axis = camera->sync_to_camera(screen_axis);
+				axis = glm::normalize(axis);
+
+				glm::quat quaternion = glm::angleAxis(magnitude, axis);
+				glm::mat4 orig = objects[0]->get_original_transformation();
+				glm::mat4 final_transform = glm::mat4_cast(quaternion) * orig; // order matters! 
 				objects[0]->set_transformation(final_transform);
 			}
 		}
@@ -156,9 +168,15 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_S:
 		{
-			spawn_object<Cube>("../resources/textures/texture.jpg");
+			auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
+			obj.set_transformation(glm::translate(obj.get_transformation(), glm::vec3(1.0f)));
+			break;
 		}
-
+		case GLFW_KEY_X: // experimental
+		{
+			auto& obj = spawn_object<Object>(resource_loader, "../resources/models/viking_room.obj", "../resources/textures/viking_room.png");
+			break;
+		}
 		default:
 			break;
 	}
@@ -217,9 +235,10 @@ void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double xoffset,
 
 void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset)
 {
-	float sensitivity = -0.2f;
-	glm::vec3 new_pos = get_camera().get_position() + glm::vec3(0.0f, 0.0f, yoffset) * sensitivity;
-	get_camera().set_position(new_pos);
+	const float sensitivity = -0.2f;
+	glm::vec3 axis(0.0f, 0.0f, yoffset * sensitivity);
+	glm::mat4 transform = glm::translate(camera->get_transformation(), axis);
+	camera->set_transformation(transform);
 }
 
 void GameEngine::shutdown_impl()

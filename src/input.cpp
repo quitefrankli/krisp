@@ -26,3 +26,8 @@ void Mouse::update_pos()
 	current_pos.x = std::clamp(current_pos.x, -1.0, 1.0);
 	current_pos.y = std::clamp(current_pos.y, -1.0, 1.0);
 }
+
+glm::vec2 Mouse::get_pos()
+{
+	return glm::vec2{ current_pos.x, current_pos.y };
+}

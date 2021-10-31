@@ -373,7 +373,6 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	default_ubo.model = glm::mat4(1);
 	default_ubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
 	default_ubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
-	// default_ubo.proj[1][1] *= -1; // ubo was originally designed for opengl whereby its y axis is flipped
 
 	void* data;
 	size_t size = sizeof(UniformBufferObject);

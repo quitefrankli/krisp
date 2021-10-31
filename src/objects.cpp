@@ -25,14 +25,15 @@ void ObjectAbstract::apply_transformation(const glm::mat4& transformation)
 	// this->transformation = (this->transformation) * transformation;
 }
 
-Object::Object(std::vector<Shape>&& shapes_) :
-	shapes(std::move(shapes_))
+Object::Object(ResourceLoader& loader, std::string mesh, std::string texture)
 {
+	loader.load_mesh(*this, mesh);
+	this->texture = texture;
 }
 
-Object::Object(ResourceLoader& loader, std::string& path)
+Object::Object(std::string texture_) : 
+	texture(texture_)
 {
-	loader.load_mesh(*this, path);
 }
 
 std::vector<std::vector<Vertex>>& Object::get_vertex_sets()
@@ -87,43 +88,47 @@ Pyramid::Pyramid()
 
 Cube::Cube()
 {
+	init();
+}
+
+Cube::Cube(std::string texture) :
+	Object(texture)
+{
+	init();
+}
+
+void Cube::init()
+{
 	Square left, right, front, back, top, bottom;
 	glm::mat4 idt(1.0f);
 	glm::mat4 transform;
 
 	transform = idt;
-	// transform = glm::scale(transform, glm::vec3(0.5f));
+	// for transformation relative to world apply right->left, for local transformation it's left->right
+	transform = glm::translate(transform, glm::vec3(-0.5f, 0.0f, 0.0f));
 	transform = glm::rotate(transform, -Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	transform = glm::translate(idt, glm::vec3(-0.5f, 0.0f, 0.0f)) * transform;
-	// transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	left.transform_vertices(transform);
 
 	transform = idt;
-	// transform = glm::scale(transform, glm::vec3(0.5f));
 	transform = glm::translate(transform, glm::vec3(0.5f, 0.0f, 0.0f));
 	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	// transform = glm::rotate(transform, Maths::deg2rad(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	right.transform_vertices(transform);
 
 	transform = idt;
-	// transform = glm::scale(transform, glm::vec3(0.5f));
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, 0.5f));
 	front.transform_vertices(transform);
 
 	transform = idt;
-	// transform = glm::scale(transform, glm::vec3(0.5f));
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -0.5f));
 	transform = glm::rotate(transform, Maths::deg2rad(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	back.transform_vertices(transform);
 
 	transform = idt;
-	// transform = glm::scale(transform, glm::vec3(0.5f));
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.5f, 0.0f));
-	transform = glm::rotate(transform, -Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	transform = glm::rotate(transform, Maths::deg2rad(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	top.transform_vertices(transform);
 
 	transform = idt;
-	// transform = glm::scale(transform, glm::vec3(0.5f));
 	transform = glm::translate(transform, glm::vec3(0.0f, -0.5f, 0.0f));
 	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	bottom.transform_vertices(transform);
@@ -135,4 +140,3 @@ Cube::Cube()
 	shapes.push_back(std::move(top));
 	shapes.push_back(std::move(bottom));
 }
-

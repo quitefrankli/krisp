@@ -46,12 +46,14 @@ public:
 	Object(const Object& object) = delete;
 
 	Object() = default;
-	Object(std::vector<Shape>&& shapes_);
 	Object(Object&& object) noexcept = default;
-	Object(ResourceLoader& loader, std::string& path);
+	Object(ResourceLoader& loader, std::string mesh, std::string texture);
+	Object(std::string texture);
 
 	std::vector<Shape> shapes;
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
+
+	std::string texture;
 
 private:
 	std::vector<std::vector<Vertex>> cached_vertex_sets;
@@ -68,5 +70,9 @@ class Cube : public Object
 {
 public:
 	Cube();
+	Cube(std::string texture);
 	Cube(Cube&& cube) noexcept = default;
+
+private:
+	void init();
 };

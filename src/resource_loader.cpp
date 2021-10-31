@@ -11,8 +11,7 @@ void ResourceLoader::load_mesh(Object& object, const std::string& filename)
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
 	std::string err;
-	std::string path = "../resources/models/viking_room.obj";
-	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, path.c_str()))
+	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, filename.c_str()))
 	{
 		throw std::runtime_error(err);
 	}

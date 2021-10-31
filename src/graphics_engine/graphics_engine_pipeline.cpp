@@ -157,8 +157,8 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine) :
 	rasterizer_create_info.lineWidth = 1.0f;
 	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
 	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
-	// rasterizer_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // culling is determined by either clockerwise or counter clockwise vertex order
-	rasterizer_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE; // culling is determined by either clockerwise or counter clockwise vertex order
+	rasterizer_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // this is the convention
+	// rasterizer_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE; // culling is determined by either clockerwise or counter clockwise vertex order
 	// rasterizer can alter depth by adding bias (either constant or sloped), can be useful for shadow mapping
 	rasterizer_create_info.depthBiasEnable = VK_FALSE;
 	rasterizer_create_info.depthBiasConstantFactor = 0.0f;

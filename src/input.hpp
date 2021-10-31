@@ -2,6 +2,9 @@
 
 #include "window.hpp"
 
+#include <glm/vec2.hpp>
+
+
 class Keyboard
 {
 
@@ -29,8 +32,11 @@ public:
 	Input::Pos current_pos;
 	bool rmb_down = false;
 	bool lmb_down = false;
+	bool mmb_down = false;
 
 	void update_pos();
+
+	glm::vec2 get_pos();
 
 private:
 	App::Window& window;
