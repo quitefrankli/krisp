@@ -16,16 +16,21 @@
 // 							0.1f, // near plane clipping, closest an object can be to camera
 // 							10.0f); // far plane clipping, furthest away an object can be to camera	
 
+class GameEngine;
+
 class Camera : public Object
 {
 private:
 	const glm::vec3 ORIGINAL_UP_VECTOR{ 0.f, 1.f, 0.f };
-	glm::vec3 focus;
 	glm::vec3 up_vector;
 	glm::mat4 perspective_matrix;
 
 public:
-	Camera(float aspect_ratio);
+	glm::vec3 focus;
+	glm::vec3 prev_focus; // TODO move this into a polymorphic tracker class
+
+public:
+	Camera(GameEngine& engine, float aspect_ratio);
 	~Camera() {};
 
 	glm::mat4 get_perspective();
@@ -34,17 +39,19 @@ public:
 	// converts a screen-space axis to a camera space axis
 	glm::vec3 sync_to_camera(const glm::vec2& axis);
 
-	// reset to held transform
-	void reset_transform_held();
+public: // object
+	// virtual glm::mat4 get_transform();
+	// virtual glm::vec3 get_position() { return position; }
+	// virtual glm::vec3 get_scale() { return scale; }
+	// virtual glm::quat get_rotation() { return orientation; }
 
-	// resets to initial transform
-	void reset_transform_init();
+	virtual void set_transform(glm::mat4& transform) override;
+	// virtual void set_position(glm::vec3& position) override;
+	// virtual void set_scale(glm::vec3& scale);
+	// virtual void set_rotation(glm::quat& rotation) override;
 
-	void set_transformation(glm::mat4 transformation);
-
-	void pan(const glm::vec2& vec);
-
+	// this needs to be private and be manipulated within camera
+	std::shared_ptr<Object> focus_obj; // might be better to give this object to game_engine
 private:
-	friend class LineOfSight;
+	GameEngine& engine;
 };
-

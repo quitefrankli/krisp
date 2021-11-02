@@ -30,7 +30,7 @@ class GameEngine
 public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
-	const GraphicsEngine& get_graphics_engine() const { return *graphics_engine; }
+	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
 
 public:
 	GameEngine();

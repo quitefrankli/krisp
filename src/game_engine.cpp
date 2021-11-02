@@ -27,7 +27,7 @@ GameEngine::GameEngine() :
 {
 	graphics_engine = std::make_unique<GraphicsEngine>(*this);
 
-	camera = std::make_unique<Camera>(graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
+	camera = std::make_unique<Camera>(*this, graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
 	graphics_engine->setup();
 }
@@ -58,13 +58,14 @@ void GameEngine::run()
 		analytics.start();
 
 		glfwPollEvents();
+
 		if (mouse.rmb_down)
 		{
 			const float sensitivity = 0.2f;
 			const float min_threshold = 0.001f;
 			mouse.update_pos();
 			auto offset = mouse.get_prev_offset();
-			glm::vec2 screen_axis(offset.y, offset.x);
+			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
 			float magnitude = glm::length(screen_axis);
 			if (magnitude > min_threshold) {
 				magnitude *= delta_time * sensitivity;
@@ -75,7 +76,7 @@ void GameEngine::run()
 				glm::mat4 curr = camera->get_transform();
 				glm::mat4 transform = glm::mat4_cast(quaternion);
 				glm::mat4 final_transform = transform * curr;
-				camera->set_transformation(final_transform);
+				camera->set_transform(final_transform);
 			}
 		} else if (mouse.lmb_down)
 		{
@@ -83,7 +84,7 @@ void GameEngine::run()
 			const float min_threshold = 0.01f;
 			mouse.update_pos();
 			auto offset = mouse.get_orig_offset();
-			glm::vec2 screen_axis(offset.y, offset.x);
+			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
 			float magnitude = glm::length(screen_axis);
 			if (std::fabsf(magnitude) > min_threshold && !objects.empty()) {
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
@@ -91,6 +92,29 @@ void GameEngine::run()
 				glm::mat4 orig = tracker.transform;
 				glm::mat4 final_transform = glm::mat4_cast(quaternion) * orig; // order matters! 
 				objects[0]->set_transform(final_transform);
+			}
+		} else if (mouse.mmb_down)
+		{
+			const float sensitivity = 1.0f;
+			const float min_threshold = 0.01f;
+			mouse.update_pos();
+			auto offset_vec = mouse.get_orig_offset();
+			float magnitude = glm::length(offset_vec);
+			if (magnitude > min_threshold)
+			{
+				magnitude *= sensitivity;
+				glm::vec3 axis = camera->sync_to_camera(offset_vec) * magnitude; // might not need magnitude here
+				std::cout << glm::to_string(mouse.curr_pos) << '\n';
+				std::cout << glm::to_string(offset_vec) << ' ' << glm::to_string(axis) << '\n';
+				// axis[0] *= -1.0f; // not sure why we need to do this to get it working, reverses x axis
+				camera->focus = camera->prev_focus + axis;
+
+				camera->set_position(tracker.position + axis);
+				camera->focus = camera->prev_focus + axis;
+
+				// this entire function should be pan and moved into camera
+				// for camera focus object
+				camera->focus_obj->set_position(camera->focus);
 			}
 		}
 
@@ -215,6 +239,19 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 		{
 			mouse.lmb_down = false;
 		}
+	} else if (button == GLFW_MOUSE_BUTTON_MIDDLE)
+	{
+		if (action == GLFW_PRESS)
+		{
+			mouse.mmb_down = true;
+			mouse.update_pos();
+			mouse.orig_pos = mouse.curr_pos;
+			tracker.update(*camera);
+			camera->prev_focus = camera->focus;
+		} else if (action == GLFW_RELEASE)
+		{
+			mouse.mmb_down = false;
+		}
 	}
 }
 
@@ -228,7 +265,7 @@ void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xof
 	const float sensitivity = -0.2f;
 	glm::vec3 axis(0.0f, 0.0f, yoffset * sensitivity);
 	glm::mat4 transform = glm::translate(camera->get_transform(), axis);
-	camera->set_transformation(transform);
+	camera->set_transform(transform);
 }
 
 void GameEngine::shutdown_impl()

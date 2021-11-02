@@ -46,15 +46,15 @@ public:
 	std::string texture;
 
 public:
-	glm::mat4 get_transform();
-	glm::vec3 get_position() { return position; }
-	glm::vec3 get_scale() { return scale; }
-	glm::quat get_rotation() { return orientation; }
+	virtual glm::mat4 get_transform();
+	virtual glm::vec3 get_position() { return position; }
+	virtual glm::vec3 get_scale() { return scale; }
+	virtual glm::quat get_rotation() { return orientation; }
 
-	void set_transform(glm::mat4& transform);
-	void set_position(glm::vec3& position);
-	void set_scale(glm::vec3& scale);
-	void set_rotation(glm::quat& rotation);
+	virtual void set_transform(glm::mat4& transform);
+	virtual void set_position(glm::vec3& position);
+	virtual void set_scale(glm::vec3& scale);
+	virtual void set_rotation(glm::quat& rotation);
 
 private:
 	bool is_transform_old = true;
