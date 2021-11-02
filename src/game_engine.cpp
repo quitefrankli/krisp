@@ -75,7 +75,13 @@ void GameEngine::run()
 				glm::quat quaternion = glm::angleAxis(magnitude, axis);
 				glm::mat4 curr = camera->get_transform();
 				glm::mat4 transform = glm::mat4_cast(quaternion);
+
+				// for rotating about arbitrary axis
+				auto cur_focus = camera->focus;
+				curr[3] -= glm::vec4(camera->focus, 0.0f);
 				glm::mat4 final_transform = transform * curr;
+				final_transform[3] += glm::vec4(camera->focus, 0.0f);
+
 				camera->set_transform(final_transform);
 			}
 		} else if (mouse.lmb_down)
@@ -104,9 +110,6 @@ void GameEngine::run()
 			{
 				magnitude *= sensitivity;
 				glm::vec3 axis = camera->sync_to_camera(offset_vec) * magnitude; // might not need magnitude here
-				std::cout << glm::to_string(mouse.curr_pos) << '\n';
-				std::cout << glm::to_string(offset_vec) << ' ' << glm::to_string(axis) << '\n';
-				// axis[0] *= -1.0f; // not sure why we need to do this to get it working, reverses x axis
 				camera->focus = camera->prev_focus + axis;
 
 				camera->set_position(tracker.position + axis);
