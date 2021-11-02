@@ -10,37 +10,24 @@ class Keyboard
 
 };
 
-namespace Input
-{
-	struct Pos
-	{
-		double x = 0;
-		double y = 0;
-	};
-
-	bool operator!=(const Pos& p1, const Pos& p2);
-}
-
 class Mouse
 {
 public:
 	Mouse(App::Window& window);
 
-	bool is_different_pos() { return current_pos != previous_pos; }
-
-	Input::Pos click_drag_orig_pos;
-	Input::Pos current_pos;
+	glm::vec2 orig_pos; // click drag pos
+	glm::vec2 prev_pos; // time delta pos
+	glm::vec2 curr_pos;
 	bool rmb_down = false;
 	bool lmb_down = false;
 	bool mmb_down = false;
 
-	void update_pos();
-
-	glm::vec2 get_pos();
+	glm::vec2 update_pos();
+	glm::vec2 get_prev_offset();
+	glm::vec2 get_orig_offset();
 
 private:
 	App::Window& window;
-	Input::Pos previous_pos;
 };
 
 

@@ -14,6 +14,17 @@ class Shape;
 class GraphicsEngine;
 class Camera;
 
+class ObjectPositionTracker
+{
+public:
+	void update(Object& object);
+
+	glm::vec3 position;
+	glm::vec3 scale;
+	glm::quat rotation;
+	glm::mat4 transform;
+};
+
 class GameEngine
 {
 public: // getters and setters
@@ -29,6 +40,7 @@ public:
 	void shutdown() { shutdown_impl(); }
 	template<typename Object_T, typename... Args>
 	Object_T& spawn_object(Args&&...);
+	ObjectPositionTracker tracker;
 
 private:
 	App::Window window;

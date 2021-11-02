@@ -60,15 +60,11 @@ void GameEngine::run()
 		glfwPollEvents();
 		if (mouse.rmb_down)
 		{
-			mouse.update_pos();
 			const float sensitivity = 0.2f;
 			const float min_threshold = 0.001f;
-			float rot_x_axis = (mouse.click_drag_orig_pos.y - mouse.current_pos.y);
-			float rot_y_axis = -(mouse.click_drag_orig_pos.x - mouse.current_pos.x);
-			mouse.click_drag_orig_pos.y = mouse.current_pos.y;
-			mouse.click_drag_orig_pos.x = mouse.current_pos.x;
-
-			glm::vec2 screen_axis(rot_x_axis, rot_y_axis);
+			mouse.update_pos();
+			auto offset = mouse.get_prev_offset();
+			glm::vec2 screen_axis(offset.y, offset.x);
 			float magnitude = glm::length(screen_axis);
 			if (magnitude > min_threshold) {
 				magnitude *= delta_time * sensitivity;
@@ -76,29 +72,25 @@ void GameEngine::run()
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
 
 				glm::quat quaternion = glm::angleAxis(magnitude, axis);
-				glm::mat4 curr = camera->get_transformation();
+				glm::mat4 curr = camera->get_transform();
 				glm::mat4 transform = glm::mat4_cast(quaternion);
 				glm::mat4 final_transform = transform * curr;
 				camera->set_transformation(final_transform);
 			}
 		} else if (mouse.lmb_down)
 		{
-			mouse.update_pos();
 			const float sensitivity = 2.0f;
 			const float min_threshold = 0.01f;
-			float rot_x_axis = (mouse.click_drag_orig_pos.y - mouse.current_pos.y);
-			float rot_y_axis = -(mouse.click_drag_orig_pos.x - mouse.current_pos.x);
-
-			glm::vec2 screen_axis(rot_x_axis, rot_y_axis);
+			mouse.update_pos();
+			auto offset = mouse.get_orig_offset();
+			glm::vec2 screen_axis(offset.y, offset.x);
 			float magnitude = glm::length(screen_axis);
 			if (std::fabsf(magnitude) > min_threshold && !objects.empty()) {
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
-				axis = glm::normalize(axis);
-
 				glm::quat quaternion = glm::angleAxis(magnitude, axis);
-				glm::mat4 orig = objects[0]->get_original_transformation();
+				glm::mat4 orig = tracker.transform;
 				glm::mat4 final_transform = glm::mat4_cast(quaternion) * orig; // order matters! 
-				objects[0]->set_transformation(final_transform);
+				objects[0]->set_transform(final_transform);
 			}
 		}
 
@@ -169,12 +161,13 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		case GLFW_KEY_S:
 		{
 			auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
-			obj.set_transformation(glm::translate(obj.get_transformation(), glm::vec3(1.0f)));
+			obj.set_position(glm::vec3(1.0f));
 			break;
 		}
 		case GLFW_KEY_X: // experimental
 		{
 			auto& obj = spawn_object<Object>(resource_loader, "../resources/models/viking_room.obj", "../resources/textures/viking_room.png");
+			obj.set_position(glm::vec3(-1.0f));
 			break;
 		}
 		default:
@@ -205,13 +198,10 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 		{
 			mouse.rmb_down = true;
 			mouse.update_pos();
-			mouse.click_drag_orig_pos = mouse.current_pos;
-			get_camera().set_original_transformation(get_camera().get_transformation());
-			// get_camera().set_original_position(get_camera().get_position());
+			tracker.update(*camera);
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.rmb_down = false;
-			// get_camera().reset_position();
 		}
 	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
@@ -219,11 +209,11 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 		{
 			mouse.lmb_down = true;
 			mouse.update_pos();
-			mouse.click_drag_orig_pos = mouse.current_pos;
+			mouse.orig_pos = mouse.curr_pos;
+			tracker.update(*objects[0]);
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.lmb_down = false;
-			objects[0]->set_original_transformation(objects[0]->get_transformation());
 		}
 	}
 }
@@ -237,7 +227,7 @@ void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xof
 {
 	const float sensitivity = -0.2f;
 	glm::vec3 axis(0.0f, 0.0f, yoffset * sensitivity);
-	glm::mat4 transform = glm::translate(camera->get_transformation(), axis);
+	glm::mat4 transform = glm::translate(camera->get_transform(), axis);
 	camera->set_transformation(transform);
 }
 
@@ -265,3 +255,11 @@ Object_T& GameEngine::spawn_object(Args&&... args)
 }
 
 GameEngine::~GameEngine() = default;
+
+void ObjectPositionTracker::update(Object& object)
+{
+	position = object.get_position();
+	scale = object.get_scale();
+	rotation = object.get_rotation();
+	transform = object.get_transform();
+}

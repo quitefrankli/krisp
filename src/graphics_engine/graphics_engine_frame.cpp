@@ -378,7 +378,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	size_t size = sizeof(UniformBufferObject);
 	for (auto& object : get_graphics_engine().get_objects())
 	{
-		default_ubo.model = object.object->get_transformation();
+		default_ubo.model = object.object->get_transform();
 		vkMapMemory(get_logical_device(), object.uniform_buffer_memory, 0, size, 0, &data);
 		memcpy(data, &default_ubo, size);
 		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);

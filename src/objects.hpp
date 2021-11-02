@@ -2,6 +2,8 @@
 
 #include "shapes.hpp"
 
+#include <glm/gtc/quaternion.hpp>
+
 #include <vector>
 
 
@@ -10,10 +12,6 @@ class ResourceLoader;
 
 class ObjectAbstract
 {
-protected:
-	glm::mat4 transformation = glm::mat4(1.0f);
-	glm::mat4 original_transformation = glm::mat4(1.0f);
-
 public:
 	ObjectAbstract(const ObjectAbstract& object) = delete;
 	ObjectAbstract& operator=(const ObjectAbstract& object) = delete;
@@ -22,14 +20,6 @@ public:
 	ObjectAbstract(uint64_t id);
 	ObjectAbstract(ObjectAbstract&& object) noexcept = default;
 	~ObjectAbstract() = default;
-
-	virtual glm::vec3 get_position() const { return transformation[3]; }
-	virtual void set_position(const glm::vec3& pos) { transformation[3] = glm::vec4(pos, 1.0f); }
-	virtual glm::mat4 get_transformation() const { return transformation; }
-	virtual void set_transformation(const glm::mat4& transformation) { this->transformation = transformation; }
-	virtual void apply_transformation(const glm::mat4& transformation);
-	virtual glm::mat4 get_original_transformation() { return original_transformation; }
-	virtual void set_original_transformation(glm::mat4 transformation) { original_transformation = transformation; }
 
 	uint64_t get_id() const { return id; }
 	// void set_id(uint64_t id) { this->id = id; } ;// we don't really want to set id ever
@@ -55,8 +45,25 @@ public:
 
 	std::string texture;
 
+public:
+	glm::mat4 get_transform();
+	glm::vec3 get_position() { return position; }
+	glm::vec3 get_scale() { return scale; }
+	glm::quat get_rotation() { return orientation; }
+
+	void set_transform(glm::mat4& transform);
+	void set_position(glm::vec3& position);
+	void set_scale(glm::vec3& scale);
+	void set_rotation(glm::quat& rotation);
+
 private:
+	bool is_transform_old = true;
+	bool is_vertex_sets_old = true;
 	std::vector<std::vector<Vertex>> cached_vertex_sets;
+	glm::mat4 cached_transform;
+	glm::vec3 position = glm::vec3(0.f);
+	glm::vec3 scale = glm::vec3(1.f);
+	glm::quat orientation; // default init creates identity quaternion
 };
 
 class Pyramid : public Object

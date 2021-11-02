@@ -2,7 +2,8 @@
 #include "maths.hpp"
 #include "resource_loader.hpp"
 
-#include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include <iostream>
 
@@ -19,12 +20,6 @@ ObjectAbstract::ObjectAbstract(uint64_t id)
 	this->id = id;
 }
 
-void ObjectAbstract::apply_transformation(const glm::mat4& transformation)
-{
-	this->transformation = transformation * (this->transformation);
-	// this->transformation = (this->transformation) * transformation;
-}
-
 Object::Object(ResourceLoader& loader, std::string mesh, std::string texture)
 {
 	loader.load_mesh(*this, mesh);
@@ -38,17 +33,65 @@ Object::Object(std::string texture_) :
 
 std::vector<std::vector<Vertex>>& Object::get_vertex_sets()
 {
-	if (!cached_vertex_sets.empty())
+	if (is_vertex_sets_old)
 	{
-		return cached_vertex_sets;
-	}
-
-	for (auto& shape : shapes)
-	{
-		cached_vertex_sets.emplace_back(shape.get_vertices());
+		is_vertex_sets_old = false;
+		for (auto& shape : shapes)
+		{
+			cached_vertex_sets.emplace_back(shape.get_vertices());
+		}
 	}
 
 	return cached_vertex_sets;
+}
+
+void Object::set_position(glm::vec3& position)
+{
+	is_transform_old = true;
+	this->position = position;
+}
+
+void Object::set_scale(glm::vec3& scale)
+{
+	is_transform_old = true;
+	this->scale = scale;
+}
+
+void Object::set_rotation(glm::quat& rotation)
+{
+	is_transform_old = true;
+	this->orientation = rotation;
+}
+
+glm::mat4 Object::get_transform()
+{
+	if (is_transform_old)
+	{
+		is_transform_old = false;
+
+		cached_transform = glm::mat4_cast(glm::normalize(orientation)) * glm::scale(scale);
+		cached_transform[3] = glm::vec4(position, 1.0f);
+	}
+
+	return cached_transform;
+}
+
+void Object::set_transform(glm::mat4& transform)
+{
+	is_transform_old = false;
+	cached_transform = transform;
+
+	auto get_vec3_len = [](glm::vec4& vec4)
+	{
+		return std::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
+	};
+
+	// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
+	orientation = glm::normalize(glm::quat_cast(transform));
+	scale[0] = get_vec3_len(transform[0]);
+	scale[1] = get_vec3_len(transform[1]);
+	scale[2] = get_vec3_len(transform[2]);
+	position = transform[3];
 }
 
 Pyramid::Pyramid()

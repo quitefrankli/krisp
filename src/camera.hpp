@@ -16,29 +16,17 @@
 // 							0.1f, // near plane clipping, closest an object can be to camera
 // 							10.0f); // far plane clipping, furthest away an object can be to camera	
 
-class Camera : public ObjectAbstract // in future we should we swap this for non-abstract Object
+class Camera : public Object
 {
 private:
+	const glm::vec3 ORIGINAL_UP_VECTOR{ 0.f, 1.f, 0.f };
 	glm::vec3 focus;
-	glm::vec3 original_up_vector;
-	glm::vec3 up_vector = original_up_vector;
-
-	struct Perspective
-	{
-		float fov;
-		float aspect_ratio;
-		float near_clipping;
-		float far_clipping;
-	} perspective;
-
-	glm::mat4 init_transform = transformation;
-	glm::mat4 held_transform;
+	glm::vec3 up_vector;
+	glm::mat4 perspective_matrix;
 
 public:
 	Camera(float aspect_ratio);
 	~Camera() {};
-
-	glm::quat quat;
 
 	glm::mat4 get_perspective();
 	glm::mat4 get_view();
@@ -52,9 +40,7 @@ public:
 	// resets to initial transform
 	void reset_transform_init();
 
-	void set_transformation(const glm::mat4& transformation) override;
-
-	void apply_transformation(const glm::mat4& transformation) override;
+	void set_transformation(glm::mat4 transformation);
 
 	void pan(const glm::vec2& vec);
 

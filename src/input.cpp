@@ -5,29 +5,29 @@
 #include <algorithm>
 
 
-bool Input::operator!=(const Pos& p1, const Pos& p2)
-{
-	return p1.x != p2.x || p1.y != p2.y;
-}
-
 Mouse::Mouse(App::Window& ref_window) :
 	window(ref_window)
 {
 }
 
-void Mouse::update_pos()
+glm::vec2 Mouse::update_pos()
 {
-	previous_pos = current_pos;
+	prev_pos = curr_pos;
 
-	glfwGetCursorPos(window.get_window(), &current_pos.x, &current_pos.y);
-	// normalise coordinates
-	current_pos.x = -1.0 + 2.0 * (double)current_pos.x / window.get_width();
-	current_pos.y = 1.0 - 2.0 * (double)current_pos.y / window.get_height();
-	current_pos.x = std::clamp(current_pos.x, -1.0, 1.0);
-	current_pos.y = std::clamp(current_pos.y, -1.0, 1.0);
+	double x, y;
+	glfwGetCursorPos(window.get_window(), &x, &y);
+	curr_pos.x = std::clamp( 2.0f * static_cast<float>(x) / window.get_width()  - 1.0f, -1.0f, 1.0f);
+	// curr_pos.y = std::clamp(-2.0f * static_cast<float>(y) / window.get_height() + 1.0f, -1.0f, 1.0f);
+	curr_pos.y = std::clamp(2.0f * static_cast<float>(y) / window.get_height() - 1.0f, -1.0f, 1.0f); // not sure why above line is wrong
+	return curr_pos;
 }
 
-glm::vec2 Mouse::get_pos()
+glm::vec2 Mouse::get_orig_offset()
 {
-	return glm::vec2{ current_pos.x, current_pos.y };
+	return curr_pos - orig_pos;
+}
+
+glm::vec2 Mouse::get_prev_offset()
+{
+	return curr_pos - prev_pos;
 }
