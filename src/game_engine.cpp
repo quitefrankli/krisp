@@ -199,6 +199,11 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			obj.set_position(glm::vec3(-1.0f));
 			break;
 		}
+		case GLFW_KEY_F: // wireframe mode
+		{
+			graphics_engine->enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
+			break;
+		}
 		default:
 			break;
 	}

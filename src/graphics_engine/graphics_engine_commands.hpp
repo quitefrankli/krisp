@@ -12,8 +12,6 @@ class Object;
 class GraphicsEngine;
 class GraphicsEngineCommand;
 
-using GraphicsEngineCommandPtr = std::unique_ptr<GraphicsEngineCommand>;
-
 class GraphicsEngineCommand
 {
 public:
@@ -41,6 +39,12 @@ public:
 };
 
 class ShutdownCmd : public GraphicsEngineCommand
+{
+public:
+	void process(GraphicsEngine* engine) override;
+};
+
+class ToggleWireFrameModeCmd : public GraphicsEngineCommand
 {
 public:
 	void process(GraphicsEngine* engine) override;

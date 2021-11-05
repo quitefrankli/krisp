@@ -6,6 +6,8 @@
 #include "uniform_buffer_object.hpp"
 #include "camera.hpp"
 
+#include <iostream>
+
 
 int GraphicsEngineFrame::global_image_index = 0;
 
@@ -255,6 +257,10 @@ void GraphicsEngineFrame::update_command_buffer()
 	for (auto& object : get_graphics_engine().get_objects())
 	{
 		auto pipeline_type = object.texture ? type_t::STANDARD : type_t::COLOR;
+		if (get_graphics_engine().is_wireframe_mode)
+		{
+			pipeline_type = type_t::WIREFRAME;
+		}
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_pipeline(pipeline_type)); // bind the graphics pipeline
 
 		per_obj_draw_fn(object);

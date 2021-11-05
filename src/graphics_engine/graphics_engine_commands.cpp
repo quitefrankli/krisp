@@ -19,3 +19,9 @@ void ShutdownCmd::process(GraphicsEngine* engine)
 {
 	engine->shutdown();
 }
+
+void ToggleWireFrameModeCmd::process(GraphicsEngine* engine)
+{
+	engine->is_wireframe_mode = !engine->is_wireframe_mode;
+	engine->update_command_buffer();
+}

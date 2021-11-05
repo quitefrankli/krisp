@@ -222,7 +222,7 @@ VkExtent2D GraphicsEngineSwapChain::choose_swap_extent(const VkSurfaceCapabiliti
 
 void GraphicsEngineSwapChain::spawn_object(GraphicsEngineObject& object)
 {
-	for (auto &frame : frames)
+	for (auto& frame : frames)
 	{
 		frame.spawn_object(object);
 	}
@@ -233,4 +233,12 @@ void GraphicsEngineSwapChain::draw()
 	frames[current_frame].draw();
 
 	current_frame = (current_frame + 1) % frames.size();
+}
+
+void GraphicsEngineSwapChain::update_command_buffer()
+{
+	for (auto& frame : frames)
+	{
+		frame.update_command_buffer();
+	}
 }

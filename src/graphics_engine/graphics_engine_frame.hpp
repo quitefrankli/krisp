@@ -22,12 +22,12 @@ public:
 
 public:
 	void spawn_object(GraphicsEngineObject& object);
+	void update_command_buffer();
 	void draw();
 
 private:
 	void create_descriptor_sets(GraphicsEngineObject& object);
 	void create_command_buffer();
-	void update_command_buffer();
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
 

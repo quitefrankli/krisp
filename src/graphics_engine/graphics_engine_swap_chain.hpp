@@ -26,6 +26,7 @@ public:
 
 	static const int EXPECTED_NUM_SWAPCHAIN_IMAGES = 3;
 	static SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface);
+	void update_command_buffer();
 	void spawn_object(GraphicsEngineObject& object);
 	void draw();
 

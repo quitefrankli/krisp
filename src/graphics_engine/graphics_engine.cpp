@@ -234,3 +234,8 @@ VkPipeline& GraphicsEngine::get_pipeline(GraphicsEnginePipeline::PIPELINE_TYPE p
 			return pipeline.graphics_pipeline;
 	}
 }
+
+void GraphicsEngine::update_command_buffer()
+{
+	swap_chain.update_command_buffer();
+}

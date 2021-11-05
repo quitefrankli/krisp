@@ -27,13 +27,6 @@ class Camera;
 class GameEngine;
 class GraphicsEngineObject;
 
-class GraphicsEngineCmd
-{
-public:
-	GraphicsEngineCmd(const std::string& str) : val(str) {}
-	std::string val;
-};
-
 class GraphicsEngine
 {
 public:
@@ -50,6 +43,9 @@ public:
 	const int MAX_NUM_VERTICES = MAX_NUM_DESCRIPTOR_SETS * 3;
 	const VkVertexInputBindingDescription binding_description;
 	const std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
+
+public:
+	bool is_wireframe_mode = false;
 
 public: // getters and setters
 	template<class T> 
@@ -104,7 +100,7 @@ private:
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::vector<GraphicsEngineObject> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
-	std::queue<GraphicsEngineCommandPtr> ge_cmd_q;
+	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 	VkPhysicalDeviceProperties physical_device_properties;
 
 // if confused about the different vulkan definitions see here
@@ -116,6 +112,7 @@ public: // swap chain
 	void recreate_swap_chain(); // useful for when size of window is changing
 
 public: // command buffer
+	void update_command_buffer();
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
