@@ -45,8 +45,10 @@ void GameEngine::run()
 	// spawn_object<Object>(resource_loader, mesh, texture);
 
 	// spawn_object<Cube>("../resources/textures/texture2.jpg");
-	spawn_object<Cube>("../resources/textures/texture.jpg");
+	// spawn_object<Cube>("../resources/textures/texture.jpg");
 	// spawn_object<Object>(resource_loader, "../resources/models/object.obj", "../resources/textures/object.png");
+
+	spawn_object<Sphere>();
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{

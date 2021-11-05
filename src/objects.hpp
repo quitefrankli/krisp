@@ -83,3 +83,10 @@ public:
 private:
 	void init();
 };
+
+class Sphere : public Object
+{
+public:
+	Sphere();
+	Sphere(Sphere&& cube) noexcept = default;
+};

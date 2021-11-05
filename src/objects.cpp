@@ -183,3 +183,50 @@ void Cube::init()
 	shapes.push_back(std::move(top));
 	shapes.push_back(std::move(bottom));
 }
+
+Sphere::Sphere()
+{
+	const int M = 30;
+	const int N = 30;
+	auto calculate_vec = [&M, &N](float m, float n)
+	{
+		m = m / (float)M * Maths::PI;
+		n = n / (float)N * Maths::PI;
+		Vertex vertex;
+		vertex.pos = {
+			sinf(2.0f * n) * sinf(m),
+			cosf(m),
+			cosf(2.0f * n) * sinf(m)
+		};
+		vertex.color = {
+			m / (float)M, n / (float)N, 0.1f
+		};
+		return vertex;
+	};
+
+	std::vector<Vertex> vertices;
+	vertices.reserve(1024);
+	Shape shape;
+	shape.vertices.reserve(2048);
+	for (int i = 0; i < M*N; i++)
+	{
+		if ((i+1)%N==0)
+		{
+			shape.vertices.push_back(vertices[i]);
+			shape.vertices.push_back(vertices[i + N]);
+			shape.vertices.push_back(vertices[i + 1]);
+			shape.vertices.push_back(vertices[i]);
+			shape.vertices.push_back(vertices[i + 1]);
+			shape.vertices.push_back(vertices[i - N + 1]);
+		} else 
+		{
+			shape.vertices.push_back(vertices[i]);
+			shape.vertices.push_back(vertices[i + N]);
+			shape.vertices.push_back(vertices[i + N + 1]);
+			shape.vertices.push_back(vertices[i]);
+			shape.vertices.push_back(vertices[i + N + 1]);
+			shape.vertices.push_back(vertices[i + 1]);
+		}
+	}
+	shapes.push_back(std::move(shape));
+}
