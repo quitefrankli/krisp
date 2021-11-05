@@ -76,6 +76,7 @@ public: // getters and setters
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
+	VkPipeline& get_pipeline(GraphicsEnginePipeline::PIPELINE_TYPE pipeline_type = GraphicsEnginePipeline::PIPELINE_TYPE::STANDARD);
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
 
@@ -89,7 +90,9 @@ private: // core components
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
 	GraphicsEnginePool pool;
-	GraphicsEnginePipeline pipeline;
+	GraphicsEnginePipeline pipeline; // main pipeline
+	GraphicsEnginePipeline pipeline_wireframe;
+	GraphicsEnginePipeline pipeline_color;
 	GraphicsEngineTextureManager texture_mgr;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;

@@ -74,13 +74,28 @@ VkFormat findDepthFormat(VkPhysicalDevice& device) {
 // GraphicsEnginePipeline
 //
 
-GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine) :
+GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_TYPE pipeline_type) :
 	GraphicsEngineBaseModule(engine)
 {
 	create_render_pass();
 
-    auto vertShaderCode = readFile("vertex_shader.spv");
-    auto fragShaderCode = readFile("fragment_shader.spv");
+	std::string vertex_shader_file, fragment_shader_file;
+	switch (pipeline_type)
+	{
+		case PIPELINE_TYPE::COLOR:
+			vertex_shader_file = "vertex_shader_color.spv";
+			fragment_shader_file = "fragment_shader_color.spv";
+			break;
+		case PIPELINE_TYPE::WIREFRAME:
+		case PIPELINE_TYPE::STANDARD:
+		default:
+			vertex_shader_file = "vertex_shader.spv";
+			fragment_shader_file = "fragment_shader.spv";
+			break;
+	}	
+
+    auto vertShaderCode = readFile(vertex_shader_file);
+    auto fragShaderCode = readFile(fragment_shader_file);
 
 	VkShaderModule vertex_shader = create_shader_module(vertShaderCode, get_logical_device());
 	VkShaderModule fragment_shader = create_shader_module(fragShaderCode, get_logical_device());
@@ -152,8 +167,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine) :
 	rasterizer_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer_create_info.depthClampEnable = VK_FALSE; // true = fragments beyond near and far planes are clamped, false = discarded
 	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
-	rasterizer_create_info.polygonMode = VK_POLYGON_MODE_FILL;
-	// rasterizer_create_info.polygonMode = VK_POLYGON_MODE_LINE; // this could be useful for drawing grid lines
+	rasterizer_create_info.polygonMode = pipeline_type == PIPELINE_TYPE::WIREFRAME ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
 	rasterizer_create_info.lineWidth = 1.0f;
 	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
 	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 

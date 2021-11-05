@@ -27,7 +27,9 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	texture_mgr(*this),
 	device(*this),
 	pool(*this),
-	pipeline(*this),
+	pipeline(*this), 
+	pipeline_wireframe(*this, GraphicsEnginePipeline::PIPELINE_TYPE::WIREFRAME),
+	pipeline_color(*this, GraphicsEnginePipeline::PIPELINE_TYPE::COLOR),
 	depth_buffer(*this),
 	swap_chain(*this),
 	model_loader(*this)
@@ -216,4 +218,19 @@ VkExtent2D GraphicsEngine::get_extent_unsafe()
 	extent.height = height;
 
 	return extent;
+}
+
+VkPipeline& GraphicsEngine::get_pipeline(GraphicsEnginePipeline::PIPELINE_TYPE pipeline_type)
+{
+	using type_t = GraphicsEnginePipeline::PIPELINE_TYPE;
+	switch (pipeline_type)
+	{
+		case type_t::COLOR:
+			return pipeline_color.graphics_pipeline;
+		case type_t::WIREFRAME:
+			return pipeline_wireframe.graphics_pipeline;
+		case type_t::STANDARD:
+		default:
+			return pipeline.graphics_pipeline;
+	}
 }

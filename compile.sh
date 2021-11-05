@@ -17,6 +17,8 @@ YELLOW='\033[1;33m' # yellow
 GREEN='\033[0;32m' # green
 NC='\033[0m' # No Color
 echo -e "${YELLOW}compiling shaders...${NC}"
-glslc -fshader-stage=vertex $SCRIPTPATH/src/shaders/vertex_shader.glsl -o vertex_shader.spv 
-glslc -fshader-stage=fragment $SCRIPTPATH/src/shaders/fragment_shader.glsl -o fragment_shader.spv
+glslc -fshader-stage=vertex $SCRIPTPATH/src/shaders/vertex/vertex_shader.glsl -o vertex_shader.spv 
+glslc -fshader-stage=vertex $SCRIPTPATH/src/shaders/vertex/vertex_shader_color.glsl -o vertex_shader_color.spv 
+glslc -fshader-stage=fragment $SCRIPTPATH/src/shaders/fragment/fragment_shader.glsl -o fragment_shader.spv
+glslc -fshader-stage=fragment $SCRIPTPATH/src/shaders/fragment/fragment_shader_color.glsl -o fragment_shader_color.spv
 echo -e "${GREEN}shader compilation complete!${NC}"

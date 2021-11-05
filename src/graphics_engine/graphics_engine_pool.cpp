@@ -48,9 +48,8 @@ void GraphicsEnginePool::create_descriptor_pool()
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	combined_image_sampler_pool_size.descriptorCount = GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * engine.MAX_NUM_DESCRIPTOR_SETS;
-	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
 
-	// allocate a descriptor for every image in the swap chain
+	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = pool_sizes.size();
