@@ -54,8 +54,6 @@ void GameEngine::run()
 	// spawn_object<HollowCylinder>();
 	// analytics.quick_timer_stop();
 
-	TowerOfHanoi tower(*this);
-
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
@@ -219,6 +217,12 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		{
 			camera->focus_obj->toggle_visibility();
 			graphics_engine->enqueue_cmd(std::make_unique<UpdateCommandBufferCmd>());
+			break;
+		}
+		case GLFW_KEY_U: // simulation
+		{
+			simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
+			simulations[0]->start();
 			break;
 		}
 		default:

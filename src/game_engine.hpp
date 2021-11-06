@@ -14,6 +14,7 @@ class GLFWWindow;
 class Shape;
 class GraphicsEngine;
 class Camera;
+class Simulation;
 
 class ObjectPositionTracker
 {
@@ -41,8 +42,6 @@ public:
 	void shutdown() { shutdown_impl(); }
 	template<typename Object_T, typename... Args>
 	Object_T& spawn_object(Args&&...);
-	ObjectPositionTracker tracker;
-	Animator animator;
 
 private:
 	App::Window window;
@@ -56,6 +55,12 @@ private:
 	std::chrono::time_point<std::chrono::system_clock> time;
 	std::vector<std::shared_ptr<Object>> objects;
 
+public:
+	ObjectPositionTracker tracker;
+	Animator animator;
+	std::vector<std::unique_ptr<Simulation>> simulations;
+
+private:
 	void create_camera();
 	void shutdown_impl();
 	

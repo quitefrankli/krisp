@@ -1,5 +1,37 @@
 #include "animator.hpp"
 
+#include <iostream>
+
+
+bool Animation::process(float delta_time)
+{
+	progress += delta_time;
+	if (progress > duration)
+	{
+		return false;
+	}
+
+	auto transform = glm::mix(initial_transform, final_transform, progress/duration);
+	object->set_transform(transform);
+
+	return true;
+}
+
+bool SequentialAnimation::process(float delta_time)
+{
+	if (animations.empty())
+	{
+		return false;
+	}
+
+	if (!animations.front().process(delta_time))
+	{
+		animations.pop();
+		process(delta_time);
+	}
+
+	return true;
+}
 
 void Animator::add_animation(std::shared_ptr<Object>& object, glm::mat4& final)
 {
@@ -15,22 +47,32 @@ void Animator::add_animation(std::shared_ptr<Object>& object, glm::mat4& initial
 	animations.push_back(std::move(animation));
 }
 
+void Animator::add_animation(SequentialAnimation&& animation)
+{
+	sequentials.push_back(std::move(animation));
+}
+
 void Animator::process(float delta_time)
 {
 	for (auto animation_it = animations.begin(); animation_it != animations.end();)
 	{
-		auto& animation = *animation_it;
-		animation.progress += delta_time;
-		if (animation.progress > animation.duration)
+		if (!animation_it->process(delta_time))
 		{
 			animations.erase(animation_it++);
 			continue;
 		}
 
-		auto cur_transform = glm::mix(animation.initial_transform, animation.final_transform, 
-			animation.progress/animation.duration);
-		animation.object->set_transform(cur_transform);
-
 		animation_it++;
+	}
+
+	for (auto sequential_it = sequentials.begin(); sequential_it != sequentials.end();)
+	{
+		if (!sequential_it->process(delta_time))
+		{
+			sequentials.erase(sequential_it++);
+			continue;
+		}
+
+		sequential_it++;
 	}
 }

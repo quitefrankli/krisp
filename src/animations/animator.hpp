@@ -3,6 +3,7 @@
 #include "objects.hpp"
 
 #include <list>
+#include <queue>
 
 
 class Animation
@@ -22,6 +23,15 @@ public:
 	// seconds
 	float progress = 0;
 	float duration = 5.0f;
+
+	bool process(float delta_time);
+};
+
+class SequentialAnimation
+{
+public:
+	std::queue<Animation> animations;
+	bool process(float delta_time);
 };
 
 class Animator
@@ -29,8 +39,10 @@ class Animator
 public:
 	void add_animation(std::shared_ptr<Object>& object, glm::mat4& final_transform);
 	void add_animation(std::shared_ptr<Object>& object, glm::mat4& initial_transform, glm::mat4& final_transform);
+	void add_animation(SequentialAnimation&& animation);
 	void process(float delta_time);
 
 private:
 	std::list<Animation> animations;
+	std::list<SequentialAnimation> sequentials;
 };
