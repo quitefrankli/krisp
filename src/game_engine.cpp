@@ -7,6 +7,7 @@
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"
 #include "analytics.hpp"
+#include "simulations/tower_of_hanoi.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -48,10 +49,12 @@ void GameEngine::run()
 	// spawn_object<Cube>("../resources/textures/texture.jpg");
 	// spawn_object<Object>(resource_loader, "../resources/models/object.obj", "../resources/textures/object.png");
 
-	analytics.quick_timer_start();
-	// spawn_object<Sphere>();
-	spawn_object<HollowCylinder>();
-	analytics.quick_timer_stop();
+	// analytics.quick_timer_start();
+	// // spawn_object<Sphere>();
+	// spawn_object<HollowCylinder>();
+	// analytics.quick_timer_stop();
+
+	TowerOfHanoi tower(*this);
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{

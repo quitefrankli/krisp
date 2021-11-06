@@ -100,4 +100,12 @@ class HollowCylinder : public Object
 {
 public:
 	HollowCylinder();
+	HollowCylinder(HollowCylinder& hollow_cylinder) noexcept = default;
+};
+
+class Cylinder : public Object
+{
+public:
+	Cylinder();
+	Cylinder(Cylinder& cylinder) noexcept = default;
 };
