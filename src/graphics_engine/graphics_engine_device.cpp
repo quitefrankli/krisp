@@ -118,6 +118,7 @@ void GraphicsEngineDevice::create_logical_device()
 	}
 	VkPhysicalDeviceFeatures deviceFeatures{}; // special features, we request
 	deviceFeatures.samplerAnisotropy = true;
+	deviceFeatures.fillModeNonSolid = true;
 	
 	VkDeviceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
