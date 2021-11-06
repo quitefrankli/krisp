@@ -4,6 +4,7 @@
 #include "window.hpp"
 #include "objects.hpp"
 #include "resource_loader.hpp"
+#include "animations/animator.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -41,6 +42,7 @@ public:
 	template<typename Object_T, typename... Args>
 	Object_T& spawn_object(Args&&...);
 	ObjectPositionTracker tracker;
+	Animator animator;
 
 private:
 	App::Window window;

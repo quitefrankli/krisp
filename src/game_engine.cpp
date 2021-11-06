@@ -129,6 +129,8 @@ void GameEngine::run()
 			}
 		}
 
+		animator.process(delta_time / 1e3);
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 		analytics.stop();
@@ -205,6 +207,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			// obj.set_position(glm::vec3(-1.0f));
 			auto& obj = spawn_object<Cube>();
 			obj.set_position(glm::vec3(-1.0f));
+			animator.add_animation(objects.back(), glm::translate(glm::mat4(1.0f), glm::vec3(2.0f)));
 			break;
 		}
 		case GLFW_KEY_F: // wireframe mode
