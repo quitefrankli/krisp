@@ -239,7 +239,7 @@ void GraphicsEngineFrame::update_command_buffer()
 									&descriptor_sets[total_descriptor_set_offest],
 									0,
 									nullptr);
-			total_descriptor_set_offest ++;
+			total_descriptor_set_offest++;
 
 			vkCmdDraw(
 				command_buffer, 
@@ -256,6 +256,11 @@ void GraphicsEngineFrame::update_command_buffer()
 	using type_t = GraphicsEnginePipeline::PIPELINE_TYPE;
 	for (auto& object : get_graphics_engine().get_objects())
 	{
+		if (!object.object->get_visibility())
+		{
+			total_descriptor_set_offest+=object.get_vertex_sets().size();
+			continue;
+		}
 		auto pipeline_type = object.texture ? type_t::STANDARD : type_t::COLOR;
 		if (get_graphics_engine().is_wireframe_mode)
 		{

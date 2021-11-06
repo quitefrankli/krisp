@@ -209,6 +209,12 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			graphics_engine->enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
 			break;
 		}
+		case GLFW_KEY_C: // toggle camera focus visibility
+		{
+			camera->focus_obj->toggle_visibility();
+			graphics_engine->enqueue_cmd(std::make_unique<UpdateCommandBufferCmd>());
+			break;
+		}
 		default:
 			break;
 	}
