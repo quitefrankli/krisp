@@ -29,7 +29,8 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	perspective_matrix[1][1] *= -1.0f; // NOTE removing with will cause issues with the culling
 	// camera focus object
 	
-	focus_obj = std::make_shared<Cube>("../resources/textures/texture.jpg");
+	// focus_obj = std::make_shared<Cube>("../resources/textures/texture.jpg");
+	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	SpawnObjectCmd cmd;
 	cmd.object = focus_obj;
