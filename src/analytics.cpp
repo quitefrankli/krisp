@@ -25,9 +25,22 @@ void Analytics::stop()
 	num_elapsed_cycles++;
 	if (system_clock::now() - log_cycle_start > LOG_CYCLE)
 	{
-		LOG_INFO(logger, "{} {} microseconds", text, (double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 1e3);
+		double elapsed_float = round((double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 10.0) / 100.0; 
+		LOG_INFO(logger, "{} {} microseconds", text, elapsed_float);
 		log_cycle_start = system_clock::now();
 		num_elapsed_cycles = 0;
 		elapsed_log_cycle = nanoseconds(0);
 	}
+}
+
+void Analytics::quick_timer_start()
+{
+	quick_timer_start_time = system_clock::now();
+}
+
+void Analytics::quick_timer_stop()
+{
+	auto elapsed = duration_cast<nanoseconds>(system_clock::now() - quick_timer_start_time);
+	double elapsed_float =  round((double)elapsed.count() / 10.0) / 100.0;
+	LOG_INFO(logger, "quick timer {} microseconds", elapsed_float);
 }

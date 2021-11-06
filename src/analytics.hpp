@@ -11,6 +11,8 @@ class Analytics
 public:
 	void start();
 	void stop();
+	void quick_timer_start();
+	void quick_timer_stop();
 	std::string text;
 
 private:
@@ -20,4 +22,5 @@ private:
 	std::chrono::time_point<std::chrono::system_clock> lap_cycle_start;
 	std::chrono::nanoseconds elapsed_log_cycle = std::chrono::nanoseconds(0);
 	const std::chrono::seconds LOG_CYCLE = std::chrono::seconds(5);
+	std::chrono::time_point<std::chrono::system_clock> quick_timer_start_time;
 };

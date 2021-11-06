@@ -206,6 +206,13 @@ Sphere::Sphere()
 
 	std::vector<Vertex> vertices;
 	vertices.reserve(1024);
+	for (int m = 0; m < M+1; m++)
+	{
+		for (int n = 0; n < N; n++)
+		{
+			vertices.push_back(calculate_vec(m, n));
+		}
+	}
 	Shape shape;
 	shape.vertices.reserve(2048);
 	for (int i = 0; i < M*N; i++)

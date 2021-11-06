@@ -48,7 +48,9 @@ void GameEngine::run()
 	// spawn_object<Cube>("../resources/textures/texture.jpg");
 	// spawn_object<Object>(resource_loader, "../resources/models/object.obj", "../resources/textures/object.png");
 
+	analytics.quick_timer_start();
 	spawn_object<Sphere>();
+	analytics.quick_timer_stop();
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{

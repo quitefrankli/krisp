@@ -62,10 +62,14 @@ int main() {
 	// std::cout << glm::to_string(result) << '\n';
 	// return 0;
 
-	// quill::start(); // this will consume CPU cycles
-
 	auto file_handler = quill::file_handler("log.log", "a");
 	logger = quill::create_logger("MAIN", file_handler);
+	file_handler->set_pattern(
+		QUILL_STRING("%(ascii_time): %(message)"),
+		"%D %H:%M:%S.%Qus",
+		quill::Timezone::LocalTime
+	);
+	// quill::start(); // this will consume CPU cycles
 
 	// seems like glfw window must be on main thread otherwise it wont work, therefore engine should always be on its own thread
 	GameEngine engine;

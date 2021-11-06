@@ -84,6 +84,7 @@ private:
 	void init();
 };
 
+// note that this is procedurally generated and very slow
 class Sphere : public Object
 {
 public:

@@ -82,11 +82,11 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 	std::string vertex_shader_file, fragment_shader_file;
 	switch (pipeline_type)
 	{
+		case PIPELINE_TYPE::WIREFRAME:
 		case PIPELINE_TYPE::COLOR:
 			vertex_shader_file = "vertex_shader_color.spv";
 			fragment_shader_file = "fragment_shader_color.spv";
 			break;
-		case PIPELINE_TYPE::WIREFRAME:
 		case PIPELINE_TYPE::STANDARD:
 		default:
 			vertex_shader_file = "vertex_shader.spv";
