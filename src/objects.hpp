@@ -100,12 +100,18 @@ class HollowCylinder : public Object
 {
 public:
 	HollowCylinder();
-	HollowCylinder(HollowCylinder& hollow_cylinder) noexcept = default;
+	HollowCylinder(HollowCylinder&& hollow_cylinder) noexcept = default;
+
+	// for tower of hanoi
+	int pillar_index = 0;
 };
 
 class Cylinder : public Object
 {
 public:
 	Cylinder();
-	Cylinder(Cylinder& cylinder) noexcept = default;
+	Cylinder(Cylinder&& cylinder) noexcept = default;
+
+	// for tower of hanoi
+	float content_height = 0.0f;
 };

@@ -196,7 +196,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		case GLFW_KEY_S:
 		{
 			auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
-			obj.set_position(glm::vec3(1.0f));
+			// obj.set_position(glm::vec3(1.0f));
 			break;
 		}
 		case GLFW_KEY_X: // experimental
@@ -221,7 +221,8 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_U: // simulation
 		{
-			simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
+			if (simulations.empty())
+				simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
 			simulations[0]->start();
 			break;
 		}

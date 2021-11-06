@@ -295,6 +295,13 @@ HollowCylinder::HollowCylinder()
 		shape.vertices.push_back(calculate_vec(m, -0.5f));
 	}
 	shapes.push_back(std::move(shape));
+
+	// make the bottom its origin
+	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.25f, 0.0f));
+	for (auto& shape : shapes)
+	{
+		shape.transform_vertices(vertex_transform);
+	}
 }
 
 Cylinder::Cylinder()
@@ -341,4 +348,11 @@ Cylinder::Cylinder()
 		shape.vertices.push_back(calculate_vec(m, -1.0f));
 	}
 	shapes.push_back(std::move(shape));
+
+	// make the bottom its origin
+	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
+	for (auto& shape : shapes)
+	{
+		shape.transform_vertices(vertex_transform);
+	}
 }
