@@ -237,3 +237,70 @@ Sphere::Sphere()
 	}
 	shapes.push_back(std::move(shape));
 }
+
+HollowCylinder::HollowCylinder()
+{
+	const int M = 10;
+	auto calculate_vec = [&M](float m, float y, float radius=1.0f, bool reverse=false)
+	{
+		m = m / (float)M * Maths::PI * 2.0f;
+		Vertex vertex;
+		vertex.pos = {
+			sinf(m) * radius,
+			y,
+			cosf(m) * radius
+		};
+		if (reverse)
+			vertex.color = { 0.0f, m/(float)M, 0.0f };
+		else
+			vertex.color = { m/(float)M, 0.0f, 0.0f };
+
+		return vertex;
+	};
+
+	Shape shape;
+	shape.vertices.reserve(1024);
+	Vertex top_vertex{
+		glm::vec3(0.0f, 0.5f, 0.0f),
+		glm::vec3(0.0f, 0.3f, 0.9f)
+	};
+	Vertex bottom_vertex{
+		glm::vec3(0.0f, -0.5f, 0.0f),
+		glm::vec3(0.0f, 1.0f, 0.2f)
+	};
+	for (int m = 0; m < M; m++)
+	{
+		// side
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f));
+
+		// inside side
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m, -0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f, true));
+
+		// top
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f));
+
+		//bottom
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f));
+	}
+	shapes.push_back(std::move(shape));
+}

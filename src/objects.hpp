@@ -91,3 +91,9 @@ public:
 	Sphere();
 	Sphere(Sphere&& cube) noexcept = default;
 };
+
+class HollowCylinder : public Object
+{
+public:
+	HollowCylinder();
+};
