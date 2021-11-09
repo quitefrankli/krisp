@@ -7,6 +7,7 @@
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"
 #include "analytics.hpp"
+#include "simulations/tower_of_hanoi.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -48,9 +49,10 @@ void GameEngine::run()
 	// spawn_object<Cube>("../resources/textures/texture.jpg");
 	// spawn_object<Object>(resource_loader, "../resources/models/object.obj", "../resources/textures/object.png");
 
-	analytics.quick_timer_start();
-	spawn_object<Sphere>();
-	analytics.quick_timer_stop();
+	// analytics.quick_timer_start();
+	// // spawn_object<Sphere>();
+	// spawn_object<HollowCylinder>();
+	// analytics.quick_timer_stop();
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
@@ -125,6 +127,8 @@ void GameEngine::run()
 			}
 		}
 
+		animator.process(delta_time / 1e3);
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 		analytics.stop();
@@ -192,7 +196,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		case GLFW_KEY_S:
 		{
 			auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
-			obj.set_position(glm::vec3(1.0f));
+			// obj.set_position(glm::vec3(1.0f));
 			break;
 		}
 		case GLFW_KEY_X: // experimental
@@ -201,11 +205,25 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			// obj.set_position(glm::vec3(-1.0f));
 			auto& obj = spawn_object<Cube>();
 			obj.set_position(glm::vec3(-1.0f));
+			animator.add_animation(objects.back(), glm::translate(glm::mat4(1.0f), glm::vec3(2.0f)));
 			break;
 		}
 		case GLFW_KEY_F: // wireframe mode
 		{
 			graphics_engine->enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
+			break;
+		}
+		case GLFW_KEY_C: // toggle camera focus visibility
+		{
+			camera->focus_obj->toggle_visibility();
+			graphics_engine->enqueue_cmd(std::make_unique<UpdateCommandBufferCmd>());
+			break;
+		}
+		case GLFW_KEY_U: // simulation
+		{
+			if (simulations.empty())
+				simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
+			simulations[0]->start();
 			break;
 		}
 		default:

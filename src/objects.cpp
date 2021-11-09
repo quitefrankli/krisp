@@ -237,3 +237,122 @@ Sphere::Sphere()
 	}
 	shapes.push_back(std::move(shape));
 }
+
+HollowCylinder::HollowCylinder()
+{
+	const int M = 30;
+	auto calculate_vec = [&M](float m, float y, float radius=1.0f, bool reverse=false)
+	{
+		m = m / (float)M * Maths::PI * 2.0f;
+		Vertex vertex;
+		vertex.pos = {
+			sinf(m) * radius * 0.5f,
+			y * 0.5f,
+			cosf(m) * radius * 0.5f
+		};
+		if (reverse)
+			vertex.color = { 0.0f, m/(float)M, 0.0f };
+		else
+			vertex.color = { m/(float)M, 0.0f, 0.0f };
+
+		return vertex;
+	};
+
+	Shape shape;
+	shape.vertices.reserve(1024);
+	for (int m = 0; m < M; m++)
+	{
+		// side
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f));
+
+		// inside side
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m, -0.5f, 0.5f, true));
+		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f, true));
+
+		// top
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f));
+
+		//bottom
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f));
+		shape.vertices.push_back(calculate_vec(m, -0.5f));
+	}
+	shapes.push_back(std::move(shape));
+
+	// make the bottom its origin
+	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.25f, 0.0f));
+	for (auto& shape : shapes)
+	{
+		shape.transform_vertices(vertex_transform);
+	}
+}
+
+Cylinder::Cylinder()
+{
+	const int M = 30;
+	const glm::vec3 COLOR{ 1.0f, 1.0f, 0.0f };
+	auto calculate_vec = [&M, &COLOR](float m, float y)
+	{
+		m = m / (float)M * Maths::PI * 2.0f;
+		Vertex vertex;
+		vertex.pos = {
+			sinf(m) * 0.5f,
+			y * 0.5f,
+			cosf(m) * 0.5f
+		};
+
+		vertex.color = COLOR;
+
+		return vertex;
+	};
+
+	Shape shape;
+	shape.vertices.reserve(1024);
+	Vertex top{ glm::vec3(0.0f, 0.5f, 0.0f), COLOR };
+	Vertex bottom{ glm::vec3(0.0f, -0.5f, 0.0f), COLOR };
+	for (int m = 0; m < M; m++)
+	{
+		// side
+		shape.vertices.push_back(calculate_vec(m, 1.0f));
+		shape.vertices.push_back(calculate_vec(m, -1.0f));
+		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
+		shape.vertices.push_back(calculate_vec(m, 1.0f));
+		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
+		shape.vertices.push_back(calculate_vec(m+1, 1.0f));
+
+		// top
+		shape.vertices.push_back(calculate_vec(m, 1.0f));
+		shape.vertices.push_back(calculate_vec(m+1, 1.0f));
+		shape.vertices.push_back(top);
+
+		//bottom
+		shape.vertices.push_back(bottom);
+		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
+		shape.vertices.push_back(calculate_vec(m, -1.0f));
+	}
+	shapes.push_back(std::move(shape));
+
+	// make the bottom its origin
+	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
+	for (auto& shape : shapes)
+	{
+		shape.transform_vertices(vertex_transform);
+	}
+}

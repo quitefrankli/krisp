@@ -49,3 +49,9 @@ class ToggleWireFrameModeCmd : public GraphicsEngineCommand
 public:
 	void process(GraphicsEngine* engine) override;
 };
+
+class UpdateCommandBufferCmd : public GraphicsEngineCommand
+{
+public:
+	void process(GraphicsEngine* engine) override;
+};

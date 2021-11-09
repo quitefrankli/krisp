@@ -45,6 +45,9 @@ public:
 
 	std::string texture;
 
+	void toggle_visibility() { bVisible = !bVisible; }
+	bool get_visibility() const { return bVisible; }
+
 public:
 	virtual glm::mat4 get_transform();
 	virtual glm::vec3 get_position() { return position; }
@@ -64,6 +67,7 @@ private:
 	glm::vec3 position = glm::vec3(0.f);
 	glm::vec3 scale = glm::vec3(1.f);
 	glm::quat orientation; // default init creates identity quaternion
+	bool bVisible = true;
 };
 
 class Pyramid : public Object
@@ -90,4 +94,24 @@ class Sphere : public Object
 public:
 	Sphere();
 	Sphere(Sphere&& cube) noexcept = default;
+};
+
+class HollowCylinder : public Object
+{
+public:
+	HollowCylinder();
+	HollowCylinder(HollowCylinder&& hollow_cylinder) noexcept = default;
+
+	// for tower of hanoi
+	int pillar_index = 0;
+};
+
+class Cylinder : public Object
+{
+public:
+	Cylinder();
+	Cylinder(Cylinder&& cylinder) noexcept = default;
+
+	// for tower of hanoi
+	float content_height = 0.0f;
 };

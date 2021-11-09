@@ -25,3 +25,8 @@ void ToggleWireFrameModeCmd::process(GraphicsEngine* engine)
 	engine->is_wireframe_mode = !engine->is_wireframe_mode;
 	engine->update_command_buffer();
 }
+
+void UpdateCommandBufferCmd::process(GraphicsEngine* engine)
+{
+	engine->update_command_buffer();
+}
