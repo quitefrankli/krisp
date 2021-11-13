@@ -32,6 +32,7 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	// focus_obj = std::make_shared<Cube>("../resources/textures/texture.jpg");
 	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
+	focus_obj->toggle_visibility();
 	SpawnObjectCmd cmd;
 	cmd.object = focus_obj;
 	cmd.object_id = focus_obj->get_id();

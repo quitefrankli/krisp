@@ -12,6 +12,7 @@ struct Vertex
 	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
+	glm::vec3 normal;
 	
 	static VkVertexInputBindingDescription get_binding_description()
 	{
@@ -34,7 +35,7 @@ struct Vertex
 	{
 		// how to handle the vertex input
 		std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-		VkVertexInputAttributeDescription position_attr, color_attr, texCoord_attr;
+		VkVertexInputAttributeDescription position_attr, color_attr, texCoord_attr, normal_attr;
 		position_attr.binding = 0;
 		position_attr.location = 0; // specify in shader
 		position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -50,9 +51,15 @@ struct Vertex
 		texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
 		texCoord_attr.offset = offsetof(Vertex, texCoord);
 
+		normal_attr.binding = 0;
+		normal_attr.location = 3;
+		normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+		normal_attr.offset = offsetof(Vertex, normal);
+
 		attribute_descriptions.push_back(position_attr);
 		attribute_descriptions.push_back(color_attr);
 		attribute_descriptions.push_back(texCoord_attr);
+		attribute_descriptions.push_back(normal_attr);
 
 		return attribute_descriptions;
 	}
