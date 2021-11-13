@@ -16,6 +16,7 @@ public:
 	std::vector<Vertex> vertices;
 	const std::vector<Vertex>& get_vertices() const { return vertices; }
 	void transform_vertices(const glm::mat4& transform);
+	void generate_normals();
 };
 
 class Square : public Shape

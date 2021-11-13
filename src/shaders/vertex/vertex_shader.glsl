@@ -20,12 +20,13 @@ layout(binding = 0) uniform UniformBufferObject
 
 const vec3 light_dir = vec3(0.0, -1.0, 0.0);
 const float minimum_lighting = 0.05;
+const float lighting_scalar = 1.2;
 
 void main()
 {
 	gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
 	vec3 transformed_normal = vec3(ubo.model * vec4(inNormal, 1.0));
 	// negative because we want opposing normals to be bright
-	lighting = clamp(-dot(transformed_normal, light_dir), minimum_lighting, 1.0);
+	lighting = clamp(-dot(transformed_normal, light_dir) * lighting_scalar, minimum_lighting, 1.0);
 	fragTexCoord = inTexCoord;
 }

@@ -10,6 +10,18 @@ void Shape::transform_vertices(const glm::mat4& transform)
 	}
 }
 
+void Shape::generate_normals()
+{
+	// every offset of 3 is a new triangle, we generate the normal by taking
+	// the cross product of the sides
+	for (int i = 0; i < vertices.size(); i+=3)
+	{
+		glm::vec3 v1 = vertices[i+1].pos - vertices[i].pos;
+		glm::vec3 v2 = vertices[i+2].pos - vertices[i].pos;
+		vertices[i].normal = vertices[i+1].normal = vertices[i+2].normal = glm::normalize(glm::cross(v1, v2));
+	}
+}
+
 Square::Square()
 {
 	vertices = 

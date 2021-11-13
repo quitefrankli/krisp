@@ -94,6 +94,14 @@ void Object::set_transform(glm::mat4& transform)
 	position = transform[3];
 }
 
+void Object::generate_normals()
+{
+	for (auto& shape : shapes)
+	{
+		shape.generate_normals();
+	}
+}
+
 Pyramid::Pyramid()
 {
 	Triangle left, right, back, bottom;
