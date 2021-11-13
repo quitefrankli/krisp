@@ -54,7 +54,7 @@ void GameEngine::run()
 	// spawn_object<HollowCylinder>();
 	// analytics.quick_timer_stop();
 
-	spawn_object<Cube>();
+	// spawn_object<Cube>();
 
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
