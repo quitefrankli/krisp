@@ -57,6 +57,19 @@ void GameEngine::run()
 
 	// spawn_object<Cube>();
 
+	for (int i = 0; i < 10; i++)
+	{
+		auto view_mat = camera->get_view();
+		auto proj_mat = camera->get_perspective();
+		auto mat1 = view_mat * proj_mat;
+		auto result = mat1 * glm::vec4(1.0f, 0.0f, 0.0f - float(i), 1.0f);
+		std::cout << glm::to_string(result / result.w) << '\n';
+
+		auto mat2 = glm::inverse(mat1);
+		result = mat2 * glm::vec4(1.0f, 0.0f, -1.19f, 1.0f);
+		std::cout << glm::to_string(result) << '\n';
+	}
+
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
@@ -268,10 +281,63 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 	{
 		if (action == GLFW_PRESS)
 		{
-			mouse.lmb_down = true;
+			// mouse.lmb_down = true;
 			mouse.update_pos();
 			mouse.orig_pos = mouse.curr_pos;
-			tracker.update(*objects[0]);
+
+			auto print = [](glm::vec3& vec)
+			{
+				std::cout << glm::to_string(vec) << '\n';
+			};
+
+			auto func1 = [&]()
+			{
+				// tracker.update(*objects[0]);
+				glm::vec3 win(mouse.pixel_x, window.get_width() - mouse.pixel_y, 0.0f);
+				glm::vec4 view_port(0, 0, window.get_width(), window.get_height());
+				auto model_view_mat = glm::inverse(camera->get_view());
+				glm::vec3 p1 = glm::unProject(glm::vec3(0.0f, 0.0f, 1.0f), camera->get_view(), camera->get_perspective(), view_port);
+				glm::vec3 p2 = glm::unProject(win, camera->get_view(), camera->get_perspective(), view_port);
+				p1 = glm::normalize(p1); p2 = glm::normalize(p2);
+				print(p1); print(p2); print(p2-p1); putchar('\n');
+				auto rot = glm::rotation(p1, p2);
+				std::cout << glm::to_string(rot) << '\n';
+				auto& ray = spawn_object<Cube>();
+				ray.set_rotation(rot);
+				ray.set_scale(glm::vec3(0.1f, 0.1f, 4.0f));
+			};
+			auto func2 = [&]()
+			{
+				auto view_mat = camera->get_view();
+				auto proj_mat = camera->get_perspective();
+				proj_mat[1][1] *= -1.0f;
+				auto proj_view_mat = glm::inverse(proj_mat * view_mat);
+				auto tmp = proj_view_mat * glm::vec4(mouse.curr_pos, 0.9f, 1.0f);
+				glm::vec3 p0 = glm::vec3(tmp) / tmp.w;
+				tmp = proj_view_mat * glm::vec4(mouse.curr_pos, 0.95f, 1.0f);
+				glm::vec3 p2 = glm::vec3(tmp) / tmp.w;
+				glm::vec3 p1 = (p0 + p2) / 2.0f;
+				print(p0);
+				print(p1);
+				print(p2);
+				auto mat2 = view_mat * proj_mat;
+				std::cout << glm::to_string(mat2 * glm::vec4(1.0f, 0.0f, -1.0f, 1.0f)) << '\n';
+				putchar('\n');
+				auto rot = glm::rotation(p0, p2);
+				auto& ray = spawn_object<Cube>();
+				ray.set_position(p1);
+				ray.set_rotation(rot);
+				ray.set_scale(glm::vec3(0.1f, 0.1f, 20.0f));
+				// ray.set_scale(glm::vec3(0.1f, 0.1f, 0.1f));
+			};
+			// func1();
+			func2();
+			// ray.set_position
+			// ray.set_rotation(
+			// for (auto& object : objects)
+			// {
+			// 	object->
+			// }
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.lmb_down = false;

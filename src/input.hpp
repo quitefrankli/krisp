@@ -26,6 +26,8 @@ public:
 	glm::vec2 get_prev_offset();
 	glm::vec2 get_orig_offset();
 
+	double pixel_x;
+	double pixel_y;
 private:
 	App::Window& window;
 };

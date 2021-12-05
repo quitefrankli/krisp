@@ -48,6 +48,9 @@ public:
 	void toggle_visibility() { bVisible = !bVisible; }
 	bool get_visibility() const { return bVisible; }
 	void generate_normals();
+
+	bool is_colliding();
+
 public:
 	virtual glm::mat4 get_transform();
 	virtual glm::vec3 get_position() { return position; }

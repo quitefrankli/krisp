@@ -147,10 +147,7 @@ void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 	{
 		graphics_object.texture = &texture_mgr.create_new_unit(graphics_object.object->texture);
 	}
-	for (auto& shape : graphics_object.get_vertex_sets())
-	{
-		std::cout << glm::to_string(shape[0].normal) << '\n';
-	}
+	
 	swap_chain.spawn_object(graphics_object);
 }
 
