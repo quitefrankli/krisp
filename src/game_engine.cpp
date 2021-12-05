@@ -8,6 +8,7 @@
 #include "utility_functions.hpp"
 #include "analytics.hpp"
 #include "simulations/tower_of_hanoi.hpp"
+#include "hot_reload.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -203,6 +204,8 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_X: // experimental
 		{
+			HotReload::reload();
+			break;
 			// auto& obj = spawn_object<Object>(resource_loader, "../resources/models/viking_room.obj", "../resources/textures/viking_room.png");
 			// obj.set_position(glm::vec3(-1.0f));
 			auto& obj = spawn_object<Cube>();

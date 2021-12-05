@@ -1,4 +1,5 @@
 #include "game_engine.hpp"
+#include "maths.hpp"
 
 #include <quill/Quill.h>
 
@@ -11,7 +12,8 @@
 // #include <glm/gtc/matrix_transform.hpp>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
-#include "maths.hpp"
+
+
 quill::Logger* logger;
 
 void pretty_print(glm::mat4 mat)
@@ -41,7 +43,9 @@ void pretty_print(glm::mat4 mat)
 // 	}
 // }
 
-int main() {
+std::string RELATIVE_BINARY_PATH;
+
+int main(int argc, char* argv[]) {
 	// glm::vec3 axis(0.0f, 1.0f, 0.0f);
 	// float magnitude = Maths::deg2rad(90.0f);
 	// glm::quat quaternion = glm::angleAxis(magnitude, axis);
@@ -61,6 +65,8 @@ int main() {
 	// result = quat2 * result;
 	// std::cout << glm::to_string(result) << '\n';
 	// return 0;
+
+	RELATIVE_BINARY_PATH = argv[0];
 
 	auto file_handler = quill::file_handler("log.log", "a");
 	logger = quill::create_logger("MAIN", file_handler);
