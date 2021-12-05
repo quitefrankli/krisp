@@ -1,8 +1,6 @@
 #include "game_engine.hpp"
 #include "maths.hpp"
 
-#include <shared_library.hpp>
-
 #include <quill/Quill.h>
 
 #include <iostream>
@@ -14,6 +12,8 @@
 // #include <glm/gtc/matrix_transform.hpp>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+
+#include <windows.h>
 
 
 quill::Logger* logger;
@@ -65,7 +65,25 @@ int main() {
 	// std::cout << glm::to_string(result) << '\n';
 	// return 0;
 
-	SharedLib::foo();
+#if defined(_WIN32) || defined(_WIN64)
+	auto lambda = [](std::string str){
+		auto handle = LoadLibrary(str.c_str());
+		using func_ptr = void (__cdecl*)();
+		auto func = (func_ptr)GetProcAddress(handle, "foo");
+		func();
+		bool retval = FreeLibrary(handle);
+		std::cout << retval << '\n';
+		std::cout << GetLastError() << '\n';
+	};
+	lambda("shared_lib0.dll");
+	getchar();
+	lambda("shared_lib1.dll");
+	
+	return 0;
+#else
+	std::cerr << "non-window platform not supported!" << std::endl;
+	return -1;
+#endif
 
 	auto file_handler = quill::file_handler("log.log", "a");
 	logger = quill::create_logger("MAIN", file_handler);

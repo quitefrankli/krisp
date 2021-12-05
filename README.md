@@ -16,7 +16,7 @@ bin/Vulkan.exe
 
 ### Using command line
 ```
-conan install ..
+conan install -s build_type=Debug ..
 cmake -DCMAKE_BUILD_TYPE=Debug ..
 msbuild Vulkan.sln
 sh ../compile.sh
@@ -24,9 +24,9 @@ bin/Vulkan.exe
 ```
 
 #### Fast Compile
-Using a shared library experimental functions can be compiled and tested quickly without rebuilding everything
+Using a runtime linking shared library, experimental functionality can be tested without restarting the application
+While the application is running ...
 ```
-conan install ..
-cmake ..
-msbuild shared_lib/shared_lib.sln
+sh ../hot_reload.sh
 ```
+followed by executing a library reload in the engine

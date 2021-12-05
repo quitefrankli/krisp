@@ -22,5 +22,7 @@ set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ PROPERTY VS_STARTUP_PROJECT 
 
 add_executable(Vulkan ${SOURCES})
 
-target_include_directories(Vulkan PRIVATE "src/" "shared_lib/src/")
-target_link_libraries(Vulkan ${CONAN_LIBS} shared_lib)
+target_include_directories(Vulkan PRIVATE "src/")
+
+# target_link_libraries(Vulkan ${CONAN_LIBS} shared_lib) # this links a start-time dynamic lib when we actually want a run-time dynamic lib
+# target_include_directories(Vulkan PRIVATE "src/" "shared_lib/src/")

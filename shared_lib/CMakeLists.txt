@@ -29,6 +29,8 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
 # add_subdirectory(shared_lib)
 
 # set(SHARED_LIB_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
+set(CMAKE_BUILD_TYPE Release)
+
 file(GLOB_RECURSE SHARED_LIB_SRC "src/*.cpp" "src/*.hpp")
 
 add_library(shared_lib SHARED ${SHARED_LIB_SRC})
