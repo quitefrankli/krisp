@@ -3,7 +3,7 @@
 set -e 
 
 get_new_filename () {
-	MAX_NUM=-1
+	MAX_NUM=0
 	for file in bin/*
 	do
 		if [[ $file == *"shared_lib"*".dll" ]]

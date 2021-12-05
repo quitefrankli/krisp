@@ -7,10 +7,10 @@ public:
 	using func_ptr = void (*)();
 
 	// reloads dll
-	void reload();
+	static void reload();
 
-	func_ptr get_func_ptr() const { return func_; }
+	static func_ptr get_func_ptr() { return func_; }
 
 private:
-	func_ptr func_ = nullptr;
+	static func_ptr func_;
 };

@@ -37,15 +37,10 @@ BOOL WINAPI DllMain(
     }
     return TRUE;  // Successful DLL_PROCESS_ATTACH.
 }
-void SharedLib::foo()
-{
-	glm::vec3 vec;
-	// vec.x = 1.0f;
-	std::cout << glm::to_string(vec) << std::endl;
-}
 
 extern "C" {
-__declspec(dllexport) void __cdecl foo() {
-	std::cout << "foo\n";
-}
+	__declspec(dllexport) void __cdecl foo() {
+		std::cout << "foo\n";
+		std::cout << "bar\n";
+	}
 }
