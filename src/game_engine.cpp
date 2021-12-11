@@ -118,8 +118,9 @@ void GameEngine::run()
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
 				glm::quat quaternion = glm::angleAxis(magnitude, axis);
 				glm::mat4 orig = tracker.transform;
-				glm::mat4 final_transform = glm::mat4_cast(quaternion) * orig; // order matters! 
-				objects[0]->set_transform(final_transform);
+
+				glm::quat new_rot = quaternion * tracker.rotation; // order matters! 
+				objects[0]->set_rotation(new_rot);
 			}
 		} else if (mouse.mmb_down)
 		{
@@ -211,8 +212,14 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 
 		case GLFW_KEY_S:
 		{
-			auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
-			// obj.set_position(glm::vec3(1.0f));
+			if (mode == GLFW_MOD_SHIFT)
+			{
+				auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
+				obj.set_position(glm::vec3(1.0f, 0.0f, 0.0f));
+			} else {
+				auto& obj = spawn_object<Cube>();
+				obj.set_position(glm::vec3(-1.0f, 0.0f, 0.0f));
+			}
 			break;
 		}
 		case GLFW_KEY_X: // experimental
