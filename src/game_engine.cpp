@@ -36,7 +36,7 @@ GameEngine::GameEngine() :
 
 void GameEngine::run()
 {
-	std::thread graphics_engine_thread(&GraphicsEngine::run, graphics_engine.get());
+	graphics_engine_thread = std::thread(&GraphicsEngine::run, graphics_engine.get());
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	Analytics analytics;
@@ -144,7 +144,6 @@ void GameEngine::run()
 		}
 
 		animator.process(delta_time / 1e3);
-
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 		analytics.stop();
@@ -285,59 +284,15 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			mouse.update_pos();
 			mouse.orig_pos = mouse.curr_pos;
 
-			auto print = [](glm::vec3& vec)
-			{
-				std::cout << glm::to_string(vec) << '\n';
-			};
+			Maths::Ray ray = screen_to_world(mouse.curr_pos);
+			glm::vec3 forward(0.0f, 0.0f, -1.0f);
+			auto quat = glm::rotation(forward, ray.direction);
+			auto pos = ray.origin + ray.direction * 10.0f;
 
-			auto func1 = [&]()
-			{
-				// tracker.update(*objects[0]);
-				glm::vec3 win(mouse.pixel_x, window.get_width() - mouse.pixel_y, 0.0f);
-				glm::vec4 view_port(0, 0, window.get_width(), window.get_height());
-				auto model_view_mat = glm::inverse(camera->get_view());
-				glm::vec3 p1 = glm::unProject(glm::vec3(0.0f, 0.0f, 1.0f), camera->get_view(), camera->get_perspective(), view_port);
-				glm::vec3 p2 = glm::unProject(win, camera->get_view(), camera->get_perspective(), view_port);
-				p1 = glm::normalize(p1); p2 = glm::normalize(p2);
-				print(p1); print(p2); print(p2-p1); putchar('\n');
-				auto rot = glm::rotation(p1, p2);
-				std::cout << glm::to_string(rot) << '\n';
-				auto& ray = spawn_object<Cube>();
-				ray.set_rotation(rot);
-				ray.set_scale(glm::vec3(0.1f, 0.1f, 4.0f));
-			};
-			auto func2 = [&]()
-			{
-				auto view_mat = camera->get_view();
-				auto proj_mat = camera->get_perspective();
-				proj_mat[1][1] *= -1.0f;
-				auto proj_view_mat = glm::inverse(proj_mat * view_mat);
-				auto tmp = proj_view_mat * glm::vec4(mouse.curr_pos, 0.9f, 1.0f);
-				glm::vec3 p0 = glm::vec3(tmp) / tmp.w;
-				tmp = proj_view_mat * glm::vec4(mouse.curr_pos, 0.95f, 1.0f);
-				glm::vec3 p2 = glm::vec3(tmp) / tmp.w;
-				glm::vec3 p1 = (p0 + p2) / 2.0f;
-				print(p0);
-				print(p1);
-				print(p2);
-				auto mat2 = view_mat * proj_mat;
-				std::cout << glm::to_string(mat2 * glm::vec4(1.0f, 0.0f, -1.0f, 1.0f)) << '\n';
-				putchar('\n');
-				auto rot = glm::rotation(p0, p2);
-				auto& ray = spawn_object<Cube>();
-				ray.set_position(p1);
-				ray.set_rotation(rot);
-				ray.set_scale(glm::vec3(0.1f, 0.1f, 20.0f));
-				// ray.set_scale(glm::vec3(0.1f, 0.1f, 0.1f));
-			};
-			// func1();
-			func2();
-			// ray.set_position
-			// ray.set_rotation(
-			// for (auto& object : objects)
-			// {
-			// 	object->
-			// }
+			Cube& rayObj = spawn_object<Cube>();
+			rayObj.set_scale(glm::vec3(0.05f, 0.05f, 15.0f));
+			rayObj.set_rotation(quat);
+			rayObj.set_position(pos);
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.lmb_down = false;
@@ -402,4 +357,24 @@ void ObjectPositionTracker::update(Object& object)
 	scale = object.get_scale();
 	rotation = object.get_rotation();
 	transform = object.get_transform();
+}
+
+Maths::Ray GameEngine::screen_to_world(glm::vec2 screen)
+{
+	auto view_mat = camera->get_view();
+	auto proj_mat = camera->get_perspective();
+	proj_mat[1][1] *= -1.0f; // our world is upside down
+	auto proj_view_mat = glm::inverse(proj_mat * view_mat);
+
+	auto unproj = [&](const float depth)
+	{
+		auto point = proj_view_mat * glm::vec4(mouse.curr_pos, depth, 1.0f);
+		point /= point.w;
+		return glm::vec3(point);
+	};
+
+	auto p1 = unproj(0.7f);
+	auto p2 = unproj(0.95f);
+
+	return Maths::Ray(camera->get_position(), glm::normalize(p2-p1));
 }

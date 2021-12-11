@@ -1,16 +1,15 @@
 #pragma once
 
+#include <glm/glm.hpp>
+#include <type_traits>
 
 class HotReload
 {
 public:
-	using func_ptr = void (*)();
-
 	// reloads dll
 	static void reload();
 
-	static func_ptr get_func_ptr() { return func_; }
 
-private:
-	static func_ptr func_;
+	using func1_t = bool (*)(glm::mat4&, glm::mat4, glm::mat4, glm::vec2);
+	static func1_t func1;
 };

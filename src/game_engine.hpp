@@ -5,9 +5,11 @@
 #include "objects.hpp"
 #include "resource_loader.hpp"
 #include "animations/animator.hpp"
+#include "maths.hpp"
 
 #include <chrono>
 #include <atomic>
+#include <thread>
 
 
 class GLFWWindow;
@@ -33,6 +35,7 @@ public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
 	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
+	Maths::Ray screen_to_world(glm::vec2 screen);
 
 public:
 	GameEngine();
@@ -54,6 +57,7 @@ private:
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;
 	std::vector<std::shared_ptr<Object>> objects;
+	std::thread graphics_engine_thread;
 
 public:
 	ObjectPositionTracker tracker;

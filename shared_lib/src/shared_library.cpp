@@ -3,6 +3,9 @@
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <windows.h>
 
@@ -37,10 +40,42 @@ BOOL WINAPI DllMain(
     }
     return TRUE;  // Successful DLL_PROCESS_ATTACH.
 }
-
+static int i = 0;
 extern "C" {
-	__declspec(dllexport) void __cdecl foo() {
+	__declspec(dllexport) void __cdecl foo()
+	{
 		std::cout << "foo\n";
 		std::cout << "bar\n";
+	}
+
+	__declspec(dllexport) bool __cdecl screen_to_world(glm::mat4& transform, glm::mat4 view, glm::mat4 proj, glm::vec2 screen)
+	{
+		proj[1][1] *= -1.0f;
+		auto proj_view_mat = glm::inverse(proj * view);
+
+		float scalar = 0.98f;
+		auto tmp = proj_view_mat * glm::vec4(screen, scalar, 1.0f);
+
+		auto p1 = proj_view_mat * glm::vec4(screen, 0.7f, 1.0f);
+		auto p2 = proj_view_mat * glm::vec4(screen, 0.95f, 1.0f);
+		p1 /= p1.w;
+		p2 /= p2.w;
+		auto direction = glm::vec3(p2 - p1);
+		std::cout << glm::to_string(p1) << '\n';
+		std::cout << glm::to_string(p2) << '\n';
+		glm::vec3 forward(0.0f, 0.0f, -1.0f);
+		auto quat = glm::rotation(forward, glm::normalize(direction));
+
+		std::cout << scalar << ' ' << tmp.z << "\n";
+
+		tmp /= tmp.w;
+		// tmp.z = sqrtf(tmp.z);
+		scalar -= 0.1f;
+
+		transform = glm::mat4(1.0f);
+		transform = glm::scale(transform, glm::vec3(0.5f, 0.5f, 5.0f));
+		transform = glm::mat4_cast(quat) * transform;
+		transform = glm::translate(glm::mat4(1.0f), glm::vec3(tmp)) * transform;
+		return true;
 	}
 }

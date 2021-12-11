@@ -10,7 +10,7 @@
 
 extern std::string RELATIVE_BINARY_PATH;
 
-HotReload::func_ptr HotReload::func_ = nullptr;
+HotReload::func1_t HotReload::func1 = nullptr;
 
 static HMODULE handle = nullptr;
 
@@ -27,6 +27,7 @@ void HotReload::reload()
 		{
 			if (filename == "shared_lib.dll")
 				continue;
+
 			// removes non digits
 			std::string output = std::regex_replace(
 				filename,
@@ -51,7 +52,14 @@ void HotReload::reload()
 	// only works for windows
 	if (handle)
 		FreeLibrary(handle);
+	std::cout << "HotReload: loading " << library.string() << '\n';
 	handle = LoadLibrary(library.string().c_str());
-	func_ = (func_ptr)GetProcAddress(handle, "foo");
-	func_();
+	if (!handle)
+		throw std::runtime_error("HotReload: invalid handle");
+	func1 = (func1_t)GetProcAddress(handle, "screen_to_world");
+	if (!func1)
+	{
+		std::cerr << "Windows Error: " << GetLastError() << '\n';
+		throw std::runtime_error("HotReload: failed to load func1");
+	}
 }
