@@ -165,18 +165,19 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 {
 	auto pressed_key = glfwGetKeyName(key, scan_code);
 
-	printf("input detected [%d], key:=%d, scan_code:=%d, action:=%d, mode:=%d, translated_key:=%s\n", 
-		   inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
-
 	// if (glfwGetKey(window.get_window(), key) == GLFW_RELEASE)
 	// {
 	// 	return; // ignore key releases
 	// }
 
-	// if (action == GLFW_REPEAT)
-	// {
-	// 	return; // ignore held keys
-	// }
+
+	if (action == GLFW_REPEAT)
+	{
+		// return; // ignore held keys
+	} else {
+		printf("input detected [%d], key:=%d, scan_code:=%d, action:=%d, mode:=%d, translated_key:=%s\n", 
+			inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+	}
 
 	if (action == GLFW_RELEASE)
 	{
@@ -280,19 +281,29 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 	{
 		if (action == GLFW_PRESS)
 		{
-			// mouse.lmb_down = true;
 			mouse.update_pos();
-			mouse.orig_pos = mouse.curr_pos;
+			if (mode == GLFW_MOD_SHIFT)
+			{
+				std::cout << "shift left click!\n";
 
-			Maths::Ray ray = screen_to_world(mouse.curr_pos);
-			glm::vec3 forward(0.0f, 0.0f, -1.0f);
-			auto quat = glm::rotation(forward, ray.direction);
-			auto pos = ray.origin + ray.direction * 10.0f;
+				Maths::Ray ray = screen_to_world(mouse.curr_pos);
+				glm::vec3 forward(0.0f, 0.0f, -1.0f);
+				auto quat = glm::rotation(forward, ray.direction);
+				auto pos = ray.origin + ray.direction * 10.0f;
 
-			Cube& rayObj = spawn_object<Cube>();
-			rayObj.set_scale(glm::vec3(0.05f, 0.05f, 15.0f));
-			rayObj.set_rotation(quat);
-			rayObj.set_position(pos);
+				Cube& rayObj = spawn_object<Cube>();
+				rayObj.set_scale(glm::vec3(0.05f, 0.05f, 15.0f));
+				rayObj.set_rotation(quat);
+				rayObj.set_position(pos);
+			} else {
+				if (objects.empty())
+				{
+					return;
+				}
+				mouse.lmb_down = true;
+				mouse.orig_pos = mouse.curr_pos;
+				tracker.update(*objects[0]);
+			}
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.lmb_down = false;
