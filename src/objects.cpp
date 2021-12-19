@@ -206,6 +206,7 @@ Sphere::Sphere()
 			cosf(m),
 			cosf(2.0f * n) * sinf(m)
 		};
+		vertex.pos /= 2.0f;
 		vertex.color = {
 			m / (float)M, n / (float)N, 0.1f
 		};

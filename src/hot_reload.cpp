@@ -11,8 +11,22 @@
 extern std::string RELATIVE_BINARY_PATH;
 
 HotReload::func1_t HotReload::func1 = nullptr;
+HotReload::func2_t HotReload::func2 = nullptr;
 
 static HMODULE handle = nullptr;
+
+template<typename func_t>
+func_t load_func(HMODULE& handle, const char* name)
+{
+	auto func = (func_t)GetProcAddress(handle, name);
+	if (!func)
+	{
+		std::cerr << "Windows Error: " << GetLastError() << '\n';
+		throw std::runtime_error("HotReload: failed to load func1");
+	}
+
+	return func;
+}
 
 void HotReload::reload()
 {
@@ -56,10 +70,6 @@ void HotReload::reload()
 	handle = LoadLibrary(library.string().c_str());
 	if (!handle)
 		throw std::runtime_error("HotReload: invalid handle");
-	func1 = (func1_t)GetProcAddress(handle, "screen_to_world");
-	if (!func1)
-	{
-		std::cerr << "Windows Error: " << GetLastError() << '\n';
-		throw std::runtime_error("HotReload: failed to load func1");
-	}
+	func1 = load_func<func1_t>(handle, "screen_to_world");
+	func2 = load_func<func2_t>(handle, "screen_to_world");
 }

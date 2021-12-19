@@ -78,4 +78,16 @@ extern "C" {
 		transform = glm::translate(glm::mat4(1.0f), glm::vec3(tmp)) * transform;
 		return true;
 	}
+
+	__declspec(dllexport) bool __cdecl simple_collision_detection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& obj, float radius)
+	{
+		// assuming unit box, uses a sphere for efficiency
+		glm::vec3 v1 = obj - rayOrigin;
+		float parallelness = glm::dot(glm::normalize(v1), rayDir);
+		float rad = 3.1415 / 2.0f * (1.0f - fabsf(parallelness));
+		float distance = glm::length(v1) * sinf(rad);
+		std::cout << glm::length(v1) << ' ' << sinf(rad) << ' ' << distance << ' ' << radius << '\n';
+
+		return distance < radius;
+	}
 }

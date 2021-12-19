@@ -1,0 +1,239 @@
+#include "game_engine.hpp"
+
+#include "camera.hpp"
+#include "objects.hpp"
+#include "shapes.hpp"
+#include "graphics_engine/graphics_engine.hpp"
+#include "graphics_engine/graphics_engine_commands.hpp"
+#include "utility_functions.hpp"
+#include "analytics.hpp"
+#include "simulations/tower_of_hanoi.hpp"
+#include "hot_reload.hpp"
+
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+#include <quill/Quill.h>
+
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <chrono>
+
+
+void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
+{
+	GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
+	engine->handle_window_callback_impl(glfw_window, key, scan_code, action, mode);
+}
+
+static int inc = 0;
+
+void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code, int action, int mode)
+{
+	auto pressed_key = glfwGetKeyName(key, scan_code);
+
+	// if (glfwGetKey(window.get_window(), key) == GLFW_RELEASE)
+	// {
+	// 	return; // ignore key releases
+	// }
+
+	if (action == GLFW_REPEAT)
+	{
+		// return; // ignore held keys
+	} else {
+		printf("input detected [%d], key:=%d, scan_code:=%d, action:=%d, mode:=%d, translated_key:=%s\n", 
+			inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+	}
+
+	if (action == GLFW_RELEASE)
+	{
+		return; // ignore held keys
+	}
+
+	glm::vec3 pos;
+	switch (key)
+	{
+		case GLFW_KEY_ESCAPE:
+			shutdown();
+			break;
+
+		case GLFW_KEY_P:
+			pos = get_camera().get_position();
+			pos.z += 0.5f;
+			get_camera().set_position(pos);
+			break;
+
+		case GLFW_KEY_L:
+			pos = get_camera().get_position();
+			pos.z -= 0.5f;
+			get_camera().set_position(pos);
+			break;		
+
+		case GLFW_KEY_LEFT:
+			break;
+
+		case GLFW_KEY_RIGHT:
+			break;
+
+		case GLFW_KEY_S:
+		{
+			if (mode == GLFW_MOD_SHIFT)
+			{
+				auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
+				obj.set_position(glm::vec3(2.0f, 0.0f, 0.0f));
+			} else {
+				auto& obj = spawn_object<Sphere>();
+				obj.set_position(glm::vec3(-1.0f, 0.0f, 0.0f));
+			}
+			break;
+		}
+		case GLFW_KEY_X: // experimental
+		{
+			HotReload::reload();
+			Maths::Ray ray(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+			glm::vec3 point(-1.0f, 0.0f, 0.0f);
+			HotReload::func2(ray.origin, ray.direction, point, 0.5f);
+			break;
+			// auto& obj = spawn_object<Object>(resource_loader, "../resources/models/viking_room.obj", "../resources/textures/viking_room.png");
+			// obj.set_position(glm::vec3(-1.0f));
+			auto& obj = spawn_object<Cube>();
+			obj.set_position(glm::vec3(-1.0f));
+			animator.add_animation(objects.back(), glm::translate(glm::mat4(1.0f), glm::vec3(2.0f)));
+			break;
+		}
+		case GLFW_KEY_F: // wireframe mode
+		{
+			graphics_engine->enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
+			break;
+		}
+		case GLFW_KEY_C: // toggle camera focus visibility
+		{
+			camera->focus_obj->toggle_visibility();
+			graphics_engine->enqueue_cmd(std::make_unique<UpdateCommandBufferCmd>());
+			break;
+		}
+		case GLFW_KEY_U: // simulation
+		{
+			if (simulations.empty())
+				simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
+			simulations[0]->start();
+			break;
+		}
+		default:
+			break;
+	}
+}
+
+void GameEngine::handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height) {
+	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_window_resize_callback_impl(glfw_window, width, height);
+}
+
+void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
+{
+	// graphics_engine->set_frame_buffer_resized();
+	// TODO handle resizing of window
+}
+
+void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
+{
+	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_mouse_button_callback_impl(glfw_window, button, action, mode);
+}
+
+void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
+{
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+	{
+		if (action == GLFW_PRESS)
+		{
+			mouse.rmb_down = true;
+			mouse.update_pos();
+			tracker.update(*camera);
+		} else if (action == GLFW_RELEASE)
+		{
+			mouse.rmb_down = false;
+		}
+	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
+	{
+		if (action == GLFW_PRESS)
+		{
+			mouse.update_pos();
+			if (mode == GLFW_MOD_SHIFT)
+			{
+				std::cout << "shift left click!\n";
+
+				Maths::Ray ray = screen_to_world(mouse.curr_pos);
+				std::cout << glm::to_string(ray.origin) << ' ' << glm::to_string(ray.direction) << '\n';
+
+				auto simple_collision_detection = [&](const Object& obj)
+				{
+					// assuming unit box, uses a sphere for efficiency
+					float radius = 0.5f; //glm::compMax(obj.get_scale()) / 2.0f;
+					glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
+						ray.origin + glm::dot(ray.direction, obj.get_position()) * ray.direction;
+					// std::cout << glm::to_string(ray.origin) << ' ' << glm::to_string(ray.direction) << '\n';
+					// std::cout << glm::to_string(projP) << ' ' << glm::distance(projP, obj.get_position()) << '\n';
+					return glm::distance(projP, obj.get_position()) < radius;
+				};
+
+				for (auto& object : objects)
+				{
+					if (simple_collision_detection(*object))
+					{
+						object->set_scale(glm::vec3(2.0f, 2.0f, 2.0f));
+					} else {
+						object->set_scale(glm::vec3(1.0f, 1.0f, 1.0f));
+					}
+				}
+
+				// visualise the ray
+				
+				// glm::vec3 forward(0.0f, 0.0f, -1.0f);
+				// auto quat = glm::rotation(forward, ray.direction);
+				// auto pos = ray.origin + ray.direction * 10.0f;
+
+				// Cube& rayObj = spawn_object<Cube>();
+				// rayObj.set_scale(glm::vec3(0.05f, 0.05f, 15.0f));
+				// rayObj.set_rotation(quat);
+				// rayObj.set_position(pos);
+			} else {
+				if (objects.empty())
+				{
+					return;
+				}
+				mouse.lmb_down = true;
+				mouse.orig_pos = mouse.curr_pos;
+				tracker.update(*objects[0]);
+			}
+		} else if (action == GLFW_RELEASE)
+		{
+			mouse.lmb_down = false;
+		}
+	} else if (button == GLFW_MOUSE_BUTTON_MIDDLE)
+	{
+		if (action == GLFW_PRESS)
+		{
+			mouse.mmb_down = true;
+			mouse.update_pos();
+			mouse.orig_pos = mouse.curr_pos;
+			tracker.update(*camera);
+			camera->prev_focus = camera->focus;
+		} else if (action == GLFW_RELEASE)
+		{
+			mouse.mmb_down = false;
+		}
+	}
+}
+
+void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double xoffset, double yoffset)
+{
+	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_scroll_callback_impl(glfw_window, xoffset, yoffset);
+}
+
+void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset)
+{
+	const float sensitivity = -0.2f;
+	glm::vec3 axis(0.0f, 0.0f, yoffset * sensitivity);
+	glm::mat4 transform = glm::translate(camera->get_transform(), axis);
+	camera->set_transform(transform);
+}

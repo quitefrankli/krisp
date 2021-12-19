@@ -44,7 +44,16 @@ public:
 	void run();
 	void shutdown() { shutdown_impl(); }
 	template<typename Object_T, typename... Args>
-	Object_T& spawn_object(Args&&...);
+	Object_T& spawn_object(Args&&... args)
+	{
+		objects.push_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
+		auto& object = objects.back();
+		SpawnObjectCmd cmd;
+		cmd.object = object;
+		cmd.object_id = object->get_id();
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(std::move(cmd)));
+		return *static_cast<Object_T*>(object.get());
+	}
 
 private:
 	App::Window window;

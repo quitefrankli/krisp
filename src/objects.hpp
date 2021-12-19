@@ -53,9 +53,9 @@ public:
 
 public:
 	virtual glm::mat4 get_transform();
-	virtual glm::vec3 get_position() { return position; }
-	virtual glm::vec3 get_scale() { return scale; }
-	virtual glm::quat get_rotation() { return orientation; }
+	virtual glm::vec3 get_position() const { return position; }
+	virtual glm::vec3 get_scale() const { return scale; }
+	virtual glm::quat get_rotation() const { return orientation; }
 
 	virtual void set_transform(glm::mat4& transform);
 	virtual void set_position(glm::vec3& position);
