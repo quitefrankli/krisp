@@ -19,6 +19,8 @@ GraphicsEngineValidationLayer::GraphicsEngineValidationLayer(GraphicsEngine& eng
 		return;
 	}
 
+	check_validation_layer_support(true);
+
 	VkDebugUtilsMessengerCreateInfoEXT createInfo = get_messenger_create_info();
 
 	// loads up function from dynamic library
@@ -56,7 +58,7 @@ std::vector<const char*> GraphicsEngineValidationLayer::get_layers()
 	return REQUIRED_VALIDATION_LAYERS;
 }
 
-bool GraphicsEngineValidationLayer::check_validation_layer_support()
+bool GraphicsEngineValidationLayer::check_validation_layer_support(bool print_support)
 {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -66,20 +68,23 @@ bool GraphicsEngineValidationLayer::check_validation_layer_support()
 
 	std::unordered_set<std::string> available_layers_set; // for hash table
 
-	std::cout << "Available Validation Layers:\n";
-	std::for_each(availableLayers.begin(), availableLayers.end(), [&available_layers_set](const auto& layer)
-		{
-			printf("\t%s - %s\n", layer.layerName, layer.description);
-			available_layers_set.emplace(layer.layerName);
-		});
-
-	std::cout << "Required Valiation Layers:\n";
-	for (const char* layer : REQUIRED_VALIDATION_LAYERS)
+	if (print_support)
 	{
-		printf("\t%s\n", layer);
-		if (available_layers_set.find(std::string(layer)) == available_layers_set.end())
+		std::cout << "Available Validation Layers:\n";
+		std::for_each(availableLayers.begin(), availableLayers.end(), [&available_layers_set](const auto& layer)
+			{
+				printf("\t%s - %s\n", layer.layerName, layer.description);
+				available_layers_set.emplace(layer.layerName);
+			});
+
+		std::cout << "Required Valiation Layers:\n";
+		for (const char* layer : REQUIRED_VALIDATION_LAYERS)
 		{
-			return false;
+			printf("\t%s\n", layer);
+			if (available_layers_set.find(std::string(layer)) == available_layers_set.end())
+			{
+				return false;
+			}
 		}
 	}
 

@@ -1,4 +1,4 @@
-from conans import ConanFile, CMake, MSBuild
+from conans import ConanFile, CMake
 
 class vulkan_conan(ConanFile):
 	settings = (
@@ -7,6 +7,7 @@ class vulkan_conan(ConanFile):
 		"build_type", 
 		"arch"
 	)
+
 	requires = (
 		"glfw/3.3.2@bincrafters/stable",
 		"glm/0.9.8.5@bincrafters/stable",
@@ -15,13 +16,14 @@ class vulkan_conan(ConanFile):
 		"vulkan-validationlayers/1.2.154.0",
 		"stb/20190512@conan/stable",
 		"tinyobjloader/1.0.6",
-		"quill/1.6.3"
+		"quill/1.6.3",
+		"imgui/1.85",
 	) 
+
 	generators = (
 		"cmake",
 		"cmake_find_package"
 	)
-	# default_options = {"poco:shared": True, "openssl:shared": True}
 
 	def imports(self):
 		# copies all dll to bin folder (win)
@@ -30,10 +32,10 @@ class vulkan_conan(ConanFile):
 		self.copy("*.dylib*", dst="bin", src="lib")
 
 	def build(self):
-		cmake = CMake(self)
+		cmake = CMake(self, build_type=self.settings.build_type)
 		cmake.configure()
-		
-		self.run('sh ../compile.sh')
+		cmake.build()
 
-		msbuild = MSBuild(self)
-		msbuild.build('Vulkan.sln')
+		# generates shaders
+		self.run('sh ../compile.sh')
+		

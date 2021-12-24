@@ -33,7 +33,7 @@ public:
 				true;
 			#endif
 	}
-	static bool check_validation_layer_support();
+	static bool check_validation_layer_support(bool print_support = false);
 	static std::vector<const char*> get_layers();
 	static VkDebugUtilsMessengerCreateInfoEXT get_messenger_create_info();
 

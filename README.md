@@ -11,14 +11,14 @@ mkdir build && cd build
 ```
 conan install -s build_type=[Debug/Release] ..
 conan build ..
-bin/Vulkan.exe
+bin/Vulkan.exes
 ```
 
 ### Using command line
 ```
-conan install -s build_type=Debug ..
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-msbuild Vulkan.sln
+conan install -s build_type=[Debug/Release] ..
+cmake -DCMAKE_BUILD_TYPE=[Debug/Release] ..
+cmake --build . --target Vulkan --config [Debug/Release]
 sh ../compile.sh
 bin/Vulkan.exe
 ```
