@@ -11,6 +11,7 @@
 #include "graphics_engine_pipeline.hpp"
 #include "graphics_engine_depth_buffer.hpp"
 #include "graphics_engine_texture_manager.hpp"
+#include "graphics_engine_gui.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -75,6 +76,7 @@ public: // getters and setters
 	VkPipeline& get_pipeline(GraphicsEnginePipeline::PIPELINE_TYPE pipeline_type = GraphicsEnginePipeline::PIPELINE_TYPE::STANDARD);
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
+	GraphicsEngineGui& get_gui() { return gui; }
 
 private: // flags (these must be before core components)
 	bool should_shutdown = false;
@@ -93,6 +95,9 @@ private: // core components
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEngineModelLoader model_loader;
+
+private: // other core components
+	GraphicsEngineGui gui;
 
 private:
 	VkQueue graphics_queue;

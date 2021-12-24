@@ -57,6 +57,29 @@ void GraphicsEnginePool::create_descriptor_pool()
 	// defines maximum number of descriptor sets that may be allocated
 	poolInfo.maxSets = GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * engine.MAX_NUM_DESCRIPTOR_SETS; // TODO: fix this properly
 
+	//
+	// below may be necessary for ImGui
+	//
+
+	// pool_sizes =
+	// {
+	// 	{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+	// 	{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	// };
+	// // poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+	// poolInfo.maxSets = 10000 * pool_sizes.size();
+	// poolInfo.poolSizeCount = (uint32_t)pool_sizes.size();
+	// poolInfo.pPoolSizes = pool_sizes.data();
+	
 	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsEngine::create_descriptor_pool: failed to create descriptor pool!");

@@ -1,0 +1,58 @@
+#include "graphics_engine_gui.hpp"
+#include "graphics_engine.hpp"
+
+#include <ImGui/imgui_impl_glfw.h>
+#include <ImGui/imgui_impl_vulkan.h>
+#include <imgui.h>
+#include <imgui_internal.h>
+
+#include <iostream>
+
+
+GraphicsEngineGui::GraphicsEngineGui(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
+{
+	ImGui::CreateContext();
+	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window(), true);
+	
+	ImGui_ImplVulkan_InitInfo init_info{};
+	init_info.Instance = engine.get_instance();
+	init_info.PhysicalDevice = engine.get_physical_device();
+	init_info.Device = engine.get_logical_device();
+	init_info.Queue = engine.get_graphics_queue();
+	init_info.DescriptorPool = engine.get_descriptor_pool();
+	init_info.MinImageCount = engine.get_num_swapchain_images();
+	init_info.ImageCount = engine.get_num_swapchain_images();
+	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+	ImGui_ImplVulkan_Init(&init_info, engine.get_render_pass());
+
+	// execute a GPU command to upload ImGui font textures
+	VkCommandBuffer buffer = engine.begin_single_time_commands();
+	ImGui_ImplVulkan_CreateFontsTexture(buffer);
+	engine.end_single_time_commands(buffer);
+
+	// clear font textures from CPU data
+	ImGui_ImplVulkan_DestroyFontUploadObjects();
+}
+
+GraphicsEngineGui::~GraphicsEngineGui()
+{
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+}
+
+void GraphicsEngineGui::add_render_cmd(VkCommandBuffer& cmd_buffer)
+{
+	if (!ImGui::GetDrawData())
+	{
+		return;
+	}
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd_buffer);
+}
+
+void GraphicsEngineGui::draw()
+{
+	ImGui::Render();
+}

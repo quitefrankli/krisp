@@ -173,7 +173,7 @@ void GraphicsEngineFrame::create_command_buffer()
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
 
-	update_command_buffer();
+	// update_command_buffer();
 }
 
 void GraphicsEngineFrame::update_command_buffer()
@@ -271,6 +271,9 @@ void GraphicsEngineFrame::update_command_buffer()
 		per_obj_draw_fn(object);
 	}
 
+	// render gui
+	get_graphics_engine().get_gui().add_render_cmd(command_buffer);
+
 	vkCmdEndRenderPass(command_buffer);
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
@@ -289,6 +292,8 @@ void GraphicsEngineFrame::draw()
 	// CPU-GPU synchronisation for in flight images
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
 	analytics.stop();
+
+	update_command_buffer();
 
 	uint32_t swap_chain_image_index;
 	// waits until there's an image available to use in the swap chain

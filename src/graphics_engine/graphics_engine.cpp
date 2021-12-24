@@ -10,6 +10,9 @@
 #include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <ImGui/imgui_impl_vulkan.h>
+#include <ImGui/imgui_impl_glfw.h>
+#include <imgui.h>
 
 #include <stdexcept>
 #include <thread>
@@ -32,7 +35,8 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	pipeline_color(*this, GraphicsEnginePipeline::PIPELINE_TYPE::COLOR),
 	depth_buffer(*this),
 	swap_chain(*this),
-	model_loader(*this)
+	model_loader(*this),
+	gui(*this)
 {
 }
 
@@ -94,6 +98,12 @@ void GraphicsEngine::run() {
 			ge_cmd_q.pop();
 		}
 		ge_cmd_q_mutex.unlock();
+
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+		ImGui::ShowDemoWindow();
+		gui.draw();
 
 		swap_chain.draw();
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));

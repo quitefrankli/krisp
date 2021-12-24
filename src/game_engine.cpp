@@ -57,19 +57,6 @@ void GameEngine::run()
 
 	// spawn_object<Cube>();
 
-	for (int i = 0; i < 10; i++)
-	{
-		auto view_mat = camera->get_view();
-		auto proj_mat = camera->get_perspective();
-		auto mat1 = view_mat * proj_mat;
-		auto result = mat1 * glm::vec4(1.0f, 0.0f, 0.0f - float(i), 1.0f);
-		std::cout << glm::to_string(result / result.w) << '\n';
-
-		auto mat2 = glm::inverse(mat1);
-		result = mat2 * glm::vec4(1.0f, 0.0f, -1.19f, 1.0f);
-		std::cout << glm::to_string(result) << '\n';
-	}
-
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();

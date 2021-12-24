@@ -82,7 +82,6 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine &engine) : Graph
 	}
 	for (auto &handle : swap_chain_images)
 	{
-		std::cout << handle << '\n';
 		// create the frames
 		frames.emplace_back(get_graphics_engine(), *this, handle);
 	}
