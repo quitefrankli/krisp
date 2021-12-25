@@ -9,6 +9,7 @@
 #include "analytics.hpp"
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
+#include "gui/gui.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -32,6 +33,8 @@ GameEngine::GameEngine() :
 	camera = std::make_unique<Camera>(*this, graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
 	graphics_engine->setup();
+
+	spawn_gui<GuiGraphicsSettings>();
 }
 
 void GameEngine::run()

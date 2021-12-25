@@ -15,6 +15,8 @@ public:
 	
 	VkDevice& get_logical_device() override { return logical_device; }
 	VkPhysicalDevice& get_physical_device() override { return physicalDevice; }
+
+	void print_physical_device_settings();
 private:
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;

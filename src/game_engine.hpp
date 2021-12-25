@@ -17,6 +17,7 @@ class Shape;
 class GraphicsEngine;
 class Camera;
 class Simulation;
+class GuiWindow;
 
 class ObjectPositionTracker
 {
@@ -46,13 +47,23 @@ public:
 	template<typename Object_T, typename... Args>
 	Object_T& spawn_object(Args&&... args)
 	{
-		objects.push_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
+		objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
 		auto& object = objects.back();
 		SpawnObjectCmd cmd;
 		cmd.object = object;
 		cmd.object_id = object->get_id();
 		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(std::move(cmd)));
 		return *static_cast<Object_T*>(object.get());
+	}
+	template<typename Gui_T, typename... Args>
+	Gui_T& spawn_gui(Args&&... args)
+	{
+		gui_windows.emplace_back(std::make_shared<Gui_T>(std::forward<Args>(args)...));
+		auto& gui = gui_windows.back();
+		SpawnGuiCmd cmd;
+		cmd.gui = gui;
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnGuiCmd>(std::move(cmd)));
+		return *static_cast<Gui_T*>(gui.get());
 	}
 
 private:
@@ -66,6 +77,7 @@ private:
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;
 	std::vector<std::shared_ptr<Object>> objects;
+	std::vector<std::shared_ptr<GuiWindow>> gui_windows;
 	std::thread graphics_engine_thread;
 
 public:

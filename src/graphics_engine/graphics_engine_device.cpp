@@ -10,6 +10,7 @@ GraphicsEngineDevice::GraphicsEngineDevice(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
 	pick_physical_device();
+	print_physical_device_settings();
 	create_logical_device();
 }
 
@@ -140,4 +141,12 @@ void GraphicsEngineDevice::create_logical_device()
 	// retrieves the queue handles
 	vkGetDeviceQueue(logical_device, indices.presentFamily.value(), 0, &get_graphics_engine().get_present_queue());
 	vkGetDeviceQueue(logical_device, indices.graphicsFamily.value(), 0, &get_graphics_engine().get_graphics_queue());
+}
+
+void GraphicsEngineDevice::print_physical_device_settings()
+{
+	VkPhysicalDeviceProperties properties;
+	vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+	std::cout << "Cached physical device properties\n";
+	std::cout << "\tmaxBoundDescriptorSets " << properties.limits.maxBoundDescriptorSets << '\n';
 }

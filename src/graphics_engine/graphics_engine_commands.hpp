@@ -11,6 +11,7 @@
 class Object;
 class GraphicsEngine;
 class GraphicsEngineCommand;
+class GuiWindow;
 
 class GraphicsEngineCommand
 {
@@ -36,6 +37,14 @@ public:
 	void process(GraphicsEngine* engine) override;
 
 	std::shared_ptr<Object> object;
+};
+
+class SpawnGuiCmd : public GraphicsEngineCommand
+{
+public:
+	void process(GraphicsEngine* engine) override;
+
+	std::shared_ptr<GuiWindow> gui;
 };
 
 class ShutdownCmd : public GraphicsEngineCommand

@@ -13,7 +13,7 @@ GraphicsEngineGui::GraphicsEngineGui(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
 	ImGui::CreateContext();
-	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window(), true);
+	ImGui_ImplGlfw_InitForVulkan(engine.get_window(), true);
 	
 	ImGui_ImplVulkan_InitInfo init_info{};
 	init_info.Instance = engine.get_instance();
@@ -54,5 +54,15 @@ void GraphicsEngineGui::add_render_cmd(VkCommandBuffer& cmd_buffer)
 
 void GraphicsEngineGui::draw()
 {
+	for (auto& gui_window : gui_windows)
+	{
+		gui_window->draw();
+	}
+	
 	ImGui::Render();
+}
+
+void GraphicsEngineGui::spawn_gui(std::shared_ptr<GuiWindow>& gui)
+{
+	gui_windows.emplace_back(std::move(gui));
 }

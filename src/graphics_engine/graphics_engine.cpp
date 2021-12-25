@@ -133,7 +133,6 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 	if (!bPhysicalDevicePropertiesCached)
 	{
 		vkGetPhysicalDeviceProperties(get_physical_device(), &physical_device_properties);			
-		std::cout << "Cached physical device properties\n";
 	}
 
 	return physical_device_properties;
@@ -159,6 +158,11 @@ void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 	}
 	
 	swap_chain.spawn_object(graphics_object);
+}
+
+void GraphicsEngine::spawn_gui(std::shared_ptr<GuiWindow>& gui)
+{
+	this->gui.spawn_gui(gui);
 }
 
 void GraphicsEngine::recreate_swap_chain()

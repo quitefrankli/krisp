@@ -14,6 +14,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <quill/Quill.h>
+#include <imgui.h>
 
 #include <iostream>
 #include <vector>
@@ -23,6 +24,10 @@
 
 void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
 {
+	if (ImGui::GetIO().WantCaptureKeyboard)
+	{
+		return;
+	}
 	GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
 	engine->handle_window_callback_impl(glfw_window, key, scan_code, action, mode);
 }
@@ -83,7 +88,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 				auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
 				obj.set_position(glm::vec3(2.0f, 0.0f, 0.0f));
 			} else {
-				auto& obj = spawn_object<Sphere>();
+				auto& obj = spawn_object<Cube>();
 				obj.set_position(glm::vec3(-1.0f, 0.0f, 0.0f));
 			}
 			break;
@@ -137,6 +142,10 @@ void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int
 
 void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
 {
+	if (ImGui::GetIO().WantCaptureMouse)
+	{
+		return;
+	}
 	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_mouse_button_callback_impl(glfw_window, button, action, mode);
 }
 

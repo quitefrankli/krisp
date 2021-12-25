@@ -69,7 +69,7 @@ public: // getters and setters
 	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
 	VkRenderPass& get_render_pass() { return pipeline.render_pass; }
 	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
-	VkDescriptorSetLayout& get_descriptor_set_layout() { return pool.descriptor_set_layout; }
+		VkDescriptorSetLayout& get_descriptor_set_layout() { return pool.descriptor_set_layout; }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
@@ -145,7 +145,9 @@ public: // thread safe
 
 private: // friends
 	friend SpawnObjectCmd;
+	friend SpawnGuiCmd;
 
 	void spawn_object(std::shared_ptr<Object>& object);
+	void spawn_gui(std::shared_ptr<GuiWindow>& gui);
 };
 
