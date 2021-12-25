@@ -99,10 +99,6 @@ void GraphicsEngine::run() {
 		}
 		ge_cmd_q_mutex.unlock();
 
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-		ImGui::ShowDemoWindow();
 		gui.draw();
 
 		swap_chain.draw();

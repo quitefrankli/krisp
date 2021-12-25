@@ -54,6 +54,11 @@ void GraphicsEngineGui::add_render_cmd(VkCommandBuffer& cmd_buffer)
 
 void GraphicsEngineGui::draw()
 {
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	// ImGui::ShowDemoWindow();
+
 	for (auto& gui_window : gui_windows)
 	{
 		gui_window->draw();

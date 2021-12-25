@@ -86,7 +86,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			if (mode == GLFW_MOD_SHIFT)
 			{
 				auto& obj = spawn_object<Cube>("../resources/textures/texture.jpg");
-				obj.set_position(glm::vec3(2.0f, 0.0f, 0.0f));
+				obj.set_position(glm::vec3(1.0f, 0.0f, 0.0f));
 			} else {
 				auto& obj = spawn_object<Cube>();
 				obj.set_position(glm::vec3(-1.0f, 0.0f, 0.0f));

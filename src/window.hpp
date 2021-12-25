@@ -10,8 +10,8 @@ namespace App {
 	class Window
 	{
 	private:
-		const int INITIAL_WINDOW_WIDTH = 800;
-		const int INITIAL_WINDOW_HEIGHT = 600;
+		const int INITIAL_WINDOW_WIDTH = 1400;
+		const int INITIAL_WINDOW_HEIGHT = 800;
 		std::unique_ptr<GLFWwindow, std::function<void(GLFWwindow*)>> window;
 		GameEngine* game_engine;
 

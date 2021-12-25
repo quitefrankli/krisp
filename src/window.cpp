@@ -18,7 +18,9 @@ App::Window::Window(GameEngine* game_engine)
 			glfwDestroyWindow(_window);
 		});
 	glfwSetWindowUserPointer(get_window(), game_engine);
-	glfwSetWindowPos(get_window(), 800, 250);
+
+	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
+	glfwSetWindowPos(get_window(), (monitor->width - INITIAL_WINDOW_WIDTH)/2, 50);
 	glfwSetFramebufferSizeCallback(get_window(), GameEngine::handle_window_resize_callback);
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
 	glfwSetScrollCallback(get_window(), GameEngine::handle_scroll_callback);
