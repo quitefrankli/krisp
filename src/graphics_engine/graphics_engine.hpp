@@ -69,7 +69,6 @@ public: // getters and setters
 	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
 	VkRenderPass& get_render_pass() { return pipeline.render_pass; }
 	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
-		VkDescriptorSetLayout& get_descriptor_set_layout() { return pool.descriptor_set_layout; }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
@@ -77,6 +76,9 @@ public: // getters and setters
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
 	GraphicsEngineGui& get_gui() { return gui; }
+	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
+	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
+	GraphicsEnginePool& get_graphics_resource_manager() { return pool; }
 
 private: // flags (these must be before core components)
 	bool should_shutdown = false;

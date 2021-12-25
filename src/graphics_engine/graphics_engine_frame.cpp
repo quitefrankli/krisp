@@ -87,7 +87,8 @@ void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
 void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 {
 	std::vector<std::vector<Vertex>>& cur_vertex_sets = object.get_vertex_sets();
-	std::vector<VkDescriptorSetLayout> layouts(cur_vertex_sets.size(), get_graphics_engine().get_descriptor_set_layout());
+	std::vector<VkDescriptorSetLayout> layouts(cur_vertex_sets.size(), 
+		get_graphics_engine().get_graphics_resource_manager().high_freq_descriptor_set_layout);
 
 	VkDescriptorSetAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -211,6 +212,16 @@ void GraphicsEngineFrame::update_command_buffer()
 
 	// vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline
 
+	// global descriptor object, for per frame updates
+	vkCmdBindDescriptorSets(command_buffer,
+							VK_PIPELINE_BIND_POINT_GRAPHICS,
+							get_graphics_engine().get_graphics_pipeline().pipeline_layout,
+							1,
+							1,
+							&get_graphics_engine().get_graphics_resource_manager().global_descriptor_set,
+							0,
+							nullptr);
+
 	int total_descriptor_set_offest = 0;
 	auto per_obj_draw_fn = [&](GraphicsEngineObject& object)
 	{
@@ -240,7 +251,7 @@ void GraphicsEngineFrame::update_command_buffer()
 									0,
 									nullptr);
 			total_descriptor_set_offest++;
-
+		
 			vkCmdDraw(
 				command_buffer, 
 				object.get_vertex_sets()[vertex_set_index].size(), // vertex count
@@ -405,6 +416,15 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		memcpy(data, &default_ubo, size);
 		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);
 	}
+
+	// update global uniform buffer
+	get_graphics_engine().get_global_uniform_buffer();
+	GlobalUniformBufferObject gubo;
+	auto& guis = get_graphics_engine().get_gui().gui_windows;
+	gubo.lighting = guis.empty() ? 1.0f : ((GuiGraphicsSettings*)(guis[0].get()))->light_strength;
+	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
+	memcpy(data, &gubo, sizeof(gubo));
+	vkUnmapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory());
 }
 
 void GraphicsEngineFrame::create_synchronisation_objects()

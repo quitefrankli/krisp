@@ -117,8 +117,8 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
 	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeline_layout_create_info.setLayoutCount = 1; // for our 1x ubo_descriptor in our descriptor set layout
-	pipeline_layout_create_info.pSetLayouts = &(get_graphics_engine().get_descriptor_set_layout());
+	pipeline_layout_create_info.setLayoutCount = get_graphics_engine().get_graphics_resource_manager().descriptor_set_layouts.size();
+	pipeline_layout_create_info.pSetLayouts = get_graphics_engine().get_graphics_resource_manager().descriptor_set_layouts.data();
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 

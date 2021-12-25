@@ -2,23 +2,38 @@
 
 #include "graphics_engine.hpp"
 #include "queues.hpp"
+#include "uniform_buffer_object.hpp"
 
 
 GraphicsEnginePool::GraphicsEnginePool(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine)
+	GraphicsEngineBaseModule(engine),
+	high_freq_descriptor_set_layout(descriptor_set_layouts[0]),
+	low_freq_descriptor_set_layout(descriptor_set_layouts[1])
 {
 	create_command_pool();
 	create_descriptor_set_layout();
 	create_descriptor_pool();
+
+	// global uniform buffer
+	create_buffer(sizeof(GlobalUniformBufferObject),
+				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+				  global_uniform_buffer,
+				  global_uniform_buffer_memory);
+	allocate_descriptor_set();
 }
 
 GraphicsEnginePool::~GraphicsEnginePool()
 {
 	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
-
 	vkDestroyDescriptorPool(get_logical_device(), get_graphics_engine().get_descriptor_pool(), nullptr);
+	for (auto& layout : descriptor_set_layouts)
+	{
+		vkDestroyDescriptorSetLayout(get_logical_device(), layout, nullptr);
+	}
 
-	vkDestroyDescriptorSetLayout(get_logical_device(), descriptor_set_layout, nullptr);
+	vkDestroyBuffer(get_logical_device(), global_uniform_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), global_uniform_buffer_memory, nullptr);
 }
 
 void GraphicsEnginePool::create_command_pool()
@@ -88,28 +103,86 @@ void GraphicsEnginePool::create_descriptor_pool()
 
 void GraphicsEnginePool::create_descriptor_set_layout()
 {
-	VkDescriptorSetLayoutBinding ubo_layout_binding{};
-	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	ubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
-	ubo_layout_binding.descriptorCount = 1;
-	ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
-	ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
-
-	VkDescriptorSetLayoutBinding sampler_layout_binding{};
-	sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	sampler_layout_binding.binding = 1; // this must be synced with the one in the shaders
-	sampler_layout_binding.descriptorCount = 1;
-	sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
-	sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
-
-	std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
-	VkDescriptorSetLayoutCreateInfo layout_info{};
-	layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
-	layout_info.pBindings = bindings.data();
-
-	if (vkCreateDescriptorSetLayout(get_logical_device(), &layout_info, nullptr, &descriptor_set_layout) != VK_SUCCESS)
+	auto create_layout = [this](std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout* layout)
 	{
-		throw std::runtime_error("failed to create descriptor set layout!");
+		VkDescriptorSetLayoutCreateInfo layout_info{};
+		layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+		layout_info.pBindings = bindings.data();
+			
+		if (vkCreateDescriptorSetLayout(get_logical_device(), &layout_info, nullptr, layout) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create descriptor set layout!");
+		}
+	};
+
+	// Model + Texture
+	{
+		VkDescriptorSetLayoutBinding ubo_layout_binding{};
+		ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		ubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
+		ubo_layout_binding.descriptorCount = 1;
+		ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
+		ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
+
+		VkDescriptorSetLayoutBinding sampler_layout_binding{};
+		sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		sampler_layout_binding.binding = 1; // this must be synced with the one in the shaders
+		sampler_layout_binding.descriptorCount = 1;
+		sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
+		sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
+
+		std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
+		create_layout(bindings, &high_freq_descriptor_set_layout);
 	}
+
+	// global uniforms i.e. camera & lighting
+	{
+		VkDescriptorSetLayoutBinding gubo_layout_binding{};
+		gubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		gubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
+		gubo_layout_binding.descriptorCount = 1;
+		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
+		gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
+
+		std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
+		create_layout(bindings, &low_freq_descriptor_set_layout);
+	}
+}
+
+// for now this only generates a uniform buffer descriptor set
+void GraphicsEnginePool::allocate_descriptor_set()
+{
+	VkDescriptorSetAllocateInfo alloc_info{};
+	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	alloc_info.descriptorPool = descriptor_pool;
+	alloc_info.descriptorSetCount = 1;
+	alloc_info.pSetLayouts = &low_freq_descriptor_set_layout;
+
+	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &global_descriptor_set) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsEngineFrame::spawn_object: failed to allocate descriptor sets!");
+	}
+
+	VkDescriptorBufferInfo buffer_info{};
+	buffer_info.buffer = global_uniform_buffer;
+	buffer_info.offset = 0;
+	buffer_info.range = sizeof(GlobalUniformBufferObject);
+
+	VkWriteDescriptorSet uniform_buffer_descriptor_set{};
+	uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	uniform_buffer_descriptor_set.dstSet = global_descriptor_set;
+	uniform_buffer_descriptor_set.dstBinding = 0; // also set to 3 in the shader
+	uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
+	uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	uniform_buffer_descriptor_set.descriptorCount = 1;
+	uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
+	uniform_buffer_descriptor_set.pImageInfo = nullptr;
+	uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
+
+	vkUpdateDescriptorSets(get_logical_device(), 
+							1, 
+							&uniform_buffer_descriptor_set, 
+							0, 
+							nullptr);
 }
