@@ -208,7 +208,7 @@ Sphere::Sphere()
 		};
 		vertex.pos /= 2.0f;
 		vertex.color = {
-			m / (float)M, n / (float)N, 0.1f
+			sinf(m*2.0f)/2.0f+0.5f, 1.0f, sinf(n*2.0f)/2.0f+0.5f
 		};
 		return vertex;
 	};
@@ -244,6 +244,7 @@ Sphere::Sphere()
 			shape.vertices.push_back(vertices[i + 1]);
 		}
 	}
+	shape.generate_normals();
 	shapes.push_back(std::move(shape));
 }
 

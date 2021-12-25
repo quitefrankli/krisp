@@ -21,7 +21,7 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 } gubo;
 
 const vec3 light_dir = vec3(0.0, -1.0, 0.0);
-const float minimum_lighting = 0.05;
+const float minimum_lighting = 0.2;
 
 void main()
 {

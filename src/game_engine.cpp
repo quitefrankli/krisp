@@ -35,6 +35,7 @@ GameEngine::GameEngine() :
 	graphics_engine->setup();
 
 	spawn_gui<GuiGraphicsSettings>();
+	object_spawner = &spawn_gui<GuiObjectSpawner>();
 }
 
 void GameEngine::run()
@@ -70,6 +71,16 @@ void GameEngine::run()
 		analytics.start();
 
 		glfwPollEvents();
+
+		// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
+		auto* object_spawner_gui = static_cast<GuiObjectSpawner*>(object_spawner);
+		for (auto& [key, value] : object_spawner_gui->mapping)
+		{
+			if (!value) continue;
+			if (key == "cube") spawn_object<Cube>();
+			else if (key == "sphere") spawn_object<Sphere>();
+			value = false;
+		}
 
 		if (mouse.rmb_down)
 		{

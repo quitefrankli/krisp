@@ -77,8 +77,12 @@ private:
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;
 	std::vector<std::shared_ptr<Object>> objects;
-	std::vector<std::shared_ptr<GuiWindow>> gui_windows;
 	std::thread graphics_engine_thread;
+
+private:
+	// gui stuff
+	std::vector<std::shared_ptr<GuiWindow>> gui_windows;
+	GuiWindow* object_spawner = nullptr;
 
 public:
 	ObjectPositionTracker tracker;
