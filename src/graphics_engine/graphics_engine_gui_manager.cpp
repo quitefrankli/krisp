@@ -1,4 +1,4 @@
-#include "graphics_engine_gui.hpp"
+#include "graphics_engine_gui_manager.hpp"
 #include "graphics_engine.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
@@ -9,7 +9,7 @@
 #include <iostream>
 
 
-GraphicsEngineGui::GraphicsEngineGui(GraphicsEngine& engine) :
+GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
 	ImGui::CreateContext();
@@ -36,14 +36,14 @@ GraphicsEngineGui::GraphicsEngineGui(GraphicsEngine& engine) :
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-GraphicsEngineGui::~GraphicsEngineGui()
+GraphicsEngineGuiManager::~GraphicsEngineGuiManager()
 {
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 }
 
-void GraphicsEngineGui::add_render_cmd(VkCommandBuffer& cmd_buffer)
+void GraphicsEngineGuiManager::add_render_cmd(VkCommandBuffer& cmd_buffer)
 {
 	if (!ImGui::GetDrawData())
 	{
@@ -52,7 +52,7 @@ void GraphicsEngineGui::add_render_cmd(VkCommandBuffer& cmd_buffer)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd_buffer);
 }
 
-void GraphicsEngineGui::draw()
+void GraphicsEngineGuiManager::draw()
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -65,9 +65,4 @@ void GraphicsEngineGui::draw()
 	}
 	
 	ImGui::Render();
-}
-
-void GraphicsEngineGui::spawn_gui(std::shared_ptr<GuiWindow>& gui)
-{
-	gui_windows.emplace_back(std::move(gui));
 }

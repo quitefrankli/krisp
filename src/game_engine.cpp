@@ -9,7 +9,7 @@
 #include "analytics.hpp"
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
-#include "gui/gui.hpp"
+#include "gui/gui_manager.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -33,9 +33,6 @@ GameEngine::GameEngine() :
 	camera = std::make_unique<Camera>(*this, graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 
 	graphics_engine->setup();
-
-	spawn_gui<GuiGraphicsSettings>();
-	object_spawner = &spawn_gui<GuiObjectSpawner>();
 }
 
 void GameEngine::run()
@@ -73,14 +70,7 @@ void GameEngine::run()
 		glfwPollEvents();
 
 		// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
-		auto* object_spawner_gui = static_cast<GuiObjectSpawner*>(object_spawner);
-		for (auto& [key, value] : object_spawner_gui->mapping)
-		{
-			if (!value) continue;
-			if (key == "cube") spawn_object<Cube>();
-			else if (key == "sphere") spawn_object<Sphere>();
-			value = false;
-		}
+		get_gui_manager().process(*this);
 
 		if (mouse.rmb_down)
 		{
@@ -194,4 +184,9 @@ Maths::Ray GameEngine::screen_to_world(glm::vec2 screen)
 	auto p2 = unproj(0.95f);
 
 	return Maths::Ray(camera->get_position(), glm::normalize(p2-p1));
+}
+
+GuiManager& GameEngine::get_gui_manager()
+{
+	return static_cast<GuiManager&>(graphics_engine->get_gui_manager());
 }

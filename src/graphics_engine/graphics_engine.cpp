@@ -36,7 +36,7 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	depth_buffer(*this),
 	swap_chain(*this),
 	model_loader(*this),
-	gui(*this)
+	gui_manager(*this)
 {
 }
 
@@ -99,7 +99,7 @@ void GraphicsEngine::run() {
 		}
 		ge_cmd_q_mutex.unlock();
 
-		gui.draw();
+		gui_manager.draw();
 
 		swap_chain.draw();
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -154,11 +154,6 @@ void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 	}
 	
 	swap_chain.spawn_object(graphics_object);
-}
-
-void GraphicsEngine::spawn_gui(std::shared_ptr<GuiWindow>& gui)
-{
-	this->gui.spawn_gui(gui);
 }
 
 void GraphicsEngine::recreate_swap_chain()

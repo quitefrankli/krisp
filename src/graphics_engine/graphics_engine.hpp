@@ -11,7 +11,7 @@
 #include "graphics_engine_pipeline.hpp"
 #include "graphics_engine_depth_buffer.hpp"
 #include "graphics_engine_texture_manager.hpp"
-#include "graphics_engine_gui.hpp"
+#include "graphics_engine_gui_manager.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -75,7 +75,7 @@ public: // getters and setters
 	VkPipeline& get_pipeline(GraphicsEnginePipeline::PIPELINE_TYPE pipeline_type = GraphicsEnginePipeline::PIPELINE_TYPE::STANDARD);
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
-	GraphicsEngineGui& get_gui() { return gui; }
+	GraphicsEngineGuiManager& get_gui_manager() { return gui_manager; }
 	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
 	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
 	GraphicsEnginePool& get_graphics_resource_manager() { return pool; }
@@ -97,9 +97,7 @@ private: // core components
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEngineModelLoader model_loader;
-
-private: // other core components
-	GraphicsEngineGui gui;
+	GraphicsEngineGuiManager gui_manager;
 
 private:
 	VkQueue graphics_queue;
@@ -147,9 +145,7 @@ public: // thread safe
 
 private: // friends
 	friend SpawnObjectCmd;
-	friend SpawnGuiCmd;
 
 	void spawn_object(std::shared_ptr<Object>& object);
-	void spawn_gui(std::shared_ptr<GuiWindow>& gui);
 };
 

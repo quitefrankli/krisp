@@ -283,7 +283,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	}
 
 	// render gui
-	get_graphics_engine().get_gui().add_render_cmd(command_buffer);
+	get_graphics_engine().get_gui_manager().add_render_cmd(command_buffer);
 
 	vkCmdEndRenderPass(command_buffer);
 	
@@ -418,10 +418,9 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	}
 
 	// update global uniform buffer
-	get_graphics_engine().get_global_uniform_buffer();
+	auto& graphic_settings = get_graphics_engine().get_gui_manager().graphic_settings;
 	GlobalUniformBufferObject gubo;
-	auto& guis = get_graphics_engine().get_gui().gui_windows;
-	gubo.lighting = guis.empty() ? 1.0f : ((GuiGraphicsSettings*)(guis[0].get()))->light_strength;
+	gubo.lighting = graphic_settings.light_strength;
 	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
 	memcpy(data, &gubo, sizeof(gubo));
 	vkUnmapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory());

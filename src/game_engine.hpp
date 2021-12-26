@@ -6,6 +6,8 @@
 #include "resource_loader.hpp"
 #include "animations/animator.hpp"
 #include "maths.hpp"
+#include "gui/gui_manager.hpp"
+#include "graphics_engine/graphics_engine_commands.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -17,7 +19,7 @@ class Shape;
 class GraphicsEngine;
 class Camera;
 class Simulation;
-class GuiWindow;
+class GuiManager;
 
 class ObjectPositionTracker
 {
@@ -37,6 +39,7 @@ public: // getters and setters
 	GLFWwindow* get_window() { return window.get_window(); }
 	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
 	Maths::Ray screen_to_world(glm::vec2 screen);
+	GuiManager& get_gui_manager();
 
 public:
 	GameEngine();
@@ -55,16 +58,6 @@ public:
 		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(std::move(cmd)));
 		return *static_cast<Object_T*>(object.get());
 	}
-	template<typename Gui_T, typename... Args>
-	Gui_T& spawn_gui(Args&&... args)
-	{
-		gui_windows.emplace_back(std::make_shared<Gui_T>(std::forward<Args>(args)...));
-		auto& gui = gui_windows.back();
-		SpawnGuiCmd cmd;
-		cmd.gui = gui;
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnGuiCmd>(std::move(cmd)));
-		return *static_cast<Gui_T*>(gui.get());
-	}
 
 private:
 	App::Window window;
@@ -78,11 +71,6 @@ private:
 	std::chrono::time_point<std::chrono::system_clock> time;
 	std::vector<std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
-
-private:
-	// gui stuff
-	std::vector<std::shared_ptr<GuiWindow>> gui_windows;
-	GuiWindow* object_spawner = nullptr;
 
 public:
 	ObjectPositionTracker tracker;
