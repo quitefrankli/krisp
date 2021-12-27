@@ -9,13 +9,14 @@
 struct UniformBufferObject
 {
 	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
+	glm::mat4 mvp; // model-view-proj matrix
 	glm::mat4 rot_mat; // we are really only sending a mat3 but due to alignment requiring vec4 we have to send a mat4
 };
 
 struct GlobalUniformBufferObject
 {
+	glm::mat4 view;
+	glm::mat4 proj;
 	glm::vec3 light_pos;
 	float lighting;
 };

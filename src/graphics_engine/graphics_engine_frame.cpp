@@ -403,30 +403,31 @@ void GraphicsEngineFrame::draw()
 
 void GraphicsEngineFrame::update_uniform_buffer()
 {
-	UniformBufferObject default_ubo{};
-	default_ubo.model = glm::mat4(1);
-	default_ubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
-	default_ubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
-
 	void* data;
-	size_t size = sizeof(UniformBufferObject);
-	for (auto& object : get_graphics_engine().get_objects())
-	{
-		default_ubo.model = object.object->get_transform();
-		default_ubo.rot_mat = glm::mat4_cast(object.object->get_rotation());
-		vkMapMemory(get_logical_device(), object.uniform_buffer_memory, 0, size, 0, &data);
-		memcpy(data, &default_ubo, size);
-		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);
-	}
 
 	// update global uniform buffer
 	auto& graphic_settings = get_graphics_engine().get_gui_manager().graphic_settings;
 	GlobalUniformBufferObject gubo;
+	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
+	gubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
 	gubo.light_pos = graphic_settings.light_ray.origin;
 	gubo.lighting = graphic_settings.light_strength;
 	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
 	memcpy(data, &gubo, sizeof(gubo));
 	vkUnmapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory());
+
+	// update per object uniforms
+	UniformBufferObject default_ubo{};
+	default_ubo.model = glm::mat4(1);
+	for (auto& object : get_graphics_engine().get_objects())
+	{
+		default_ubo.model = object.object->get_transform();
+		default_ubo.mvp = gubo.proj * gubo.view * default_ubo.model;
+		default_ubo.rot_mat = glm::mat4_cast(object.object->get_rotation());
+		vkMapMemory(get_logical_device(), object.uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &data);
+		memcpy(data, &default_ubo, sizeof(UniformBufferObject));
+		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);
+	}
 }
 
 void GraphicsEngineFrame::create_synchronisation_objects()
