@@ -43,9 +43,15 @@ public:
 	void process(GameEngine& engine) override;
 	void draw() override;
 
+public:
+	bool use_texture = false;
+
 private:
-	std::map<std::string, std::function<void(GameEngine&)>> mapping;
-	std::function<void(GameEngine&)>* spawning_function = nullptr;
+	const std::string texture_path = "../resources/textures/texture.jpg";
+
+	using spawning_function_type = std::function<void(GameEngine&, bool)>;
+	std::map<std::string, spawning_function_type> mapping;
+	spawning_function_type* spawning_function = nullptr;
 
 	const float button_width = 120.0f;
 	const float button_height = 20.0f;

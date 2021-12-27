@@ -28,8 +28,10 @@ void GuiGraphicsSettings::draw()
 GuiObjectSpawner::GuiObjectSpawner()
 {
 	mapping = {
-		{"cube", std::function<void(GameEngine& engine)>([](GameEngine& engine){ engine.spawn_object<Cube>(); })},
-		{"sphere", std::function<void(GameEngine& engine)>([](GameEngine& engine){ engine.spawn_object<Sphere>(); })}
+		{"cube", spawning_function_type([this](GameEngine& engine, bool textured){ 
+			textured ? engine.spawn_object<Cube>(texture_path) : engine.spawn_object<Cube>(); })},
+		{"sphere", spawning_function_type([this](GameEngine& engine, bool textured){ 
+			textured ? engine.spawn_object<Sphere>() : engine.spawn_object<Sphere>(); })}
 	};
 }
 
@@ -37,6 +39,8 @@ void GuiObjectSpawner::draw()
 {
 	ImGui::Begin("Object Spawner");
 	
+	ImGui::Checkbox("textured", &use_texture);
+
 	ImVec2 button_dim(button_width, button_height);
 	if (spawning_function)
 	{
@@ -58,7 +62,7 @@ void GuiObjectSpawner::process(GameEngine& engine)
 {
 	if (spawning_function)
 	{
-		(*spawning_function)(engine);
+		(*spawning_function)(engine, use_texture);
 		spawning_function = nullptr;
 	}	
 }
