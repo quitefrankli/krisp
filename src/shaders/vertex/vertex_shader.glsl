@@ -15,6 +15,7 @@ layout(set=0, binding=0) uniform UniformBufferObject
 	mat4 model;
 	mat4 view;
 	mat4 proj;
+	mat3 rot_mat; // this is actually a mat3 in c++
 } ubo;
 
 layout(set=1, binding=0) uniform GlobalUniformBufferObject
@@ -25,15 +26,15 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 
 const float minimum_lighting = 0.1;
 
-vec3 get_light_normal(mat3 m)
+vec3 get_light_normal()
 {
-	return normalize(gubo.light_pos - m * inPosition);
+	return normalize(gubo.light_pos - ubo.rot_mat * inPosition);
 }
 
 void main()
 {
 	gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
-	vec3 transformed_normal = mat3(ubo.model) * inNormal;
-	lighting = clamp(dot(transformed_normal, get_light_normal(mat3(ubo.model))) * gubo.lighting_scalar, minimum_lighting, 1.0);
+	vec3 transformed_normal = ubo.rot_mat * inNormal;
+	lighting = clamp(dot(transformed_normal, get_light_normal()) * gubo.lighting_scalar, minimum_lighting, 1.0);
 	fragTexCoord = inTexCoord;
 }

@@ -10,7 +10,7 @@
 
 
 GuiGraphicsSettings::GuiGraphicsSettings() :
-	light_ray(0.0f, 10.0f, 0.0f, 0.0f, -1.0f, 0.0f)
+	light_ray(0.0f, 3.0f, 0.0f, 0.0f, -1.0f, 0.0f)
 {
 }
 

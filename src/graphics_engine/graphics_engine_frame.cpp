@@ -7,6 +7,7 @@
 #include "camera.hpp"
 
 #include <iostream>
+#include <glm/gtx/string_cast.hpp>
 
 
 int GraphicsEngineFrame::global_image_index = 0;
@@ -412,6 +413,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	for (auto& object : get_graphics_engine().get_objects())
 	{
 		default_ubo.model = object.object->get_transform();
+		default_ubo.rot_mat = glm::mat4_cast(object.object->get_rotation());
 		vkMapMemory(get_logical_device(), object.uniform_buffer_memory, 0, size, 0, &data);
 		memcpy(data, &default_ubo, size);
 		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);
