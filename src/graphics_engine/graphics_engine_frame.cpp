@@ -410,6 +410,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	GlobalUniformBufferObject gubo;
 	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
 	gubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
+	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
 	gubo.light_pos = graphic_settings.light_ray.origin;
 	gubo.lighting = graphic_settings.light_strength;
 	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);

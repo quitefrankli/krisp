@@ -17,6 +17,7 @@ struct GlobalUniformBufferObject
 {
 	glm::mat4 view;
 	glm::mat4 proj;
-	glm::vec3 light_pos;
+	alignas(16) glm::vec3 view_pos;
+	alignas(16) glm::vec3 light_pos;
 	float lighting;
 };

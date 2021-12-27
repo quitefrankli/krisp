@@ -22,6 +22,7 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 {
 	mat4 view; // camera
 	mat4 proj;
+	vec3 view_pos; // camera eye
 	vec3 light_pos;
 	float lighting_scalar;
 } gubo;
@@ -36,7 +37,15 @@ vec3 get_light_normal()
 void main()
 {
 	gl_Position = ubo.mvp * vec4(inPosition, 1.0);
-	vec3 transformed_normal = ubo.rot_mat * inNormal;
-	lighting = clamp(dot(transformed_normal, get_light_normal()) * gubo.lighting_scalar, minimum_lighting, 1.0);
 	fragTexCoord = inTexCoord;
+
+	vec3 transformed_normal = ubo.rot_mat * inNormal;
+	vec3 light_normal = get_light_normal();
+	// it's likely we can remove the need for gubo.view_pos and compute everything in "view space"
+	vec3 view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
+
+	float ambient_diffuse = clamp(dot(transformed_normal, light_normal) * gubo.lighting_scalar, minimum_lighting, 1.0);
+	float specular = pow(max(dot(reflect(-light_normal, transformed_normal), view_dir), 0.0), 32);
+	
+	lighting = ambient_diffuse + specular;
 }
