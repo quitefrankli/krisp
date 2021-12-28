@@ -142,7 +142,7 @@ void GraphicsEnginePool::create_descriptor_set_layout()
 		gubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		gubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
 		gubo_layout_binding.descriptorCount = 1;
-		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
+		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
 		gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
 		std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
