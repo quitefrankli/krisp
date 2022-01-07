@@ -40,7 +40,7 @@ void main()
 	vec3 view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
 
 	vec3 ambient_diffuse = inColor * clamp(dot(transformed_normal, light_normal) * gubo.lighting_scalar, minimum_lighting, 1.0);
-	float specular = pow(max(dot(reflect(-light_normal, transformed_normal), view_dir), 0.0), 32);
+	float specular = pow(max(dot(reflect(-light_normal, transformed_normal), view_dir), 0.0), 32) * gubo.lighting_scalar;
 	
 	fragColor = ambient_diffuse + specular;
 }

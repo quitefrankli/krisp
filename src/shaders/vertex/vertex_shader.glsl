@@ -45,7 +45,7 @@ void main()
 	vec3 view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
 
 	float ambient_diffuse = clamp(dot(transformed_normal, light_normal) * gubo.lighting_scalar, minimum_lighting, 1.0);
-	float specular = pow(max(dot(reflect(-light_normal, transformed_normal), view_dir), 0.0), 32);
+	float specular = pow(max(dot(reflect(-light_normal, transformed_normal), view_dir), 0.0), 32) * lighting_scalar;
 	
 	lighting = ambient_diffuse + specular;
 }
