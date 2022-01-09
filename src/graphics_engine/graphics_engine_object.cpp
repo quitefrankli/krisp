@@ -21,6 +21,8 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngineObject&& graphics_objec
 {
 	vertex_buffer = graphics_object.vertex_buffer;
 	vertex_buffer_memory = graphics_object.vertex_buffer_memory;
+	index_buffer = graphics_object.index_buffer;
+	index_buffer_memory = graphics_object.index_buffer_memory;
 	uniform_buffer = graphics_object.uniform_buffer;
 	uniform_buffer_memory = graphics_object.uniform_buffer_memory;
 	texture = graphics_object.texture;
@@ -35,17 +37,29 @@ GraphicsEngineObject::~GraphicsEngineObject()
 		return;
 	}
 
-	vkDestroyBuffer(get_logical_device(), uniform_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), uniform_buffer_memory, nullptr);
-
 	vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
 	vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
 
+	vkDestroyBuffer(get_logical_device(), index_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), index_buffer_memory, nullptr);
+
+	vkDestroyBuffer(get_logical_device(), uniform_buffer, nullptr);
+	vkFreeMemory(get_logical_device(), uniform_buffer_memory, nullptr);
 }
 
-std::vector<std::vector<Vertex>>& GraphicsEngineObject::get_vertex_sets()
+const std::vector<Shape>& GraphicsEngineObject::get_shapes() const
 {
-	return object->get_vertex_sets();
+	return object->shapes;
+}
+
+uint32_t GraphicsEngineObject::get_num_unique_vertices() const
+{
+	return object->get_num_unique_vertices();
+}
+
+uint32_t GraphicsEngineObject::get_num_vertex_indices() const
+{
+	return object->get_num_vertex_indices();
 }
 
 VkImageView& GraphicsEngineObject::get_texture_image_view() 

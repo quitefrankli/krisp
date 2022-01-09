@@ -30,14 +30,20 @@ public:
 	VkBuffer vertex_buffer;
 	VkDeviceMemory vertex_buffer_memory;
 
+	VkBuffer index_buffer;
+	VkDeviceMemory index_buffer_memory;
+
 	// as opposed to vertex_buffers we expect to change uniform buffer every frame
 	VkBuffer uniform_buffer;
 	VkDeviceMemory uniform_buffer_memory;
 
-	std::vector<std::vector<Vertex>>& get_vertex_sets();
+	uint32_t get_num_unique_vertices() const;
+	uint32_t get_num_vertex_indices() const;
 	VkImageView& get_texture_image_view();
 	VkSampler& get_texture_sampler();
-	
+	// replaces the old "get_vertex_sets" function
+	const std::vector<Shape>& get_shapes() const;
+
 	GraphicsEngineTexture* texture = nullptr;
 private:
 	// we need this here so that when we perform a std::move we don't destroy the old memory

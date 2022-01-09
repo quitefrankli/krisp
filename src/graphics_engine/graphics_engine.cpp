@@ -136,10 +136,8 @@ const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties
 
 void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 {
-	objects.emplace_back(*this, std::move(object));
-
-	auto& graphics_object = objects.back();
-	create_vertex_buffer(graphics_object);
+	auto& graphics_object = objects.emplace_back(*this, std::move(object));
+	create_object_buffers(graphics_object);
 
 	// uniform buffer
 	create_buffer(sizeof(UniformBufferObject),

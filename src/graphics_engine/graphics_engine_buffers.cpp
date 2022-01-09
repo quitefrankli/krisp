@@ -38,56 +38,79 @@ void GraphicsEngine::create_buffer(size_t size,
 	vkBindBufferMemory(get_logical_device(), buffer, device_memory, 0);
 }
 
-void GraphicsEngine::create_vertex_buffer(GraphicsEngineObject& object)
+void GraphicsEngine::create_object_buffers(GraphicsEngineObject& object)
 {
-	// this will need to be updated
-	size_t buffer_size = 0;
-	for (auto& vertex_set : object.get_vertex_sets())
+	auto generic_buffer_factory = [&](VkBuffer& buffer, 
+									  VkDeviceMemory& memory, 
+									  size_t buffer_size, 
+									  VkBufferUsageFlags buffer_usage_flag,
+									  const std::function<void(void* data)>& copier)
 	{
-		buffer_size += vertex_set.size() * sizeof(vertex_set[0]);
-	}
+		// staging buffer, used for copying the data from staging to vertex buffer
+		// the staging buffer is the buffer that can be accessed by CPU
+		VkBuffer staging_buffer;
+		VkDeviceMemory staging_buffer_memory;
+		create_buffer(buffer_size,
+					VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+					// make sure that the memory heap is host coherent
+					// this is because the driver may not immediately copy the data into the buffer memory
+					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+					staging_buffer,
+					staging_buffer_memory);
 
-	// staging buffer, used for copying the data from staging to vertex buffer
-	// the staging buffer is the buffer that can be accessed by CPU
-	VkBuffer staging_buffer;
-	VkDeviceMemory staging_buffer_memory;
-	create_buffer(buffer_size,
-				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-				  // make sure that the memory heap is host coherent
-			 	  // this is because the driver may not immediately copy the data into the buffer memory
-				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  staging_buffer,
-				  staging_buffer_memory);
+		// the device local buffer is most efficient for GPU access however CPU cannot access it
+		// which is why we need a staging buffer in the first place
+		create_buffer(buffer_size,
+					VK_BUFFER_USAGE_TRANSFER_DST_BIT | buffer_usage_flag,
+					// device local here means it basically lives on the graphics card hence we can't map it,
+					// but it's alot faster than using COHERENT buffer
+					VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+					buffer,
+					memory);
 
-	// the device local buffer is most efficient for GPU access however CPU cannot access it
-	// which is why we need a staging buffer in the first place
-	create_buffer(buffer_size,
-				  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-				  // device local here means it basically lives on the graphics card hence we can't map it,
-				  // but it's alot faster than using COHERENT buffer
-				  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-				  object.vertex_buffer,
-				  object.vertex_buffer_memory);
+		// filling the vertex buffer
+		// copy the vertex data to the buffer, this is done by mapping the buffer memory into CPU accessible memory with vkMapMemory
+		void* data;
+		// access a region of the specified memory resource
+		vkMapMemory(get_logical_device(), staging_buffer_memory, 0, buffer_size, 0, &data);
+		copier(data);
+		vkUnmapMemory(get_logical_device(), staging_buffer_memory);
 
-	// filling the vertex buffer
-	// copy the vertex data to the buffer, this is done by mapping the buffer memory into CPU accessible memory with vkMapMemory
-	void* data;
-	// access a region of the specified memory resource
-	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, buffer_size, 0, &data);
-	size_t offset = 0;
-	for (auto& vertex_set : object.get_vertex_sets())
-	{
-		size_t size = vertex_set.size() * sizeof(vertex_set[0]);
-		memcpy((char*)data + offset, vertex_set.data(), size);
-		offset += size;
-	}
-	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
+		// issue the command to copy from staging to device
+		copy_buffer(staging_buffer, buffer, buffer_size);
 
-	// issue the command to copy from staging to device
-	copy_buffer(staging_buffer, object.vertex_buffer, buffer_size);
+		vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
+		vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
+	};
 
-	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
+	// vertex buffer
+	generic_buffer_factory(object.vertex_buffer, 
+						   object.vertex_buffer_memory,
+						   object.get_num_unique_vertices() * sizeof(Vertex),
+						   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+						   [&](void* data) {
+								size_t offset = 0;
+								for (const auto& shape : object.get_shapes())
+								{
+									size_t size = shape.vertices.size() * sizeof(decltype(shape.vertices)::value_type);
+									memcpy((char*)data + offset, shape.vertices.data(), size);
+									offset += size;
+								}
+						   });
+	// index buffer
+	generic_buffer_factory(object.index_buffer, 
+						   object.index_buffer_memory,
+						   object.get_num_vertex_indices() * sizeof(uint32_t),
+						   VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+							[&](void* data) {
+								size_t offset = 0;
+								for (const auto& shape : object.get_shapes())
+								{
+									size_t size = shape.indices.size() * sizeof(decltype(shape.indices)::value_type);
+									memcpy((char*)data + offset, shape.indices.data(), size);
+									offset += size;
+								}
+						   });
 }
 
 void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
