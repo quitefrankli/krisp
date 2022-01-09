@@ -3,6 +3,7 @@
 #include "shapes.hpp"
 
 #include <glm/gtc/quaternion.hpp>
+#include <glm/mat4x4.hpp>
 
 #include <vector>
 
@@ -37,17 +38,22 @@ public:
 
 	Object() = default;
 	Object(Object&& object) noexcept = default;
-	Object(ResourceLoader& loader, std::string mesh, std::string texture);
+	Object(
+		ResourceLoader& loader, 
+		const std::string& mesh, 
+		const std::string& texture, 
+		const glm::mat4& transform = glm::mat4(1.0f));
 	Object(std::string texture);
 
 	std::vector<Shape> shapes;
-	std::vector<std::vector<Vertex>>& get_vertex_sets();
+	// when using indexed draws, the number of unique vertices < number of indices
+	uint32_t get_num_unique_vertices() const;
+	uint32_t get_num_vertex_indices() const;
 
 	std::string texture;
 
 	void toggle_visibility() { bVisible = !bVisible; }
 	bool get_visibility() const { return bVisible; }
-	void generate_normals();
 
 	bool is_colliding();
 
@@ -64,8 +70,6 @@ public:
 
 private:
 	bool is_transform_old = true;
-	bool is_vertex_sets_old = true;
-	std::vector<std::vector<Vertex>> cached_vertex_sets;
 	glm::mat4 cached_transform;
 	glm::vec3 position = glm::vec3(0.f);
 	glm::vec3 scale = glm::vec3(1.f);

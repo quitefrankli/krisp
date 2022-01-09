@@ -49,10 +49,18 @@ void GameEngine::run()
 
 	// spawn_object<Cube>("../resources/textures/texture2.jpg");
 	// spawn_object<Cube>("../resources/textures/texture.jpg");
-	// spawn_object<Object>(resource_loader, "../resources/models/object.obj", "../resources/textures/object.png");
+	glm::quat model_rotation = glm::angleAxis(
+		Maths::PI, 
+		glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	spawn_object<Object>(
+		resource_loader, 
+		"../resources/models/object.obj", 
+		"../resources/textures/object.png",
+		glm::mat4_cast(model_rotation)).set_position(glm::vec3(0.0f, -8.0f, -2.0f));
 
 	// analytics.quick_timer_start();
-	spawn_object<Sphere>();
+	// spawn_object<Sphere>();
+	// spawn_object<Cube>();
 	// spawn_object<HollowCylinder>();
 	// analytics.quick_timer_stop();
 

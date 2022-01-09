@@ -121,9 +121,10 @@ public: // command buffer
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
-public: // vertex buffer
-	void create_vertex_buffer(GraphicsEngineObject& object);
-
+public: // buffers
+	void create_object_buffers(GraphicsEngineObject& object);
+	
+public:
 	void create_buffer(size_t size, 
 					   VkBufferUsageFlags usage_flags, 
 					   VkMemoryPropertyFlags memory_flags, 

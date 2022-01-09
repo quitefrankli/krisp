@@ -87,24 +87,23 @@ void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
 
 void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 {
-	std::vector<std::vector<Vertex>>& cur_vertex_sets = object.get_vertex_sets();
-	std::vector<VkDescriptorSetLayout> layouts(cur_vertex_sets.size(), 
+	std::vector<VkDescriptorSetLayout> layouts(object.get_shapes().size(), 
 		get_graphics_engine().get_graphics_resource_manager().high_freq_descriptor_set_layout);
 
 	VkDescriptorSetAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	alloc_info.descriptorPool = get_graphics_engine().get_descriptor_pool();
-	alloc_info.descriptorSetCount = cur_vertex_sets.size();
+	alloc_info.descriptorSetCount = object.get_shapes().size();
 	alloc_info.pSetLayouts = layouts.data();
 
-	std::vector<VkDescriptorSet> new_descriptor_sets(cur_vertex_sets.size());
+	std::vector<VkDescriptorSet> new_descriptor_sets(object.get_shapes().size());
 
 	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, new_descriptor_sets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsEngineFrame::spawn_object: failed to allocate descriptor sets!");
 	}
 
-	for (int vertex_set_index = 0; vertex_set_index < cur_vertex_sets.size(); vertex_set_index++)
+	for (int vertex_set_index = 0; vertex_set_index < object.get_shapes().size(); vertex_set_index++)
 	{
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
@@ -226,21 +225,30 @@ void GraphicsEngineFrame::update_command_buffer()
 	int total_descriptor_set_offest = 0;
 	auto per_obj_draw_fn = [&](GraphicsEngineObject& object)
 	{
-		// binding the vertex buffer
-		VkBuffer vertex_buffers[] = { object.vertex_buffer };
+		const auto& shapes = object.get_shapes();
+
+		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(
 			command_buffer, 
 			0, 					// offset
 			1, 					// number of bindings
-			vertex_buffers, 	// array of vertex buffers to bind
+			&object.vertex_buffer, 	// array of vertex buffers to bind
 			offsets				// byte offset to start from for each buffer
+		);
+		vkCmdBindIndexBuffer(
+			command_buffer,
+			object.index_buffer,
+			0,						// offset
+			VK_INDEX_TYPE_UINT32
 		);
 
 		// this really should be per object, we will adjust in the future
 		int total_vertex_offset = 0;
-		for (int vertex_set_index = 0; vertex_set_index < object.get_vertex_sets().size(); vertex_set_index++)
+		for (int vertex_set_index = 0; vertex_set_index < shapes.size(); vertex_set_index++)
 		{
+			const auto& shape = shapes[vertex_set_index];
+
 			// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
 
 			vkCmdBindDescriptorSets(command_buffer, 
@@ -253,15 +261,18 @@ void GraphicsEngineFrame::update_command_buffer()
 									nullptr);
 			total_descriptor_set_offest++;
 		
-			vkCmdDraw(
-				command_buffer, 
-				object.get_vertex_sets()[vertex_set_index].size(), // vertex count
-				1, // instance count (only used for instance rendering)
-				total_vertex_offset, // first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
-				0  // first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
+			vkCmdDrawIndexed(
+				command_buffer,
+				shape.get_num_vertex_indices(),	// vertex count
+				1,	// instance count
+				0,	// first index
+				total_vertex_offset,	// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
+				0	// first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
 			);
 
-			total_vertex_offset += object.get_vertex_sets()[vertex_set_index].size();
+			// this is not get_num_vertex_indices() because we want to offset the vertex set essentially
+			// see NOTE:A
+			total_vertex_offset += shape.get_num_unique_vertices();
 		}
 	};
 
@@ -270,7 +281,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	{
 		if (!object.object->get_visibility())
 		{
-			total_descriptor_set_offest+=object.get_vertex_sets().size();
+			total_descriptor_set_offest+=object.get_shapes().size();
 			continue;
 		}
 		auto pipeline_type = object.texture ? type_t::STANDARD : type_t::COLOR;

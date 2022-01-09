@@ -14,7 +14,10 @@ public:
 	Shape(Shape&& shape) noexcept = default;
 
 	std::vector<Vertex> vertices;
-	const std::vector<Vertex>& get_vertices() const { return vertices; }
+	std::vector<uint32_t> indices;
+	
+	uint32_t get_num_unique_vertices() const { return vertices.size(); }
+	uint32_t get_num_vertex_indices() const { return indices.size(); };
 	void transform_vertices(const glm::mat4& transform);
 	void generate_normals();
 };

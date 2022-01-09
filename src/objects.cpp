@@ -6,6 +6,7 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include <iostream>
+#include <numeric>
 
 
 uint64_t ObjectAbstract::global_id = 0;
@@ -20,9 +21,13 @@ ObjectAbstract::ObjectAbstract(uint64_t id)
 	this->id = id;
 }
 
-Object::Object(ResourceLoader& loader, std::string mesh, std::string texture)
+Object::Object(
+	ResourceLoader& loader, 
+	const std::string& mesh, 
+	const std::string& texture, 
+	const glm::mat4& transform)
 {
-	loader.load_mesh(*this, mesh);
+	loader.load_mesh(*this, mesh, transform);
 	this->texture = texture;
 }
 
@@ -31,18 +36,16 @@ Object::Object(std::string texture_) :
 {
 }
 
-std::vector<std::vector<Vertex>>& Object::get_vertex_sets()
+uint32_t Object::get_num_unique_vertices() const
 {
-	if (is_vertex_sets_old)
-	{
-		is_vertex_sets_old = false;
-		for (auto& shape : shapes)
-		{
-			cached_vertex_sets.emplace_back(shape.get_vertices());
-		}
-	}
+	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
+		return total + shape.get_num_unique_vertices(); });
+}
 
-	return cached_vertex_sets;
+uint32_t Object::get_num_vertex_indices() const
+{
+	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
+		return total + shape.get_num_vertex_indices(); });
 }
 
 void Object::set_position(glm::vec3& position)
@@ -92,14 +95,6 @@ void Object::set_transform(glm::mat4& transform)
 	scale[1] = get_vec3_len(transform[1]);
 	scale[2] = get_vec3_len(transform[2]);
 	position = transform[3];
-}
-
-void Object::generate_normals()
-{
-	for (auto& shape : shapes)
-	{
-		shape.generate_normals();
-	}
 }
 
 Pyramid::Pyramid()
@@ -196,7 +191,7 @@ Sphere::Sphere()
 {
 	const int M = 30;
 	const int N = 30;
-	auto calculate_vec = [&M, &N](float m, float n)
+	auto calculate_vertex = [&M, &N](float m, float n)
 	{
 		m = m / (float)M * Maths::PI;
 		n = n / (float)N * Maths::PI;
@@ -213,37 +208,54 @@ Sphere::Sphere()
 		return vertex;
 	};
 
-	std::vector<Vertex> vertices;
-	vertices.reserve(1024);
-	for (int m = 0; m < M+1; m++)
+	// generate all vertices of sphere
+	Shape shape;
+	shape.vertices.reserve(M*N);
+	shape.indices.reserve(M*N*8);
+
+	for (int m = 0; m <= M; m++)
 	{
 		for (int n = 0; n < N; n++)
 		{
-			vertices.push_back(calculate_vec(m, n));
+			shape.vertices.push_back(calculate_vertex(m, n));
 		}
 	}
-	Shape shape;
-	shape.vertices.reserve(2048);
-	for (int i = 0; i < M*N; i++)
+	
+	auto get_index = [&](int m, int n)
 	{
-		if ((i+1)%N==0)
+		return m*N + n;
+	};
+
+	// edge case first row
+	for (int n = 0; n < N; n++)
+	{
+		const int m = 1;
+		shape.indices.push_back(0);
+		shape.indices.push_back(get_index(m, n));
+		shape.indices.push_back(get_index(m, (n+1)%N));
+	}
+	for (int m = 1; m < M-1; m++)
+	{
+		for (int n = 0; n < N; n++)
 		{
-			shape.vertices.push_back(vertices[i]);
-			shape.vertices.push_back(vertices[i + N]);
-			shape.vertices.push_back(vertices[i + 1]);
-			shape.vertices.push_back(vertices[i]);
-			shape.vertices.push_back(vertices[i + 1]);
-			shape.vertices.push_back(vertices[i - N + 1]);
-		} else 
-		{
-			shape.vertices.push_back(vertices[i]);
-			shape.vertices.push_back(vertices[i + N]);
-			shape.vertices.push_back(vertices[i + N + 1]);
-			shape.vertices.push_back(vertices[i]);
-			shape.vertices.push_back(vertices[i + N + 1]);
-			shape.vertices.push_back(vertices[i + 1]);
+			shape.indices.push_back(get_index(m, n));
+			shape.indices.push_back(get_index(m+1, n));
+			// mod N here due to edge case at last column of a row
+			shape.indices.push_back(get_index(m+1, (n+1)%N));
+			shape.indices.push_back(get_index(m, n));
+			shape.indices.push_back(get_index(m+1, (n+1)%N));
+			shape.indices.push_back(get_index(m, (n+1)%N));
 		}
 	}
+	// edge case last row
+	for (int n = 0; n < N; n++)
+	{
+		const int m = M-1;
+		shape.indices.push_back(get_index(m, n));
+		shape.indices.push_back(shape.vertices.size()-1);
+		shape.indices.push_back(get_index(m, (n+1)%N));
+	}
+
 	shape.generate_normals();
 	shapes.push_back(std::move(shape));
 }

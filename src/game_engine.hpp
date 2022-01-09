@@ -50,8 +50,7 @@ public:
 	template<typename Object_T, typename... Args>
 	Object_T& spawn_object(Args&&... args)
 	{
-		objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
-		auto& object = objects.back();
+		auto& object = objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
 		SpawnObjectCmd cmd;
 		cmd.object = object;
 		cmd.object_id = object->get_id();
