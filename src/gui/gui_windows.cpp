@@ -19,7 +19,7 @@ void GuiGraphicsSettings::draw()
 	ImGui::Begin("Graphics Settings");
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
-	ImGui::SliderFloat3("light position", glm::value_ptr(light_ray.origin), -5.0f, 5.0f);
+	ImGui::SliderFloat3("light position", glm::value_ptr(light_ray.origin), -50.0f, 50.0f);
 	ImGui::SliderFloat3("light direction", glm::value_ptr(light_ray.direction), -1.0f, 1.0f);
 	
 	ImGui::End();

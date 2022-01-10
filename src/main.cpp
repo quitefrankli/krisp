@@ -32,7 +32,9 @@ int main(int argc, char* argv[]) {
 		"%D %H:%M:%S.%Qus",
 		quill::Timezone::LocalTime
 	);
-	// quill::start(); // this will consume CPU cycles
+
+	logger = quill::create_logger("logger");
+	quill::start(); // this will consume CPU cycles
 
 	// seems like glfw window must be on main thread otherwise it wont work, therefore engine should always be on its own thread
 	GameEngine engine;

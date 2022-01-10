@@ -2,6 +2,7 @@
 
 #include "maths.hpp"
 #include "objects.hpp"
+#include "analytics.hpp"
 
 #include <tiny_obj_loader.h>
 #include <glm/glm.hpp>
@@ -13,6 +14,9 @@
 
 void ResourceLoader::load_mesh(Object& object, const std::string& filename, const glm::mat4& transform = glm::mat4(1.0f))
 {
+	Analytics analytics;
+	analytics.quick_timer_start();
+
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -21,7 +25,6 @@ void ResourceLoader::load_mesh(Object& object, const std::string& filename, cons
 	{
 		throw std::runtime_error(err);
 	}
-
 
 	object.shapes.reserve(shapes.size());
 	for (auto& shape : shapes)
@@ -65,7 +68,9 @@ void ResourceLoader::load_mesh(Object& object, const std::string& filename, cons
 		object.shapes.push_back(std::move(new_shape));
 	}
 
-	std::cout << "ResourceLoader::load_mesh: load complete"
+	analytics.quick_timer_stop("ResourceLoader::load_mesh: load time");
+
+	std::cout << "ResourceLoader::load_mesh: load complete!"
 		<< "\n\ttotal indices: " << object.get_num_vertex_indices()
 		<< "\n\ttotal vertices: " << object.get_num_unique_vertices() << '\n';
 }

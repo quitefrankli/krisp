@@ -13,6 +13,7 @@ public:
 	void stop();
 	void quick_timer_start();
 	void quick_timer_stop();
+	void quick_timer_stop(const std::string& mesg);
 	std::string text;
 
 private:
