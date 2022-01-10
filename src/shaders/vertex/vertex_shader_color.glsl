@@ -38,15 +38,11 @@ vec3 get_light_normal()
 void main()
 {
 	gl_Position = ubo.mvp * vec4(inPosition, 1.0);
-	surface_normal = ubo.rot_mat * inNormal;
+
+	fragColor = inColor;
 	light_normal = get_light_normal();
+	surface_normal = ubo.rot_mat * inNormal;
 	// it's likely we can remove the need for gubo.view_pos and compute everything in "view space"
 	view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
-
-	vec3 ambient = inColor * minimum_lighting;
-	vec3 diffuse = inColor * max(dot(surface_normal, light_normal) * gubo.lighting_scalar, 0.0);
-	// vec3 specular = light_color * pow(max(dot(reflect(-light_normal, surface_normal), view_dir), 0.0), 32);
-
 	fragPos = mat3(ubo.model) * inPosition;
-	fragColor = inColor;
 }

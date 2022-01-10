@@ -6,9 +6,11 @@ layout(location = 0) in vec3 inPosition;
 layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec3 inNormal;
 
-// layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
-layout(location = 2) out float lighting;
+layout(location=0) out vec2 fragTexCoord;
+layout(location=1) out vec3 light_normal;
+layout(location=2) out vec3 surface_normal;
+layout(location=3) out vec3 view_dir;
+layout(location=4) out vec3 fragPos;
 
 // be vary of alignment issues
 layout(set=0, binding=0) uniform UniformBufferObject
@@ -27,8 +29,6 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 	float lighting_scalar;
 } gubo;
 
-const float minimum_lighting = 0.1;
-
 vec3 get_light_normal()
 {
 	return normalize(gubo.light_pos - ubo.rot_mat * inPosition);
@@ -37,15 +37,11 @@ vec3 get_light_normal()
 void main()
 {
 	gl_Position = ubo.mvp * vec4(inPosition, 1.0);
+
 	fragTexCoord = inTexCoord;
-
-	vec3 transformed_normal = ubo.rot_mat * inNormal;
-	vec3 light_normal = get_light_normal();
+	light_normal = get_light_normal();
+	surface_normal = ubo.rot_mat * inNormal;
 	// it's likely we can remove the need for gubo.view_pos and compute everything in "view space"
-	vec3 view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
-
-	float ambient_diffuse = clamp(dot(transformed_normal, light_normal) * gubo.lighting_scalar, minimum_lighting, 1.0);
-	float specular = pow(max(dot(reflect(-light_normal, transformed_normal), view_dir), 0.0), 32) * gubo.lighting_scalar;
-	
-	lighting = ambient_diffuse + specular;
+	view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
+	fragPos = mat3(ubo.model) * inPosition;
 }

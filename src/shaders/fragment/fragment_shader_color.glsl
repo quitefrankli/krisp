@@ -23,19 +23,21 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 
 void main()
 {
+	// ambient
+	vec3 ambient = fragColor * 0.03;
+	
     // diffuse 
     vec3 norm = normalize(surface_normal);
     vec3 lightDir = normalize(gubo.light_pos - fragPos);
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * fragColor;
+    vec3 diffuse = diff * fragColor * gubo.lighting_scalar;
     
     // specular
     float specularStrength = 0.5;
     vec3 viewDir = normalize(gubo.view_pos - fragPos);
     vec3 reflectDir = reflect(-lightDir, norm);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * light_color;  
+    vec3 specular = specularStrength * spec * light_color * gubo.lighting_scalar;
         
-	// vec3 specular = light_color * pow(max(dot(reflect(-light_normal, surface_normal), view_dir), 0.0), 32) * 0.5;
-	outColor = vec4(diffuse + specular, 1.0);
+	outColor = vec4(ambient + diffuse + specular, 1.0);
 }

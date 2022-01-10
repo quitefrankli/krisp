@@ -8,6 +8,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
+#include <unordered_map>
 
 
 void ResourceLoader::load_mesh(Object& object, const std::string& filename, const glm::mat4& transform = glm::mat4(1.0f))
@@ -21,23 +22,37 @@ void ResourceLoader::load_mesh(Object& object, const std::string& filename, cons
 		throw std::runtime_error(err);
 	}
 
+
 	object.shapes.reserve(shapes.size());
 	for (auto& shape : shapes)
 	{
+		std::unordered_map<Vertex, uint32_t> unique_vertices;
+		
 		Shape new_shape;
 		new_shape.indices.reserve(shape.mesh.indices.size());
 		new_shape.vertices.reserve(attrib.vertices.size()/3); // attrib uses float to store x/y/z
 		
 		for (auto& index : shape.mesh.indices)
 		{
-			Vertex new_vertex;
-			new_shape.indices.push_back(new_shape.indices.size());
+			std::pair<Vertex, uint32_t> new_pair{};
+			new_pair.second = new_shape.vertices.size();
+
+			Vertex& new_vertex = new_pair.first;
 			memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
 			new_vertex.texCoord = {
 				attrib.texcoords[2 * index.texcoord_index + 0],
 				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
 			};
-			new_shape.vertices.push_back(std::move(new_vertex));
+
+			auto& unique_vertex_element = unique_vertices.insert(std::move(new_pair));
+			if (unique_vertex_element.second)
+			{
+				new_shape.indices.push_back(new_shape.vertices.size());
+				new_shape.vertices.push_back(std::move(new_vertex));
+			} else // if already occupied, set index to the index in which said vertex occupies
+			{
+				new_shape.indices.push_back(unique_vertex_element.first->second);
+			}
 		}
 		
 		if (transform != glm::mat4(1.0f))
