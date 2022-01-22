@@ -6,6 +6,19 @@ set -o pipefail
 SCRIPT=$(readlink -f "$0")
 SCRIPTPATH=$(dirname "$SCRIPT")
 
+compile_dir()
+{
+	shader=$1
+	src_dir=$SCRIPTPATH/src/shaders/$shader
+	build_dir=shaders/$shader
+
+	echo "compiling [$shader] shaders in [$src_dir] to [$build_dir]"
+
+	mkdir -p $build_dir
+	glslc -fshader-stage=vertex $src_dir/vertex_shader.glsl -o $build_dir/vertex_shader.spv
+	glslc -fshader-stage=fragment $src_dir/fragment_shader.glsl -o $build_dir/fragment_shader.spv
+}
+
 #Black        0;30     Dark Gray     1;30
 #Red          0;31     Light Red     1;31
 #Green        0;32     Light Green   1;32
@@ -18,9 +31,8 @@ SCRIPTPATH=$(dirname "$SCRIPT")
 YELLOW='\033[1;33m' # yellow
 GREEN='\033[0;32m' # green
 NC='\033[0m' # No Color
+
 echo -e "${YELLOW}compiling shaders...${NC}"
-glslc -fshader-stage=vertex $SCRIPTPATH/src/shaders/vertex/vertex_shader.glsl -o vertex_shader.spv 
-glslc -fshader-stage=vertex $SCRIPTPATH/src/shaders/vertex/vertex_shader_color.glsl -o vertex_shader_color.spv 
-glslc -fshader-stage=fragment $SCRIPTPATH/src/shaders/fragment/fragment_shader.glsl -o fragment_shader.spv
-glslc -fshader-stage=fragment $SCRIPTPATH/src/shaders/fragment/fragment_shader_color.glsl -o fragment_shader_color.spv
+compile_dir color
+compile_dir texture
 echo -e "${GREEN}shader compilation complete!${NC}"

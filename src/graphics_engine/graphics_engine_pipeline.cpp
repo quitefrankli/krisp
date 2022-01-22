@@ -17,7 +17,7 @@ static std::vector<char> readFile(const std::string& filename) {
         throw std::runtime_error("failed to open file!");
     }
 	
-	size_t fileSize = (size_t) file.tellg();
+	size_t fileSize = (size_t)file.tellg();
 	std::vector<char> buffer(fileSize);
 	file.seekg(0);
 	file.read(buffer.data(), fileSize);
@@ -79,23 +79,21 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 {
 	create_render_pass();
 
-	std::string vertex_shader_file, fragment_shader_file;
+	std::string shader_directory;
 	switch (pipeline_type)
 	{
 		case PIPELINE_TYPE::WIREFRAME:
 		case PIPELINE_TYPE::COLOR:
-			vertex_shader_file = "vertex_shader_color.spv";
-			fragment_shader_file = "fragment_shader_color.spv";
+			shader_directory = "color";
 			break;
 		case PIPELINE_TYPE::STANDARD:
 		default:
-			vertex_shader_file = "vertex_shader.spv";
-			fragment_shader_file = "fragment_shader.spv";
+			shader_directory = "texture";
 			break;
 	}	
 
-    auto vertShaderCode = readFile(vertex_shader_file);
-    auto fragShaderCode = readFile(fragment_shader_file);
+    auto vertShaderCode = readFile("shaders/" + shader_directory + "/vertex_shader.spv");
+    auto fragShaderCode = readFile("shaders/" + shader_directory + "/fragment_shader.spv");
 
 	VkShaderModule vertex_shader = create_shader_module(vertShaderCode, get_logical_device());
 	VkShaderModule fragment_shader = create_shader_module(fragShaderCode, get_logical_device());
