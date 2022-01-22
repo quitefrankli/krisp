@@ -198,7 +198,7 @@ void GraphicsEngineTexture::create_texture_sampler()
 	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.anisotropyEnable = true; // small performance hiccup
-	sampler_info.maxAnisotropy = get_graphics_engine().get_physical_device_properties().limits.maxSamplerAnisotropy; // higher = slower
+	sampler_info.maxAnisotropy = get_graphics_engine().get_device_module().get_physical_device_properties().limits.maxSamplerAnisotropy; // higher = slower
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
 												  // so that you can use textures of varying resolutions with same coordinates

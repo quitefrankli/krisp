@@ -147,6 +147,34 @@ void GraphicsEngineDevice::print_physical_device_settings()
 {
 	VkPhysicalDeviceProperties properties;
 	vkGetPhysicalDeviceProperties(physicalDevice, &properties);
-	std::cout << "Cached physical device properties\n";
-	std::cout << "\tmaxBoundDescriptorSets " << properties.limits.maxBoundDescriptorSets << '\n';
+
+	std::cout << "Cached physical device properties:" << 
+		"\n\tmaxBoundDescriptorSets: " << properties.limits.maxBoundDescriptorSets <<
+		"\n\tmaxMSAA_Samples: " << get_max_usable_msaa() << '\n';
+}
+
+const VkPhysicalDeviceProperties& GraphicsEngineDevice::get_physical_device_properties()
+{
+	if (!bPhysicalDevicePropertiesCached)
+	{
+		vkGetPhysicalDeviceProperties(get_physical_device(), &physical_device_properties);			
+		bPhysicalDevicePropertiesCached = true;
+	}
+
+	return physical_device_properties;
+}
+
+VkSampleCountFlagBits GraphicsEngineDevice::get_max_usable_msaa()
+{
+	auto properties = get_physical_device_properties();
+
+    VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+	if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+	if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+	if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+	if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+	if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+	if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+	return VK_SAMPLE_COUNT_1_BIT;
 }

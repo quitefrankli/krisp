@@ -43,21 +43,25 @@ void GameEngine::run()
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
 
-	const std::string mesh = "../resources/models/viking_room.obj";
-	const std::string texture = "../resources/textures/viking_room.png";
 	// spawn_object<Object>(resource_loader, mesh, texture);
 
 	// spawn_object<Cube>("../resources/textures/texture2.jpg");
 	// spawn_object<Cube>("../resources/textures/texture.jpg");
 
-	glm::quat model_rotation = glm::angleAxis(
-		Maths::PI, 
-		glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-	spawn_object<Object>(
-		resource_loader, 
-		"../resources/models/object.obj", 
-		"../resources/textures/object.png",
-		glm::mat4_cast(model_rotation)).set_position(glm::vec3(0.0f, -8.0f, -2.0f));
+	// glm::quat model_rotation = glm::angleAxis(
+	// 	Maths::PI, 
+	// 	glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	// spawn_object<Object>(
+	// 	resource_loader, 
+	// 	"../resources/models/object.obj", 
+	// 	"../resources/textures/object.png",
+	// 	glm::mat4_cast(model_rotation)).set_position(glm::vec3(0.0f, -8.0f, -2.0f));
+
+	// spawn_object<>(
+	// 	resource_loader,
+	// 	"../resources/models/viking_room.obj",
+	// 	"../resources/textures/viking_room.png"
+	// );
 
 	// analytics.quick_timer_start();
 	// spawn_object<Sphere>();

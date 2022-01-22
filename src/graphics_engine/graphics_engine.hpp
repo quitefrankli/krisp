@@ -79,10 +79,10 @@ public: // getters and setters
 	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
 	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
 	GraphicsEnginePool& get_graphics_resource_manager() { return pool; }
+	GraphicsEngineDevice& get_device_module() { return device; }
 
 private: // flags (these must be before core components)
 	bool should_shutdown = false;
-	bool bPhysicalDevicePropertiesCached = false;
 
 private: // core components
 	GameEngine& game_engine;
@@ -106,7 +106,6 @@ private:
 	std::vector<GraphicsEngineObject> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
-	VkPhysicalDeviceProperties physical_device_properties;
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
@@ -131,9 +130,6 @@ public:
 					   VkBuffer& buffer, 
 					   VkDeviceMemory& device_memory);
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
-
-public:
-	const VkPhysicalDeviceProperties& get_physical_device_properties();
 
 public: // other
 	// graphics cards offer different types of memory to allocate from, each type of memory varies

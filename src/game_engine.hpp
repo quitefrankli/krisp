@@ -47,7 +47,7 @@ public:
 
 	void run();
 	void shutdown() { shutdown_impl(); }
-	template<typename Object_T, typename... Args>
+	template<typename Object_T = Object, typename... Args>
 	Object_T& spawn_object(Args&&... args)
 	{
 		auto& object = objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));

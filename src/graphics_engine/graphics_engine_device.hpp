@@ -17,7 +17,14 @@ public:
 	VkPhysicalDevice& get_physical_device() override { return physicalDevice; }
 
 	void print_physical_device_settings();
+
+	VkSampleCountFlagBits get_max_usable_msaa();
+
+	const VkPhysicalDeviceProperties& get_physical_device_properties();
+
 private:
+	bool bPhysicalDevicePropertiesCached = false;
+
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
 
@@ -26,4 +33,6 @@ private:
 	void pick_physical_device();
 	void create_logical_device();
 	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);
+
+	VkPhysicalDeviceProperties physical_device_properties;
 };

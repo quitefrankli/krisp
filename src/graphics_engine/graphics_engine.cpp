@@ -124,16 +124,6 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 	throw std::runtime_error("failed to find suitable memory type!");
 };
 
-const VkPhysicalDeviceProperties& GraphicsEngine::get_physical_device_properties()
-{
-	if (!bPhysicalDevicePropertiesCached)
-	{
-		vkGetPhysicalDeviceProperties(get_physical_device(), &physical_device_properties);			
-	}
-
-	return physical_device_properties;
-}
-
 void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 {
 	auto& graphics_object = objects.emplace_back(*this, std::move(object));
