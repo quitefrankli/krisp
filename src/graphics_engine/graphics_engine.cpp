@@ -2,7 +2,7 @@
 
 #include "camera.hpp"
 #include "game_engine.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 #include "uniform_buffer_object.hpp"
 #include "utility_functions.hpp"
 #include "analytics.hpp"

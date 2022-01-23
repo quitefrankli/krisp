@@ -1,6 +1,7 @@
 #include "camera.hpp"
 #include "game_engine.hpp"
 #include "maths.hpp"
+#include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 
@@ -60,3 +61,5 @@ void Camera::set_transform(glm::mat4& transformation)
 	up_vector = get_rotation() * ORIGINAL_UP_VECTOR;
 	focus_obj->set_rotation(get_rotation());
 }
+
+Camera::~Camera() = default;

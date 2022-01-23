@@ -2,7 +2,7 @@
 
 #include "input.hpp"
 #include "window.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 #include "resource_loader.hpp"
 #include "animations/animator.hpp"
 #include "maths.hpp"

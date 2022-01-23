@@ -1,7 +1,6 @@
 #pragma once
 
-#include "objects.hpp"
-
+#include "objects/object.hpp"
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -31,7 +30,7 @@ public:
 
 public:
 	Camera(GameEngine& engine, float aspect_ratio);
-	~Camera() {};
+	~Camera();
 
 	glm::mat4 get_perspective();
 	glm::mat4 get_view();

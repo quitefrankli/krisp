@@ -1,7 +1,7 @@
 #include "resource_loader.hpp"
 
 #include "maths.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 #include "analytics.hpp"
 
 #include <tiny_obj_loader.h>

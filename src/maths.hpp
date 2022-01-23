@@ -27,4 +27,12 @@ namespace Maths
 		glm::vec3 direction;
 		float length = 1.0f;
 	};
+
+	struct Sphere
+	{
+		Sphere() = default;
+		Sphere(glm::vec3 origin_, float radius_) : origin(origin_), radius(radius_) {}
+		glm::vec3 origin;
+		float radius;
+	};
 };

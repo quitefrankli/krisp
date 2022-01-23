@@ -6,7 +6,7 @@
 #include "graphics_engine_swap_chain.hpp"
 
 #include "graphics_engine.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 
 #include <algorithm>
 #include <iostream>

@@ -2,7 +2,7 @@
 
 #include "graphics_engine.hpp"
 #include "graphics_engine_swap_chain.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 #include "uniform_buffer_object.hpp"
 #include "camera.hpp"
 

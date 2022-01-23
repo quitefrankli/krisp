@@ -1,8 +1,7 @@
 #include "game_engine.hpp"
 
 #include "camera.hpp"
-#include "objects.hpp"
-#include "shapes.hpp"
+#include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"

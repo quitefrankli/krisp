@@ -1,12 +1,12 @@
 #pragma once
 
 #include "graphics_engine_base_module.hpp"
-#include "objects.hpp"
 
 #include <vulkan/vulkan.hpp>
 
 
 class Object;
+class Shape;
 class GraphicsEngine;
 class GraphicsEngineTexture;
 

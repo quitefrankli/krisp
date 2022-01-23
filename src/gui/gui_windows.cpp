@@ -1,5 +1,6 @@
 #include "gui/gui_manager.hpp"
 #include "game_engine.hpp"
+#include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 
 #include <imgui.h>

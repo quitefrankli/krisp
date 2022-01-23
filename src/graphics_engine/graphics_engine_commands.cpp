@@ -1,6 +1,6 @@
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 
 #include <mutex>
 

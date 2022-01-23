@@ -1,6 +1,7 @@
 #pragma once
 
-#include "shapes.hpp"
+#include "shapes/shape.hpp"
+#include "maths.hpp"
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/mat4x4.hpp>
@@ -55,8 +56,6 @@ public:
 	void toggle_visibility() { bVisible = !bVisible; }
 	bool get_visibility() const { return bVisible; }
 
-	bool is_colliding();
-
 public:
 	virtual glm::mat4 get_transform();
 	virtual glm::vec3 get_position() const { return position; }
@@ -69,56 +68,28 @@ public:
 	virtual void set_rotation(glm::quat& rotation);
 
 private:
+	// void calculate_shape_extent();
+	void calculate_shape_extent_sphere();
+
+private:
 	bool is_transform_old = true;
 	glm::mat4 cached_transform;
 	glm::vec3 position = glm::vec3(0.f);
 	glm::vec3 scale = glm::vec3(1.f);
 	glm::quat orientation; // default init creates identity quaternion
 	bool bVisible = true;
-};
 
-class Pyramid : public Object
-{
-public:
-	Pyramid();
-	Pyramid(Pyramid&& pyramid) noexcept = default;
-};
-
-class Cube : public Object
-{
-public:
-	Cube();
-	Cube(std::string texture);
-	Cube(Cube&& cube) noexcept = default;
+//
+// collision
+//
 
 private:
-	void init();
-};
+	template<typename geometry>
+	void calculate_bounding_primitive();
+	Maths::Sphere bounding_primitive_sphere;
+	bool is_bounding_primitive_cached = false;
 
-// note that this is procedurally generated and very slow
-class Sphere : public Object
-{
 public:
-	Sphere();
-	Sphere(Sphere&& cube) noexcept = default;
-};
-
-class HollowCylinder : public Object
-{
-public:
-	HollowCylinder();
-	HollowCylinder(HollowCylinder&& hollow_cylinder) noexcept = default;
-
-	// for tower of hanoi
-	int pillar_index = 0;
-};
-
-class Cylinder : public Object
-{
-public:
-	Cylinder();
-	Cylinder(Cylinder&& cylinder) noexcept = default;
-
-	// for tower of hanoi
-	float content_height = 0.0f;
+	template<typename geometry>
+ 	bool check_collision(Maths::Ray& ray);
 };

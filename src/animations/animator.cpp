@@ -1,5 +1,7 @@
 #include "animator.hpp"
 
+#include "objects/objects.hpp"
+
 #include <iostream>
 
 

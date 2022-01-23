@@ -1,10 +1,14 @@
 #pragma once
 
-#include "objects.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <list>
 #include <queue>
+#include <memory>
 
+
+class Object;
 
 class Animation
 {

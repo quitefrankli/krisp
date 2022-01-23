@@ -21,18 +21,3 @@ public:
 	void transform_vertices(const glm::mat4& transform);
 	void generate_normals();
 };
-
-class Square : public Shape
-{
-public:
-	Square();
-	Square(Square&& square) noexcept = default;
-};
-
-class Triangle : public Shape
-{
-public:
-	Triangle();
-	Triangle(Triangle&& triangle) noexcept = default;
-};
-

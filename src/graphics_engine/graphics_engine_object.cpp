@@ -1,6 +1,6 @@
 #include "graphics_engine_object.hpp"
 
-#include "objects.hpp"
+#include "objects/object.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 
 

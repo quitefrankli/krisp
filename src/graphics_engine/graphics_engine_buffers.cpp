@@ -1,5 +1,5 @@
 #include "graphics_engine.hpp"
-#include "objects.hpp"
+#include "objects/object.hpp"
 
 
 void GraphicsEngine::create_buffer(size_t size, 

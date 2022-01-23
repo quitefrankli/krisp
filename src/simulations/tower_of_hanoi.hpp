@@ -1,7 +1,7 @@
 #pragma once
 
 #include "simulation.hpp"
-#include "objects.hpp"
+#include "objects/objects.hpp"
 
 
 class TowerOfHanoi : public Simulation
