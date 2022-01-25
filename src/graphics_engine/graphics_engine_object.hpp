@@ -15,7 +15,6 @@ class GraphicsEngineObject : public GraphicsEngineBaseModule
 public:
 	GraphicsEngineObject(GraphicsEngine& engine);
 	GraphicsEngineObject(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
-	GraphicsEngineObject(GraphicsEngineObject&& object) noexcept;
 
 	~GraphicsEngineObject();
 
@@ -45,7 +44,4 @@ public:
 	const std::vector<Shape>& get_shapes() const;
 
 	GraphicsEngineTexture* texture = nullptr;
-private:
-	// we need this here so that when we perform a std::move we don't destroy the old memory
-	bool require_cleanup = true;
 };

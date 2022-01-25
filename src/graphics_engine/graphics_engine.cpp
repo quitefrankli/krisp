@@ -126,22 +126,22 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 
 void GraphicsEngine::spawn_object(std::shared_ptr<Object>& object)
 {
-	auto& graphics_object = objects.emplace_back(*this, std::move(object));
-	create_object_buffers(graphics_object);
+	auto& graphics_object = objects.emplace_back(std::make_unique<GraphicsEngineObject>(*this, std::move(object)));
+	create_object_buffers(*graphics_object);
 
 	// uniform buffer
 	create_buffer(sizeof(UniformBufferObject),
 				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  graphics_object.uniform_buffer,
-				  graphics_object.uniform_buffer_memory);
+				  graphics_object->uniform_buffer,
+				  graphics_object->uniform_buffer_memory);
 
-	if (!graphics_object.object->texture.empty())
+	if (!graphics_object->object->texture.empty())
 	{
-		graphics_object.texture = &texture_mgr.create_new_unit(graphics_object.object->texture);
+		graphics_object->texture = &texture_mgr.create_new_unit(graphics_object->object->texture);
 	}
 	
-	swap_chain.spawn_object(graphics_object);
+	swap_chain.spawn_object(*graphics_object);
 }
 
 void GraphicsEngine::recreate_swap_chain()

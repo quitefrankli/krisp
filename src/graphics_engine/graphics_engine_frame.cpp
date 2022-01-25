@@ -277,21 +277,21 @@ void GraphicsEngineFrame::update_command_buffer()
 	};
 
 	using type_t = GraphicsEnginePipeline::PIPELINE_TYPE;
-	for (auto& object : get_graphics_engine().get_objects())
+	for (auto& graphics_object : get_graphics_engine().get_objects())
 	{
-		if (!object.object->get_visibility())
+		if (!graphics_object->object->get_visibility())
 		{
-			total_descriptor_set_offest+=object.get_shapes().size();
+			total_descriptor_set_offest+=graphics_object->get_shapes().size();
 			continue;
 		}
-		auto pipeline_type = object.texture ? type_t::STANDARD : type_t::COLOR;
+		auto pipeline_type = graphics_object->texture ? type_t::STANDARD : type_t::COLOR;
 		if (get_graphics_engine().is_wireframe_mode)
 		{
 			pipeline_type = type_t::WIREFRAME;
 		}
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_pipeline(pipeline_type)); // bind the graphics pipeline
 
-		per_obj_draw_fn(object);
+		per_obj_draw_fn(*graphics_object);
 	}
 
 	// render gui
@@ -431,14 +431,14 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	// update per object uniforms
 	UniformBufferObject default_ubo{};
 	default_ubo.model = glm::mat4(1);
-	for (auto& object : get_graphics_engine().get_objects())
+	for (auto& graphics_object : get_graphics_engine().get_objects())
 	{
-		default_ubo.model = object.object->get_transform();
+		default_ubo.model = graphics_object->object->get_transform();
 		default_ubo.mvp = gubo.proj * gubo.view * default_ubo.model;
-		default_ubo.rot_mat = glm::mat4_cast(object.object->get_rotation());
-		vkMapMemory(get_logical_device(), object.uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &data);
+		default_ubo.rot_mat = glm::mat4_cast(graphics_object->object->get_rotation());
+		vkMapMemory(get_logical_device(), graphics_object->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &data);
 		memcpy(data, &default_ubo, sizeof(UniformBufferObject));
-		vkUnmapMemory(get_logical_device(), object.uniform_buffer_memory);
+		vkUnmapMemory(get_logical_device(), graphics_object->uniform_buffer_memory);
 	}
 }
 
