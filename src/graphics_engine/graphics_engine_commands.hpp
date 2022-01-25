@@ -33,9 +33,14 @@ public:
 class SpawnObjectCmd : public ObjectCommand
 {
 public:
+	SpawnObjectCmd(std::shared_ptr<Object> object, uint64_t object_id);
+	SpawnObjectCmd(Object& object, uint64_t object_id);
+
 	void process(GraphicsEngine* engine) override;
 
+private:
 	std::shared_ptr<Object> object;
+	Object* object_ref = nullptr; // used for a GraphicsEngineObjectRef type object
 };
 
 class ShutdownCmd : public GraphicsEngineCommand

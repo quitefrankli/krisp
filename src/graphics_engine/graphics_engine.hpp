@@ -142,8 +142,5 @@ public: // thread safe
 
 private: // friends
 	friend SpawnObjectCmd;
-	// friend SpawnObjectRefCmd;
-
-	void spawn_object(std::shared_ptr<Object>& object);
 };
 

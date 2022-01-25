@@ -57,7 +57,7 @@ public:
 	bool get_visibility() const { return bVisible; }
 
 public:
-	virtual glm::mat4 get_transform();
+	virtual glm::mat4 get_transform() const;
 	virtual glm::vec3 get_position() const { return position; }
 	virtual glm::vec3 get_scale() const { return scale; }
 	virtual glm::quat get_rotation() const { return orientation; }
@@ -72,8 +72,8 @@ private:
 	void calculate_shape_extent_sphere();
 
 private:
-	bool is_transform_old = true;
-	glm::mat4 cached_transform;
+	mutable bool is_transform_old = true;
+	mutable glm::mat4 cached_transform;
 	glm::vec3 position = glm::vec3(0.f);
 	glm::vec3 scale = glm::vec3(1.f);
 	glm::quat orientation; // default init creates identity quaternion

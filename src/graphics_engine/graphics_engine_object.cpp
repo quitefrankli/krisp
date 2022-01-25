@@ -9,12 +9,6 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine) :
 {
 }
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object) :
-	GraphicsEngineBaseModule(engine),
-	object(std::move(game_engine_object))
-{
-}
-
 GraphicsEngineObject::~GraphicsEngineObject()
 {
 	vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
@@ -29,17 +23,17 @@ GraphicsEngineObject::~GraphicsEngineObject()
 
 const std::vector<Shape>& GraphicsEngineObject::get_shapes() const
 {
-	return object->shapes;
+	return get_game_object().shapes;
 }
 
 uint32_t GraphicsEngineObject::get_num_unique_vertices() const
 {
-	return object->get_num_unique_vertices();
+	return get_game_object().get_num_unique_vertices();
 }
 
 uint32_t GraphicsEngineObject::get_num_vertex_indices() const
 {
-	return object->get_num_vertex_indices();
+	return get_game_object().get_num_vertex_indices();
 }
 
 VkImageView& GraphicsEngineObject::get_texture_image_view() 
@@ -50,4 +44,30 @@ VkImageView& GraphicsEngineObject::get_texture_image_view()
 VkSampler& GraphicsEngineObject::get_texture_sampler() 
 { 
 	return texture->get_texture_sampler();
+}
+
+//
+// Derived objects
+//
+
+GraphicsEngineObjectPtr::GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object) :
+	GraphicsEngineObject(engine),
+	object(std::move(game_engine_object))
+{
+}
+
+const Object& GraphicsEngineObjectPtr::get_game_object() const
+{
+	return *object;
+}
+
+GraphicsEngineObjectRef::GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object) :
+	GraphicsEngineObject(engine),
+	object(game_engine_object)
+{
+}
+
+const Object& GraphicsEngineObjectRef::get_game_object() const
+{
+	return object;
 }

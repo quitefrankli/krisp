@@ -14,17 +14,16 @@ class GraphicsEngineObject : public GraphicsEngineBaseModule
 {
 public:
 	GraphicsEngineObject(GraphicsEngine& engine);
-	GraphicsEngineObject(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
 
 	~GraphicsEngineObject();
-
-	std::shared_ptr<Object> object;
 
 	//
 	// I realised i messed up big time, these resources should be per swapchain image per object
 	// (perhaps vertex can be just per object unless we decide to add dynamic meshes)
 	// however uniform buffer should dedfinently be per swapchain image per object
 	//
+
+	const virtual Object& get_game_object() const = 0;
 
 	VkBuffer vertex_buffer;
 	VkDeviceMemory vertex_buffer_memory;
@@ -44,4 +43,28 @@ public:
 	const std::vector<Shape>& get_shapes() const;
 
 	GraphicsEngineTexture* texture = nullptr;
+};
+
+// thread safe object
+class GraphicsEngineObjectPtr : public GraphicsEngineObject
+{
+public:
+	GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
+	
+	const Object& get_game_object() const override;
+
+private:
+	std::shared_ptr<Object> object;
+};
+
+// object must NEVER be destroyed while graphics engine is running
+class GraphicsEngineObjectRef : public GraphicsEngineObject
+{
+public:
+	GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object);
+	
+	const Object& get_game_object() const override;
+
+private:
+	Object& object;
 };

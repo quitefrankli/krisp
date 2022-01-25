@@ -68,7 +68,7 @@ void Object::set_rotation(glm::quat& rotation)
 	this->orientation = rotation;
 }
 
-glm::mat4 Object::get_transform()
+glm::mat4 Object::get_transform() const
 {
 	if (is_transform_old)
 	{

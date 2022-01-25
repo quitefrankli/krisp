@@ -51,10 +51,8 @@ public:
 	Object_T& spawn_object(Args&&... args)
 	{
 		auto& object = objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
-		SpawnObjectCmd cmd;
-		cmd.object = object;
-		cmd.object_id = object->get_id();
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(std::move(cmd)));
+		auto cmd = std::make_unique<SpawnObjectCmd>(object, object->get_id());
+		graphics_engine->enqueue_cmd(std::move(cmd));
 		return *static_cast<Object_T*>(object.get());
 	}
 

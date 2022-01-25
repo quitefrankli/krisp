@@ -279,7 +279,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	using type_t = GraphicsEnginePipeline::PIPELINE_TYPE;
 	for (auto& graphics_object : get_graphics_engine().get_objects())
 	{
-		if (!graphics_object->object->get_visibility())
+		if (!graphics_object->get_game_object().get_visibility())
 		{
 			total_descriptor_set_offest+=graphics_object->get_shapes().size();
 			continue;
@@ -433,9 +433,9 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	default_ubo.model = glm::mat4(1);
 	for (auto& graphics_object : get_graphics_engine().get_objects())
 	{
-		default_ubo.model = graphics_object->object->get_transform();
+		default_ubo.model = graphics_object->get_game_object().get_transform();
 		default_ubo.mvp = gubo.proj * gubo.view * default_ubo.model;
-		default_ubo.rot_mat = glm::mat4_cast(graphics_object->object->get_rotation());
+		default_ubo.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
 		vkMapMemory(get_logical_device(), graphics_object->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &data);
 		memcpy(data, &default_ubo, sizeof(UniformBufferObject));
 		vkUnmapMemory(get_logical_device(), graphics_object->uniform_buffer_memory);
