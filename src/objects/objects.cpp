@@ -4,41 +4,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 
-Pyramid::Pyramid()
-{
-	Triangle left, right, back, bottom;
-	{
-		glm::mat4 transform(1.0f);
-		transform = glm::translate(transform, glm::vec3(-0.5f, 0.0f, 0.0f));
-		transform = glm::rotate(transform, Maths::deg2rad(90.0f)*2.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-		transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		left.transform_vertices(transform);
-	}
-	{
-		glm::mat4 transform(1.0f);
-		transform = glm::translate(transform, glm::vec3(0.5f, 0.0f, 0.0f));
-		transform = glm::rotate(transform, Maths::deg2rad(-90.0f)*2.0f, glm::vec3(0.0f, 1.0f, 0.0f));
-		transform = glm::rotate(transform, Maths::deg2rad(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-		right.transform_vertices(transform);
-	}
-	{
-		glm::mat4 transform(1.0f);
-		transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, 0.5f));
-		back.transform_vertices(transform);
-	}
-	{
-		glm::mat4 transform(1.0f);
-		transform = glm::translate(transform, glm::vec3(0.0f, -0.5f, 0.0f));
-		transform = glm::rotate(transform, Maths::deg2rad(-90.0f)*2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-		bottom.transform_vertices(transform);
-	}
-
-	shapes.push_back(std::move(left));
-	shapes.push_back(std::move(right));
-	shapes.push_back(std::move(back));
-	shapes.push_back(std::move(bottom));
-}
-
 Cube::Cube()
 {
 	init();
@@ -52,7 +17,7 @@ Cube::Cube(std::string texture) :
 
 void Cube::init()
 {
-	Square left, right, front, back, top, bottom;
+	Shapes::Square left, right, front, back, top, bottom;
 	glm::mat4 idt(1.0f);
 	glm::mat4 transform;
 
@@ -233,13 +198,12 @@ HollowCylinder::HollowCylinder()
 	}
 }
 
-Cylinder::Cylinder()
+static Shape generate_cylinder(const int nVertices)
 {
-	const int M = 30;
 	const glm::vec3 COLOR{ 1.0f, 1.0f, 0.0f };
-	auto calculate_vec = [&M, &COLOR](float m, float y)
+	auto calculate_vec = [&nVertices, &COLOR](float m, float y)
 	{
-		m = m / (float)M * Maths::PI * 2.0f;
+		m = m / (float)nVertices * Maths::PI * 2.0f;
 		Vertex vertex;
 		vertex.pos = {
 			sinf(m) * 0.5f,
@@ -256,7 +220,7 @@ Cylinder::Cylinder()
 	shape.vertices.reserve(1024);
 	Vertex top{ glm::vec3(0.0f, 0.5f, 0.0f), COLOR };
 	Vertex bottom{ glm::vec3(0.0f, -0.5f, 0.0f), COLOR };
-	for (int m = 0; m < M; m++)
+	for (int m = 0; m < nVertices; m++)
 	{
 		// side
 		shape.vertices.push_back(calculate_vec(m, 1.0f));
@@ -276,7 +240,13 @@ Cylinder::Cylinder()
 		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
 		shape.vertices.push_back(calculate_vec(m, -1.0f));
 	}
-	shapes.push_back(std::move(shape));
+	
+	return shape;
+}
+
+Cylinder::Cylinder()
+{
+	shapes.push_back(std::move(generate_cylinder(30)));
 
 	// make the bottom its origin
 	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
@@ -284,4 +254,37 @@ Cylinder::Cylinder()
 	{
 		shape.transform_vertices(vertex_transform);
 	}
+}
+
+Arrow::Arrow()
+{
+	const int nVertices = 8;
+	const glm::vec3 COLOR{ 1.0f, 1.0f, 0.0f };
+	
+	shapes.emplace_back(Shapes::Cylinder(nVertices, COLOR));
+	shapes.emplace_back(Shapes::Cone(nVertices, COLOR));
+
+	Shape& cylinder = shapes[0];
+	Shape& cone = shapes[1];
+
+	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
+
+	glm::mat4 cylinder_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.4f, 0.0f));
+	cylinder_transform = cylinder_transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.8f, 0.1f));
+	cylinder_transform = glm::mat4_cast(quat) * cylinder_transform;
+	cylinder.transform_vertices(cylinder_transform);
+
+	glm::mat4 cone_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.9f, 0.0f));
+	cone_transform = cone_transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.2f, 0.3f));
+	cone_transform = glm::mat4_cast(quat) * cone_transform;
+	cone.transform_vertices(cone_transform);
+}
+
+void Arrow::point(const glm::vec3& start, const glm::vec3& end)
+{
+	glm::vec3 v1(0.0f, 0.0f, -1.0f); // aka forward vector
+	auto v2 = glm::normalize(end - start);
+	glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
+	set_rotation(rot);
+	set_position(start);
 }

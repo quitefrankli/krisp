@@ -40,3 +40,26 @@ void Shape::generate_normals()
 		vertices[index].normal = glm::normalize(vertices[index].normal / (float)counter[index]);
 	}
 }
+
+void Shape::deduplicate_vertices()
+{
+	std::unordered_map<Vertex, uint32_t> unique_vertices;
+	indices.clear();
+	indices.reserve(vertices.size());
+
+	uint32_t true_vertex_index = 0;
+	for (auto& vertex : vertices)
+	{
+		auto& unique_vertex_element = unique_vertices.try_emplace(std::move(vertex), true_vertex_index);
+		if (unique_vertex_element.second)
+		{
+			// new vertex
+			vertices[true_vertex_index] = vertex;
+			indices.emplace_back(true_vertex_index++);
+		} else
+		{
+			// if already occupied, set index to the index in which said vertex occupies
+			indices.emplace_back(unique_vertex_element.first->second);
+		}
+	}
+}

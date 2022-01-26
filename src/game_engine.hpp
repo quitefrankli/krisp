@@ -8,6 +8,7 @@
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
+#include "interface/gizmo.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -58,6 +59,7 @@ public:
 
 private:
 	App::Window window;
+	TranslationGizmo gizmo;
     std::unique_ptr<GraphicsEngine> graphics_engine;
 	std::unique_ptr<Camera> camera;
 	Keyboard keyboard;

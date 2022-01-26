@@ -3,13 +3,6 @@
 #include "object.hpp"
 
 
-class Pyramid : public Object
-{
-public:
-	Pyramid();
-	Pyramid(Pyramid&& pyramid) noexcept = default;
-};
-
 class Cube : public Object
 {
 public:
@@ -47,4 +40,13 @@ public:
 
 	// for tower of hanoi
 	float content_height = 0.0f;
+};
+
+class Arrow : public Object
+{
+public:
+	Arrow();
+	Arrow(Arrow&&) = delete;
+
+	void point(const glm::vec3& start, const glm::vec3& end);
 };

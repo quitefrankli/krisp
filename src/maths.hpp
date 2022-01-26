@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/vec3.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 
 namespace Maths
@@ -35,4 +36,7 @@ namespace Maths
 		glm::vec3 origin;
 		float radius;
 	};
+
+	// assume normalized already
+	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end);
 };

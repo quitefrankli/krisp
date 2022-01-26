@@ -16,8 +16,11 @@ public:
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 	
-	uint32_t get_num_unique_vertices() const { return vertices.size(); }
-	uint32_t get_num_vertex_indices() const { return indices.size(); };
+	uint32_t get_num_unique_vertices() const { return static_cast<uint32_t>(vertices.size()); }
+	uint32_t get_num_vertex_indices() const { return static_cast<uint32_t>(indices.size()); };
 	void transform_vertices(const glm::mat4& transform);
 	void generate_normals();
+
+	// WARNING this is expensive
+	void deduplicate_vertices();
 };

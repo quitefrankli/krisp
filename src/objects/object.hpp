@@ -62,10 +62,10 @@ public:
 	virtual glm::vec3 get_scale() const { return scale; }
 	virtual glm::quat get_rotation() const { return orientation; }
 
-	virtual void set_transform(glm::mat4& transform);
-	virtual void set_position(glm::vec3& position);
-	virtual void set_scale(glm::vec3& scale);
-	virtual void set_rotation(glm::quat& rotation);
+	virtual void set_transform(const glm::mat4& transform);
+	virtual void set_position(const glm::vec3& position);
+	virtual void set_scale(const glm::vec3& scale);
+	virtual void set_rotation(const glm::quat& rotation);
 
 private:
 	// void calculate_shape_extent();

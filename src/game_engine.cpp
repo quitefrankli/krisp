@@ -25,7 +25,8 @@ extern quill::Logger* logger;
 
 GameEngine::GameEngine() :
 	window(this),
-	mouse(window)
+	mouse(window),
+	gizmo(*this)
 {
 	graphics_engine = std::make_unique<GraphicsEngine>(*this);
 
@@ -38,6 +39,8 @@ void GameEngine::run()
 {
 	graphics_engine_thread = std::thread(&GraphicsEngine::run, graphics_engine.get());
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+	gizmo.init();
 
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";

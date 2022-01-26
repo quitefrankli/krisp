@@ -50,19 +50,19 @@ uint32_t Object::get_num_vertex_indices() const
 		return total + shape.get_num_vertex_indices(); });
 }
 
-void Object::set_position(glm::vec3& position)
+void Object::set_position(const glm::vec3& position)
 {
 	is_transform_old = true;
 	this->position = position;
 }
 
-void Object::set_scale(glm::vec3& scale)
+void Object::set_scale(const glm::vec3& scale)
 {
 	is_transform_old = true;
 	this->scale = scale;
 }
 
-void Object::set_rotation(glm::quat& rotation)
+void Object::set_rotation(const glm::quat& rotation)
 {
 	is_transform_old = true;
 	this->orientation = rotation;
@@ -81,12 +81,12 @@ glm::mat4 Object::get_transform() const
 	return cached_transform;
 }
 
-void Object::set_transform(glm::mat4& transform)
+void Object::set_transform(const glm::mat4& transform)
 {
 	is_transform_old = false;
 	cached_transform = transform;
 
-	auto get_vec3_len = [](glm::vec4& vec4)
+	auto get_vec3_len = [](const glm::vec4& vec4)
 	{
 		return std::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
 	};

@@ -16,7 +16,15 @@ struct Vertex
 	glm::vec3 color;
 	glm::vec2 texCoord;
 	glm::vec3 normal;
-	
+
+	Vertex();
+	Vertex(const Vertex&);
+	Vertex(Vertex&& vertex) noexcept;
+	Vertex(const glm::vec3& pos_, const glm::vec3& color_);
+	Vertex(const glm::vec3& pos_, const glm::vec3& color_, const glm::vec2& texCoord_, const glm::vec3& normal_);
+
+	Vertex& operator=(const Vertex& vertex);
+
 	static VkVertexInputBindingDescription get_binding_description()
 	{
 		// describes at which rate to load data from memory thoughout the vertices

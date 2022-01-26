@@ -44,7 +44,7 @@ public: // object
 	// virtual glm::vec3 get_scale() { return scale; }
 	// virtual glm::quat get_rotation() { return orientation; }
 
-	virtual void set_transform(glm::mat4& transform) override;
+	virtual void set_transform(const glm::mat4& transform) override;
 	// virtual void set_position(glm::vec3& position) override;
 	// virtual void set_scale(glm::vec3& scale);
 	// virtual void set_rotation(glm::quat& rotation) override;

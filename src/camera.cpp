@@ -53,7 +53,7 @@ glm::mat4 Camera::get_view()
 	return glm::lookAt(get_position(), focus, up_vector);
 }
 
-void Camera::set_transform(glm::mat4& transformation)
+void Camera::set_transform(const glm::mat4& transformation)
 {
 	Object::set_transform(transformation);
 	up_vector = get_rotation() * ORIGINAL_UP_VECTOR;
