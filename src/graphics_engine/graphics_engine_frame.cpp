@@ -245,6 +245,7 @@ void GraphicsEngineFrame::update_command_buffer()
 
 		// this really should be per object, we will adjust in the future
 		int total_vertex_offset = 0;
+		int total_index_offset = 0;
 		for (int vertex_set_index = 0; vertex_set_index < shapes.size(); vertex_set_index++)
 		{
 			const auto& shape = shapes[vertex_set_index];
@@ -265,7 +266,7 @@ void GraphicsEngineFrame::update_command_buffer()
 				command_buffer,
 				shape.get_num_vertex_indices(),	// vertex count
 				1,	// instance count
-				0,	// first index
+				total_index_offset,	// first index
 				total_vertex_offset,	// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 				0	// first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
 			);
@@ -273,6 +274,7 @@ void GraphicsEngineFrame::update_command_buffer()
 			// this is not get_num_vertex_indices() because we want to offset the vertex set essentially
 			// see NOTE:A
 			total_vertex_offset += shape.get_num_unique_vertices();
+			total_index_offset += shape.get_num_vertex_indices();
 		}
 	};
 
