@@ -44,5 +44,5 @@ void main()
 	surface_normal = ubo.rot_mat * inNormal;
 	// it's likely we can remove the need for gubo.view_pos and compute everything in "view space"
 	view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
-	fragPos = mat3(ubo.model) * inPosition;
+	fragPos = (ubo.model * vec4(inPosition, 1.0)).xyz;
 }
