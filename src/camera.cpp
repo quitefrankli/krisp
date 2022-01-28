@@ -34,7 +34,7 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	focus_obj->toggle_visibility();
-	auto cmd = std::make_unique<SpawnObjectCmd>(focus_obj, focus_obj->get_id());
+	auto cmd = std::make_unique<SpawnObjectCmd>(focus_obj);
 	engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
 }
 

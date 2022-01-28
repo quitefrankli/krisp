@@ -7,6 +7,7 @@
 #include <glm/mat4x4.hpp>
 
 #include <vector>
+#include <map>
 
 
 class GraphicsEngineObject;
@@ -56,6 +57,12 @@ public:
 	void toggle_visibility() { bVisible = !bVisible; }
 	bool get_visibility() const { return bVisible; }
 
+	// detach from parent
+	virtual void detach_from();
+
+	// attach to parent
+	virtual void attach_to(Object* parent);
+
 public:
 	virtual glm::mat4 get_transform() const;
 	virtual glm::vec3 get_position() const { return position; }
@@ -66,6 +73,10 @@ public:
 	virtual void set_position(const glm::vec3& position);
 	virtual void set_scale(const glm::vec3& scale);
 	virtual void set_rotation(const glm::quat& rotation);
+
+protected:
+	std::map<uint64_t, Object*> children;
+	Object* parent = nullptr;
 
 private:
 	// void calculate_shape_extent();

@@ -31,6 +31,8 @@ public:
 	glm::vec3 scale;
 	glm::quat rotation;
 	glm::mat4 transform;
+
+	Object* object = nullptr;
 };
 
 class GameEngine
@@ -52,7 +54,7 @@ public:
 	Object_T& spawn_object(Args&&... args)
 	{
 		auto& object = objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
-		auto cmd = std::make_unique<SpawnObjectCmd>(object, object->get_id());
+		auto cmd = std::make_unique<SpawnObjectCmd>(object);
 		graphics_engine->enqueue_cmd(std::move(cmd));
 		return *static_cast<Object_T*>(object.get());
 	}

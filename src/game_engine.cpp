@@ -120,13 +120,13 @@ void GameEngine::run()
 			auto offset = mouse.get_orig_offset();
 			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
 			float magnitude = glm::length(screen_axis);
-			if (std::fabsf(magnitude) > min_threshold && !objects.empty()) {
+			if (std::fabsf(magnitude) > min_threshold && tracker.object) {
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
 				glm::quat quaternion = glm::angleAxis(magnitude, axis);
 				glm::mat4 orig = tracker.transform;
 
 				glm::quat new_rot = quaternion * tracker.rotation; // order matters! 
-				objects[0]->set_rotation(new_rot);
+				tracker.object->set_rotation(new_rot);
 			}
 		} else if (mouse.mmb_down)
 		{
@@ -175,6 +175,7 @@ GameEngine::~GameEngine() = default;
 
 void ObjectPositionTracker::update(Object& object)
 {
+	this->object = &object;
 	position = object.get_position();
 	scale = object.get_scale();
 	rotation = object.get_rotation();

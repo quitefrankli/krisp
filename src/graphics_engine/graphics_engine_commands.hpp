@@ -33,8 +33,8 @@ public:
 class SpawnObjectCmd : public ObjectCommand
 {
 public:
-	SpawnObjectCmd(std::shared_ptr<Object> object, uint64_t object_id);
-	SpawnObjectCmd(Object& object, uint64_t object_id);
+	SpawnObjectCmd(std::shared_ptr<Object> object);
+	SpawnObjectCmd(Object& object);
 
 	void process(GraphicsEngine* engine) override;
 

@@ -287,4 +287,8 @@ void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 	glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
 	set_rotation(rot);
 	set_position(start);
+
+	auto scale = get_scale();
+	scale.z = glm::distance(start, end);
+	set_scale(scale);
 }

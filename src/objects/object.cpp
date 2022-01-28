@@ -53,7 +53,14 @@ uint32_t Object::get_num_vertex_indices() const
 void Object::set_position(const glm::vec3& position)
 {
 	is_transform_old = true;
+
+	glm::vec3 diff = position - this->position;
+
 	this->position = position;
+	for (auto child : children)
+	{
+		child.second->set_position(child.second->get_position() + diff);
+	}
 }
 
 void Object::set_scale(const glm::vec3& scale)
@@ -65,7 +72,14 @@ void Object::set_scale(const glm::vec3& scale)
 void Object::set_rotation(const glm::quat& rotation)
 {
 	is_transform_old = true;
-	this->orientation = rotation;
+
+	glm::quat diff = glm::normalize(rotation * glm::conjugate(orientation));
+
+	orientation = rotation;
+	for (auto child : children)
+	{
+		child.second->set_rotation(diff * child.second->get_rotation());
+	}
 }
 
 glm::mat4 Object::get_transform() const
@@ -97,6 +111,28 @@ void Object::set_transform(const glm::mat4& transform)
 	scale[1] = get_vec3_len(transform[1]);
 	scale[2] = get_vec3_len(transform[2]);
 	position = transform[3];
+}
+
+void Object::detach_from()
+{
+	if (!parent)
+	{
+		return;
+	}
+
+	parent->children.erase(get_id());
+	parent = nullptr;
+}
+
+void Object::attach_to(Object* new_parent)
+{
+	if (parent)
+	{
+		detach_from();
+	}
+	
+	new_parent->children.emplace(get_id(), this);
+	parent = new_parent;
 }
 
 template<>

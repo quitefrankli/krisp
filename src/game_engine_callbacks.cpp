@@ -94,16 +94,9 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_X: // experimental
 		{
-			HotReload::reload();
-			Maths::Ray ray(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-			glm::vec3 point(-1.0f, 0.0f, 0.0f);
-			HotReload::func2(ray.origin, ray.direction, point, 0.5f);
-			break;
-			// auto& obj = spawn_object<Object>(resource_loader, "../resources/models/viking_room.obj", "../resources/textures/viking_room.png");
-			// obj.set_position(glm::vec3(-1.0f));
-			auto& obj = spawn_object<Cube>();
-			obj.set_position(glm::vec3(-1.0f));
-			animator.add_animation(objects.back(), glm::translate(glm::mat4(1.0f), glm::vec3(2.0f)));
+			spawn_object<Sphere>();
+			objects[0]->attach_to(&gizmo);
+			gizmo.set_position(gizmo.get_position() + glm::vec3(0.2f));
 			break;
 		}
 		case GLFW_KEY_F: // wireframe mode
@@ -205,13 +198,14 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 				// rayObj.set_rotation(quat);
 				// rayObj.set_position(pos);
 			} else {
-				if (objects.empty())
-				{
-					return;
-				}
+				// if (objects.empty())
+				// {
+				// 	return;
+				// }
+
 				mouse.lmb_down = true;
 				mouse.orig_pos = mouse.curr_pos;
-				tracker.update(*objects[0]);
+				tracker.update(gizmo);
 			}
 		} else if (action == GLFW_RELEASE)
 		{

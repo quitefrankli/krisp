@@ -18,7 +18,7 @@ TowerOfHanoi::TowerOfHanoi(GameEngine& engine_) : Simulation(engine_)
 		pillar.set_scale(glm::vec3(0.3f, 2.0f, 0.3f));
 		pillar.set_position(glm::vec3(i-1, 0.0f, 0.0f));
 		pillars.push_back(std::make_shared<pillar_t>(std::move(pillar)));
-		auto cmd = std::make_unique<SpawnObjectCmd>(pillars.back(), pillars.back()->get_id());
+		auto cmd = std::make_unique<SpawnObjectCmd>(pillars.back());
 		engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
 	}
 
@@ -31,7 +31,7 @@ TowerOfHanoi::TowerOfHanoi(GameEngine& engine_) : Simulation(engine_)
 		donut.set_position(glm::vec3(-1.0f, pillars[0]->content_height, 0.0f));
 		pillars[0]->content_height += donut.get_scale()[1] * 0.5f;
 		donuts.push_back(std::make_shared<donut_t>(std::move(donut)));
-		auto cmd = std::make_unique<SpawnObjectCmd>(donuts.back(), donuts.back()->get_id());
+		auto cmd = std::make_unique<SpawnObjectCmd>(donuts.back());
 		engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
 	}
 }

@@ -4,6 +4,7 @@
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "game_engine.hpp"
+#include "shapes/shapes.hpp"
 
 
 Gizmo::Gizmo(GameEngine& engine_) :
@@ -28,12 +29,14 @@ void TranslationGizmo::init()
 	yAxis.point(O, glm::vec3(0.0f, 1.0f, 0.0f));
 	zAxis.point(O, glm::vec3(0.0f, 0.0f, -1.0f));
 
-	auto cmd = std::make_unique<SpawnObjectCmd>(xAxis, get_id());
-	engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
+	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(xAxis));
+	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(yAxis));
+	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(zAxis));
 
-	cmd = std::make_unique<SpawnObjectCmd>(yAxis, get_id());
-	engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
+	shapes.emplace_back<Shapes::Cylinder>(10);
+	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(*this));
 
-	cmd = std::make_unique<SpawnObjectCmd>(zAxis, get_id());
-	engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
+	xAxis.attach_to(this);
+	yAxis.attach_to(this);
+	zAxis.attach_to(this);
 }
