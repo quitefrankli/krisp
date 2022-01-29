@@ -181,22 +181,13 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 				{
 					if (simple_collision_detection(*object))
 					{
-						object->set_scale(glm::vec3(2.0f, 2.0f, 2.0f));
-					} else {
-						object->set_scale(glm::vec3(1.0f, 1.0f, 1.0f));
+						object->attach_to(&gizmo);
+						return;
 					}
 				}
 
-				// visualise the ray
-				
-				// glm::vec3 forward(0.0f, 0.0f, -1.0f);
-				// auto quat = glm::rotation(forward, ray.direction);
-				// auto pos = ray.origin + ray.direction * 10.0f;
-
-				// Cube& rayObj = spawn_object<Cube>();
-				// rayObj.set_scale(glm::vec3(0.05f, 0.05f, 15.0f));
-				// rayObj.set_rotation(quat);
-				// rayObj.set_position(pos);
+				// no objects detected deselect everything
+				gizmo.detach_all_children();
 			} else {
 				// if (objects.empty())
 				// {

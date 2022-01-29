@@ -11,12 +11,13 @@ public:
 	Gizmo(GameEngine& engine);
 
 	virtual void init() = 0;
-
-	void attach(Object* object);
-	void attach(Object& object);
+	virtual void detach_all_children() override;
 
 protected:
 	GameEngine& engine;
+	virtual void on_child_attached(Object* child) override;
+	virtual void on_child_detached(Object* child) override;
+	virtual bool is_essential_child(Object* child) = 0;
 
 private:
 	Object* object = nullptr;
@@ -30,7 +31,8 @@ public:
 	void init() override;
 
 private:
-	// these could be maybe useful in the future
+	virtual bool is_essential_child(Object* child) override;
+
 	Arrow xAxis;
 	Arrow yAxis;
 	Arrow zAxis;

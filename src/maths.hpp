@@ -37,6 +37,13 @@ namespace Maths
 		float radius;
 	};
 
+	struct TransformationComponents
+	{
+		glm::vec3 position = glm::vec3(0.f);
+		glm::vec3 scale = glm::vec3(1.f);
+		glm::quat orientation; // default init creates identity quaternion
+	};
+
 	// assume normalized already
 	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end);
 };

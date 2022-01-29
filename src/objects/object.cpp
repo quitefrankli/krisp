@@ -57,7 +57,7 @@ void Object::set_position(const glm::vec3& position)
 	glm::vec3 diff = position - this->position;
 
 	this->position = position;
-	for (auto child : children)
+	for (auto& child : children)
 	{
 		child.second->set_position(child.second->get_position() + diff);
 	}
@@ -76,10 +76,16 @@ void Object::set_rotation(const glm::quat& rotation)
 	glm::quat diff = glm::normalize(rotation * glm::conjugate(orientation));
 
 	orientation = rotation;
-	for (auto child : children)
+	for (auto& child : children)
 	{
 		child.second->set_rotation(diff * child.second->get_rotation());
 	}
+}
+
+void Object::set_transformation_components(const Maths::TransformationComponents& components)
+{
+	transformation_components = components;
+	is_transform_old = true;
 }
 
 glm::mat4 Object::get_transform() const
@@ -120,6 +126,10 @@ void Object::detach_from()
 		return;
 	}
 
+	// callbacks
+	parent->on_child_detached(this);
+	on_parent_detached(parent);
+
 	parent->children.erase(get_id());
 	parent = nullptr;
 }
@@ -131,8 +141,22 @@ void Object::attach_to(Object* new_parent)
 		detach_from();
 	}
 	
+	// callbacks
+	on_parent_attached(new_parent);
+	new_parent->on_child_attached(this);
+
 	new_parent->children.emplace(get_id(), this);
 	parent = new_parent;
+}
+
+void Object::detach_all_children()
+{
+	// can't do simple for loop since we may be removing elements while iterating
+	for (auto child = children.begin(), next_child = child; child != children.end(); child = next_child)
+	{
+		next_child++;
+		child->second->detach_from();
+	}
 }
 
 template<>

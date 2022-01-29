@@ -55,28 +55,41 @@ public:
 	std::string texture;
 
 	void toggle_visibility() { bVisible = !bVisible; }
+	void set_visibility(bool isVisible) { bVisible = isVisible; }
 	bool get_visibility() const { return bVisible; }
 
 	// detach from parent
 	virtual void detach_from();
-
 	// attach to parent
 	virtual void attach_to(Object* parent);
+	// detach all children
+	virtual void detach_all_children();
 
 public:
 	virtual glm::mat4 get_transform() const;
-	virtual glm::vec3 get_position() const { return position; }
-	virtual glm::vec3 get_scale() const { return scale; }
-	virtual glm::quat get_rotation() const { return orientation; }
+	virtual glm::vec3 get_position() const { return transformation_components.position; }
+	virtual glm::vec3 get_scale() const { return transformation_components.scale; }
+	virtual glm::quat get_rotation() const { return transformation_components.orientation; }
+	virtual const Maths::TransformationComponents& get_transformation_components() const { return transformation_components; }
 
 	virtual void set_transform(const glm::mat4& transform);
 	virtual void set_position(const glm::vec3& position);
 	virtual void set_scale(const glm::vec3& scale);
 	virtual void set_rotation(const glm::quat& rotation);
+	virtual void set_transformation_components(const Maths::TransformationComponents& components);
 
 protected:
 	std::map<uint64_t, Object*> children;
 	Object* parent = nullptr;
+
+	// callback when a child gets attached
+	virtual void on_child_attached(Object* new_child) {}
+	// callback when a parent gets attached
+	virtual void on_parent_attached(Object* new_parent) {}
+	// callback when a child gets deattached
+	virtual void on_child_detached(Object* old_child) {}
+	// callback when a parent gets deattached
+	virtual void on_parent_detached(Object* old_parent) {}
 
 private:
 	// void calculate_shape_extent();
@@ -85,9 +98,12 @@ private:
 private:
 	mutable bool is_transform_old = true;
 	mutable glm::mat4 cached_transform;
-	glm::vec3 position = glm::vec3(0.f);
-	glm::vec3 scale = glm::vec3(1.f);
-	glm::quat orientation; // default init creates identity quaternion
+	Maths::TransformationComponents transformation_components;
+
+	// not really necessary but it's nice to have for easy access
+	glm::vec3& position = transformation_components.position;
+	glm::vec3& scale = transformation_components.scale;
+	glm::quat& orientation = transformation_components.orientation;
 	bool bVisible = true;
 
 //

@@ -12,14 +12,39 @@ Gizmo::Gizmo(GameEngine& engine_) :
 {
 }
 
-void Gizmo::attach(Object* object)
+void Gizmo::detach_all_children()
 {
-	this->object = object;
+	// can't do simple for loop since we may be removing elements while iterating
+	for (auto child = children.begin(), next_child = child; child != children.end(); child = next_child)
+	{
+		next_child++;
+		if (is_essential_child(child->second))
+		{
+			continue;
+		}
+		child->second->detach_from();
+	}
 }
 
-void Gizmo::attach(Object& object)
+void Gizmo::on_child_attached(Object* child)
 {
-	attach(&object);
+	if (is_essential_child(child))
+	{
+		return;
+	}
+
+	// gizmo can only have 1 non-essential child, so first detach everything not essential
+	detach_all_children();
+
+	set_visibility(true);
+
+	set_position(child->get_position());
+	set_rotation(child->get_rotation());
+}
+
+void Gizmo::on_child_detached(Object* child)
+{
+	set_visibility(false);
 }
 
 void TranslationGizmo::init()
@@ -39,4 +64,11 @@ void TranslationGizmo::init()
 	xAxis.attach_to(this);
 	yAxis.attach_to(this);
 	zAxis.attach_to(this);
+
+	set_visibility(false);
+}
+
+bool TranslationGizmo::is_essential_child(Object* child)
+{
+	return child == &xAxis || child == &yAxis || child == &zAxis;
 }
