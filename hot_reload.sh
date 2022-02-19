@@ -24,7 +24,7 @@ get_new_filename () {
 	new_filename=shared_lib$MAX_NUM.dll
 }
 
-msbuild.exe shared_lib/shared_lib.sln
+cmake --build . --target shared_lib --config Debug
 get_new_filename
-cp bin/shared_lib.dll bin/$new_filename
+cp shared_lib/bin/shared_lib.dll bin/$new_filename
 echo created $new_filename

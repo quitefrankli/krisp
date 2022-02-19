@@ -18,6 +18,7 @@ class vulkan_conan(ConanFile):
 		"tinyobjloader/1.0.6",
 		"quill/1.6.3",
 		"imgui/1.85",
+		# "fmt/8.1.1", # already included by quill
 	) 
 
 	generators = (

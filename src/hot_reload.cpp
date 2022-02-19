@@ -12,6 +12,7 @@ extern std::string RELATIVE_BINARY_PATH;
 
 HotReload::func1_t HotReload::func1 = nullptr;
 HotReload::func2_t HotReload::func2 = nullptr;
+HotReload::func3_t HotReload::func3 = nullptr;
 
 static HMODULE handle = nullptr;
 
@@ -72,4 +73,5 @@ void HotReload::reload()
 		throw std::runtime_error("HotReload: invalid handle");
 	func1 = load_func<func1_t>(handle, "screen_to_world");
 	func2 = load_func<func2_t>(handle, "screen_to_world");
+	func3 = load_func<func3_t>(handle, "linear_alg");
 }

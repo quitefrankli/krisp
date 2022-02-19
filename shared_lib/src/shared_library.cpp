@@ -1,5 +1,7 @@
 #include "shared_library.hpp"
 
+#include "objects/objects.hpp"
+
 #include <iostream>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -40,6 +42,7 @@ BOOL WINAPI DllMain(
     }
     return TRUE;  // Successful DLL_PROCESS_ATTACH.
 }
+
 static int i = 0;
 extern "C" {
 	__declspec(dllexport) void __cdecl foo()
@@ -89,5 +92,11 @@ extern "C" {
 		std::cout << glm::length(v1) << ' ' << sinf(rad) << ' ' << distance << ' ' << radius << '\n';
 
 		return distance < radius;
+	}
+
+	__declspec(dllexport) void __cdecl linear_alg(Arrow& v1)
+	{
+		std::cout << "SharedLibrary " << __FUNCTION__ << '\n';
+		v1.point(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	}
 }
