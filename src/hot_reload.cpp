@@ -8,7 +8,8 @@
 #include <regex>
 
 
-extern std::string RELATIVE_BINARY_PATH;
+extern std::filesystem::path BINARY_DIRECTORY;
+extern std::filesystem::path WORKING_DIRECTORY;
 
 HotReload::func1_t HotReload::func1 = nullptr;
 HotReload::func2_t HotReload::func2 = nullptr;
@@ -29,13 +30,22 @@ func_t load_func(HMODULE& handle, const char* name)
 	return func;
 }
 
+static bool generate_dll()
+{
+	std::string cmd = "sh " + WORKING_DIRECTORY.parent_path().string() + "/hot_reload.sh";
+	return system(cmd.c_str()) == 0;
+}
+
 void HotReload::reload()
 {
-	std::filesystem::path path(RELATIVE_BINARY_PATH);
-	path = path.parent_path();
+	if (!generate_dll())
+	{
+		return;
+	}
+
 	int max_ver = 0;
 	std::filesystem::path library;
-	for (auto& p : std::filesystem::directory_iterator(path))
+	for (auto& p : std::filesystem::directory_iterator(BINARY_DIRECTORY))
 	{
 		std::string filename = p.path().filename().generic_string();
 		if (std::regex_match(filename, std::regex("shared_lib.*dll")))

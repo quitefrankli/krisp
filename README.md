@@ -26,9 +26,9 @@ bin/Vulkan.exe
 ### Fast Compile
 Using a runtime linking shared library, experimental functionality can be tested without restarting the application
 
-**1. Command Line**
+~~**1. Command Line**~~
 
-compile and generate a new dll
+~~compile and generate a new dll~~ **UPDATE: step 1 is no longer necessary**
 ```
 sh ../hot_reload.sh
 ```

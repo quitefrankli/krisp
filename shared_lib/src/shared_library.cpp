@@ -97,6 +97,6 @@ extern "C" {
 	__declspec(dllexport) void __cdecl linear_alg(Arrow& v1)
 	{
 		std::cout << "SharedLibrary " << __FUNCTION__ << '\n';
-		v1.point(glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		v1.point(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	}
 }
