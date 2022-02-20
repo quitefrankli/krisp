@@ -3,6 +3,7 @@
 #include "input.hpp"
 #include "window.hpp"
 #include "objects/object.hpp"
+#include "objects/objects.hpp"
 #include "resource_loader.hpp"
 #include "animations/animator.hpp"
 #include "maths.hpp"
@@ -21,6 +22,7 @@ class GraphicsEngine;
 class Camera;
 class Simulation;
 class GuiManager;
+class Experimental;
 
 class ObjectPositionTracker
 {
@@ -72,6 +74,8 @@ private:
 	std::chrono::time_point<std::chrono::system_clock> time;
 	std::vector<std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
+	std::unique_ptr<Experimental> experimental;
+	Arrow arrow; // useful for testing purposes
 
 public:
 	ObjectPositionTracker tracker;

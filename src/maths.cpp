@@ -12,7 +12,6 @@ namespace Maths
 	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end)
 	{
 		float cosTheta = glm::dot(start, end);
-		std::cout << cosTheta << '\n';
 		glm::vec3 rotationAxis;
 
 		if (cosTheta < -1 + 0.001f){

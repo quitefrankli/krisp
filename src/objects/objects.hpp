@@ -49,4 +49,9 @@ public:
 	Arrow(Arrow&&) = delete;
 
 	void point(const glm::vec3& start, const glm::vec3& end);
+
+	virtual bool check_collision(Maths::Ray& ray) override;
+
+public:
+	const float RADIUS = 0.05f;
 };

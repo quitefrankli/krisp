@@ -8,6 +8,7 @@
 #include "analytics.hpp"
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
+#include "experimental/experimental.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -94,9 +95,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_X: // experimental
 		{
-			spawn_object<Sphere>();
-			objects[0]->attach_to(&gizmo);
-			gizmo.set_position(gizmo.get_position() + glm::vec3(0.2f));
+			experimental->process();
 			break;
 		}
 		case GLFW_KEY_F: // wireframe mode
@@ -116,6 +115,14 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 				simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
 			simulations[0]->start();
 			break;
+		}
+		case GLFW_KEY_R:
+		{
+			if (mode == GLFW_MOD_SHIFT)
+			{
+				// hot reload
+				HotReload::reload();
+			}
 		}
 		default:
 			break;
@@ -161,11 +168,7 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			mouse.update_pos();
 			if (mode == GLFW_MOD_SHIFT)
 			{
-				std::cout << "shift left click!\n";
-
 				Maths::Ray ray = screen_to_world(mouse.curr_pos);
-				std::cout << glm::to_string(ray.origin) << ' ' << glm::to_string(ray.direction) << '\n';
-
 				auto simple_collision_detection = [&](const Object& obj)
 				{
 					// assuming unit box, uses a sphere for efficiency
@@ -189,14 +192,15 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 				// no objects detected deselect everything
 				gizmo.detach_all_children();
 			} else {
-				// if (objects.empty())
-				// {
-				// 	return;
-				// }
+				if (gizmo.is_active())
+				{
+					Maths::Ray ray = screen_to_world(mouse.curr_pos);
+					gizmo.check_collision(ray);
+				}
 
 				mouse.lmb_down = true;
 				mouse.orig_pos = mouse.curr_pos;
-				tracker.update(gizmo);
+				//tracker.update(gizmo); // old method to update an object's position via click dragging
 			}
 		} else if (action == GLFW_RELEASE)
 		{

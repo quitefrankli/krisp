@@ -1,5 +1,7 @@
 #include "shape.hpp"
 
+#include "maths.hpp"
+
 
 void Shape::transform_vertices(const glm::mat4& transform)
 {
@@ -63,3 +65,5 @@ void Shape::deduplicate_vertices()
 		}
 	}
 }
+
+bool Shape::check_collision(Maths::Ray& ray) { return true; }

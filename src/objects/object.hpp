@@ -110,13 +110,12 @@ private:
 // collision
 //
 
-private:
+protected:
 	template<typename geometry>
 	void calculate_bounding_primitive();
 	Maths::Sphere bounding_primitive_sphere;
 	bool is_bounding_primitive_cached = false;
 
 public:
-	template<typename geometry>
- 	bool check_collision(Maths::Ray& ray);
+ 	virtual bool check_collision(Maths::Ray& ray);
 };

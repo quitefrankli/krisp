@@ -162,12 +162,12 @@ void Object::detach_all_children()
 template<>
 void Object::calculate_bounding_primitive<Maths::Sphere>()
 {
-	float left = std::numeric_limits<float>::min();
+	float left = std::numeric_limits<float>::max();
 	float down = std::numeric_limits<float>::max();
-	float in = std::numeric_limits<float>::min();
-	float right = std::numeric_limits<float>::max();
-	float up = std::numeric_limits<float>::min();
-	float out = std::numeric_limits<float>::max();
+	float in = std::numeric_limits<float>::max();
+	float right = -std::numeric_limits<float>::max();
+	float up = -std::numeric_limits<float>::max();
+	float out = -std::numeric_limits<float>::max();
 
 	for (Shape& shape : shapes)
 	{
@@ -187,19 +187,18 @@ void Object::calculate_bounding_primitive<Maths::Sphere>()
 	glm::vec3 min_bound(left, down, in);
 	glm::vec3 max_bound(right, up, out);
 	bounding_primitive_sphere.origin = (min_bound + max_bound) / 2.0f;
-	bounding_primitive_sphere.radius = glm::compMax(glm::abs(max_bound - min_bound));
+	bounding_primitive_sphere.radius = glm::compMax(glm::abs(max_bound - min_bound))/2.0f;
 
 	is_bounding_primitive_cached = true;
 }
 
-template<>
-bool Object::check_collision<Maths::Sphere>(Maths::Ray& ray)
+bool Object::check_collision(Maths::Ray& ray)
 {
 	assert(is_bounding_primitive_cached);
 
 	// check fast spherical collision
 	float world_radius = bounding_primitive_sphere.radius * glm::compMax(get_scale());
-	glm::vec3 world_origin = bounding_primitive_sphere.origin + get_position();
+	glm::vec3 world_origin = get_rotation() * bounding_primitive_sphere.origin * get_scale() + get_position();
 
 	glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
 		ray.origin + glm::dot(ray.direction, world_origin) * ray.direction;
@@ -209,6 +208,18 @@ bool Object::check_collision<Maths::Sphere>(Maths::Ray& ray)
 	}
 
 	// check proper collision
-	// TODO
-	return true;
+	if (shapes.size() > 10)
+	{
+		std::cout << "WARNING, too many shapes for collision detection, defaulting to true\n";
+		return true;
+	}
+	for (auto& shape : shapes)
+	{
+		if (shape.check_collision(ray))
+		{
+			return true;
+		}
+	}
+	
+	return false;
 }

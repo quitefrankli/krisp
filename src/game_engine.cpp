@@ -9,6 +9,7 @@
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
 #include "gui/gui_manager.hpp"
+#include "experimental/experimental.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -31,6 +32,7 @@ GameEngine::GameEngine() :
 	graphics_engine = std::make_unique<GraphicsEngine>(*this);
 
 	camera = std::make_unique<Camera>(*this, graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
+	experimental = std::make_unique<Experimental>(*this);
 
 	graphics_engine->setup();
 }
@@ -41,6 +43,7 @@ void GameEngine::run()
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	gizmo.init();
+	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(arrow));
 
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
@@ -118,15 +121,26 @@ void GameEngine::run()
 			const float min_threshold = 0.01f;
 			mouse.update_pos();
 			auto offset = mouse.get_orig_offset();
-			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
+			glm::vec2 screen_axis(offset.x, offset.y);
+			glm::vec3 axis = camera->sync_to_camera(screen_axis);
+			// fmt::print("offset {} {}, axis {}, camera {}\n", 
+			// glm::to_string(offset), glm::to_string(screen_axis),  glm::to_string(axis), glm::to_string(camera->get_rotation()));
 			float magnitude = glm::length(screen_axis);
-			if (std::fabsf(magnitude) > min_threshold && tracker.object) {
-				glm::vec3 axis = camera->sync_to_camera(screen_axis);
-				glm::quat quaternion = glm::angleAxis(magnitude, axis);
-				glm::mat4 orig = tracker.transform;
 
-				glm::quat new_rot = quaternion * tracker.rotation; // order matters! 
-				tracker.object->set_rotation(new_rot);
+			if (std::fabsf(magnitude) > min_threshold) {
+				gizmo.process(axis, magnitude);
+				arrow.point(glm::vec3(0.0f), axis);
+				// if (tracker.object)
+				// {
+				// 	// flip the two axes for rotation
+				// 	 // the fact that this is -ve is very strange might have to do with our coordinate system
+				// 	axis = camera->sync_to_camera(glm::vec2{-screen_axis.y,screen_axis.x});
+				// 	glm::quat quaternion = glm::angleAxis(magnitude, axis);
+				// 	glm::mat4 orig = tracker.transform;
+
+				// 	glm::quat new_rot = quaternion * tracker.rotation; // order matters! 
+				// 	tracker.object->set_rotation(new_rot);
+				// }
 			}
 		} else if (mouse.mmb_down)
 		{

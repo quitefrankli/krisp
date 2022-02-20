@@ -4,6 +4,12 @@
 
 #include <glm/glm.hpp>
 
+
+namespace Maths
+{
+	struct Ray;
+}
+
 class Shape
 {
 public:
@@ -23,4 +29,6 @@ public:
 
 	// WARNING this is expensive
 	void deduplicate_vertices();
+
+	virtual bool check_collision(Maths::Ray& ray);
 };

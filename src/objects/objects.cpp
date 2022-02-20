@@ -3,6 +3,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <iostream>
+
 
 Cube::Cube()
 {
@@ -270,7 +272,7 @@ Arrow::Arrow()
 	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
 
 	glm::mat4 cylinder_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.4f, 0.0f));
-	cylinder_transform = cylinder_transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.1f, 0.8f, 0.1f));
+	cylinder_transform = cylinder_transform * glm::scale(glm::mat4(1.0f), glm::vec3(RADIUS*2.0f, 0.8f, RADIUS*2.0f));
 	cylinder_transform = glm::mat4_cast(quat) * cylinder_transform;
 	cylinder.transform_vertices(cylinder_transform);
 
@@ -278,6 +280,9 @@ Arrow::Arrow()
 	cone_transform = cone_transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.2f, 0.3f));
 	cone_transform = glm::mat4_cast(quat) * cone_transform;
 	cone.transform_vertices(cone_transform);
+
+	// warning this is expensive
+	calculate_bounding_primitive<Maths::Sphere>();
 }
 
 void Arrow::point(const glm::vec3& start, const glm::vec3& end)
@@ -291,4 +296,18 @@ void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 	auto scale = get_scale();
 	scale.z = glm::distance(start, end);
 	set_scale(scale);
+}
+
+bool Arrow::check_collision(Maths::Ray& ray)
+{
+	if (!Object::check_collision(ray))
+	{
+		std::cout << "level 0 collision failed\n";
+		return false;
+	}
+
+	glm::vec3 axis = get_rotation() * Maths::forward_vec;
+	auto normal = glm::normalize(glm::cross(ray.direction, axis));
+	float dist = glm::distance(glm::dot(get_position(), normal) * normal, glm::dot(ray.origin, normal) * normal);
+	return dist < RADIUS;
 }
