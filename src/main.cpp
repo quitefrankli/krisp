@@ -2,10 +2,7 @@
 #include "maths.hpp"
 
 #include <quill/Quill.h>
-
-#include <iostream>
-#include <thread>
-#include <iomanip>
+#include <fmt/core.h>
 
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -13,12 +10,18 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
+#include <iostream>
+#include <thread>
+#include <iomanip>
+// #include <format> // unfortunately only availble in C++20 which MSVC does not have yet
+#include <filesystem>
+
 
 quill::Logger* logger;
-std::string RELATIVE_BINARY_PATH;
+std::filesystem::path BINARY_DIRECTORY;
+std::filesystem::path WORKING_DIRECTORY; // can be thought as the build directory, but should be the most upper level directory
 
 int main(int argc, char* argv[]) {
-	RELATIVE_BINARY_PATH = argv[0];
 #ifdef NDEBUG
 	std::cout << "Release Mode\n";
 #else
@@ -33,10 +36,23 @@ int main(int argc, char* argv[]) {
 		quill::Timezone::LocalTime
 	);
 
-	// logger = quill::create_logger("console_logger");
-	if (argc == 2 && std::string(argv[1]) == "--logging")
+	// parse command line arguments
+	for (int i = 0; i < argc; i++)
 	{
-		quill::start(); // this will consume CPU cycles
+		std::string_view arg(argv[i]);
+		if (i == 0)
+		{
+			BINARY_DIRECTORY = arg;
+			BINARY_DIRECTORY = BINARY_DIRECTORY.parent_path();
+			WORKING_DIRECTORY = BINARY_DIRECTORY.parent_path();
+			fmt::print("BINARY_DIRECTORY:={}, WORKING_DIRECTORY:={}\n", BINARY_DIRECTORY, WORKING_DIRECTORY);
+		} else if (arg == "--logging")
+		{
+			quill::start(); // this will consume CPU cycles
+		} else {
+			fmt::print("ERROR: invalid cmdline argument: '{}'\n", arg);
+			return EXIT_FAILURE;
+		}
 	}
 
 	// seems like glfw window must be on main thread otherwise it wont work, therefore engine should always be on its own thread
@@ -49,6 +65,7 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
 	} catch (...) {
 		std::cout << "Exception Thrown!\n";
+        return EXIT_FAILURE;
 	}
 
     return EXIT_SUCCESS;
