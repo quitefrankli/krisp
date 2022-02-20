@@ -122,14 +122,13 @@ void GameEngine::run()
 			mouse.update_pos();
 			auto offset = mouse.get_orig_offset();
 			glm::vec2 screen_axis(offset.x, offset.y);
-			glm::vec3 axis = camera->sync_to_camera(screen_axis);
-			// fmt::print("offset {} {}, axis {}, camera {}\n", 
-			// glm::to_string(offset), glm::to_string(screen_axis),  glm::to_string(axis), glm::to_string(camera->get_rotation()));
 			float magnitude = glm::length(screen_axis);
 
 			if (std::fabsf(magnitude) > min_threshold) {
+				glm::vec3 axis = camera->sync_to_camera(screen_axis);
 				gizmo.process(axis, magnitude);
-				arrow.point(glm::vec3(0.0f), axis);
+				// arrow.point(glm::vec3(0.0f), axis); // for debugging, helps figure out direction of mouse
+
 				// if (tracker.object)
 				// {
 				// 	// flip the two axes for rotation
@@ -155,7 +154,7 @@ void GameEngine::run()
 				glm::vec3 axis = camera->sync_to_camera(offset_vec) * magnitude; // might not need magnitude here
 				camera->focus = camera->prev_focus + axis;
 
-				camera->set_position(tracker.position + axis);
+				camera->set_position(camera->get_old_position() + axis);
 				camera->focus = camera->prev_focus + axis;
 
 				// this entire function should be pan and moved into camera
@@ -187,16 +186,7 @@ void GameEngine::shutdown_impl()
 
 GameEngine::~GameEngine() = default;
 
-void ObjectPositionTracker::update(Object& object)
-{
-	this->object = &object;
-	position = object.get_position();
-	scale = object.get_scale();
-	rotation = object.get_rotation();
-	transform = object.get_transform();
-}
-
-Maths::Ray GameEngine::screen_to_world(glm::vec2 screen)
+Maths::Ray GameEngine::screen_to_world(glm::vec2 screen) const
 {
 	auto view_mat = camera->get_view();
 	auto proj_mat = camera->get_perspective();

@@ -24,18 +24,6 @@ class Simulation;
 class GuiManager;
 class Experimental;
 
-class ObjectPositionTracker
-{
-public:
-	void update(Object& object);
-
-	glm::vec3 position;
-	glm::vec3 scale;
-	glm::quat rotation;
-	glm::mat4 transform;
-
-	Object* object = nullptr;
-};
 
 class GameEngine
 {
@@ -43,7 +31,7 @@ public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
 	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
-	Maths::Ray screen_to_world(glm::vec2 screen);
+	Maths::Ray screen_to_world(glm::vec2 screen) const;
 	GuiManager& get_gui_manager();
 
 public:
@@ -78,7 +66,6 @@ private:
 	Arrow arrow; // useful for testing purposes
 
 public:
-	ObjectPositionTracker tracker;
 	Animator animator;
 	std::vector<std::unique_ptr<Simulation>> simulations;
 

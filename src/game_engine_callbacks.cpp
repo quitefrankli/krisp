@@ -150,16 +150,13 @@ void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int butto
 
 void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
 {
-	if (button == GLFW_MOUSE_BUTTON_RIGHT)
-	{
-		if (action == GLFW_PRESS)
-		{
+	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+		if (action == GLFW_PRESS) {
 			mouse.rmb_down = true;
 			mouse.update_pos();
-			tracker.update(*camera);
-		} else if (action == GLFW_RELEASE)
-		{
-			mouse.rmb_down = false;
+			camera->update_tracker();
+		} else if (action == GLFW_RELEASE) {
+			mouse.rmb_down = false; 
 		}
 	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
@@ -213,8 +210,7 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			mouse.mmb_down = true;
 			mouse.update_pos();
 			mouse.orig_pos = mouse.curr_pos;
-			tracker.update(*camera);
-			camera->prev_focus = camera->focus;
+			camera->update_tracker();
 		} else if (action == GLFW_RELEASE)
 		{
 			mouse.mmb_down = false;

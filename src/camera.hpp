@@ -1,6 +1,8 @@
 #pragma once
 
 #include "objects/object.hpp"
+#include "objects/tracker.hpp"
+
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -17,7 +19,7 @@
 
 class GameEngine;
 
-class Camera : public Object
+class Camera : public Object, public ITrackableObject
 {
 private:
 	const glm::vec3 ORIGINAL_UP_VECTOR{ 0.f, 1.f, 0.f };
@@ -26,7 +28,7 @@ private:
 
 public:
 	glm::vec3 focus;
-	glm::vec3 prev_focus; // TODO move this into a polymorphic tracker class
+	glm::vec3 prev_focus;
 
 public:
 	Camera(GameEngine& engine, float aspect_ratio);
@@ -48,6 +50,8 @@ public: // object
 	// virtual void set_position(glm::vec3& position) override;
 	// virtual void set_scale(glm::vec3& scale);
 	// virtual void set_rotation(glm::quat& rotation) override;
+
+	virtual void update_tracker() override;
 
 	// this needs to be private and be manipulated within camera
 	std::shared_ptr<Object> focus_obj; // might be better to give this object to game_engine

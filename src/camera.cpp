@@ -15,6 +15,7 @@ static glm::mat4 get_rotation_mat(glm::mat4 matrix)
 }
 
 Camera::Camera(GameEngine& engine_, float aspect_ratio) :
+	ITrackableObject(this),
 	engine(engine_)
 {
 	up_vector = ORIGINAL_UP_VECTOR;
@@ -61,3 +62,9 @@ void Camera::set_transform(const glm::mat4& transformation)
 }
 
 Camera::~Camera() = default;
+
+void Camera::update_tracker()
+{
+	ITrackableObject::update_tracker();
+	prev_focus = focus;
+}
