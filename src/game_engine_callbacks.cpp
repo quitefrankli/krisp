@@ -120,8 +120,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		{
 			if (mode == GLFW_MOD_SHIFT)
 			{
-				// hot reload
-				HotReload::reload();
+				HotReload::get().reload();
 			}
 		}
 		default:
@@ -225,8 +224,6 @@ void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double xoffset,
 
 void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset)
 {
-	const float sensitivity = -0.2f;
-	glm::vec3 axis(0.0f, 0.0f, yoffset * sensitivity);
-	glm::mat4 transform = glm::translate(camera->get_transform(), axis);
-	camera->set_transform(transform);
+	const float sensitivity = 0.2f;
+	camera->zoom_in(sensitivity * yoffset);
 }

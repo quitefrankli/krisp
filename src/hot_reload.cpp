@@ -15,16 +15,44 @@ static HotReload hot_reload;
 static HMODULE handle = nullptr;
 
 
-HotReload& HotReload::get() { return hot_reload; }
+HotReload& HotReload::get() 
+{ 
+	// hasn't been loaded yet
+	if (!hot_reload.slfp)
+	{
+		if (!hot_reload.load_dll(false))
+		{
+			std::cout << "HotReload: no dll found, attempting to generate dll...\n";
+			hot_reload.reload();
+		}
+	}
+
+	return hot_reload; 
+}
 
 void HotReload::reload()
+{
+	generate_new_dll();
+	load_dll();
+}
+
+bool HotReload::generate_new_dll(bool throw_on_fail)
 {
 	std::string cmd = "sh " + WORKING_DIRECTORY.parent_path().string() + "/hot_reload.sh";
 	if (system(cmd.c_str()) != 0)
 	{
-		throw std::runtime_error("HotReload: script failed");
+		if (throw_on_fail)
+		{
+			throw std::runtime_error("HotReload: script failed");
+		}
+		return false;
 	}
 
+	return true;
+}
+
+bool HotReload::load_dll(bool throw_on_no_runtime_lib)
+{
 	int max_ver = 0;
 	std::filesystem::path library;
 	for (auto& p : std::filesystem::directory_iterator(BINARY_DIRECTORY))
@@ -52,8 +80,11 @@ void HotReload::reload()
 
 	if (max_ver == 0)
 	{
-		std::cout << "ERROR: no runtime shared library found!\n";
-		return;
+		if (throw_on_no_runtime_lib)
+		{
+			throw std::runtime_error("ERROR: no runtime shared library found!");
+		}
+		return false;
 	}
 
 	// only works for windows
@@ -68,8 +99,10 @@ void HotReload::reload()
 	if (!slfp)
 	{
 		std::cout << "HotReload: load error\n";
-		return;
+		return false;
 	}
 
 	slfp->load_check();
+
+	return true;
 }

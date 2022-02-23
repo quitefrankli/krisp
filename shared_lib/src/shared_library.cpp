@@ -94,13 +94,14 @@ extern "C" {
 		return distance < radius;
 	}
 
-	__declspec(dllexport) void __cdecl linear_alg(Arrow& v1)
+	__declspec(dllexport) void __cdecl point_arrow(Arrow& v1)
 	{
 		std::cout << "SharedLibrary " << __FUNCTION__ << '\n';
 		v1.point(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	}
 
 	__declspec(dllexport)SharedLibFuncPtrs shared_lib_func_ptrs {
-		&load_check
+		&load_check,
+		&point_arrow,
 	};
 }
