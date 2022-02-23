@@ -48,15 +48,29 @@ public:
 
 	std::shared_ptr<Object> upvector_obj;
 	
+	enum class Mode
+	{
+		ORBIT, // similar to CAD
+		FPV, // first person view like FPS
+	};
+
+	void toggle_mode();
+	void set_mode(Mode mode);
+	Mode get_mode() const { return mode; }
+
+
 public: // object
 	virtual void update_tracker() override;
 
 	// this needs to be private and be manipulated within camera
 	std::shared_ptr<Object> focus_obj; // might be better to give this object to game_engine
 
+	// sets camera at "from" and the focus at "focus"
 	void look_at(const glm::vec3& focus, const glm::vec3& from);
+	// sets camera at "pos" but does not move focus
 	void look_at(const glm::vec3& pos);
-
+	// rotates camera based on screen offset from last screen pos
+	void rotate_camera(const glm::vec2& offset, float delta_time);
 	virtual void toggle_visibility() override;
 
 protected:
@@ -64,6 +78,7 @@ protected:
 
 private:
 	GameEngine& engine;
+	Mode mode;
 
 	using Object::set_transform;
 	using Object::set_position;

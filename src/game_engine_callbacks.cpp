@@ -93,7 +93,12 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_C: // toggle camera focus visibility
 		{
-			camera->toggle_visibility();
+			if (mode == GLFW_MOD_SHIFT)
+			{
+				camera->toggle_mode();
+			} else {
+				camera->toggle_visibility();
+			}
 			break;
 		}
 		case GLFW_KEY_U: // simulation

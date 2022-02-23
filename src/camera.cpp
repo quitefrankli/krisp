@@ -44,6 +44,7 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	attach_to(focus_obj.get());
 	upvector_obj->attach_to(focus_obj.get());
 
+	set_mode(Mode::ORBIT);
 	set_visibility(false);
 }
 
@@ -122,4 +123,54 @@ void Camera::toggle_visibility()
 	focus_obj->toggle_visibility();
 	upvector_obj->toggle_visibility();
 	Object::toggle_visibility();
+}
+
+void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
+{
+	const float sensitivity = 0.2f;
+	const float magnitude = glm::length(offset) * delta_time * sensitivity;
+
+	switch (mode)
+	{
+		case Mode::ORBIT:
+		{
+			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
+			glm::vec3 axis = sync_to_camera(screen_axis);
+			glm::quat quaternion = glm::angleAxis(magnitude, axis);
+			focus_obj->set_rotation(quaternion * focus_obj->get_rotation());
+			break;
+		}
+		case Mode::FPV:
+		{
+			glm::vec2 screen_axis(offset.y, -offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
+			glm::vec3 axis = sync_to_camera(screen_axis);
+			glm::quat quaternion = glm::angleAxis(magnitude, axis);
+			set_rotation(quaternion * get_rotation());
+			break;
+		}
+		default:
+			assert(false);
+	}
+}
+
+void Camera::toggle_mode()
+{
+	set_mode(mode == Mode::FPV ? Mode::ORBIT : Mode::FPV);
+}
+
+void Camera::set_mode(Mode new_mode)
+{
+	if (new_mode == Mode::ORBIT)
+	{
+		focus_obj->detach_from();
+		upvector_obj->attach_to(focus_obj.get()); // don't forget to reattach it
+		attach_to(focus_obj.get());
+	} else if (new_mode == Mode::FPV) {
+		detach_from();
+		focus_obj->attach_to(this);
+	} else {
+		assert(false);
+	}
+
+	mode = new_mode;
 }

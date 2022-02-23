@@ -88,20 +88,13 @@ void GameEngine::run()
 
 		if (mouse.rmb_down)
 		{
-			const float sensitivity = 0.2f;
 			const float min_threshold = 0.001f;
 			mouse.update_pos();
-			auto offset = mouse.get_prev_offset();
-			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
-			float magnitude = glm::length(screen_axis);
-			if (magnitude > min_threshold) {
-				magnitude *= delta_time * sensitivity;
-				
-				glm::vec3 axis = camera->sync_to_camera(screen_axis);
-
-				glm::quat quaternion = glm::angleAxis(magnitude, axis);
-
-				camera->focus_obj->set_rotation(quaternion * camera->focus_obj->get_rotation());
+			glm::vec2 offset = mouse.get_prev_offset();
+			float magnitude = glm::length(offset);
+			if (magnitude > min_threshold)
+			{
+				camera->rotate_camera(offset, delta_time);
 			}
 		} else if (mouse.lmb_down)
 		{
@@ -134,7 +127,6 @@ void GameEngine::run()
 			const float min_threshold = 0.01f;
 			mouse.update_pos();
 			auto offset_vec = mouse.get_orig_offset();
-			std::cout << glm::to_string(offset_vec) << '\n';
 			float magnitude = glm::length(offset_vec);
 			if (magnitude > min_threshold)
 			{

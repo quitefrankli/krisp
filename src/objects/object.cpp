@@ -157,9 +157,26 @@ void Object::detach_from()
 
 void Object::attach_to(Object* new_parent)
 {
+	if (new_parent == this)
+	{
+		std::cout << "ERROR: attempted to attach to itself!\n";
+		return;
+	}
+
+	if (new_parent->parent == this)
+	{
+		std::cout << "ERROR: attempted to attach to parent that is already attached to this object! Please detach first!\n";
+		return;
+	}
+
 	if (parent)
 	{
-		detach_from();
+		if (parent == new_parent) // already attached
+		{
+			return;
+		} else {
+			detach_from();
+		}
 	}
 	
 	// callbacks
