@@ -54,7 +54,7 @@ public:
 
 	std::string texture;
 
-	void toggle_visibility() { bVisible = !bVisible; }
+	virtual void toggle_visibility() { bVisible = !bVisible; }
 	void set_visibility(bool isVisible) { bVisible = isVisible; }
 	bool get_visibility() const { return bVisible; }
 

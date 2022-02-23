@@ -38,10 +38,13 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	upvector_obj = std::make_shared<Arrow>();
 	upvector_obj->set_position(get_focus());
 	upvector_obj->set_rotation(Maths::Vec2Rot(up_vector));
+	upvector_obj->set_visibility(false);
 	engine.draw_object(upvector_obj);
 
 	attach_to(focus_obj.get());
 	upvector_obj->attach_to(focus_obj.get());
+
+	set_visibility(false);
 }
 
 Camera::~Camera() = default;
@@ -112,4 +115,11 @@ void Camera::zoom_in(float length)
 	glm::vec3 curr = get_focus() - get_position();
 	glm::vec3 offset = glm::normalize(curr) * length;
 	set_position(get_position() + offset);
+}
+
+void Camera::toggle_visibility()
+{
+	focus_obj->toggle_visibility();
+	upvector_obj->toggle_visibility();
+	Object::toggle_visibility();
 }

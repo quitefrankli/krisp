@@ -57,6 +57,8 @@ public: // object
 	void look_at(const glm::vec3& focus, const glm::vec3& from);
 	void look_at(const glm::vec3& pos);
 
+	virtual void toggle_visibility() override;
+
 protected:
 	virtual void set_rotation(const glm::quat& rotation) override;
 
