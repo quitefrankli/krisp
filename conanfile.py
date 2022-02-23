@@ -4,12 +4,12 @@ class vulkan_conan(ConanFile):
 	settings = (
 		"os",
 		"compiler", 
-		"build_type", 
+		"build_type",
 		"arch"
 	)
 
 	requires = (
-		"glfw/3.3.2@bincrafters/stable",
+		"glfw/3.3.2",
 		"glm/0.9.8.5@bincrafters/stable",
 		"vulkan-headers/1.2.172",
 		"vulkan-loader/1.2.172",
@@ -33,9 +33,10 @@ class vulkan_conan(ConanFile):
 		self.copy("*.dylib*", dst="bin", src="lib")
 
 	def build(self):
+		print('Vulkan-conan: building...')
 		cmake = CMake(self, build_type=self.settings.build_type)
 		cmake.configure()
-		cmake.build()
+		cmake.build(target='Vulkan')
 
 		# generates shaders
 		self.run('sh ../compile.sh')

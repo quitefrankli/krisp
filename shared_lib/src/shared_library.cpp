@@ -43,12 +43,12 @@ BOOL WINAPI DllMain(
     return TRUE;  // Successful DLL_PROCESS_ATTACH.
 }
 
-static int i = 0;
+// compilers will by default mangle c++ objects i.e. Foo -> "?Foo@@YAHH@Z"
+// extern C tells the compiler not to do that, that way when we GetProcAddress we don't need to use a mangled name
 extern "C" {
-	__declspec(dllexport) void __cdecl foo()
+	__declspec(dllexport) void __cdecl load_check()
 	{
-		std::cout << "foo\n";
-		std::cout << "bar\n";
+		std::cout << "shared_library loaded successfully!\n";
 	}
 
 	__declspec(dllexport) bool __cdecl screen_to_world(glm::mat4& transform, glm::mat4 view, glm::mat4 proj, glm::vec2 screen)
@@ -99,4 +99,8 @@ extern "C" {
 		std::cout << "SharedLibrary " << __FUNCTION__ << '\n';
 		v1.point(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	}
+
+	__declspec(dllexport)SharedLibFuncPtrs shared_lib_func_ptrs {
+		&load_check
+	};
 }

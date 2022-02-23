@@ -15,6 +15,7 @@ set(CMAkE_CXX_STANDARD_REQUIRED True)
 
 add_subdirectory(shared_lib)
 
+include_directories(AFTER "shared_lib/src")
 file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.hpp" "third_party/*.cpp" "third_party/*.h")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)

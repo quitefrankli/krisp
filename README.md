@@ -28,7 +28,7 @@ Using a runtime linking shared library, experimental functionality can be tested
 
 ~~**1. Command Line**~~
 
-~~compile and generate a new dll~~ **UPDATE: step 1 is no longer necessary**
+~~compile and generate a new dll~~ **UPDATE: step 1 is no longer necessary, but leaving it in incase it's necessary for manual testing**
 ```
 sh ../hot_reload.sh
 ```

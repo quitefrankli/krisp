@@ -11,36 +11,18 @@
 extern std::filesystem::path BINARY_DIRECTORY;
 extern std::filesystem::path WORKING_DIRECTORY;
 
-HotReload::func1_t HotReload::func1 = nullptr;
-HotReload::func2_t HotReload::func2 = nullptr;
-HotReload::func3_t HotReload::func3 = nullptr;
-
+static HotReload hot_reload;
 static HMODULE handle = nullptr;
 
-template<typename func_t>
-func_t load_func(HMODULE& handle, const char* name)
-{
-	auto func = (func_t)GetProcAddress(handle, name);
-	if (!func)
-	{
-		std::cerr << "Windows Error: " << GetLastError() << '\n';
-		throw std::runtime_error("HotReload: failed to load func1");
-	}
 
-	return func;
-}
-
-static bool generate_dll()
-{
-	std::string cmd = "sh " + WORKING_DIRECTORY.parent_path().string() + "/hot_reload.sh";
-	return system(cmd.c_str()) == 0;
-}
+HotReload& HotReload::get() { return hot_reload; }
 
 void HotReload::reload()
 {
-	if (!generate_dll())
+	std::string cmd = "sh " + WORKING_DIRECTORY.parent_path().string() + "/hot_reload.sh";
+	if (system(cmd.c_str()) != 0)
 	{
-		return;
+		throw std::runtime_error("HotReload: script failed");
 	}
 
 	int max_ver = 0;
@@ -81,7 +63,13 @@ void HotReload::reload()
 	handle = LoadLibrary(library.string().c_str());
 	if (!handle)
 		throw std::runtime_error("HotReload: invalid handle");
-	func1 = load_func<func1_t>(handle, "screen_to_world");
-	func2 = load_func<func2_t>(handle, "screen_to_world");
-	func3 = load_func<func3_t>(handle, "linear_alg");
+
+	slfp = (SharedLibFuncPtrs*)GetProcAddress(handle, "shared_lib_func_ptrs");
+	if (!slfp)
+	{
+		std::cout << "HotReload: load error\n";
+		return;
+	}
+
+	slfp->load_check();
 }
