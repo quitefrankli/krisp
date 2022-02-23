@@ -11,4 +11,5 @@ struct SharedLibFuncPtrs
 {
 	void (*load_check)();
 	void (*point_arrow)(Arrow&);
+	void (*gen_vec)(glm::vec3&);
 };

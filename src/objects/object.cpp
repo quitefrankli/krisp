@@ -73,13 +73,34 @@ void Object::set_rotation(const glm::quat& rotation)
 {
 	is_transform_old = true;
 
-	glm::quat diff = glm::normalize(rotation * glm::conjugate(orientation));
+	if (!children.empty())
+	{
+		glm::quat diff = glm::normalize(rotation * glm::conjugate(orientation));
+		for (auto& child : children)
+		{
+			// break;
+			// rotate the child about its own axis
+			// child.second->set_rotation(diff * child.second->get_rotation());
+
+			// in addition to the rotation of the child on its own axis
+			// we also need to rotate the child about the parent
+
+			// for rotating about arbitrary axis, we need to:
+			// 1. move it to the origin (relative to its parent)
+			glm::vec3 temp_pos = child.second->get_position() - get_position();
+
+			// 2. apply rotation
+			temp_pos = diff * temp_pos;
+
+			// 3. move it back to its location
+			child.second->set_position(temp_pos + get_position());
+
+			// 4. also apply rotation (in world space) to the child object
+			child.second->set_rotation(diff * child.second->get_rotation());
+		}
+	}
 
 	orientation = rotation;
-	for (auto& child : children)
-	{
-		child.second->set_rotation(diff * child.second->get_rotation());
-	}
 }
 
 void Object::set_transformation_components(const Maths::TransformationComponents& components)

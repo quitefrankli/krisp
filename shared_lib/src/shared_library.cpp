@@ -100,8 +100,15 @@ extern "C" {
 		v1.point(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	}
 
+	__declspec(dllexport) void __cdecl gen_vec(glm::vec3& vec)
+	{
+		// vec = {0.0f, 1.0f, 0.0f};
+		vec = {0.0f, 0.0f, 1.0f};
+	}
+
 	__declspec(dllexport)SharedLibFuncPtrs shared_lib_func_ptrs {
 		&load_check,
 		&point_arrow,
+		&gen_vec
 	};
 }

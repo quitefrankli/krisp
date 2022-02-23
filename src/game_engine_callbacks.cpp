@@ -63,18 +63,6 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			shutdown();
 			break;
 
-		case GLFW_KEY_P:
-			pos = get_camera().get_position();
-			pos.z += 0.5f;
-			get_camera().set_position(pos);
-			break;
-
-		case GLFW_KEY_L:
-			pos = get_camera().get_position();
-			pos.z -= 0.5f;
-			get_camera().set_position(pos);
-			break;		
-
 		case GLFW_KEY_LEFT:
 			break;
 

@@ -43,7 +43,6 @@ void GameEngine::run()
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	gizmo.init();
-	graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(arrow));
 
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
@@ -74,15 +73,12 @@ void GameEngine::run()
 	// spawn_object<HollowCylinder>();
 	// analytics.quick_timer_stop();
 
-	// spawn_object<Cube>();
-
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
 		std::chrono::duration<float, std::milli> chrono_delta_time = new_time - time;
 		const float delta_time = chrono_delta_time.count();
 		time = new_time;
-
 		analytics.start();
 
 		glfwPollEvents();
@@ -104,16 +100,8 @@ void GameEngine::run()
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
 
 				glm::quat quaternion = glm::angleAxis(magnitude, axis);
-				glm::mat4 curr = camera->get_transform();
-				glm::mat4 transform = glm::mat4_cast(quaternion);
 
-				// for rotating about arbitrary axis
-				auto cur_focus = camera->focus;
-				curr[3] -= glm::vec4(camera->focus, 0.0f);
-				glm::mat4 final_transform = transform * curr;
-				final_transform[3] += glm::vec4(camera->focus, 0.0f);
-
-				camera->set_transform(final_transform);
+				camera->focus_obj->set_rotation(quaternion * camera->focus_obj->get_rotation());
 			}
 		} else if (mouse.lmb_down)
 		{
@@ -127,7 +115,6 @@ void GameEngine::run()
 			if (std::fabsf(magnitude) > min_threshold) {
 				glm::vec3 axis = camera->sync_to_camera(screen_axis);
 				gizmo.process(axis, magnitude);
-				// arrow.point(glm::vec3(0.0f), axis); // for debugging, helps figure out direction of mouse
 
 				// if (tracker.object)
 				// {
@@ -147,23 +134,18 @@ void GameEngine::run()
 			const float min_threshold = 0.01f;
 			mouse.update_pos();
 			auto offset_vec = mouse.get_orig_offset();
+			std::cout << glm::to_string(offset_vec) << '\n';
 			float magnitude = glm::length(offset_vec);
 			if (magnitude > min_threshold)
 			{
 				magnitude *= sensitivity;
 				glm::vec3 axis = camera->sync_to_camera(offset_vec) * magnitude; // might not need magnitude here
-				camera->focus = camera->prev_focus + axis;
-
-				camera->set_position(camera->get_old_position() + axis);
-				camera->focus = camera->prev_focus + axis;
-
-				// this entire function should be pan and moved into camera
-				// for camera focus object
-				camera->focus_obj->set_position(camera->focus);
+				camera->look_at(camera->get_old_focus() + axis);
 			}
 		}
 
 		animator.process(delta_time / 1e3);
+		experimental->process(delta_time / 1e3);
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 		analytics.stop();

@@ -11,9 +11,9 @@ void ToggleFPSCmd::process(GraphicsEngine* engine)
 
 }
 
-SpawnObjectCmd::SpawnObjectCmd(std::shared_ptr<Object> object_)
+SpawnObjectCmd::SpawnObjectCmd(const std::shared_ptr<Object>& object_)
 {
-	object = std::move(object_);
+	object = object_;
 }
 
 SpawnObjectCmd::SpawnObjectCmd(Object& object_)

@@ -41,4 +41,9 @@ namespace Maths
 			rotationAxis.z * invs
 		);
 	}
+
+	glm::quat Vec2Rot(const glm::vec3& vec)
+	{
+		return RotationBetweenVectors(forward_vec, vec);
+	}
 }

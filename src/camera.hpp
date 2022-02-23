@@ -8,6 +8,8 @@
 #include <glm/vec3.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include "maths.hpp"
+
 // for reference
 // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), // camera pos
 // 					   glm::vec3(0.0f, 0.0f, 0.0f), // focus point
@@ -22,12 +24,9 @@ class GameEngine;
 class Camera : public Object, public ITrackableObject
 {
 private:
-	const glm::vec3 ORIGINAL_UP_VECTOR{ 0.f, 1.f, 0.f };
-	glm::vec3 up_vector;
+	// not a constant vector, can change depending on camera
+	glm::vec3 up_vector = Maths::up_vec;
 	glm::mat4 perspective_matrix;
-
-public:
-	glm::vec3 focus;
 	glm::vec3 prev_focus;
 
 public:
@@ -40,21 +39,30 @@ public:
 	// converts a screen-space axis to a camera space axis
 	glm::vec3 sync_to_camera(const glm::vec2& axis);
 
+	glm::vec3 get_focus() const;
+	glm::vec3 get_old_focus() const;
+
+	void set_focal_length(float length);
+	float get_focal_length();
+	void zoom_in(float length);
+
+	std::shared_ptr<Object> upvector_obj;
+	
 public: // object
-	// virtual glm::mat4 get_transform();
-	// virtual glm::vec3 get_position() { return position; }
-	// virtual glm::vec3 get_scale() { return scale; }
-	// virtual glm::quat get_rotation() { return orientation; }
-
-	virtual void set_transform(const glm::mat4& transform) override;
-	// virtual void set_position(glm::vec3& position) override;
-	// virtual void set_scale(glm::vec3& scale);
-	// virtual void set_rotation(glm::quat& rotation) override;
-
 	virtual void update_tracker() override;
 
 	// this needs to be private and be manipulated within camera
 	std::shared_ptr<Object> focus_obj; // might be better to give this object to game_engine
+
+	void look_at(const glm::vec3& focus, const glm::vec3& from);
+	void look_at(const glm::vec3& pos);
+
+protected:
+	virtual void set_rotation(const glm::quat& rotation) override;
+
 private:
 	GameEngine& engine;
+
+	using Object::set_transform;
+	using Object::set_position;
 };

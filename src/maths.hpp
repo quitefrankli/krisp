@@ -47,5 +47,9 @@ namespace Maths
 	// assume normalized already
 	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end);
 
+	// applies rotation between vectors assuming start=forward vec
+	glm::quat Vec2Rot(const glm::vec3& vec);
+
+	const glm::vec3 up_vec{0.0f, 1.0f, 0.0f};
 	const glm::vec3 forward_vec{0.0f, 0.0f, -1.0f};
 };

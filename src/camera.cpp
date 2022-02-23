@@ -3,9 +3,10 @@
 #include "maths.hpp"
 #include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
-#include "graphics_engine/graphics_engine_commands.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+
+#include <iostream>
 
 
 static glm::mat4 get_rotation_mat(glm::mat4 matrix)
@@ -18,7 +19,6 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	ITrackableObject(this),
 	engine(engine_)
 {
-	up_vector = ORIGINAL_UP_VECTOR;
 	set_position(glm::vec3(0.0f, 0.0f, 2.0f));
 
 	const float fov = Maths::deg2rad(45.0f);
@@ -30,18 +30,25 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	// ubo was originally designed for opengl whereby its y axis is flipped
 	perspective_matrix[1][1] *= -1.0f; // NOTE removing with will cause issues with the culling
 	// camera focus object
-	
-	// focus_obj = std::make_shared<Cube>("../resources/textures/texture.jpg");
 	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
-	focus_obj->toggle_visibility();
-	auto cmd = std::make_unique<SpawnObjectCmd>(focus_obj);
-	engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
+	focus_obj->set_visibility(false);
+	engine.draw_object(focus_obj);
+
+	upvector_obj = std::make_shared<Arrow>();
+	upvector_obj->set_position(get_focus());
+	upvector_obj->set_rotation(Maths::Vec2Rot(up_vector));
+	engine.draw_object(upvector_obj);
+
+	attach_to(focus_obj.get());
+	upvector_obj->attach_to(focus_obj.get());
 }
+
+Camera::~Camera() = default;
 
 glm::vec3 Camera::sync_to_camera(const glm::vec2& axis)
 {
-	return glm::normalize(get_rotation() * glm::vec3(axis, 0.0f));
+	return glm::normalize(focus_obj->get_rotation() * glm::vec3(axis, 0.0f));
 }
 
 glm::mat4 Camera::get_perspective()
@@ -51,20 +58,58 @@ glm::mat4 Camera::get_perspective()
 
 glm::mat4 Camera::get_view()
 {
-	return glm::lookAt(get_position(), focus, up_vector);
+	return glm::lookAt(get_position(), get_focus(), up_vector);
 }
 
-void Camera::set_transform(const glm::mat4& transformation)
+void Camera::set_rotation(const glm::quat& rotation)
 {
-	Object::set_transform(transformation);
-	up_vector = get_rotation() * ORIGINAL_UP_VECTOR;
-	focus_obj->set_rotation(get_rotation());
+	Object::set_rotation(rotation);
+	up_vector = rotation * Maths::up_vec;
 }
-
-Camera::~Camera() = default;
 
 void Camera::update_tracker()
 {
-	ITrackableObject::update_tracker();
-	prev_focus = focus;
+	set_old_position(focus_obj->get_position());
+	set_old_rotation(focus_obj->get_rotation());
+	set_old_scale(get_scale());
+	prev_focus = get_focus();
+}
+
+glm::vec3 Camera::get_focus() const
+{
+	return focus_obj->get_position();
+}
+
+void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
+{
+	focus_obj->set_position(focus);
+	set_position(from);
+}
+
+void Camera::look_at(const glm::vec3& pos)
+{
+	focus_obj->set_position(pos);
+}
+
+glm::vec3 Camera::get_old_focus() const
+{
+	return prev_focus;
+}
+
+void Camera::set_focal_length(float length)
+{
+	glm::vec3 new_offset = glm::normalize(get_focus() - get_position()) * length;
+	set_position(get_focus() + new_offset);
+}
+
+float Camera::get_focal_length()
+{
+	return glm::distance(get_focus(), get_position());
+}
+
+void Camera::zoom_in(float length)
+{
+	glm::vec3 curr = get_focus() - get_position();
+	glm::vec3 offset = glm::normalize(curr) * length;
+	set_position(get_position() + offset);
 }

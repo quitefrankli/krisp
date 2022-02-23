@@ -44,9 +44,21 @@ public:
 	Object_T& spawn_object(Args&&... args)
 	{
 		auto& object = objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
-		auto cmd = std::make_unique<SpawnObjectCmd>(object);
-		graphics_engine->enqueue_cmd(std::move(cmd));
-		return *static_cast<Object_T*>(object.get());
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
+		return static_cast<Object_T&>(*object);
+	}
+	
+	// this function assumes something else manages the lifetime of object
+	template<typename Object_T>
+	void draw_object(const std::shared_ptr<Object_T>& object)
+	{
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
+	}
+
+	template<typename Object_T>
+	void draw_object(Object_T& object)
+	{
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 
 private:
@@ -63,7 +75,6 @@ private:
 	std::vector<std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<Experimental> experimental;
-	Arrow arrow; // useful for testing purposes
 
 public:
 	Animator animator;
@@ -86,4 +97,7 @@ private: // callbacks
 	void handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset);
 
 	// void pause();
+	
+private: // friends
+	friend Experimental;
 };
