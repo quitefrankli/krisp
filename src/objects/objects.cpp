@@ -311,3 +311,60 @@ bool Arrow::check_collision(Maths::Ray& ray)
 	float dist = glm::distance(glm::dot(get_position(), normal) * normal, glm::dot(ray.origin, normal) * normal);
 	return dist < RADIUS;
 }
+
+Arc::Arc()
+{
+	// generated via 2 concentric circles
+	const float outer_radius = 0.5f;
+	const float inner_radius = 0.4f;
+	const float thickness = 0.02f; // 3d objects require a little thickness
+	const int N = 10; // num points
+	const float inc = Maths::PI/2.0f/(float)N;
+
+	// generate all vertices
+	Shape arc;
+	arc.vertices.reserve(N * 2);
+	auto gen_vertex = [&](const float radius, const float y, const int i)
+	{
+		arc.vertices.emplace_back(
+			radius * glm::vec3(sinf(inc * i), y, -cosf(inc * i)),
+			glm::vec3((float)i/(float)N, 1.0f, 1.0f)
+		);
+	};
+	for (int i = 0; i <= N; i++)
+		gen_vertex(outer_radius, thickness*0.5f, i);
+	for (int i = 0; i <= N; i++)
+		gen_vertex(inner_radius, thickness*0.5f, i);
+	for (int i = 0; i <= N; i++)
+		gen_vertex(outer_radius, -thickness*0.5f, i);
+	for (int i = 0; i <= N; i++)
+		gen_vertex(inner_radius, -thickness*0.5f, i);
+
+	const int outer_top_offset = 0;
+	const int inner_top_offset = N+1;
+	const int outer_bot_offset = N+N+2;
+	const int inner_bot_offset = N+N+N+3;
+	for (int i = 0; i < N; i++)
+	{
+		// top
+		arc.indices.push_back(outer_top_offset + i);
+		arc.indices.push_back(inner_top_offset + i);
+		arc.indices.push_back(outer_top_offset + i + 1);
+		arc.indices.push_back(outer_top_offset + i + 1);
+		arc.indices.push_back(inner_top_offset + i);
+		arc.indices.push_back(inner_top_offset + i + 1);
+
+		// bottom
+		arc.indices.push_back(outer_bot_offset + i);
+		arc.indices.push_back(outer_bot_offset + i + 1);
+		arc.indices.push_back(inner_bot_offset + i);
+		arc.indices.push_back(inner_bot_offset + i);
+		arc.indices.push_back(outer_bot_offset + i + 1);
+		arc.indices.push_back(inner_bot_offset + i + 1);
+
+		// we don't actually need the sides given a thin enough thickness and single sided shading
+	}
+
+	arc.generate_normals();
+	shapes.push_back(std::move(arc));
+}

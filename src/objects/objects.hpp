@@ -55,3 +55,10 @@ public:
 public:
 	const float RADIUS = 0.05f;
 };
+
+class Arc : public Object
+{
+public:
+	Arc();
+	Arc(Arc&&) = delete;
+};
