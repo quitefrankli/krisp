@@ -154,9 +154,9 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 		if (action == GLFW_PRESS)
 		{
 			mouse.update_pos();
+			const Maths::Ray ray = camera->get_ray(mouse.curr_pos);
 			if (mode == GLFW_MOD_SHIFT)
 			{
-				Maths::Ray ray = screen_to_world(mouse.curr_pos);
 				auto simple_collision_detection = [&](const Object& obj)
 				{
 					// assuming unit box, uses a sphere for efficiency
@@ -172,17 +172,16 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 				{
 					if (simple_collision_detection(*object))
 					{
-						object->attach_to(&gizmo);
+						gizmo.select_object(object.get());
 						return;
 					}
 				}
 
 				// no objects detected deselect everything
-				gizmo.detach_all_children();
+				gizmo.deselect();
 			} else {
 				if (gizmo.is_active())
 				{
-					Maths::Ray ray = screen_to_world(mouse.curr_pos);
 					gizmo.check_collision(ray);
 				}
 

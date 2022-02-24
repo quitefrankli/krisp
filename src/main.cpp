@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
 			BINARY_DIRECTORY = arg;
 			BINARY_DIRECTORY = BINARY_DIRECTORY.parent_path();
 			WORKING_DIRECTORY = BINARY_DIRECTORY.parent_path();
-			fmt::print("BINARY_DIRECTORY:={}, WORKING_DIRECTORY:={}\n", BINARY_DIRECTORY, WORKING_DIRECTORY);
+			fmt::print("BINARY_DIRECTORY:={}, WORKING_DIRECTORY:={}\n", BINARY_DIRECTORY.string(), WORKING_DIRECTORY.string());
 		} else if (arg == "--logging")
 		{
 			quill::start(); // this will consume CPU cycles

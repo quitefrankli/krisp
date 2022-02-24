@@ -2,6 +2,7 @@
 #include "shapes/shapes.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <iostream>
 
@@ -298,7 +299,7 @@ void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 	set_scale(scale);
 }
 
-bool Arrow::check_collision(Maths::Ray& ray)
+bool Arrow::check_collision(const Maths::Ray& ray)
 {
 	if (!Object::check_collision(ray))
 	{
@@ -315,8 +316,6 @@ bool Arrow::check_collision(Maths::Ray& ray)
 Arc::Arc()
 {
 	// generated via 2 concentric circles
-	const float outer_radius = 0.5f;
-	const float inner_radius = 0.4f;
 	const float thickness = 0.02f; // 3d objects require a little thickness
 	const int N = 10; // num points
 	const float inc = Maths::PI/2.0f/(float)N;
@@ -367,4 +366,28 @@ Arc::Arc()
 
 	arc.generate_normals();
 	shapes.push_back(std::move(arc));
+}
+
+bool Arc::check_collision(const Maths::Ray& ray)
+{
+	// imagine an arc as a plane, the default has a normal = upvector
+	const Maths::Plane plane(get_position(), glm::normalize(get_rotation() * Maths::up_vec));
+
+	// first check if there is even an intersection
+	if (!Maths::check_ray_plane_intersection(ray, plane))
+		return false;
+
+	glm::vec3 P = Maths::ray_plane_intersection(ray, plane);
+	const float dist = glm::distance(P, plane.offset);
+	if (dist > outer_radius || dist < inner_radius)
+	{
+		// not on arc
+		return false;
+	}
+
+	// this might be a tad inefficient but will do for now
+	// but it essentially unrotates the mathematical representation of the arc
+	// and checks if P lies within the arc
+	glm::vec3 origP = glm::inverse(get_rotation()) * (P - plane.offset);
+	return origP.x > 0 && origP.z < 0;
 }

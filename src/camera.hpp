@@ -33,11 +33,15 @@ public:
 	Camera(GameEngine& engine, float aspect_ratio);
 	~Camera();
 
-	glm::mat4 get_perspective();
-	glm::mat4 get_view();
+	glm::mat4 get_perspective() const;
+	glm::mat4 get_view() const;
 
 	// converts a screen-space axis to a camera space axis
 	glm::vec3 sync_to_camera(const glm::vec2& axis);
+
+	// screen to world ray, pretty inefficient function atm,
+	// the "screen" is essentially the mouse cursor location
+	Maths::Ray get_ray(const glm::vec2& screen) const;
 
 	glm::vec3 get_focus() const;
 	glm::vec3 get_old_focus() const;

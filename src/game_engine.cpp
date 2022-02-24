@@ -106,8 +106,13 @@ void GameEngine::run()
 			float magnitude = glm::length(screen_axis);
 
 			if (std::fabsf(magnitude) > min_threshold) {
-				glm::vec3 axis = camera->sync_to_camera(screen_axis);
-				gizmo.process(axis, magnitude);
+				const Maths::Ray r1 = camera->get_ray(mouse.orig_pos);
+				const Maths::Ray r2 = camera->get_ray(mouse.curr_pos);
+				gizmo.process(r1, r2);
+				
+				// glm::vec3 axis = camera->sync_to_camera(screen_axis);
+				// gizmo.process(axis, magnitude);
+
 
 				// if (tracker.object)
 				// {
@@ -159,26 +164,6 @@ void GameEngine::shutdown_impl()
 }
 
 GameEngine::~GameEngine() = default;
-
-Maths::Ray GameEngine::screen_to_world(glm::vec2 screen) const
-{
-	auto view_mat = camera->get_view();
-	auto proj_mat = camera->get_perspective();
-	proj_mat[1][1] *= -1.0f; // our world is upside down
-	auto proj_view_mat = glm::inverse(proj_mat * view_mat);
-
-	auto unproj = [&](const float depth)
-	{
-		auto point = proj_view_mat * glm::vec4(mouse.curr_pos, depth, 1.0f);
-		point /= point.w;
-		return glm::vec3(point);
-	};
-
-	auto p1 = unproj(0.7f);
-	auto p2 = unproj(0.95f);
-
-	return Maths::Ray(camera->get_position(), glm::normalize(p2-p1));
-}
 
 GuiManager& GameEngine::get_gui_manager()
 {

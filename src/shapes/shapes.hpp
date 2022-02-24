@@ -32,6 +32,6 @@ namespace Shapes
 		Cone(int nVertices, glm::vec3 color = {0.0f, 1.0f, 0.0f});
 		Cone(Cone&&) noexcept = default;
 
-		virtual bool check_collision(Maths::Ray& ray) override;
+		virtual bool check_collision(const Maths::Ray& ray) override;
 	};
 }

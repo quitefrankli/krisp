@@ -50,7 +50,7 @@ public:
 
 	void point(const glm::vec3& start, const glm::vec3& end);
 
-	virtual bool check_collision(Maths::Ray& ray) override;
+	virtual bool check_collision(const Maths::Ray& ray) override;
 
 public:
 	const float RADIUS = 0.05f;
@@ -61,4 +61,9 @@ class Arc : public Object
 public:
 	Arc();
 	Arc(Arc&&) = delete;
+
+	virtual bool check_collision(const Maths::Ray& ray) override;
+
+	const float outer_radius = 1.0f;
+	const float inner_radius = 0.8f;
 };

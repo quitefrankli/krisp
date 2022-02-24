@@ -66,4 +66,4 @@ void Shape::deduplicate_vertices()
 	}
 }
 
-bool Shape::check_collision(Maths::Ray& ray) { return true; }
+bool Shape::check_collision(const Maths::Ray& ray) { return true; }

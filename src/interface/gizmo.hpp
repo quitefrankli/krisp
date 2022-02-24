@@ -7,45 +7,70 @@
 
 
 class GameEngine;
+class Gizmo;
+
+class GizmoBase : public Object
+{
+public:
+	GizmoBase(GameEngine& engine, Gizmo& gizmo);
+
+	virtual void init() = 0;
+	virtual void set_visibility(bool) override;
+	virtual bool check_collision(const Maths::Ray& ray);
+	
+protected:
+	GameEngine& engine;
+	Gizmo& gizmo;
+	virtual bool is_essential_child(Object* child);
+	Maths::TransformationComponents reference_transform;
+	std::array<Object*, 3> axes;
+	Object* active_axis = nullptr; // when axis is clicked on
+};
+
+class TranslationGizmo : public GizmoBase
+{
+public:
+	using GizmoBase::GizmoBase;
+	virtual void init() override;
+	void process(const Maths::Ray& r1, const Maths::Ray& r2);
+	
+private:
+	Arrow xAxis;
+	Arrow yAxis;
+	Arrow zAxis;
+};
+
+class RotationGizmo : public GizmoBase
+{
+public:
+	using GizmoBase::GizmoBase;
+	virtual void init() override;
+	void process(const Maths::Ray& r1, const Maths::Ray& r2);
+
+private:
+	// represents the normal of the arc
+	Arc xAxisNorm;
+	Arc yAxisNorm;
+	Arc zAxisNorm;
+};
 
 class Gizmo : public Object
 {
 public:
 	Gizmo(GameEngine& engine);
-
-	virtual void init() = 0;
-	virtual void detach_all_children() override;
+	void init();
+	void select_object(Object* obj);
+	void deselect();
 	bool is_active() { return isActive; }
+	// r1 is first mouse pos, and r2 is second mouse pos
+	void process(const Maths::Ray& r1, const Maths::Ray& r2);
+	virtual bool check_collision(const Maths::Ray& ray) override;
 	
-protected:
+private:
+	TranslationGizmo translation;
+	RotationGizmo rotation;
+	Object* selected_object = nullptr;
+	// GizmoBase* active_gizmo = nullptr;
+	bool isActive = false; // when gizmo is selected
 	GameEngine& engine;
-	virtual void on_child_attached(Object* child) override;
-	virtual void on_child_detached(Object* child) override;
-	virtual bool is_essential_child(Object* child) = 0;
-	bool isActive = false;
-	Maths::TransformationComponents reference_transform;
-	std::array<Object*, 3> axes;
-
-private:
-	Object* object = nullptr;
-};
-
-class TranslationGizmo : public Gizmo
-{
-public:
-	using Gizmo::Gizmo;
-	
-	void init() override;
-
-	virtual bool check_collision(Maths::Ray& ray) override;
-
-	void process(const glm::vec3& dir, float magnitude);
-private:
-	virtual bool is_essential_child(Object* child) override;
-
-	Arrow xAxis;
-	Arrow yAxis;
-	Arrow zAxis;
-
-	glm::vec3 curr_axis;
 };

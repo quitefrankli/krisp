@@ -127,7 +127,7 @@ Cone::Cone(int nVertices, glm::vec3 color)
 	generate_normals();
 }
 
-bool Cone::check_collision(Maths::Ray& ray)
+bool Cone::check_collision(const Maths::Ray& ray)
 {
 	// TODO
 	return true;

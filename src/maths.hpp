@@ -29,6 +29,15 @@ namespace Maths
 		float length = 1.0f;
 	};
 
+	struct Plane
+	{
+		Plane() = default;
+		Plane(const glm::vec3& offset_, const glm::vec3& normal_) : offset(offset_), normal(normal_) {}
+
+		glm::vec3 offset;
+		glm::vec3 normal;
+	};
+
 	struct Sphere
 	{
 		Sphere() = default;
@@ -50,6 +59,13 @@ namespace Maths
 	// applies rotation between vectors assuming start=forward vec
 	glm::quat Vec2Rot(const glm::vec3& vec);
 
+	// gets intersection between ray and plane, ASSUMING there is one, use below function if checking is necessary
+	glm::vec3 ray_plane_intersection(const Ray& ray, const Plane& plane);
+
+	// it's possible for a ray to be "behind" a plane and pointing away from it
+	bool check_ray_plane_intersection(const Ray& ray, const Plane& plane);
+
 	const glm::vec3 up_vec{0.0f, 1.0f, 0.0f};
 	const glm::vec3 forward_vec{0.0f, 0.0f, -1.0f};
+	const glm::vec3 zero_vec{};
 };

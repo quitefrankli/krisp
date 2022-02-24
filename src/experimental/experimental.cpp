@@ -12,7 +12,7 @@
 Experimental::Experimental(GameEngine& engine_) :
 	engine(engine_)
 {
-	auto& arc = engine.spawn_object<Arc>();
+	// auto& arc = engine.spawn_object<Arc>();
 }
 
 void Experimental::process()

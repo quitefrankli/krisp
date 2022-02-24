@@ -230,7 +230,7 @@ void Object::calculate_bounding_primitive<Maths::Sphere>()
 	is_bounding_primitive_cached = true;
 }
 
-bool Object::check_collision(Maths::Ray& ray)
+bool Object::check_collision(const Maths::Ray& ray)
 {
 	assert(is_bounding_primitive_cached);
 

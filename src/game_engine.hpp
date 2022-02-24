@@ -31,7 +31,6 @@ public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
 	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
-	Maths::Ray screen_to_world(glm::vec2 screen) const;
 	GuiManager& get_gui_manager();
 
 public:
@@ -63,7 +62,7 @@ public:
 
 private:
 	App::Window window;
-	TranslationGizmo gizmo;
+	Gizmo gizmo;
     std::unique_ptr<GraphicsEngine> graphics_engine;
 	std::unique_ptr<Camera> camera;
 	Keyboard keyboard;

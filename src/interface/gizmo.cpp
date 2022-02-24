@@ -5,115 +5,202 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "game_engine.hpp"
 #include "shapes/shapes.hpp"
+#include "camera.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
 #include <array>
 
 
-Gizmo::Gizmo(GameEngine& engine_) :
-	engine(engine_)
+//
+// GizmoBase
+//
+
+GizmoBase::GizmoBase(GameEngine& engine_, Gizmo& gizmo_) :
+	engine(engine_),
+	gizmo(gizmo_)
 {
 }
 
-void Gizmo::detach_all_children()
+bool GizmoBase::is_essential_child(Object* child)
 {
-	// can't do simple for loop since we may be removing elements while iterating
-	for (auto child = children.begin(), next_child = child; child != children.end(); child = next_child)
+	return std::any_of(axes.begin(), axes.end(), [child](auto* axis){ return child == axis;});
+}
+
+void GizmoBase::set_visibility(bool visibility)
+{
+	std::for_each(axes.begin(), axes.end(), [visibility](Object* axis)
 	{
-		next_child++;
-		if (is_essential_child(child->second))
+		axis->set_visibility(visibility);
+	});
+}
+
+bool GizmoBase::check_collision(const Maths::Ray& ray)
+{
+	active_axis = nullptr;
+	for (auto axis : axes)
+	{
+		if (axis->check_collision(ray))
 		{
-			continue;
+			active_axis = axis;
+			reference_transform.position = get_position();
+			reference_transform.orientation = get_rotation();
 		}
-		child->second->detach_from();
-	}
-}
-
-void Gizmo::on_child_attached(Object* child)
-{
-	if (is_essential_child(child))
-	{
-		return;
 	}
 
-	// gizmo can only have 1 non-essential child, so first detach everything not essential
-	detach_all_children();
-
-	// set_visibility(true);
-
-	set_position(child->get_position());
-	set_rotation(child->get_rotation());
-
-	isActive = true;
-
-	std::for_each(axes.begin(), axes.end(), [this](auto axis){
-		axis->set_visibility(true);
-	});
+	return active_axis;
 }
 
-void Gizmo::on_child_detached(Object* child)
-{
-	std::for_each(axes.begin(), axes.end(), [this](auto axis){
-		axis->set_visibility(false);
-	});
-	set_visibility(false);
-
-	isActive = false;
-}
+//
+// TranslationGizmo
+//
 
 void TranslationGizmo::init()
 {
-	glm::vec3 O(0.0f);
-	xAxis.point(O, glm::vec3(1.0f, 0.0f, 0.0f));
-	yAxis.point(O, glm::vec3(0.0f, 1.0f, 0.0f));
-	zAxis.point(O, glm::vec3(0.0f, 0.0f, -1.0f));
+	xAxis.point(Maths::zero_vec, glm::vec3(1.0f, 0.0f, 0.0f));
+	yAxis.point(Maths::zero_vec, glm::vec3(0.0f, 1.0f, 0.0f));
+	zAxis.point(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -1.0f));
 
-	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(xAxis));
-	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(yAxis));
-	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(zAxis));
-
-	shapes.emplace_back<Shapes::Cylinder>(10);
-	engine.get_graphics_engine().enqueue_cmd(std::make_unique<SpawnObjectCmd>(*this));
+	engine.draw_object(xAxis);
+	engine.draw_object(yAxis);
+	engine.draw_object(zAxis);
 
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
 		axis->attach_to(this);
 		axis->set_visibility(false);
 	});
-
-	set_visibility(false);
 }
 
-bool TranslationGizmo::is_essential_child(Object* child)
+void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 {
-	return std::any_of(axes.begin(), axes.end(), [child](auto axis){ return child == axis;});
-}
-
-bool TranslationGizmo::check_collision(Maths::Ray& ray)
-{
-	for (auto axis : axes)
-	{
-		if (axis->check_collision(ray))
-		{
-			std::cout << "level 0 and 1 collision detected!\n";
-			curr_axis = axis->get_rotation() * Maths::forward_vec;
-			reference_transform.position = get_position();
-			return true;
-		}
-	}
-
-	curr_axis = glm::vec3(0.0f);
-
-	return false;
-}
-
-void TranslationGizmo::process(const glm::vec3& dir, float magnitude)
-{
-	if (!is_active() || curr_axis == glm::vec3(0.0f))
-	{
+	if (!active_axis)
 		return;
-	}
-	glm::vec3 projOnAxis = glm::dot(dir * magnitude, curr_axis) * curr_axis;
-	set_position(reference_transform.position + projOnAxis);
+
+	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+
+	//
+	// WARNING SUPER BAD CODE
+	// there probably is a better way, but for now we will stick to this
+	//
+
+	Maths::Plane plane;
+	plane.offset = get_position();
+	plane.normal = glm::cross(curr_axis, glm::cross(curr_axis, r1.direction));
+
+	const auto p1 = Maths::ray_plane_intersection(r1, plane);
+	const auto p2 = Maths::ray_plane_intersection(r2, plane);
+
+	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
+
+	gizmo.set_position(reference_transform.position + Vp1_p2);
+}
+
+//
+// RotationGizmo
+//
+
+void RotationGizmo::init()
+{
+	xAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(0.0f, 0.0f, 1.0f)));
+	zAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f)));
+	engine.draw_object(xAxisNorm);
+	engine.draw_object(yAxisNorm);
+	engine.draw_object(zAxisNorm);
+
+	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
+	std::for_each(axes.begin(), axes.end(), [this](auto axis){
+		axis->attach_to(this);
+		axis->set_visibility(false);
+	});
+}
+
+void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
+{
+	if (!active_axis)
+		return;
+
+	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::up_vec;
+	const Maths::Plane plane(get_position(), curr_axis);
+
+	auto p1 = Maths::ray_plane_intersection(r1, plane);
+	auto p2 = Maths::ray_plane_intersection(r2, plane);
+
+	const auto quat = Maths::RotationBetweenVectors(glm::normalize(p1-plane.offset), glm::normalize(p2-plane.offset));
+	gizmo.set_rotation(quat * reference_transform.orientation);
+	return;
+
+	// this might be a tad inefficient but will do for now
+	// but it essentially unrotates the mathematical representation of the arc
+	// perhaps we could do all calculations in local space (i.e. move r1 and r2 to local space)
+	p1 = glm::inverse(get_rotation()) * (p1 - plane.offset);
+	p2 = glm::inverse(get_rotation()) * (p2 - plane.offset);
+
+
+
+	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
+
+	gizmo.set_position(reference_transform.position + Vp1_p2);
+}
+
+
+//
+// Gizmo
+//
+
+Gizmo::Gizmo(GameEngine& engine_) : 
+	engine(engine_),
+	translation(engine_, *this),
+	rotation(engine_, *this)
+{
+	translation.attach_to(this);
+	rotation.attach_to(this);
+}
+
+void Gizmo::init()
+{
+	translation.init();
+	rotation.init();
+}
+
+void Gizmo::select_object(Object* obj)
+{
+	if (!obj)
+		return;
+
+	// gizmo can only be attached to 1 obj at a time
+	deselect();
+
+	selected_object = obj;
+	isActive = true;
+	set_position(selected_object->get_position());
+	set_rotation(selected_object->get_rotation());
+	selected_object->attach_to(this);
+
+	translation.set_visibility(true);
+	rotation.set_visibility(true);
+}
+
+void Gizmo::deselect()
+{
+	if (!selected_object)
+		return;
+
+	selected_object->detach_from();
+	selected_object = nullptr;
+
+	isActive = false;
+	translation.set_visibility(false);
+	rotation.set_visibility(false);
+}
+
+void Gizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
+{
+	translation.process(r1, r2);
+	rotation.process(r1, r2);
+}
+
+bool Gizmo::check_collision(const Maths::Ray& ray)
+{
+	return translation.check_collision(ray) || rotation.check_collision(ray);
 }

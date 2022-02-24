@@ -55,12 +55,33 @@ glm::vec3 Camera::sync_to_camera(const glm::vec2& axis)
 	return glm::normalize(focus_obj->get_rotation() * glm::vec3(axis, 0.0f));
 }
 
-glm::mat4 Camera::get_perspective()
+Maths::Ray Camera::get_ray(const glm::vec2& screen) const
+{
+	auto proj_mat = get_perspective();
+	proj_mat[1][1] *= -1.0f; // our world is upside down
+	const auto proj_view_mat = glm::inverse(proj_mat * get_view());
+
+	auto unproj = [&](const float depth)
+	{
+		auto point = proj_view_mat * glm::vec4(screen, depth, 1.0f);
+		point /= point.w;
+		return glm::vec3(point);
+	};
+
+	// arbitrary constants that seem to work, although i have no idea what they mean, just got them by experimentation
+	// it's supposedly for the near and far planes but it doesn't appear to be linear
+	const auto p1 = unproj(0.7f);
+	const auto p2 = unproj(0.95f);
+
+	return Maths::Ray(get_position(), glm::normalize(p2-p1));
+}
+
+glm::mat4 Camera::get_perspective() const
 {
 	return perspective_matrix;
 }
 
-glm::mat4 Camera::get_view()
+glm::mat4 Camera::get_view() const
 {
 	return glm::lookAt(get_position(), get_focus(), up_vector);
 }

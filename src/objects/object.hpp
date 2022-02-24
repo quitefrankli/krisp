@@ -55,7 +55,7 @@ public:
 	std::string texture;
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }
-	void set_visibility(bool isVisible) { bVisible = isVisible; }
+	virtual void set_visibility(bool isVisible) { bVisible = isVisible; }
 	bool get_visibility() const { return bVisible; }
 
 	// detach from parent
@@ -117,5 +117,5 @@ protected:
 	bool is_bounding_primitive_cached = false;
 
 public:
- 	virtual bool check_collision(Maths::Ray& ray);
+ 	virtual bool check_collision(const Maths::Ray& ray);
 };

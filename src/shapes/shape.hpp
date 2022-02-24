@@ -30,5 +30,5 @@ public:
 	// WARNING this is expensive
 	void deduplicate_vertices();
 
-	virtual bool check_collision(Maths::Ray& ray);
+	virtual bool check_collision(const Maths::Ray& ray);
 };

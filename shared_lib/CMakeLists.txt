@@ -6,11 +6,6 @@ project(shared_lib)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
-find_package(glfw3 REQUIRED)
-find_package(glm REQUIRED)
-
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
-
 set(CMAKE_CXX_STANDARD 17)
 set(CMAkE_CXX_STANDARD_REQUIRED True)
 
