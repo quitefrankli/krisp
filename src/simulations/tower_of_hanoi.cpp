@@ -14,25 +14,21 @@ TowerOfHanoi::TowerOfHanoi(GameEngine& engine_) : Simulation(engine_)
 {
 	for (int i = 0; i < 3; i++)
 	{
-		pillar_t pillar;
-		pillar.set_scale(glm::vec3(0.3f, 2.0f, 0.3f));
-		pillar.set_position(glm::vec3(i-1, 0.0f, 0.0f));
-		pillars.push_back(std::make_shared<pillar_t>(std::move(pillar)));
-		auto cmd = std::make_unique<SpawnObjectCmd>(pillars.back());
-		engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
+		auto& pillar = pillars.emplace_back();
+		pillar->set_scale(glm::vec3(0.3f, 2.0f, 0.3f));
+		pillar->set_position(glm::vec3(i-1, 0.0f, 0.0f));
+		engine.draw_object(pillar);
 	}
 
 	const int NUM_DONUTS = 3;
 	for (int i = 0; i < NUM_DONUTS; i++)
 	{
-		donut_t donut;
-		float scaler = 1.0f - (float)i / 10.0f;
-		donut.set_scale(glm::vec3(scaler, 1.0f, scaler));
-		donut.set_position(glm::vec3(-1.0f, pillars[0]->content_height, 0.0f));
-		pillars[0]->content_height += donut.get_scale()[1] * 0.5f;
-		donuts.push_back(std::make_shared<donut_t>(std::move(donut)));
-		auto cmd = std::make_unique<SpawnObjectCmd>(donuts.back());
-		engine.get_graphics_engine().enqueue_cmd(std::move(cmd));
+		auto& donut = donuts.emplace_back();
+		const float scaler = 1.0f - (float)i / 10.0f;
+		donut->set_scale(glm::vec3(scaler, 1.0f, scaler));
+		donut->set_position(glm::vec3(-1.0f, pillars[0]->content_height, 0.0f));
+		pillars[0]->content_height += donut->get_scale()[1] * 0.5f;
+		engine.draw_object(donut);
 	}
 }
 
