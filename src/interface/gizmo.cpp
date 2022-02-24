@@ -37,14 +37,15 @@ void GizmoBase::set_visibility(bool visibility)
 
 bool GizmoBase::check_collision(const Maths::Ray& ray)
 {
-	active_axis = nullptr;
+	// assume active_axis has been cleared already
+	
 	for (auto axis : axes)
 	{
 		if (axis->check_collision(ray))
 		{
 			active_axis = axis;
 			reference_transform.position = get_position();
-			reference_transform.orientation = get_rotation();
+			reference_transform.orientation = gizmo.get_rotation();
 		}
 	}
 
@@ -86,7 +87,7 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 	Maths::Plane plane;
 	plane.offset = get_position();
-	plane.normal = glm::cross(curr_axis, glm::cross(curr_axis, r1.direction));
+	plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, r1.direction)));
 
 	const auto p1 = Maths::ray_plane_intersection(r1, plane);
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
@@ -127,22 +128,8 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 	auto p2 = Maths::ray_plane_intersection(r2, plane);
 
 	const auto quat = Maths::RotationBetweenVectors(glm::normalize(p1-plane.offset), glm::normalize(p2-plane.offset));
-	gizmo.set_rotation(quat * reference_transform.orientation);
-	return;
-
-	// this might be a tad inefficient but will do for now
-	// but it essentially unrotates the mathematical representation of the arc
-	// perhaps we could do all calculations in local space (i.e. move r1 and r2 to local space)
-	p1 = glm::inverse(get_rotation()) * (p1 - plane.offset);
-	p2 = glm::inverse(get_rotation()) * (p2 - plane.offset);
-
-
-
-	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
-
-	gizmo.set_position(reference_transform.position + Vp1_p2);
+	gizmo.set_rotation(glm::normalize(quat * reference_transform.orientation));
 }
-
 
 //
 // Gizmo
@@ -202,5 +189,7 @@ void Gizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 bool Gizmo::check_collision(const Maths::Ray& ray)
 {
+	translation.clear_active_axis();
+	rotation.clear_active_axis();
 	return translation.check_collision(ray) || rotation.check_collision(ray);
 }
