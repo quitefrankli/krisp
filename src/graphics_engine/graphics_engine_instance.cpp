@@ -30,10 +30,10 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	app_info.pApplicationName = APPLICATION_NAME.c_str();
-	app_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+	app_info.applicationVersion = VK_MAKE_VERSION(1, 2, 172); // i think this is application specific, so might not be necessary
 	app_info.pEngineName = ENGINE_NAME.c_str();
-	app_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	app_info.apiVersion = VK_API_VERSION_1_0;
+	app_info.engineVersion = VK_MAKE_VERSION(1, 2, 172); // needs to be associated with vulkan version
+	app_info.apiVersion = VK_API_VERSION_1_2;
 
 	VkInstanceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

@@ -141,12 +141,15 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
-	auto extent = get_graphics_engine().get_extent_unsafe();
+	const auto extent = get_graphics_engine().get_extent_unsafe();
 	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
+	// Vulkan uses right-hand coordinate system, so y is actually pointing down
+	// to fix this, we can flip the view port upside down
+	// https://www.saschawillems.de/blog/2019/03/29/flipping-the-vulkan-viewport/
 	view_port.x = 0.0f;
-	view_port.y = 0.0f;
-	view_port.width = extent.width;
-	view_port.height = extent.height;
+	view_port.y = (float)extent.height;
+	view_port.width = (float)extent.width;
+	view_port.height = -(float)extent.height;
 	view_port.minDepth = 0.0f;
 	view_port.maxDepth = 1.0f;
 
@@ -169,8 +172,8 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 	rasterizer_create_info.lineWidth = 1.0f;
 	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
 	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
+	// culling is determined by either clockerwise or counter clockwise vertex order
 	rasterizer_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // this is the convention
-	// rasterizer_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE; // culling is determined by either clockerwise or counter clockwise vertex order
 	// rasterizer can alter depth by adding bias (either constant or sloped), can be useful for shadow mapping
 	rasterizer_create_info.depthBiasEnable = VK_FALSE;
 	rasterizer_create_info.depthBiasConstantFactor = 0.0f;
