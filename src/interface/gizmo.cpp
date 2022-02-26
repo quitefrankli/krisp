@@ -62,14 +62,11 @@ void TranslationGizmo::init()
 	yAxis.point(Maths::zero_vec, glm::vec3(0.0f, 1.0f, 0.0f));
 	zAxis.point(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -1.0f));
 
-	engine.draw_object(xAxis);
-	engine.draw_object(yAxis);
-	engine.draw_object(zAxis);
-
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
 		axis->attach_to(this);
 		axis->set_visibility(false);
+		engine.draw_object(*axis);
 	});
 }
 
@@ -103,16 +100,14 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 void RotationGizmo::init()
 {
-	xAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(0.0f, 0.0f, 1.0f)));
-	zAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f)));
-	engine.draw_object(xAxisNorm);
-	engine.draw_object(yAxisNorm);
-	engine.draw_object(zAxisNorm);
+	yAxisNorm.set_rotation(glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f)));
+	zAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(0.0f, 1.0f, 0.0f)));
 
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
 		axis->attach_to(this);
 		axis->set_visibility(false);
+		engine.draw_object(*axis);
 	});
 }
 

@@ -364,6 +364,9 @@ Arc::Arc()
 		// we don't actually need the sides given a thin enough thickness and single sided shading
 	}
 
+	// let default plane normal be the forward axis
+	arc.transform_vertices(glm::angleAxis(Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+
 	arc.generate_normals();
 	shapes.push_back(std::move(arc));
 }

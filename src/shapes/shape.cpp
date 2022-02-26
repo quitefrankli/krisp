@@ -12,6 +12,15 @@ void Shape::transform_vertices(const glm::mat4& transform)
 	}
 }
 
+void Shape::transform_vertices(const glm::quat& quat)
+{
+	for (auto& vertex : vertices)
+	{
+		vertex.pos = quat * vertex.pos;
+		vertex.normal = glm::normalize(quat * vertex.normal);
+	}
+}
+
 void Shape::generate_normals()
 {
 	// zero all normals

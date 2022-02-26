@@ -3,6 +3,7 @@
 #include "vertex.hpp"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 
 namespace Maths
@@ -25,6 +26,7 @@ public:
 	uint32_t get_num_unique_vertices() const { return static_cast<uint32_t>(vertices.size()); }
 	uint32_t get_num_vertex_indices() const { return static_cast<uint32_t>(indices.size()); };
 	void transform_vertices(const glm::mat4& transform);
+	void transform_vertices(const glm::quat& quat);
 	void generate_normals();
 
 	// WARNING this is expensive
