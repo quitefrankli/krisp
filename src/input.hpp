@@ -22,12 +22,11 @@ public:
 	bool lmb_down = false;
 	bool mmb_down = false;
 
+	bool update_pos_on_significant_offset(const float min_offset);
 	glm::vec2 update_pos();
 	glm::vec2 get_prev_offset();
 	glm::vec2 get_orig_offset();
-
-	double pixel_x;
-	double pixel_y;
+	
 private:
 	App::Window& window;
 };

@@ -100,12 +100,14 @@ void GameEngine::run()
 		{
 			const float sensitivity = 2.0f;
 			const float min_threshold = 0.01f;
-			mouse.update_pos();
-			auto offset = mouse.get_orig_offset();
-			glm::vec2 screen_axis(offset.x, offset.y);
-			float magnitude = glm::length(screen_axis);
 
-			if (std::fabsf(magnitude) > min_threshold) {
+			// check w/ IMMEDIATE prev pos if offset is big enough
+			if (mouse.update_pos_on_significant_offset(min_threshold))
+			{
+				const auto offset = mouse.get_orig_offset();
+				glm::vec2 screen_axis(offset.x, offset.y);
+				float magnitude = glm::length(screen_axis);
+
 				const Maths::Ray r1 = camera->get_ray(mouse.orig_pos);
 				const Maths::Ray r2 = camera->get_ray(mouse.curr_pos);
 				gizmo.process(r1, r2);
