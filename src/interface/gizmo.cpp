@@ -8,6 +8,8 @@
 #include "camera.hpp"
 
 #include <glm/gtx/string_cast.hpp>
+#include <fmt/core.h>
+
 #include <iostream>
 #include <array>
 
@@ -35,23 +37,6 @@ void GizmoBase::set_visibility(bool visibility)
 	});
 }
 
-bool GizmoBase::check_collision(const Maths::Ray& ray)
-{
-	// assume active_axis has been cleared already
-	
-	for (auto axis : axes)
-	{
-		if (axis->check_collision(ray))
-		{
-			active_axis = axis;
-			reference_transform.position = get_position();
-			reference_transform.orientation = gizmo.get_rotation();
-		}
-	}
-
-	return active_axis;
-}
-
 //
 // TranslationGizmo
 //
@@ -70,6 +55,28 @@ void TranslationGizmo::init()
 	});
 }
 
+bool TranslationGizmo::check_collision(const Maths::Ray& ray)
+{
+	// assume active_axis has been cleared already
+	
+	for (auto axis : axes)
+	{
+		if (axis->check_collision(ray))
+		{
+			active_axis = axis;
+			reference_transform.position = get_position();
+			reference_transform.orientation = get_rotation();
+
+			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
+			plane.offset = get_position();
+			p1 = Maths::ray_plane_intersection(ray, plane);
+		}
+	}
+
+	return active_axis;
+}
+
 void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 {
 	if (!active_axis)
@@ -77,18 +84,7 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
 
-	//
-	// WARNING SUPER BAD CODE
-	// there probably is a better way, but for now we will stick to this
-	//
-
-	Maths::Plane plane;
-	plane.offset = get_position();
-	plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, r1.direction)));
-
-	const auto p1 = Maths::ray_plane_intersection(r1, plane);
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
-
 	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
 
 	gizmo.set_position(reference_transform.position + Vp1_p2);
@@ -100,8 +96,8 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 void RotationGizmo::init()
 {
+	xAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(0.0f, 1.0f, 0.0f)));
 	yAxisNorm.set_rotation(glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f)));
-	zAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(0.0f, 1.0f, 0.0f)));
 
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
@@ -111,18 +107,37 @@ void RotationGizmo::init()
 	});
 }
 
+bool RotationGizmo::check_collision(const Maths::Ray& ray)
+{
+	// assume active_axis has been cleared already
+	
+	for (auto axis : axes)
+	{
+		if (axis->check_collision(ray))
+		{
+			active_axis = axis;
+			reference_transform.position = get_position();
+			reference_transform.orientation = get_rotation();
+
+			plane.normal = glm::normalize(active_axis->get_rotation() * Maths::forward_vec);
+			plane.offset = get_position();
+			p1 = Maths::ray_plane_intersection(ray, plane);
+		}
+	}
+
+	return active_axis;
+}
+
 void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 {
 	if (!active_axis)
 		return;
 
-	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::up_vec;
-	const Maths::Plane plane(get_position(), curr_axis);
-
-	auto p1 = Maths::ray_plane_intersection(r1, plane);
-	auto p2 = Maths::ray_plane_intersection(r2, plane);
-
-	const auto quat = Maths::RotationBetweenVectors(glm::normalize(p1-plane.offset), glm::normalize(p2-plane.offset));
+	const auto p2 = Maths::ray_plane_intersection(r2, plane);
+	const auto quat = Maths::RotationBetweenVectors(
+		glm::normalize(p1-plane.offset), 
+		glm::normalize(p2-plane.offset),
+		plane.normal);
 	gizmo.set_rotation(glm::normalize(quat * reference_transform.orientation));
 }
 

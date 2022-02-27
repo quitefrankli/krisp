@@ -16,7 +16,7 @@ public:
 
 	virtual void init() = 0;
 	virtual void set_visibility(bool) override;
-	virtual bool check_collision(const Maths::Ray& ray);
+	virtual bool check_collision(const Maths::Ray& ray) = 0;
 	void clear_active_axis() { active_axis = nullptr; }
 	
 protected:
@@ -26,6 +26,8 @@ protected:
 	Maths::TransformationComponents reference_transform;
 	std::array<Object*, 3> axes;
 	Object* active_axis = nullptr; // when axis is clicked on
+	Maths::Plane plane; // plane of interaction
+	glm::vec3 p1; // point on plane for first intersection
 };
 
 class TranslationGizmo : public GizmoBase
@@ -33,6 +35,7 @@ class TranslationGizmo : public GizmoBase
 public:
 	using GizmoBase::GizmoBase;
 	virtual void init() override;
+	virtual bool check_collision(const Maths::Ray& ray) override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	
 private:
@@ -47,6 +50,7 @@ public:
 	using GizmoBase::GizmoBase;
 	virtual void init() override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
+	virtual bool check_collision(const Maths::Ray& ray) override;
 
 private:
 	// represents the normal of the arc

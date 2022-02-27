@@ -374,7 +374,7 @@ Arc::Arc()
 bool Arc::check_collision(const Maths::Ray& ray)
 {
 	// imagine an arc as a plane, the default has a normal = upvector
-	const Maths::Plane plane(get_position(), glm::normalize(get_rotation() * Maths::up_vec));
+	const Maths::Plane plane(get_position(), glm::normalize(get_rotation() * Maths::forward_vec));
 
 	// first check if there is even an intersection
 	if (!Maths::check_ray_plane_intersection(ray, plane))
@@ -392,5 +392,5 @@ bool Arc::check_collision(const Maths::Ray& ray)
 	// but it essentially unrotates the mathematical representation of the arc
 	// and checks if P lies within the arc
 	glm::vec3 origP = glm::inverse(get_rotation()) * (P - plane.offset);
-	return origP.x > 0 && origP.z < 0;
+	return origP.x > 0 && origP.y > 0;
 }

@@ -2,6 +2,7 @@
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
 
@@ -11,7 +12,7 @@ namespace Maths
 	// taken from http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
 	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end)
 	{
-		float cosTheta = glm::dot(start, end);
+		const float cosTheta = glm::dot(start, end);
 		glm::vec3 rotationAxis;
 
 		if (cosTheta < -1 + 0.001f){
@@ -24,15 +25,15 @@ namespace Maths
 
 			rotationAxis = normalize(rotationAxis);
 			return glm::angleAxis(glm::radians(180.0f), rotationAxis);
-		} else if (cosTheta > 1 - 0.001f)
+		} else if (cosTheta > 1 - 0.001f) // same direction, so no rotation
 		{
 			return glm::quat();
 		}
 
 		rotationAxis = glm::cross(start, end);
 
-		float s = std::sqrtf( (1+cosTheta)*2.0f );
-		float invs = 1.0f / s;
+		const float s = std::sqrtf( (1+cosTheta)*2.0f );
+		const float invs = 1.0f / s;
 
 		return glm::quat(
 			s * 0.5f, 
@@ -40,6 +41,19 @@ namespace Maths
 			rotationAxis.y * invs,
 			rotationAxis.z * invs
 		);
+	}
+
+	// inspired by
+	// https://stackoverflow.com/questions/5188561/signed-angle-between-two-3d-vectors-with-same-origin-within-the-same-plane
+	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end, const glm::vec3& axis)
+	{
+		// essentially this takes advantage of the fact that 
+		// (Va x Vb) . axis == 1 (if +ve angle) and -1 (if -ve angle)
+		// atan2 is necessary otherwise the angle is ambiguous
+		const float numerator = glm::dot(glm::cross(start, end), axis);
+		const float denominator = glm::dot(start, end);
+		const float angle = atan2f(numerator, denominator);
+		return glm::angleAxis(angle, axis);
 	}
 
 	glm::quat Vec2Rot(const glm::vec3& vec)
