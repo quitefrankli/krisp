@@ -6,8 +6,9 @@
 #include "uniform_buffer_object.hpp"
 #include "camera.hpp"
 
-#include <iostream>
 #include <glm/gtx/string_cast.hpp>
+
+#include <iostream>
 
 
 int GraphicsEngineFrame::global_image_index = 0;
@@ -82,7 +83,7 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
 {
 	create_descriptor_sets(object);
-	update_command_buffer();
+	// update_command_buffer();
 }
 
 void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
@@ -151,7 +152,7 @@ void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 			descriptor_writes.push_back(combined_image_sampler_descriptor_set);
 		}
 
-		vkUpdateDescriptorSets(get_logical_device(), 
+		vkUpdateDescriptorSets(get_logical_device(),
 							   static_cast<uint32_t>(descriptor_writes.size()), 
 							   descriptor_writes.data(), 
 							   0, 
@@ -183,6 +184,12 @@ void GraphicsEngineFrame::update_command_buffer()
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
 	VkCommandBufferResetFlags reset_flags = 0;
 	vkResetCommandBuffer(command_buffer, reset_flags);
+
+	//
+	// do stuff that needs to be done before we record a new command buffer
+	// i.e. deleting objects
+	//
+	pre_cmdbuffer_recording();
 
 	// starting command buffer recording
 	VkCommandBufferBeginInfo begin_info{};
@@ -279,8 +286,12 @@ void GraphicsEngineFrame::update_command_buffer()
 	};
 
 	using type_t = GraphicsEnginePipeline::PIPELINE_TYPE;
-	for (auto& graphics_object : get_graphics_engine().get_objects())
+	for (const auto& it_pair : get_graphics_engine().get_objects())
 	{
+		const auto& graphics_object = it_pair.second;
+		if (graphics_object->is_marked_for_delete())
+			continue;
+
 		if (!graphics_object->get_game_object().get_visibility())
 		{
 			total_descriptor_set_offest+=graphics_object->get_shapes().size();
@@ -433,8 +444,9 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	// update per object uniforms
 	UniformBufferObject default_ubo{};
 	default_ubo.model = glm::mat4(1);
-	for (auto& graphics_object : get_graphics_engine().get_objects())
+	for (const auto& it_pair : get_graphics_engine().get_objects())
 	{
+		const auto& graphics_object = it_pair.second;
 		default_ubo.model = graphics_object->get_game_object().get_transform();
 		default_ubo.mvp = gubo.proj * gubo.view * default_ubo.model;
 		default_ubo.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
@@ -458,5 +470,20 @@ void GraphicsEngineFrame::create_synchronisation_objects()
 		vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &fence_frame_inflight) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create semaphores!");
+	}
+}
+
+void GraphicsEngineFrame::mark_obj_for_delete(uint64_t id)
+{
+	objs_to_delete.push(id);
+}
+
+void GraphicsEngineFrame::pre_cmdbuffer_recording()
+{
+	while (!objs_to_delete.empty())
+	{
+		auto id = objs_to_delete.front();
+		get_graphics_engine().get_objects().erase(id);
+		objs_to_delete.pop();
 	}
 }

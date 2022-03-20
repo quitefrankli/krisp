@@ -43,6 +43,14 @@ private:
 	Object* object_ref = nullptr; // used for a GraphicsEngineObjectRef type object
 };
 
+class DeleteObjectCmd : public ObjectCommand
+{
+public:
+	DeleteObjectCmd(const uint64_t id) { object_id = id; }
+
+	void process(GraphicsEngine* engine) override;
+};
+
 class ShutdownCmd : public GraphicsEngineCommand
 {
 public:

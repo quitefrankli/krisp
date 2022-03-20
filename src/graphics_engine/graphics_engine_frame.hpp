@@ -6,6 +6,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <queue>
+
 
 class GraphicsEngine;
 class GraphicsEngineSwapChain;
@@ -30,6 +32,10 @@ private:
 	void create_command_buffer();
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
+	
+	// this function does stuff that needs to be done before cmd buffer is recorded
+	// i.e. check for objects to be deleted
+	void pre_cmdbuffer_recording();
 
 public:
 	VkImage image;
@@ -42,6 +48,9 @@ public:
 	VkCommandBuffer command_buffer;
 
 	uint32_t image_index;
+	
+	// delete object
+	void mark_obj_for_delete(uint64_t id);
 
 private:
 	GraphicsEngineSwapChain& swap_chain;
@@ -65,4 +74,6 @@ private:
 	static int global_image_index;
 
 	Analytics analytics;
+
+	std::queue<uint64_t> objs_to_delete;
 };

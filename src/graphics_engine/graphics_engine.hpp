@@ -59,7 +59,7 @@ public: // getters and setters
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
-	std::vector<std::unique_ptr<GraphicsEngineObject>>& get_objects() { return objects; }
+	auto& get_objects() { return objects; }
 	inline VkDevice& get_logical_device() { return device.get_logical_device(); }
 	inline VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
 	inline VkInstance& get_instance() { return instance.get(); }
@@ -103,7 +103,7 @@ private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::vector<std::vector<Vertex>> vertex_sets;
-	std::vector<std::unique_ptr<GraphicsEngineObject>> objects;
+	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject>> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 
@@ -142,5 +142,6 @@ public: // thread safe
 
 private: // friends
 	friend SpawnObjectCmd;
+	friend DeleteObjectCmd;
 };
 

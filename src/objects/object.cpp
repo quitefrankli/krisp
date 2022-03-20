@@ -261,3 +261,8 @@ bool Object::check_collision(const Maths::Ray& ray)
 	
 	return false;
 }
+
+Object::~Object()
+{
+	
+}

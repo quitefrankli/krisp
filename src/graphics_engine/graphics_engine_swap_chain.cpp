@@ -229,7 +229,7 @@ void GraphicsEngineSwapChain::spawn_object(GraphicsEngineObject& object)
 
 void GraphicsEngineSwapChain::draw()
 {
-	frames[current_frame].draw();
+	get_curr_frame().draw();
 
 	current_frame = (current_frame + 1) % frames.size();
 }

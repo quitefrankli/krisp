@@ -101,6 +101,7 @@ void GraphicsEngine::run() {
 
 		gui_manager.draw();
 
+		// swap chain draw should be last in execution loop
 		swap_chain.draw();
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 

@@ -45,14 +45,23 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 
 	if (object_ref)
 	{
-		auto& graphics_object = engine->objects.emplace_back(
+		auto& graphics_object = engine->objects.emplace(
+			object_ref->get_id(),
 			std::make_unique<GraphicsEngineObjectRef>(*engine, *object_ref));
-		spawn_object(*graphics_object);
+		spawn_object(*graphics_object.first->second);
 	} else {
-		auto& graphics_object = engine->objects.emplace_back(
+		auto id = object->get_id();
+		auto& graphics_object = engine->objects.emplace(
+			id,
 			std::make_unique<GraphicsEngineObjectPtr>(*engine, std::move(object)));
-		spawn_object(*graphics_object);
+		spawn_object(*graphics_object.first->second);
 	}
+}
+
+void DeleteObjectCmd::process(GraphicsEngine* engine)
+{
+	engine->get_swap_chain().get_prev_frame().mark_obj_for_delete(object_id);
+	engine->get_objects()[object_id]->mark_for_delete();
 }
 
 void ShutdownCmd::process(GraphicsEngine* engine)

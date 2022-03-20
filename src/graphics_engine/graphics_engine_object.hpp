@@ -43,9 +43,15 @@ public:
 	const std::vector<Shape>& get_shapes() const;
 
 	GraphicsEngineTexture* texture = nullptr;
+
+	void mark_for_delete() { marked_for_delete = true; }
+	bool is_marked_for_delete() const { return marked_for_delete; }
+
+private:
+	bool marked_for_delete = false;
 };
 
-// thread safe object
+// this object derivation CAN be destroyed while graphics engine is running
 class GraphicsEngineObjectPtr : public GraphicsEngineObject
 {
 public:
@@ -57,7 +63,7 @@ private:
 	std::shared_ptr<Object> object;
 };
 
-// object must NEVER be destroyed while graphics engine is running
+// this object derivation CANNOT be destroyed while graphics engine is running
 class GraphicsEngineObjectRef : public GraphicsEngineObject
 {
 public:

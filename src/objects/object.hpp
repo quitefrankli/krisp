@@ -13,6 +13,8 @@
 class GraphicsEngineObject;
 class ResourceLoader;
 
+using obj_id_t = uint64_t;
+
 class ObjectAbstract
 {
 public:
@@ -20,17 +22,16 @@ public:
 	ObjectAbstract& operator=(const ObjectAbstract& object) = delete;
 
 	ObjectAbstract();
-	ObjectAbstract(uint64_t id);
+	ObjectAbstract(obj_id_t id);
 	ObjectAbstract(ObjectAbstract&& object) noexcept = default;
-	~ObjectAbstract() = default;
+	virtual ~ObjectAbstract() = default;
 
-	uint64_t get_id() const { return id; }
-	// void set_id(uint64_t id) { this->id = id; } ;// we don't really want to set id ever
+	obj_id_t get_id() const { return id; }
 	void generate_new_id() { id = global_id++; }
 
 private:
-	static uint64_t global_id;
-	uint64_t id;
+	static obj_id_t global_id;
+	obj_id_t id;
 };
 
 class Object : public ObjectAbstract
@@ -40,12 +41,12 @@ public:
 
 	Object() = default;
 	Object(Object&& object) noexcept = default;
-	Object(
-		ResourceLoader& loader, 
-		const std::string& mesh, 
-		const std::string& texture, 
-		const glm::mat4& transform = glm::mat4(1.0f));
+	Object(ResourceLoader& loader, 
+		   const std::string& mesh, 
+		   const std::string& texture, 
+		   const glm::mat4& transform = glm::mat4(1.0f));
 	Object(std::string texture);
+	virtual ~Object() override;
 
 	std::vector<Shape> shapes;
 	// when using indexed draws, the number of unique vertices < number of indices

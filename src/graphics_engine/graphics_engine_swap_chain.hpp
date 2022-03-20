@@ -36,6 +36,11 @@ public: // getters
 	uint32_t get_num_images() const { return frames.size(); }
 	VkSwapchainKHR& get_swap_chain() { return swap_chain; }
 
+	// assuming swapchain draw call is last in the main graphics execution loop
+	// this will reflect the frame TO BE drawn
+	GraphicsEngineFrame& get_curr_frame() { return frames[current_frame]; }
+	GraphicsEngineFrame& get_prev_frame() { return frames[(current_frame + frames.size() - 1) % frames.size()]; }
+
 private:
 	VkSwapchainKHR swap_chain;
 	VkExtent2D swap_chain_extent;

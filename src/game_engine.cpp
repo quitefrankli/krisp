@@ -9,7 +9,7 @@
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
 #include "gui/gui_manager.hpp"
-#include "experimental/experimental.hpp"
+#include "experimental.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -166,6 +166,18 @@ void GameEngine::shutdown_impl()
 }
 
 GameEngine::~GameEngine() = default;
+
+void GameEngine::delete_object(obj_id_t id)
+{
+	auto it_obj = objects.find(id);
+	if (it_obj == objects.end())
+	{
+		LOG_ERROR(logger, "GameEngine::delete_object: attempted to delete non-existant object");
+		return;
+	}
+
+	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
+}
 
 GuiManager& GameEngine::get_gui_manager()
 {

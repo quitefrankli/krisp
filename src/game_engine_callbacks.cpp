@@ -8,7 +8,7 @@
 #include "analytics.hpp"
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
-#include "experimental/experimental.hpp"
+#include "experimental.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -115,6 +115,11 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 				HotReload::get().reload();
 			}
 		}
+		case GLFW_KEY_DELETE:
+		{
+			// gizmo.delete();
+			// break;
+		}
 		default:
 			break;
 	}
@@ -168,11 +173,12 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 					return glm::distance(projP, obj.get_position()) < radius;
 				};
 
-				for (auto& object : objects)
+
+				for (auto& obj_pair : objects)
 				{
-					if (simple_collision_detection(*object))
+					if (simple_collision_detection(*obj_pair.second))
 					{
-						gizmo.select_object(object.get());
+						gizmo.select_object(obj_pair.second.get());
 						return;
 					}
 				}

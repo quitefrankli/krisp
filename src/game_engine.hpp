@@ -39,26 +39,31 @@ public:
 
 	void run();
 	void shutdown() { shutdown_impl(); }
-	template<typename Object_T = Object, typename... Args>
-	Object_T& spawn_object(Args&&... args)
+	template<typename object_t, typename... Args>
+	object_t& spawn_object(Args&&... args)
 	{
-		auto& object = objects.emplace_back(std::make_shared<Object_T>(std::forward<Args>(args)...));
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
-		return static_cast<Object_T&>(*object);
+		auto tmp_new_obj = std::make_shared<object_t>(std::forward<Args>(args)...);
+		auto id = tmp_new_obj->get_id();
+		auto result = objects.emplace(id, std::move(tmp_new_obj));
+		assert(result.second); // no duplicate ids
+		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
+		return static_cast<object_t&>(*(result.first->second));
 	}
 	
 	// this function assumes something else manages the lifetime of object
-	template<typename Object_T>
-	void draw_object(const std::shared_ptr<Object_T>& object)
+	template<typename object_t>
+	void draw_object(const std::shared_ptr<object_t>& object)
 	{
 		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 
-	template<typename Object_T>
-	void draw_object(Object_T& object)
+	template<typename object_t>
+	void draw_object(object_t& object)
 	{
 		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
+
+	void delete_object(obj_id_t id);
 
 private:
 	App::Window window;
@@ -71,7 +76,7 @@ private:
 
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;
-	std::vector<std::shared_ptr<Object>> objects;
+	std::unordered_map<obj_id_t, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<Experimental> experimental;
 
