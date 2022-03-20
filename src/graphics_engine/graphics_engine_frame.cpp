@@ -158,7 +158,7 @@ void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 							   0, 
 							   nullptr);
 		
-		descriptor_sets.push_back(std::move(new_descriptor_sets[vertex_set_index]));
+		object.descriptor_sets.push_back(std::move(new_descriptor_sets[vertex_set_index]));
 	}
 }
 
@@ -229,7 +229,6 @@ void GraphicsEngineFrame::update_command_buffer()
 							0,
 							nullptr);
 
-	int total_descriptor_set_offest = 0;
 	auto per_obj_draw_fn = [&](GraphicsEngineObject& object)
 	{
 		const auto& shapes = object.get_shapes();
@@ -264,10 +263,9 @@ void GraphicsEngineFrame::update_command_buffer()
 									get_graphics_engine().get_graphics_pipeline().pipeline_layout, 
 									0, // offset
 									1, // number of sets to bind
-									&descriptor_sets[total_descriptor_set_offest],
+									&object.descriptor_sets[vertex_set_index],
 									0,
 									nullptr);
-			total_descriptor_set_offest++;
 		
 			vkCmdDrawIndexed(
 				command_buffer,
@@ -293,10 +291,8 @@ void GraphicsEngineFrame::update_command_buffer()
 			continue;
 
 		if (!graphics_object->get_game_object().get_visibility())
-		{
-			total_descriptor_set_offest+=graphics_object->get_shapes().size();
 			continue;
-		}
+			
 		auto pipeline_type = graphics_object->texture ? type_t::STANDARD : type_t::COLOR;
 		if (get_graphics_engine().is_wireframe_mode)
 		{
@@ -484,6 +480,7 @@ void GraphicsEngineFrame::pre_cmdbuffer_recording()
 	{
 		auto id = objs_to_delete.front();
 		get_graphics_engine().get_objects().erase(id);
+		get_graphics_engine().get_objects()[id]->descriptor_sets[0];
 		objs_to_delete.pop();
 	}
 }

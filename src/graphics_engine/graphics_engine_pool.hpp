@@ -18,6 +18,9 @@ public:
 
 	void allocate_descriptor_set();
 
+	const int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;
+	const int MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET = 10;
+
 private:
 	void create_command_pool();
 	void create_descriptor_pool();

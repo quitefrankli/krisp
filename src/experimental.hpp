@@ -21,12 +21,10 @@ public:
 	{
 		std::cout << "Experimental\n";
 		
-		if (tmp == 0)
-		{
+		if (tmp % 2 == 0) {
 			auto& sphere = engine.spawn_object<Sphere>();
 			tmp2 = sphere.get_id();
-		} else if (tmp == 1)
-		{
+		} else {
 			engine.delete_object(tmp2);
 		}
 

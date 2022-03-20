@@ -42,9 +42,6 @@ public:
 	VkImageView image_view;
 	VkFramebuffer frame_buffer;
 
-	// descriptors
-	std::vector<VkDescriptorSet> descriptor_sets; // maybe consider moving this to GraphicsEngineObject?
-
 	VkCommandBuffer command_buffer;
 
 	uint32_t image_index;

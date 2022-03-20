@@ -47,6 +47,9 @@ public:
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }
 
+	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
+	std::vector<VkDescriptorSet> descriptor_sets;
+
 private:
 	bool marked_for_delete = false;
 };

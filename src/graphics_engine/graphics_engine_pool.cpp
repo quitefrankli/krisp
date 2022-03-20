@@ -4,6 +4,8 @@
 #include "queues.hpp"
 #include "uniform_buffer_object.hpp"
 
+#include <fmt/core.h>
+
 
 GraphicsEnginePool::GraphicsEnginePool(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine),
@@ -54,15 +56,15 @@ void GraphicsEnginePool::create_descriptor_pool()
 {
 	const auto& engine = get_graphics_engine();
 
-	// 1x uniform descriptor per descriptor set
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	uniform_buffer_pool_size.descriptorCount = GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * engine.MAX_NUM_DESCRIPTOR_SETS;
+	// max number of uniform buffers per descriptor set
+	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORMS_PER_DESCRIPTOR_SET;
 
-	// 1x texture descriptor per descriptor set
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	combined_image_sampler_pool_size.descriptorCount = GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * engine.MAX_NUM_DESCRIPTOR_SETS;
+	// max number of combined image samplers per descriptor set
+	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET;
 
 	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
 	VkDescriptorPoolCreateInfo poolInfo{};
@@ -70,7 +72,7 @@ void GraphicsEnginePool::create_descriptor_pool()
 	poolInfo.poolSizeCount = pool_sizes.size();
 	poolInfo.pPoolSizes = pool_sizes.data();
 	// defines maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * engine.MAX_NUM_DESCRIPTOR_SETS; // TODO: fix this properly
+	poolInfo.maxSets = 50;//GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * engine.MAX_NUM_DESCRIPTOR_SETS;
 
 	//
 	// below may be necessary for ImGui
@@ -94,7 +96,12 @@ void GraphicsEnginePool::create_descriptor_pool()
 	// poolInfo.maxSets = 10000 * pool_sizes.size();
 	// poolInfo.poolSizeCount = (uint32_t)pool_sizes.size();
 	// poolInfo.pPoolSizes = pool_sizes.data();
-	
+
+	fmt::print("GraphicsEnginePool::create_descriptor_pool: max_sets:={}\n"
+		"\tper_set_max_uniform_buffer_count:={}\n"
+		"\tper_set_max_combined_image_sampler_count:={}\n",
+		poolInfo.maxSets, uniform_buffer_pool_size.descriptorCount, combined_image_sampler_pool_size.descriptorCount);
+
 	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsEngine::create_descriptor_pool: failed to create descriptor pool!");
