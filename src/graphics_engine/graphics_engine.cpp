@@ -13,6 +13,8 @@
 #include <ImGui/imgui_impl_vulkan.h>
 #include <ImGui/imgui_impl_glfw.h>
 #include <imgui.h>
+#include <fmt/core.h>
+#include <fmt/color.h>
 
 #include <stdexcept>
 #include <thread>
@@ -86,26 +88,34 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 }
 
 void GraphicsEngine::run() {
-	Analytics analytics;
-	analytics.text = "GraphicsEngine: average cycle ms";
-	while (!should_shutdown)
-	{
-		analytics.start();
-		ge_cmd_q_mutex.lock();
-		while (!ge_cmd_q.empty())
+	try {
+		Analytics analytics;
+		analytics.text = "GraphicsEngine: average cycle ms";
+		while (!should_shutdown)
 		{
-			ge_cmd_q.front()->process(this);
-			ge_cmd_q.pop();
+			analytics.start();
+			ge_cmd_q_mutex.lock();
+			while (!ge_cmd_q.empty())
+			{
+				ge_cmd_q.front()->process(this);
+				ge_cmd_q.pop();
+			}
+			ge_cmd_q_mutex.unlock();
+
+			gui_manager.draw();
+
+			// swap chain draw should be last in execution loop
+			swap_chain.draw();
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+			analytics.stop();
 		}
-		ge_cmd_q_mutex.unlock();
-
-		gui_manager.draw();
-
-		// swap chain draw should be last in execution loop
-		swap_chain.draw();
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-		analytics.stop();
+    } catch (const std::exception& e) {
+		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: {}\n", e.what());
+        throw e;
+	} catch (...) {
+		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: UNKNOWN\n");
+        throw std::runtime_error("");
 	}
 }
 

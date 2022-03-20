@@ -3,6 +3,7 @@
 
 #include <quill/Quill.h>
 #include <fmt/core.h>
+#include <fmt/color.h>
 
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -61,10 +62,10 @@ int main(int argc, char* argv[]) {
     try {
 		engine.run();
     } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+		fmt::print(fg(fmt::color::red), "Exception Thrown!: {}\n", e.what());
         return EXIT_FAILURE;
 	} catch (...) {
-		std::cout << "Exception Thrown!\n";
+		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
         return EXIT_FAILURE;
 	}
 
