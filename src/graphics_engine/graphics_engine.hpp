@@ -39,9 +39,6 @@ public:
 	void run();
 	void shutdown() { should_shutdown = true; }
 
-	const int MAX_NUM_OBJECTS = 10;
-	const int MAX_NUM_DESCRIPTOR_SETS = MAX_NUM_OBJECTS * 100;
-	const int MAX_NUM_VERTICES = MAX_NUM_DESCRIPTOR_SETS * 3;
 	const VkVertexInputBindingDescription binding_description;
 	const std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
 

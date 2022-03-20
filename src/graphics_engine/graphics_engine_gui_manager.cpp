@@ -20,7 +20,7 @@ GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
 	init_info.PhysicalDevice = engine.get_physical_device();
 	init_info.Device = engine.get_logical_device();
 	init_info.Queue = engine.get_graphics_queue();
-	init_info.DescriptorPool = engine.get_descriptor_pool();
+	init_info.DescriptorPool = engine.get_graphics_resource_manager().descriptor_pool;
 	init_info.MinImageCount = engine.get_num_swapchain_images();
 	init_info.ImageCount = engine.get_num_swapchain_images();
 	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;

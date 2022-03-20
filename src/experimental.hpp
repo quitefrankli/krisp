@@ -22,7 +22,7 @@ public:
 		std::cout << "Experimental\n";
 		
 		if (tmp % 2 == 0) {
-			auto& sphere = engine.spawn_object<Sphere>();
+			auto& sphere = engine.spawn_object<Cube>();
 			tmp2 = sphere.get_id();
 		} else {
 			engine.delete_object(tmp2);

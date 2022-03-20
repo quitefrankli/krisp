@@ -88,21 +88,9 @@ void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
 
 void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 {
-	std::vector<VkDescriptorSetLayout> layouts(object.get_shapes().size(), 
-		get_graphics_engine().get_graphics_resource_manager().high_freq_descriptor_set_layout);
-
-	VkDescriptorSetAllocateInfo alloc_info{};
-	alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-	alloc_info.descriptorPool = get_graphics_engine().get_descriptor_pool();
-	alloc_info.descriptorSetCount = object.get_shapes().size();
-	alloc_info.pSetLayouts = layouts.data();
-
-	std::vector<VkDescriptorSet> new_descriptor_sets(object.get_shapes().size());
-
-	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, new_descriptor_sets.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("GraphicsEngineFrame::spawn_object: failed to allocate descriptor sets!");
-	}
+	auto& engine = get_graphics_engine();
+	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_graphics_resource_manager().reserve_descriptor_sets(object.get_shapes().size());
+	assert(new_descriptor_sets.size() == object.get_shapes().size());
 
 	for (int vertex_set_index = 0; vertex_set_index < object.get_shapes().size(); vertex_set_index++)
 	{
@@ -480,7 +468,6 @@ void GraphicsEngineFrame::pre_cmdbuffer_recording()
 	{
 		auto id = objs_to_delete.front();
 		get_graphics_engine().get_objects().erase(id);
-		get_graphics_engine().get_objects()[id]->descriptor_sets[0];
 		objs_to_delete.pop();
 	}
 }
