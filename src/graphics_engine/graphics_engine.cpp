@@ -40,6 +40,11 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	model_loader(*this),
 	gui_manager(*this)
 {
+	FPS_tracker = std::make_unique<Analytics>(
+		[this](float fps) {
+			get_gui_manager().update_fps(1e6 / fps);
+		}, 1);
+	FPS_tracker->text = "FPS Tracker";
 }
 
 GraphicsEngine::~GraphicsEngine() 
@@ -91,8 +96,13 @@ void GraphicsEngine::run() {
 	try {
 		Analytics analytics;
 		analytics.text = "GraphicsEngine: average cycle ms";
+		FPS_tracker->start();
 		while (!should_shutdown)
 		{
+			// for FPS
+			FPS_tracker->stop();
+			FPS_tracker->start();
+
 			analytics.start();
 			ge_cmd_q_mutex.lock();
 			while (!ge_cmd_q.empty())

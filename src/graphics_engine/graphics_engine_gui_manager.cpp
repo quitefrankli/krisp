@@ -66,3 +66,8 @@ void GraphicsEngineGuiManager::draw()
 	
 	ImGui::Render();
 }
+
+void GraphicsEngineGuiManager::update_fps(const float fps)
+{
+	fps_counter.fps = fps;
+}

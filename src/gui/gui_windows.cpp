@@ -67,3 +67,10 @@ void GuiObjectSpawner::process(GameEngine& engine)
 		spawning_function = nullptr;
 	}	
 }
+
+void GuiFPSCounter::draw()
+{
+	ImGui::Begin("FPS Counter");
+	ImGui::Text("%.1f", fps);
+	ImGui::End();
+}

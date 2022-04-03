@@ -6,7 +6,8 @@
 
 GuiManager::GuiManager() :
 	graphic_settings(spawn_gui<GuiGraphicsSettings>()),
-	object_spawner(spawn_gui<GuiObjectSpawner>())
+	object_spawner(spawn_gui<GuiObjectSpawner>()),
+	fps_counter(spawn_gui<GuiFPSCounter>())
 {
 }
 

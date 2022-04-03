@@ -56,3 +56,11 @@ private:
 	const float button_width = 120.0f;
 	const float button_height = 20.0f;
 };
+
+class GuiFPSCounter : public GuiWindow
+{
+public:
+	void draw() override;
+
+	float fps = 0.0f;
+};

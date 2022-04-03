@@ -24,8 +24,10 @@ public:
 		return *static_cast<Gui_T*>(gui.get());
 	}
 
+	// references the GuiManager::gui_windows
 	GuiGraphicsSettings& graphic_settings;
 	GuiObjectSpawner& object_spawner;
+	GuiFPSCounter& fps_counter;
 
 public: // for GameEngine
 	void process(GameEngine& engine);

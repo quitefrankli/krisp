@@ -24,6 +24,7 @@
 #include <queue>
 
 
+class Analytics;
 class Camera;
 class GameEngine;
 class GraphicsEngineObject;
@@ -103,6 +104,8 @@ private:
 	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject>> objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
+
+	std::unique_ptr<Analytics> FPS_tracker;
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
