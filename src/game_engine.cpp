@@ -57,8 +57,8 @@ void GameEngine::run()
 	// 	glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	// spawn_object<Object>(
 	// 	resource_loader, 
-	// 	"../resources/models/object.obj", 
-	// 	"../resources/textures/object.png",
+	// 	"../resources/models/object1.obj", 
+	// 	"../resources/textures/object1.png",
 	// 	glm::mat4_cast(model_rotation)).set_position(glm::vec3(0.0f, -8.0f, -2.0f));
 
 	// spawn_object<>(
