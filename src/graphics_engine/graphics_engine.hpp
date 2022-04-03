@@ -47,9 +47,9 @@ public:
 	bool is_wireframe_mode = false;
 
 public: // getters and setters
-	template<class T> 
+	template<class T = int> 
 	T get_window_width() const { return static_cast<T>(swap_chain.get_extent().width); }
-	template<class T>
+	template<class T = int>
 	T get_window_height() const { return static_cast<T>(swap_chain.get_extent().height); }
 	VkExtent2D get_extent_unsafe();
 	GLFWwindow* get_window();

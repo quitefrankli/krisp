@@ -14,7 +14,7 @@ protected:
 	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
 
 public:
-	GuiManager();
+	GuiManager(unsigned window_width);
 
 	template<typename Gui_T, typename... Args>
 	Gui_T& spawn_gui(Args&&... args)

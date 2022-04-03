@@ -4,10 +4,10 @@
 #include <algorithm>
 
 
-GuiManager::GuiManager() :
+GuiManager::GuiManager(unsigned window_width) :
 	graphic_settings(spawn_gui<GuiGraphicsSettings>()),
 	object_spawner(spawn_gui<GuiObjectSpawner>()),
-	fps_counter(spawn_gui<GuiFPSCounter>())
+	fps_counter(spawn_gui<GuiFPSCounter>(window_width))
 {
 }
 

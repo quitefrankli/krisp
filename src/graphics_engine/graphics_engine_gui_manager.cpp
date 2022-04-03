@@ -10,7 +10,7 @@
 
 
 GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine)
+	GraphicsEngineBaseModule(engine), GuiManager(engine.get_window_width())
 {
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForVulkan(engine.get_window(), true);

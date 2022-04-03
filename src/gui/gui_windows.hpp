@@ -28,7 +28,7 @@ class GuiGraphicsSettings : public GuiWindow
 public:
 	GuiGraphicsSettings();
 
-	void draw() override;
+	virtual void draw() override;
 
 public:
 	float light_strength = 1.0f;
@@ -40,8 +40,8 @@ class GuiObjectSpawner : public GuiWindow
 public:
 	GuiObjectSpawner();
 
-	void process(GameEngine& engine) override;
-	void draw() override;
+	virtual void process(GameEngine& engine) override;
+	virtual void draw() override;
 
 public:
 	bool use_texture = false;
@@ -57,10 +57,17 @@ private:
 	const float button_height = 20.0f;
 };
 
+class ImFont;
 class GuiFPSCounter : public GuiWindow
 {
 public:
-	void draw() override;
+	GuiFPSCounter(unsigned initial_window_width);
+
+	virtual void draw() override;
 
 	float fps = 0.0f;
+	unsigned window_width;
+
+private:
+	ImFont* font = nullptr;
 };
