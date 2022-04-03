@@ -142,22 +142,78 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 }
 
 //
+// ScaleGizmo
+//
+
+void ScaleGizmo::init()
+{
+	xAxis.point(Maths::zero_vec, glm::vec3(1.0f, 0.0f, 0.0f));
+	yAxis.point(Maths::zero_vec, glm::vec3(0.0f, 1.0f, 0.0f));
+	zAxis.point(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -1.0f));
+
+	axes = {&xAxis, &yAxis, &zAxis};
+	std::for_each(axes.begin(), axes.end(), [this](auto axis){
+		axis->attach_to(this);
+		axis->set_visibility(false);
+		engine.draw_object(*axis);
+	});
+}
+
+bool ScaleGizmo::check_collision(const Maths::Ray& ray)
+{
+	// assume active_axis has been cleared already
+	
+	for (auto axis : axes)
+	{
+		if (axis->check_collision(ray))
+		{
+			active_axis = axis;
+			reference_transform.position = get_position();
+			reference_transform.orientation = get_rotation();
+
+			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
+			plane.offset = get_position();
+			p1 = Maths::ray_plane_intersection(ray, plane);
+		}
+	}
+
+	return active_axis;
+}
+
+void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
+{
+	if (!active_axis)
+		return;
+
+	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+
+	const auto p2 = Maths::ray_plane_intersection(r2, plane);
+	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
+
+	gizmo.set_position(reference_transform.position + Vp1_p2);
+}
+
+//
 // Gizmo
 //
 
 Gizmo::Gizmo(GameEngine& engine_) : 
 	engine(engine_),
 	translation(engine_, *this),
-	rotation(engine_, *this)
+	rotation(engine_, *this),
+	scale(engine_, *this)
 {
 	translation.attach_to(this);
 	rotation.attach_to(this);
+	scale.attach_to(this);
 }
 
 void Gizmo::init()
 {
 	translation.init();
 	rotation.init();
+	scale.init();
 }
 
 void Gizmo::select_object(Object* obj)
@@ -174,8 +230,9 @@ void Gizmo::select_object(Object* obj)
 	set_rotation(selected_object->get_rotation());
 	selected_object->attach_to(this);
 
-	translation.set_visibility(true);
+	// translation.set_visibility(true);
 	rotation.set_visibility(true);
+	scale.set_visibility(true);
 }
 
 void Gizmo::deselect()
@@ -189,19 +246,22 @@ void Gizmo::deselect()
 	isActive = false;
 	translation.set_visibility(false);
 	rotation.set_visibility(false);
+	scale.set_visibility(false);
 }
 
 void Gizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 {
 	translation.process(r1, r2);
 	rotation.process(r1, r2);
+	scale.process(r1, r2);
 }
 
 bool Gizmo::check_collision(const Maths::Ray& ray)
 {
 	translation.clear_active_axis();
 	rotation.clear_active_axis();
-	return translation.check_collision(ray) || rotation.check_collision(ray);
+	scale.clear_active_axis();
+	return translation.check_collision(ray) || rotation.check_collision(ray) || scale.check_collision(ray);
 }
 
 void Gizmo::delete_object()

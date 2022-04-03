@@ -2,6 +2,7 @@
 
 #include "objects/objects.hpp"
 #include "maths.hpp"
+#include "objects.hpp"
 
 #include <array>
 
@@ -59,6 +60,20 @@ private:
 	Arc zAxisNorm;
 };
 
+class ScaleGizmo : public GizmoBase
+{
+public:
+	using GizmoBase::GizmoBase;
+	virtual void init() override;
+	virtual bool check_collision(const Maths::Ray& ray) override;
+	void process(const Maths::Ray& r1, const Maths::Ray& r2);
+	
+private:
+	ScaleGizmoObj xAxis;
+	ScaleGizmoObj yAxis;
+	ScaleGizmoObj zAxis;
+};
+
 class Gizmo : public Object
 {
 public:
@@ -75,6 +90,7 @@ public:
 private:
 	TranslationGizmo translation;
 	RotationGizmo rotation;
+	ScaleGizmo scale;
 	Object* selected_object = nullptr;
 	// GizmoBase* active_gizmo = nullptr;
 	bool isActive = false; // when gizmo is selected
