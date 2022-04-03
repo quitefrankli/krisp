@@ -14,6 +14,16 @@ private:
 	void init();
 };
 
+class Cube2 : public Object
+{
+public:
+	Cube2();
+	Cube2(Cube2&& cube) noexcept = default;
+
+private:
+	void init();
+};
+
 // note that this is procedurally generated and very slow
 class Sphere : public Object
 {

@@ -20,13 +20,15 @@ public:
 	void process()
 	{
 		std::cout << "Experimental\n";
+
+		engine.spawn_object<Cube2>();
 		
-		if (tmp % 2 == 0) {
-			auto& sphere = engine.spawn_object<Cube>();
-			tmp2 = sphere.get_id();
-		} else {
-			engine.delete_object(tmp2);
-		}
+		// if (tmp % 2 == 0) {
+		// 	auto& sphere = engine.spawn_object<Cube>();
+		// 	tmp2 = sphere.get_id();
+		// } else {
+		// 	engine.delete_object(tmp2);
+		// }
 
 		tmp++;
 	}

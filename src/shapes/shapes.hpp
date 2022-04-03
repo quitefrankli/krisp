@@ -34,4 +34,13 @@ namespace Shapes
 
 		virtual bool check_collision(const Maths::Ray& ray) override;
 	};
+
+	class Cube : public Shape
+	{
+	public:
+		Cube();
+		Cube(Cube&&) noexcept = default;
+
+		virtual bool check_collision(const Maths::Ray& ray) override;
+	};
 }

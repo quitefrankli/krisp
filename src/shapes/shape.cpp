@@ -21,6 +21,15 @@ void Shape::transform_vertices(const glm::quat& quat)
 	}
 }
 
+void Shape::translate_vertices(const glm::vec3& vec)
+{
+	for (auto& vertex : vertices)
+	{
+		vertex.pos += vec;
+		// no rotation so no change to the normals
+	}
+}
+
 void Shape::generate_normals()
 {
 	// zero all normals

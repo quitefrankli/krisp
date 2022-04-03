@@ -27,6 +27,7 @@ public:
 	uint32_t get_num_vertex_indices() const { return static_cast<uint32_t>(indices.size()); };
 	void transform_vertices(const glm::mat4& transform);
 	void transform_vertices(const glm::quat& quat);
+	void translate_vertices(const glm::vec3& vec);
 	void generate_normals();
 
 	// WARNING this is expensive

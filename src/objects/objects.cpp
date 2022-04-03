@@ -62,6 +62,11 @@ void Cube::init()
 	shapes.push_back(std::move(bottom));
 }
 
+Cube2::Cube2()
+{
+	shapes.emplace_back(Shapes::Cube{});
+}
+
 Sphere::Sphere()
 {
 	const int M = 30;
