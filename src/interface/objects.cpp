@@ -38,15 +38,15 @@ void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)
 
 bool ScaleGizmoObj::check_collision(const Maths::Ray& ray)
 {
-	return false; // TODO
-	// if (!Object::check_collision(ray))
-	// {
-	// 	std::cout << "level 0 collision failed\n";
-	// 	return false;
-	// }
+	if (!Object::check_collision(ray))
+	{
+		std::cout << "level 0 collision failed\n";
+		return false;
+	}
 
-	// glm::vec3 axis = get_rotation() * Maths::forward_vec;
-	// auto normal = glm::normalize(glm::cross(ray.direction, axis));
-	// float dist = glm::distance(glm::dot(get_position(), normal) * normal, glm::dot(ray.origin, normal) * normal);
-	// return dist < RADIUS;
+	// use cylinder collision for now
+	glm::vec3 axis = get_rotation() * Maths::forward_vec;
+	auto normal = glm::normalize(glm::cross(ray.direction, axis));
+	float dist = glm::distance(glm::dot(get_position(), normal) * normal, glm::dot(ray.origin, normal) * normal);
+	return dist < THICKNESS;
 }

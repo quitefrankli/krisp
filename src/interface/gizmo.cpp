@@ -35,6 +35,7 @@ void GizmoBase::set_visibility(bool visibility)
 	{
 		axis->set_visibility(visibility);
 	});
+	Object::set_visibility(visibility);
 }
 
 //
@@ -57,6 +58,11 @@ void TranslationGizmo::init()
 
 bool TranslationGizmo::check_collision(const Maths::Ray& ray)
 {
+	if (!get_visibility())
+	{
+		return false;
+	}
+
 	// assume active_axis has been cleared already
 	
 	for (auto axis : axes)
@@ -71,6 +77,7 @@ bool TranslationGizmo::check_collision(const Maths::Ray& ray)
 			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
 			plane.offset = get_position();
 			p1 = Maths::ray_plane_intersection(ray, plane);
+			break;
 		}
 	}
 
@@ -109,6 +116,11 @@ void RotationGizmo::init()
 
 bool RotationGizmo::check_collision(const Maths::Ray& ray)
 {
+	if (!get_visibility())
+	{
+		return false;
+	}
+	
 	// assume active_axis has been cleared already
 	
 	for (auto axis : axes)
@@ -122,6 +134,7 @@ bool RotationGizmo::check_collision(const Maths::Ray& ray)
 			plane.normal = glm::normalize(active_axis->get_rotation() * Maths::forward_vec);
 			plane.offset = get_position();
 			p1 = Maths::ray_plane_intersection(ray, plane);
+			break;
 		}
 	}
 
@@ -161,6 +174,11 @@ void ScaleGizmo::init()
 
 bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 {
+	if (!get_visibility())
+	{
+		return false;
+	}
+	
 	// assume active_axis has been cleared already
 	
 	for (auto axis : axes)
@@ -175,6 +193,7 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
 			plane.offset = get_position();
 			p1 = Maths::ray_plane_intersection(ray, plane);
+			break;
 		}
 	}
 
@@ -191,7 +210,7 @@ void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
 	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
 
-	gizmo.set_position(reference_transform.position + Vp1_p2);
+	gizmo.selected_object->set_scale(reference_transform.scale + Vp1_p2);
 }
 
 //
@@ -221,18 +240,29 @@ void Gizmo::select_object(Object* obj)
 	if (!obj)
 		return;
 
+	// if already currently selected object, change the gizmo mode
+	if (obj == selected_object)
+	{
+		toggle_mode();
+	}
+
 	// gizmo can only be attached to 1 obj at a time
 	deselect();
-
 	selected_object = obj;
-	isActive = true;
 	set_position(selected_object->get_position());
 	set_rotation(selected_object->get_rotation());
 	selected_object->attach_to(this);
 
-	// translation.set_visibility(true);
-	rotation.set_visibility(true);
-	scale.set_visibility(true);
+	isActive = true;
+
+	if (scale_mode)
+	{
+		scale.set_visibility(true);
+	} else
+	{
+		translation.set_visibility(true);
+		rotation.set_visibility(true);
+	}
 }
 
 void Gizmo::deselect()
@@ -247,6 +277,11 @@ void Gizmo::deselect()
 	translation.set_visibility(false);
 	rotation.set_visibility(false);
 	scale.set_visibility(false);
+}
+
+void Gizmo::toggle_mode()
+{
+	scale_mode = !scale_mode;
 }
 
 void Gizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)

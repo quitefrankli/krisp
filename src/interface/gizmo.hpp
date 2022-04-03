@@ -88,6 +88,9 @@ public:
 	void delete_object();
 
 private:
+	bool scale_mode = false;
+	void toggle_mode();
+
 	TranslationGizmo translation;
 	RotationGizmo rotation;
 	ScaleGizmo scale;
@@ -95,4 +98,5 @@ private:
 	// GizmoBase* active_gizmo = nullptr;
 	bool isActive = false; // when gizmo is selected
 	GameEngine& engine;
+	friend ScaleGizmo;
 };
