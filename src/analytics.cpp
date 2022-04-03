@@ -9,27 +9,41 @@ extern quill::Logger* logger;
 
 using namespace std::chrono;
 
+Analytics::Analytics(const int period) : LOG_PERIOD(period)
+{
+}
+
+Analytics::Analytics(std::function<void(double)>&& on_log, const int period) :
+	on_log_period(std::move(on_log)), LOG_PERIOD(period)
+{
+}
+
 void Analytics::start()
 {
+	assert(state != State::STARTED);
 	lap_cycle_start = system_clock::now();
-	if (!has_started)
+	if (state == State::FRESH)
 	{
 		log_cycle_start = lap_cycle_start;
-		has_started = true;
 	}
+	state = State::STARTED;
 }
 
 void Analytics::stop()
 {
-	elapsed_log_cycle += duration_cast<nanoseconds>(system_clock::now() - lap_cycle_start);
+	assert(state == State::STARTED);
+	state = State::STOPPED;
+	auto now = system_clock::now();
+	elapsed_log_cycle += duration_cast<nanoseconds>(now - lap_cycle_start);
 	num_elapsed_cycles++;
-	if (system_clock::now() - log_cycle_start > LOG_CYCLE)
+	if (now - log_cycle_start > LOG_PERIOD)
 	{
-		double elapsed_float = round((double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 10.0) / 100.0; 
-		LOG_INFO(logger, "{} {} microseconds", text, elapsed_float);
-		log_cycle_start = system_clock::now();
+		const double avg_float = (double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 1e3;
+		LOG_INFO(logger, "{} {:.2f} microseconds", text, avg_float);
+		log_cycle_start = now;
 		num_elapsed_cycles = 0;
 		elapsed_log_cycle = nanoseconds(0);
+		on_log_period(avg_float);
 	}
 }
 
