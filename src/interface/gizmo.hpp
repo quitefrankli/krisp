@@ -70,7 +70,8 @@ public:
 	// r1 is first mouse pos, and r2 is second mouse pos
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	virtual bool check_collision(const Maths::Ray& ray) override;
-	
+	void delete_object();
+
 private:
 	TranslationGizmo translation;
 	RotationGizmo rotation;

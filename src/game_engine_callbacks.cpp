@@ -117,8 +117,8 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_DELETE:
 		{
-			// gizmo.delete();
-			// break;
+			gizmo.delete_object();
+			break;
 		}
 		default:
 			break;
@@ -172,7 +172,6 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 					// std::cout << glm::to_string(projP) << ' ' << glm::distance(projP, obj.get_position()) << '\n';
 					return glm::distance(projP, obj.get_position()) < radius;
 				};
-
 
 				for (auto& obj_pair : objects)
 				{

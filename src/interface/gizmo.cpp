@@ -203,3 +203,13 @@ bool Gizmo::check_collision(const Maths::Ray& ray)
 	rotation.clear_active_axis();
 	return translation.check_collision(ray) || rotation.check_collision(ray);
 }
+
+void Gizmo::delete_object()
+{
+	if (!selected_object)
+		return;
+		
+	auto* obj = selected_object;
+	deselect();
+	engine.delete_object(obj->get_id());
+}
