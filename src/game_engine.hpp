@@ -34,7 +34,7 @@ public: // getters and setters
 	GuiManager& get_gui_manager();
 
 public:
-	GameEngine();
+	GameEngine(std::function<void()>&& restart_signaller);
 	~GameEngine();
 
 	void run();
@@ -65,6 +65,8 @@ public:
 
 	void delete_object(obj_id_t id);
 
+	void restart();
+
 private:
 	App::Window window;
 	Gizmo gizmo;
@@ -87,7 +89,8 @@ public:
 private:
 	void create_camera();
 	void shutdown_impl();
-	
+	const std::function<void()> restart_signaller;
+
 public: // callbacks
 	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
 	static void handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height);

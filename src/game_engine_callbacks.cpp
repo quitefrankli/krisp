@@ -110,9 +110,13 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_R:
 		{
-			if (mode == GLFW_MOD_SHIFT)
-			{
-				HotReload::get().reload();
+			switch (mode) {
+			case GLFW_MOD_SHIFT:
+				HotReload::get().reload();break;
+			case GLFW_MOD_SHIFT | GLFW_MOD_CONTROL:
+				restart();break;
+			default:
+				break;
 			}
 		}
 		case GLFW_KEY_DELETE:

@@ -24,7 +24,8 @@
 
 extern quill::Logger* logger;
 
-GameEngine::GameEngine() :
+GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
+	restart_signaller(std::move(restart_signaller)),
 	window(this),
 	mouse(window),
 	gizmo(*this)
@@ -182,4 +183,10 @@ void GameEngine::delete_object(obj_id_t id)
 GuiManager& GameEngine::get_gui_manager()
 {
 	return static_cast<GuiManager&>(graphics_engine->get_gui_manager());
+}
+
+void GameEngine::restart()
+{
+	restart_signaller();
+	shutdown();
 }

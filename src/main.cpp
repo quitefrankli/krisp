@@ -57,9 +57,14 @@ int main(int argc, char* argv[]) {
 	}
 
     try {
-		// seems like glfw window must be on main thread otherwise it wont work, therefore engine should always be on its own thread
-		GameEngine engine;
-		engine.run();
+		bool restart_signal = false;
+		do {
+			// seems like glfw window must be on main thread otherwise it wont work, 
+			// therefore engine should always be on its own thread
+			restart_signal = false;
+			GameEngine engine([&restart_signal](){restart_signal=true;});
+			engine.run();
+		} while (restart_signal);
     } catch (const std::exception& e) {
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: {}\n", e.what());
         return EXIT_FAILURE;
