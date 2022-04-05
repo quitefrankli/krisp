@@ -247,6 +247,7 @@ void Gizmo::select_object(Object* obj)
 	}
 
 	// gizmo can only be attached to 1 obj at a time
+	fmt::print("Gizmo::select_object: obj_id={}\n", obj->get_id());
 	deselect();
 	selected_object = obj;
 	set_position(selected_object->get_position());

@@ -175,7 +175,7 @@ void GameEngine::delete_object(obj_id_t id)
 		LOG_ERROR(logger, "GameEngine::delete_object: attempted to delete non-existant object");
 		return;
 	}
-
+	objects.erase(it_obj);
 	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
 }
 
