@@ -427,7 +427,6 @@ void GraphicsEngineFrame::update_uniform_buffer()
 
 	// update per object uniforms
 	UniformBufferObject default_ubo{};
-	default_ubo.model = glm::mat4(1);
 	for (const auto& it_pair : get_graphics_engine().get_objects())
 	{
 		const auto& graphics_object = it_pair.second;

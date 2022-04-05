@@ -24,6 +24,8 @@ target_include_directories(Vulkan PRIVATE "src/" "third_party/")
 
 target_link_libraries(Vulkan ${CONAN_LIBS})
 
+add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
+
 # could be useful for recompiling shaders or dynamic library
 # add_custom_command(
 # 	OUTPUT None

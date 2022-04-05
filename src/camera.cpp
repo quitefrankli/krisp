@@ -13,14 +13,14 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	ITrackableObject(this),
 	engine(engine_)
 {
-	set_position(glm::vec3(0.0f, 0.0f, 2.0f));
+	set_position(glm::vec3(0.0f, 0.0f, -2.0f));
 
 	const float fov = Maths::deg2rad(45.0f);
 	// const float aspect_ratio = aspect_ratio; // passed in
 	const float near_clipping = 0.1f;
 	const float far_clipping = 100.0f;
 
-	perspective_matrix = glm::perspective(fov, aspect_ratio, near_clipping, far_clipping);
+	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
 	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	focus_obj->set_visibility(false);
@@ -37,6 +37,31 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 
 	set_mode(Mode::ORBIT);
 	set_visibility(false);
+
+// without GLM_FORCE_DEPTH_ZERO_TO_ONE
+	// my proj
+	//  1.37,  0.00,  0.00,  0.00,
+	//  0.00,  2.41,  0.00,  0.00,
+	//  0.00,  0.00,  1.00,  1.00,
+	//  0.00,  0.00, -0.20,  0.00,
+	// my view
+	// -1.00,  0.00,  0.00,  0.00,
+	//  0.00,  1.00,  0.00,  0.00,
+	//  0.00,  0.00, -1.00,  0.00,
+	//  0.00,  0.00, -2.00,  1.00,
+
+
+// with GLM_FORCE_DEPTH_ZERO_TO_ONE
+	// my proj
+	// 1.37,  0.00,  0.00,  0.00,
+	// 0.00,  2.41,  0.00,  0.00,
+	// 0.00,  0.00,  1.00,  1.00,
+	// 0.00,  0.00, -0.10,  0.00,
+	// my view
+	// -1.00,  0.00,  0.00,  0.00,
+	// 0.00,  1.00,  0.00,  0.00,
+	// 0.00,  0.00, -1.00,  0.00,
+	// 0.00,  0.00, -2.00,  1.00,
 }
 
 Camera::~Camera() = default;
@@ -73,7 +98,7 @@ glm::mat4 Camera::get_perspective() const
 
 glm::mat4 Camera::get_view() const
 {
-	return glm::lookAt(get_position(), get_focus(), up_vector);
+	return glm::lookAtLH(get_position(), get_focus(), up_vector);
 }
 
 void Camera::set_rotation(const glm::quat& rotation)
@@ -141,21 +166,18 @@ void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 	const float sensitivity = 0.2f;
 	const float magnitude = glm::length(offset) * delta_time * sensitivity;
 
+	const glm::vec2 screen_axis(offset.y, offset.x);
+	const glm::vec3 axis = sync_to_camera(screen_axis);
+	const glm::quat quaternion = glm::angleAxis(magnitude, axis);
 	switch (mode)
 	{
 		case Mode::ORBIT:
 		{
-			glm::vec2 screen_axis(-offset.y, offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
-			glm::vec3 axis = sync_to_camera(screen_axis);
-			glm::quat quaternion = glm::angleAxis(magnitude, axis);
 			focus_obj->set_rotation(quaternion * focus_obj->get_rotation());
 			break;
 		}
 		case Mode::FPV:
 		{
-			glm::vec2 screen_axis(offset.y, -offset.x); // the fact that this is -ve is very strange might have to do with our coordinate system
-			glm::vec3 axis = sync_to_camera(screen_axis);
-			glm::quat quaternion = glm::angleAxis(magnitude, axis);
 			set_rotation(quaternion * get_rotation());
 			break;
 		}
