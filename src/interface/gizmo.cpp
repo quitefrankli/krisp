@@ -44,9 +44,9 @@ void GizmoBase::set_visibility(bool visibility)
 
 void TranslationGizmo::init()
 {
-	xAxis.point(Maths::zero_vec, glm::vec3(1.0f, 0.0f, 0.0f));
-	yAxis.point(Maths::zero_vec, glm::vec3(0.0f, 1.0f, 0.0f));
-	zAxis.point(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -1.0f));
+	xAxis.point(Maths::zero_vec, Maths::right_vec);
+	yAxis.point(Maths::zero_vec, Maths::up_vec);
+	zAxis.point(Maths::zero_vec, Maths::forward_vec);
 
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
@@ -103,8 +103,8 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 void RotationGizmo::init()
 {
-	xAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, glm::vec3(0.0f, 1.0f, 0.0f)));
-	yAxisNorm.set_rotation(glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f)));
+	xAxisNorm.set_rotation(glm::angleAxis(-Maths::PI/2.0f, Maths::up_vec));
+	yAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, Maths::right_vec));
 
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
@@ -160,9 +160,9 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 void ScaleGizmo::init()
 {
-	xAxis.point(Maths::zero_vec, glm::vec3(1.0f, 0.0f, 0.0f));
-	yAxis.point(Maths::zero_vec, glm::vec3(0.0f, 1.0f, 0.0f));
-	zAxis.point(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -1.0f));
+	xAxis.point(Maths::zero_vec, Maths::right_vec);
+	yAxis.point(Maths::zero_vec, Maths::up_vec);
+	zAxis.point(Maths::zero_vec, Maths::forward_vec);
 
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){

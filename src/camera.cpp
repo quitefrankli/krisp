@@ -168,7 +168,7 @@ void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 
 	const glm::vec2 screen_axis(offset.y, offset.x);
 	const glm::vec3 axis = sync_to_camera(screen_axis);
-	const glm::quat quaternion = glm::angleAxis(magnitude, axis);
+	const glm::quat quaternion = glm::angleAxis(-magnitude, axis);
 	switch (mode)
 	{
 		case Mode::ORBIT:

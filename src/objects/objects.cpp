@@ -275,7 +275,7 @@ Arrow::Arrow()
 	Shape& cylinder = shapes[0];
 	Shape& cone = shapes[1];
 
-	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
+	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 
 	glm::mat4 cylinder_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.4f, 0.0f));
 	cylinder_transform = cylinder_transform * glm::scale(glm::mat4(1.0f), glm::vec3(RADIUS*2.0f, 0.8f, RADIUS*2.0f));
@@ -293,7 +293,7 @@ Arrow::Arrow()
 
 void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 {
-	glm::vec3 v1(0.0f, 0.0f, -1.0f); // aka forward vector
+	const auto& v1 = Maths::forward_vec;
 	auto v2 = glm::normalize(end - start);
 	glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
 	set_rotation(rot);
@@ -331,7 +331,7 @@ Arc::Arc()
 	auto gen_vertex = [&](const float radius, const float y, const int i)
 	{
 		arc.vertices.emplace_back(
-			radius * glm::vec3(sinf(inc * i), y, -cosf(inc * i)),
+			radius * glm::vec3(sinf(inc * i), y, cosf(inc * i)),
 			glm::vec3((float)i/(float)N, 1.0f, 1.0f)
 		);
 	};
@@ -370,7 +370,7 @@ Arc::Arc()
 	}
 
 	// let default plane normal be the forward axis
-	arc.transform_vertices(glm::angleAxis(Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+	arc.transform_vertices(glm::angleAxis(-Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 
 	arc.generate_normals();
 	shapes.push_back(std::move(arc));

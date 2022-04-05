@@ -20,9 +20,9 @@ public:
 	void process()
 	{
 		std::cout << "Experimental\n";
-
-		engine.spawn_object<Cube2>();
 		
+		engine.spawn_object<Arrow>();
+
 		// if (tmp % 2 == 0) {
 		// 	auto& sphere = engine.spawn_object<Cube>();
 		// 	tmp2 = sphere.get_id();
@@ -30,7 +30,7 @@ public:
 		// 	engine.delete_object(tmp2);
 		// }
 
-		tmp++;
+		// tmp++;
 	}
 
 	// game engine triggers this periodically

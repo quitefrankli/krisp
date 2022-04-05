@@ -157,12 +157,12 @@ Cube::Cube()
 	};
 
 	add_face(glm::quat{});
-	add_face(glm::angleAxis(Maths::PI * 0.5f, glm::vec3(0.0f, 1.0f, 0.0f)));
-	add_face(glm::angleAxis(Maths::PI, glm::vec3(0.0f, 1.0f, 0.0f)));
-	add_face(glm::angleAxis(Maths::PI * 1.5f, glm::vec3(0.0f, 1.0f, 0.0f)));
-	add_face(glm::angleAxis(Maths::PI * 2.0f, glm::vec3(0.0f, 1.0f, 0.0f)));
-	add_face(glm::angleAxis(Maths::PI * 0.5f, glm::vec3(-1.0f, 0.0f, 0.0f)));
-	add_face(glm::angleAxis(Maths::PI * 0.5f, glm::vec3(1.0f, 0.0f, 0.0f)));
+	add_face(glm::angleAxis(-Maths::PI * 0.5f, glm::vec3(0.0f, 1.0f, 0.0f)));
+	add_face(glm::angleAxis(-Maths::PI, glm::vec3(0.0f, 1.0f, 0.0f)));
+	add_face(glm::angleAxis(-Maths::PI * 1.5f, glm::vec3(0.0f, 1.0f, 0.0f)));
+	add_face(glm::angleAxis(-Maths::PI * 2.0f, glm::vec3(0.0f, 1.0f, 0.0f)));
+	add_face(glm::angleAxis(-Maths::PI * 0.5f, glm::vec3(-1.0f, 0.0f, 0.0f)));
+	add_face(glm::angleAxis(-Maths::PI * 0.5f, glm::vec3(1.0f, 0.0f, 0.0f)));
 
 	// deduplicate_vertices(); // TODO: do this
 	generate_normals();
