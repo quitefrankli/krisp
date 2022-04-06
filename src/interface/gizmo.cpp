@@ -158,6 +158,14 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 // ScaleGizmo
 //
 
+ScaleGizmo::ScaleGizmo(GameEngine& engine, Gizmo& gizmo) :
+	xAxis(Maths::right_vec),
+	yAxis(Maths::up_vec),
+	zAxis(Maths::forward_vec),
+	GizmoBase(engine, gizmo)
+{
+}
+
 void ScaleGizmo::init()
 {
 	xAxis.point(Maths::zero_vec, Maths::right_vec);
@@ -186,8 +194,7 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 		if (axis->check_collision(ray))
 		{
 			active_axis = axis;
-			reference_transform.position = get_position();
-			reference_transform.orientation = get_rotation();
+			reference_transform.scale = gizmo.selected_object->get_scale();
 
 			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
 			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
@@ -208,9 +215,18 @@ void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
 
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
-	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
+	const float magnitude = glm::dot(p2 - p1, curr_axis);
+	// const auto Vp1_p2 = tmp * curr_axis;
 
-	gizmo.selected_object->set_scale(reference_transform.scale + Vp1_p2);
+	const auto& original_axis = static_cast<ScaleGizmoObj*>(active_axis)->original_axis;
+	const glm::vec3 new_scale = reference_transform.scale + original_axis * magnitude;
+	
+	if (glm::dot(new_scale, original_axis) < minimum_scale)
+	{
+		return;
+	}
+
+	gizmo.selected_object->set_scale(new_scale);
 }
 
 //

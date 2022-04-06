@@ -63,7 +63,8 @@ private:
 class ScaleGizmo : public GizmoBase
 {
 public:
-	using GizmoBase::GizmoBase;
+	ScaleGizmo(GameEngine& engine, Gizmo& gizmo);
+
 	virtual void init() override;
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
@@ -72,6 +73,8 @@ private:
 	ScaleGizmoObj xAxis;
 	ScaleGizmoObj yAxis;
 	ScaleGizmoObj zAxis;
+
+	const float minimum_scale = 0.1f;
 };
 
 class Gizmo : public Object

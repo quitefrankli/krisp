@@ -67,8 +67,17 @@ namespace Maths
 	// it's possible for a ray to be "behind" a plane and pointing away from it
 	bool check_ray_plane_intersection(const Ray& ray, const Plane& plane);
 
+	inline float signed_sum(const glm::vec3& v) { return v.x + v.y + v.z; }
+
 	const glm::vec3 right_vec = { 1.0f, 0.0f, 0.0f };
 	const glm::vec3 up_vec = { 0.0f, 1.0f, 0.0f };
 	const glm::vec3 forward_vec = { 0.0f, 0.0f, 1.0f };
 	const glm::vec3 zero_vec = {};
+
+	enum class Direction
+	{
+		RIGHT,
+		UP,
+		FORWARD
+	};
 };

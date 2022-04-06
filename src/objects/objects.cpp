@@ -294,8 +294,8 @@ Arrow::Arrow()
 void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 {
 	const auto& v1 = Maths::forward_vec;
-	auto v2 = glm::normalize(end - start);
-	glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
+	const auto v2 = glm::normalize(end - start);
+	const glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
 	set_rotation(rot);
 	set_position(start);
 

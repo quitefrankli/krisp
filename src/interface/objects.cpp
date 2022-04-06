@@ -7,19 +7,20 @@
 #include <iostream>
 
 
-ScaleGizmoObj::ScaleGizmoObj()
+ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
+	original_axis(original_axis)
 {
 	shapes.reserve(2);
 	auto& rod = shapes.emplace_back(Shapes::Cube{});
 	auto& block = shapes.emplace_back(Shapes::Cube{});
 
-	auto rod_transform = glm::translate(glm::mat4(1.0f), -glm::vec3(0.0f, 0.0f, 0.5f));
+	auto rod_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.5f));
 	rod_transform = glm::scale(rod_transform, glm::vec3(THICKNESS, THICKNESS, 1.0f));
 	rod.transform_vertices(rod_transform);
 
 	// to prevent z-fighting
 	const float small_offset = 0.0001f;
-	auto block_transform = glm::translate(glm::mat4(1.0f), -glm::vec3(0.0f, 0.0f, 1.0f - BLOCK_LENGTH * 0.5f + small_offset));
+	auto block_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 1.0f - BLOCK_LENGTH * 0.5f + small_offset));
 	block_transform = glm::scale(block_transform, glm::vec3(BLOCK_LENGTH));
 	block.transform_vertices(block_transform);
 
@@ -29,9 +30,9 @@ ScaleGizmoObj::ScaleGizmoObj()
 
 void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)
 {
-	glm::vec3 v1(0.0f, 0.0f, -1.0f); // aka forward vector
-	auto v2 = glm::normalize(end - start);
-	glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
+	const glm::vec3 v1 = Maths::forward_vec;
+	const glm::vec3 v2 = glm::normalize(end - start);
+	const glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
 	set_rotation(rot);
 	set_position(start);
 }
