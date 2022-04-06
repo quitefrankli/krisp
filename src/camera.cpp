@@ -5,6 +5,7 @@
 #include "graphics_engine/graphics_engine.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
 
@@ -166,9 +167,14 @@ void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 	const float sensitivity = 0.2f;
 	const float magnitude = glm::length(offset) * delta_time * sensitivity;
 
-	const glm::vec2 screen_axis(offset.y, offset.x);
+	// I did some mental maths and actually this checks out
+	// using left hand with thumb in direction of axis and fingers curling
+	// in direction of curling, one of the dimensions needs to have its sign flipped
+	// seems there are no bugs here
+	const glm::vec2 screen_axis(-offset.y, offset.x);
 	const glm::vec3 axis = sync_to_camera(screen_axis);
 	const glm::quat quaternion = glm::angleAxis(-magnitude, axis);
+
 	switch (mode)
 	{
 		case Mode::ORBIT:
