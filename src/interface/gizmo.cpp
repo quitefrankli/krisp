@@ -51,9 +51,9 @@ void TranslationGizmo::init()
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
 		axis->attach_to(this);
-		axis->set_visibility(false);
 		engine.draw_object(*axis);
 	});
+	set_visibility(false);
 }
 
 bool TranslationGizmo::check_collision(const Maths::Ray& ray)
@@ -109,9 +109,9 @@ void RotationGizmo::init()
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
 		axis->attach_to(this);
-		axis->set_visibility(false);
 		engine.draw_object(*axis);
 	});
+	set_visibility(false);
 }
 
 bool RotationGizmo::check_collision(const Maths::Ray& ray)
@@ -167,9 +167,9 @@ void ScaleGizmo::init()
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
 		axis->attach_to(this);
-		axis->set_visibility(false);
 		engine.draw_object(*axis);
 	});
+	set_visibility(false);
 }
 
 bool ScaleGizmo::check_collision(const Maths::Ray& ray)
