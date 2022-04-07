@@ -1,5 +1,6 @@
 #pragma once
 
+#include "graphics_engine/pipeline/pipeline_types.hpp"
 #include "shapes/shape.hpp"
 #include "maths.hpp"
 
@@ -54,6 +55,8 @@ public:
 	uint32_t get_num_vertex_indices() const;
 
 	std::string texture;
+	const EPipelineType get_render_type() const { return render_type; }
+	void set_render_type(EPipelineType type) { render_type = type; }
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }
 	virtual void set_visibility(bool isVisible) { bVisible = isVisible; }
@@ -106,6 +109,8 @@ private:
 	glm::vec3& scale = transformation_components.scale;
 	glm::quat& orientation = transformation_components.orientation;
 	bool bVisible = true;
+
+	EPipelineType render_type = EPipelineType::COLOR;
 
 //
 // collision

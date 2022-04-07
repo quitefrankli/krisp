@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics_engine_base_module.hpp"
+#include "pipeline/pipeline.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -13,7 +14,7 @@ class GraphicsEngineTexture;
 class GraphicsEngineObject : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineObject(GraphicsEngine& engine);
+	GraphicsEngineObject(GraphicsEngine& engine, const Object& object);
 
 	~GraphicsEngineObject();
 
@@ -49,6 +50,8 @@ public:
 
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
+
+	const EPipelineType type;
 
 private:
 	bool marked_for_delete = false;

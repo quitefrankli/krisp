@@ -47,7 +47,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	std::vector<VkImageView> attachments = { image_view, get_graphics_engine().get_depth_buffer().get_image_view() };
 	VkFramebufferCreateInfo frame_buffer_create_info{};
 	frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	frame_buffer_create_info.renderPass = get_graphics_engine().get_render_pass();
+	frame_buffer_create_info.renderPass = get_graphics_engine().get_pipeline_mgr().get_main_pipeline_render_pass();
 	frame_buffer_create_info.attachmentCount = attachments.size();
 	frame_buffer_create_info.pAttachments = attachments.data();
 	frame_buffer_create_info.width = swap_chain.get_extent().width;
@@ -193,7 +193,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{};
 	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = get_graphics_engine().get_render_pass();
+	render_pass_begin_info.renderPass = get_graphics_engine().get_pipeline_mgr().get_main_pipeline_render_pass();
 	render_pass_begin_info.framebuffer = frame_buffer;
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
 	render_pass_begin_info.renderArea.extent = swap_chain.get_extent();
@@ -210,7 +210,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	// global descriptor object, for per frame updates
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
-							get_graphics_engine().get_graphics_pipeline().pipeline_layout,
+							get_graphics_engine().get_pipeline_mgr().get_main_pipeline_layout(),
 							1,
 							1,
 							&get_graphics_engine().get_graphics_resource_manager().global_descriptor_set,
@@ -248,7 +248,7 @@ void GraphicsEngineFrame::update_command_buffer()
 
 			vkCmdBindDescriptorSets(command_buffer, 
 									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
-									get_graphics_engine().get_graphics_pipeline().pipeline_layout, 
+									get_graphics_engine().get_pipeline_mgr().get_main_pipeline_layout(), 
 									0, // offset
 									1, // number of sets to bind
 									&object.descriptor_sets[vertex_set_index],
@@ -271,24 +271,25 @@ void GraphicsEngineFrame::update_command_buffer()
 		}
 	};
 
-	using type_t = GraphicsEnginePipeline::PIPELINE_TYPE;
+	const auto get_pipeline = [&](const GraphicsEngineObject& obj)
+	{
+		const auto type = get_graphics_engine().is_wireframe_mode ? EPipelineType::WIREFRAME : obj.type;
+		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type).graphics_pipeline;
+	};
 	for (const auto& it_pair : get_graphics_engine().get_objects())
 	{
-		const auto& graphics_object = it_pair.second;
-		if (graphics_object->is_marked_for_delete())
+		auto& graphics_object = *(it_pair.second);
+		if (graphics_object.is_marked_for_delete())
 			continue;
 
-		if (!graphics_object->get_game_object().get_visibility())
+		if (!graphics_object.get_game_object().get_visibility())
 			continue;
 			
-		auto pipeline_type = graphics_object->texture ? type_t::STANDARD : type_t::COLOR;
-		if (get_graphics_engine().is_wireframe_mode)
-		{
-			pipeline_type = type_t::WIREFRAME;
-		}
-		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_pipeline(pipeline_type)); // bind the graphics pipeline
+		vkCmdBindPipeline(command_buffer, 
+							VK_PIPELINE_BIND_POINT_GRAPHICS, 
+							get_pipeline(graphics_object)); // bind the graphics pipeline
 
-		per_obj_draw_fn(*graphics_object);
+		per_obj_draw_fn(graphics_object);
 	}
 
 	// render gui

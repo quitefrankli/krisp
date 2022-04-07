@@ -1,6 +1,6 @@
-#include "graphics_engine_pipeline.hpp"
+#include "graphics_engine/pipeline/pipeline.hpp"
 
-#include "graphics_engine.hpp"
+#include "graphics_engine/graphics_engine.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -74,19 +74,21 @@ VkFormat findDepthFormat(VkPhysicalDevice& device) {
 // GraphicsEnginePipeline
 //
 
-GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_TYPE pipeline_type) :
+GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, EPipelineType pipeline_type) :
 	GraphicsEngineBaseModule(engine)
 {
 	create_render_pass();
 
 	std::string shader_directory;
+	VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL;
 	switch (pipeline_type)
 	{
-		case PIPELINE_TYPE::WIREFRAME:
-		case PIPELINE_TYPE::COLOR:
+		case EPipelineType::WIREFRAME:
+			polygon_mode = VK_POLYGON_MODE_LINE;
+		case EPipelineType::COLOR:
 			shader_directory = "color";
 			break;
-		case PIPELINE_TYPE::STANDARD:
+		case EPipelineType::STANDARD:
 		default:
 			shader_directory = "texture";
 			break;
@@ -168,7 +170,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 	rasterizer_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	rasterizer_create_info.depthClampEnable = VK_FALSE; // true = fragments beyond near and far planes are clamped, false = discarded
 	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
-	rasterizer_create_info.polygonMode = pipeline_type == PIPELINE_TYPE::WIREFRAME ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
+	rasterizer_create_info.polygonMode = polygon_mode;
 	rasterizer_create_info.lineWidth = 1.0f;
 	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
 	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
@@ -239,9 +241,14 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, PIPELINE_
 	graphics_pipeline_create_info.pDynamicState = nullptr;
 	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;
-	graphics_pipeline_create_info.renderPass = get_graphics_engine().get_render_pass();
+	graphics_pipeline_create_info.renderPass = render_pass;
 	graphics_pipeline_create_info.subpass = 0;
-	graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE; // vulkan allows pipeline inheritance, will require setting VK_PIPELINE_CREATE_DERIVATIVE_BIT flag in VkGraphicsPipelineCreateInfo
+	// for derived pipelines can either use base handle OR base index for the
+	// index of the pipeline to refer to the base pipeline
+	// however it seems this doesn't really optimise anything
+	// so we will not do this "optimisation" for now
+	// will require setting VK_PIPELINE_CREATE_DERIVATIVE_BIT flag and also another flag in the parent
+	graphics_pipeline_create_info.basePipelineHandle = VK_NULL_HANDLE;
 	graphics_pipeline_create_info.basePipelineIndex = -1;
 
 	// pipeline cache can be used to significantly speed up pipeline creation

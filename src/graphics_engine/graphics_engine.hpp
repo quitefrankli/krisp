@@ -8,10 +8,10 @@
 #include "graphics_engine_pool.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
-#include "graphics_engine_pipeline.hpp"
 #include "graphics_engine_depth_buffer.hpp"
 #include "graphics_engine_texture_manager.hpp"
 #include "graphics_engine_gui_manager.hpp"
+#include "pipeline/pipeline_manager.hpp"
 
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -65,12 +65,10 @@ public: // getters and setters
 	inline VkQueue& get_graphics_queue() { return graphics_queue; }
 	inline VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
-	VkRenderPass& get_render_pass() { return pipeline.render_pass; }
 	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
-	GraphicsEnginePipeline& get_graphics_pipeline() { return pipeline; }
-	VkPipeline& get_pipeline(GraphicsEnginePipeline::PIPELINE_TYPE pipeline_type = GraphicsEnginePipeline::PIPELINE_TYPE::STANDARD);
+	GraphicsEnginePipelineManager& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
 	GraphicsEngineGuiManager& get_gui_manager() { return gui_manager; }
@@ -88,9 +86,7 @@ private: // core components
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
 	GraphicsEnginePool pool;
-	GraphicsEnginePipeline pipeline; // main pipeline
-	GraphicsEnginePipeline pipeline_wireframe;
-	GraphicsEnginePipeline pipeline_color;
+	GraphicsEnginePipelineManager pipeline_mgr;
 	GraphicsEngineTextureManager texture_mgr;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
@@ -144,4 +140,3 @@ private: // friends
 	friend SpawnObjectCmd;
 	friend DeleteObjectCmd;
 };
-

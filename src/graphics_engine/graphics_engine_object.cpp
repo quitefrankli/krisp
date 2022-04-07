@@ -4,8 +4,9 @@
 #include "graphics_engine/graphics_engine.hpp"
 
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine)
+GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object& object) :
+	GraphicsEngineBaseModule(engine),
+	type(object.get_render_type())
 {
 }
 
@@ -55,7 +56,7 @@ VkSampler& GraphicsEngineObject::get_texture_sampler()
 //
 
 GraphicsEngineObjectPtr::GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object) :
-	GraphicsEngineObject(engine),
+	GraphicsEngineObject(engine, *game_engine_object),
 	object(std::move(game_engine_object))
 {
 }
@@ -66,7 +67,7 @@ const Object& GraphicsEngineObjectPtr::get_game_object() const
 }
 
 GraphicsEngineObjectRef::GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object) :
-	GraphicsEngineObject(engine),
+	GraphicsEngineObject(engine, game_engine_object),
 	object(game_engine_object)
 {
 }

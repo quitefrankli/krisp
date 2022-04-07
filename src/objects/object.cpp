@@ -31,11 +31,13 @@ Object::Object(
 {
 	loader.load_mesh(*this, mesh, transform);
 	this->texture = texture;
+	render_type = EPipelineType::STANDARD;
 }
 
 Object::Object(std::string texture_) : 
 	texture(texture_)
 {
+	render_type = EPipelineType::STANDARD;
 }
 
 uint32_t Object::get_num_unique_vertices() const
