@@ -17,4 +17,5 @@ private:
 	GraphicsEnginePipeline pipeline_main;
 	GraphicsEnginePipeline pipeline_wireframe;
 	GraphicsEnginePipeline pipeline_color;
+	GraphicsEnginePipeline pipeline_light_source;
 };

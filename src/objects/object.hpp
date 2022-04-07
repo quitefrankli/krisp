@@ -55,7 +55,7 @@ public:
 	uint32_t get_num_vertex_indices() const;
 
 	std::string texture;
-	const EPipelineType get_render_type() const { return render_type; }
+	virtual const EPipelineType get_render_type() const { return render_type; }
 	void set_render_type(EPipelineType type) { render_type = type; }
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }

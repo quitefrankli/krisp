@@ -5,7 +5,8 @@ GraphicsEnginePipelineManager::GraphicsEnginePipelineManager(GraphicsEngine& eng
 	GraphicsEngineBaseModule(engine),
 	pipeline_main(engine, EPipelineType::STANDARD),
 	pipeline_color(engine, EPipelineType::COLOR),
-	pipeline_wireframe(engine, EPipelineType::WIREFRAME)
+	pipeline_wireframe(engine, EPipelineType::WIREFRAME),
+	pipeline_light_source(engine, EPipelineType::LIGHT_SOURCE)
 {
 }
 
@@ -13,12 +14,15 @@ GraphicsEnginePipeline& GraphicsEnginePipelineManager::get_pipeline(EPipelineTyp
 {
 	switch (type)
 	{
+		case EPipelineType::STANDARD:
+			return pipeline_main;
 		case EPipelineType::COLOR:
 			return pipeline_color;
 		case EPipelineType::WIREFRAME:
 			return pipeline_wireframe;
-		case EPipelineType::STANDARD:
+		case EPipelineType::LIGHT_SOURCE:
+			return pipeline_light_source;
 		default:
-			return pipeline_main;
+			throw std::runtime_error("GraphicsEnginePipelineManager::get_pipeline: invalid pipeline type");
 	};
 }

@@ -15,6 +15,7 @@ compile_dir()
 	echo "compiling [$shader] shaders in [$src_dir] to [$build_dir]"
 
 	mkdir -p $build_dir
+
 	glslc -fshader-stage=vertex $src_dir/vertex_shader.glsl -o $build_dir/vertex_shader.spv
 	glslc -fshader-stage=fragment $src_dir/fragment_shader.glsl -o $build_dir/fragment_shader.spv
 }
@@ -33,6 +34,15 @@ GREEN='\033[0;32m' # green
 NC='\033[0m' # No Color
 
 echo -e "${YELLOW}compiling shaders...${NC}"
-compile_dir color
-compile_dir texture
+
+# for each folder in under shaders except "library" compile each folder
+for directory in $SCRIPTPATH/src/shaders/*/
+do
+	directory=$(basename $directory)
+	if [ $directory == library ]
+	then
+		continue
+	fi
+	compile_dir $directory
+done
 echo -e "${GREEN}shader compilation complete!${NC}"

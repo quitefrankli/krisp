@@ -3,11 +3,10 @@
 #include "game_engine.hpp"
 #include "hot_reload.hpp"
 #include "objects/objects.hpp"
+#include "objects/light_source.hpp"
 
 #include <iostream>
 
-static int tmp = 0;
-static uint64_t tmp2;
 class Experimental
 {
 public:
@@ -21,16 +20,8 @@ public:
 	{
 		std::cout << "Experimental\n";
 		
-		engine.spawn_object<Arrow>();
-
-		// if (tmp % 2 == 0) {
-		// 	auto& sphere = engine.spawn_object<Cube>();
-		// 	tmp2 = sphere.get_id();
-		// } else {
-		// 	engine.delete_object(tmp2);
-		// }
-
-		// tmp++;
+		auto& obj = engine.spawn_object<LightSource>(glm::vec3(1.0f, 1.0f, 1.0f));
+		obj.set_position(glm::vec3(0.0f, 2.0f, 2.0f));
 	}
 
 	// game engine triggers this periodically
