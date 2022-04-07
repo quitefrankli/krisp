@@ -4,6 +4,7 @@
 enum class EPipelineType
 {
 	STANDARD,
-	WIREFRAME,
 	COLOR, // no texture
+	WIREFRAME,
+	LIGHT_SOURCE,
 };

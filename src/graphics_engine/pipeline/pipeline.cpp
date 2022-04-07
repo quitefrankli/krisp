@@ -83,12 +83,19 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, EPipeline
 	VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL;
 	switch (pipeline_type)
 	{
-		case EPipelineType::WIREFRAME:
-			polygon_mode = VK_POLYGON_MODE_LINE;
+		case EPipelineType::STANDARD:
+			shader_directory = "texture";
+			break;		
 		case EPipelineType::COLOR:
 			shader_directory = "color";
 			break;
-		case EPipelineType::STANDARD:
+		case EPipelineType::WIREFRAME:
+			polygon_mode = VK_POLYGON_MODE_LINE;
+			shader_directory = "color";
+			break;
+		case EPipelineType::LIGHT_SOURCE:
+			shader_directory = "light_source";
+			break;
 		default:
 			shader_directory = "texture";
 			break;
