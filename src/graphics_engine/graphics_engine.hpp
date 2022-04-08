@@ -28,6 +28,7 @@ class Analytics;
 class Camera;
 class GameEngine;
 class GraphicsEngineObject;
+class LightSource;
 
 class GraphicsEngine
 {
@@ -58,13 +59,14 @@ public: // getters and setters
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
 	auto& get_objects() { return objects; }
-	inline VkDevice& get_logical_device() { return device.get_logical_device(); }
-	inline VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
-	inline VkInstance& get_instance() { return instance.get(); }
-	inline VkQueue& get_present_queue() { return present_queue; }
-	inline VkQueue& get_graphics_queue() { return graphics_queue; }
-	inline VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
-	inline GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
+	auto& get_light_sources() { return light_sources; }
+	VkDevice& get_logical_device() { return device.get_logical_device(); }
+	VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
+	VkInstance& get_instance() { return instance.get(); }
+	VkQueue& get_present_queue() { return present_queue; }
+	VkQueue& get_graphics_queue() { return graphics_queue; }
+	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
+	GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
 	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
@@ -98,6 +100,7 @@ private:
 	VkQueue present_queue;
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject>> objects;
+	std::unordered_map<uint64_t, std::reference_wrapper<const LightSource>> light_sources;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 

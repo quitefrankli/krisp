@@ -3,6 +3,7 @@
 #include "graphics_engine.hpp"
 #include "graphics_engine_swap_chain.hpp"
 #include "objects/object.hpp"
+#include "objects/light_source.hpp"
 #include "uniform_buffer_object.hpp"
 #include "camera.hpp"
 
@@ -420,7 +421,18 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
 	gubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
-	gubo.light_pos = graphic_settings.light_ray.origin;
+
+	// gubo.light_pos = graphic_settings.light_ray.origin; // Gui controlled light position
+	
+	// light controlled by light source, only supports single light source and white lighting currently
+	auto& light_sources = get_graphics_engine().get_light_sources();
+	if (light_sources.empty())
+	{
+		gubo.light_pos = {};
+	} else {
+		gubo.light_pos = light_sources.begin()->second.get().get_position();
+	}
+
 	gubo.lighting = graphic_settings.light_strength;
 	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
 	memcpy(data, &gubo, sizeof(gubo));
@@ -466,8 +478,9 @@ void GraphicsEngineFrame::pre_cmdbuffer_recording()
 {
 	while (!objs_to_delete.empty())
 	{
-		auto id = objs_to_delete.front();
+		const auto id = objs_to_delete.front();
 		get_graphics_engine().get_objects().erase(id);
+		get_graphics_engine().get_light_sources().erase(id);
 		objs_to_delete.pop();
 	}
 }

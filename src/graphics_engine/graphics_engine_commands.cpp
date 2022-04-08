@@ -1,6 +1,7 @@
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine.hpp"
 #include "objects/object.hpp"
+#include "objects/light_source.hpp"
 #include "uniform_buffer_object.hpp"
 
 #include <mutex>
@@ -41,6 +42,13 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 		}
 		
 		engine->swap_chain.spawn_object(graphics_object);
+
+		if (graphics_object.type == EPipelineType::LIGHT_SOURCE)
+		{
+			engine->light_sources.emplace(
+				graphics_object.get_game_object().get_id(), 
+				static_cast<const LightSource&>(graphics_object.get_game_object()));
+		}
 	};
 
 	if (object_ref)
