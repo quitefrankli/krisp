@@ -190,3 +190,8 @@ void GameEngine::restart()
 	restart_signaller();
 	shutdown();
 }
+
+void GameEngine::send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
+{
+	graphics_engine->enqueue_cmd(std::move(cmd));
+}

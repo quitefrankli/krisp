@@ -8,7 +8,6 @@
 #include "animations/animator.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
-#include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "interface/gizmo.hpp"
 
@@ -47,21 +46,23 @@ public:
 		auto id = tmp_new_obj->get_id();
 		auto result = objects.emplace(id, std::move(tmp_new_obj));
 		assert(result.second); // no duplicate ids
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
+		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
 		return static_cast<object_t&>(*(result.first->second));
 	}
+	
+	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 	
 	// this function assumes something else manages the lifetime of object
 	template<typename object_t>
 	void draw_object(const std::shared_ptr<object_t>& object)
 	{
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
+		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 
 	template<typename object_t>
 	void draw_object(object_t& object)
 	{
-		graphics_engine->enqueue_cmd(std::make_unique<SpawnObjectCmd>(object));
+		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 
 	void delete_object(obj_id_t id);
