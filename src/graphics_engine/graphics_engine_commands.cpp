@@ -43,7 +43,7 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 		
 		engine->swap_chain.spawn_object(graphics_object);
 
-		if (graphics_object.type == EPipelineType::LIGHT_SOURCE)
+		if (graphics_object.type == ERenderType::LIGHT_SOURCE)
 		{
 			engine->light_sources.emplace(
 				graphics_object.get_game_object().get_id(), 

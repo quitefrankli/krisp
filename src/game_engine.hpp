@@ -8,6 +8,7 @@
 #include "animations/animator.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
+#include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "interface/gizmo.hpp"
 

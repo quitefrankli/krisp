@@ -74,26 +74,26 @@ VkFormat findDepthFormat(VkPhysicalDevice& device) {
 // GraphicsEnginePipeline
 //
 
-GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, EPipelineType pipeline_type) :
+GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderType render_type) :
 	GraphicsEngineBaseModule(engine)
 {
 	create_render_pass();
 
 	std::string shader_directory;
 	VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL;
-	switch (pipeline_type)
+	switch (render_type)
 	{
-		case EPipelineType::STANDARD:
+		case ERenderType::STANDARD:
 			shader_directory = "texture";
 			break;		
-		case EPipelineType::COLOR:
+		case ERenderType::COLOR:
 			shader_directory = "color";
 			break;
-		case EPipelineType::WIREFRAME:
+		case ERenderType::WIREFRAME:
 			polygon_mode = VK_POLYGON_MODE_LINE;
 			shader_directory = "color";
 			break;
-		case EPipelineType::LIGHT_SOURCE:
+		case ERenderType::LIGHT_SOURCE:
 			shader_directory = "light_source";
 			break;
 		default:

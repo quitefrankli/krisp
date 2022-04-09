@@ -2,7 +2,6 @@
 #include "game_engine.hpp"
 #include "maths.hpp"
 #include "objects/objects.hpp"
-#include "graphics_engine/graphics_engine.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>

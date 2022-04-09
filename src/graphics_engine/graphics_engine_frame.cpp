@@ -66,6 +66,23 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
 
+GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
+	GraphicsEngineBaseModule(frame.get_graphics_engine()),
+	image(std::move(frame.image)),
+	image_view(std::move(frame.image_view)),
+	frame_buffer(std::move(frame_buffer)),
+	command_buffer(std::move(frame.command_buffer)),
+	image_index(std::move(frame.image_index)),
+	swap_chain(frame.swap_chain),
+	image_available_semaphore(std::move(frame.image_available_semaphore)),
+	render_finished_semaphore(std::move(frame.render_finished_semaphore)),
+	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
+	fence_image_inflight(std::move(frame.fence_image_inflight)),
+	analytics(std::move(frame.analytics)),
+	objs_to_delete(std::move(frame.objs_to_delete))
+{
+}
+
 GraphicsEngineFrame::~GraphicsEngineFrame()
 {
 	global_image_index--;
@@ -274,7 +291,7 @@ void GraphicsEngineFrame::update_command_buffer()
 
 	const auto get_pipeline = [&](const GraphicsEngineObject& obj)
 	{
-		const auto type = get_graphics_engine().is_wireframe_mode ? EPipelineType::WIREFRAME : obj.type;
+		const auto type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
 		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type).graphics_pipeline;
 	};
 	for (const auto& it_pair : get_graphics_engine().get_objects())
@@ -413,8 +430,6 @@ void GraphicsEngineFrame::draw()
 
 void GraphicsEngineFrame::update_uniform_buffer()
 {
-	void* data;
-
 	// update global uniform buffer
 	auto& graphic_settings = get_graphics_engine().get_gui_manager().graphic_settings;
 	GlobalUniformBufferObject gubo;
@@ -432,8 +447,9 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	} else {
 		gubo.light_pos = light_sources.begin()->second.get().get_position();
 	}
-
 	gubo.lighting = graphic_settings.light_strength;
+
+	void* data;
 	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
 	memcpy(data, &gubo, sizeof(gubo));
 	vkUnmapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory());

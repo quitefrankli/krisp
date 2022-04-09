@@ -1,7 +1,7 @@
 #pragma once
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
-#include "pipeline_types.hpp"
+#include "render_types.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -9,7 +9,7 @@
 class GraphicsEnginePipeline : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEnginePipeline(GraphicsEngine& engine, EPipelineType pipeline_type);
+	GraphicsEnginePipeline(GraphicsEngine& engine, ERenderType render_type);
 	~GraphicsEnginePipeline();
 
 	VkPipeline graphics_pipeline;

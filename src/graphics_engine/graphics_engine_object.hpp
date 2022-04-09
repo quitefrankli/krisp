@@ -51,7 +51,7 @@ public:
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
 
-	const EPipelineType type;
+	const ERenderType type;
 
 private:
 	bool marked_for_delete = false;

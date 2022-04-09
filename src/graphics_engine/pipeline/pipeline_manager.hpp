@@ -9,7 +9,7 @@ class GraphicsEnginePipelineManager : public GraphicsEngineBaseModule
 public:
 	GraphicsEnginePipelineManager(GraphicsEngine& engine);
 
-	GraphicsEnginePipeline& get_pipeline(EPipelineType type);
+	GraphicsEnginePipeline& get_pipeline(ERenderType type);
 	VkPipelineLayout& get_main_pipeline_layout() { return pipeline_main.pipeline_layout; }
 	VkRenderPass& get_main_pipeline_render_pass() { return pipeline_main.render_pass; }
 
