@@ -35,8 +35,3 @@ GraphicsEnginePipeline& GraphicsEnginePipelineManager::get_pipeline(ERenderType 
 
 	return it->second;
 }
-
-VkPipelineLayout& GraphicsEnginePipelineManager::get_main_pipeline_layout()
-{ 
-	return get_pipeline(ERenderType::STANDARD).pipeline_layout;
-}

@@ -234,14 +234,15 @@ void GraphicsEngineFrame::update_command_buffer()
 	// global descriptor object, for per frame updates
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
-							get_graphics_engine().get_pipeline_mgr().get_main_pipeline_layout(),
+							// lets assume that global descriptor objects only use the STANDARD pipeline
+							get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STANDARD).pipeline_layout,
 							1,
 							1,
 							&get_graphics_engine().get_graphics_resource_manager().global_descriptor_set,
 							0,
 							nullptr);
 
-	auto per_obj_draw_fn = [&](GraphicsEngineObject& object)
+	auto per_obj_draw_fn = [&](GraphicsEngineObject& object, const GraphicsEnginePipeline& pipeline)
 	{
 		const auto& shapes = object.get_shapes();
 
@@ -272,7 +273,7 @@ void GraphicsEngineFrame::update_command_buffer()
 
 			vkCmdBindDescriptorSets(command_buffer, 
 									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
-									get_graphics_engine().get_pipeline_mgr().get_main_pipeline_layout(), 
+									pipeline.pipeline_layout, 
 									0, // offset
 									1, // number of sets to bind
 									&object.descriptor_sets[vertex_set_index],
@@ -295,10 +296,10 @@ void GraphicsEngineFrame::update_command_buffer()
 		}
 	};
 
-	const auto get_pipeline = [&](const GraphicsEngineObject& obj)
+	const auto get_pipeline = [&](const GraphicsEngineObject& obj) -> GraphicsEnginePipeline&
 	{
 		const auto type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
-		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type).graphics_pipeline;
+		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
 	};
 	for (const auto& it_pair : get_graphics_engine().get_objects())
 	{
@@ -308,12 +309,13 @@ void GraphicsEngineFrame::update_command_buffer()
 
 		if (!graphics_object.get_game_object().get_visibility())
 			continue;
-			
+		
+		const GraphicsEnginePipeline& pipeline = get_pipeline(graphics_object);
 		vkCmdBindPipeline(command_buffer, 
 							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							get_pipeline(graphics_object)); // bind the graphics pipeline
+							pipeline.graphics_pipeline); // bind the graphics pipeline
 
-		per_obj_draw_fn(graphics_object);
+		per_obj_draw_fn(graphics_object, pipeline);
 	}
 
 	// render gui

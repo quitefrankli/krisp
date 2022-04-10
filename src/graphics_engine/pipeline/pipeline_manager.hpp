@@ -14,7 +14,6 @@ public:
 	~GraphicsEnginePipelineManager();
 
 	GraphicsEnginePipeline& get_pipeline(ERenderType type);
-	VkPipelineLayout& get_main_pipeline_layout();
 
 private:
 	std::unordered_map<ERenderType, GraphicsEnginePipeline> pipelines;
