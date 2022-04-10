@@ -52,6 +52,9 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 {
 	std::string shader_directory;
 	VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL;
+	// culling is determined by either clockerwise or counter clockwise vertex order
+	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
+	VkFrontFace front_face = VkFrontFace::VK_FRONT_FACE_CLOCKWISE;
 	switch (render_type)
 	{
 		case ERenderType::STANDARD:
@@ -69,6 +72,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 			break;
 		case ERenderType::CUBEMAP:
 			shader_directory = "cubemap";
+			front_face = VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; // nice trick to use since our cube is "inside out"
 			break;
 		default:
 			shader_directory = "texture";
@@ -155,9 +159,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	rasterizer_create_info.lineWidth = 1.0f;
 	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
 	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
-	// culling is determined by either clockerwise or counter clockwise vertex order
-	// rasterizer_create_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; // this is the convention
-	rasterizer_create_info.frontFace = VK_FRONT_FACE_CLOCKWISE; // this is the convention
+	rasterizer_create_info.frontFace = front_face; // this is the convention
 	// rasterizer can alter depth by adding bias (either constant or sloped), can be useful for shadow mapping
 	rasterizer_create_info.depthBiasEnable = VK_FALSE;
 	rasterizer_create_info.depthBiasConstantFactor = 0.0f;

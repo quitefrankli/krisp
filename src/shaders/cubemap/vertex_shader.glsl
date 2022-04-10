@@ -42,11 +42,5 @@ void main()
 	gl_Position = gubo.proj * untranslated_view * vec4(inPosition, 1.0);
 	gl_Position = gl_Position.xyzz;
 
-
 	fragTexCoord = inTexCoord;
-	// light_normal = get_light_normal();
-	// surface_normal = ubo.rot_mat * inNormal;
-	// // it's likely we can remove the need for gubo.view_pos and compute everything in "view space"
-	// view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
-	// fragPos = (ubo.model * vec4(inPosition, 1.0)).xyz;
 }

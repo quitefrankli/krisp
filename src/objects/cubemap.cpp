@@ -14,38 +14,39 @@ CubeMap::CubeMap()
 	transform = idt;
 	// for transformation relative to world apply right->left, for local transformation it's left->right
 	transform = glm::translate(transform, glm::vec3(-0.5f, 0.0f, 0.0f));
-	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	transform = glm::rotate(transform, -Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	left.transform_vertices(transform);
-	left.texture = "../resources/textures/texture.jpg";
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.5f, 0.0f, 0.0f));
-	transform = glm::rotate(transform, -Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	right.transform_vertices(transform);
-	right.texture = "../resources/textures/texture.jpg";
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, 0.5f));
-	transform = glm::rotate(transform, Maths::deg2rad(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	front.transform_vertices(transform);
-	front.texture = "../resources/textures/texture.jpg";
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -0.5f));
+	transform = glm::rotate(transform, Maths::deg2rad(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 	back.transform_vertices(transform);
-	back.texture = "../resources/textures/texture.jpg";
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.5f, 0.0f));
-	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	transform = glm::rotate(transform, Maths::deg2rad(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	top.transform_vertices(transform);
-	top.texture = "../resources/textures/texture.jpg";
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, -0.5f, 0.0f));
-	transform = glm::rotate(transform, -Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	bottom.transform_vertices(transform);
-	bottom.texture = "../resources/textures/texture.jpg";
+
+	front.texture = "../resources/textures/skybox/DaylightBox_Front.bmp";
+	left.texture = "../resources/textures/skybox/DaylightBox_Left.bmp";
+	right.texture = "../resources/textures/skybox/DaylightBox_Right.bmp";
+	back.texture = "../resources/textures/skybox/DaylightBox_Back.bmp";
+	top.texture = "../resources/textures/skybox/DaylightBox_Top.bmp";
+	bottom.texture = "../resources/textures/skybox/DaylightBox_Bottom.bmp";
 
 	shapes.push_back(std::move(left));
 	shapes.push_back(std::move(right));

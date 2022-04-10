@@ -14,11 +14,12 @@ Square::Square()
 	// this is because we are not flipping the textures when we load them
 	// instead we are loading them in, in read order (as opposed to opengl)
 
-	// our coordinate system is:
+	// our coordinate system is LEFT handed:
 	// +X = right
 	// +Y = up
-	// +Z = out of screen
-	// rotation is clockwise in the direction of the axis
+	// +Z = into screen/forwards
+	// using LEFT hand, when thumb is parallel to the AXIS of rotation, then the
+	// DIRECTION of rotation follows the curled fingers
 
 	// {pos, color, texCoord, normal}
 	vertices.push_back(Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f})); // bottom left
