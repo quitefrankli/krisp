@@ -30,7 +30,7 @@ GuiObjectSpawner::GuiObjectSpawner()
 {
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngine& engine, bool textured){ 
-			textured ? engine.spawn_object<Cube>(texture_path) : engine.spawn_object<Cube>(); })},
+			textured ? engine.spawn_object<Cube>() : engine.spawn_object<Cube>(); })},
 		{"sphere", spawning_function_type([this](GameEngine& engine, bool textured){ 
 			textured ? engine.spawn_object<Sphere>() : engine.spawn_object<Sphere>(); })}
 	};

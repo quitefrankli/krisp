@@ -46,7 +46,6 @@ public:
 		   const std::string& mesh, 
 		   const std::string& texture, 
 		   const glm::mat4& transform = glm::mat4(1.0f));
-	Object(std::string texture);
 	virtual ~Object() override;
 
 	std::vector<Shape> shapes;
@@ -54,7 +53,6 @@ public:
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
 
-	std::string texture;
 	virtual ERenderType get_render_type() const { return render_type; }
 	void set_render_type(ERenderType type) { render_type = type; }
 

@@ -14,8 +14,8 @@ public:
 	GraphicsEngineTexture(GraphicsEngineTexture&& other) noexcept;
 	~GraphicsEngineTexture();
 
-	VkImageView& get_texture_image_view() { return texture_image_view; }
-	VkSampler& get_texture_sampler() { return texture_sampler; }
+	VkImageView get_texture_image_view() const { return texture_image_view; }
+	VkSampler get_texture_sampler() const { return texture_sampler; }
 
 private:
 	bool require_cleanup = true;

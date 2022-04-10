@@ -12,7 +12,10 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object&
 	{
 		case ERenderType::STANDARD:
 		case ERenderType::CUBEMAP:
-			texture = &get_graphics_engine().get_texture_mgr().create_new_unit(object.texture);
+			for (const auto& shape : object.shapes)
+			{
+				textures.push_back(&get_graphics_engine().get_texture_mgr().create_new_unit(shape.texture));
+			}
 			break;
 		default:
 			break;
@@ -48,16 +51,6 @@ uint32_t GraphicsEngineObject::get_num_unique_vertices() const
 uint32_t GraphicsEngineObject::get_num_vertex_indices() const
 {
 	return get_game_object().get_num_vertex_indices();
-}
-
-VkImageView& GraphicsEngineObject::get_texture_image_view() 
-{
-	return texture->get_texture_image_view();
-}
-
-VkSampler& GraphicsEngineObject::get_texture_sampler() 
-{ 
-	return texture->get_texture_sampler();
 }
 
 //

@@ -38,8 +38,6 @@ public:
 
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
-	VkImageView& get_texture_image_view();
-	VkSampler& get_texture_sampler();
 	// replaces the old "get_vertex_sets" function
 	const std::vector<Shape>& get_shapes() const;
 
@@ -47,7 +45,7 @@ public:
 	bool is_marked_for_delete() const { return marked_for_delete; }
 
 	// I think we need a couple more different derived GraphcisEngineObjects, i.e. light_source/textured/colored
-	GraphicsEngineTexture* get_texture() { return texture; }
+	const std::vector<GraphicsEngineTexture*>& get_textures() const { return textures; }
 
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
@@ -59,7 +57,7 @@ public:
 private:
 	bool marked_for_delete = false;
 
-	GraphicsEngineTexture* texture = nullptr;
+	std::vector<GraphicsEngineTexture*> textures;
 };
 
 // this object derivation CAN be destroyed while graphics engine is running

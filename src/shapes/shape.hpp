@@ -34,4 +34,6 @@ public:
 	void deduplicate_vertices();
 
 	virtual bool check_collision(const Maths::Ray& ray);
+
+	std::string texture;
 };

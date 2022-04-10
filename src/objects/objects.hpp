@@ -7,21 +7,7 @@ class Cube : public Object
 {
 public:
 	Cube();
-	Cube(std::string texture);
 	Cube(Cube&& cube) noexcept = default;
-
-private:
-	void init();
-};
-
-class Cube2 : public Object
-{
-public:
-	Cube2();
-	Cube2(Cube2&& cube) noexcept = default;
-
-private:
-	void init();
 };
 
 // note that this is procedurally generated and very slow

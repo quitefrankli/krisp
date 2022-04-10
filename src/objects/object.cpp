@@ -30,13 +30,6 @@ Object::Object(
 	const glm::mat4& transform)
 {
 	loader.load_mesh(*this, mesh, transform);
-	this->texture = texture;
-	render_type = ERenderType::STANDARD;
-}
-
-Object::Object(std::string texture_) : 
-	texture(texture_)
-{
 	render_type = ERenderType::STANDARD;
 }
 
