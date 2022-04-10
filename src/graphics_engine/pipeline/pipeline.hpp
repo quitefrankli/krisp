@@ -10,6 +10,7 @@ class GraphicsEnginePipeline : public GraphicsEngineBaseModule
 {
 public:
 	GraphicsEnginePipeline(GraphicsEngine& engine, ERenderType render_type);
+	GraphicsEnginePipeline(GraphicsEnginePipeline&&) noexcept;
 	~GraphicsEnginePipeline();
 
 	VkPipeline graphics_pipeline;

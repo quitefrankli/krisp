@@ -81,10 +81,16 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	analytics(std::move(frame.analytics)),
 	objs_to_delete(std::move(frame.objs_to_delete))
 {
+	frame.should_destroy = false;
 }
 
 GraphicsEngineFrame::~GraphicsEngineFrame()
 {
+	if (!should_destroy)
+	{
+		return;
+	}
+
 	global_image_index--;
 	vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
 

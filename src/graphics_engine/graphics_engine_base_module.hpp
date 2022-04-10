@@ -27,6 +27,10 @@ public:
 	GraphicsEngineBaseModule(GraphicsEngine& graphics_engine);
 	GraphicsEngineBaseModule(GraphicsEngineBaseModule&& base_module) noexcept = default;
 
+protected:
+	// for derived classes that we may not want to call destructor on because of a std::move
+	bool should_destroy = true;
+
 private:
 	GraphicsEngine& graphics_engine;
 };

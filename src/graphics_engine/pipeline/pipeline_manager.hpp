@@ -1,7 +1,10 @@
 #pragma once
 
-#include "graphics_engine/graphics_engine_base_module.hpp"
 #include "pipeline.hpp"
+#include "graphics_engine/graphics_engine_base_module.hpp"
+#include "render_types.hpp"
+
+#include <unordered_map>
 
 
 class GraphicsEnginePipelineManager : public GraphicsEngineBaseModule
@@ -10,12 +13,9 @@ public:
 	GraphicsEnginePipelineManager(GraphicsEngine& engine);
 
 	GraphicsEnginePipeline& get_pipeline(ERenderType type);
-	VkPipelineLayout& get_main_pipeline_layout() { return pipeline_main.pipeline_layout; }
-	VkRenderPass& get_main_pipeline_render_pass() { return pipeline_main.render_pass; }
+	VkPipelineLayout& get_main_pipeline_layout();
+	VkRenderPass get_main_pipeline_render_pass();
 
 private:
-	GraphicsEnginePipeline pipeline_main;
-	GraphicsEnginePipeline pipeline_wireframe;
-	GraphicsEnginePipeline pipeline_color;
-	GraphicsEnginePipeline pipeline_light_source;
+	std::unordered_map<ERenderType, GraphicsEnginePipeline> pipelines;
 };

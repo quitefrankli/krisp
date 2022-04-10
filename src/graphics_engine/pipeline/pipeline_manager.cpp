@@ -1,28 +1,41 @@
 #include "pipeline_manager.hpp"
 
+#include <cassert>
+#include <iostream>
+
 
 GraphicsEnginePipelineManager::GraphicsEnginePipelineManager(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine),
-	pipeline_main(engine, ERenderType::STANDARD),
-	pipeline_color(engine, ERenderType::COLOR),
-	pipeline_wireframe(engine, ERenderType::WIREFRAME),
-	pipeline_light_source(engine, ERenderType::LIGHT_SOURCE)
+	GraphicsEngineBaseModule(engine)
 {
+	// pipeline is not copyable and initializer list requires copyable entries
+	const auto add_pipeline = [&](ERenderType type)
+	{
+		pipelines.emplace(type, GraphicsEnginePipeline(engine, type));
+	};
+	
+	add_pipeline(ERenderType::STANDARD);
+	add_pipeline(ERenderType::COLOR);
+	add_pipeline(ERenderType::WIREFRAME);
+	add_pipeline(ERenderType::LIGHT_SOURCE);
 }
 
 GraphicsEnginePipeline& GraphicsEnginePipelineManager::get_pipeline(ERenderType type)
 {
-	switch (type)
+	auto it = pipelines.find(type);
+	if (it == pipelines.end())
 	{
-		case ERenderType::STANDARD:
-			return pipeline_main;
-		case ERenderType::COLOR:
-			return pipeline_color;
-		case ERenderType::WIREFRAME:
-			return pipeline_wireframe;
-		case ERenderType::LIGHT_SOURCE:
-			return pipeline_light_source;
-		default:
-			throw std::runtime_error("GraphicsEnginePipelineManager::get_pipeline: invalid pipeline type");
-	};
+		throw std::runtime_error("GraphicsEnginePipelineManager::get_pipeline: invalid pipeline type");
+	}
+
+	return it->second;
+}
+
+VkPipelineLayout& GraphicsEnginePipelineManager::get_main_pipeline_layout()
+{ 
+	return get_pipeline(ERenderType::STANDARD).pipeline_layout;
+}
+
+VkRenderPass GraphicsEnginePipelineManager::get_main_pipeline_render_pass()
+{ 
+	return get_pipeline(ERenderType::STANDARD).render_pass;
 }

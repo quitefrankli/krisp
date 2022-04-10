@@ -268,8 +268,22 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	vkDestroyShaderModule(get_logical_device(), fragment_shader, nullptr);
 }
 
+GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEnginePipeline&& pipeline) noexcept :
+	GraphicsEngineBaseModule(pipeline.get_graphics_engine()),
+	graphics_pipeline(std::move(pipeline.graphics_pipeline)),
+	pipeline_layout(std::move(pipeline.pipeline_layout)),
+	render_pass(std::move(pipeline.render_pass))
+{
+	pipeline.should_destroy = false;
+}
+
 GraphicsEnginePipeline::~GraphicsEnginePipeline()
 {
+	if (!should_destroy)
+	{
+		return;
+	}
+	
 	vkDestroyRenderPass(get_logical_device(), render_pass, nullptr);
 	vkDestroyPipeline(get_logical_device(), graphics_pipeline, nullptr);
 	vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);

@@ -1,6 +1,5 @@
 #include "tower_of_hanoi.hpp"
 
-#include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "game_engine.hpp"
 
