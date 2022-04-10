@@ -6,7 +6,7 @@
 GraphicsEngineDepthBuffer::GraphicsEngineDepthBuffer(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
-	VkFormat depth_format = findDepthFormat();
+	VkFormat depth_format = findDepthFormat(get_physical_device());
 	auto extent = get_graphics_engine().get_extent_unsafe();
 	get_graphics_engine().get_texture_mgr().create_image(extent.width,
 												   extent.height,
@@ -27,12 +27,12 @@ GraphicsEngineDepthBuffer::~GraphicsEngineDepthBuffer()
 	vkFreeMemory(get_logical_device(), memory, nullptr);
 }
 
-VkFormat GraphicsEngineDepthBuffer::find_supported_format(std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+VkFormat GraphicsEngineDepthBuffer::find_supported_format(VkPhysicalDevice device, std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
 	for (auto& format : candidates)
 	{
 		VkFormatProperties props;
-		vkGetPhysicalDeviceFormatProperties(get_physical_device(), format, &props);
+		vkGetPhysicalDeviceFormatProperties(device, format, &props);
 
 		if (tiling == VK_IMAGE_TILING_LINEAR && props.linearTilingFeatures & features == features)
 		{
@@ -46,8 +46,9 @@ VkFormat GraphicsEngineDepthBuffer::find_supported_format(std::vector<VkFormat> 
 	throw std::runtime_error("failed to find supported format!");
 }
 
-VkFormat GraphicsEngineDepthBuffer::findDepthFormat() {
+VkFormat GraphicsEngineDepthBuffer::findDepthFormat(VkPhysicalDevice device) {
     return find_supported_format(
+		device,
         {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT

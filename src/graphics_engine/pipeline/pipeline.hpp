@@ -15,8 +15,7 @@ public:
 
 	VkPipeline graphics_pipeline;
 	VkPipelineLayout pipeline_layout;
-	VkRenderPass render_pass;
 
 private:
-	void create_render_pass();
+	const ERenderType render_type;
 };

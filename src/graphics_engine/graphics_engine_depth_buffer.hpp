@@ -11,9 +11,10 @@ public:
 
 	VkImageView& get_image_view() { return view; }
 
+	static VkFormat find_supported_format(VkPhysicalDevice device, std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	static VkFormat findDepthFormat(VkPhysicalDevice device);
+	
 private:
-	VkFormat find_supported_format(std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
-	VkFormat findDepthFormat();
 	bool hasStencilComponent(VkFormat format);
 
 	VkImage image;
