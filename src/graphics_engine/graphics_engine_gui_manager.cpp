@@ -25,7 +25,7 @@ GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
 	init_info.ImageCount = engine.get_num_swapchain_images();
 	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-	ImGui_ImplVulkan_Init(&init_info, engine.get_pipeline_mgr().get_main_pipeline_render_pass());
+	ImGui_ImplVulkan_Init(&init_info, engine.get_swap_chain().get_render_pass());
 
 	// execute a GPU command to upload ImGui font textures
 	VkCommandBuffer buffer = engine.begin_single_time_commands();

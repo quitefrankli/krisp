@@ -87,11 +87,11 @@ private: // core components
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
-	GraphicsEnginePool pool;
-	GraphicsEnginePipelineManager pipeline_mgr;
 	GraphicsEngineTextureManager texture_mgr;
+	GraphicsEnginePool pool;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
+	GraphicsEnginePipelineManager pipeline_mgr;
 	GraphicsEngineModelLoader model_loader;
 	GraphicsEngineGuiManager gui_manager;
 

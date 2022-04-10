@@ -48,7 +48,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	std::vector<VkImageView> attachments = { image_view, get_graphics_engine().get_depth_buffer().get_image_view() };
 	VkFramebufferCreateInfo frame_buffer_create_info{};
 	frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	frame_buffer_create_info.renderPass = get_graphics_engine().get_pipeline_mgr().get_main_pipeline_render_pass();
+	frame_buffer_create_info.renderPass = get_render_pass();
 	frame_buffer_create_info.attachmentCount = attachments.size();
 	frame_buffer_create_info.pAttachments = attachments.data();
 	frame_buffer_create_info.width = swap_chain.get_extent().width;
@@ -217,7 +217,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{};
 	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = get_graphics_engine().get_pipeline_mgr().get_main_pipeline_render_pass();
+	render_pass_begin_info.renderPass = get_render_pass();
 	render_pass_begin_info.framebuffer = frame_buffer;
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
 	render_pass_begin_info.renderArea.extent = swap_chain.get_extent();

@@ -219,7 +219,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	graphics_pipeline_create_info.pDynamicState = nullptr;
 	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;
-	graphics_pipeline_create_info.renderPass = get_graphics_engine().get_pipeline_mgr().get_main_pipeline_render_pass();
+	graphics_pipeline_create_info.renderPass = get_render_pass();
 	graphics_pipeline_create_info.subpass = 0;
 	// for derived pipelines can either use base handle OR base index for the
 	// index of the pipeline to refer to the base pipeline

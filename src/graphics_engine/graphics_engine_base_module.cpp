@@ -36,3 +36,8 @@ uint32_t GraphicsEngineBaseModule::get_num_swapchain_frames() const
 {
 	return graphics_engine.get_num_swapchain_images();
 }
+
+VkRenderPass GraphicsEngineBaseModule::get_render_pass()
+{ 
+	return graphics_engine.get_swap_chain().get_render_pass(); 
+}

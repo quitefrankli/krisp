@@ -15,13 +15,7 @@ public:
 
 	GraphicsEnginePipeline& get_pipeline(ERenderType type);
 	VkPipelineLayout& get_main_pipeline_layout();
-	VkRenderPass get_main_pipeline_render_pass();
 
 private:
 	std::unordered_map<ERenderType, GraphicsEnginePipeline> pipelines;
-
-	void create_render_pass();
-
-	// for now the render_pass is simply shared between pipelines
-	VkRenderPass render_pass;
 };

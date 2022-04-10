@@ -41,6 +41,8 @@ public: // getters
 	GraphicsEngineFrame& get_curr_frame() { return frames[current_frame]; }
 	GraphicsEngineFrame& get_prev_frame() { return frames[(current_frame + frames.size() - 1) % frames.size()]; }
 
+	virtual VkRenderPass get_render_pass() override { return render_pass; }
+
 private:
 	VkSwapchainKHR swap_chain;
 	VkExtent2D swap_chain_extent;
@@ -52,6 +54,11 @@ private:
 	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 
 	// void recreate_swap_chain(); // useful for when size of window is changing
+
+	// for now the render_pass is simply shared between pipelines
+	VkRenderPass render_pass;
+
+	void create_render_pass();
 
 private: // synchronisation
 	bool frame_buffer_resized = false;

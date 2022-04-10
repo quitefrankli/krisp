@@ -18,6 +18,7 @@ public:
 							   VkBuffer& buffer, 
 							   VkDeviceMemory& device_memory);
 	uint32_t get_num_swapchain_frames() const;
+	virtual VkRenderPass get_render_pass();
 
 public:
 	GraphicsEngineBaseModule() = delete;
