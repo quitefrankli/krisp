@@ -4,6 +4,7 @@
 #include "hot_reload.hpp"
 #include "objects/objects.hpp"
 #include "objects/light_source.hpp"
+#include "objects/cubemap.hpp"
 
 #include <iostream>
 
@@ -20,8 +21,8 @@ public:
 	{
 		std::cout << "Experimental\n";
 		
-		auto& obj = engine.spawn_object<LightSource>(glm::vec3(1.0f, 1.0f, 1.0f));
-		obj.set_position(glm::vec3(0.0f, 2.0f, 2.0f));
+		auto& obj = engine.spawn_object<CubeMap>();
+		obj.set_position(glm::vec3(1.0f, 0.0f, 2.0f));
 	}
 
 	// game engine triggers this periodically

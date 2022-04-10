@@ -35,12 +35,6 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 					graphics_object.uniform_buffer,
 					graphics_object.uniform_buffer_memory);
 
-		const std::string& texture = graphics_object.get_game_object().texture;
-		if (!texture.empty())
-		{
-			graphics_object.texture = &engine->texture_mgr.create_new_unit(texture);
-		}
-		
 		engine->swap_chain.spawn_object(graphics_object);
 
 		if (graphics_object.type == ERenderType::LIGHT_SOURCE)

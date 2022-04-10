@@ -43,18 +43,23 @@ public:
 	// replaces the old "get_vertex_sets" function
 	const std::vector<Shape>& get_shapes() const;
 
-	GraphicsEngineTexture* texture = nullptr;
-
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }
 
+	// I think we need a couple more different derived GraphcisEngineObjects, i.e. light_source/textured/colored
+	GraphicsEngineTexture* get_texture() { return texture; }
+
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
+
+	ERenderType get_render_type() const { return type; }
 
 	const ERenderType type;
 
 private:
 	bool marked_for_delete = false;
+
+	GraphicsEngineTexture* texture = nullptr;
 };
 
 // this object derivation CAN be destroyed while graphics engine is running

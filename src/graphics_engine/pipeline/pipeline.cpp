@@ -67,6 +67,9 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 		case ERenderType::LIGHT_SOURCE:
 			shader_directory = "light_source";
 			break;
+		case ERenderType::CUBEMAP:
+			shader_directory = "cubemap";
+			break;
 		default:
 			shader_directory = "texture";
 			break;
@@ -197,7 +200,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	depth_stencil_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	depth_stencil_info.depthTestEnable = VK_TRUE; // whether or not new fragments should be compared to depth buffer for incineration
 	depth_stencil_info.depthWriteEnable = VK_TRUE; // if new depth of fragments that pass depth test should be written to depth buffer
-	depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS; // comparison, less = closer
+	depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // comparison, less = closer
 	depth_stencil_info.depthBoundsTestEnable = VK_FALSE; // optional bound test so instead of min/max depths we have both
 	depth_stencil_info.minDepthBounds = 0.0f;
 	depth_stencil_info.maxDepthBounds = 0.0f;

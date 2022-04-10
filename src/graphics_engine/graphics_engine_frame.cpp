@@ -119,30 +119,37 @@ void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 
 		descriptor_writes.push_back(uniform_buffer_descriptor_set);
 
-		if (object.texture)
+		switch (object.get_render_type())
 		{
-			VkDescriptorImageInfo image_info{};
-			image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			// some useful links when we get up to this part
-			// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
-			// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
-			// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
-			// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-			image_info.imageView = object.get_texture_image_view();
-			image_info.sampler = object.get_texture_sampler();
+			case ERenderType::STANDARD:
+			case ERenderType::CUBEMAP:
+				{
+					VkDescriptorImageInfo image_info{};
+					image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+					// some useful links when we get up to this part
+					// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
+					// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
+					// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
+					// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
+					image_info.imageView = object.get_texture_image_view();
+					image_info.sampler = object.get_texture_sampler();
 
-			VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
-			combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-			combined_image_sampler_descriptor_set.dstSet = new_descriptor_sets[vertex_set_index];
-			combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
-			combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-			combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			combined_image_sampler_descriptor_set.descriptorCount = 1;
-			combined_image_sampler_descriptor_set.pBufferInfo = nullptr; 
-			combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-			combined_image_sampler_descriptor_set.pTexelBufferView = nullptr;
+					VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
+					combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+					combined_image_sampler_descriptor_set.dstSet = new_descriptor_sets[vertex_set_index];
+					combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
+					combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+					combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+					combined_image_sampler_descriptor_set.descriptorCount = 1;
+					combined_image_sampler_descriptor_set.pBufferInfo = nullptr; 
+					combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+					combined_image_sampler_descriptor_set.pTexelBufferView = nullptr;
 
-			descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+					descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+				}
+				break;
+			default:
+				break;
 		}
 
 		vkUpdateDescriptorSets(get_logical_device(),

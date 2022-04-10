@@ -48,6 +48,9 @@ void GameEngine::run()
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
 
+	auto& light = spawn_object<LightSource>(glm::vec3(1.0f));
+	light.set_position(glm::vec3(0.0f, 2.0f, 2.0f));
+
 	// spawn_object<Object>(resource_loader, mesh, texture);
 
 	// spawn_object<Cube>("../resources/textures/texture2.jpg");

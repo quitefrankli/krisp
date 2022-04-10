@@ -8,6 +8,15 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object&
 	GraphicsEngineBaseModule(engine),
 	type(object.get_render_type())
 {
+	switch (get_render_type())
+	{
+		case ERenderType::STANDARD:
+		case ERenderType::CUBEMAP:
+			texture = &get_graphics_engine().get_texture_mgr().create_new_unit(object.texture);
+			break;
+		default:
+			break;
+	}
 }
 
 GraphicsEngineObject::~GraphicsEngineObject()
