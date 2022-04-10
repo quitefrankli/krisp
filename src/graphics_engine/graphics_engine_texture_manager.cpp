@@ -77,14 +77,15 @@ void GraphicsEngineTextureManager::create_image(uint32_t width,
 	vkBindImageMemory(get_logical_device(), image, image_memory, 0);
 }
 
-VkImageView GraphicsEngineTextureManager::create_image_view(VkImage &image,
+VkImageView GraphicsEngineTextureManager::create_image_view(VkImage& image,
 															VkFormat format,
-															VkImageAspectFlags aspect_flags)
+															VkImageAspectFlags aspect_flags,
+															VkImageViewType view_type)
 {
 	VkImageViewCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	create_info.image = image;
-	create_info.viewType = VK_IMAGE_VIEW_TYPE_2D; // specifies how the image data should be interpreted
+	create_info.viewType = view_type; // specifies how the image data should be interpreted
 												  // i.e. treat images as 1D, 2D, 3D textures and cube maps
 	create_info.format = format;
 	create_info.subresourceRange.aspectMask = aspect_flags; // describes image purpose and which part should be accessed

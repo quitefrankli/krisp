@@ -16,32 +16,13 @@ int GraphicsEngineFrame::global_image_index = 0;
 
 GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image) :
 	GraphicsEngineBaseModule(engine),
-	swap_chain(parent_swapchain)
+	swap_chain(parent_swapchain),
+	image(image)
 {
-	this->image = image;
 	image_index = global_image_index++;
 
-	// image view
-	VkImageViewCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	create_info.image = image;
-	create_info.viewType = VK_IMAGE_VIEW_TYPE_2D; // specifies how the image data should be interpreted
-													// i.e. treat images as 1D, 2D, 3D textures and cube maps
-	create_info.format = swap_chain.get_image_format();
-	create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-	create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-	create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-	create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-	create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // describes image purpose and which part should be accessed
-	create_info.subresourceRange.baseMipLevel = 0;
-	create_info.subresourceRange.levelCount = 1;
-	create_info.subresourceRange.baseArrayLayer = 0;
-	create_info.subresourceRange.layerCount = 1;
-
-	if (vkCreateImageView(get_logical_device(), &create_info, nullptr, &image_view) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create image views!");
-	}
+	// image view, in the context of a GraphicsEngineFrame, it's essentially a vulkan image that we can do processing on
+	image_view = get_graphics_engine().get_texture_mgr().create_image_view(image, swap_chain.get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// frame buffer
 	// note that while the color image is different for every frame, the depth image can be the same
