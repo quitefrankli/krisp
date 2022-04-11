@@ -23,7 +23,6 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 								   const glm::mat4& transform)
 {
 	Object object;
-
 	const auto vertex_loader = [](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
 		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
 		new_vertex.texCoord = {
@@ -34,6 +33,10 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 
 	load_object_impl(object, mesh, vertex_loader, transform);
 
+	if (textures.size() != object.shapes.size())
+	{
+		throw std::runtime_error("ResourceLoader: number of textures provided != number of shapes loaded");
+	}
 	auto textures_it = textures.begin();
 	for (auto& shape : object.shapes)
 	{
@@ -53,7 +56,6 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 					 			   const glm::mat4& transform)
 {
 	Object object;
-
 	const auto vertex_loader = [&color](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
 		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
 		new_vertex.color = color;
@@ -131,4 +133,45 @@ static void load_object_impl(Object& object,
 	}
 
 	analytics.quick_timer_stop("ResourceLoader::load_mesh: load time");
+}
+
+std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
+                                                 const std::vector<std::string_view>& textures)
+{
+	Object object;
+	const auto vertex_loader = [](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
+		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
+		new_vertex.texCoord = { attrib.texcoords[2 * index.texcoord_index + 0],
+			                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1] };
+	};
+
+	load_object_impl(object, mesh, vertex_loader, glm::mat4(1.0f));
+	if (textures.size() != object.shapes.size())
+	{
+		throw std::runtime_error("ResourceLoader: number of textures provided != number of shapes loaded");
+	}
+	const int total_unique_vertices = object.get_num_unique_vertices();
+	const int total_vertex_indices = object.get_num_vertex_indices();
+
+	// now move each of the shapes into a separate object
+	std::vector<Object> objects;
+	objects.reserve(object.shapes.size());
+	auto textures_it = textures.begin();
+	for (auto& shape : object.shapes)
+	{
+		shape.texture = *textures_it++;
+		auto& new_obj = objects.emplace_back();
+		new_obj.shapes.push_back(std::move(shape));
+		new_obj.set_render_type(ERenderType::STANDARD); // use textured render
+	}
+
+	fmt::print(
+		"ResourceLoader::load_object: loaded {}, objects:={}, total vertices:={}, total indices:={}, texures:={}\n",
+		mesh,
+		objects.size(),
+		total_unique_vertices,
+		total_vertex_indices,
+		textures.size());
+
+	return objects;
 }

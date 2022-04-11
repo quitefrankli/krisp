@@ -21,10 +21,13 @@ public:
 	void process()
 	{
 		std::cout << "Experimental\n";
-        auto &chess = engine.resource_loader.load_object("../resources/models/chess.obj", std::vector<std::string_view>(33, "../resources/textures/chess.png"));
-        chess.set_position(glm::vec3(0.0f));
-        engine.spawn_object<Object>(std::move(chess));
-    }
+		auto chess_set = engine.resource_loader.load_objects(
+			"../resources/models/chess.obj", std::vector<std::string_view>(33, "../resources/textures/chess.png"));
+		for (auto& model : chess_set)
+		{
+			engine.spawn_object<Object>(std::move(model));
+		}
+	}
 
 	// game engine triggers this periodically
 	// time_delta is in seconds
