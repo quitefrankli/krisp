@@ -41,11 +41,7 @@ public:
 	Object(const Object& object) = delete;
 
 	Object() = default;
-	Object(Object&& object) noexcept = default;
-	Object(ResourceLoader& loader, 
-		   const std::string& mesh, 
-		   const std::string& texture, 
-		   const glm::mat4& transform = glm::mat4(1.0f));
+	Object(Object&& object) noexcept;
 	virtual ~Object() override;
 
 	std::vector<Shape> shapes;

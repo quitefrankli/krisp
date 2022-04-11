@@ -61,6 +61,7 @@ void Shape::generate_normals()
 	}
 }
 
+// this doesn't actually seem to work :/
 void Shape::deduplicate_vertices()
 {
 	std::unordered_map<Vertex, uint32_t> unique_vertices;

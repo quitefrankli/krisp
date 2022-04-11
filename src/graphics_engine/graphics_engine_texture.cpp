@@ -95,6 +95,8 @@ void GraphicsEngineTexture::create_texture_image(std::string texture_path)
 
 	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
 	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
+
+	std::cout << "GraphicsEngineTexture::create_texture_image: created texture from " << texture_path << '\n';
 }
 
 // handle layout transition so that image is in right layout

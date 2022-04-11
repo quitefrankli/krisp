@@ -23,14 +23,17 @@ ObjectAbstract::ObjectAbstract(uint64_t id)
 	this->id = id;
 }
 
-Object::Object(
-	ResourceLoader& loader, 
-	const std::string& mesh, 
-	const std::string& texture, 
-	const glm::mat4& transform)
+Object::Object(Object&& other) noexcept :
+	ObjectAbstract(std::move(other)),
+	shapes(std::move(other.shapes)),
+	children(std::move(children)),
+	parent(other.parent),
+	is_transform_old(other.is_transform_old),
+	cached_transform(std::move(other.cached_transform)),
+	transformation_components(std::move(other.transformation_components)),
+	bVisible(other.bVisible),
+	render_type(other.render_type)
 {
-	loader.load_mesh(*this, mesh, transform);
-	render_type = ERenderType::STANDARD;
 }
 
 uint32_t Object::get_num_unique_vertices() const
@@ -227,34 +230,40 @@ void Object::calculate_bounding_primitive<Maths::Sphere>()
 
 bool Object::check_collision(const Maths::Ray& ray)
 {
-	assert(is_bounding_primitive_cached);
-
-	// check fast spherical collision
-	float world_radius = bounding_primitive_sphere.radius * glm::compMax(get_scale());
-	glm::vec3 world_origin = get_rotation() * bounding_primitive_sphere.origin * get_scale() + get_position();
-
-	glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
-		ray.origin + glm::dot(ray.direction, world_origin) * ray.direction;
-	if (glm::distance(projP, world_origin) > world_radius)
-	{
+	if (!get_visibility())
 		return false;
-	}
 
-	// check proper collision
-	if (shapes.size() > 10)
-	{
-		std::cout << "WARNING, too many shapes for collision detection, defaulting to true\n";
-		return true;
-	}
-	for (auto& shape : shapes)
-	{
-		if (shape.check_collision(ray))
-		{
-			return true;
-		}
-	}
+	const float radius = 0.5f; // this doesn't really work for non-unit objects, but will leave for now
+	return Maths::check_spherical_collision(ray, Maths::Sphere(get_position(), radius));
+
+	// assert(is_bounding_primitive_cached);
+
+	// // check fast spherical collision
+	// float world_radius = bounding_primitive_sphere.radius * glm::compMax(get_scale());
+	// glm::vec3 world_origin = get_rotation() * bounding_primitive_sphere.origin * get_scale() + get_position();
+
+	// glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
+	// 	ray.origin + glm::dot(ray.direction, world_origin) * ray.direction;
+	// if (glm::distance(projP, world_origin) > world_radius)
+	// {
+	// 	return false;
+	// }
+
+	// // check proper collision
+	// if (shapes.size() > 10)
+	// {
+	// 	std::cout << "WARNING, too many shapes for collision detection, defaulting to true\n";
+	// 	return true;
+	// }
+	// for (auto& shape : shapes)
+	// {
+	// 	if (shape.check_collision(ray))
+	// 	{
+	// 		return true;
+	// 	}
+	// }
 	
-	return false;
+	// return false;
 }
 
 Object::~Object()

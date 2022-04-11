@@ -2,6 +2,7 @@
 
 #include "camera.hpp"
 #include "objects/objects.hpp"
+#include "objects/cubemap.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"
@@ -28,12 +29,12 @@ GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 	restart_signaller(std::move(restart_signaller)),
 	window(this),
 	mouse(window),
-	gizmo(*this)
+	gizmo(*this),
+	graphics_engine(std::make_unique<GraphicsEngine>(*this))
 {
-	graphics_engine = std::make_unique<GraphicsEngine>(*this);
-
 	camera = std::make_unique<Camera>(*this, graphics_engine->get_window_width<float>() / graphics_engine->get_window_height<float>());
 	experimental = std::make_unique<Experimental>(*this);
+	spawn_object<CubeMap>(); // background/horizon
 
 	graphics_engine->setup();
 }
@@ -60,16 +61,13 @@ void GameEngine::run()
 	// 	Maths::PI, 
 	// 	glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 	// spawn_object<Object>(
-	// 	resource_loader, 
-	// 	"../resources/models/object1.obj", 
-	// 	"../resources/textures/object1.png",
-	// 	glm::mat4_cast(model_rotation)).set_position(glm::vec3(0.0f, -8.0f, -2.0f));
+	// 	resource_loader.load_object( 
+	// 		"../resources/models/object1.obj", 
+	// 		{"../resources/textures/object1.png"},
+	// 		glm::mat4_cast(model_rotation))).set_position(glm::vec3(0.0f, -8.0f, -2.0f));
 
-	// spawn_object<>(
-	// 	resource_loader,
-	// 	"../resources/models/viking_room.obj",
-	// 	"../resources/textures/viking_room.png"
-	// );
+	// spawn_object<Object>(resource_loader.load_object("../resources/models/viking_room.obj",
+	// 							{"../resources/textures/viking_room.png"}));
 
 	// analytics.quick_timer_start();
 	// spawn_object<Sphere>();

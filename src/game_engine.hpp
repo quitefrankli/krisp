@@ -49,7 +49,7 @@ public:
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
 		return static_cast<object_t&>(*(result.first->second));
 	}
-	
+
 	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 	
 	// this function assumes something else manages the lifetime of object

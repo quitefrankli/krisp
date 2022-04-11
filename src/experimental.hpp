@@ -2,9 +2,10 @@
 
 #include "game_engine.hpp"
 #include "hot_reload.hpp"
-#include "objects/objects.hpp"
-#include "objects/light_source.hpp"
 #include "objects/cubemap.hpp"
+#include "objects/light_source.hpp"
+#include "objects/objects.hpp"
+#include "resource_loader.hpp"
 
 #include <iostream>
 
@@ -20,10 +21,10 @@ public:
 	void process()
 	{
 		std::cout << "Experimental\n";
-		
-		auto& obj = engine.spawn_object<CubeMap>();
-		obj.set_position(glm::vec3(1.0f, 0.0f, 2.0f));
-	}
+        auto &chess = engine.resource_loader.load_object("../resources/models/chess.obj", std::vector<std::string_view>(33, "../resources/textures/chess.png"));
+        chess.set_position(glm::vec3(0.0f));
+        engine.spawn_object<Object>(std::move(chess));
+    }
 
 	// game engine triggers this periodically
 	// time_delta is in seconds

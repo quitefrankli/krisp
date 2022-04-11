@@ -67,6 +67,8 @@ namespace Maths
 	// it's possible for a ray to be "behind" a plane and pointing away from it
 	bool check_ray_plane_intersection(const Ray& ray, const Plane& plane);
 
+	bool check_spherical_collision(const Ray& ray, const Sphere& sphere);
+
 	inline float signed_sum(const glm::vec3& v) { return v.x + v.y + v.z; }
 
 	const glm::vec3 right_vec = { 1.0f, 0.0f, 0.0f };

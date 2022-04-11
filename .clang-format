@@ -1,0 +1,33 @@
+---
+Language:        Cpp
+BasedOnStyle:  Mozilla
+
+BreakBeforeBraces: Custom
+BreakConstructorInitializers: AfterColon
+BreakBeforeInheritanceComma: false
+BraceWrapping:
+  AfterClass:      true
+  AfterControlStatement: Always
+  AfterEnum:       true
+  AfterFunction:   true
+  AfterNamespace:  true
+  AfterObjCDeclaration: false
+  AfterStruct:     true
+  AfterUnion:      true
+  BeforeCatch:     false
+  BeforeElse:      true
+  IndentBraces:    false
+
+AccessModifierOffset: -4
+ColumnLimit: 140
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+ContinuationIndentWidth: 4
+IndentWidth:     4
+UseTab: AlignWithSpaces
+MaxEmptyLinesToKeep: 2
+NamespaceIndentation: None
+SortIncludes:    false
+SpaceAfterTemplateKeyword: true
+...
+

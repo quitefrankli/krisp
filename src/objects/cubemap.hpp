@@ -11,5 +11,5 @@ public:
 
 	virtual ERenderType get_render_type() const override { return ERenderType::CUBEMAP; }
 
-	virtual bool check_collision() { return false; }
+	virtual bool check_collision(const Maths::Ray&) override { return false; }
 };

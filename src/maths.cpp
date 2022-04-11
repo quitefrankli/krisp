@@ -85,4 +85,11 @@ namespace Maths
 	{
 		return glm::dot(ray.origin - plane.offset, ray.direction) < 0;
 	}
+
+	bool check_spherical_collision(const Ray& ray, const Sphere& sphere)
+	{
+		glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
+			ray.origin + glm::dot(ray.direction, sphere.origin) * ray.direction;
+		return glm::distance(projP, sphere.origin) < sphere.radius;
+	}
 }

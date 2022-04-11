@@ -168,6 +168,8 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			{
 				auto simple_collision_detection = [&](const Object& obj)
 				{
+					if (!obj.get_visibility())
+						return false;
 					// assuming unit box, uses a sphere for efficiency
 					float radius = 0.5f; //glm::compMax(obj.get_scale()) / 2.0f;
 					glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
@@ -179,7 +181,7 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 
 				for (auto& obj_pair : objects)
 				{
-					if (simple_collision_detection(*obj_pair.second))
+					if (obj_pair.second->check_collision(ray))
 					{
 						gizmo.select_object(obj_pair.second.get());
 						return;

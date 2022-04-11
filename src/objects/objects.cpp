@@ -251,13 +251,19 @@ void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 
 bool Arrow::check_collision(const Maths::Ray& ray)
 {
-	if (!Object::check_collision(ray))
+	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
+
+
+	const Maths::Sphere collision_sphere(
+		get_position() + get_scale().z * axis * 0.5f,
+		get_scale().z * 0.5f
+	);
+	if (!Maths::check_spherical_collision(ray, collision_sphere))
 	{
 		std::cout << "level 0 collision failed\n";
 		return false;
 	}
 
-	glm::vec3 axis = get_rotation() * Maths::forward_vec;
 	auto normal = glm::normalize(glm::cross(ray.direction, axis));
 	float dist = glm::distance(glm::dot(get_position(), normal) * normal, glm::dot(ray.origin, normal) * normal);
 	return dist < RADIUS;
