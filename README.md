@@ -39,3 +39,6 @@ reload the new dll file
 ```
 [SHIFT]+R
 ```
+
+## Contributing
+run `git-clang-format --style=file` before commiting

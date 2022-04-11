@@ -19,15 +19,18 @@ BraceWrapping:
   IndentBraces:    false
 
 AccessModifierOffset: -4
-ColumnLimit: 140
+ColumnLimit: 120
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
 ConstructorInitializerIndentWidth: 4
 ContinuationIndentWidth: 4
 IndentWidth:     4
+TabWidth: 4
 UseTab: AlignWithSpaces
 MaxEmptyLinesToKeep: 2
 NamespaceIndentation: None
 SortIncludes:    false
-SpaceAfterTemplateKeyword: true
+SpaceAfterTemplateKeyword: false
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
 ...
 
