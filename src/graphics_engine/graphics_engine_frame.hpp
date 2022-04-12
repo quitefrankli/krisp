@@ -17,9 +17,9 @@ class GraphicsEngineObject;
 class GraphicsEngineFrame : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineFrame(GraphicsEngine& engine) = delete;
 	GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image);
-	GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept = default;
+	GraphicsEngineFrame(const GraphicsEngineFrame&) = delete;
+	GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept;
 	~GraphicsEngineFrame();
 
 public:

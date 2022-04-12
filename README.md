@@ -39,3 +39,8 @@ reload the new dll file
 ```
 [SHIFT]+R
 ```
+
+## Testing
+```
+cmake --build . --target unittests --config Debug
+```
