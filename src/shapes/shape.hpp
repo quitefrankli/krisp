@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vertex.hpp"
+#include "collision/bounding_box.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -36,4 +37,6 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray);
 
 	std::string texture;
+
+	AABB aabb;
 };

@@ -164,41 +164,17 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 		switch (setting)
 		{
 			case ResourceLoader::Setting::ZERO_MESH: {
-				glm::vec3 min_bound(std::numeric_limits<float>::max());
-				glm::vec3 max_bound(-std::numeric_limits<float>::max());
-				for (const auto& vertex : shape.vertices)
-				{
-					min_bound.x = std::min(min_bound.x, vertex.pos.x);
-					min_bound.y = std::min(min_bound.y, vertex.pos.y);
-					min_bound.z = std::min(min_bound.z, vertex.pos.z);
-					max_bound.x = std::max(max_bound.x, vertex.pos.x);
-					max_bound.y = std::max(max_bound.y, vertex.pos.y);
-					max_bound.z = std::max(max_bound.z, vertex.pos.z);
-				}
-				const glm::vec3 center = (max_bound + min_bound) / 2.0f;
-				for (auto& vertex : shape.vertices)
-				{
-					vertex.pos -= center;
-				}
+				AABB aabb(shape);
+				const glm::vec3 center = (aabb.max_bound + aabb.min_bound) / 2.0f;
+				shape.translate_vertices(-center);
+				break;
 			}
 			case ResourceLoader::Setting::ZERO_XZ: {
-				glm::vec3 min_bound(std::numeric_limits<float>::max());
-				glm::vec3 max_bound(-std::numeric_limits<float>::max());
-				for (const auto& vertex : shape.vertices)
-				{
-					min_bound.x = std::min(min_bound.x, vertex.pos.x);
-					min_bound.y = std::min(min_bound.y, vertex.pos.y);
-					min_bound.z = std::min(min_bound.z, vertex.pos.z);
-					max_bound.x = std::max(max_bound.x, vertex.pos.x);
-					max_bound.y = std::max(max_bound.y, vertex.pos.y);
-					max_bound.z = std::max(max_bound.z, vertex.pos.z);
-				}
-				glm::vec3 center = (max_bound + min_bound) / 2.0f;
-				center.y = min_bound.y;
-				for (auto& vertex : shape.vertices)
-				{
-					vertex.pos -= center;
-				}
+				AABB aabb(shape);
+				glm::vec3 center = (aabb.max_bound + aabb.min_bound) / 2.0f;
+				center.y = aabb.min_bound.y;
+				shape.translate_vertices(-center);
+				break;
 			}
 			default:
 				break;

@@ -32,7 +32,9 @@ Object::Object(Object&& other) noexcept :
 	cached_transform(std::move(other.cached_transform)),
 	transformation_components(std::move(other.transformation_components)),
 	bVisible(other.bVisible),
-	render_type(other.render_type)
+	render_type(other.render_type),
+	aabb(std::move(other.aabb)),
+	bounding_sphere(std::move(other.bounding_sphere))
 {
 }
 

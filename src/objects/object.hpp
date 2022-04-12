@@ -3,6 +3,7 @@
 #include "render_types.hpp"
 #include "shapes/shape.hpp"
 #include "maths.hpp"
+#include "collision/bounding_box.hpp"
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/mat4x4.hpp>
@@ -70,6 +71,8 @@ public:
 	virtual glm::quat get_rotation() const { return transformation_components.orientation; }
 	virtual const Maths::TransformationComponents& get_transformation_components() const { return transformation_components; }
 
+	const std::vector<Shape>& get_shapes() const { return shapes; }
+
 	virtual void set_transform(const glm::mat4& transform);
 	virtual void set_position(const glm::vec3& position);
 	virtual void set_scale(const glm::vec3& scale);
@@ -97,6 +100,8 @@ private:
 	mutable bool is_transform_old = true;
 	mutable glm::mat4 cached_transform;
 	Maths::TransformationComponents transformation_components;
+	AABB aabb;
+	Maths::Sphere bounding_sphere;
 
 	// not really necessary but it's nice to have for easy access
 	glm::vec3& position = transformation_components.position;
