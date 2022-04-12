@@ -17,8 +17,9 @@ class vulkan_conan(ConanFile):
 		"stb/20190512@conan/stable",
 		"tinyobjloader/1.0.6",
 		"quill/1.6.3",
-		"imgui/1.85",
 		# "fmt/8.1.1", # already included by quill
+		"imgui/1.85",
+		"gtest/1.11.0",
 	) 
 
 	generators = (

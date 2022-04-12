@@ -6,6 +6,7 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"
+#include "utility.hpp"
 #include "analytics.hpp"
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
@@ -22,8 +23,6 @@
 #include <thread>
 #include <chrono>
 
-
-extern quill::Logger* logger;
 
 GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 	restart_signaller(std::move(restart_signaller)),
@@ -174,7 +173,7 @@ void GameEngine::delete_object(obj_id_t id)
 	auto it_obj = objects.find(id);
 	if (it_obj == objects.end())
 	{
-		LOG_ERROR(logger, "GameEngine::delete_object: attempted to delete non-existant object");
+		LOG_ERROR(Utility::get().get_logger(), "GameEngine::delete_object: attempted to delete non-existant object");
 		return;
 	}
 	objects.erase(it_obj);

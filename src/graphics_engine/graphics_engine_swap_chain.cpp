@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <iostream>
 
+
 GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine &engine) : GraphicsEngineBaseModule(engine)
 {
 	create_render_pass();

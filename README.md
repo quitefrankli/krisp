@@ -42,3 +42,8 @@ reload the new dll file
 
 ## Contributing
 run `git-clang-format --style=file` before commiting
+
+## Testing
+```
+cmake --build . --target unittests --config Debug
+```

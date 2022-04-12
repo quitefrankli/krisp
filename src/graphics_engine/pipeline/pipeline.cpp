@@ -1,6 +1,7 @@
 #include "graphics_engine/pipeline/pipeline.hpp"
 
 #include "graphics_engine/graphics_engine.hpp"
+#include "utility.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -14,7 +15,7 @@ static std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
-        throw std::runtime_error("failed to open file!");
+        throw std::runtime_error(std::string("failed to open file! ") + filename);
     }
 	
 	size_t fileSize = (size_t)file.tellg();
@@ -50,7 +51,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	GraphicsEngineBaseModule(engine),
 	render_type(render_type)
 {
-	std::string shader_directory;
+	std::filesystem::path shader_path = Utility::get().get_shaders_path();
 	VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL;
 	// culling is determined by either clockerwise or counter clockwise vertex order
 	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
@@ -58,29 +59,29 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	switch (render_type)
 	{
 		case ERenderType::STANDARD:
-			shader_directory = "texture";
+			shader_path.append("texture");
 			break;		
 		case ERenderType::COLOR:
-			shader_directory = "color";
+			shader_path.append("color");
 			break;
 		case ERenderType::WIREFRAME:
 			polygon_mode = VK_POLYGON_MODE_LINE;
-			shader_directory = "color";
+			shader_path.append("color");
 			break;
 		case ERenderType::LIGHT_SOURCE:
-			shader_directory = "light_source";
+			shader_path.append("light_source");
 			break;
 		case ERenderType::CUBEMAP:
-			shader_directory = "cubemap";
+			shader_path.append("cubemap");
 			front_face = VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; // nice trick to use since our cube is "inside out"
 			break;
 		default:
-			shader_directory = "texture";
+			shader_path.append("texture");
 			break;
 	}	
 
-    auto vertShaderCode = readFile("shaders/" + shader_directory + "/vertex_shader.spv");
-    auto fragShaderCode = readFile("shaders/" + shader_directory + "/fragment_shader.spv");
+    const auto vertShaderCode = readFile(shader_path.string() + "/vertex_shader.spv");
+    const auto fragShaderCode = readFile(shader_path.string() + "/fragment_shader.spv");
 
 	VkShaderModule vertex_shader = create_shader_module(vertShaderCode, get_logical_device());
 	VkShaderModule fragment_shader = create_shader_module(fragShaderCode, get_logical_device());

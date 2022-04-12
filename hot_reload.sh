@@ -26,5 +26,5 @@ get_new_filename () {
 
 cmake --build . --target shared_lib --config Debug
 get_new_filename
-cp shared_lib/bin/shared_lib.dll bin/$new_filename
+cp bin/shared_lib.dll bin/$new_filename
 echo created $new_filename
