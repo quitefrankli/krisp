@@ -1,4 +1,5 @@
 #include "hot_reload.hpp"
+#include "utility.hpp"
 
 #include <windows.h>
 
@@ -8,12 +9,8 @@
 #include <regex>
 
 
-extern std::filesystem::path BINARY_DIRECTORY;
-extern std::filesystem::path WORKING_DIRECTORY;
-
 static HotReload hot_reload;
 static HMODULE handle = nullptr;
-
 
 HotReload& HotReload::get() 
 { 
@@ -38,7 +35,7 @@ void HotReload::reload()
 
 bool HotReload::generate_new_dll(bool throw_on_fail)
 {
-	std::string cmd = "sh " + WORKING_DIRECTORY.parent_path().string() + "/hot_reload.sh";
+	std::string cmd = "sh " + Utility::get().get_top_level_path().string() + "/hot_reload.sh";
 	if (system(cmd.c_str()) != 0)
 	{
 		if (throw_on_fail)
@@ -55,7 +52,7 @@ bool HotReload::load_dll(bool throw_on_no_runtime_lib)
 {
 	int max_ver = 0;
 	std::filesystem::path library;
-	for (auto& p : std::filesystem::directory_iterator(BINARY_DIRECTORY))
+	for (auto& p : std::filesystem::directory_iterator(Utility::get().get_binary_path()))
 	{
 		std::string filename = p.path().filename().generic_string();
 		if (std::regex_match(filename, std::regex("shared_lib.*dll")))

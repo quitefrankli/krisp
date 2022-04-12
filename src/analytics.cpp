@@ -1,11 +1,10 @@
 #include "analytics.hpp"
+#include "utility.hpp"
 
 #include <quill/Quill.h>
 
 #include <chrono>
 
-
-extern quill::Logger* logger;
 
 using namespace std::chrono;
 
@@ -39,7 +38,7 @@ void Analytics::stop()
 	if (now - log_cycle_start > LOG_PERIOD)
 	{
 		const double avg_float = (double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 1e3;
-		LOG_INFO(logger, "{} {:.2f} microseconds", text, avg_float);
+		LOG_INFO(Utility::get().get_logger(), "{} {:.2f} microseconds", text, avg_float);
 		log_cycle_start = now;
 		num_elapsed_cycles = 0;
 		elapsed_log_cycle = nanoseconds(0);
@@ -61,5 +60,5 @@ void Analytics::quick_timer_stop(const std::string& mesg)
 {
 	auto elapsed = duration_cast<nanoseconds>(system_clock::now() - quick_timer_start_time);
 	double elapsed_float =  round((double)elapsed.count() / 10.0) / 100.0;
-	LOG_INFO(logger, "{}, quick timer {} microseconds", mesg, elapsed_float);
+	LOG_INFO(Utility::get().get_logger(), "{}, quick timer {} microseconds", mesg, elapsed_float);
 }

@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <iostream>
 
+
 GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine &engine) : GraphicsEngineBaseModule(engine)
 {
 	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), engine.get_window_surface());
