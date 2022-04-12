@@ -28,8 +28,16 @@ void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int sc
 	{
 		return;
 	}
-	GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
-	engine->handle_window_callback_impl(glfw_window, key, scan_code, action, mode);
+
+	try
+	{
+		GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
+		engine->handle_window_callback_impl(glfw_window, key, scan_code, action, mode);
+	} catch (const std::exception& e)
+	{
+		std::cerr << "Exception: " << e.what() << '\n';
+		throw e;
+	}
 }
 
 static int inc = 0;

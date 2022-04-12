@@ -136,7 +136,8 @@ static void load_object_impl(Object& object,
 }
 
 std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
-                                                 const std::vector<std::string_view>& textures)
+                                                 const std::vector<std::string_view>& textures,
+                                                 const ResourceLoader::Setting setting)
 {
 	Object object;
 	const auto vertex_loader = [](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
@@ -160,6 +161,48 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 	for (auto& shape : object.shapes)
 	{
 		shape.texture = *textures_it++;
+		switch (setting)
+		{
+			case ResourceLoader::Setting::ZERO_MESH: {
+				glm::vec3 min_bound(std::numeric_limits<float>::max());
+				glm::vec3 max_bound(-std::numeric_limits<float>::max());
+				for (const auto& vertex : shape.vertices)
+				{
+					min_bound.x = std::min(min_bound.x, vertex.pos.x);
+					min_bound.y = std::min(min_bound.y, vertex.pos.y);
+					min_bound.z = std::min(min_bound.z, vertex.pos.z);
+					max_bound.x = std::max(max_bound.x, vertex.pos.x);
+					max_bound.y = std::max(max_bound.y, vertex.pos.y);
+					max_bound.z = std::max(max_bound.z, vertex.pos.z);
+				}
+				const glm::vec3 center = (max_bound + min_bound) / 2.0f;
+				for (auto& vertex : shape.vertices)
+				{
+					vertex.pos -= center;
+				}
+			}
+			case ResourceLoader::Setting::ZERO_XZ: {
+				glm::vec3 min_bound(std::numeric_limits<float>::max());
+				glm::vec3 max_bound(-std::numeric_limits<float>::max());
+				for (const auto& vertex : shape.vertices)
+				{
+					min_bound.x = std::min(min_bound.x, vertex.pos.x);
+					min_bound.y = std::min(min_bound.y, vertex.pos.y);
+					min_bound.z = std::min(min_bound.z, vertex.pos.z);
+					max_bound.x = std::max(max_bound.x, vertex.pos.x);
+					max_bound.y = std::max(max_bound.y, vertex.pos.y);
+					max_bound.z = std::max(max_bound.z, vertex.pos.z);
+				}
+				glm::vec3 center = (max_bound + min_bound) / 2.0f;
+				center.y = min_bound.y;
+				for (auto& vertex : shape.vertices)
+				{
+					vertex.pos -= center;
+				}
+			}
+			default:
+				break;
+		}
 		auto& new_obj = objects.emplace_back();
 		new_obj.shapes.push_back(std::move(shape));
 		new_obj.set_render_type(ERenderType::STANDARD); // use textured render
