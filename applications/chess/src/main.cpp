@@ -1,21 +1,12 @@
-#include "game_engine.hpp"
+#include <game_engine.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
 
-#include <iostream>
-#include <thread>
-#include <iomanip>
-
 
 int main()
 {
-#ifdef NDEBUG
-	std::cout << "Release Mode\n";
-#else
-	std::cout << "Debug Mode\n";
-#endif
-    try {
+	try {
 		bool restart_signal = false;
 		do {
 			// seems like glfw window must be on main thread otherwise it wont work, 
