@@ -13,6 +13,7 @@
 #include "gui/gui_manager.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
+#include "objects/light_source.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -38,14 +39,17 @@ GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 	experimental = std::make_unique<Experimental>(*this);
 	spawn_object<CubeMap>(); // background/horizon
 
-	graphics_engine->setup();
+	light_source = &spawn_object<LightSource>(glm::vec3(1.0f));
+	light_source->set_position(glm::vec3(0.0f, 2.0f, 2.0f));
 
-	graphics_engine_thread = std::thread(&GraphicsEngine::run, graphics_engine.get());
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	graphics_engine->setup();
 }
 
 void GameEngine::run()
 {
+	graphics_engine_thread = std::thread(&GraphicsEngine::run, graphics_engine.get());
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 	if (!application)
 	{
 		application = &dummy_app;
@@ -56,9 +60,6 @@ void GameEngine::run()
 
 	Analytics analytics;
 	analytics.text = "GameEngine: average cycle ms";
-
-	auto& light = spawn_object<LightSource>(glm::vec3(1.0f));
-	light.set_position(glm::vec3(0.0f, 2.0f, 2.0f));
 
 	// spawn_object<Object>(resource_loader, mesh, texture);
 

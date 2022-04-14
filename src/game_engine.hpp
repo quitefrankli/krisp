@@ -24,6 +24,7 @@ class Simulation;
 class GuiManager;
 class Experimental;
 class IApplication;
+class LightSource;
 
 
 class GameEngine
@@ -72,6 +73,8 @@ public:
 
 	void set_application(IApplication* application) { this->application=application; }
 
+	LightSource* get_light_source() { return light_source; }
+
 private:
 	App::Window window;
 	Gizmo gizmo;
@@ -86,6 +89,7 @@ private:
 	std::unordered_map<obj_id_t, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<Experimental> experimental;
+	LightSource* light_source = nullptr;
 	IApplication* application = nullptr;
 
 public:

@@ -6,6 +6,7 @@
 #include <resource_loader.hpp>
 #include <utility.hpp>
 #include <camera.hpp>
+#include <objects/light_source.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -36,6 +37,7 @@ public:
 	virtual void on_begin() override
 	{
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 20.0f, -50.0f));
+		engine.get_light_source()->set_position(glm::vec3(0.0f, 100.0f, 0.0f));
 	}
 
 private:
