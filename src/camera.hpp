@@ -46,7 +46,6 @@ public:
 	glm::vec3 get_focus() const;
 	glm::vec3 get_old_focus() const;
 
-	void set_focal_length(float length);
 	float get_focal_length();
 	void zoom_in(float length);
 

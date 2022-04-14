@@ -227,13 +227,12 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 	}
 }
 
-void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double xoffset, double yoffset)
+void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double, double yoffset)
 {
-	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_scroll_callback_impl(glfw_window, xoffset, yoffset);
+	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_scroll_callback_impl(glfw_window, yoffset);
 }
 
-void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double xoffset, double yoffset)
+void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double yoffset)
 {
-	const float sensitivity = 0.2f;
-	camera->zoom_in(sensitivity * yoffset);
+	camera->zoom_in(yoffset);
 }

@@ -18,7 +18,7 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 	const float fov = Maths::deg2rad(45.0f);
 	// const float aspect_ratio = aspect_ratio; // passed in
 	const float near_clipping = 0.1f;
-	const float far_clipping = 100.0f;
+	const float far_clipping = 250.0f;
 
 	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
 	focus_obj = std::make_shared<Sphere>();
@@ -136,12 +136,6 @@ glm::vec3 Camera::get_old_focus() const
 	return prev_focus;
 }
 
-void Camera::set_focal_length(float length)
-{
-	glm::vec3 new_offset = glm::normalize(get_focus() - get_position()) * length;
-	set_position(get_focus() + new_offset);
-}
-
 float Camera::get_focal_length()
 {
 	return glm::distance(get_focus(), get_position());
@@ -149,8 +143,18 @@ float Camera::get_focal_length()
 
 void Camera::zoom_in(float length)
 {
-	glm::vec3 curr = get_focus() - get_position();
-	glm::vec3 offset = glm::normalize(curr) * length;
+	// +ve length zooms in, -ve length zooms out
+	const float closest_distance = 1.0f;
+	const float maximum_distance = 100.0f;
+	
+	const float focal_len = get_focal_length();
+
+	// apply zoom relative to current length, this way zoom covers large distane when already far away
+	const float sensitivity = 0.2f * focal_len;
+	length *= sensitivity;
+	length = std::min(focal_len - closest_distance, length);
+	length = std::max(focal_len - maximum_distance, length);
+	const glm::vec3 offset = focus_obj->get_rotation() * Maths::forward_vec * length;
 	set_position(get_position() + offset);
 }
 
