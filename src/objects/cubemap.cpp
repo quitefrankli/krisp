@@ -2,8 +2,11 @@
 #include "objects.hpp"
 #include "shapes/shapes.hpp"
 #include "maths.hpp"
+#include "utility.hpp"
+
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
+
 
 CubeMap::CubeMap()
 {
@@ -41,12 +44,13 @@ CubeMap::CubeMap()
 	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	bottom.transform_vertices(transform);
 
-	front.texture = "../resources/textures/skybox/DaylightBox_Front.bmp";
-	left.texture = "../resources/textures/skybox/DaylightBox_Left.bmp";
-	right.texture = "../resources/textures/skybox/DaylightBox_Right.bmp";
-	back.texture = "../resources/textures/skybox/DaylightBox_Back.bmp";
-	top.texture = "../resources/textures/skybox/DaylightBox_Top.bmp";
-	bottom.texture = "../resources/textures/skybox/DaylightBox_Bottom.bmp";
+	const auto texture_path = Utility::get().get_textures_path().string();
+	front.texture = texture_path + "/skybox/DaylightBox_Front.bmp";
+	left.texture = texture_path + "/skybox/DaylightBox_Left.bmp";
+	right.texture = texture_path + "/skybox/DaylightBox_Right.bmp";
+	back.texture = texture_path + "/skybox/DaylightBox_Back.bmp";
+	top.texture = texture_path + "/skybox/DaylightBox_Top.bmp";
+	bottom.texture = texture_path + "/skybox/DaylightBox_Bottom.bmp";
 
 	shapes.push_back(std::move(left));
 	shapes.push_back(std::move(right));

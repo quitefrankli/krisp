@@ -23,6 +23,7 @@ class Camera;
 class Simulation;
 class GuiManager;
 class Experimental;
+class IApplication;
 
 
 class GameEngine
@@ -69,6 +70,8 @@ public:
 
 	void restart();
 
+	void set_application(IApplication* application) { this->application=application; }
+
 private:
 	App::Window window;
 	Gizmo gizmo;
@@ -83,6 +86,7 @@ private:
 	std::unordered_map<obj_id_t, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<Experimental> experimental;
+	IApplication* application = nullptr;
 
 public:
 	Animator animator;

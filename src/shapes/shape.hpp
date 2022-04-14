@@ -30,6 +30,7 @@ public:
 	void transform_vertices(const glm::quat& quat);
 	void translate_vertices(const glm::vec3& vec);
 	void generate_normals();
+	void set_color(const glm::vec3& color);
 
 	// WARNING this is expensive
 	void deduplicate_vertices();
@@ -37,6 +38,7 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray);
 
 	std::string texture;
+	std::string name;
 
 	AABB aabb;
 };

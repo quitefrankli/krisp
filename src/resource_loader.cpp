@@ -114,11 +114,11 @@ static void load_object_impl(Object& object,
 			auto& unique_vertex_element = unique_vertices.insert(std::move(new_pair));
 			if (unique_vertex_element.second)
 			{
-				new_shape.indices.push_back(new_shape.vertices.size());
+				new_shape.indices.emplace_back(new_shape.vertices.size());
 				new_shape.vertices.push_back(std::move(new_vertex));
 			} else // if already occupied, set index to the index in which said vertex occupies
 			{
-				new_shape.indices.push_back(unique_vertex_element.first->second);
+				new_shape.indices.emplace_back(unique_vertex_element.first->second);
 			}
 		}
 		
@@ -128,6 +128,7 @@ static void load_object_impl(Object& object,
 		}
 
 		new_shape.generate_normals();
+		new_shape.name = shape.name;
 
 		object.shapes.push_back(std::move(new_shape));
 	}
@@ -164,15 +165,15 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 		switch (setting)
 		{
 			case ResourceLoader::Setting::ZERO_MESH: {
-				AABB aabb(shape);
-				const glm::vec3 center = (aabb.max_bound + aabb.min_bound) / 2.0f;
+				shape.aabb = AABB(shape);
+				const glm::vec3 center = (shape.aabb.max_bound + shape.aabb.min_bound) / 2.0f;
 				shape.translate_vertices(-center);
 				break;
 			}
 			case ResourceLoader::Setting::ZERO_XZ: {
-				AABB aabb(shape);
-				glm::vec3 center = (aabb.max_bound + aabb.min_bound) / 2.0f;
-				center.y = aabb.min_bound.y;
+				shape.aabb = AABB(shape);
+				glm::vec3 center = (shape.aabb.max_bound + shape.aabb.min_bound) / 2.0f;
+				center.y = shape.aabb.min_bound.y;
 				shape.translate_vertices(-center);
 				break;
 			}
@@ -180,6 +181,8 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 				break;
 		}
 		auto& new_obj = objects.emplace_back();
+		new_obj.set_name(shape.name);
+		new_obj.set_aabb(shape.aabb);
 		new_obj.shapes.push_back(std::move(shape));
 		new_obj.set_render_type(ERenderType::STANDARD); // use textured render
 	}

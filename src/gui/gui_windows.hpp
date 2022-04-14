@@ -47,8 +47,6 @@ public:
 	bool use_texture = false;
 
 private:
-	const std::string texture_path = "../resources/textures/texture.jpg";
-
 	using spawning_function_type = std::function<void(GameEngine&, bool)>;
 	std::map<std::string, spawning_function_type> mapping;
 	spawning_function_type* spawning_function = nullptr;

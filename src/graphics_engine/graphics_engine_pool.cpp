@@ -213,7 +213,7 @@ void GraphicsEnginePool::allocate_descriptor_set()
 
 int GraphicsEnginePool::get_max_descriptor_sets() const
 {
-	const int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 100;
+	const int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 1000;
 	return GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 	// return MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 }

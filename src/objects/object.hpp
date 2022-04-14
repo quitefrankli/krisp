@@ -31,7 +31,13 @@ public:
 	obj_id_t get_id() const { return id; }
 	void generate_new_id() { id = global_id++; }
 
+public: // getters and setters
+	const std::string& get_name() const { return name; }
+	void set_name(const std::string& name) { this->name = name; }
+	void set_name(const std::string_view name) { this->name = name; }
+
 private:
+	std::string name;
 	static obj_id_t global_id;
 	obj_id_t id;
 };
@@ -72,6 +78,8 @@ public:
 	virtual const Maths::TransformationComponents& get_transformation_components() const { return transformation_components; }
 
 	const std::vector<Shape>& get_shapes() const { return shapes; }
+	AABB get_aabb() const { return aabb; }
+	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
 
 	virtual void set_transform(const glm::mat4& transform);
 	virtual void set_position(const glm::vec3& position);

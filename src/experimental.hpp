@@ -20,15 +20,6 @@ public:
 	// manually triggered
 	void process()
 	{
-		std::cout << "Experimental\n";
-		auto chess_set = engine.resource_loader.load_objects(
-			"../resources/models/chess_set.obj",
-			std::vector<std::string_view>(33, "../resources/textures/chess_set.png"),
-			ResourceLoader::Setting::ZERO_XZ);
-		for (auto& model : chess_set)
-		{
-			engine.spawn_object<Object>(std::move(model));
-		}
 	}
 
 	// game engine triggers this periodically

@@ -12,6 +12,7 @@
 #include "hot_reload.hpp"
 #include "gui/gui_manager.hpp"
 #include "experimental.hpp"
+#include "iapplication.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -23,6 +24,8 @@
 #include <thread>
 #include <chrono>
 
+
+static DummyApplication dummy_app;
 
 GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 	restart_signaller(std::move(restart_signaller)),
@@ -36,13 +39,19 @@ GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 	spawn_object<CubeMap>(); // background/horizon
 
 	graphics_engine->setup();
+
+	graphics_engine_thread = std::thread(&GraphicsEngine::run, graphics_engine.get());
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void GameEngine::run()
 {
-	graphics_engine_thread = std::thread(&GraphicsEngine::run, graphics_engine.get());
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	if (!application)
+	{
+		application = &dummy_app;
+	}
 
+	application->on_begin();
 	gizmo.init();
 
 	Analytics analytics;
@@ -146,6 +155,7 @@ void GameEngine::run()
 
 		animator.process(delta_time / 1e3);
 		experimental->process(delta_time / 1e3);
+		application->on_tick(delta_time / 1e3);
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
 		analytics.stop();
