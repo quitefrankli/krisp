@@ -138,7 +138,8 @@ void Camera::pan(const glm::vec3& axis, const float magnitude)
 
 void Camera::pan(const glm::vec2& axis, const float magnitude)
 {
-	const float sensitivity = 1.0f;
+	// for 2d sensitivity is also a function of the focal length
+	const float sensitivity = 1.0f * 0.2f * get_focal_length();
 	const glm::vec3 vec = sync_to_camera(axis);
 	pan(vec, magnitude * sensitivity);
 }
