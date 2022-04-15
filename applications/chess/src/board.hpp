@@ -7,20 +7,33 @@
 
 
 class GameEngine;
+class ActiveTile;
 
-class Tile : public Object
+class VisualTile : public Object
 {
 public:
-	Tile(float x, float y, bool is_active_tile=false);
+	VisualTile(const glm::vec3& color, int size);
 
+	virtual bool check_collision(const Maths::Ray& ray) override { return false; }
+};
+
+class Tile : public VisualTile
+{
+public:
+	Tile(float x, float y);
+
+	const std::pair<int, int> pos;
 	Piece* piece = nullptr;
-
-	std::pair<int, int> get_pos() const { return pos; }
-
 	virtual bool check_collision(const Maths::Ray& ray) override;
+	void highlight(bool turn_on);
+	VisualTile& get_highlighted_tile() { return highlighted; }
 
 private:
-	const std::pair<int, int> pos;
+	static const float tile_size;
+	static const glm::vec3 pattern1;
+	static const glm::vec3 pattern2;
+	// since there is no support for runtime colors currently, we can mimic it by toggling visibility of another tile
+	VisualTile highlighted;
 };
 
 class Board : public Object

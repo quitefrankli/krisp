@@ -9,24 +9,28 @@
 #include <iostream>
 
 
-Tile::Tile(float x, float y, bool is_active_tile) : pos(x, y)
+VisualTile::VisualTile(const glm::vec3& color, int size)
 {
-	const float size = 8; // TODO pass this from board
-	const float tile_size = 5;
-	const glm::vec3 pattern1 = glm::vec3(245, 245, 220)/256.0f;
-	const glm::vec3 pattern2 = glm::vec3(186, 140, 99)/256.0f;
-
 	Shapes::Square plane;
-	if (is_active_tile)
-	{
-		plane.set_color(glm::vec3(0.1f, 1.0f, 0.0f));
-	} else {
-		plane.set_color((int(x+y))%2==0 ? pattern1 : pattern2);
-	}
+	plane.set_color(color);
 	plane.transform_vertices(glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec));
 	shapes.push_back(std::move(plane));
+	set_scale(glm::vec3(size));
+}
+
+const float Tile::tile_size = 5;
+const glm::vec3 Tile::pattern1 = glm::vec3(245, 245, 220)/256.0f;
+const glm::vec3 Tile::pattern2 = glm::vec3(186, 140, 99)/256.0f;
+
+Tile::Tile(float x, float y) : 
+	VisualTile(int(x+y)%2 == 0 ? pattern1 : pattern2, tile_size),
+	highlighted(glm::vec3(0.1f, 1.0f, 0.0f), tile_size),
+	pos(x, y)
+{
+	const float size = 8; // TODO pass this from board
 	set_position(glm::vec3((x-size/2.0f)*tile_size, 0, (y-size/2.0f)*tile_size));
-	set_scale(glm::vec3(tile_size));
+	highlighted.set_position(get_position()+Maths::up_vec*0.01f); // offset it a little
+	highlighted.set_visibility(false);
 }
 
 bool Tile::check_collision(const Maths::Ray& ray)
@@ -42,6 +46,10 @@ bool Tile::check_collision(const Maths::Ray& ray)
 	return p.x < limit && p.z < limit;
 }
 
+void Tile::highlight(bool turn_on)
+{
+	highlighted.set_visibility(turn_on);
+}
 
 Board::Board(GameEngine& engine)
 {
@@ -51,21 +59,34 @@ Board::Board(GameEngine& engine)
 		std::vector<std::string_view>(33, Utility::get().get_textures_path().string() + "/chess_set.png"),
 		ResourceLoader::Setting::ZERO_XZ);
 	
-	assert(chess_set.size() == 32+1);
+	const std::vector<std::pair<int, std::pair<int, int>>> mapping {
+		{Piece::KING, {0,3}}, {Piece::PAWN, {1,0}}, {Piece::PAWN, {1,1}}, {Piece::PAWN, {1,2}}, 
+		{Piece::PAWN, {1,3}}, {Piece::PAWN, {1,4}}, {Piece::PAWN, {1,5}}, {Piece::PAWN, {1,6}},
+		{Piece::PAWN, {1,7}}, {Piece::QUEEN, {0,4}}, {Piece::ROOK, {0,0}}, {Piece::ROOK, {0,7}}, 
+		{Piece::BISHOP, {0,2}}, {Piece::BISHOP, {0,5}}, {Piece::KNIGHT, {0,1}}, {Piece::KNIGHT, {0,6}},
+		{Piece::KING, {7,3}}, {Piece::QUEEN, {7,4}}, {Piece::KNIGHT, {7,1}}, {Piece::KNIGHT, {7,6}},
+		{Piece::BISHOP, {7,2}}, {Piece::BISHOP, {7,5}}, {Piece::ROOK, {7,0}}, {Piece::ROOK, {7,7}},
+		{Piece::PAWN, {6,0}}, {Piece::PAWN, {6,1}}, {Piece::PAWN, {6,2}}, {Piece::PAWN, {6,3}}, 
+		{Piece::PAWN, {6,4}}, {Piece::PAWN, {6,5}}, {Piece::PAWN, {6,6}}, {Piece::PAWN, {6,7}},
+	};
 
+	assert(chess_set.size() - 1 == mapping.size() && mapping.size() == 32);
 	for (int y = 0; y < size; y++)
 	{
 		for (int x = 0; x < size; x++)
 		{
 			Tile* tile = &engine.spawn_object<Tile>(x, y);
+			engine.draw_object(tile->get_highlighted_tile());
 			tiles.push_back(tile);
-			if (y*size+x < 32)
-			{
-				// index 0  == chess board
-				Piece& piece = engine.spawn_object<Piece>(std::move(chess_set[y*size+x+1]), nullptr);
-				piece.move_to_tile(tile);
-			}
 		}
 	}
-	
+
+	for (int i = 0; i < mapping.size(); i++)
+	{
+		const auto val = mapping[i];
+		// index 0  == chess board
+		Piece& piece = engine.spawn_object<Piece>(std::move(chess_set[i+1]), nullptr);
+		piece.type = val.first;
+		piece.move_to_tile(get_tile(val.second.second, val.second.first));
+	}
 }

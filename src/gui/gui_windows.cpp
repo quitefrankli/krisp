@@ -77,9 +77,9 @@ void GuiFPSCounter::draw()
 {
 	ImGui::Begin("FPS Counter", nullptr, 
 		ImGuiWindowFlags_::ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_::ImGuiWindowFlags_NoInputs |
-		ImGuiWindowFlags_::ImGuiWindowFlags_NoBackground
+		ImGuiWindowFlags_::ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_::ImGuiWindowFlags_NoScrollbar
 	);
-	const int TEXT_RIGHT_PADDING = 70;
+	const int TEXT_RIGHT_PADDING = 50;
 	ImGui::SetWindowPos(ImVec2{ float(window_width - TEXT_RIGHT_PADDING), 0.0f });
 	ImGui::Text("%.1f", fps);
 	ImGui::End();

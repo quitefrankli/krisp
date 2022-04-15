@@ -20,11 +20,8 @@ class Application : public IApplication
 public:
 	Application(GameEngine& engine) : 
 		engine(engine),
-		board(engine),
-		active_tile(0, 0, true)
+		board(engine)
 	{
-		active_tile.set_visibility(false);
-		engine.draw_object(active_tile);
 	}
 
 	virtual void on_tick(float delta) override
@@ -34,14 +31,23 @@ public:
 
 	virtual void on_click(Object& object) override
 	{
+		std::cout<<"Application::on_click: " << object.get_name()<<'\n';
 		Tile* tile = dynamic_cast<Tile*>(&object);
 		if (!tile)
 		{
 			return;
 		}
 
-		active_tile.set_position(tile->get_position());
-		active_tile.set_visibility(true);
+		// we have already selected an active tile
+
+		if (active_tile)
+		{
+			active_tile->highlight(false);
+			active_tile = nullptr;
+		}
+
+		active_tile = tile;
+		active_tile->highlight(true);
 	}
 	
 	virtual void on_begin() override
@@ -53,7 +59,7 @@ public:
 private:
 	GameEngine& engine;
 	Board board;
-	Tile active_tile;
+	Tile* active_tile = nullptr;
 };
 
 int main()
