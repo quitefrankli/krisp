@@ -20,8 +20,11 @@ class Application : public IApplication
 public:
 	Application(GameEngine& engine) : 
 		engine(engine),
-		board(engine)
+		board(engine),
+		active_tile(0, 0, true)
 	{
+		active_tile.set_visibility(false);
+		engine.draw_object(active_tile);
 	}
 
 	virtual void on_tick(float delta) override
@@ -31,7 +34,14 @@ public:
 
 	virtual void on_click(Object& object) override
 	{
+		Tile* tile = dynamic_cast<Tile*>(&object);
+		if (!tile)
+		{
+			return;
+		}
 
+		active_tile.set_position(tile->get_position());
+		active_tile.set_visibility(true);
 	}
 	
 	virtual void on_begin() override
@@ -43,6 +53,7 @@ public:
 private:
 	GameEngine& engine;
 	Board board;
+	Tile active_tile;
 };
 
 int main()

@@ -3,6 +3,7 @@
 #include "pieces.hpp"
 
 #include <objects/object.hpp>
+#include <maths.hpp>
 
 
 class GameEngine;
@@ -10,11 +11,13 @@ class GameEngine;
 class Tile : public Object
 {
 public:
-	Tile(float x, float y);
+	Tile(float x, float y, bool is_active_tile=false);
 
 	Piece* piece = nullptr;
 
 	std::pair<int, int> get_pos() const { return pos; }
+
+	virtual bool check_collision(const Maths::Ray& ray) override;
 
 private:
 	const std::pair<int, int> pos;

@@ -9,6 +9,7 @@
 #include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
 #include "experimental.hpp"
+#include "iapplication.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -174,19 +175,6 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 			const Maths::Ray ray = camera->get_ray(mouse.curr_pos);
 			if (mode == GLFW_MOD_SHIFT)
 			{
-				auto simple_collision_detection = [&](const Object& obj)
-				{
-					if (!obj.get_visibility())
-						return false;
-					// assuming unit box, uses a sphere for efficiency
-					float radius = 0.5f; //glm::compMax(obj.get_scale()) / 2.0f;
-					glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
-						ray.origin + glm::dot(ray.direction, obj.get_position()) * ray.direction;
-					// std::cout << glm::to_string(ray.origin) << ' ' << glm::to_string(ray.direction) << '\n';
-					// std::cout << glm::to_string(projP) << ' ' << glm::distance(projP, obj.get_position()) << '\n';
-					return glm::distance(projP, obj.get_position()) < radius;
-				};
-
 				for (auto& obj_pair : objects)
 				{
 					if (obj_pair.second->check_collision(ray))
@@ -202,6 +190,15 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 				if (gizmo.is_active())
 				{
 					gizmo.check_collision(ray);
+				} else {
+					for (auto& obj_pair : objects)
+					{
+						if (obj_pair.second->check_collision(ray))
+						{
+							application->on_click(*obj_pair.second);
+							break;
+						}
+					}
 				}
 
 				mouse.lmb_down = true;
