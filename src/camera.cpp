@@ -28,7 +28,6 @@ Camera::Camera(GameEngine& engine_, float aspect_ratio) :
 
 	upvector_obj = std::make_shared<Arrow>();
 	upvector_obj->set_position(get_focus());
-	upvector_obj->set_rotation(Maths::Vec2Rot(up_vector));
 	upvector_obj->set_visibility(false);
 	engine.draw_object(upvector_obj);
 
@@ -98,13 +97,12 @@ glm::mat4 Camera::get_perspective() const
 
 glm::mat4 Camera::get_view() const
 {
-	return glm::lookAtLH(get_position(), get_focus(), up_vector);
+	return glm::lookAtLH(get_position(), get_focus(), focus_obj->get_rotation() * Maths::up_vec);
 }
 
 void Camera::set_rotation(const glm::quat& rotation)
 {
 	Object::set_rotation(rotation);
-	up_vector = rotation * Maths::up_vec;
 }
 
 void Camera::update_tracker()
@@ -122,13 +120,27 @@ glm::vec3 Camera::get_focus() const
 
 void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 {
+	const glm::vec3 view_dir = glm::normalize(focus - from);
 	focus_obj->set_position(focus);
+	focus_obj->set_rotation(Maths::RotationBetweenVectors(Maths::forward_vec, view_dir));
 	set_position(from);
 }
 
 void Camera::look_at(const glm::vec3& pos)
 {
-	focus_obj->set_position(pos);
+	look_at(pos, get_position());
+}
+
+void Camera::pan(const glm::vec3& axis, const float magnitude)
+{
+	focus_obj->set_position(get_old_focus() + axis * magnitude);
+}
+
+void Camera::pan(const glm::vec2& axis, const float magnitude)
+{
+	const float sensitivity = 1.0f;
+	const glm::vec3 vec = sync_to_camera(axis);
+	pan(vec, magnitude * sensitivity);
 }
 
 glm::vec3 Camera::get_old_focus() const

@@ -141,16 +141,13 @@ void GameEngine::run()
 			}
 		} else if (mouse.mmb_down)
 		{
-			const float sensitivity = 1.0f;
 			const float min_threshold = 0.01f;
 			mouse.update_pos();
-			auto offset_vec = mouse.get_orig_offset();
-			float magnitude = glm::length(offset_vec);
+			const glm::vec2 offset_vec = mouse.get_orig_offset();
+			const float magnitude = glm::length(offset_vec);
 			if (magnitude > min_threshold)
 			{
-				magnitude *= sensitivity;
-				glm::vec3 axis = camera->sync_to_camera(offset_vec) * magnitude; // might not need magnitude here
-				camera->look_at(camera->get_old_focus() + axis);
+				camera->pan(offset_vec, magnitude);
 			}
 		}
 

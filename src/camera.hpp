@@ -24,8 +24,6 @@ class GameEngine;
 class Camera : public Object, public ITrackableObject
 {
 private:
-	// not a constant vector, can change depending on camera
-	glm::vec3 up_vector = Maths::up_vec;
 	glm::mat4 perspective_matrix;
 	glm::vec3 prev_focus;
 
@@ -74,6 +72,10 @@ public: // object
 	void look_at(const glm::vec3& pos);
 	// rotates camera based on screen offset from last screen pos
 	void rotate_camera(const glm::vec2& offset, float delta_time);
+	// pans both camera and focus in a direction
+	void pan(const glm::vec3& axis, const float magnitude);
+	void pan(const glm::vec2& axis, const float magnitude);
+
 	virtual void toggle_visibility() override;
 
 protected:
