@@ -1,9 +1,14 @@
 #include "state_machine.hpp"
 
+#include <game_engine.hpp>
+
+#include <iostream>
+
 
 std::unique_ptr<Initial> State::initial = std::make_unique<Initial>();
 std::unique_ptr<PieceSelected> State::piece_selected = std::make_unique<PieceSelected>();
 Board* State::board = nullptr;
+GameEngine* State::engine = nullptr;
 
 State* Initial::process(Object& object)
 {
@@ -18,6 +23,11 @@ State* Initial::process(Object& object)
 		}
 
 		piece = tile->piece;
+		// tile has no piece
+		if (!piece)
+		{
+			return this;
+		}
 	}
 	
 	piece->get_tile()->highlight(true);
@@ -26,23 +36,37 @@ State* Initial::process(Object& object)
 	{
 		board->get_tile(move.first, move.second)->highlight(true);
 	}
+	piece_selected->current_tile = piece->get_tile();
 
 	return piece_selected.get();
 }
 
 State* PieceSelected::process(Object& object)
 {
-	Tile* tile = dynamic_cast<Tile*>(&object);
-	if (!tile || tile == current_tile)
+	Piece* piece = dynamic_cast<Piece*>(&object);
+	Tile* tile = nullptr;
+	if (!piece)
 	{
-		// nothing to do
-		return this;
+		tile = dynamic_cast<Tile*>(&object);
+		if (!tile)
+		{
+			// nothing clicked on
+			return this;
+		}
+
+		piece = tile->piece;
+	} else {
+		tile = piece->get_tile();
 	}
 
-	if (!tile->is_highlighted())
+	if (tile->is_highlighted() && tile != current_tile)
 	{
-		// invalid move
-		return this;
+		if (tile->piece)
+		{
+			engine->delete_object(tile->piece->get_id());
+			tile->piece = nullptr;
+		}
+		current_tile->piece->move_to_tile(tile);
 	}
 
 	for (auto* t : board->tiles)

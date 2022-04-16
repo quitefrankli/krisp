@@ -8,6 +8,7 @@
 class Object;
 class Initial;
 class PieceSelected;
+class GameEngine;
 
 struct State
 {
@@ -17,6 +18,7 @@ struct State
 	virtual State* process(Object&) = 0;
 
 	static Board* board;
+	static GameEngine* engine;
 };
 
 // when nothing is selected

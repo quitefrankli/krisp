@@ -24,6 +24,7 @@ public:
 		board(engine)
 	{
 		State::board = &board;
+		State::engine = &engine;
 	}
 
 	virtual void on_tick(float delta) override
