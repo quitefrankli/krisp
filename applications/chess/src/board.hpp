@@ -27,6 +27,7 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 	void highlight(bool turn_on);
 	VisualTile& get_highlighted_tile() { return highlighted; }
+	bool is_highlighted() const;
 
 private:
 	static const float tile_size;
@@ -48,8 +49,9 @@ public:
 		return tiles[y*size+x];
 	}
 
-private:
 	std::vector<Tile*> tiles;
+
+private:
 	// std::vector<Piece&> pieces;
 	const int size = 8;
 };

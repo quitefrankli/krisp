@@ -51,6 +51,11 @@ void Tile::highlight(bool turn_on)
 	highlighted.set_visibility(turn_on);
 }
 
+bool Tile::is_highlighted() const
+{
+	return highlighted.get_visibility();
+}
+
 Board::Board(GameEngine& engine)
 {
 	ResourceLoader loader;
@@ -88,5 +93,6 @@ Board::Board(GameEngine& engine)
 		Piece& piece = engine.spawn_object<Piece>(std::move(chess_set[i+1]), nullptr);
 		piece.type = val.first;
 		piece.move_to_tile(get_tile(val.second.second, val.second.first));
+		piece.side = i < mapping.size()/2 ? Piece::Side::WHITE : Piece::Side::BLACK;
 	}
 }

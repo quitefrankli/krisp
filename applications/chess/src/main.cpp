@@ -1,5 +1,6 @@
 #include "pieces.hpp"
 #include "board.hpp"
+#include "state_machine.hpp"
 
 #include <game_engine.hpp>
 #include <iapplication.hpp>
@@ -22,6 +23,7 @@ public:
 		engine(engine),
 		board(engine)
 	{
+		State::board = &board;
 	}
 
 	virtual void on_tick(float delta) override
@@ -31,29 +33,7 @@ public:
 
 	virtual void on_click(Object& object) override
 	{
-		Piece* piece = dynamic_cast<Piece*>(&object);
-		if (piece)
-		{
-			engine.delete_object(piece->get_id());
-			return;
-		}
-		
-		Tile* tile = dynamic_cast<Tile*>(&object);
-		if (!tile)
-		{
-			return;
-		}
-
-		// we have already selected an active tile
-
-		if (active_tile)
-		{
-			active_tile->highlight(false);
-			active_tile = nullptr;
-		}
-
-		active_tile = tile;
-		active_tile->highlight(true);
+		state = state->process(object);
 	}
 	
 	virtual void on_begin() override
@@ -66,6 +46,7 @@ private:
 	GameEngine& engine;
 	Board board;
 	Tile* active_tile = nullptr;
+	State* state = State::initial.get();
 };
 
 int main()

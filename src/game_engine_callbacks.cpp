@@ -154,7 +154,16 @@ void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int butto
 	{
 		return;
 	}
-	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_mouse_button_callback_impl(glfw_window, button, action, mode);
+
+	try
+	{
+		GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
+		engine->handle_mouse_button_callback_impl(glfw_window, button, action, mode);
+	} catch (const std::exception& e)
+	{
+		std::cerr << "Exception: " << e.what() << '\n';
+		throw e;
+	}
 }
 
 void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
