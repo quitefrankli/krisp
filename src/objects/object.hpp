@@ -131,4 +131,5 @@ protected:
 
 public:
  	virtual bool check_collision(const Maths::Ray& ray);
+	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const;
 };

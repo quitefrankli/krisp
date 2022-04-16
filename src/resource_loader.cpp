@@ -168,6 +168,7 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 				shape.aabb = AABB(shape);
 				const glm::vec3 center = (shape.aabb.max_bound + shape.aabb.min_bound) / 2.0f;
 				shape.translate_vertices(-center);
+				shape.aabb -= center;
 				break;
 			}
 			case ResourceLoader::Setting::ZERO_XZ: {
@@ -175,6 +176,7 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 				glm::vec3 center = (shape.aabb.max_bound + shape.aabb.min_bound) / 2.0f;
 				center.y = shape.aabb.min_bound.y;
 				shape.translate_vertices(-center);
+				shape.aabb -= center;
 				break;
 			}
 			default:

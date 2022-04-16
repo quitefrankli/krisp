@@ -24,7 +24,7 @@ public:
 
 	const std::pair<int, int> pos;
 	Piece* piece = nullptr;
-	virtual bool check_collision(const Maths::Ray& ray) override;
+	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 	void highlight(bool turn_on);
 	VisualTile& get_highlighted_tile() { return highlighted; }
 

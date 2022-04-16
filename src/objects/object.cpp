@@ -268,7 +268,11 @@ bool Object::check_collision(const Maths::Ray& ray)
 	// return false;
 }
 
+bool Object::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
+{
+	return false;
+}
+
 Object::~Object()
 {
-	
 }

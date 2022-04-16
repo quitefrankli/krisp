@@ -24,6 +24,8 @@ public:
 
 	virtual bool move_to_tile(Tile* tile);
 
+	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
+
 private:
 	Tile* tile;
 };

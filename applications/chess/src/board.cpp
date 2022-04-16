@@ -33,15 +33,15 @@ Tile::Tile(float x, float y) :
 	highlighted.set_visibility(false);
 }
 
-bool Tile::check_collision(const Maths::Ray& ray)
+bool Tile::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
 {
 	const Maths::Plane plane(get_position(), get_rotation() * Maths::up_vec);
-	glm::vec3 p = Maths::ray_plane_intersection(ray, plane);
+	intersection = Maths::ray_plane_intersection(ray, plane);
 
 	// check to make sure p is within bounds
 	// use AABB style collision detection
 	// first get p relative to current pos
-	p = glm::abs(plane.offset - p);
+	const glm::vec3 p = glm::abs(plane.offset - intersection);
 	const float limit = get_scale().x / 2.0f; // assume square tile and unit mesh
 	return p.x < limit && p.z < limit;
 }

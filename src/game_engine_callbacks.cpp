@@ -191,13 +191,27 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 				{
 					gizmo.check_collision(ray);
 				} else {
+					Object* closest_object = nullptr;
+					float closest_distance = std::numeric_limits<float>::infinity();
 					for (auto& obj_pair : objects)
 					{
-						if (obj_pair.second->check_collision(ray))
+						glm::vec3 intersection;
+						if (obj_pair.second->check_collision(ray, intersection))
 						{
-							application->on_click(*obj_pair.second);
-							break;
+							// for debugging purposes TODO: add GuiWindow for debugging
+							// spawn_object<Sphere>().set_position(intersection);
+							const float new_distance  = glm::distance2(ray.origin, intersection);
+							if (new_distance < closest_distance)
+							{
+								closest_object = obj_pair.second.get();
+								closest_distance = new_distance;
+							}
 						}
+					}
+
+					if (closest_object)
+					{
+						application->on_click(*closest_object);
 					}
 				}
 

@@ -31,7 +31,13 @@ public:
 
 	virtual void on_click(Object& object) override
 	{
-		std::cout<<"Application::on_click: " << object.get_name()<<'\n';
+		Piece* piece = dynamic_cast<Piece*>(&object);
+		if (piece)
+		{
+			engine.delete_object(piece->get_id());
+			return;
+		}
+		
 		Tile* tile = dynamic_cast<Tile*>(&object);
 		if (!tile)
 		{
