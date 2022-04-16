@@ -37,7 +37,6 @@ public:
 	GraphicsEngine(GameEngine& _game_engine);
 	~GraphicsEngine();
 
-	void setup();
 	void run();
 	void shutdown() { should_shutdown = true; }
 

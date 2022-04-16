@@ -61,10 +61,6 @@ GLFWwindow* GraphicsEngine::get_window()
 	return game_engine.get_window();
 }
 
-void GraphicsEngine::setup() {
-	// texture_mgr.init();
-}
-
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 	QueueFamilyIndices indices;
 	uint32_t queueFamilyCount = 0;

@@ -41,8 +41,6 @@ GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 
 	light_source = &spawn_object<LightSource>(glm::vec3(1.0f));
 	light_source->set_position(glm::vec3(0.0f, 2.0f, 2.0f));
-
-	graphics_engine->setup();
 }
 
 void GameEngine::run()
