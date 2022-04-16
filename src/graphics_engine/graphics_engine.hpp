@@ -4,7 +4,6 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
-#include "graphics_engine_model_loader.hpp"
 #include "graphics_engine_pool.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
@@ -94,7 +93,6 @@ private: // core components
 	GraphicsEngineTextureManager texture_mgr;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
-	GraphicsEngineModelLoader model_loader;
 	GraphicsEngineGuiManager gui_manager;
 
 private:

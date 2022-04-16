@@ -10,6 +10,7 @@
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "interface/gizmo.hpp"
+#include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -75,6 +76,7 @@ private:
 	Keyboard keyboard;
 	Mouse mouse;
 	ResourceLoader resource_loader;
+	AudioEnginePimpl audio_engine;
 
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;
