@@ -224,7 +224,7 @@ std::vector<VkDescriptorSet> GraphicsEnginePool::reserve_descriptor_sets(int n)
 	// is because we have a bit of a design problem
 	// we really should be having per frame per object resources
 	// i.e. for every object in every frame in a swapchain, it should have its own descriptor sets
-	fmt::print("GraphicsEnginePool::reserve_descriptor_sets: available_sets:={}, requested_sets:={}\n", available_descriptor_sets.size(), n);
+	// fmt::print("GraphicsEnginePool::reserve_descriptor_sets: available_sets:={}, requested_sets:={}\n", available_descriptor_sets.size(), n);
 
 	if (n > available_descriptor_sets.size())
 		throw std::runtime_error("GraphicsEnginePool: not enough available descriptor sets!");
@@ -241,7 +241,7 @@ std::vector<VkDescriptorSet> GraphicsEnginePool::reserve_descriptor_sets(int n)
 
 void GraphicsEnginePool::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
 {
-	fmt::print("GraphicsEnginePool::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_descriptor_sets.size(), sets.size());
+	// fmt::print("GraphicsEnginePool::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_descriptor_sets.size(), sets.size());
 	for (auto& set : sets)
 		available_descriptor_sets.push(set);
 }

@@ -14,6 +14,7 @@ class GuiWindow
 public:
 	// used in graphics engine
 	virtual void draw() = 0;
+	virtual ~GuiWindow() = default;
 
 	// used in game engine
 	virtual void process(GameEngine&) {}
@@ -80,7 +81,7 @@ class GuiMusic : public GuiWindow
 {
 public:
 	GuiMusic(AudioSource&& audio_source);
-
+	virtual ~GuiMusic() override;
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 

@@ -24,6 +24,7 @@ public:
 	const std::filesystem::path& get_audio_path() const { return audio; };
 
 	quill::Logger* get_logger() { return logger; }
+	void sleep(int milliseconds);
 
 	static std::filesystem::path get_child(const std::filesystem::path& parent, const std::string_view child);
 

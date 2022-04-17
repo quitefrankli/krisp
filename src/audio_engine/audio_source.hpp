@@ -13,6 +13,7 @@ class AudioSource
 public:
 	AudioSource(AudioEngine& audio_engine);
 	AudioSource(AudioSource&& other) noexcept;
+	AudioSource(const AudioSource&) = delete;
 	~AudioSource();
 
 	void set_audio(const std::string_view filename);

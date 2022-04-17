@@ -3,6 +3,8 @@
 #include <quill/Quill.h>
 
 #include <iostream>
+#include <chrono>
+#include <thread>
 
 
 Utility Utility::singleton;
@@ -36,4 +38,9 @@ Utility::Utility()
 std::filesystem::path Utility::get_child(const std::filesystem::path& parent, const std::string_view child)
 {
 	return std::filesystem::path(parent.string() + '/' + child.data());
+}
+
+void Utility::sleep(int milliseconds)
+{
+	std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }

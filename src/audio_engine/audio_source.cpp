@@ -1,5 +1,6 @@
 #include "audio_source.hpp"
 #include "audio_engine.hpp"
+#include "utility.hpp"
 
 #include <AL\al.h>
 
@@ -16,6 +17,8 @@ AudioSource::AudioSource(AudioEngine& audio_engine) :
 	alSource3f(p_Source, AL_VELOCITY, velocity[0], velocity[1], velocity[2]);
 	alSourcei(p_Source, AL_LOOPING, p_LoopSound);
 	alSourcei(p_Source, AL_BUFFER, p_Buffer);
+	// alSourcei(p_Source, AL_SOURCE_RELATIVE, 0); // allows to work with listener
+	alSourcef(p_Source, AL_ROLLOFF_FACTOR, 0.2f); // default = 1
 }
 
 AudioSource::AudioSource(AudioSource&& other) noexcept : audio_engine(other.audio_engine)
@@ -37,7 +40,6 @@ AudioSource::~AudioSource()
 	{
 		return;
 	}
-
 	alDeleteSources(1, &p_Source);
 }
 
@@ -50,10 +52,9 @@ void AudioSource::set_audio_buffer(const uint32_t buffer)
 {
 	ALint state = AL_PLAYING;
 	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
-	if (state == AL_PLAYING)
+	if (state == AL_PLAYING || state == AL_PAUSED)
 	{
-		std::cout << "AudioSource::play: currently playing\n";
-		return;
+		alSourceStop(p_Source);
 	}
 
 	if (buffer != p_Buffer)
@@ -69,9 +70,7 @@ void AudioSource::play()
 	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
 	if (state == AL_PLAYING)
 	{
-		std::cout << "AudioSource::play: currently playing\n";
-		p_Gain -= 0.1f;
-		alSourcef(p_Source, AL_GAIN, p_Gain);
+		std::cout << "AudioSource::play: warning attempted to play while something was already playing\n";
 		return;
 	}
 
@@ -90,7 +89,7 @@ void AudioSource::set_gain(float gain)
 	if (gain == p_Gain)
 		return;
 	p_Gain = gain;
-	alSourcef(p_Source, AL_GAIN, p_Gain);
+	alSourcef(p_Source, AL_GAIN, gain);
 }
 
 void AudioSource::set_pitch(float pitch)
@@ -98,7 +97,9 @@ void AudioSource::set_pitch(float pitch)
 	if (pitch == p_Pitch)
 		return;
 	p_Pitch = pitch;
-	alSourcef(p_Source, AL_PITCH, p_Pitch);
+	// pitch seems quite sensitive
+	const float true_pitch = 1.0f + (pitch - 1.0f) * 0.2f;
+	alSourcef(p_Source, AL_PITCH, true_pitch);
 }
 
 void AudioSource::set_position(const glm::vec3& position)

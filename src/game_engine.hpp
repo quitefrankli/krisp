@@ -78,13 +78,13 @@ public:
 
 private:
 	App::Window window;
-	Gizmo gizmo;
+	AudioEnginePimpl audio_engine;
     std::unique_ptr<GraphicsEngine> graphics_engine;
 	std::unique_ptr<Camera> camera;
+	Gizmo gizmo;
 	Keyboard keyboard;
 	Mouse mouse;
 	ResourceLoader resource_loader;
-	AudioEnginePimpl audio_engine;
 
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;

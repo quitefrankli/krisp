@@ -20,6 +20,7 @@
 // 							10.0f); // far plane clipping, furthest away an object can be to camera	
 
 class GameEngine;
+class Listener;
 
 class Camera : public Object, public ITrackableObject
 {
@@ -82,8 +83,8 @@ protected:
 	virtual void set_rotation(const glm::quat& rotation) override;
 
 private:
-	GameEngine& engine;
 	Mode mode;
+	std::unique_ptr<Listener> listener;
 
 	using Object::set_transform;
 	using Object::set_position;

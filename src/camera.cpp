@@ -2,6 +2,7 @@
 #include "game_engine.hpp"
 #include "maths.hpp"
 #include "objects/objects.hpp"
+#include "audio_engine/listener.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -9,9 +10,9 @@
 #include <iostream>
 
 
-Camera::Camera(GameEngine& engine_, float aspect_ratio) :
+Camera::Camera(GameEngine& engine, float aspect_ratio) :
 	ITrackableObject(this),
-	engine(engine_)
+	listener(std::make_unique<Listener>(engine.get_audio_engine()))
 {
 	set_position(glm::vec3(0.0f, 0.0f, -2.0f));
 

@@ -106,6 +106,8 @@ GuiMusic::GuiMusic(AudioSource&& audio_source) :
 	}
 }
 
+GuiMusic::~GuiMusic() = default;
+
 void GuiMusic::process(GameEngine& engine)
 {
 	audio_source->set_gain(gain);
@@ -115,7 +117,7 @@ void GuiMusic::process(GameEngine& engine)
 
 void GuiMusic::draw()
 {
-	ImGui::SliderFloat("Gain", &gain, 0.0f, 2.0f);
+	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
 	ImGui::Combo("Song", &selected_song, songs.data(), songs.size());

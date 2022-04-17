@@ -28,23 +28,30 @@ SoundBuffer::SoundBuffer(const std::string_view filename)
 	{
 	 	throw std::runtime_error(fmt::format("Bad sample count in {} {}\n", filename, sfinfo.frames));
 	}
+	if (sfinfo.channels != 1)
+	{
+		fmt::print("SoundBuffer::SoundBuffer: warning {}, channels={}, is not mono and therefore "
+				   "3D sound will not be supported!\n", filename, sfinfo.channels);
+	}
 
 	/* Get the sound format, and figure out the OpenAL format */
 	format = AL_NONE;
 	if (sfinfo.channels == 1)
+	{
 		format = AL_FORMAT_MONO16;
-	else if (sfinfo.channels == 2)
+	} else if (sfinfo.channels == 2)
+	{
 		format = AL_FORMAT_STEREO16;
-	else if (sfinfo.channels == 3)
+	} else if (sfinfo.channels == 3)
 	{
 		if (sf_command(sndfile, SFC_WAVEX_GET_AMBISONIC, NULL, 0) == SF_AMBISONIC_B_FORMAT)
 			format = AL_FORMAT_BFORMAT2D_16;
-	}
-	else if (sfinfo.channels == 4)
+	} else if (sfinfo.channels == 4)
 	{
 		if (sf_command(sndfile, SFC_WAVEX_GET_AMBISONIC, NULL, 0) == SF_AMBISONIC_B_FORMAT)
 			format = AL_FORMAT_BFORMAT3D_16;
 	}
+	
 	if (!format)
 	{
 		throw std::runtime_error(fmt::format("Unsupported channel count: {}\n", sfinfo.channels));
