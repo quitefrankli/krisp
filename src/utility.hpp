@@ -21,6 +21,7 @@ public:
 	const std::filesystem::path& get_textures_path() const { return textures; };
 	const std::filesystem::path& get_build_path() const { return build; };
 	const std::filesystem::path& get_binary_path() const { return binary; };
+	const std::filesystem::path& get_audio_path() const { return audio; };
 
 	quill::Logger* get_logger() { return logger; }
 
@@ -34,6 +35,7 @@ private:
 	std::filesystem::path textures;
 	std::filesystem::path build;
 	std::filesystem::path binary;
+	std::filesystem::path audio;
 
 	static Utility singleton;
 };

@@ -12,6 +12,7 @@ Utility::Utility()
 	top_level_dir = PROJECT_TOP_LEVEL_SRC_DIR;
 	models = get_child(top_level_dir, "resources/models");
 	textures = get_child(top_level_dir, "resources/textures");
+	audio = get_child(top_level_dir, "resources/sound");
 	
 	build = PROJECT_BUILD_DIR;
 	binary = PROJECT_BIN_DIR;

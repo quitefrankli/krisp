@@ -8,6 +8,7 @@
 #include "resource_loader.hpp"
 #include "audio_engine/audio_source.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
+#include "utility.hpp"
 
 #include <iostream>
 
@@ -26,7 +27,7 @@ public:
 	// manually triggered
 	void process()
 	{
-		audio_source.set_audio("../resources/sound/wav1.wav");
+		audio_source.set_audio(Utility::get().get_audio_path().string() + "/music1.wav");
 		audio_source.play();
 	}
 

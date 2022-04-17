@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/vec3.hpp>
+
 #include <cstdint>
 #include <string_view>
 
@@ -10,19 +12,26 @@ class AudioSource
 {
 public:
 	AudioSource(AudioEngine& audio_engine);
+	AudioSource(AudioSource&& other) noexcept;
 	~AudioSource();
 
 	void set_audio(const std::string_view filename);
 	void play();
 
+public: // getters and setters
+	void set_gain(float gain);
+	void set_pitch(float pitch);
+	void set_position(const glm::vec3& position);
+
 private:
 	void set_audio_buffer(const uint32_t buffer);
 	uint32_t p_Source;
-	float p_Pitch = 1.f;
-	float p_Gain = 1.f;
-	float p_Position[3] = { 0,0,0 };
-	float p_Velocity[3] = { 0,0,0 };
+	float p_Pitch = 1.0f;
+	float p_Gain = 1.0f;
+	glm::vec3 position{};
+	glm::vec3 velocity{};
 	bool p_LoopSound = false;
 	uint32_t p_Buffer = 0;
 	AudioEngine& audio_engine;
+	bool should_destroy = true;
 };

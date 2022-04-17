@@ -2,6 +2,8 @@
 #include "game_engine.hpp"
 #include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
+#include "audio_engine/audio_source.hpp"
+#include "utility.hpp"
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -84,3 +86,46 @@ void GuiFPSCounter::draw()
 	ImGui::Text("%.1f", fps);
 	ImGui::End();
 }
+
+GuiMusic::GuiMusic(AudioSource&& audio_source) : 
+	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
+{
+	for (const auto& entry : std::filesystem::directory_iterator(Utility::get().get_audio_path()))
+	{
+		if (!entry.is_directory() && entry.path().extension() == ".wav")
+		{
+			std::cout << "GuiMusic::GuiMusic: adding " << entry.path() << '\n';
+			songs_paths.push_back(entry.path());
+			songs_.push_back(entry.path().filename().string());
+		}
+	}
+
+	for (const auto& song : songs_)
+	{
+		songs.push_back(song.c_str());
+	}
+}
+
+void GuiMusic::process(GameEngine& engine)
+{
+	audio_source->set_gain(gain);
+	audio_source->set_pitch(pitch);
+	audio_source->set_position(position);
+}
+
+void GuiMusic::draw()
+{
+	ImGui::SliderFloat("Gain", &gain, 0.0f, 2.0f);
+	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
+	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
+	ImGui::Combo("Song", &selected_song, songs.data(), songs.size());
+	if (ImGui::Button("Play"))
+	{
+		std::cout<<"Playing\n";
+		audio_source->set_audio(songs_paths[selected_song].string());
+		audio_source->play();
+	}
+}
+
+
+

@@ -12,14 +12,32 @@ AudioSource::AudioSource(AudioEngine& audio_engine) :
 	alGenSources(1, &p_Source);
 	alSourcef(p_Source, AL_PITCH, p_Pitch);
 	alSourcef(p_Source, AL_GAIN, p_Gain);
-	alSource3f(p_Source, AL_POSITION, p_Position[0], p_Position[1], p_Position[2]);
-	alSource3f(p_Source, AL_VELOCITY, p_Velocity[0], p_Velocity[1], p_Velocity[2]);
+	alSource3f(p_Source, AL_POSITION, position[0], position[1], position[2]);
+	alSource3f(p_Source, AL_VELOCITY, velocity[0], velocity[1], velocity[2]);
 	alSourcei(p_Source, AL_LOOPING, p_LoopSound);
 	alSourcei(p_Source, AL_BUFFER, p_Buffer);
 }
 
+AudioSource::AudioSource(AudioSource&& other) noexcept : audio_engine(other.audio_engine)
+{
+	p_Source = other.p_Source;
+	p_Pitch = other.p_Pitch;
+	p_Gain = other.p_Gain;
+	position = other.position;
+	velocity = other.velocity;
+	p_LoopSound = other.p_LoopSound;
+	p_Buffer = other.p_Buffer;
+
+	other.should_destroy = false;
+}
+
 AudioSource::~AudioSource()
 {
+	if (!should_destroy)
+	{
+		return;
+	}
+
 	alDeleteSources(1, &p_Source);
 }
 
@@ -52,6 +70,8 @@ void AudioSource::play()
 	if (state == AL_PLAYING)
 	{
 		std::cout << "AudioSource::play: currently playing\n";
+		p_Gain -= 0.1f;
+		alSourcef(p_Source, AL_GAIN, p_Gain);
 		return;
 	}
 
@@ -63,4 +83,28 @@ void AudioSource::play()
 	// 	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
 	// }
 	// std::cout << "done playing sound\n";
+}
+
+void AudioSource::set_gain(float gain)
+{
+	if (gain == p_Gain)
+		return;
+	p_Gain = gain;
+	alSourcef(p_Source, AL_GAIN, p_Gain);
+}
+
+void AudioSource::set_pitch(float pitch)
+{
+	if (pitch == p_Pitch)
+		return;
+	p_Pitch = pitch;
+	alSourcef(p_Source, AL_PITCH, p_Pitch);
+}
+
+void AudioSource::set_position(const glm::vec3& position)
+{
+	if (position == this->position)
+		return;
+	this->position = position;
+	alSource3f(p_Source, AL_POSITION, position.x, position.y, position.z);
 }

@@ -69,3 +69,29 @@ public:
 private:
 	ImFont* font = nullptr;
 };
+
+class AudioSource;
+namespace std {
+	namespace filesystem {
+		class path;
+	}
+}
+class GuiMusic : public GuiWindow
+{
+public:
+	GuiMusic(AudioSource&& audio_source);
+
+	virtual void process(GameEngine& engine) override;
+	virtual void draw() override;
+
+private:
+	std::unique_ptr<AudioSource> audio_source;
+	float gain = 1.0f;
+	float pitch = 1.0f;
+	glm::vec3 position;
+	int selected_song = 0;
+	std::vector<const char*> songs;
+	// this is just for memory management for the above
+	std::vector<std::string> songs_;
+	std::vector<std::filesystem::path> songs_paths;
+};
