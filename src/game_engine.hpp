@@ -10,6 +10,7 @@
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "interface/gizmo.hpp"
+#include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -34,6 +35,7 @@ public: // getters and setters
 	GLFWwindow* get_window() { return window.get_window(); }
 	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
 	GuiManager& get_gui_manager();
+	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 
 public:
 	GameEngine(std::function<void()>&& restart_signaller);
@@ -68,7 +70,6 @@ public:
 	}
 
 	void delete_object(obj_id_t id);
-
 	void restart();
 
 	void set_application(IApplication* application) { this->application=application; }
@@ -83,6 +84,7 @@ private:
 	Keyboard keyboard;
 	Mouse mouse;
 	ResourceLoader resource_loader;
+	AudioEnginePimpl audio_engine;
 
 	std::atomic<bool> should_shutdown = false;
 	std::chrono::time_point<std::chrono::system_clock> time;

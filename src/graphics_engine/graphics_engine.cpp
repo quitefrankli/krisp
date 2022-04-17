@@ -35,7 +35,6 @@ GraphicsEngine::GraphicsEngine(GameEngine& _game_engine) :
 	pipeline_mgr(*this),
 	depth_buffer(*this),
 	swap_chain(*this),
-	model_loader(*this),
 	gui_manager(*this)
 {
 	FPS_tracker = std::make_unique<Analytics>(

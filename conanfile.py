@@ -17,6 +17,8 @@ class vulkan_conan(ConanFile):
 		"stb/20190512@conan/stable",
 		"tinyobjloader/1.0.6",
 		"quill/1.6.3",
+		"openal/1.21.1",
+		"libsndfile/1.0.31",
 		# "fmt/8.1.1", # already included by quill
 		"imgui/1.85",
 		"gtest/1.11.0",

@@ -6,20 +6,28 @@
 #include "objects/light_source.hpp"
 #include "objects/objects.hpp"
 #include "resource_loader.hpp"
+#include "audio_engine/audio_source.hpp"
+#include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <iostream>
 
+
+static int tmp = 0;
+static uint64_t tmp2;
 class Experimental
 {
 public:
-	Experimental(GameEngine& engine_) : engine(engine_)
+	Experimental(GameEngine& engine_) : 
+		engine(engine_),
+		audio_source(engine_.get_audio_engine().create_source())
 	{
-		// engine.draw_object(cube);
 	}
 
 	// manually triggered
 	void process()
 	{
+		audio_source.set_audio("../resources/sound/wav1.wav");
+		audio_source.play();
 	}
 
 	// game engine triggers this periodically
@@ -44,4 +52,5 @@ private:
 	GameEngine& engine;
 	float time_elapsed = 0;
 	Cube cube;
+	AudioSource audio_source;
 };
