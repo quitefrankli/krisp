@@ -13,7 +13,7 @@ GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngineTextureManager& manag
 	manager(manager_), GraphicsEngineBaseModule(manager_.get_graphics_engine())
 {
 	create_texture_image(texture_path);
-	texture_image_view = get_graphics_engine().get_texture_mgr().create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+	texture_image_view = get_graphics_engine().create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 	create_texture_sampler();
 }
 
@@ -76,7 +76,7 @@ void GraphicsEngineTexture::create_texture_image(std::string texture_path)
 	memcpy(data, pixels.get(), static_cast<size_t>(size));
 	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
 
-	get_graphics_engine().get_texture_mgr().create_image(width, 
+	get_graphics_engine().create_image(width, 
 				 height, 
 				 VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB
 				 VK_IMAGE_TILING_OPTIMAL,

@@ -5,11 +5,11 @@
 #include <queue>
 
 
-class GraphicsEnginePool : public GraphicsEngineBaseModule
+class GraphicsResourceManager : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEnginePool(GraphicsEngine& engine);
-	~GraphicsEnginePool();
+	GraphicsResourceManager(GraphicsEngine& engine);
+	~GraphicsResourceManager();
 	VkCommandPool& get_command_pool() { return command_pool; }
 	VkDescriptorPool descriptor_pool;
 

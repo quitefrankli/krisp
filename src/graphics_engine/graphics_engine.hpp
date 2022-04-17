@@ -4,7 +4,7 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
-#include "graphics_engine_pool.hpp"
+#include "graphics_resource_manager.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
 #include "graphics_engine_depth_buffer.hpp"
@@ -74,7 +74,7 @@ public: // getters and setters
 	GraphicsEngineGuiManager& get_gui_manager() { return gui_manager; }
 	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
 	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
-	GraphicsEnginePool& get_graphics_resource_manager() { return pool; }
+	GraphicsResourceManager& get_graphics_resource_manager() { return pool; }
 	GraphicsEngineDevice& get_device_module() { return device; }
 
 private: // flags (these must be before core components)
@@ -86,7 +86,7 @@ private: // core components
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
 	GraphicsEngineTextureManager texture_mgr;
-	GraphicsEnginePool pool;
+	GraphicsResourceManager pool;
 	GraphicsEngineDepthBuffer depth_buffer;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEnginePipelineManager pipeline_mgr;
@@ -127,6 +127,23 @@ public:
 					   VkDeviceMemory& device_memory);
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
 
+	// an image is an actual piece of data memory, similar to a buffer
+	void create_image(uint32_t width, 
+					  uint32_t height, 
+					  VkFormat format, 
+					  VkImageTiling tiling,
+					  VkImageUsageFlags usage,
+					  VkMemoryPropertyFlags properties,
+					  VkImage& image,
+					  VkDeviceMemory& image_memory);
+
+	// an image view is just a view of an image, it does not mutate the image
+	// i.e. string_view vs string
+	VkImageView create_image_view(VkImage& image,
+								  VkFormat format,
+						   		  VkImageAspectFlags aspect_flags,
+								  VkImageViewType view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D);
+								  
 public: // other
 	// graphics cards offer different types of memory to allocate from, each type of memory varies
 	// in therms of allowed operations and performance characteristics

@@ -45,5 +45,6 @@ private:
 
 	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
+	// a sampler is essentially a functor that allows one to interpret an imageview
 	void create_texture_sampler();
 };

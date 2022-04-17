@@ -1,4 +1,4 @@
-#include "graphics_engine_pool.hpp"
+#include "graphics_resource_manager.hpp"
 
 #include "graphics_engine.hpp"
 #include "queues.hpp"
@@ -7,7 +7,7 @@
 #include <fmt/core.h>
 
 
-GraphicsEnginePool::GraphicsEnginePool(GraphicsEngine& engine) :
+GraphicsResourceManager::GraphicsResourceManager(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine),
 	high_freq_descriptor_set_layout(descriptor_set_layouts[0]),
 	low_freq_descriptor_set_layout(descriptor_set_layouts[1])
@@ -25,7 +25,7 @@ GraphicsEnginePool::GraphicsEnginePool(GraphicsEngine& engine) :
 	allocate_descriptor_set();
 }
 
-GraphicsEnginePool::~GraphicsEnginePool()
+GraphicsResourceManager::~GraphicsResourceManager()
 {
 	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
 	vkDestroyDescriptorPool(get_logical_device(), descriptor_pool, nullptr);
@@ -38,7 +38,7 @@ GraphicsEnginePool::~GraphicsEnginePool()
 	vkFreeMemory(get_logical_device(), global_uniform_buffer_memory, nullptr);
 }
 
-void GraphicsEnginePool::create_command_pool()
+void GraphicsResourceManager::create_command_pool()
 {
 	QueueFamilyIndices queue_family_indices = get_graphics_engine().findQueueFamilies(get_physical_device());
 	VkCommandPoolCreateInfo command_pool_create_info{};
@@ -52,7 +52,7 @@ void GraphicsEnginePool::create_command_pool()
 	}
 }
 
-void GraphicsEnginePool::create_descriptor_pool()
+void GraphicsResourceManager::create_descriptor_pool()
 {
 	const auto& engine = get_graphics_engine();
 
@@ -97,7 +97,7 @@ void GraphicsEnginePool::create_descriptor_pool()
 	// poolInfo.poolSizeCount = (uint32_t)pool_sizes.size();
 	// poolInfo.pPoolSizes = pool_sizes.data();
 
-	fmt::print("GraphicsEnginePool::create_descriptor_pool: max_sets:={}\n"
+	fmt::print("GraphicsResourceManager::create_descriptor_pool: max_sets:={}\n"
 		"\tper_set_max_uniform_buffer_count:={}\n"
 		"\tper_set_max_combined_image_sampler_count:={}\n",
 		poolInfo.maxSets, uniform_buffer_pool_size.descriptorCount, combined_image_sampler_pool_size.descriptorCount);
@@ -108,7 +108,7 @@ void GraphicsEnginePool::create_descriptor_pool()
 	}
 }
 
-void GraphicsEnginePool::create_descriptor_set_layout()
+void GraphicsResourceManager::create_descriptor_set_layout()
 {
 	auto create_layout = [this](std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout* layout)
 	{
@@ -157,7 +157,7 @@ void GraphicsEnginePool::create_descriptor_set_layout()
 	}
 }
 
-void GraphicsEnginePool::allocate_descriptor_set()
+void GraphicsResourceManager::allocate_descriptor_set()
 {
 	// allocation + writing for low frequency descriptor sets
 	const int MAX_LOW_FREQ_DESCRIPTOR_SETS = 1;
@@ -169,7 +169,7 @@ void GraphicsEnginePool::allocate_descriptor_set()
 		alloc_info.pSetLayouts = &low_freq_descriptor_set_layout;
 
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &global_descriptor_set) != VK_SUCCESS)
-			throw std::runtime_error("GraphicsEnginePool: failed to allocate descriptor sets!");
+			throw std::runtime_error("GraphicsResourceManager: failed to allocate descriptor sets!");
 
 		VkDescriptorBufferInfo buffer_info{};
 		buffer_info.buffer = global_uniform_buffer;
@@ -205,29 +205,29 @@ void GraphicsEnginePool::allocate_descriptor_set()
 		alloc_info.pSetLayouts = layouts.data();
 		std::vector<VkDescriptorSet> descriptor_sets(num_sets);
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
-			throw std::runtime_error("GraphicsEnginePool: failed to allocate descriptor sets!");
+			throw std::runtime_error("GraphicsResourceManager: failed to allocate descriptor sets!");
 		for (auto& descriptor_set : descriptor_sets)
 			available_descriptor_sets.push(descriptor_set);
 	}
 }
 
-int GraphicsEnginePool::get_max_descriptor_sets() const
+int GraphicsResourceManager::get_max_descriptor_sets() const
 {
 	const int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 1000;
 	return GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 	// return MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 }
 
-std::vector<VkDescriptorSet> GraphicsEnginePool::reserve_descriptor_sets(int n)
+std::vector<VkDescriptorSet> GraphicsResourceManager::reserve_descriptor_sets(int n)
 {
 	// the reason this function is called 3x for every object spawn
 	// is because we have a bit of a design problem
 	// we really should be having per frame per object resources
 	// i.e. for every object in every frame in a swapchain, it should have its own descriptor sets
-	// fmt::print("GraphicsEnginePool::reserve_descriptor_sets: available_sets:={}, requested_sets:={}\n", available_descriptor_sets.size(), n);
+	// fmt::print("GraphicsResourceManager::reserve_descriptor_sets: available_sets:={}, requested_sets:={}\n", available_descriptor_sets.size(), n);
 
 	if (n > available_descriptor_sets.size())
-		throw std::runtime_error("GraphicsEnginePool: not enough available descriptor sets!");
+		throw std::runtime_error("GraphicsResourceManager: not enough available descriptor sets!");
 
 	std::vector<VkDescriptorSet> sets(n);
 	for (int i = 0; i < n; i++)
@@ -239,9 +239,9 @@ std::vector<VkDescriptorSet> GraphicsEnginePool::reserve_descriptor_sets(int n)
 	return sets;
 }
 
-void GraphicsEnginePool::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
+void GraphicsResourceManager::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
 {
-	// fmt::print("GraphicsEnginePool::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_descriptor_sets.size(), sets.size());
+	// fmt::print("GraphicsResourceManager::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_descriptor_sets.size(), sets.size());
 	for (auto& set : sets)
 		available_descriptor_sets.push(set);
 }

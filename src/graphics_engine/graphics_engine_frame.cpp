@@ -22,7 +22,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	image_index = global_image_index++;
 
 	// image view, in the context of a GraphicsEngineFrame, it's essentially a vulkan image that we can do processing on
-	image_view = get_graphics_engine().get_texture_mgr().create_image_view(image, swap_chain.get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
+	image_view = get_graphics_engine().create_image_view(image, swap_chain.get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
 
 	// frame buffer
 	// note that while the color image is different for every frame, the depth image can be the same
