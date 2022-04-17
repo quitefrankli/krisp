@@ -1,7 +1,8 @@
 #pragma once
 
+#include "audio_source.hpp"
+
 #include <memory>
-#include <string_view>
 
 
 class AudioEngine;
@@ -11,7 +12,8 @@ class AudioEnginePimpl
 public:
 	AudioEnginePimpl();
 	~AudioEnginePimpl();
-	void play(const std::string_view audiofile);
+
+	AudioSource create_source();
 
 private:
 	std::unique_ptr<AudioEngine> audio_engine;

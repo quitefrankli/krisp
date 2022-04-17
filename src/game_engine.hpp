@@ -33,6 +33,7 @@ public: // getters and setters
 	GLFWwindow* get_window() { return window.get_window(); }
 	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
 	GuiManager& get_gui_manager();
+	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 
 public:
 	GameEngine(std::function<void()>&& restart_signaller);
@@ -65,7 +66,6 @@ public:
 	}
 
 	void delete_object(obj_id_t id);
-
 	void restart();
 
 private:

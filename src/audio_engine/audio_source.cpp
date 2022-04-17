@@ -1,4 +1,5 @@
 #include "audio_source.hpp"
+#include "audio_engine.hpp"
 
 #include <AL\al.h>
 
@@ -20,6 +21,11 @@ AudioSource::AudioSource(AudioEngine& audio_engine) :
 AudioSource::~AudioSource()
 {
 	alDeleteSources(1, &p_Source);
+}
+
+void AudioSource::set_audio(const std::string_view filename)
+{
+	set_audio_buffer(audio_engine.get_buffer(filename.data()));
 }
 
 void AudioSource::set_audio_buffer(const uint32_t buffer)

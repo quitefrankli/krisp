@@ -12,11 +12,11 @@ public:
 	AudioSource(AudioEngine& audio_engine);
 	~AudioSource();
 
-	void set_audio_buffer(const uint32_t buffer);
+	void set_audio(const std::string_view filename);
 	void play();
 
 private:
-
+	void set_audio_buffer(const uint32_t buffer);
 	uint32_t p_Source;
 	float p_Pitch = 1.f;
 	float p_Gain = 1.f;
@@ -26,4 +26,3 @@ private:
 	uint32_t p_Buffer = 0;
 	AudioEngine& audio_engine;
 };
-

@@ -2,7 +2,9 @@
 
 #include <AL\alc.h>
 #include <AL\al.h>
+
 #include <stdio.h>
+#include <iostream>
 
 
 class SoundDevice
@@ -35,8 +37,12 @@ public:
 			throw("failed to set context to nullptr");
 
 		alcDestroyContext(p_ALCContext);
+		ALenum err = alcGetError(p_ALCDevice);
+    	if (err != AL_NO_ERROR)
+        	std::cerr << "[ERROR]::alcDestroyContext() error: " << alcGetString(p_ALCDevice, err) << std::endl;
 		if (p_ALCContext)
-			throw("failed to unset during close");
+			// throw std::runtime_error("failed to unset during close"); // for some reason the above doesn't catch the error so can't really debug for now
+			std::cerr << "SoundDevice::~SoundDevice(): failed to unset context during close\n";
 
 		if (!alcCloseDevice(p_ALCDevice))
 			throw("failed to close sound device");

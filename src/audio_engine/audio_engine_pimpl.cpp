@@ -9,6 +9,7 @@ AudioEnginePimpl::AudioEnginePimpl() :
 
 AudioEnginePimpl::~AudioEnginePimpl() = default;
 
-void AudioEnginePimpl::play(const std::string_view audiofile)
+AudioSource AudioEnginePimpl::create_source()
 {
+	return AudioSource(*audio_engine);
 }

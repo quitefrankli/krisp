@@ -3,34 +3,28 @@
 #include "game_engine.hpp"
 #include "hot_reload.hpp"
 #include "objects/objects.hpp"
+#include "audio_engine/audio_source.hpp"
+#include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <iostream>
+
 
 static int tmp = 0;
 static uint64_t tmp2;
 class Experimental
 {
 public:
-	Experimental(GameEngine& engine_) : engine(engine_)
+	Experimental(GameEngine& engine_) : 
+		engine(engine_),
+		audio_source(engine_.get_audio_engine().create_source())
 	{
-		// engine.draw_object(cube);
 	}
 
 	// manually triggered
 	void process()
 	{
-		std::cout << "Experimental\n";
-		
-		engine.spawn_object<Arrow>();
-
-		// if (tmp % 2 == 0) {
-		// 	auto& sphere = engine.spawn_object<Cube>();
-		// 	tmp2 = sphere.get_id();
-		// } else {
-		// 	engine.delete_object(tmp2);
-		// }
-
-		// tmp++;
+		audio_source.set_audio("../resources/sound/wav1.wav");
+		audio_source.play();
 	}
 
 	// game engine triggers this periodically
@@ -55,4 +49,5 @@ private:
 	GameEngine& engine;
 	float time_elapsed = 0;
 	Cube cube;
+	AudioSource audio_source;
 };
