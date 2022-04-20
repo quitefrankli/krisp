@@ -22,6 +22,7 @@ public:
 	const std::filesystem::path& get_build_path() const { return build; };
 	const std::filesystem::path& get_binary_path() const { return binary; };
 	const std::filesystem::path& get_audio_path() const { return audio; };
+	static std::string get_texture(const std::string_view texture);
 
 	quill::Logger* get_logger() { return logger; }
 	void sleep(int milliseconds);

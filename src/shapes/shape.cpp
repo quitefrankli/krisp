@@ -94,3 +94,8 @@ void Shape::set_color(const glm::vec3& color)
 		vertex.color = color;
 	}
 }
+
+void Shape::set_texture(const std::string_view texture)
+{
+	this->texture = texture;
+}

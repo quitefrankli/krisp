@@ -35,6 +35,11 @@ Utility::Utility()
 	std::cout << models << '\n' << textures << '\n' << build << '\n' << binary << '\n';
 }
 
+std::string Utility::get_texture(const std::string_view texture)
+{
+	return get().get_textures_path().string() + '/' + texture.data();
+}
+
 std::filesystem::path Utility::get_child(const std::filesystem::path& parent, const std::string_view child)
 {
 	return std::filesystem::path(parent.string() + '/' + child.data());

@@ -63,9 +63,6 @@ void GameEngine::run()
 
 	// spawn_object<Object>(resource_loader, mesh, texture);
 
-	// spawn_object<Cube>("../resources/textures/texture2.jpg");
-	// spawn_object<Cube>("../resources/textures/texture.jpg");
-
 	// glm::quat model_rotation = glm::angleAxis(
 	// 	Maths::PI, 
 	// 	glm::vec3(0.0f, 1.0f, 0.0f)) * glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));

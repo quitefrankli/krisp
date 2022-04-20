@@ -31,8 +31,14 @@ void GuiGraphicsSettings::draw()
 GuiObjectSpawner::GuiObjectSpawner()
 {
 	mapping = {
-		{"cube", spawning_function_type([this](GameEngine& engine, bool textured){ 
-			textured ? engine.spawn_object<Cube>() : engine.spawn_object<Cube>(); })},
+		{"cube", spawning_function_type([this](GameEngine& engine, bool textured)
+			{
+				auto& obj = engine.spawn_object<Cube>();
+				if (textured)
+				{
+					ResourceLoader::assign_object_texture(obj, Utility::get_texture("texture.jpg").data());
+				} 
+			})},
 		{"sphere", spawning_function_type([this](GameEngine& engine, bool textured){ 
 			textured ? engine.spawn_object<Sphere>() : engine.spawn_object<Sphere>(); })}
 	};

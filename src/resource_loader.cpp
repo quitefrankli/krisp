@@ -199,3 +199,25 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 
 	return objects;
 }
+
+void ResourceLoader::assign_object_texture(Object& object, const std::string_view texture)
+{
+	for (int i = 0; i < object.shapes.size(); i++)
+	{
+		object.shapes[i].set_texture(texture);
+	}
+	object.set_render_type(ERenderType::STANDARD); // use textured render
+}
+
+void ResourceLoader::assign_object_texture(Object& object, const std::vector<std::string_view> textures)
+{
+	if (object.shapes.size() != textures.size())
+	{
+		throw std::runtime_error("ResourceLoader::assign_object_texture: num textures and num object shapes mismatch!");
+	}
+	for (int i = 0; i < object.shapes.size(); i++)
+	{
+		object.shapes[i].set_texture(textures[i]);
+	}
+	object.set_render_type(ERenderType::STANDARD); // use textured render
+}

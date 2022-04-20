@@ -31,6 +31,7 @@ public:
 	void translate_vertices(const glm::vec3& vec);
 	void generate_normals();
 	void set_color(const glm::vec3& color);
+	void set_texture(const std::string_view texture);
 
 	// WARNING this is expensive
 	void deduplicate_vertices();

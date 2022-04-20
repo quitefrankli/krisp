@@ -4,6 +4,7 @@
 
 #include <string>
 #include <vector>
+#include <string_view>
 
 
 class Object;
@@ -31,4 +32,9 @@ public:
 	std::vector<Object> load_objects(const std::string_view mesh,
 	                                 const std::vector<std::string_view>& textures,
 	                                 const Setting setting = Setting::DEFAULT);
+
+	// assigns a single texture to each shape
+	static void assign_object_texture(Object& object, const std::string_view texture);
+	// assigns a texture to every shape
+	static void assign_object_texture(Object& object, const std::vector<std::string_view> textures);
 };
