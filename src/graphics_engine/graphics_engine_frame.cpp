@@ -26,7 +26,9 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 
 	// frame buffer
 	// note that while the color image is different for every frame, the depth image can be the same
-	std::vector<VkImageView> attachments = { image_view, get_graphics_engine().get_depth_buffer().get_image_view() };
+	std::vector<VkImageView> attachments { parent_swapchain.get_color_image_view(),
+											get_graphics_engine().get_depth_buffer().get_image_view(),
+											image_view };
 	VkFramebufferCreateInfo frame_buffer_create_info{};
 	frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	frame_buffer_create_info.renderPass = get_render_pass();

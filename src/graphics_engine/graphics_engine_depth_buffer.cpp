@@ -9,13 +9,14 @@ GraphicsEngineDepthBuffer::GraphicsEngineDepthBuffer(GraphicsEngine& engine) :
 	VkFormat depth_format = findDepthFormat(get_physical_device());
 	auto extent = get_graphics_engine().get_extent_unsafe();
 	get_graphics_engine().create_image(extent.width,
-														extent.height,
-														depth_format,
-														VK_IMAGE_TILING_OPTIMAL,
-														VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-														VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-														image,
-														memory);
+										extent.height,
+										depth_format,
+										VK_IMAGE_TILING_OPTIMAL,
+										VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+										image,
+										memory,
+										get_graphics_engine().get_swap_chain().get_msaa_samples());
 
 	view = get_graphics_engine().create_image_view(image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
@@ -34,10 +35,8 @@ VkFormat GraphicsEngineDepthBuffer::find_supported_format(VkPhysicalDevice devic
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(device, format, &props);
 
-		if (tiling == VK_IMAGE_TILING_LINEAR && props.linearTilingFeatures & features == features)
-		{
-			return format;
-		} else if (tiling == VK_IMAGE_TILING_OPTIMAL && props.optimalTilingFeatures & features == features)
+		if ((tiling == VK_IMAGE_TILING_LINEAR || tiling == VK_IMAGE_TILING_OPTIMAL) 
+			&& props.linearTilingFeatures & features == features)
 		{
 			return format;
 		}

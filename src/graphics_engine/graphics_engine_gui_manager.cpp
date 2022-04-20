@@ -23,7 +23,8 @@ GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
 	init_info.DescriptorPool = engine.get_graphics_resource_manager().descriptor_pool;
 	init_info.MinImageCount = engine.get_num_swapchain_images();
 	init_info.ImageCount = engine.get_num_swapchain_images();
-	init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+	// temporary fix, Gui doesn't really need anti-aliasing it should use its own dedicated pipeline
+	init_info.MSAASamples = engine.get_swap_chain().get_msaa_samples();
 
 	ImGui_ImplVulkan_Init(&init_info, engine.get_swap_chain().get_render_pass());
 

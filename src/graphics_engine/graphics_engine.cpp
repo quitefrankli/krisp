@@ -213,13 +213,14 @@ void GraphicsEngine::update_command_buffer()
 }
 
 void GraphicsEngine::create_image(uint32_t width,
-												uint32_t height,
-												VkFormat format,
-												VkImageTiling tiling,
-												VkImageUsageFlags usage,
-												VkMemoryPropertyFlags properties,
-												VkImage &image,
-												VkDeviceMemory &image_memory)
+								uint32_t height,
+								VkFormat format,
+								VkImageTiling tiling,
+								VkImageUsageFlags usage,
+								VkMemoryPropertyFlags properties,
+								VkImage &image,
+								VkDeviceMemory &image_memory,
+								VkSampleCountFlagBits sample_count_flag)
 {
 	VkImageCreateInfo image_info{};
 	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -237,7 +238,7 @@ void GraphicsEngine::create_image(uint32_t width,
 														  // PREINITIALIZED = not usable by GPU and first transition will preserve texels
 	image_info.usage = usage;
 	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used by one queue family
-	image_info.samples = VK_SAMPLE_COUNT_1_BIT;			// for multisampling
+	image_info.samples = sample_count_flag;			// for multisampling
 	image_info.flags = 0;
 
 	if (vkCreateImage(get_logical_device(), &image_info, nullptr, &image) != VK_SUCCESS)

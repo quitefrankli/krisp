@@ -21,6 +21,21 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine &engine) : Graph
 	VkPresentModeKHR present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	swap_chain_extent = choose_swap_extent(swap_chain_support.capabilities);
 
+	{
+		get_graphics_engine().create_image(swap_chain_extent.width, 
+											swap_chain_extent.height,
+											get_image_format(),
+											VK_IMAGE_TILING_OPTIMAL,
+											VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+											VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+											colorImage,
+											colorImageMemory,
+											msaa_samples);
+		colorImageView = get_graphics_engine().create_image_view(colorImage, 
+																get_image_format(),
+																VK_IMAGE_ASPECT_COLOR_BIT);
+	}
+
 	//+1 means that we won't have to wait for driver to complete internal operations before we can acquire another image to render
 	unsigned image_count = swap_chain_support.capabilities.minImageCount + 1;
 	if (swap_chain_support.capabilities.maxImageCount > 0) // 0 is a special number meaning there is unlimited number
@@ -125,6 +140,10 @@ GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 	//	vkDestroySemaphore(get_logical_device(), render_finished_semaphores[i], nullptr);
 	//	vkDestroyFence(get_logical_device(), in_flight_fences[i], nullptr);
 	//}
+
+	vkDestroyImageView(get_logical_device(), colorImageView, nullptr);
+	vkDestroyImage(get_logical_device(), colorImage, nullptr);
+	vkFreeMemory(get_logical_device(), colorImageMemory, nullptr);
 }
 
 void GraphicsEngineSwapChain::reset()
@@ -254,13 +273,16 @@ void GraphicsEngineSwapChain::create_render_pass()
 	//
 	VkAttachmentDescription color_attachment{};
 	color_attachment.format = get_image_format();
-	color_attachment.samples = VK_SAMPLE_COUNT_1_BIT; // >1 if we are doing multisampling	
+	color_attachment.samples = get_msaa_samples(); // >1 if we are doing multisampling	
 	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
 	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
 	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // specifies which layout the image will have before the render pass begins
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
+	// color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
+	// with multisampled images, we don't want to present them directly, first they have to be resolved
+	// to a single regular image
+	color_attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	// subpasses and attachment references
 	// a single render pass can consist of multiple subpasses
@@ -273,7 +295,7 @@ void GraphicsEngineSwapChain::create_render_pass()
 	//
 	VkAttachmentDescription depth_attachment{};
 	depth_attachment.format = GraphicsEngineDepthBuffer::findDepthFormat(get_physical_device());
-	depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depth_attachment.samples = get_msaa_samples();
 	depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -285,12 +307,32 @@ void GraphicsEngineSwapChain::create_render_pass()
 	depthAttachmentRef.attachment = 1;
 	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
+	//
+	// Multi-sampling
+	//
+	VkAttachmentDescription color_attachment_resolve{};
+    color_attachment_resolve.format = get_image_format();
+    color_attachment_resolve.samples = VK_SAMPLE_COUNT_1_BIT;
+    color_attachment_resolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment_resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment_resolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment_resolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    color_attachment_resolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    color_attachment_resolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference color_attachment_resolve_ref{};
+	color_attachment_resolve_ref.attachment = 2;
+	color_attachment_resolve_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	//
+	// Subpass
+	//
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // as opposed to compute subpass
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_attachment_ref;
 	// subpass.pInputAttachments // attachments that read from a shader
-	// subpass.pResolveAttachments // attachments used for multisampling color attachments
+	subpass.pResolveAttachments = &color_attachment_resolve_ref;
 	subpass.pDepthStencilAttachment = &depthAttachmentRef;
 	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
 
@@ -304,7 +346,7 @@ void GraphicsEngineSwapChain::create_render_pass()
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-	std::vector<VkAttachmentDescription> attachments{ color_attachment, depth_attachment };
+	std::vector<VkAttachmentDescription> attachments{ color_attachment, depth_attachment, color_attachment_resolve };
 	VkRenderPassCreateInfo render_pass_create_info{};
 	render_pass_create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	render_pass_create_info.attachmentCount = attachments.size();

@@ -130,12 +130,13 @@ public:
 	// an image is an actual piece of data memory, similar to a buffer
 	void create_image(uint32_t width, 
 					  uint32_t height, 
-					  VkFormat format, 
+					  VkFormat format,
 					  VkImageTiling tiling,
 					  VkImageUsageFlags usage,
 					  VkMemoryPropertyFlags properties,
 					  VkImage& image,
-					  VkDeviceMemory& image_memory);
+					  VkDeviceMemory& image_memory,
+					  VkSampleCountFlagBits num_samples=VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT);
 
 	// an image view is just a view of an image, it does not mutate the image
 	// i.e. string_view vs string
