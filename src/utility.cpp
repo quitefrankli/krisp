@@ -5,6 +5,7 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <random>
 
 
 Utility Utility::singleton;
@@ -49,3 +50,20 @@ void Utility::sleep(int milliseconds)
 {
 	std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
 }
+
+struct Utility::UtilityImpl
+{
+	UtilityImpl() : rng(rd())
+	{
+	}
+
+	std::random_device rd;
+	std::mt19937_64 rng;
+};
+
+float Utility::get_rand(float min, float max)
+{
+	return std::uniform_real_distribution(min, max)(impl->rng);
+}
+
+std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::UtilityImpl>();

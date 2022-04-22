@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
+#include <memory>
 
 
 namespace quill {
@@ -23,6 +25,7 @@ public:
 	const std::filesystem::path& get_binary_path() const { return binary; };
 	const std::filesystem::path& get_audio_path() const { return audio; };
 	static std::string get_texture(const std::string_view texture);
+	static float get_rand(float min, float max);
 
 	quill::Logger* get_logger() { return logger; }
 	void sleep(int milliseconds);
@@ -38,6 +41,10 @@ private:
 	std::filesystem::path build;
 	std::filesystem::path binary;
 	std::filesystem::path audio;
+	
 
+	
+	struct UtilityImpl;
+	static std::unique_ptr<UtilityImpl> impl;
 	static Utility singleton;
 };
