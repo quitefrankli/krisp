@@ -8,8 +8,15 @@ conan_basic_setup()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAkE_CXX_STANDARD_REQUIRED True)
+
+if(WIN32)
+	# for MSVC this will set the limit of max simultaneous TU compiles
+	set(CMAKE_CXX_FLAGS${build_type} "${CMAKE_CXX_FLAGS${build_type}} /MP12")
+else()
+	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+endif()
+
 # set(CMAKE_CXX_FLAGS_DEBUG  "-g")
-set(CMAKE_GENERATOR_PLATFORM x64)
 
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 add_definitions(-DPROJECT_TOP_LEVEL_SRC_DIR="${CMAKE_SOURCE_DIR}")
