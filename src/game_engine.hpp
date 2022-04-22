@@ -26,6 +26,7 @@ class GuiManager;
 class Experimental;
 class IApplication;
 class LightSource;
+class Analytics;
 
 
 class GameEngine
@@ -87,7 +88,6 @@ private:
 	ResourceLoader resource_loader;
 
 	std::atomic<bool> should_shutdown = false;
-	std::chrono::time_point<std::chrono::system_clock> time;
 	std::unordered_map<obj_id_t, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<Experimental> experimental;
@@ -102,6 +102,7 @@ private:
 	void create_camera();
 	void shutdown_impl();
 	const std::function<void()> restart_signaller;
+	std::unique_ptr<Analytics> TPS_counter;
 
 public: // callbacks
 	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);

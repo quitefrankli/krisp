@@ -65,6 +65,7 @@ public:
 	virtual void draw() override;
 
 	float fps = 0.0f;
+	float tps = 0.0f;
 	unsigned window_width;
 
 private:

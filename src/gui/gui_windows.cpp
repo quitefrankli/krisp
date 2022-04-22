@@ -87,9 +87,23 @@ void GuiFPSCounter::draw()
 		ImGuiWindowFlags_::ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_::ImGuiWindowFlags_NoInputs |
 		ImGuiWindowFlags_::ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_::ImGuiWindowFlags_NoScrollbar
 	);
-	const int TEXT_RIGHT_PADDING = 50;
+	const auto get_num_digits = [](float f) {
+		int digits = 0;
+		while (f >= 10.0f)
+		{
+			f *= 0.1f;
+			digits++;
+		}
+		return digits + 1;
+	};
+	const int PAD_PER_DIGIT = 10;
+	const int TEXT_RIGHT_PADDING = 50 + PAD_PER_DIGIT * std::max(get_num_digits(fps), get_num_digits(tps));
 	ImGui::SetWindowPos(ImVec2{ float(window_width - TEXT_RIGHT_PADDING), 0.0f });
-	ImGui::Text("%.1f", fps);
+	ImGui::SetWindowSize(ImVec2{ float(TEXT_RIGHT_PADDING), 80.0f });
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{0.0f, 0.0f, 0.0f, 1.0f});
+	ImGui::Text("fps %.1f", fps);
+	ImGui::Text("tps %.1f", tps);
+	ImGui::PopStyleColor();
 	ImGui::End();
 }
 
@@ -134,6 +148,3 @@ void GuiMusic::draw()
 		audio_source->play();
 	}
 }
-
-
-

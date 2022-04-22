@@ -47,3 +47,14 @@ run `git-clang-format --style=file` before commiting
 ```
 cmake --build . --target unittests --config Debug
 ```
+
+## Benchmarking
+To avoid performance degradation, benchmark often.
+```
+source ../quick_run.sh
+benchmark
+```
+It should print out something like
+```
+Avg FPS=1317.3583, Avg TPS=151418.84
+```

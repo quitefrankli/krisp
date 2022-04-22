@@ -109,7 +109,10 @@ void GraphicsEngine::run() {
 
 			// swap chain draw should be last in execution loop
 			swap_chain.draw();
+
+#ifndef DISABLE_SLEEP
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+#endif
 
 			analytics.stop();
 		}

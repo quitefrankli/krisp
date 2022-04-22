@@ -43,6 +43,10 @@ GameEngine::GameEngine(std::function<void()>&& restart_signaller) :
 	light_source->set_position(glm::vec3(0.0f, 2.0f, 2.0f));
 
 	get_gui_manager().spawn_gui<GuiMusic>(audio_engine.create_source());
+	TPS_counter = std::make_unique<Analytics>([this](float tps) {
+		get_gui_manager().fps_counter.tps = 1e6 / tps;
+	}, 1);
+	TPS_counter->text = "TPS Counter";
 }
 
 void GameEngine::run()
@@ -81,11 +85,18 @@ void GameEngine::run()
 	// spawn_object<HollowCylinder>();
 	// analytics.quick_timer_stop();
 
+	std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
+
+	TPS_counter->start();
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
+		// for ticks per second
+		TPS_counter->stop();
+		TPS_counter->start();
+		
 		std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
 		std::chrono::duration<float, std::milli> chrono_delta_time = new_time - time;
-		const float delta_time = chrono_delta_time.count();
+		const float delta_time = chrono_delta_time.count(); // in milliseconds
 		time = new_time;
 		analytics.start();
 
@@ -151,7 +162,10 @@ void GameEngine::run()
 		animator.process(delta_time / 1e3);
 		experimental->process(delta_time / 1e3);
 		application->on_tick(delta_time / 1e3);
+
+#ifndef DISABLE_SLEEP
 		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+#endif
 
 		analytics.stop();
 	}

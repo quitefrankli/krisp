@@ -23,6 +23,10 @@ add_definitions(-DPROJECT_TOP_LEVEL_SRC_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DPROJECT_BUILD_DIR="${CMAKE_BINARY_DIR}")
 add_definitions(-DPROJECT_BIN_DIR="${CMAKE_BINARY_DIR}/bin")
 
+if(DISABLE_SLEEP)
+	add_definitions(-DDISABLE_SLEEP)
+endif()
+
 file(GLOB_RECURSE 
 	 VulkanSources 
 	 ${CMAKE_SOURCE_DIR}/src/*.cpp
