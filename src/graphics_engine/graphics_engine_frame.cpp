@@ -307,6 +307,26 @@ void GraphicsEngineFrame::update_command_buffer()
 
 		per_obj_draw_fn(graphics_object, pipeline);
 	}
+	
+	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
+	const GraphicsEnginePipeline& stencil_pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STENCIL);
+	for (const auto& it_pair : get_graphics_engine().get_objects())
+	{
+		auto& graphics_object = *(it_pair.second);
+		if (graphics_object.is_marked_for_delete())
+			continue;
+
+		if (!graphics_object.get_game_object().get_visibility())
+			continue;
+		
+		if (graphics_object.get_render_type() == ERenderType::CUBEMAP)
+			continue;
+		
+		vkCmdBindPipeline(command_buffer, 
+							VK_PIPELINE_BIND_POINT_GRAPHICS, 
+							stencil_pipeline.graphics_pipeline); // bind the graphics pipeline
+		per_obj_draw_fn(graphics_object, stencil_pipeline);
+	}
 
 	// render gui
 	get_graphics_engine().get_gui_manager().add_render_cmd(command_buffer);

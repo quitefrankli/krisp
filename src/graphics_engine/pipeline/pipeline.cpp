@@ -75,6 +75,9 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 			shader_path.append("cubemap");
 			front_face = VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; // nice trick to use since our cube is "inside out"
 			break;
+		case ERenderType::STENCIL:
+			shader_path.append("stencil");
+			break;
 		default:
 			shader_path.append("texture");
 			break;
@@ -207,9 +210,34 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 	depth_stencil_info.depthBoundsTestEnable = VK_FALSE; // optional bound test so instead of min/max depths we have both
 	depth_stencil_info.minDepthBounds = 0.0f;
 	depth_stencil_info.maxDepthBounds = 0.0f;
-	depth_stencil_info.stencilTestEnable = VK_FALSE; // stencil buffer operationhs
-	depth_stencil_info.front = {};
-	depth_stencil_info.back = {};
+	depth_stencil_info.stencilTestEnable = render_type == ERenderType::CUBEMAP ? false : true; // stencil buffer operationhs
+
+	depth_stencil_info.front = [&]() {
+		VkStencilOpState stencil_op_state{};
+		stencil_op_state.compareMask = UINT32_MAX;
+		stencil_op_state.writeMask = UINT32_MAX;
+		stencil_op_state.reference = UINT32_MAX;
+
+		// render all objects twice
+		// on first render always succeed and write 1 to stencil buffer
+		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
+		if (render_type == ERenderType::STENCIL)
+		{
+			// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
+			stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
+			// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
+			stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+			stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+			stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		} else {
+			stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
+			stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_REPLACE;
+			stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+			stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		}
+
+		return stencil_op_state;
+	}();
 
 	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info{};
 	graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

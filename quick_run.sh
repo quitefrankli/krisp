@@ -6,8 +6,13 @@ function run () {
 
 function benchmark() {
 	# only works for windows
-	cmake -DCMAKE_BUILD_TYPE=Release -DDISABLE_SLEEP=1 .. -A x64
+	set -e
+	mkdir -p benchmark
+	cd benchmark
+	conan install -s build_type=Release ../..
+	cmake -DCMAKE_BUILD_TYPE=Release -DDISABLE_SLEEP=1 ../.. -A x64
 	cmake --build . --target benchmark --config Release
-	../compile.sh
+	../../compile.sh
 	bin/benchmark
+	cd ..
 }
