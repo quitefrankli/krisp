@@ -44,11 +44,13 @@ int main()
 			GameEngine engine([&restart_signal](){restart_signal=true;});
 			const float limit = 100.0f;
 			const int num_objs = 900;
-			for (int i = 0; i < num_objs; i++)
-				engine.spawn_object<Sphere>().set_position(glm::vec3(
-					Utility::get_rand(-limit, limit),
-					Utility::get_rand(-limit, limit),
-					Utility::get_rand(-limit, limit)));
+			for (float y = -30; y < 30; y+=2)
+			{
+				for (float x = -30; x < 30; x+=2)
+				{
+					engine.spawn_object<Sphere>().set_position(glm::vec3(x, y, 75));
+				}
+			}
 			Application benchmarker(engine);
 			engine.run();
 		} while (restart_signal);
