@@ -47,6 +47,7 @@ public:
 	void point(const glm::vec3& start, const glm::vec3& end);
 
 	virtual bool check_collision(const Maths::Ray& ray) override;
+	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 
 public:
 	const float RADIUS = 0.05f;
