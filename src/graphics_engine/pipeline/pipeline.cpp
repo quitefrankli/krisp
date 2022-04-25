@@ -66,7 +66,7 @@ GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine, ERenderTy
 			break;
 		case ERenderType::WIREFRAME:
 			polygon_mode = VK_POLYGON_MODE_LINE;
-			shader_path.append("color");
+			shader_path.append("wireframe");
 			break;
 		case ERenderType::LIGHT_SOURCE:
 			shader_path.append("light_source");
