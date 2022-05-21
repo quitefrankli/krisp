@@ -232,7 +232,7 @@ void GraphicsEngineFrame::update_command_buffer()
 							0,
 							nullptr);
 
-	auto per_obj_draw_fn = [&](GraphicsEngineObject& object, const GraphicsEnginePipeline& pipeline)
+	const auto per_obj_draw_fn = [&](const GraphicsEngineObject& object, const GraphicsEnginePipeline& pipeline)
 	{
 		const auto& shapes = object.get_shapes();
 
@@ -291,9 +291,10 @@ void GraphicsEngineFrame::update_command_buffer()
 		const auto type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
 		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
 	};
-	for (const auto& it_pair : get_graphics_engine().get_objects())
+	const auto& graphics_objects = get_graphics_engine().get_objects();
+	for (const auto& it_pair : graphics_objects)
 	{
-		auto& graphics_object = *(it_pair.second);
+		const auto& graphics_object = *(it_pair.second);
 		if (graphics_object.is_marked_for_delete())
 			continue;
 
@@ -310,9 +311,13 @@ void GraphicsEngineFrame::update_command_buffer()
 	
 	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
 	const GraphicsEnginePipeline& stencil_pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STENCIL);
-	for (const auto& it_pair : get_graphics_engine().get_objects())
+	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
 	{
-		auto& graphics_object = *(it_pair.second);
+		const auto it_obj = graphics_objects.find(id);
+		if (it_obj == graphics_objects.end())
+			continue;
+
+		const auto& graphics_object = *it_obj->second;
 		if (graphics_object.is_marked_for_delete())
 			continue;
 

@@ -24,13 +24,7 @@ public:
 	void process(GraphicsEngine* engine) override;
 };
 
-class ObjectCommand : public GraphicsEngineCommand
-{
-public:
-	uint64_t object_id;
-};
-
-class SpawnObjectCmd : public ObjectCommand
+class SpawnObjectCmd : public GraphicsEngineCommand
 {
 public:
 	SpawnObjectCmd(const std::shared_ptr<Object>& object);
@@ -43,10 +37,35 @@ private:
 	Object* object_ref = nullptr; // used for a GraphicsEngineObjectRef type object
 };
 
+class ObjectCommand : public GraphicsEngineCommand
+{
+public:
+	ObjectCommand(const Object& object);
+	virtual ~ObjectCommand() = 0 {};
+
+	const uint64_t object_id;
+};
+
 class DeleteObjectCmd : public ObjectCommand
 {
 public:
-	DeleteObjectCmd(const uint64_t id) { object_id = id; }
+	DeleteObjectCmd(const Object& object) : ObjectCommand(object) {}
+
+	void process(GraphicsEngine* engine) override;
+};
+
+class StencilObjectCmd : public ObjectCommand
+{
+public:
+	StencilObjectCmd(const Object& object) : ObjectCommand(object) {}
+
+	void process(GraphicsEngine* engine) override;
+};
+
+class UnStencilObjectCmd : public ObjectCommand
+{
+public:
+	UnStencilObjectCmd(const Object& object) : ObjectCommand(object) {}
 
 	void process(GraphicsEngine* engine) override;
 };

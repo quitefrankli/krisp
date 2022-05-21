@@ -60,10 +60,24 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 	}
 }
 
+ObjectCommand::ObjectCommand(const Object& object) : object_id(object.get_id())
+{
+}
+
 void DeleteObjectCmd::process(GraphicsEngine* engine)
 {
 	engine->get_swap_chain().get_prev_frame().mark_obj_for_delete(object_id);
 	engine->get_objects()[object_id]->mark_for_delete();
+}
+
+void StencilObjectCmd::process(GraphicsEngine* engine)
+{
+	engine->stenciled_objects.insert(object_id);
+}
+
+void UnStencilObjectCmd::process(GraphicsEngine* engine)
+{
+	engine->stenciled_objects.erase(object_id);
 }
 
 void ShutdownCmd::process(GraphicsEngine* engine)

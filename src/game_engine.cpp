@@ -195,8 +195,18 @@ void GameEngine::delete_object(obj_id_t id)
 		LOG_ERROR(Utility::get().get_logger(), "GameEngine::delete_object: attempted to delete non-existant object");
 		return;
 	}
+	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(*(it_obj->second)));
 	objects.erase(it_obj);
-	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
+}
+
+void GameEngine::highlight_object(const Object& object)
+{
+	graphics_engine->enqueue_cmd(std::make_unique<StencilObjectCmd>(object));
+}
+
+void GameEngine::unhighlight_object(const Object& object)
+{
+	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object));
 }
 
 GuiManager& GameEngine::get_gui_manager()

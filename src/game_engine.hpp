@@ -71,6 +71,8 @@ public:
 	}
 
 	void delete_object(obj_id_t id);
+	void highlight_object(const Object& object);
+	void unhighlight_object(const Object& object);
 	void restart();
 
 	void set_application(IApplication* application) { this->application=application; }

@@ -21,6 +21,7 @@
 #include <vector>
 #include <mutex>
 #include <queue>
+#include <unordered_set>
 
 
 class Analytics;
@@ -57,6 +58,7 @@ public: // getters and setters
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
 	auto& get_objects() { return objects; }
+	auto& get_stenciled_object_ids() { return stenciled_objects; }
 	auto& get_light_sources() { return light_sources; }
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
 	VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
@@ -98,6 +100,7 @@ private:
 	std::vector<std::vector<Vertex>> vertex_sets;
 	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject>> objects;
 	std::unordered_map<uint64_t, std::reference_wrapper<const LightSource>> light_sources;
+	std::unordered_set<uint64_t> stenciled_objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 
@@ -157,4 +160,6 @@ public: // thread safe
 private: // friends
 	friend SpawnObjectCmd;
 	friend DeleteObjectCmd;
+	friend StencilObjectCmd;
+	friend UnStencilObjectCmd;
 };

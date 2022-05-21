@@ -263,8 +263,8 @@ void Gizmo::select_object(Object* obj)
 	}
 
 	// gizmo can only be attached to 1 obj at a time
-	fmt::print("Gizmo::select_object: obj_id={}\n", obj->get_id());
 	deselect();
+	engine.highlight_object(*obj);
 	selected_object = obj;
 	set_position(selected_object->get_position());
 	set_rotation(selected_object->get_rotation());
@@ -287,6 +287,7 @@ void Gizmo::deselect()
 	if (!selected_object)
 		return;
 
+	engine.unhighlight_object(*selected_object);
 	selected_object->detach_from();
 	selected_object = nullptr;
 
