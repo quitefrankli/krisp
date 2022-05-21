@@ -60,6 +60,7 @@ public:
 	Arc(Arc&&) = delete;
 
 	virtual bool check_collision(const Maths::Ray& ray) override;
+	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 
 	const float outer_radius = 1.0f;
 	const float inner_radius = 0.8f;

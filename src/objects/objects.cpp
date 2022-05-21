@@ -276,7 +276,7 @@ bool Arrow::check_collision(const Maths::Ray& ray)
 bool Arrow::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
 {
 	// TODO: clean this up
-	
+
 	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
 	const Maths::Sphere collision_sphere(
 		get_position() + get_scale().z * axis * 0.5f,
@@ -393,6 +393,12 @@ Arc::Arc()
 
 bool Arc::check_collision(const Maths::Ray& ray)
 {
+	glm::vec3 intersection;
+	return check_collision(ray, intersection);
+}
+
+bool Arc::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
+{
 	// imagine an arc as a plane, the default has a normal = upvector
 	const Maths::Plane plane(get_position(), glm::normalize(get_rotation() * Maths::forward_vec));
 
@@ -400,8 +406,8 @@ bool Arc::check_collision(const Maths::Ray& ray)
 	if (!Maths::check_ray_plane_intersection(ray, plane))
 		return false;
 
-	glm::vec3 P = Maths::ray_plane_intersection(ray, plane);
-	const float dist = glm::distance(P, plane.offset);
+	intersection = Maths::ray_plane_intersection(ray, plane);
+	const float dist = glm::distance(intersection, plane.offset);
 	if (dist > outer_radius || dist < inner_radius)
 	{
 		// not on arc
@@ -411,6 +417,6 @@ bool Arc::check_collision(const Maths::Ray& ray)
 	// this might be a tad inefficient but will do for now
 	// but it essentially unrotates the mathematical representation of the arc
 	// and checks if P lies within the arc
-	glm::vec3 origP = glm::inverse(get_rotation()) * (P - plane.offset);
+	glm::vec3 origP = glm::inverse(get_rotation()) * (intersection - plane.offset);
 	return origP.x > 0 && origP.y > 0;
 }
