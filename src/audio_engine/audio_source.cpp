@@ -2,7 +2,7 @@
 #include "audio_engine.hpp"
 #include "utility.hpp"
 
-#include <OpenAL/al.h>
+#include "openal_include.hpp"
 
 #include <iostream>
 

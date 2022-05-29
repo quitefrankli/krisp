@@ -3,6 +3,7 @@
 #include "state_machine.hpp"
 
 #include <game_engine.hpp>
+#include <graphics_engine/graphics_engine.hpp>
 #include <iapplication.hpp>
 #include <resource_loader.hpp>
 #include <utility.hpp>
@@ -16,10 +17,11 @@
 #include <iostream>
 
 
+using GameEngineT = GameEngine<GraphicsEngine>;
 class Application : public IApplication
 {
 public:
-	Application(GameEngine& engine) : 
+	Application(GameEngineT& engine) : 
 		engine(engine),
 		board(engine)
 	{
@@ -44,7 +46,7 @@ public:
 	}
 
 private:
-	GameEngine& engine;
+	GameEngineT& engine;
 	Board board;
 	Tile* active_tile = nullptr;
 	State* state = State::initial.get();
@@ -58,7 +60,7 @@ int main()
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			restart_signal = false;
-			GameEngine engine([&restart_signal](){restart_signal=true;});
+			GameEngineT engine([&restart_signal](){restart_signal=true;});
 
 			Application app(engine);
 			engine.set_application(&app);

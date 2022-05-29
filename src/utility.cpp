@@ -33,7 +33,7 @@ Utility::Utility()
 	quill::start(); // this will consume CPU cycles
 #endif
 
-	std::cout << models << '\n' << textures << '\n' << build << '\n' << binary << '\n';
+	LOG_INFO(logger, "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", models, textures, build, binary);
 }
 
 std::string Utility::get_texture(const std::string_view texture)

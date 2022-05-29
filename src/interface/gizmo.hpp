@@ -7,13 +7,14 @@
 #include <array>
 
 
-class GameEngine;
+template<typename GameEngineT>
 class Gizmo;
 
+template<typename GameEngineT>
 class GizmoBase : public Object
 {
 public:
-	GizmoBase(GameEngine& engine, Gizmo& gizmo);
+	GizmoBase(GameEngineT& engine, Gizmo<GameEngineT>& gizmo);
 
 	virtual void init() = 0;
 	virtual void set_visibility(bool) override;
@@ -21,8 +22,8 @@ public:
 	void clear_active_axis() { active_axis = nullptr; }
 	
 protected:
-	GameEngine& engine;
-	Gizmo& gizmo;
+	GameEngineT& engine;
+	Gizmo<GameEngineT>& gizmo;
 	virtual bool is_essential_child(Object* child);
 	Maths::TransformationComponents reference_transform;
 	std::array<Object*, 3> axes;
@@ -31,45 +32,96 @@ protected:
 	glm::vec3 p1; // point on plane for first intersection
 };
 
-class TranslationGizmo : public GizmoBase
+template<typename GameEngineT>
+class TranslationGizmo : public GizmoBase<GameEngineT>
 {
 public:
-	using GizmoBase::GizmoBase;
+	using GizmoBase<GameEngineT>::GizmoBase;
 	virtual void init() override;
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	
 private:
+	using GizmoBase<GameEngineT>::engine;
+	using GizmoBase<GameEngineT>::gizmo;
+	using GizmoBase<GameEngineT>::is_essential_child;
+	using GizmoBase<GameEngineT>::reference_transform;
+	using GizmoBase<GameEngineT>::axes;
+	using GizmoBase<GameEngineT>::active_axis;
+	using GizmoBase<GameEngineT>::plane;
+	using GizmoBase<GameEngineT>::p1;
+
+	using Object::get_visibility;
+	using Object::set_visibility;
+	using Object::get_position;
+	using Object::get_rotation;
+
+	friend Gizmo<GameEngineT>;
+
 	Arrow xAxis;
 	Arrow yAxis;
 	Arrow zAxis;
 };
 
-class RotationGizmo : public GizmoBase
+template<typename GameEngineT>
+class RotationGizmo : public GizmoBase<GameEngineT>
 {
 public:
-	using GizmoBase::GizmoBase;
+	using GizmoBase<GameEngineT>::GizmoBase;
 	virtual void init() override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	virtual bool check_collision(const Maths::Ray& ray) override;
 
 private:
+	using GizmoBase<GameEngineT>::engine;
+	using GizmoBase<GameEngineT>::gizmo;
+	using GizmoBase<GameEngineT>::is_essential_child;
+	using GizmoBase<GameEngineT>::reference_transform;
+	using GizmoBase<GameEngineT>::axes;
+	using GizmoBase<GameEngineT>::active_axis;
+	using GizmoBase<GameEngineT>::plane;
+	using GizmoBase<GameEngineT>::p1;
+
+	using Object::get_visibility;
+	using Object::set_visibility;
+	using Object::get_position;
+	using Object::get_rotation;
+
+	friend Gizmo<GameEngineT>;
+
 	// represents the normal of the arc
 	Arc xAxisNorm;
 	Arc yAxisNorm;
 	Arc zAxisNorm;
 };
 
-class ScaleGizmo : public GizmoBase
+template<typename GameEngineT>
+class ScaleGizmo : public GizmoBase<GameEngineT>
 {
 public:
-	ScaleGizmo(GameEngine& engine, Gizmo& gizmo);
+	ScaleGizmo(GameEngineT& engine, Gizmo<GameEngineT>& gizmo);
 
 	virtual void init() override;
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	
 private:
+	using GizmoBase<GameEngineT>::engine;
+	using GizmoBase<GameEngineT>::gizmo;
+	using GizmoBase<GameEngineT>::is_essential_child;
+	using GizmoBase<GameEngineT>::reference_transform;
+	using GizmoBase<GameEngineT>::axes;
+	using GizmoBase<GameEngineT>::active_axis;
+	using GizmoBase<GameEngineT>::plane;
+	using GizmoBase<GameEngineT>::p1;
+
+	using Object::get_visibility;
+	using Object::set_visibility;
+	using Object::get_position;
+	using Object::get_rotation;
+
+	friend Gizmo<GameEngineT>;
+
 	ScaleGizmoObj xAxis;
 	ScaleGizmoObj yAxis;
 	ScaleGizmoObj zAxis;
@@ -77,10 +129,11 @@ private:
 	const float minimum_scale = 0.1f;
 };
 
+template<typename GameEngineT>
 class Gizmo : public Object
 {
 public:
-	Gizmo(GameEngine& engine);
+	Gizmo(GameEngineT& engine);
 	void init();
 	void select_object(Object* obj);
 	void deselect();
@@ -94,12 +147,12 @@ private:
 	bool scale_mode = false;
 	void toggle_mode();
 
-	TranslationGizmo translation;
-	RotationGizmo rotation;
-	ScaleGizmo scale;
+	TranslationGizmo<GameEngineT> translation;
+	RotationGizmo<GameEngineT> rotation;
+	ScaleGizmo<GameEngineT> scale;
 	Object* selected_object = nullptr;
 	// GizmoBase* active_gizmo = nullptr;
 	bool isActive = false; // when gizmo is selected
-	GameEngine& engine;
-	friend ScaleGizmo;
+	GameEngineT& engine;
+	friend ScaleGizmo<GameEngineT>;
 };

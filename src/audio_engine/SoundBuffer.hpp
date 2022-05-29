@@ -1,6 +1,6 @@
 #pragma once
 
-#include <OpenAL/al.h>
+#include "openal_include.hpp"
 
 #include <string_view>
 

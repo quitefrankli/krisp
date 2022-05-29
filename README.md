@@ -30,9 +30,26 @@ bin/Vulkan.exe
 ```
 conan install -s build_type=[Debug/Release] ..
 cmake -DCMAKE_BUILD_TYPE=[Debug/Release] ..
-cmake --build . --target Vulkan --config [Debug/Release]
+cmake --build . --target Vulkan --config [Debug/Release] -j $NUM_CORES
 sh ../compile.sh
-bin/Vulkan.exe
+bin/Vulkan
+```
+
+for OSX it may be necessary to explicitly add the path of dylibs
+```
+DYLD_LIBRARY_PATH=bin/ bin/Vulkan
+```
+
+on M1 Macs lldb replaces gdb, and "System Integrity Protection" prevents environment variables
+from propagating to lldb, a work-around is to alias it...
+```
+alias lldb=/Applications/Xcode.app/Contents/Developer/usr/bin/lldb
+DYLD_LIBRARY_PATH=bin/ lldb bin/Vulkan
+```
+
+on OSX it may also be necessary to set the compiler explicitly i.e.
+```
+cmake -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@13/bin/clang -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm@13/bin/clang++ -DCMAKE_BUILD_TYPE=Debug ..
 ```
 
 ### Fast Compile

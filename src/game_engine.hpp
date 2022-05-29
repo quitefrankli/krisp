@@ -9,7 +9,6 @@
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
-#include "interface/gizmo.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <chrono>
@@ -20,23 +19,29 @@
 
 class GLFWWindow;
 class Shape;
-class GraphicsEngine;
 class Camera;
-class Simulation;
+template<typename GameEngineT>
 class GuiManager;
+template<typename GameEngineT>
 class Experimental;
+template<typename GameEngineT>
+class Gizmo;
 class IApplication;
 class LightSource;
 class Analytics;
 
 
+template<template<typename> typename GraphicsEngineTemplate>
 class GameEngine
 {
+public:
+	using GraphicsEngineT = GraphicsEngineTemplate<GameEngine>;
+
 public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	GLFWwindow* get_window() { return window.get_window(); }
-	GraphicsEngine& get_graphics_engine() { return *graphics_engine; }
-	GuiManager& get_gui_manager();
+	GraphicsEngineT& get_graphics_engine() { return *graphics_engine; }
+	GuiManager<GameEngine>& get_gui_manager();
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 
 public:
@@ -44,6 +49,7 @@ public:
 	~GameEngine();
 
 	void run();
+	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
 	template<typename object_t, typename... Args>
 	object_t& spawn_object(Args&&... args)
@@ -71,7 +77,7 @@ public:
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 
-	void delete_object(obj_id_t id);
+	void delete_object(uint64_t id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
 	void restart();
@@ -80,26 +86,37 @@ public:
 
 	LightSource* get_light_source() { return light_source; }
 
+	static void set_global_engine(GameEngine* global_engine)
+	{
+		GameEngine::global_engine = global_engine;
+	}
+
+	static GameEngine& get()
+	{
+		return *global_engine;
+	}
+
 private:
-	App::Window window;
+	App::Window<GameEngine> window;
 	AudioEnginePimpl audio_engine;
-    std::unique_ptr<GraphicsEngine> graphics_engine;
+    std::unique_ptr<GraphicsEngineT> graphics_engine;
 	std::unique_ptr<Camera> camera;
-	Gizmo gizmo;
+	std::unique_ptr<Gizmo<GameEngine>> gizmo;
 	Keyboard keyboard;
-	Mouse mouse;
+	std::unique_ptr<Mouse<GameEngine>> mouse;
 	ResourceLoader resource_loader;
 
 	std::atomic<bool> should_shutdown = false;
-	std::unordered_map<obj_id_t, std::shared_ptr<Object>> objects;
+	std::unordered_map<uint64_t, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
-	std::unique_ptr<Experimental> experimental;
+	std::unique_ptr<Experimental<GameEngine>> experimental;
 	LightSource* light_source = nullptr;
 	IApplication* application = nullptr;
 
+	static GameEngine* global_engine;
+
 public:
 	Animator animator;
-	std::vector<std::unique_ptr<Simulation>> simulations;
 
 private:
 	void create_camera();
@@ -122,5 +139,5 @@ private: // callbacks
 	// void pause();
 	
 private: // friends
-	friend Experimental;
+	friend Experimental<GameEngine>;
 };

@@ -1,10 +1,13 @@
+#pragma once
+
 #include "graphics_engine_depth_buffer.hpp"
 
 #include "graphics_engine_texture.hpp"
 #include "graphics_engine.hpp"
 
-GraphicsEngineDepthBuffer::GraphicsEngineDepthBuffer(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine)
+template<typename GraphicsEngineT>
+GraphicsEngineDepthBuffer<GraphicsEngineT>::GraphicsEngineDepthBuffer(GraphicsEngineT& engine) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	VkFormat depth_format = findDepthFormat(get_physical_device());
 	auto extent = get_graphics_engine().get_extent_unsafe();
@@ -21,14 +24,16 @@ GraphicsEngineDepthBuffer::GraphicsEngineDepthBuffer(GraphicsEngine& engine) :
 	view = get_graphics_engine().create_image_view(image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 }
 
-GraphicsEngineDepthBuffer::~GraphicsEngineDepthBuffer()
+template<typename GraphicsEngineT>
+GraphicsEngineDepthBuffer<GraphicsEngineT>::~GraphicsEngineDepthBuffer()
 {
 	vkDestroyImage(get_logical_device(), image, nullptr);
 	vkDestroyImageView(get_logical_device(), view, nullptr);
 	vkFreeMemory(get_logical_device(), memory, nullptr);
 }
 
-VkFormat GraphicsEngineDepthBuffer::find_supported_format(VkPhysicalDevice device, std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+template<typename GraphicsEngineT>
+VkFormat GraphicsEngineDepthBuffer<GraphicsEngineT>::find_supported_format(VkPhysicalDevice device, std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
 	for (auto& format : candidates)
 	{
@@ -45,7 +50,8 @@ VkFormat GraphicsEngineDepthBuffer::find_supported_format(VkPhysicalDevice devic
 	throw std::runtime_error("failed to find supported format!");
 }
 
-VkFormat GraphicsEngineDepthBuffer::findDepthFormat(VkPhysicalDevice device) {
+template<typename GraphicsEngineT>
+VkFormat GraphicsEngineDepthBuffer<GraphicsEngineT>::findDepthFormat(VkPhysicalDevice device) {
     return find_supported_format(
 		device,
         {/*VK_FORMAT_D32_SFLOAT, */VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
@@ -54,6 +60,7 @@ VkFormat GraphicsEngineDepthBuffer::findDepthFormat(VkPhysicalDevice device) {
     );
 }
 
-bool GraphicsEngineDepthBuffer::hasStencilComponent(VkFormat format) {
+template<typename GraphicsEngineT>
+bool GraphicsEngineDepthBuffer<GraphicsEngineT>::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }

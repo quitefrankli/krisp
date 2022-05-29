@@ -9,26 +9,29 @@
 #include <queue>
 
 
-class GraphicsEngine;
+template<typename GraphicsEngineT>
 class GraphicsEngineSwapChain;
+
+template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 
 // Note that frame refers to swap_chain frame and not actual frames
-class GraphicsEngineFrame : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsEngineFrame : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image);
+	GraphicsEngineFrame(GraphicsEngineT& engine, GraphicsEngineSwapChain<GraphicsEngineT>& parent_swapchain, VkImage image);
 	GraphicsEngineFrame(const GraphicsEngineFrame&) = delete;
 	GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept;
 	~GraphicsEngineFrame();
 
 public:
-	void spawn_object(GraphicsEngineObject& object);
+	void spawn_object(GraphicsEngineObject<GraphicsEngineT>& object);
 	void update_command_buffer();
 	void draw();
 
 private:
-	void create_descriptor_sets(GraphicsEngineObject& object);
+	void create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object);
 	void create_command_buffer();
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
@@ -50,7 +53,16 @@ public:
 	void mark_obj_for_delete(uint64_t id);
 
 private:
-	GraphicsEngineSwapChain& swap_chain;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
+	
+	GraphicsEngineSwapChain<GraphicsEngineT>& swap_chain;
 
 	//
 	// Image refers to an image in a swap chain

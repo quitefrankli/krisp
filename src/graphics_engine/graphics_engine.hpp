@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine_base.hpp"
 #include "graphics_engine_validation_layer.hpp"
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
@@ -26,15 +27,16 @@
 
 class Analytics;
 class Camera;
-class GameEngine;
+template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 class LightSource;
 
-class GraphicsEngine
+template<typename GameEngineT>
+class GraphicsEngine : public GraphicsEngineBase
 {
 public:
 	GraphicsEngine() = delete;
-	GraphicsEngine(GameEngine& _game_engine);
+	GraphicsEngine(GameEngineT& game_engine);
 	~GraphicsEngine();
 
 	void run();
@@ -66,39 +68,40 @@ public: // getters and setters
 	VkQueue& get_present_queue() { return present_queue; }
 	VkQueue& get_graphics_queue() { return graphics_queue; }
 	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
-	GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
+	GraphicsEngineSwapChain<GraphicsEngine>& get_swap_chain() { return swap_chain; }
 	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
-	GraphicsEnginePipelineManager& get_pipeline_mgr() { return pipeline_mgr; }
-	GraphicsEngineDepthBuffer& get_depth_buffer() { return depth_buffer; }
-	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
-	GraphicsEngineGuiManager& get_gui_manager() { return gui_manager; }
+	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
+	GraphicsEngineDepthBuffer<GraphicsEngine>& get_depth_buffer() { return depth_buffer; }
+	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
+	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT>& get_graphics_gui_manager() { return gui_manager; }
+	GuiManager<GameEngineT>& get_gui_manager() { return static_cast<GuiManager<GameEngineT>&>(gui_manager); }
 	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
 	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
-	GraphicsResourceManager& get_graphics_resource_manager() { return pool; }
-	GraphicsEngineDevice& get_device_module() { return device; }
+	GraphicsResourceManager<GraphicsEngine>& get_graphics_resource_manager() { return pool; }
+	GraphicsEngineDevice<GraphicsEngine>& get_device_module() { return device; }
 
 private: // flags (these must be before core components)
 	bool should_shutdown = false;
 
 private: // core components
-	GameEngine& game_engine;
-	GraphicsEngineInstance instance;
-	GraphicsEngineValidationLayer validation_layer;
-	GraphicsEngineDevice device;
-	GraphicsEngineTextureManager texture_mgr;
-	GraphicsResourceManager pool;
-	GraphicsEngineDepthBuffer depth_buffer;
-	GraphicsEngineSwapChain swap_chain;
-	GraphicsEnginePipelineManager pipeline_mgr;
-	GraphicsEngineGuiManager gui_manager;
+	GameEngineT& game_engine;
+	GraphicsEngineInstance<GraphicsEngine> instance;
+	GraphicsEngineValidationLayer<GraphicsEngine> validation_layer;
+	GraphicsEngineDevice<GraphicsEngine> device;
+	GraphicsEngineTextureManager<GraphicsEngine> texture_mgr;
+	GraphicsResourceManager<GraphicsEngine> pool;
+	GraphicsEngineDepthBuffer<GraphicsEngine> depth_buffer;
+	GraphicsEngineSwapChain<GraphicsEngine> swap_chain;
+	GraphicsEnginePipelineManager<GraphicsEngine> pipeline_mgr;
+	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT> gui_manager;
 
 private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::vector<std::vector<Vertex>> vertex_sets;
-	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject>> objects;
+	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
 	std::unordered_map<uint64_t, std::reference_wrapper<const LightSource>> light_sources;
 	std::unordered_set<uint64_t> stenciled_objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
@@ -120,7 +123,7 @@ public: // command buffer
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
 public: // buffers
-	void create_object_buffers(GraphicsEngineObject& object);
+	void create_object_buffers(GraphicsEngineObject<GraphicsEngine>& object);
 	
 public:
 	void create_buffer(size_t size, 
@@ -157,9 +160,12 @@ public: // other
 public: // thread safe
 	void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 
-private: // friends
-	friend SpawnObjectCmd;
-	friend DeleteObjectCmd;
-	friend StencilObjectCmd;
-	friend UnStencilObjectCmd;
+public: // commands
+	void handle_command(SpawnObjectCmd& cmd) final;
+	void handle_command(DeleteObjectCmd& cmd) final;
+	void handle_command(StencilObjectCmd& cmd) final;
+	void handle_command(UnStencilObjectCmd& cmd) final;
+	void handle_command(ShutdownCmd& cmd) final;
+	void handle_command(ToggleWireFrameModeCmd& cmd) final;
+	void handle_command(UpdateCommandBufferCmd& cmd) final;
 };

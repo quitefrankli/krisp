@@ -11,7 +11,7 @@ class vulkan_conan(ConanFile):
 	requires = (
 		"glfw/3.3.2",
 		"glm/0.9.8.5@bincrafters/stable",
-		"vulkan-headers/1.2.172",
+		"vulkan-headers/1.3.211.0",
 		"vulkan-loader/1.2.172",
 		"vulkan-validationlayers/1.3.211.0",
 		"stb/20190512@conan/stable",

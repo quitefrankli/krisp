@@ -10,9 +10,9 @@
 #include <iostream>
 
 
-Camera::Camera(GameEngine& engine, float aspect_ratio) :
+Camera::Camera(Listener&& listener, float aspect_ratio) :
 	ITrackableObject(this),
-	listener(std::make_unique<Listener>(engine.get_audio_engine()))
+	listener(std::move(listener))
 {
 	set_position(glm::vec3(0.0f, 0.0f, -2.0f));
 
@@ -25,12 +25,10 @@ Camera::Camera(GameEngine& engine, float aspect_ratio) :
 	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	focus_obj->set_visibility(false);
-	engine.draw_object(focus_obj);
 
 	upvector_obj = std::make_shared<Arrow>();
 	upvector_obj->set_position(get_focus());
 	upvector_obj->set_visibility(false);
-	engine.draw_object(upvector_obj);
 
 	attach_to(focus_obj.get());
 	upvector_obj->attach_to(focus_obj.get());
@@ -181,7 +179,7 @@ void Camera::toggle_visibility()
 
 void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 {
-	const float sensitivity = 0.2f;
+	const float sensitivity = 200.0f;
 	const float magnitude = glm::length(offset) * delta_time * sensitivity;
 
 	// I did some mental maths and actually this checks out

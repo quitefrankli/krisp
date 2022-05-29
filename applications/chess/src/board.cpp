@@ -56,7 +56,8 @@ bool Tile::is_highlighted() const
 	return highlighted.get_visibility();
 }
 
-Board::Board(GameEngine& engine)
+template<typename GameEngineT>
+Board::Board(GameEngineT& engine)
 {
 	ResourceLoader loader;
 	auto chess_set = loader.load_objects(

@@ -7,14 +7,23 @@
 #include <unordered_map>
 
 
-class GraphicsEnginePipelineManager : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsEnginePipelineManager : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEnginePipelineManager(GraphicsEngine& engine);
+	GraphicsEnginePipelineManager(GraphicsEngineT& engine);
 	~GraphicsEnginePipelineManager();
 
-	GraphicsEnginePipeline& get_pipeline(ERenderType type);
+	GraphicsEnginePipeline<GraphicsEngineT>& get_pipeline(ERenderType type);
 
 private:
-	std::unordered_map<ERenderType, GraphicsEnginePipeline> pipelines;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
+	std::unordered_map<ERenderType, GraphicsEnginePipeline<GraphicsEngineT>> pipelines;
 };
