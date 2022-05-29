@@ -41,10 +41,12 @@ class ObjectCommand : public GraphicsEngineCommand
 {
 public:
 	ObjectCommand(const Object& object);
-	virtual ~ObjectCommand() = 0 {};
+	inline virtual ~ObjectCommand() = 0;
 
 	const uint64_t object_id;
 };
+
+ObjectCommand::~ObjectCommand() {}
 
 class DeleteObjectCmd : public ObjectCommand
 {

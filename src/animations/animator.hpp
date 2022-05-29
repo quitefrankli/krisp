@@ -42,7 +42,7 @@ class Animator
 {
 public:
 	void add_animation(std::shared_ptr<Object>& object, glm::mat4& final_transform);
-	void add_animation(std::shared_ptr<Object>& object, glm::mat4& initial_transform, glm::mat4& final_transform);
+	void add_animation(std::shared_ptr<Object>& object, const glm::mat4& initial_transform, const glm::mat4& final_transform);
 	void add_animation(SequentialAnimation&& animation);
 	void process(float delta_time);
 

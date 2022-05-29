@@ -111,7 +111,7 @@ static void load_object_impl(Object& object,
 			Vertex& new_vertex = new_pair.first;
 			vertex_loader(new_vertex, attrib, index);
 
-			auto& unique_vertex_element = unique_vertices.insert(std::move(new_pair));
+			auto unique_vertex_element = unique_vertices.insert(std::move(new_pair));
 			if (unique_vertex_element.second)
 			{
 				new_shape.indices.emplace_back(new_shape.vertices.size());

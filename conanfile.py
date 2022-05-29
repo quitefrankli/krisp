@@ -13,7 +13,7 @@ class vulkan_conan(ConanFile):
 		"glm/0.9.8.5@bincrafters/stable",
 		"vulkan-headers/1.2.172",
 		"vulkan-loader/1.2.172",
-		"vulkan-validationlayers/1.2.154.0",
+		"vulkan-validationlayers/1.3.211.0",
 		"stb/20190512@conan/stable",
 		"tinyobjloader/1.0.6",
 		"quill/1.6.3",
@@ -21,7 +21,7 @@ class vulkan_conan(ConanFile):
 		"libsndfile/1.0.31",
 		# "fmt/8.1.1", # already included by quill
 		"imgui/1.85",
-		"gtest/1.11.0",
+		"gtest/1.8.1",
 	) 
 
 	generators = (

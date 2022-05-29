@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <functional>
+#include <vector>
 
 
 class GameEngine;

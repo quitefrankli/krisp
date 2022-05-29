@@ -47,13 +47,13 @@ void SpawnObjectCmd::process(GraphicsEngine* engine)
 
 	if (object_ref)
 	{
-		auto& graphics_object = engine->objects.emplace(
+		auto graphics_object = engine->objects.emplace(
 			object_ref->get_id(),
 			std::make_unique<GraphicsEngineObjectRef>(*engine, *object_ref));
 		spawn_object(*graphics_object.first->second);
 	} else {
 		auto id = object->get_id();
-		auto& graphics_object = engine->objects.emplace(
+		auto graphics_object = engine->objects.emplace(
 			id,
 			std::make_unique<GraphicsEngineObjectPtr>(*engine, std::move(object)));
 		spawn_object(*graphics_object.first->second);

@@ -2,6 +2,8 @@
 
 #include "maths.hpp"
 
+#include <unordered_map>
+
 
 void Shape::transform_vertices(const glm::mat4& transform)
 {
@@ -71,7 +73,7 @@ void Shape::deduplicate_vertices()
 	uint32_t true_vertex_index = 0;
 	for (auto& vertex : vertices)
 	{
-		auto& unique_vertex_element = unique_vertices.try_emplace(std::move(vertex), true_vertex_index);
+		auto unique_vertex_element = unique_vertices.try_emplace(std::move(vertex), true_vertex_index);
 		if (unique_vertex_element.second)
 		{
 			// new vertex

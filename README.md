@@ -1,10 +1,13 @@
 ## Build
 This project uses conan + cmake + msbuild for its buildsystem as of ver 1.0.0
 
-## Process
+## Initial Setup
 ```
-git clone ...
+git clone $THIS_PROJECT
 mkdir build && cd build
+conda install conan
+conan remote add bincrafters https://bincrafters.jfrog.io/artifactory/api/conan/public-conan
+conan config set general.revisions_enabled=1
 ```
 
 ### Using conan build
@@ -14,10 +17,19 @@ conan build ..
 bin/Vulkan.exe
 ```
 
-### Using command line
+### Using command line (for Windows)
 ```
 conan install -s build_type=[Debug/Release] ..
 cmake -DCMAKE_BUILD_TYPE=[Debug/Release] .. -A x64
+cmake --build . --target Vulkan --config [Debug/Release]
+sh ../compile.sh
+bin/Vulkan.exe
+```
+
+### Using command line (for OS X)
+```
+conan install -s build_type=[Debug/Release] ..
+cmake -DCMAKE_BUILD_TYPE=[Debug/Release] ..
 cmake --build . --target Vulkan --config [Debug/Release]
 sh ../compile.sh
 bin/Vulkan.exe
