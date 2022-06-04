@@ -52,7 +52,6 @@ target_link_libraries(Vulkan VulkanLibs ${CONAN_LIBS})
 add_subdirectory(applications)
 add_subdirectory(shared_lib)
 enable_testing()
-add_subdirectory(test)
 
 # could be useful for recompiling shaders or dynamic library
 # add_custom_command(
