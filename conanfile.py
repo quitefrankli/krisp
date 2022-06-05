@@ -12,7 +12,7 @@ class vulkan_conan(ConanFile):
 		"glfw/3.3.2",
 		"glm/0.9.9.8",
 		"vulkan-headers/1.3.211.0",
-		"vulkan-loader/1.2.172",
+		"vulkan-loader/1.3.211.0",
 		"vulkan-validationlayers/1.3.211.0",
 		"stb/20190512@conan/stable",
 		"tinyobjloader/1.0.6",
