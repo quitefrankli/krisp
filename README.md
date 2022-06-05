@@ -27,6 +27,9 @@ bin/Vulkan.exe
 ```
 
 ### Using command line (for OS X)
+
+**Note: only windows is supported currently, however OSX can be used for developing unittests**
+
 ```
 conan install -s build_type=[Debug/Release] ..
 cmake -DCMAKE_BUILD_TYPE=[Debug/Release] ..
@@ -55,6 +58,8 @@ cmake -DCMAKE_C_COMPILER=/opt/homebrew/opt/llvm@13/bin/clang -DCMAKE_CXX_COMPILE
 ### Fast Compile
 Using a runtime linking shared library, experimental functionality can be tested without restarting the application
 
+**Note: only windows is supported currently**
+
 ~~**1. Command Line**~~
 
 ~~compile and generate a new dll~~ **UPDATE: step 1 is no longer necessary, but leaving it in incase it's necessary for manual testing**
@@ -78,6 +83,9 @@ cmake --build . --target unittests --config Debug
 ```
 
 ## Benchmarking
+
+**Note: only windows is supported currently**
+
 To avoid performance degradation, benchmark often.
 ```
 source ../quick_run.sh

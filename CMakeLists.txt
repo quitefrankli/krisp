@@ -58,9 +58,12 @@ target_include_directories(VulkanLibs PUBLIC ${VulkanIncludes})
 add_executable(Vulkan ${CMAKE_SOURCE_DIR}/src/main.cpp) # bit annoying but seems we need to include at least 1 source file
 target_link_libraries(Vulkan VulkanLibs ${CONAN_LIBS})
 
-add_subdirectory(applications)
-add_subdirectory(shared_lib)
+if(WIN32)
+	add_subdirectory(applications)
+	add_subdirectory(shared_lib)
+endif()
 enable_testing()
+add_subdirectory(test)
 
 # could be useful for recompiling shaders or dynamic library
 # add_custom_command(
