@@ -1,17 +1,15 @@
 #pragma once
 
 #include "board.hpp"
+#include "chess_engine.hpp"
 
 #include <memory>
 
 
 class Object;
-template<typename GameEngineT>
-class Initial;
-template<typename GameEngineT>
-class PieceSelected;
+struct Initial;
+struct PieceSelected;
 
-template<typename GameEngineT>
 struct State
 {
 	static std::unique_ptr<Initial> initial;
@@ -24,18 +22,16 @@ struct State
 };
 
 // when nothing is selected
-template<typename GameEngineT>
-struct Initial : public State<GameEngineT>
+struct Initial : public State
 {
-	virtual State<GameEngineT>* process(Object&) override;
+	virtual State* process(Object&) override;
 
 };
 
 // when a piece gets selected
-template<typename GameEngineT>
-struct PieceSelected : public State<GameEngineT>
+struct PieceSelected : public State
 {
-	virtual State<GameEngineT>* process(Object&) override;
+	virtual State* process(Object&) override;
 
 	Tile* current_tile = nullptr;
 };

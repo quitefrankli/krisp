@@ -1,3 +1,4 @@
+#include "chess_engine.hpp"
 #include "pieces.hpp"
 #include "board.hpp"
 #include "state_machine.hpp"
@@ -16,8 +17,6 @@
 
 #include <iostream>
 
-
-using GameEngineT = GameEngine<GraphicsEngine>;
 class Application : public IApplication
 {
 public:

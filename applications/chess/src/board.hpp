@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chess_engine.hpp"
 #include "pieces.hpp"
 
 #include <objects/object.hpp>
@@ -39,7 +40,6 @@ private:
 class Board : public Object
 {
 public:
-	template<typename GameEngineT>
 	Board(GameEngineT& engine);
 
 	Tile* get_tile(int x, int y)

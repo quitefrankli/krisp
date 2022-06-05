@@ -56,7 +56,6 @@ bool Tile::is_highlighted() const
 	return highlighted.get_visibility();
 }
 
-template<typename GameEngineT>
 Board::Board(GameEngineT& engine)
 {
 	ResourceLoader loader;

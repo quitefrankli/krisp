@@ -8,7 +8,7 @@
 std::unique_ptr<Initial> State::initial = std::make_unique<Initial>();
 std::unique_ptr<PieceSelected> State::piece_selected = std::make_unique<PieceSelected>();
 Board* State::board = nullptr;
-GameEngine* State::engine = nullptr;
+GameEngineT* State::engine = nullptr;
 
 State* Initial::process(Object& object)
 {
