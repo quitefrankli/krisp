@@ -1,13 +1,13 @@
 #include "hot_reload.hpp"
 #include "utility.hpp"
 
-#include <windows.h>
-
 #include <filesystem>
 #include <string>
 #include <iostream>
 #include <regex>
 
+#ifdef __WIN32
+#include <windows.h>
 
 static HotReload hot_reload;
 static HMODULE handle = nullptr;
@@ -103,3 +103,27 @@ bool HotReload::load_dll(bool throw_on_no_runtime_lib)
 
 	return true;
 }
+
+#else
+HotReload& HotReload::get() 
+{ 
+	throw std::runtime_error("HotReload is unsupported for current platform!");
+}
+
+void HotReload::reload()
+{
+	throw std::runtime_error("HotReload is unsupported for current platform!");
+}
+
+bool HotReload::generate_new_dll(bool throw_on_fail)
+{
+	throw std::runtime_error("HotReload is unsupported for current platform!");
+	return true;
+}
+
+bool HotReload::load_dll(bool throw_on_no_runtime_lib)
+{
+	throw std::runtime_error("HotReload is unsupported for current platform!");
+	return true;
+}
+#endif

@@ -6,7 +6,6 @@
 #include <maths.hpp>
 
 
-class GameEngine;
 class ActiveTile;
 
 class VisualTile : public Object
@@ -40,7 +39,8 @@ private:
 class Board : public Object
 {
 public:
-	Board(GameEngine& engine);
+	template<typename GameEngineT>
+	Board(GameEngineT& engine);
 
 	Tile* get_tile(int x, int y)
 	{

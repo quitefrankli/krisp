@@ -1,4 +1,5 @@
 #include "game_engine.hpp"
+#include <graphics_engine/graphics_engine.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -21,7 +22,7 @@ int main()
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			restart_signal = false;
-			GameEngine engine([&restart_signal](){restart_signal=true;});
+			GameEngine<GraphicsEngine> engine([&restart_signal](){restart_signal=true;});
 			engine.run();
 		} while (restart_signal);
     } catch (const std::exception& e) {

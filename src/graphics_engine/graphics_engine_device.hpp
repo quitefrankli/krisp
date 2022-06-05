@@ -5,12 +5,11 @@
 #include <vulkan/vulkan.hpp>
 
 
-class GraphicsEngine;
-
-class GraphicsEngineDevice : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsEngineDevice : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineDevice(GraphicsEngine& engine);
+	GraphicsEngineDevice(GraphicsEngineT& engine);
 	~GraphicsEngineDevice();
 	
 	VkDevice& get_logical_device() override { return logical_device; }
@@ -23,6 +22,14 @@ public:
 	const VkPhysicalDeviceProperties& get_physical_device_properties();
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	
 	bool bPhysicalDevicePropertiesCached = false;
 
 	VkPhysicalDevice physicalDevice;

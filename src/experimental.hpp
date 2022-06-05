@@ -13,10 +13,11 @@
 
 static int tmp = 0;
 static uint64_t tmp2;
+template<typename GameEngineT>
 class Experimental
 {
 public:
-	Experimental(GameEngine& engine_) : 
+	Experimental(GameEngineT& engine_) : 
 		engine(engine_)
 	{
 	}
@@ -45,7 +46,7 @@ public:
 	}
 
 private:
-	GameEngine& engine;
+	GameEngineT& engine;
 	float time_elapsed = 0;
 	Cube cube;
 };

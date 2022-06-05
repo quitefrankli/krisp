@@ -1,4 +1,5 @@
 #include <game_engine.hpp>
+#include <graphics_engine/graphics_engine.hpp>
 #include <utility.hpp>
 #include <iapplication.hpp>
 
@@ -7,18 +8,18 @@
 
 #include <iostream>
 
-
+using GameEngineT = GameEngine<GraphicsEngine>;
 class Application : public DummyApplication
 {
 public:
-	Application(GameEngine& engine) : engine(engine) 
+	Application(GameEngineT& engine) : engine(engine) 
 	{
 		engine.set_application(this);
 	}
 
 	const float max_time = 5.0f; // in secs
 	float elapsed = 0.0f;
-	GameEngine& engine;
+	GameEngineT& engine;
 
 	virtual void on_tick(float delta) override
 	{
@@ -41,7 +42,7 @@ int main()
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			restart_signal = false;
-			GameEngine engine([&restart_signal](){restart_signal=true;});
+			GameEngineT engine([&restart_signal](){restart_signal=true;});
 			const float limit = 100.0f;
 			const int num_objs = 900;
 			for (float y = -30; y < 30; y+=2)

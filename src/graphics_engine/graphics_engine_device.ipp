@@ -1,3 +1,5 @@
+#pragma once
+
 #include "graphics_engine.hpp"
 #include "queues.hpp"
 #include "utility_functions.hpp"
@@ -6,21 +8,24 @@
 #include <set>
 
 
-GraphicsEngineDevice::GraphicsEngineDevice(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine)
+template<typename GraphicsEngineT>
+GraphicsEngineDevice<GraphicsEngineT>::GraphicsEngineDevice(GraphicsEngineT& engine) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	pick_physical_device();
 	print_physical_device_settings();
 	create_logical_device();
 }
 
-GraphicsEngineDevice::~GraphicsEngineDevice()
+template<typename GraphicsEngineT>
+GraphicsEngineDevice<GraphicsEngineT>::~GraphicsEngineDevice()
 {
 	vkDestroyDevice(get_logical_device(), nullptr);
 	// note that physical device does not need to be destroyed
 }
 
-void GraphicsEngineDevice::pick_physical_device()
+template<typename GraphicsEngineT>
+void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(get_instance(), &deviceCount, nullptr);
@@ -49,7 +54,7 @@ void GraphicsEngineDevice::pick_physical_device()
 			return false;
 		}
 
-		SwapChainSupportDetails swap_chain_support = GraphicsEngineSwapChain::query_swap_chain_support(device, get_graphics_engine().get_window_surface());
+		SwapChainSupportDetails swap_chain_support = GraphicsEngineSwapChain<GraphicsEngineT>::query_swap_chain_support(device, get_graphics_engine().get_window_surface());
 		if (swap_chain_support.formats.empty() || swap_chain_support.presentModes.empty())
 		{
 			return false;
@@ -79,7 +84,8 @@ void GraphicsEngineDevice::pick_physical_device()
 	}
 }
 
-bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
+template<typename GraphicsEngineT>
+bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
 {
 	uint32_t extensionCount;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -97,7 +103,8 @@ bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice devic
 	return required_extensions.empty();
 }
 
-void GraphicsEngineDevice::create_logical_device()
+template<typename GraphicsEngineT>
+void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 {
 	QueueFamilyIndices indices = get_graphics_engine().findQueueFamilies(physicalDevice);
 
@@ -129,7 +136,7 @@ void GraphicsEngineDevice::create_logical_device()
 	create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
 	c_style_str_array c_style_device_extensions(device_extensions);
 	create_info.ppEnabledExtensionNames = c_style_device_extensions.data();
-	auto validation_layers = GraphicsEngineValidationLayer::get_layers();
+	auto validation_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
 	create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
 	create_info.ppEnabledLayerNames = validation_layers.data();
 
@@ -143,7 +150,8 @@ void GraphicsEngineDevice::create_logical_device()
 	vkGetDeviceQueue(logical_device, indices.graphicsFamily.value(), 0, &get_graphics_engine().get_graphics_queue());
 }
 
-void GraphicsEngineDevice::print_physical_device_settings()
+template<typename GraphicsEngineT>
+void GraphicsEngineDevice<GraphicsEngineT>::print_physical_device_settings()
 {
 	VkPhysicalDeviceProperties properties;
 	vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -153,7 +161,8 @@ void GraphicsEngineDevice::print_physical_device_settings()
 		"\n\tmaxMSAA_Samples: " << get_max_usable_msaa() << '\n';
 }
 
-const VkPhysicalDeviceProperties& GraphicsEngineDevice::get_physical_device_properties()
+template<typename GraphicsEngineT>
+const VkPhysicalDeviceProperties& GraphicsEngineDevice<GraphicsEngineT>::get_physical_device_properties()
 {
 	if (!bPhysicalDevicePropertiesCached)
 	{
@@ -164,7 +173,8 @@ const VkPhysicalDeviceProperties& GraphicsEngineDevice::get_physical_device_prop
 	return physical_device_properties;
 }
 
-VkSampleCountFlagBits GraphicsEngineDevice::get_max_usable_msaa()
+template<typename GraphicsEngineT>
+VkSampleCountFlagBits GraphicsEngineDevice<GraphicsEngineT>::get_max_usable_msaa()
 {
 	auto properties = get_physical_device_properties();
 

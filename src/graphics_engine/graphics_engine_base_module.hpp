@@ -3,12 +3,11 @@
 #include "vulkan/vulkan.hpp"
 
 
-class GraphicsEngine;
-
+template<typename GraphicsEngineT>
 class GraphicsEngineBaseModule
 {
 public:
-	virtual GraphicsEngine& get_graphics_engine() { return graphics_engine; }
+	virtual GraphicsEngineT& get_graphics_engine() { return graphics_engine; }
 	virtual VkDevice& get_logical_device();
 	virtual VkPhysicalDevice& get_physical_device();
 	virtual VkInstance& get_instance();
@@ -25,7 +24,7 @@ public:
 	GraphicsEngineBaseModule(const GraphicsEngineBaseModule&) = delete;
 	GraphicsEngineBaseModule& operator=(const GraphicsEngineBaseModule&) = delete;
 
-	GraphicsEngineBaseModule(GraphicsEngine& graphics_engine);
+	GraphicsEngineBaseModule(GraphicsEngineT& graphics_engine);
 	GraphicsEngineBaseModule(GraphicsEngineBaseModule&& base_module) noexcept = default;
 
 protected:
@@ -33,5 +32,5 @@ protected:
 	bool should_destroy = true;
 
 private:
-	GraphicsEngine& graphics_engine;
+	GraphicsEngineT& graphics_engine;
 };

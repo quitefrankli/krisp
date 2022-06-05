@@ -10,10 +10,11 @@ class Keyboard
 
 };
 
+template<typename GameEngineT>
 class Mouse
 {
 public:
-	Mouse(App::Window& window);
+	Mouse(App::Window<GameEngineT>& window);
 
 	glm::vec2 orig_pos; // click drag pos
 	glm::vec2 prev_pos; // time delta pos
@@ -28,7 +29,7 @@ public:
 	glm::vec2 get_orig_offset();
 	
 private:
-	App::Window& window;
+	App::Window<GameEngineT>& window;
 };
 
 

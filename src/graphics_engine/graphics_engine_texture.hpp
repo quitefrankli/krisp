@@ -5,12 +5,14 @@
 #include <vulkan/vulkan.hpp>
 
 
+template<typename GraphicsEngineT>
 class GraphicsEngineTextureManager;
 
-class GraphicsEngineTexture : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsEngineTexture : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineTexture(GraphicsEngineTextureManager& manager_, std::string texture_path);
+	GraphicsEngineTexture(GraphicsEngineTextureManager<GraphicsEngineT>& manager_, std::string texture_path);
 	GraphicsEngineTexture(GraphicsEngineTexture&& other) noexcept;
 	~GraphicsEngineTexture();
 
@@ -18,9 +20,17 @@ public:
 	VkSampler get_texture_sampler() const { return texture_sampler; }
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	
 	bool require_cleanup = true;
 
-	GraphicsEngineTextureManager& manager;
+	GraphicsEngineTextureManager<GraphicsEngineT>& manager;
 
 	// while shaders can access pixel values in the buffer,
 	// it's better to use Vk Image Objects as there are some optimisations due

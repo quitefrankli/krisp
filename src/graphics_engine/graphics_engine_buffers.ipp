@@ -1,8 +1,11 @@
+#pragma once
+
 #include "graphics_engine.hpp"
 #include "objects/object.hpp"
 
 
-void GraphicsEngine::create_buffer(size_t size, 
+template<typename GameEngineT>
+void GraphicsEngine<GameEngineT>::create_buffer(size_t size, 
 								   VkBufferUsageFlags usage_flags, 
 								   VkMemoryPropertyFlags memory_flags, 
 								   VkBuffer& buffer, 
@@ -38,7 +41,8 @@ void GraphicsEngine::create_buffer(size_t size,
 	vkBindBufferMemory(get_logical_device(), buffer, device_memory, 0);
 }
 
-void GraphicsEngine::create_object_buffers(GraphicsEngineObject& object)
+template<typename GameEngineT>
+void GraphicsEngine<GameEngineT>::create_object_buffers(GraphicsEngineObject<GraphicsEngine>& object)
 {
 	auto generic_buffer_factory = [&](VkBuffer& buffer, 
 									  VkDeviceMemory& memory, 
@@ -92,7 +96,7 @@ void GraphicsEngine::create_object_buffers(GraphicsEngineObject& object)
 								size_t offset = 0;
 								for (const auto& shape : object.get_shapes())
 								{
-									size_t size = shape.vertices.size() * sizeof(decltype(shape.vertices)::value_type);
+									size_t size = shape.vertices.size() * sizeof(typename decltype(shape.vertices)::value_type);
 									memcpy((char*)data + offset, shape.vertices.data(), size);
 									offset += size;
 								}
@@ -106,14 +110,15 @@ void GraphicsEngine::create_object_buffers(GraphicsEngineObject& object)
 								size_t offset = 0;
 								for (const auto& shape : object.get_shapes())
 								{
-									size_t size = shape.indices.size() * sizeof(decltype(shape.indices)::value_type);
+									size_t size = shape.indices.size() * sizeof(typename decltype(shape.indices)::value_type);
 									memcpy((char*)data + offset, shape.indices.data(), size);
 									offset += size;
 								}
 						   });
 }
 
-void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
+template<typename GameEngineT>
+void GraphicsEngine<GameEngineT>::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
 {
 	// memory transfer operations are executed using command buffers
 

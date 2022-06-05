@@ -8,13 +8,14 @@
 
 class Object;
 class Shape;
-class GraphicsEngine;
+template<typename GraphicsEngineT>
 class GraphicsEngineTexture;
 
-class GraphicsEngineObject : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsEngineObject : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineObject(GraphicsEngine& engine, const Object& object);
+	GraphicsEngineObject(GraphicsEngineT& engine, const Object& object);
 
 	~GraphicsEngineObject();
 
@@ -45,7 +46,7 @@ public:
 	bool is_marked_for_delete() const { return marked_for_delete; }
 
 	// I think we need a couple more different derived GraphcisEngineObjects, i.e. light_source/textured/colored
-	const std::vector<GraphicsEngineTexture*>& get_textures() const { return textures; }
+	const std::vector<GraphicsEngineTexture<GraphicsEngineT>*>& get_textures() const { return textures; }
 
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
@@ -55,31 +56,57 @@ public:
 	const ERenderType type;
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+
 	bool marked_for_delete = false;
 
-	std::vector<GraphicsEngineTexture*> textures;
+	std::vector<GraphicsEngineTexture<GraphicsEngineT>*> textures;
 };
 
 // this object derivation CAN be destroyed while graphics engine is running
-class GraphicsEngineObjectPtr : public GraphicsEngineObject
+template<typename GraphicsEngineT>
+class GraphicsEngineObjectPtr : public GraphicsEngineObject<GraphicsEngineT>
 {
 public:
-	GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
+	GraphicsEngineObjectPtr(GraphicsEngineT& engine, std::shared_ptr<Object>&& game_engine_object);
 	
 	const Object& get_game_object() const override;
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+
 	std::shared_ptr<Object> object;
 };
 
 // this object derivation CANNOT be destroyed while graphics engine is running
-class GraphicsEngineObjectRef : public GraphicsEngineObject
+template<typename GraphicsEngineT>
+class GraphicsEngineObjectRef : public GraphicsEngineObject<GraphicsEngineT>
 {
 public:
-	GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object);
+	GraphicsEngineObjectRef(GraphicsEngineT& engine, Object& game_engine_object);
 	
 	const Object& get_game_object() const override;
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	
 	Object& object;
 };

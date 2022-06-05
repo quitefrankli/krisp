@@ -1,3 +1,5 @@
+#pragma once
+
 #include "graphics_resource_manager.hpp"
 
 #include "graphics_engine.hpp"
@@ -7,8 +9,9 @@
 #include <fmt/core.h>
 
 
-GraphicsResourceManager::GraphicsResourceManager(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine),
+template<typename GraphicsEngineT>
+GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngineT& engine) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	high_freq_descriptor_set_layout(descriptor_set_layouts[0]),
 	low_freq_descriptor_set_layout(descriptor_set_layouts[1])
 {
@@ -25,7 +28,8 @@ GraphicsResourceManager::GraphicsResourceManager(GraphicsEngine& engine) :
 	allocate_descriptor_set();
 }
 
-GraphicsResourceManager::~GraphicsResourceManager()
+template<typename GraphicsEngineT>
+GraphicsResourceManager<GraphicsEngineT>::~GraphicsResourceManager()
 {
 	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
 	vkDestroyDescriptorPool(get_logical_device(), descriptor_pool, nullptr);
@@ -38,7 +42,8 @@ GraphicsResourceManager::~GraphicsResourceManager()
 	vkFreeMemory(get_logical_device(), global_uniform_buffer_memory, nullptr);
 }
 
-void GraphicsResourceManager::create_command_pool()
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::create_command_pool()
 {
 	QueueFamilyIndices queue_family_indices = get_graphics_engine().findQueueFamilies(get_physical_device());
 	VkCommandPoolCreateInfo command_pool_create_info{};
@@ -52,7 +57,8 @@ void GraphicsResourceManager::create_command_pool()
 	}
 }
 
-void GraphicsResourceManager::create_descriptor_pool()
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 {
 	const auto& engine = get_graphics_engine();
 
@@ -108,7 +114,8 @@ void GraphicsResourceManager::create_descriptor_pool()
 	}
 }
 
-void GraphicsResourceManager::create_descriptor_set_layout()
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layout()
 {
 	auto create_layout = [this](std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout* layout)
 	{
@@ -157,7 +164,8 @@ void GraphicsResourceManager::create_descriptor_set_layout()
 	}
 }
 
-void GraphicsResourceManager::allocate_descriptor_set()
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 {
 	// allocation + writing for low frequency descriptor sets
 	const int MAX_LOW_FREQ_DESCRIPTOR_SETS = 1;
@@ -211,14 +219,16 @@ void GraphicsResourceManager::allocate_descriptor_set()
 	}
 }
 
-int GraphicsResourceManager::get_max_descriptor_sets() const
+template<typename GraphicsEngineT>
+int GraphicsResourceManager<GraphicsEngineT>::get_max_descriptor_sets() const
 {
 	const int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 1000;
-	return GraphicsEngineSwapChain::EXPECTED_NUM_SWAPCHAIN_IMAGES * MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
+	return GraphicsEngineSwapChain<GraphicsEngineT>::EXPECTED_NUM_SWAPCHAIN_IMAGES * MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 	// return MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 }
 
-std::vector<VkDescriptorSet> GraphicsResourceManager::reserve_descriptor_sets(int n)
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_descriptor_sets(int n)
 {
 	// the reason this function is called 3x for every object spawn
 	// is because we have a bit of a design problem
@@ -239,7 +249,8 @@ std::vector<VkDescriptorSet> GraphicsResourceManager::reserve_descriptor_sets(in
 	return sets;
 }
 
-void GraphicsResourceManager::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
 {
 	// fmt::print("GraphicsResourceManager::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_descriptor_sets.size(), sets.size());
 	for (auto& set : sets)

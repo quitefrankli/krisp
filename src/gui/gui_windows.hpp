@@ -5,10 +5,10 @@
 #include <map>
 #include <string>
 #include <functional>
+#include <vector>
 
 
-class GameEngine;
-
+template<typename GameEngineT>
 class GuiWindow
 {
 public:
@@ -17,14 +17,15 @@ public:
 	virtual ~GuiWindow() = default;
 
 	// used in game engine
-	virtual void process(GameEngine&) {}
+	virtual void process(GameEngineT&) {}
 
 	GuiWindow() = default;
 	GuiWindow(GuiWindow&&) noexcept = default;
 	GuiWindow(const GuiWindow&) = delete;
 };
 
-class GuiGraphicsSettings : public GuiWindow
+template<typename GameEngineT>
+class GuiGraphicsSettings : public GuiWindow<GameEngineT>
 {
 public:
 	GuiGraphicsSettings();
@@ -36,19 +37,20 @@ public:
 	Maths::Ray light_ray;	
 };
 
-class GuiObjectSpawner : public GuiWindow
+template<typename GameEngineT>
+class GuiObjectSpawner : public GuiWindow<GameEngineT>
 {
 public:
 	GuiObjectSpawner();
 
-	virtual void process(GameEngine& engine) override;
+	virtual void process(GameEngineT& engine) override;
 	virtual void draw() override;
 
 public:
 	bool use_texture = false;
 
 private:
-	using spawning_function_type = std::function<void(GameEngine&, bool)>;
+	using spawning_function_type = std::function<void(GameEngineT&, bool)>;
 	std::map<std::string, spawning_function_type> mapping;
 	spawning_function_type* spawning_function = nullptr;
 
@@ -57,7 +59,8 @@ private:
 };
 
 class ImFont;
-class GuiFPSCounter : public GuiWindow
+template<typename GameEngineT>
+class GuiFPSCounter : public GuiWindow<GameEngineT>
 {
 public:
 	GuiFPSCounter(unsigned initial_window_width);
@@ -78,12 +81,14 @@ namespace std {
 		class path;
 	}
 }
-class GuiMusic : public GuiWindow
+
+template<typename GameEngineT>
+class GuiMusic : public GuiWindow<GameEngineT>
 {
 public:
 	GuiMusic(AudioSource&& audio_source);
 	virtual ~GuiMusic() override;
-	virtual void process(GameEngine& engine) override;
+	virtual void process(GameEngineT& engine) override;
 	virtual void draw() override;
 
 private:

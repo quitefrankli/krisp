@@ -5,10 +5,11 @@
 #include <queue>
 
 
-class GraphicsResourceManager : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsResourceManager : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsResourceManager(GraphicsEngine& engine);
+	GraphicsResourceManager(GraphicsEngineT& engine);
 	~GraphicsResourceManager();
 	VkCommandPool& get_command_pool() { return command_pool; }
 	VkDescriptorPool descriptor_pool;
@@ -29,6 +30,14 @@ public:
 	int get_max_descriptor_sets() const;
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	
 	void create_command_pool();
 	void create_descriptor_pool();
 	void create_descriptor_set_layout();

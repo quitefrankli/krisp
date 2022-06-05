@@ -2,6 +2,7 @@
 
 #include "objects/object.hpp"
 #include "objects/tracker.hpp"
+#include "audio_engine/listener.hpp"
 
 #include <glm/mat4x4.hpp>
 #include <glm/vec2.hpp>
@@ -10,17 +11,6 @@
 
 #include "maths.hpp"
 
-// for reference
-// ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), // camera pos
-// 					   glm::vec3(0.0f, 0.0f, 0.0f), // focus point
-// 					   glm::vec3(0.0f, 0.0f, 1.0f)); // upvector, it gives view 'rotation' in most cases this would be actually up, however sometimes we may want it to look upside down
-// ubo.proj = glm::perspective(3.1415f * 45.0f/180.0f, // 45deg fov
-// 							(float)swap_chain_extent.width / (float)swap_chain_extent.height, // aspect ratio same as window
-// 							0.1f, // near plane clipping, closest an object can be to camera
-// 							10.0f); // far plane clipping, furthest away an object can be to camera	
-
-class GameEngine;
-class Listener;
 
 class Camera : public Object, public ITrackableObject
 {
@@ -29,7 +19,7 @@ private:
 	glm::vec3 prev_focus;
 
 public:
-	Camera(GameEngine& engine, float aspect_ratio);
+	Camera(Listener&& listener, float aspect_ratio);
 	~Camera();
 
 	glm::mat4 get_perspective() const;
@@ -84,7 +74,7 @@ protected:
 
 private:
 	Mode mode;
-	std::unique_ptr<Listener> listener;
+	Listener listener;
 
 	using Object::set_transform;
 	using Object::set_position;

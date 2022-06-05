@@ -33,7 +33,7 @@ public:
 		for (int i = 0; i < num_strs; i++)
 		{
 			_data[i] = new char[str_vec[i].size() + 1];
-			strcpy_s(_data[i], str_vec[i].size() + 1, str_vec[i].data());
+			strncpy(_data[i], str_vec[i].data(), str_vec[i].size() + 1);
 		}
 	}
 

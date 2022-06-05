@@ -1,3 +1,5 @@
+#pragma once
+
 #include "graphics_engine_frame.hpp"
 
 #include "graphics_engine.hpp"
@@ -12,10 +14,12 @@
 #include <iostream>
 
 
-int GraphicsEngineFrame::global_image_index = 0;
+template<typename GraphicsEngineT>
+int GraphicsEngineFrame<GraphicsEngineT>::global_image_index = 0;
 
-GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image) :
-	GraphicsEngineBaseModule(engine),
+template<typename GraphicsEngineT>
+GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineT& engine, GraphicsEngineSwapChain<GraphicsEngineT>& parent_swapchain, VkImage image) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	swap_chain(parent_swapchain),
 	image(image)
 {
@@ -49,8 +53,9 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineS
 	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
 
-GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
-	GraphicsEngineBaseModule(frame.get_graphics_engine()),
+template<typename GraphicsEngineT>
+GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
+	GraphicsEngineBaseModule<GraphicsEngineT>(frame.get_graphics_engine()),
 	image(std::move(frame.image)),
 	image_view(std::move(frame.image_view)),
 	frame_buffer(std::move(frame_buffer)),
@@ -67,7 +72,8 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	frame.should_destroy = false;
 }
 
-GraphicsEngineFrame::~GraphicsEngineFrame()
+template<typename GraphicsEngineT>
+GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
 {
 	if (!should_destroy)
 	{
@@ -87,13 +93,15 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	// vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr); // this isn't an actual fence it's rather a reference to the inflight frame fence
 }
 
-void GraphicsEngineFrame::spawn_object(GraphicsEngineObject& object)
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::spawn_object(GraphicsEngineObject<GraphicsEngineT>& object)
 {
 	create_descriptor_sets(object);
 	// update_command_buffer();
 }
 
-void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object)
 {
 	auto& engine = get_graphics_engine();
 	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_graphics_resource_manager().reserve_descriptor_sets(object.get_shapes().size());
@@ -164,7 +172,8 @@ void GraphicsEngineFrame::create_descriptor_sets(GraphicsEngineObject& object)
 	}
 }
 
-void GraphicsEngineFrame::create_command_buffer()
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::create_command_buffer()
 {
 	VkCommandBufferAllocateInfo allocation_info{};
 	allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -180,7 +189,8 @@ void GraphicsEngineFrame::create_command_buffer()
 	// update_command_buffer();
 }
 
-void GraphicsEngineFrame::update_command_buffer()
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 {
 	// wait until command buffer is not used anymore i.e. when frame is no longer inflight
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
@@ -232,7 +242,7 @@ void GraphicsEngineFrame::update_command_buffer()
 							0,
 							nullptr);
 
-	const auto per_obj_draw_fn = [&](const GraphicsEngineObject& object, const GraphicsEnginePipeline& pipeline)
+	const auto per_obj_draw_fn = [&](const GraphicsEngineObject<GraphicsEngineT>& object, const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
 	{
 		const auto& shapes = object.get_shapes();
 
@@ -286,7 +296,7 @@ void GraphicsEngineFrame::update_command_buffer()
 		}
 	};
 
-	const auto get_pipeline = [&](const GraphicsEngineObject& obj) -> GraphicsEnginePipeline&
+	const auto get_pipeline = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>&
 	{
 		const auto type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
 		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
@@ -301,7 +311,7 @@ void GraphicsEngineFrame::update_command_buffer()
 		if (!graphics_object.get_game_object().get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline& pipeline = get_pipeline(graphics_object);
+		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline = get_pipeline(graphics_object);
 		vkCmdBindPipeline(command_buffer, 
 							VK_PIPELINE_BIND_POINT_GRAPHICS, 
 							pipeline.graphics_pipeline); // bind the graphics pipeline
@@ -310,7 +320,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	}
 	
 	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	const GraphicsEnginePipeline& stencil_pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STENCIL);
+	const GraphicsEnginePipeline<GraphicsEngineT>& stencil_pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STENCIL);
 	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
 	{
 		const auto it_obj = graphics_objects.find(id);
@@ -334,7 +344,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	}
 
 	// render gui
-	get_graphics_engine().get_gui_manager().add_render_cmd(command_buffer);
+	get_graphics_engine().get_graphics_gui_manager().add_render_cmd(command_buffer);
 
 	vkCmdEndRenderPass(command_buffer);
 	
@@ -344,7 +354,8 @@ void GraphicsEngineFrame::update_command_buffer()
 	}
 }
 
-void GraphicsEngineFrame::draw()
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::draw()
 {
 	// 1. acquire image from swap chain
 	// 2. execute command buffer with image as attachment in the frame buffer
@@ -451,10 +462,11 @@ void GraphicsEngineFrame::draw()
 	// }
 }
 
-void GraphicsEngineFrame::update_uniform_buffer()
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 {
 	// update global uniform buffer
-	auto& graphic_settings = get_graphics_engine().get_gui_manager().graphic_settings;
+	auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().graphic_settings;
 	GlobalUniformBufferObject gubo;
 	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
 	gubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
@@ -491,7 +503,8 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	}
 }
 
-void GraphicsEngineFrame::create_synchronisation_objects()
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::create_synchronisation_objects()
 {
 	VkSemaphoreCreateInfo semaphore_create_info{};
 	semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -508,12 +521,14 @@ void GraphicsEngineFrame::create_synchronisation_objects()
 	}
 }
 
-void GraphicsEngineFrame::mark_obj_for_delete(uint64_t id)
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::mark_obj_for_delete(uint64_t id)
 {
 	objs_to_delete.push(id);
 }
 
-void GraphicsEngineFrame::pre_cmdbuffer_recording()
+template<typename GraphicsEngineT>
+void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 {
 	while (!objs_to_delete.empty())
 	{

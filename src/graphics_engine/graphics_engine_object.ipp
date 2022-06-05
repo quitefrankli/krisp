@@ -1,11 +1,14 @@
+#pragma once
+
 #include "graphics_engine_object.hpp"
 
 #include "objects/object.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object& object) :
-	GraphicsEngineBaseModule(engine),
+template<typename GraphicsEngineT>
+GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& engine, const Object& object) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	type(object.get_render_type())
 {
 	switch (get_render_type())
@@ -22,7 +25,8 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object&
 	}
 }
 
-GraphicsEngineObject::~GraphicsEngineObject()
+template<typename GraphicsEngineT>
+GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 {
 	vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
 	vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
@@ -38,17 +42,20 @@ GraphicsEngineObject::~GraphicsEngineObject()
 	get_graphics_engine().get_graphics_resource_manager().free_descriptor_sets(descriptor_sets);
 }
 
-const std::vector<Shape>& GraphicsEngineObject::get_shapes() const
+template<typename GraphicsEngineT>
+const std::vector<Shape>& GraphicsEngineObject<GraphicsEngineT>::get_shapes() const
 {
 	return get_game_object().shapes;
 }
 
-uint32_t GraphicsEngineObject::get_num_unique_vertices() const
+template<typename GraphicsEngineT>
+uint32_t GraphicsEngineObject<GraphicsEngineT>::get_num_unique_vertices() const
 {
 	return get_game_object().get_num_unique_vertices();
 }
 
-uint32_t GraphicsEngineObject::get_num_vertex_indices() const
+template<typename GraphicsEngineT>
+uint32_t GraphicsEngineObject<GraphicsEngineT>::get_num_vertex_indices() const
 {
 	return get_game_object().get_num_vertex_indices();
 }
@@ -57,24 +64,28 @@ uint32_t GraphicsEngineObject::get_num_vertex_indices() const
 // Derived objects
 //
 
-GraphicsEngineObjectPtr::GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object) :
-	GraphicsEngineObject(engine, *game_engine_object),
+template<typename GraphicsEngineT>
+GraphicsEngineObjectPtr<GraphicsEngineT>::GraphicsEngineObjectPtr(GraphicsEngineT& engine, std::shared_ptr<Object>&& game_engine_object) :
+	GraphicsEngineObject<GraphicsEngineT>(engine, *game_engine_object),
 	object(std::move(game_engine_object))
 {
 }
 
-const Object& GraphicsEngineObjectPtr::get_game_object() const
+template<typename GraphicsEngineT>
+const Object& GraphicsEngineObjectPtr<GraphicsEngineT>::get_game_object() const
 {
 	return *object;
 }
 
-GraphicsEngineObjectRef::GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object) :
-	GraphicsEngineObject(engine, game_engine_object),
+template<typename GraphicsEngineT>
+GraphicsEngineObjectRef<GraphicsEngineT>::GraphicsEngineObjectRef(GraphicsEngineT& engine, Object& game_engine_object) :
+	GraphicsEngineObject<GraphicsEngineT>(engine, game_engine_object),
 	object(game_engine_object)
 {
 }
 
-const Object& GraphicsEngineObjectRef::get_game_object() const
+template<typename GraphicsEngineT>
+const Object& GraphicsEngineObjectRef<GraphicsEngineT>::get_game_object() const
 {
 	return object;
 }

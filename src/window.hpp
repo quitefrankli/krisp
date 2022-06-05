@@ -4,20 +4,20 @@
 #include <functional>
 
 struct GLFWwindow;
-class GameEngine;
 
 namespace App {
+	template<typename GameEngineT>
 	class Window
 	{
 	private:
 		const int INITIAL_WINDOW_WIDTH = 1400;
 		const int INITIAL_WINDOW_HEIGHT = 800;
 		std::unique_ptr<GLFWwindow, std::function<void(GLFWwindow*)>> window;
-		GameEngine* game_engine;
+		GameEngineT* game_engine;
 
 	public:
 		Window() = delete;
-		Window(GameEngine* game_engine);
+		Window(GameEngineT* game_engine);
 		~Window();
 
 		GLFWwindow* get_window();

@@ -6,7 +6,7 @@
 #include <vulkan/vulkan.hpp>
 
 
-class GraphicsEngine;
+template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 
 struct SwapChainSupportDetails
@@ -16,10 +16,11 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-class GraphicsEngineSwapChain : public GraphicsEngineBaseModule
+template<typename GraphicsEngineT>
+class GraphicsEngineSwapChain : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineSwapChain(GraphicsEngine& engine);
+	GraphicsEngineSwapChain(GraphicsEngineT& engine);
 	~GraphicsEngineSwapChain();
 
 	void reset();
@@ -27,7 +28,7 @@ public:
 	static const int EXPECTED_NUM_SWAPCHAIN_IMAGES = 3;
 	static SwapChainSupportDetails query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface);
 	void update_command_buffer();
-	void spawn_object(GraphicsEngineObject& object);
+	void spawn_object(GraphicsEngineObject<GraphicsEngineT>& object);
 	void draw();
 
 public: // getters
@@ -39,15 +40,23 @@ public: // getters
 	VkImageView get_color_image_view() { return colorImageView; }
 	// assuming swapchain draw call is last in the main graphics execution loop
 	// this will reflect the frame TO BE drawn
-	GraphicsEngineFrame& get_curr_frame() { return frames[current_frame]; }
-	GraphicsEngineFrame& get_prev_frame() { return frames[(current_frame + frames.size() - 1) % frames.size()]; }
+	GraphicsEngineFrame<GraphicsEngineT>& get_curr_frame() { return frames[current_frame]; }
+	GraphicsEngineFrame<GraphicsEngineT>& get_prev_frame() { return frames[(current_frame + frames.size() - 1) % frames.size()]; }
 
 	virtual VkRenderPass get_render_pass() override { return render_pass; }
 
 private:
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
+	
 	VkSwapchainKHR swap_chain;
 	VkExtent2D swap_chain_extent;
-	std::vector<GraphicsEngineFrame> frames;
+	std::vector<GraphicsEngineFrame<GraphicsEngineT>> frames;
 
 	VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& available_formats);
 	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);

@@ -1,3 +1,5 @@
+#pragma once
+
 #include "graphics_engine_gui_manager.hpp"
 #include "graphics_engine.hpp"
 
@@ -9,8 +11,9 @@
 #include <iostream>
 
 
-GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
-	GraphicsEngineBaseModule(engine), GuiManager(engine.get_window_width())
+template<typename GraphicsEngineT, typename GameEngineT>
+GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager(GraphicsEngineT& engine) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine), GuiManager<GameEngineT>(engine.get_window_width())
 {
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForVulkan(engine.get_window(), true);
@@ -37,14 +40,16 @@ GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-GraphicsEngineGuiManager::~GraphicsEngineGuiManager()
+template<typename GraphicsEngineT, typename GameEngineT>
+GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::~GraphicsEngineGuiManager()
 {
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 }
 
-void GraphicsEngineGuiManager::add_render_cmd(VkCommandBuffer& cmd_buffer)
+template<typename GraphicsEngineT, typename GameEngineT>
+void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::add_render_cmd(VkCommandBuffer& cmd_buffer)
 {
 	if (!ImGui::GetDrawData())
 	{
@@ -53,7 +58,8 @@ void GraphicsEngineGuiManager::add_render_cmd(VkCommandBuffer& cmd_buffer)
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd_buffer);
 }
 
-void GraphicsEngineGuiManager::draw()
+template<typename GraphicsEngineT, typename GameEngineT>
+void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::draw()
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -68,7 +74,8 @@ void GraphicsEngineGuiManager::draw()
 	ImGui::Render();
 }
 
-void GraphicsEngineGuiManager::update_fps(const float fps)
+template<typename GraphicsEngineT, typename GameEngineT>
+void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::update_fps(const float fps)
 {
 	fps_counter.fps = fps;
 }

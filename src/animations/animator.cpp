@@ -40,7 +40,7 @@ void Animator::add_animation(std::shared_ptr<Object>& object, glm::mat4& final)
 	add_animation(object, final, object->get_transform());
 }
 
-void Animator::add_animation(std::shared_ptr<Object>& object, glm::mat4& initial_transform, glm::mat4& final_transform)
+void Animator::add_animation(std::shared_ptr<Object>& object, const glm::mat4& initial_transform, const glm::mat4& final_transform)
 {
 	Animation animation;
 	animation.object = object;

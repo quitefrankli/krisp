@@ -6,10 +6,12 @@
 
 
 class Object;
+template<typename GameEngineT>
 class Initial;
+template<typename GameEngineT>
 class PieceSelected;
-class GameEngine;
 
+template<typename GameEngineT>
 struct State
 {
 	static std::unique_ptr<Initial> initial;
@@ -18,20 +20,22 @@ struct State
 	virtual State* process(Object&) = 0;
 
 	static Board* board;
-	static GameEngine* engine;
+	static GameEngineT* engine;
 };
 
 // when nothing is selected
-struct Initial : public State 
+template<typename GameEngineT>
+struct Initial : public State<GameEngineT>
 {
-	virtual State* process(Object&) override;
+	virtual State<GameEngineT>* process(Object&) override;
 
 };
 
 // when a piece gets selected
-struct PieceSelected : public State
+template<typename GameEngineT>
+struct PieceSelected : public State<GameEngineT>
 {
-	virtual State* process(Object&) override;
+	virtual State<GameEngineT>* process(Object&) override;
 
 	Tile* current_tile = nullptr;
 };

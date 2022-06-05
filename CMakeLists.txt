@@ -10,18 +10,27 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAkE_CXX_STANDARD_REQUIRED True)
 
 if(WIN32)
+	message("Detected Windows OS")
 	# for MSVC this will set the limit of max simultaneous TU compiles
 	set(CMAKE_CXX_FLAGS${build_type} "${CMAKE_CXX_FLAGS${build_type}} /MP12")
-else()
+elseif(UNIX)
+	message("Detected Unix OS")
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+	# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+	# add_compile_options(-std=c++17)
+	# add_definitions(-std=c++17)
+else()
+	message(FATAL_ERROR "OS is not supported!")
 endif()
-
-# set(CMAKE_CXX_FLAGS_DEBUG  "-g")
 
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 add_definitions(-DPROJECT_TOP_LEVEL_SRC_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DPROJECT_BUILD_DIR="${CMAKE_BINARY_DIR}")
 add_definitions(-DPROJECT_BIN_DIR="${CMAKE_BINARY_DIR}/bin")
+
+if(PROJECT_ENABLE_LOGGING)
+	add_definitions(-DPROJECT_ENABLE_LOGGING)
+endif()
 
 if(DISABLE_SLEEP)
 	add_definitions(-DDISABLE_SLEEP)

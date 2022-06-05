@@ -1,3 +1,5 @@
+#pragma once
+
 #include "game_engine.hpp"
 
 #include "camera.hpp"
@@ -6,7 +8,6 @@
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility_functions.hpp"
 #include "analytics.hpp"
-#include "simulations/tower_of_hanoi.hpp"
 #include "hot_reload.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
@@ -23,7 +24,8 @@
 #include <chrono>
 
 
-void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
 {
 	if (ImGui::GetIO().WantCaptureKeyboard)
 	{
@@ -43,7 +45,8 @@ void GameEngine::handle_window_callback(GLFWwindow* glfw_window, int key, int sc
 
 static int inc = 0;
 
-void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code, int action, int mode)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_window_callback_impl(GLFWwindow*, int key, int scan_code, int action, int mode)
 {
 	auto pressed_key = glfwGetKeyName(key, scan_code);
 
@@ -110,13 +113,6 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 			}
 			break;
 		}
-		case GLFW_KEY_U: // simulation
-		{
-			if (simulations.empty())
-				simulations.push_back(std::make_unique<TowerOfHanoi>(*this));
-			simulations[0]->start();
-			break;
-		}
 		case GLFW_KEY_R:
 		{
 			switch (mode) {
@@ -130,7 +126,7 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 		}
 		case GLFW_KEY_DELETE:
 		{
-			gizmo.delete_object();
+			gizmo->delete_object();
 			break;
 		}
 		default:
@@ -138,17 +134,20 @@ void GameEngine::handle_window_callback_impl(GLFWwindow*, int key, int scan_code
 	}
 }
 
-void GameEngine::handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height) {
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height) {
 	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_window_resize_callback_impl(glfw_window, width, height);
 }
 
-void GameEngine::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
 {
 	// graphics_engine->set_frame_buffer_resized();
 	// TODO handle resizing of window
 }
 
-void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
 {
 	if (ImGui::GetIO().WantCaptureMouse)
 	{
@@ -166,39 +165,40 @@ void GameEngine::handle_mouse_button_callback(GLFWwindow* glfw_window, int butto
 	}
 }
 
-void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
 {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		if (action == GLFW_PRESS) {
-			mouse.rmb_down = true;
-			mouse.update_pos();
+			mouse->rmb_down = true;
+			mouse->update_pos();
 			camera->update_tracker();
 		} else if (action == GLFW_RELEASE) {
-			mouse.rmb_down = false; 
+			mouse->rmb_down = false; 
 		}
 	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
 	{
 		if (action == GLFW_PRESS)
 		{
-			mouse.update_pos();
-			const Maths::Ray ray = camera->get_ray(mouse.curr_pos);
+			mouse->update_pos();
+			const Maths::Ray ray = camera->get_ray(mouse->curr_pos);
 			if (mode == GLFW_MOD_SHIFT)
 			{
 				for (auto& obj_pair : objects)
 				{
 					if (obj_pair.second->check_collision(ray))
 					{
-						gizmo.select_object(obj_pair.second.get());
+						gizmo->select_object(obj_pair.second.get());
 						return;
 					}
 				}
 
 				// no objects detected deselect everything
-				gizmo.deselect();
+				gizmo->deselect();
 			} else {
-				if (gizmo.is_active())
+				if (gizmo->is_active())
 				{
-					gizmo.check_collision(ray);
+					gizmo->check_collision(ray);
 				} else {
 					Object* closest_object = nullptr;
 					float closest_distance = std::numeric_limits<float>::infinity();
@@ -224,35 +224,37 @@ void GameEngine::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int 
 					}
 				}
 
-				mouse.lmb_down = true;
-				mouse.orig_pos = mouse.curr_pos;
+				mouse->lmb_down = true;
+				mouse->orig_pos = mouse->curr_pos;
 				//tracker.update(gizmo); // old method to update an object's position via click dragging
 			}
 		} else if (action == GLFW_RELEASE)
 		{
-			mouse.lmb_down = false;
+			mouse->lmb_down = false;
 		}
 	} else if (button == GLFW_MOUSE_BUTTON_MIDDLE)
 	{
 		if (action == GLFW_PRESS)
 		{
-			mouse.mmb_down = true;
-			mouse.update_pos();
-			mouse.orig_pos = mouse.curr_pos;
+			mouse->mmb_down = true;
+			mouse->update_pos();
+			mouse->orig_pos = mouse->curr_pos;
 			camera->update_tracker();
 		} else if (action == GLFW_RELEASE)
 		{
-			mouse.mmb_down = false;
+			mouse->mmb_down = false;
 		}
 	}
 }
 
-void GameEngine::handle_scroll_callback(GLFWwindow* glfw_window, double, double yoffset)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_scroll_callback(GLFWwindow* glfw_window, double, double yoffset)
 {
 	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_scroll_callback_impl(glfw_window, yoffset);
 }
 
-void GameEngine::handle_scroll_callback_impl(GLFWwindow* glfw_window, double yoffset)
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::handle_scroll_callback_impl(GLFWwindow* glfw_window, double yoffset)
 {
 	camera->zoom_in(yoffset);
 }

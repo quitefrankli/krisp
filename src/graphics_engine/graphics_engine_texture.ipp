@@ -1,3 +1,5 @@
+#pragma once
+
 #include "graphics_engine_texture.hpp"
 #include "graphics_engine.hpp"
 #include "utility_functions.hpp"
@@ -9,16 +11,18 @@
 #include <iostream>
 
 
-GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngineTextureManager& manager_, std::string texture_path) :
-	manager(manager_), GraphicsEngineBaseModule(manager_.get_graphics_engine())
+template<typename GraphicsEngineT>
+GraphicsEngineTexture<GraphicsEngineT>::GraphicsEngineTexture(GraphicsEngineTextureManager<GraphicsEngineT>& manager_, std::string texture_path) :
+	manager(manager_), GraphicsEngineBaseModule<GraphicsEngineT>(manager_.get_graphics_engine())
 {
 	create_texture_image(texture_path);
 	texture_image_view = get_graphics_engine().create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 	create_texture_sampler();
 }
 
-GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngineTexture&& other) noexcept :
-	GraphicsEngineBaseModule(other.get_graphics_engine()), 
+template<typename GraphicsEngineT>
+GraphicsEngineTexture<GraphicsEngineT>::GraphicsEngineTexture(GraphicsEngineTexture<GraphicsEngineT>&& other) noexcept :
+	GraphicsEngineBaseModule<GraphicsEngineT>(other.get_graphics_engine()), 
 	manager(other.manager),
 	texture_image(std::move(other.texture_image)),
 	texture_sampler(std::move(other.texture_sampler)),
@@ -28,7 +32,8 @@ GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngineTexture&& other) noex
 	other.require_cleanup = false;
 }
 
-GraphicsEngineTexture::~GraphicsEngineTexture()
+template<typename GraphicsEngineT>
+GraphicsEngineTexture<GraphicsEngineT>::~GraphicsEngineTexture()
 {
 	if (!require_cleanup)
 	{
@@ -42,7 +47,8 @@ GraphicsEngineTexture::~GraphicsEngineTexture()
 }
 
 // load image and upload it into a vulkan image object
-void GraphicsEngineTexture::create_texture_image(std::string texture_path)
+template<typename GraphicsEngineT>
+void GraphicsEngineTexture<GraphicsEngineT>::create_texture_image(std::string texture_path)
 {
 	int width, height, channels;
 	std::unique_ptr<stbi_uc, std::function<void(stbi_uc*)>> pixels( 
@@ -100,7 +106,8 @@ void GraphicsEngineTexture::create_texture_image(std::string texture_path)
 }
 
 // handle layout transition so that image is in right layout
-void GraphicsEngineTexture::transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout)
+template<typename GraphicsEngineT>
+void GraphicsEngineTexture<GraphicsEngineT>::transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout)
 {
 	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
 
@@ -156,7 +163,8 @@ void GraphicsEngineTexture::transition_image_layout(VkImage image, VkFormat form
 	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
-void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+template<typename GraphicsEngineT>
+void GraphicsEngineTexture<GraphicsEngineT>::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 {
 	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
 
@@ -189,7 +197,8 @@ void GraphicsEngineTexture::copy_buffer_to_image(VkBuffer buffer, VkImage image,
 	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
-void GraphicsEngineTexture::create_texture_sampler()
+template<typename GraphicsEngineT>
+void GraphicsEngineTexture<GraphicsEngineT>::create_texture_sampler()
 {
 	VkSamplerCreateInfo sampler_info{};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

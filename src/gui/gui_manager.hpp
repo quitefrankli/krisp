@@ -6,15 +6,19 @@
 #include <memory>
 
 
-class GameEngine;
-
+template<typename GameEngineT>
 class GuiManager
 {
 protected:
-	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
+	std::vector<std::unique_ptr<GuiWindow<GameEngineT>>> gui_windows; 
 
 public:
-	GuiManager(unsigned window_width);
+	GuiManager(unsigned window_width) :
+		graphic_settings(spawn_gui<GuiGraphicsSettings<GameEngineT>>()),
+		object_spawner(spawn_gui<GuiObjectSpawner<GameEngineT>>()),
+		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>(window_width))
+	{
+	}
 
 	template<typename Gui_T, typename... Args>
 	Gui_T& spawn_gui(Args&&... args)
@@ -25,10 +29,16 @@ public:
 	}
 
 	// references the GuiManager::gui_windows
-	GuiGraphicsSettings& graphic_settings;
-	GuiObjectSpawner& object_spawner;
-	GuiFPSCounter& fps_counter;
+	GuiGraphicsSettings<GameEngineT>& graphic_settings;
+	GuiObjectSpawner<GameEngineT>& object_spawner;
+	GuiFPSCounter<GameEngineT>& fps_counter;
 
 public: // for GameEngine
-	void process(GameEngine& engine);
+	void process(GameEngineT& engine)
+	{
+		for (auto& gui : gui_windows)
+		{
+			gui->process(engine);
+		}
+	}
 };

@@ -12,10 +12,7 @@
 #include <map>
 
 
-class GraphicsEngineObject;
 class ResourceLoader;
-
-using obj_id_t = uint64_t;
 
 class ObjectAbstract
 {
@@ -24,11 +21,11 @@ public:
 	ObjectAbstract& operator=(const ObjectAbstract& object) = delete;
 
 	ObjectAbstract();
-	ObjectAbstract(obj_id_t id);
+	ObjectAbstract(uint64_t id);
 	ObjectAbstract(ObjectAbstract&& object) noexcept = default;
 	virtual ~ObjectAbstract() = default;
 
-	obj_id_t get_id() const { return id; }
+	uint64_t get_id() const { return id; }
 	void generate_new_id() { id = global_id++; }
 
 public: // getters and setters
@@ -38,8 +35,8 @@ public: // getters and setters
 
 private:
 	std::string name;
-	static obj_id_t global_id;
-	obj_id_t id;
+	static uint64_t global_id;
+	uint64_t id;
 };
 
 class Object : public ObjectAbstract

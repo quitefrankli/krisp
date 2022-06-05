@@ -1,89 +1,62 @@
 #pragma once
 
-#include "objects/object.hpp"
-
-#include <glm/mat4x4.hpp>
-
-#include <string>
 #include <memory>
 
 
 class Object;
-class GraphicsEngine;
-class GraphicsEngineCommand;
+class GraphicsEngineBase;
 
-class GraphicsEngineCommand
+struct GraphicsEngineCommand
 {
-public:
-	virtual void process(GraphicsEngine* engine) = 0;
+	virtual void process(GraphicsEngineBase* engine) = 0;
 };
 
-class ToggleFPSCmd : public GraphicsEngineCommand
+struct SpawnObjectCmd : public GraphicsEngineCommand
 {
-public:
-	void process(GraphicsEngine* engine) override;
-};
-
-class SpawnObjectCmd : public GraphicsEngineCommand
-{
-public:
 	SpawnObjectCmd(const std::shared_ptr<Object>& object);
 	SpawnObjectCmd(Object& object);
+	virtual void process(GraphicsEngineBase* engine) override;
 
-	void process(GraphicsEngine* engine) override;
-
-private:
 	std::shared_ptr<Object> object;
 	Object* object_ref = nullptr; // used for a GraphicsEngineObjectRef type object
 };
 
-class ObjectCommand : public GraphicsEngineCommand
+struct ObjectCommand : public GraphicsEngineCommand
 {
-public:
 	ObjectCommand(const Object& object);
-	virtual ~ObjectCommand() = 0 {};
-
+	
 	const uint64_t object_id;
 };
 
-class DeleteObjectCmd : public ObjectCommand
+struct DeleteObjectCmd : public ObjectCommand
 {
-public:
 	DeleteObjectCmd(const Object& object) : ObjectCommand(object) {}
-
-	void process(GraphicsEngine* engine) override;
+	virtual void process(GraphicsEngineBase* engine) override;
 };
 
-class StencilObjectCmd : public ObjectCommand
+struct StencilObjectCmd : public ObjectCommand
 {
-public:
 	StencilObjectCmd(const Object& object) : ObjectCommand(object) {}
-
-	void process(GraphicsEngine* engine) override;
+	virtual void process(GraphicsEngineBase* engine) override;
 };
 
-class UnStencilObjectCmd : public ObjectCommand
+struct UnStencilObjectCmd : public ObjectCommand
 {
-public:
 	UnStencilObjectCmd(const Object& object) : ObjectCommand(object) {}
-
-	void process(GraphicsEngine* engine) override;
+	virtual void process(GraphicsEngineBase* engine) override;
 };
 
-class ShutdownCmd : public GraphicsEngineCommand
+struct ShutdownCmd : public GraphicsEngineCommand
 {
-public:
-	void process(GraphicsEngine* engine) override;
+	virtual void process(GraphicsEngineBase* engine) override;
 };
 
-class ToggleWireFrameModeCmd : public GraphicsEngineCommand
+struct ToggleWireFrameModeCmd : public GraphicsEngineCommand
 {
-public:
-	void process(GraphicsEngine* engine) override;
+	virtual void process(GraphicsEngineBase* engine) override;
 };
 
-class UpdateCommandBufferCmd : public GraphicsEngineCommand
+struct UpdateCommandBufferCmd : public GraphicsEngineCommand
 {
-public:
-	void process(GraphicsEngine* engine) override;
+	virtual void process(GraphicsEngineBase* engine) override;
 };
