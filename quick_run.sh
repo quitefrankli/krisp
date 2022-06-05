@@ -10,7 +10,7 @@ function benchmark() {
 	mkdir -p benchmark
 	cd benchmark
 	conan install -s build_type=Release ../..
-	cmake -DCMAKE_BUILD_TYPE=Release -DDISABLE_SLEEP=1 ../.. -A x64
+	cmake -DCMAKE_BUILD_TYPE=Release -DDISABLE_SLEEP=1 ../..
 	cmake --build . --target benchmark --config Release
 	../../compile.sh
 	bin/benchmark

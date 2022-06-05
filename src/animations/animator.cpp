@@ -13,8 +13,9 @@ bool Animation::process(float delta_time)
 		return false;
 	}
 
-	auto transform = glm::mix(initial_transform, final_transform, progress/duration);
-	object->set_transform(transform);
+	throw std::runtime_error("FIX BELOW");
+	// auto transform = glm::mix(initial_transform, final_transform, progress/duration);
+	// object->set_transform(transform);
 
 	return true;
 }

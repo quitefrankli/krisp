@@ -2,6 +2,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <list>
 #include <queue>
@@ -15,9 +16,9 @@ class Animation
 public:
 	struct Kinematics
 	{
-		glm::vec3 pos;
-		glm::vec3 scale;
-		glm::quat quat;
+		glm::vec3 pos{};
+		glm::vec3 scale{};
+		glm::quat quat = glm::quat_identity<float, glm::highp>();
 	};
 	std::shared_ptr<Object> object;
 

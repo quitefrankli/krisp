@@ -20,7 +20,7 @@ bin/Vulkan.exe
 ### Using command line (for Windows)
 ```
 conan install -s build_type=[Debug/Release] ..
-cmake -DCMAKE_BUILD_TYPE=[Debug/Release] .. -A x64
+cmake -DCMAKE_BUILD_TYPE=[Debug/Release] ..
 cmake --build . --target Vulkan --config [Debug/Release]
 sh ../compile.sh
 bin/Vulkan.exe

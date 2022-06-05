@@ -68,7 +68,6 @@ void GameEngine<GraphicsEngineTemplate>::handle_window_callback_impl(GLFWwindow*
 		return; // ignore held keys
 	}
 
-	glm::vec3 pos;
 	switch (key)
 	{
 		case GLFW_KEY_ESCAPE:

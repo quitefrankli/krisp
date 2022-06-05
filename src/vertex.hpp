@@ -4,7 +4,6 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 
-#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
 #include <vector>
@@ -12,10 +11,10 @@
 
 struct Vertex
 {
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-	glm::vec3 normal;
+	glm::vec3 pos{};
+	glm::vec3 color{};
+	glm::vec2 texCoord{};
+	glm::vec3 normal{};
 
 	Vertex();
 	Vertex(const Vertex&);

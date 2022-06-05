@@ -95,7 +95,7 @@ private:
 	std::unique_ptr<AudioSource> audio_source;
 	float gain = 1.0f;
 	float pitch = 1.0f;
-	glm::vec3 position;
+	glm::vec3 position{};
 	int selected_song = 0;
 	std::vector<const char*> songs;
 	// this is just for memory management for the above

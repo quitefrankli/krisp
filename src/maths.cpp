@@ -27,7 +27,7 @@ namespace Maths
 			return glm::angleAxis(glm::radians(180.0f), rotationAxis);
 		} else if (cosTheta > 1 - 0.001f) // same direction, so no rotation
 		{
-			return glm::quat();
+			return glm::quat_identity<float, glm::highp>();
 		}
 
 		rotationAxis = glm::cross(start, end);

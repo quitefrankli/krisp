@@ -50,7 +50,7 @@ namespace Maths
 	{
 		glm::vec3 position = glm::vec3(0.f);
 		glm::vec3 scale = glm::vec3(1.f);
-		glm::quat orientation; // default init creates identity quaternion
+		glm::quat orientation = glm::quat_identity<float, glm::highp>(); // default init creates identity quaternion
 	};
 
 	// assume normalized already

@@ -23,10 +23,11 @@ else()
 	message(FATAL_ERROR "OS is not supported!")
 endif()
 
-add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 add_definitions(-DPROJECT_TOP_LEVEL_SRC_DIR="${CMAKE_SOURCE_DIR}")
 add_definitions(-DPROJECT_BUILD_DIR="${CMAKE_BINARY_DIR}")
 add_definitions(-DPROJECT_BIN_DIR="${CMAKE_BINARY_DIR}/bin")
+add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
+add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 
 if(PROJECT_ENABLE_LOGGING)
 	add_definitions(-DPROJECT_ENABLE_LOGGING)
