@@ -65,12 +65,12 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	// max number of uniform buffers per descriptor set
-	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORMS_PER_DESCRIPTOR_SET;
+	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORMS_PER_DESCRIPTOR_SET * get_max_descriptor_sets();
 
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	// max number of combined image samplers per descriptor set
-	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET;
+	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET * get_max_descriptor_sets();
 
 	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
 	VkDescriptorPoolCreateInfo poolInfo{};
@@ -177,7 +177,7 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 		alloc_info.pSetLayouts = &low_freq_descriptor_set_layout;
 
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &global_descriptor_set) != VK_SUCCESS)
-			throw std::runtime_error("GraphicsResourceManager: failed to allocate descriptor sets!");
+			throw std::runtime_error("GraphicsResourceManager: failed to allocate low freq descriptor sets!");
 
 		VkDescriptorBufferInfo buffer_info{};
 		buffer_info.buffer = global_uniform_buffer;
@@ -213,7 +213,7 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 		alloc_info.pSetLayouts = layouts.data();
 		std::vector<VkDescriptorSet> descriptor_sets(num_sets);
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
-			throw std::runtime_error("GraphicsResourceManager: failed to allocate descriptor sets!");
+			throw std::runtime_error("GraphicsResourceManager: failed to allocate high freq descriptor sets!");
 		for (auto& descriptor_set : descriptor_sets)
 			available_descriptor_sets.push(descriptor_set);
 	}
