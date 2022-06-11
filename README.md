@@ -10,6 +10,10 @@ conan remote add bincrafters https://bincrafters.jfrog.io/artifactory/api/conan/
 conan config set general.revisions_enabled=1
 ```
 
+### Initial Setup for MACOS
+1. download Vulkan SDK https://vulkan.lunarg.com/sdk/home (use portable installation)
+2. add Vulkan SDK 'root' directory to .zshrc/.bashprofile/.bashrc i.e. `export VULKAN_SDK=~/VulkanSDK/1.3.211.0/macOS`
+
 ### Using conan build
 ```
 conan install -s build_type=[Debug/Release] ..
@@ -28,26 +32,19 @@ bin/Vulkan.exe
 
 ### Using command line (for OS X)
 
-**Note: only windows is supported currently, however OSX can be used for developing unittests**
-
 ```
 conan install -s build_type=[Debug/Release] ..
 cmake -DCMAKE_BUILD_TYPE=[Debug/Release] ..
 cmake --build . --target Vulkan --config [Debug/Release] -j $NUM_CORES
-sh ../compile.sh
+../compile.sh
 bin/Vulkan
-```
-
-for OSX it may be necessary to explicitly add the path of dylibs
-```
-DYLD_LIBRARY_PATH=bin/ bin/Vulkan
 ```
 
 on M1 Macs lldb replaces gdb, and "System Integrity Protection" prevents environment variables
 from propagating to lldb, a work-around is to alias it...
 ```
 alias lldb=/Applications/Xcode.app/Contents/Developer/usr/bin/lldb
-DYLD_LIBRARY_PATH=bin/ lldb bin/Vulkan
+lldb bin/Vulkan
 ```
 
 on OSX it may also be necessary to set the compiler explicitly i.e.
