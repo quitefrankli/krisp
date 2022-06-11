@@ -3,9 +3,13 @@
 #include "graphics_engine.hpp"
 #include "queues.hpp"
 #include "utility_functions.hpp"
+#include "utility.hpp"
+
+#include <quill/Quill.h>
 
 #include <iostream>
 #include <set>
+#include <string_view>
 
 
 template<typename GraphicsEngineT>
@@ -44,7 +48,7 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 		
-		if (!this->check_device_extension_support(device, device_extensions))
+		if (!check_device_extension_support(device))
 		{
 			return false;
 		}
@@ -65,8 +69,7 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 			return false;
 		}
 
-		return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-			deviceFeatures.geometryShader;
+		return true;
 	};
 
 	physicalDevice = VK_NULL_HANDLE;
@@ -79,13 +82,11 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 
 	if (physicalDevice == VK_NULL_HANDLE) {
 		throw std::runtime_error("failed to find a suitable GPU!");
-	} else {
-		std::cout << "found a suitable GPU!\n";
 	}
 }
 
 template<typename GraphicsEngineT>
-bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions)
+bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhysicalDevice device)
 {
 	uint32_t extensionCount;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -93,11 +94,12 @@ bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhy
 	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-	std::set<std::string> required_extensions(device_extensions.begin(), device_extensions.end());
+	std::set<std::string_view> required_extensions(required_device_extensions.begin(), required_device_extensions.end());
 
 	for (const auto& extension : availableExtensions)
 	{
-		required_extensions.erase(std::string{extension.extensionName});
+		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineDevice: found physical device extension: {}", extension.extensionName);
+		required_extensions.erase(std::string_view{extension.extensionName});
 	}
 
 	return required_extensions.empty();
@@ -109,13 +111,13 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 	QueueFamilyIndices indices = get_graphics_engine().findQueueFamilies(physicalDevice);
 
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-	std::vector<uint32_t> uniqueue_queue_families{
+	std::vector<uint32_t> unique_queue_families{
 		indices.graphicsFamily.value(),
 		indices.presentFamily.value()
 	};
 	// vulkan allows for some queues to have higher priority than others
 	const float queue_priority = 1.0f;
-	for (auto queue_family : uniqueue_queue_families)
+	for (auto queue_family : unique_queue_families)
 	{
 		VkDeviceQueueCreateInfo queue_create_info{};
 		queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -133,10 +135,9 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 	create_info.pQueueCreateInfos = queue_create_infos.data();
 	create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
 	create_info.pEnabledFeatures = &deviceFeatures;
-	create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
-	c_style_str_array c_style_device_extensions(device_extensions);
-	create_info.ppEnabledExtensionNames = c_style_device_extensions.data();
-	auto validation_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
+	create_info.enabledExtensionCount = static_cast<uint32_t>(required_device_extensions.size());
+	create_info.ppEnabledExtensionNames = required_device_extensions.data();
+	std::vector<const char*> validation_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
 	create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
 	create_info.ppEnabledLayerNames = validation_layers.data();
 

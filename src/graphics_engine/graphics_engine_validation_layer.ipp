@@ -1,8 +1,10 @@
 #pragma once
 
 #include "graphics_engine_validation_layer.hpp"
+#include "utility.hpp"
 
 #include <vulkan/vulkan.hpp>
+#include <quill/Quill.h>
 
 #include <vector>
 #include <iostream>
@@ -77,17 +79,15 @@ bool GraphicsEngineValidationLayer<GraphicsEngineT>::check_validation_layer_supp
 
 	if (print_support)
 	{
-		std::cout << "Available Validation Layers:\n";
 		std::for_each(availableLayers.begin(), availableLayers.end(), [&available_layers_set](const auto& layer)
 			{
-				printf("\t%s - %s\n", layer.layerName, layer.description);
+				LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: available layer: {} - {}", layer.layerName, layer.description);
 				available_layers_set.emplace(layer.layerName);
 			});
 
-		std::cout << "Required Valiation Layers:\n";
 		for (const char* layer : REQUIRED_VALIDATION_LAYERS)
 		{
-			printf("\t%s\n", layer);
+			LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: required layer: {}", layer);
 			if (available_layers_set.find(std::string(layer)) == available_layers_set.end())
 			{
 				return false;

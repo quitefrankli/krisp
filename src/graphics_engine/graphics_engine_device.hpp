@@ -3,6 +3,7 @@
 #include "graphics_engine_base_module.hpp"
 
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_beta.h>
 
 
 template<typename GraphicsEngineT>
@@ -35,11 +36,19 @@ private:
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
 
-	const std::vector<std::string> device_extensions{ VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+#ifdef __APPLE__
+	static constexpr std::array<const char*, 2> required_device_extensions{{ 
+		(const char*)(VK_KHR_SWAPCHAIN_EXTENSION_NAME), 
+		(const char*)(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
+	}};
+#else
+	constexpr std::array<const char*, 1> required_device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+#endif
+	const std::vector<const char*> get_required_logical_device_extensions() const;
 
 	void pick_physical_device();
 	void create_logical_device();
-	bool check_device_extension_support(VkPhysicalDevice device, std::vector<std::string> device_extensions);
+	bool check_device_extension_support(VkPhysicalDevice device);
 
 	VkPhysicalDeviceProperties physical_device_properties;
 };

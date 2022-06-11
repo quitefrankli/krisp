@@ -1,9 +1,11 @@
 #pragma once
 
 #include "graphics_engine_base_module.hpp"
+#include "utility.hpp"
 
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
+#include <quill/Quill.h>
 
 #include <string>
 #include <vector>
@@ -31,9 +33,9 @@ public:
 		create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 		create_info.pApplicationInfo = &app_info;
 
-		auto validation_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
-		create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
-		create_info.ppEnabledLayerNames = validation_layers.data();
+		const std::vector<const char*> required_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
+		create_info.enabledLayerCount = static_cast<uint32_t>(required_layers.size());
+		create_info.ppEnabledLayerNames = required_layers.data();
 
 		// validation layer stuff
 		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = GraphicsEngineValidationLayer<GraphicsEngineT>::get_messenger_create_info();
@@ -43,21 +45,20 @@ public:
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 		std::vector<VkExtensionProperties> extensions(extensionCount);
 		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-		std::cout << "Available extensions:\n";
 		for (const auto& extension : extensions) {
-			std::cout << '\t' << extension.extensionName << '\n';
+			LOG_INFO(Utility::get().get_logger(), "GraphicsEngineInstance: available instance: {}", extension.extensionName);
 		}
 
 		// vulkan is platform agnostic and therefore an extension is necessary 
 		std::vector<std::string> required_extensions = get_required_extensions();
-		std::cout << "Required extensions:\n";
 		for (auto& required_extension : required_extensions)
 		{
-			std::cout << '\t' << required_extension << '\n';
+			LOG_INFO(Utility::get().get_logger(), "GraphicsEngineInstance: required extension: {}", required_extension);
 		}
 		auto required_extensions_old = c_style_str_array(required_extensions);
 		create_info.enabledExtensionCount = required_extensions_old.size();
 		create_info.ppEnabledExtensionNames = required_extensions_old.data();
+		create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 
 		if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create instance!");
@@ -96,14 +97,20 @@ private:
 		uint32_t glfwExtensionCount;
 		const char** glfwExtensions;
 		glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+		if (glfwExtensionCount == 0 || glfwExtensions == nullptr)
+		{
+			throw std::runtime_error("GraphicsEngineInstance: no glfw extensions found!");
+		}
 
-		auto required_extensions = char_ptr_arr_to_str_vec(glfwExtensions, glfwExtensionCount);
+		std::vector<std::string> required_extensions = char_ptr_arr_to_str_vec(glfwExtensions, glfwExtensionCount);
 		if (GraphicsEngineValidationLayer<GraphicsEngineT>::is_enabled())
 		{
 			required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			required_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 		}
-
+#ifdef __APPLE__
+		required_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
 		return required_extensions;
 	}
 
