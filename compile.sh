@@ -3,8 +3,7 @@
 set -e 
 set -o pipefail
 
-SCRIPT=$(readlink -f "$0")
-SCRIPTPATH=$(dirname "$SCRIPT")
+SCRIPTPATH=$(dirname "$BASH_SOURCE")
 
 compile_dir()
 {
