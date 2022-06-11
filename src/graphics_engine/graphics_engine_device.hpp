@@ -42,7 +42,7 @@ private:
 		(const char*)(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
 	}};
 #else
-	constexpr std::array<const char*, 1> required_device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	static constexpr std::array<const char*, 1> required_device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 #endif
 	const std::vector<const char*> get_required_logical_device_extensions() const;
 
