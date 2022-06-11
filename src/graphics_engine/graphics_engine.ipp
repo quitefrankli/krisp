@@ -75,17 +75,24 @@ QueueFamilyIndices GraphicsEngine<GameEngineT>::findQueueFamilies(VkPhysicalDevi
 	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-	for (int i = 0; i < queueFamilies.size(); i++)
+	const auto check_present_support = [&](const uint32_t qFamilyIndex)
 	{
-		if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) // GRAPHICS_BIT also implicitly supports VK_QUEUE_TRANSFER_BIT
+		VkBool32 present_support = false;
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, qFamilyIndex, get_window_surface(), &present_support);
+		return present_support;
+	};
+
+	for (uint32_t i = 0; i < queueFamilies.size(); i++)
+	{
+		if (!indices.graphicsFamily.has_value() && queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) // GRAPHICS_BIT also implicitly supports VK_QUEUE_TRANSFER_BIT
 		{
 			indices.graphicsFamily = i;
+			continue;
 		}
-		VkBool32 present_support = false;
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, get_window_surface(), &present_support);
-		if (present_support)
+		if (!indices.presentFamily.has_value() && check_present_support(i))
 		{
 			indices.presentFamily = i;
+			continue;
 		}
 	}
 
