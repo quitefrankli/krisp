@@ -2,3 +2,5 @@ build*/
 resources/*
 
 .vscode
+vulkanSDKMacOS
+.DS_Store

@@ -6,16 +6,18 @@ project(Vulkan)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAkE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version")
+set(CMAkE_CXX_STANDARD_REQUIRED True CACHE STRING "is standard required?")
 
 if(WIN32)
 	message("Detected Windows OS")
 	# for MSVC this will set the limit of max simultaneous TU compiles
 	set(CMAKE_CXX_FLAGS${build_type} "${CMAKE_CXX_FLAGS${build_type}} /MP12")
-elseif(UNIX)
-	message("Detected Unix OS")
+elseif(APPLE)
+	message("Detected APPLE")
+	# add_definitions(-DVK_USE_PLATFORM_METAL_EXT)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+	set(CMAKE_SKIP_RPATH False)
 	# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
 	# add_compile_options(-std=c++17)
 	# add_definitions(-std=c++17)
@@ -57,6 +59,7 @@ add_library(VulkanLibs ${VulkanSources})
 target_include_directories(VulkanLibs PUBLIC ${VulkanIncludes})
 
 add_executable(Vulkan ${CMAKE_SOURCE_DIR}/src/main.cpp) # bit annoying but seems we need to include at least 1 source file
+# set_target_properties(Vulkan PROPERTIES BUILD_RPATH ${CMAKE_BINARY_DIR}/bin)
 target_link_libraries(Vulkan VulkanLibs ${CONAN_LIBS})
 
 if(WIN32)
