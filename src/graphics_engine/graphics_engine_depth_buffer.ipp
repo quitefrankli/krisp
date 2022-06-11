@@ -33,15 +33,22 @@ GraphicsEngineDepthBuffer<GraphicsEngineT>::~GraphicsEngineDepthBuffer()
 }
 
 template<typename GraphicsEngineT>
-VkFormat GraphicsEngineDepthBuffer<GraphicsEngineT>::find_supported_format(VkPhysicalDevice device, std::vector<VkFormat> candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+VkFormat GraphicsEngineDepthBuffer<GraphicsEngineT>::find_supported_format(
+	VkPhysicalDevice device, 
+	std::vector<VkFormat> candidates, 
+	VkImageTiling tiling, 
+	VkFormatFeatureFlags features)
 {
 	for (auto& format : candidates)
 	{
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(device, format, &props);
+		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+		{
+			return format;
+		}
 
-		if ((tiling == VK_IMAGE_TILING_LINEAR || tiling == VK_IMAGE_TILING_OPTIMAL) 
-			&& props.linearTilingFeatures & features == features)
+		if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
 		{
 			return format;
 		}
@@ -54,7 +61,7 @@ template<typename GraphicsEngineT>
 VkFormat GraphicsEngineDepthBuffer<GraphicsEngineT>::findDepthFormat(VkPhysicalDevice device) {
     return find_supported_format(
 		device,
-        {/*VK_FORMAT_D32_SFLOAT, */VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
+        {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
