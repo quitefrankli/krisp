@@ -6,6 +6,7 @@
 #include <string>
 #include <functional>
 #include <vector>
+#include <filesystem>
 
 
 template<typename GameEngineT>
@@ -76,11 +77,6 @@ private:
 };
 
 class AudioSource;
-namespace std {
-	namespace filesystem {
-		class path;
-	}
-}
 
 template<typename GameEngineT>
 class GuiMusic : public GuiWindow<GameEngineT>
