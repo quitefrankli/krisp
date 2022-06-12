@@ -46,9 +46,9 @@ private:
 	std::queue<VkDescriptorSet> available_descriptor_sets;
 
 public:
+	std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts;
 	// a descriptor set layout describes the layout for a specific "descriptor set"
 	VkDescriptorSetLayout& low_freq_descriptor_set_layout;
 	VkDescriptorSetLayout& high_freq_descriptor_set_layout;
-	std::array<VkDescriptorSetLayout, 2> descriptor_set_layouts;
 	VkDescriptorSet global_descriptor_set;
 };

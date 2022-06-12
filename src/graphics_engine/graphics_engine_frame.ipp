@@ -58,7 +58,7 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& 
 	GraphicsEngineBaseModule<GraphicsEngineT>(frame.get_graphics_engine()),
 	image(std::move(frame.image)),
 	image_view(std::move(frame.image_view)),
-	frame_buffer(std::move(frame_buffer)),
+	frame_buffer(std::move(frame.frame_buffer)),
 	command_buffer(std::move(frame.command_buffer)),
 	image_index(std::move(frame.image_index)),
 	swap_chain(frame.swap_chain),

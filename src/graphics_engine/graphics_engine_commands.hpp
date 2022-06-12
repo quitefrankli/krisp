@@ -9,6 +9,7 @@ class GraphicsEngineBase;
 struct GraphicsEngineCommand
 {
 	virtual void process(GraphicsEngineBase* engine) = 0;
+	virtual ~GraphicsEngineCommand() = default;
 };
 
 struct SpawnObjectCmd : public GraphicsEngineCommand

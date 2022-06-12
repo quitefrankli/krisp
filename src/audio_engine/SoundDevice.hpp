@@ -36,15 +36,24 @@ public:
 	~SoundDevice()
 	{
 		if (!alcMakeContextCurrent(nullptr))
-			throw("failed to set context to nullptr");
+		{
+			LOG_ERROR(Utility::get().get_logger(), "SoundDevice: failed to set context to nullptr");
+			return;
+		}
 
 		alcDestroyContext(p_ALCContext);
 		ALenum err = alcGetError(p_ALCDevice);
     	if (err != AL_NO_ERROR)
-        	std::cerr << "[ERROR]::alcDestroyContext() error: " << alcGetString(p_ALCDevice, err) << std::endl;
+		{
+			LOG_ERROR(Utility::get().get_logger(), "SoundDevice: ERROR with alcDestroyContext: {}", alcGetString(p_ALCDevice, err));
+			return;
+		}
 
 		if (!alcCloseDevice(p_ALCDevice))
-			throw("failed to close sound device");
+		{
+			LOG_ERROR(Utility::get().get_logger(), "SoundDevice: failed close");
+			return;
+		}
 	}
 
 	ALCdevice* p_ALCDevice;

@@ -18,7 +18,7 @@ public:
 
 	virtual void init() = 0;
 	virtual void set_visibility(bool) override;
-	virtual bool check_collision(const Maths::Ray& ray) = 0;
+	virtual bool check_collision(const Maths::Ray& ray) override { return false; };
 	void clear_active_axis() { active_axis = nullptr; }
 	
 protected:

@@ -16,8 +16,13 @@ class GraphicsEngineObject : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
 	GraphicsEngineObject(GraphicsEngineT& engine, const Object& object);
+	virtual ~GraphicsEngineObject();
 
-	~GraphicsEngineObject();
+	GraphicsEngineObject() = delete;
+	GraphicsEngineObject(const GraphicsEngineObject&) = delete;
+	GraphicsEngineObject(GraphicsEngineObject&&) = delete;
+	GraphicsEngineObject& operator=(const GraphicsEngineObject&) = delete;
+	GraphicsEngineObject& operator=(GraphicsEngineObject&&) = delete;
 
 	//
 	// I realised i messed up big time, these resources should be per swapchain image per object
@@ -75,7 +80,7 @@ class GraphicsEngineObjectPtr : public GraphicsEngineObject<GraphicsEngineT>
 {
 public:
 	GraphicsEngineObjectPtr(GraphicsEngineT& engine, std::shared_ptr<Object>&& game_engine_object);
-	
+
 	const Object& get_game_object() const override;
 
 private:

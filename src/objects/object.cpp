@@ -26,7 +26,7 @@ ObjectAbstract::ObjectAbstract(uint64_t id)
 Object::Object(Object&& other) noexcept :
 	ObjectAbstract(std::move(other)),
 	shapes(std::move(other.shapes)),
-	children(std::move(children)),
+	children(std::move(other.children)),
 	parent(other.parent),
 	is_transform_old(other.is_transform_old),
 	cached_transform(std::move(other.cached_transform)),
