@@ -13,7 +13,7 @@
 
 template<typename GraphicsEngineT, typename GameEngineT>
 GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine), GuiManager<GameEngineT>(engine.get_window_width())
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine), GuiManager<GameEngineT>(engine.get_extent().width)
 {
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForVulkan(engine.get_window(), true);

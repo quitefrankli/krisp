@@ -49,11 +49,7 @@ public:
 	bool is_wireframe_mode = false;
 
 public: // getters and setters
-	template<class T = int> 
-	T get_window_width() const { return static_cast<T>(swap_chain.get_extent().width); }
-	template<class T = int>
-	T get_window_height() const { return static_cast<T>(swap_chain.get_extent().height); }
-	VkExtent2D get_extent_unsafe();
+	VkExtent2D get_extent();
 	GLFWwindow* get_window();
 	Camera* get_camera();
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
@@ -113,8 +109,6 @@ private:
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
 
 public: // swap chain
-	// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
-	VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 	void recreate_swap_chain(); // useful for when size of window is changing
 
 public: // command buffer

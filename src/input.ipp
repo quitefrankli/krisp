@@ -21,9 +21,9 @@ glm::vec2 Mouse<GameEngineT>::update_pos()
 
 	double pixel_x, pixel_y;
 	glfwGetCursorPos(window.get_window(), &pixel_x, &pixel_y);
-	curr_pos.x = std::clamp( 2.0f * static_cast<float>(pixel_x) / window.get_width()  - 1.0f, -1.0f, 1.0f);
+	curr_pos.x = std::clamp( 2.0f * static_cast<float>(pixel_x) / static_cast<float>(window.get_width())  - 1.0f, -1.0f, 1.0f);
 	// glfw has top->down as negative but our coordinate system is Y+ up
-	curr_pos.y = std::clamp(-2.0f * static_cast<float>(pixel_y) / window.get_height() + 1.0f, -1.0f, 1.0f);
+	curr_pos.y = std::clamp(-2.0f * static_cast<float>(pixel_y) / static_cast<float>(window.get_height()) + 1.0f, -1.0f, 1.0f);
 	return curr_pos;
 }
 

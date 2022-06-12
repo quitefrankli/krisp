@@ -219,16 +219,9 @@ void GraphicsEngine<GameEngineT>::end_single_time_commands(VkCommandBuffer comma
 }
 
 template<typename GameEngineT>
-VkExtent2D GraphicsEngine<GameEngineT>::get_extent_unsafe()
+VkExtent2D GraphicsEngine<GameEngineT>::get_extent()
 {
-	int width, height;
-	glfwGetWindowSize(get_window(), &width, &height);
-
-	VkExtent2D extent;
-	extent.width = width;
-	extent.height = height;
-
-	return extent;
+	return GraphicsEngineSwapChain<GraphicsEngine>::get_extent(get_physical_device(), get_window_surface());
 }
 
 template<typename GameEngineT>

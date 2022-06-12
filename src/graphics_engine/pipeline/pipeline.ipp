@@ -135,7 +135,7 @@ GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT&
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
-	const auto extent = get_graphics_engine().get_extent_unsafe();
+	const auto extent = get_graphics_engine().get_extent();
 	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
 	// Vulkan uses right-hand coordinate system, so y is actually pointing down
 	// to fix this, we can flip the view port upside down

@@ -33,15 +33,19 @@ App::Window<GameEngineT>::Window(GameEngineT* game_engine)
 }
 
 template<typename GameEngineT>
-float App::Window<GameEngineT>::get_width()
+int App::Window<GameEngineT>::get_width()
 {
-	return game_engine->get_graphics_engine().template get_window_width<float>();
+	int width, height;
+	glfwGetWindowSize(get_window(), &width, &height);
+	return width;
 }
 
 template<typename GameEngineT>
-float App::Window<GameEngineT>::get_height()
+int App::Window<GameEngineT>::get_height()
 {
-	return game_engine->get_graphics_engine().template get_window_height<float>();
+	int width, height;
+	glfwGetWindowSize(get_window(), &width, &height);
+	return height;
 }
 
 template<typename GameEngineT>

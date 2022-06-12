@@ -10,7 +10,7 @@ GraphicsEngineDepthBuffer<GraphicsEngineT>::GraphicsEngineDepthBuffer(GraphicsEn
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	VkFormat depth_format = findDepthFormat(get_physical_device());
-	auto extent = get_graphics_engine().get_extent_unsafe();
+	const auto extent = get_graphics_engine().get_extent();
 	get_graphics_engine().create_image(extent.width,
 										extent.height,
 										depth_format,

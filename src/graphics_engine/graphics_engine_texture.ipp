@@ -65,7 +65,7 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_image(std::string te
 	VkDeviceSize size = width * height * 4;
 	if (!pixels.get())
 	{
-		throw std::runtime_error("failed to load texture image!");
+		throw std::runtime_error(std::string("failed to load texture image! ") + texture_path);
 	}
 
 	VkBuffer staging_buffer;

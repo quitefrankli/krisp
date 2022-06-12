@@ -21,7 +21,7 @@ namespace App {
 		~Window();
 
 		GLFWwindow* get_window();
-		float get_width();
-		float get_height();
+		int get_width();
+		int get_height();
 	};
 }

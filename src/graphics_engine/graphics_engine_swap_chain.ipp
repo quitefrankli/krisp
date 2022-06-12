@@ -13,18 +13,21 @@
 
 
 template<typename GraphicsEngineT>
+std::optional<VkExtent2D> GraphicsEngineSwapChain<GraphicsEngineT>::swap_chain_extent;
+
+template<typename GraphicsEngineT>
 GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngineT& engine) : GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	create_render_pass();
 
-	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), engine.get_window_surface());
+	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), get_graphics_engine().get_window_surface());
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
 	VkPresentModeKHR present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
-	swap_chain_extent = choose_swap_extent(swap_chain_support.capabilities);
+	const auto extent = get_extent();
 
 	{
-		get_graphics_engine().create_image(swap_chain_extent.width, 
-											swap_chain_extent.height,
+		get_graphics_engine().create_image(extent.width, 
+											extent.height,
 											get_image_format(),
 											VK_IMAGE_TILING_OPTIMAL,
 											VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -54,7 +57,7 @@ GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngine
 	create_info.minImageCount = image_count;
 	create_info.imageFormat = surface_format.format;
 	create_info.imageColorSpace = surface_format.colorSpace;
-	create_info.imageExtent = swap_chain_extent;
+	create_info.imageExtent = extent;
 	create_info.imageArrayLayers = 1; // number of layers per image, should always = 1
 	// color attachment bit refers to rendering directly, if we want post processing we should use something like VK_IMAGE_USAGE_TRANSFER_DST_BIT
 	create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -157,33 +160,6 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::reset()
 }
 
 template<typename GraphicsEngineT>
-SwapChainSupportDetails GraphicsEngineSwapChain<GraphicsEngineT>::query_swap_chain_support(VkPhysicalDevice& device, VkSurfaceKHR& surface)
-{
-	SwapChainSupportDetails details;
-	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
-
-	uint32_t format_count;
-	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, nullptr);
-
-	if (format_count)
-	{
-		details.formats.resize(format_count);
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats.data());
-	}
-
-	uint32_t present_mode_count;
-	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, nullptr);
-
-	if (present_mode_count)
-	{
-		details.presentModes.resize(present_mode_count);
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.presentModes.data());
-	}
-
-	return details;
-}
-
-template<typename GraphicsEngineT>
 VkSurfaceFormatKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR> &available_formats)
 {
 	for (const auto &format : available_formats)
@@ -209,29 +185,6 @@ VkPresentModeKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_present_m
 	}
 
 	return VK_PRESENT_MODE_FIFO_KHR; // guranteed
-}
-
-// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
-template<typename GraphicsEngineT>
-VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_extent(const VkSurfaceCapabilitiesKHR &capabilities)
-{
-	if (capabilities.currentExtent.width != UINT32_MAX)
-	{
-		return capabilities.currentExtent;
-	}
-	else
-	{
-		int width, height;
-		glfwGetFramebufferSize(get_graphics_engine().get_window(), &width, &height);
-		VkExtent2D actual_extent = {
-			static_cast<uint32_t>(width),
-			static_cast<uint32_t>(height)};
-
-		actual_extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual_extent.width));
-		actual_extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual_extent.height));
-
-		return actual_extent;
-	}
 }
 
 // template<typename GraphicsEngineT>
@@ -371,5 +324,80 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::create_render_pass()
 	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create render pass!");
+	}
+}
+
+template<typename GraphicsEngineT>
+VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::get_extent()
+{
+	return get_extent(get_physical_device(), get_graphics_engine().get_window_surface());
+}
+
+template<typename GraphicsEngineT>
+VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::get_extent(VkPhysicalDevice physical_device, VkSurfaceKHR window_surface)
+{
+	if (!swap_chain_extent.has_value())
+	{
+		SwapChainSupportDetails swap_chain_support = query_swap_chain_support(physical_device, window_surface);
+		swap_chain_extent = choose_swap_extent(window_surface, swap_chain_support.capabilities);
+	}
+
+	return *swap_chain_extent;
+}
+
+template<typename GraphicsEngineT>
+SwapChainSupportDetails GraphicsEngineSwapChain<GraphicsEngineT>::query_swap_chain_support(VkPhysicalDevice physical_device, VkSurfaceKHR window_surface)
+{
+	SwapChainSupportDetails details;
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, window_surface, &details.capabilities);
+
+	uint32_t format_count;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, window_surface, &format_count, nullptr);
+
+	if (format_count)
+	{
+		details.formats.resize(format_count);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, window_surface, &format_count, details.formats.data());
+	}
+
+	uint32_t present_mode_count;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, window_surface, &present_mode_count, nullptr);
+
+	if (present_mode_count)
+	{
+		details.presentModes.resize(present_mode_count);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, window_surface, &present_mode_count, details.presentModes.data());
+	}
+
+	return details;
+}
+
+// extent = resolution of the swap chain images and ~ resolution of window we are drawing to
+template<typename GraphicsEngineT>
+VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_extent(VkSurfaceKHR window_surface, const VkSurfaceCapabilitiesKHR& capabilities)
+{
+	// the reason the logic to get the extent is a bit convoluted is because sometimes there might
+	// be a difference between "extent" and "resolution". With most displays extent == resolution,
+	// however with Apple's Retina display there might be more pixels per "point"
+	if (capabilities.currentExtent.width != UINT32_MAX)
+	{
+		return capabilities.currentExtent;
+	}
+	else
+	{
+		// QUICK HACK to get this to wrok, would need better fix in future
+		throw std::runtime_error("GraphicsEngineSwapChain::choose_swap_extent: invalid capabiliies!");
+		return VkExtent2D{};
+
+		// int width, height;
+		// glfwGetFramebufferSize(window_surface, &width, &height);
+		// VkExtent2D actual_extent = {
+		// 	static_cast<uint32_t>(width),
+		// 	static_cast<uint32_t>(height)};
+
+		// actual_extent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actual_extent.width));
+		// actual_extent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actual_extent.height));
+
+		// return actual_extent;
 	}
 }
