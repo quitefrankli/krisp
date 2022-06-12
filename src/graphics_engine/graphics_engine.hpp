@@ -77,6 +77,8 @@ public: // getters and setters
 	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
 	GraphicsResourceManager<GraphicsEngine>& get_graphics_resource_manager() { return pool; }
 	GraphicsEngineDevice<GraphicsEngine>& get_device_module() { return device; }
+	void set_fps(const float fps) { this->fps = fps; }
+	float get_fps() const { return fps; }
 
 private: // flags (these must be before core components)
 	bool should_shutdown = false;
@@ -104,6 +106,7 @@ private:
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 
 	std::unique_ptr<Analytics> FPS_tracker;
+	float fps = 0.0f;
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan

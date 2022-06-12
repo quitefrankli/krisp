@@ -64,16 +64,14 @@ template<typename GameEngineT>
 class GuiFPSCounter : public GuiWindow<GameEngineT>
 {
 public:
-	GuiFPSCounter(unsigned initial_window_width);
-
+	virtual void process(GameEngineT& engine) override;
 	virtual void draw() override;
-
-	float fps = 0.0f;
-	float tps = 0.0f;
-	unsigned window_width;
 
 private:
 	ImFont* font = nullptr;
+	float fps = 0.0f;
+	float tps = 0.0f;
+	std::optional<uint32_t> window_width;
 };
 
 class AudioSource;

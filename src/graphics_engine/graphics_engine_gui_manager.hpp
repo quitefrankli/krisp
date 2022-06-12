@@ -18,8 +18,6 @@ public:
 	void add_render_cmd(VkCommandBuffer& cmd_buffer);
 	void draw();
 
-	void update_fps(const float fps);
-
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;

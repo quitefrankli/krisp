@@ -52,7 +52,7 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
-		get_gui_manager().fps_counter.tps = 1e6 / tps;
+		set_tps(1e6 / tps);
 	}, 1);
 	TPS_counter->text = "TPS Counter";
 }
@@ -209,4 +209,16 @@ template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
 {
 	graphics_engine->enqueue_cmd(std::move(cmd));
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
+uint32_t GameEngine<GraphicsEngineTemplate>::get_window_width()
+{
+	return window.get_width();
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
+uint32_t GameEngine<GraphicsEngineTemplate>::get_window_height()
+{
+	return window.get_height();
 }

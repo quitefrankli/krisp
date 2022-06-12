@@ -13,10 +13,10 @@ protected:
 	std::vector<std::unique_ptr<GuiWindow<GameEngineT>>> gui_windows; 
 
 public:
-	GuiManager(unsigned window_width) :
+	GuiManager() :
 		graphic_settings(spawn_gui<GuiGraphicsSettings<GameEngineT>>()),
 		object_spawner(spawn_gui<GuiObjectSpawner<GameEngineT>>()),
-		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>(window_width))
+		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>())
 	{
 	}
 

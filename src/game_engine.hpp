@@ -96,6 +96,11 @@ public:
 		return *global_engine;
 	}
 
+	float get_tps() const { return tps; }
+	void set_tps(const float tps) { this->tps = tps; }
+	uint32_t get_window_width();
+	uint32_t get_window_height();
+
 private:
 	App::Window<GameEngine> window;
 	AudioEnginePimpl audio_engine;
@@ -123,6 +128,7 @@ private:
 	void shutdown_impl();
 	const std::function<void()> restart_signaller;
 	std::unique_ptr<Analytics> TPS_counter;
+	float tps;
 
 public: // callbacks
 	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);

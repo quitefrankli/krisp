@@ -13,7 +13,7 @@
 
 template<typename GraphicsEngineT, typename GameEngineT>
 GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine), GuiManager<GameEngineT>(engine.get_extent().width)
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	ImGui::CreateContext();
 	ImGui_ImplGlfw_InitForVulkan(engine.get_window(), true);
@@ -72,10 +72,4 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::draw()
 	}
 	
 	ImGui::Render();
-}
-
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::update_fps(const float fps)
-{
-	fps_counter.fps = fps;
 }
