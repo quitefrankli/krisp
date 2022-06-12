@@ -31,6 +31,10 @@ add_definitions(-DPROJECT_BIN_DIR="${CMAKE_BINARY_DIR}/bin")
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 
+if(NOT ENABLE_COMPILER_WARNINGS)
+	add_definitions(-w)
+endif()
+
 if(PROJECT_ENABLE_LOGGING)
 	add_definitions(-DPROJECT_ENABLE_LOGGING)
 endif()
