@@ -112,7 +112,8 @@ void GuiFPSCounter<GameEngineT>::draw()
 	};
 	const int PAD_PER_DIGIT = 10;
 	const int TEXT_RIGHT_PADDING = 50 + PAD_PER_DIGIT * std::max(get_num_digits(fps), get_num_digits(tps));
-	ImGui::SetWindowPos(ImVec2{ float(*window_width - TEXT_RIGHT_PADDING), 0.0f });
+	const uint32_t width = window_width.has_value() ? *window_width : 0;
+	ImGui::SetWindowPos(ImVec2{ float(width - TEXT_RIGHT_PADDING), 0.0f });
 	ImGui::SetWindowSize(ImVec2{ float(TEXT_RIGHT_PADDING), 80.0f });
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{0.0f, 0.0f, 0.0f, 1.0f});
 	ImGui::Text("fps %.1f", fps);

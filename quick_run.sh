@@ -6,7 +6,7 @@ function run () {
 
 function benchmark() {
 	# only works for windows
-	set -e
+	set -e # -e crashes ConEmu for some reason
 	mkdir -p benchmark
 	cd benchmark
 	conan install -s build_type=Release ../..

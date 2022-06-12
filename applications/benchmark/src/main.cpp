@@ -26,8 +26,7 @@ public:
 		elapsed+=delta;
 		if (elapsed > max_time)
 		{
-			const auto& counter = engine.get_gui_manager().fps_counter; 
-			fmt::print("Avg FPS={}, Avg TPS={}\n", counter.fps, counter.tps);
+			fmt::print("Avg FPS={}, Avg TPS={}\n", engine.get_graphics_engine().get_fps(), engine.get_tps());
 			engine.shutdown();
 		}
 	}

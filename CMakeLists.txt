@@ -9,10 +9,10 @@ conan_basic_setup()
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version")
 set(CMAkE_CXX_STANDARD_REQUIRED True CACHE STRING "is standard required?")
 
-if(WIN32)
+if(MSVC)
 	message("Detected Windows OS")
 	# for MSVC this will set the limit of max simultaneous TU compiles
-	set(CMAKE_CXX_FLAGS${build_type} "${CMAKE_CXX_FLAGS${build_type}} /MP12")
+	add_definitions(/MP12)
 elseif(APPLE)
 	message("Detected APPLE")
 	# add_definitions(-DVK_USE_PLATFORM_METAL_EXT)
@@ -30,7 +30,12 @@ add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE) # vulkan uses the z range -> [0, 
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 
 if(NOT ENABLE_COMPILER_WARNINGS)
-	add_definitions(-w)
+	# MSVC warnings https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level?view=msvc-170
+	if(MSVC)
+		add_definitions(/W1)
+	else()
+		add_definitions(-w)
+	endif()
 endif()
 
 if(PROJECT_ENABLE_LOGGING)
@@ -64,7 +69,7 @@ add_executable(Vulkan ${CMAKE_SOURCE_DIR}/src/main.cpp) # bit annoying but seems
 # set_target_properties(Vulkan PROPERTIES BUILD_RPATH ${CMAKE_BINARY_DIR}/bin)
 target_link_libraries(Vulkan VulkanLibs ${CONAN_LIBS})
 
-if(WIN32)
+if(MSVC)
 	add_subdirectory(applications)
 	add_subdirectory(shared_lib)
 endif()
