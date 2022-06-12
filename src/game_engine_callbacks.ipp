@@ -123,6 +123,7 @@ void GameEngine<GraphicsEngineTemplate>::handle_window_callback_impl(GLFWwindow*
 				break;
 			}
 		}
+		case GLFW_KEY_BACKSPACE:
 		case GLFW_KEY_DELETE:
 		{
 			gizmo->delete_object();
