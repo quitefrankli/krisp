@@ -8,6 +8,7 @@
 #include "objects/light_source.hpp"
 #include "uniform_buffer_object.hpp"
 #include "camera.hpp"
+#include "render_types.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -296,10 +297,22 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 		}
 	};
 
-	const auto get_pipeline = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>&
+	const auto get_pipeline = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
 	{
-		const auto type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
-		return get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
+		ERenderType type = ERenderType::STANDARD;
+		switch (obj.type)
+		{
+		case ERenderType::CUBEMAP:
+			if (get_graphics_engine().is_wireframe_mode)
+			{
+				return nullptr;
+			}
+		default:
+			type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
+			break;
+		}
+
+		return &get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
 	};
 	const auto& graphics_objects = get_graphics_engine().get_objects();
 	for (const auto& it_pair : graphics_objects)
@@ -311,12 +324,15 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 		if (!graphics_object.get_game_object().get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline = get_pipeline(graphics_object);
+		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_pipeline(graphics_object);
+		if (!pipeline)
+			continue;
+			
 		vkCmdBindPipeline(command_buffer, 
 							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							pipeline.graphics_pipeline); // bind the graphics pipeline
+							pipeline->graphics_pipeline); // bind the graphics pipeline
 
-		per_obj_draw_fn(graphics_object, pipeline);
+		per_obj_draw_fn(graphics_object, *pipeline);
 	}
 	
 	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader

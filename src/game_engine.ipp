@@ -50,7 +50,7 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	spawn_object<CubeMap>(); // background/horizon
 
 	light_source = &spawn_object<LightSource>(glm::vec3(1.0f));
-	light_source->set_position(glm::vec3(0.0f, 2.0f, 2.0f));
+	light_source->set_position(glm::vec3(0.0f, 5.0f, 2.0f));
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
@@ -96,7 +96,6 @@ void GameEngine<GraphicsEngineTemplate>::run()
 		main_loop(time_delta);
 
 		analytics.stop();
-
 	}
 
 	shutdown();
