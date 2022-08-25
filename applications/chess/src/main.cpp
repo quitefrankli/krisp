@@ -59,7 +59,8 @@ int main()
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			restart_signal = false;
-			GameEngineT engine([&restart_signal](){restart_signal=true;});
+			App::Window window;
+			GameEngineT engine([&restart_signal](){restart_signal=true;}, window);
 
 			Application app(engine);
 			engine.set_application(&app);

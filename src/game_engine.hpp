@@ -1,7 +1,6 @@
 #pragma once
 
 #include "input.hpp"
-#include "window.hpp"
 #include "objects/object.hpp"
 #include "objects/objects.hpp"
 #include "resource_loader.hpp"
@@ -17,6 +16,7 @@
 #include <unordered_map>
 
 
+class Window;
 class GLFWWindow;
 class Shape;
 class Camera;
@@ -45,7 +45,7 @@ public: // getters and setters
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 
 public:
-	GameEngine(std::function<void()>&& restart_signaller);
+	GameEngine(std::function<void()>&& restart_signaller, App::Window& window);
 	~GameEngine();
 
 	void run();
@@ -102,7 +102,7 @@ public:
 	uint32_t get_window_height();
 
 private:
-	App::Window<GameEngine> window;
+	App::Window& window;
 	AudioEnginePimpl audio_engine;
     std::unique_ptr<GraphicsEngineT> graphics_engine;
 	std::unique_ptr<Camera> camera;

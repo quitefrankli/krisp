@@ -14,7 +14,7 @@ template<typename GameEngineT>
 class Mouse
 {
 public:
-	Mouse(App::Window<GameEngineT>& window);
+	Mouse(App::Window& window);
 
 	glm::vec2 orig_pos; // click drag pos
 	glm::vec2 prev_pos; // time delta pos
@@ -29,7 +29,7 @@ public:
 	glm::vec2 get_orig_offset();
 	
 private:
-	App::Window<GameEngineT>& window;
+	App::Window& window;
 };
 
 

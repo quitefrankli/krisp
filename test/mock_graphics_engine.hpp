@@ -11,7 +11,7 @@ class MockGraphicsEngine : public GraphicsEngineBase
 {
 public:
     MockGraphicsEngine(GameEngineT& engine) :
-		gui_manager(get_window_width())
+		gui_manager()
     {
     }
 
@@ -34,6 +34,8 @@ public:
 	void handle_command(ShutdownCmd& cmd) final {}
 	void handle_command(ToggleWireFrameModeCmd& cmd) final {}
 	void handle_command(UpdateCommandBufferCmd& cmd) final {}
+
+	float get_fps() const { return 1.0f; }
 
 private:
 	GuiManager<GameEngineT> gui_manager;

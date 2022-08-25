@@ -1,30 +1,24 @@
 #include <game_engine.ipp>
 #include <game_engine_callbacks.ipp>
 #include <interface/gizmo.ipp>
-#include <window.ipp>
 #include <input.ipp>
 
 #include "mock_graphics_engine.hpp"
+#include "mock_window.hpp"
 
 #include <gtest/gtest.h>
 
 
-// template specialisation for mocked game engine
-template<>
-App::Window<GameEngine<MockGraphicsEngine>>::Window(GameEngine<MockGraphicsEngine>* game_engine)
-{
-	this->game_engine = game_engine;
-}
-
 class TestFixture : public testing::Test
 {
 public:
-    TestFixture() : engine([](){})
+    TestFixture() : engine([](){}, mock_window)
     {
         engine.set_application(&application);
     }
 
     DummyApplication application;
+	MockWindow mock_window;
     GameEngine<MockGraphicsEngine> engine;
 };
 

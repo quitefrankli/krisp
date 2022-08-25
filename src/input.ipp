@@ -9,7 +9,7 @@
 
 
 template<typename GameEngineT>
-Mouse<GameEngineT>::Mouse(App::Window<GameEngineT>& ref_window) :
+Mouse<GameEngineT>::Mouse(App::Window& ref_window) :
 	window(ref_window)
 {
 }

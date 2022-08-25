@@ -34,9 +34,9 @@ template<template<typename> typename GraphicsEngineTemplate>
 GameEngine<GraphicsEngineTemplate>* GameEngine<GraphicsEngineTemplate>::global_engine = nullptr;
 
 template<template<typename> typename GraphicsEngineTemplate>
-GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_signaller) :
+GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_signaller, App::Window& window) :
 	restart_signaller(std::move(restart_signaller)),
-	window(this),
+	window((window.init(this, GameEngine::handle_scroll_callback, GameEngine::handle_window_callback, GameEngine::handle_mouse_button_callback), window)),
 	mouse(std::make_unique<Mouse<GameEngine>>(window)),
 	gizmo(std::make_unique<Gizmo<GameEngine>>(*this)),
 	graphics_engine(std::make_unique<GraphicsEngineT>(*this)),
