@@ -10,8 +10,20 @@
 #include <cassert>
 
 
+void glfw_error_cb(int num, const char* err_str)
+{
+	throw std::runtime_error(err_str);
+}
+
 void App::Window::init(void* callback_ptr, GLFWscrollfun scroll_cb, GLFWkeyfun key_cb, GLFWmousebuttonfun mouse_button_cb)
 {
+    // Register error callback first
+    glfwSetErrorCallback([](int err_no, const char* err_str){
+		throw std::runtime_error(
+			fmt::format("App::Window: GLFW Error! errno: {}, reason: '{}'", err_no, err_str)
+		);
+	});
+	
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
