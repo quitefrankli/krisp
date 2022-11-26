@@ -86,6 +86,10 @@ namespace Maths
 
 	bool check_ray_plane_intersection(const Ray& ray, const Plane& plane)
 	{
+		if (is_vec3_equal(ray.origin, plane.offset))
+		{
+			return true;
+		}
 		return glm::dot(ray.origin - plane.offset, ray.direction) < 0;
 	}
 
