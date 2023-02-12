@@ -61,7 +61,7 @@ template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::run()
 {
 	graphics_engine_thread = std::thread(&GraphicsEngineT::run, graphics_engine.get());
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	Utility::sleep(100);
 
 	if (!application)
 	{
@@ -80,7 +80,7 @@ void GameEngine<GraphicsEngineTemplate>::run()
 	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
 	{
 #ifndef DISABLE_SLEEP
-		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		Utility::sleep(17);
 #endif
 		const std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
 		std::chrono::duration<float, std::milli> chrono_time_delta = new_time - time;

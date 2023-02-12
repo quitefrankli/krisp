@@ -126,7 +126,7 @@ void GraphicsEngine<GameEngineT>::run() {
 			swap_chain.draw();
 
 #ifndef DISABLE_SLEEP
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			Utility::sleep(17);
 #endif
 
 			analytics.stop();

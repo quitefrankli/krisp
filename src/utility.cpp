@@ -48,7 +48,20 @@ std::filesystem::path Utility::get_child(const std::filesystem::path& parent, co
 
 void Utility::sleep(int milliseconds)
 {
-	std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+	const auto start = std::chrono::high_resolution_clock::now();
+	// this was discovered through trial and error, it would appear that a 1ms sleep takes ~ 15ms on windows
+	const float precision_ms = 20.0f;
+	const auto imprecise_end = start + std::chrono::milliseconds(int(milliseconds - precision_ms));
+	const auto precise_end = start + std::chrono::microseconds(int(std::round(milliseconds * 1e3)));
+	while (std::chrono::high_resolution_clock::now() < imprecise_end)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+
+	// spin-lock
+	while (std::chrono::high_resolution_clock::now() < precise_end)
+	{
+	}
 }
 
 struct Utility::UtilityImpl

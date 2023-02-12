@@ -28,7 +28,7 @@ public:
 	static float get_rand(float min, float max);
 
 	quill::Logger* get_logger() { return logger; }
-	void sleep(int milliseconds);
+	static void sleep(int milliseconds);
 
 	static std::filesystem::path get_child(const std::filesystem::path& parent, const std::string_view child);
 
