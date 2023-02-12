@@ -76,6 +76,20 @@ endif()
 enable_testing()
 add_subdirectory(test)
 
+# omits the annoying pdb debug symbol missing console spam
+if(MSVC)
+	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/ignore:4099")
+endif()
+
+message("Configuring for ${CMAKE_BUILD_TYPE} mode")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+	target_compile_definitions(Vulkan PRIVATE DEBUG_MODE=1)
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+	target_compile_definitions(Vulkan PRIVATE DEBUG_MODE=0)
+else()
+	message(FATAL_ERROR "CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} is not supported!")
+endif()
+
 # could be useful for recompiling shaders or dynamic library
 # add_custom_command(
 # 	OUTPUT None

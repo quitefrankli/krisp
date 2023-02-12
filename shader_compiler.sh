@@ -3,13 +3,16 @@
 set -e 
 set -o pipefail
 
-SCRIPTPATH=$(dirname "$BASH_SOURCE")
+SRC_DIR=$(dirname -- "${BASH_SOURCE[0]}")
+
+# only necessary for windows
+SRC_DIR=$(echo $SRC_DIR | sed 's/\\/\//g')
 
 compile_dir()
 {
 	shader=$1
-	src_dir=$SCRIPTPATH/src/shaders/$shader
-	build_dir=shaders/$shader
+	src_dir=$SRC_DIR/src/shaders/$shader
+	build_dir=$SRC_DIR/build/shaders/$shader
 
 	echo "compiling [$shader] shaders in [$src_dir] to [$build_dir]"
 
@@ -35,7 +38,7 @@ NC='\033[0m' # No Color
 echo -e "${YELLOW}compiling shaders...${NC}"
 
 # for each folder in under shaders except "library" compile each folder
-for directory in $SCRIPTPATH/src/shaders/*/
+for directory in $SRC_DIR/src/shaders/*/
 do
 	directory=$(basename $directory)
 	if [ $directory == library ]

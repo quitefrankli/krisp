@@ -36,11 +36,29 @@ class vulkan_conan(ConanFile):
 		self.copy("*.dylib*", dst="bin", src="lib")
 
 	def build(self):
-		print('Vulkan-conan: building...')
-		cmake = CMake(self, build_type=self.settings.build_type)
-		cmake.configure()
-		cmake.build(target='Vulkan')
+		cmake = CMake(self)
+		if self.should_configure:
+			print('Vulkan-conan: configuring...')
+			for key, val in self.options.items():
+				cmake.definitions[key.upper()] = self.process_option(val)
 
-		# generates shaders
-		self.run('sh ../compile.sh')
+			# some compilers (i.e. msvc) don't have specific build_type at configure stage
+			cmake.definitions['CMAKE_BUILD_TYPE'] = self.settings.build_type
+			cmake.configure()
+
+		if self.should_build:
+			# generates shaders
+			self.run(f"sh {self.source_folder}/shader_compiler.sh")
+
+			print('Vulkan-conan: building...')
+			cmake.build(target='Vulkan')
+
+	@staticmethod
+	def process_option(option) -> str:
+		if isinstance(option, bool):
+			return '1' if option else '0'
+		elif isinstance(option, str):
+			return option.upper()
+		else:
+			raise RuntimeError(f'unsupported option type! {option}')
 		
