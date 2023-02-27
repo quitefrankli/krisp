@@ -20,6 +20,7 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	
 	add_pipeline(ERenderType::STANDARD);
 	add_pipeline(ERenderType::COLOR);
+	add_pipeline(ERenderType::COLOR_NO_LIGHTING);
 	add_pipeline(ERenderType::WIREFRAME);
 	add_pipeline(ERenderType::LIGHT_SOURCE);
 	add_pipeline(ERenderType::CUBEMAP);

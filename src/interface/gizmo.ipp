@@ -8,6 +8,7 @@
 #include "game_engine.hpp"
 #include "shapes/shapes.hpp"
 #include "camera.hpp"
+#include "render_types.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 #include <fmt/core.h>
@@ -56,6 +57,7 @@ void TranslationGizmo<GameEngineT>::init()
 
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
+		axis->set_render_type(ERenderType::COLOR_NO_LIGHTING);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -117,6 +119,7 @@ void RotationGizmo<GameEngineT>::init()
 
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
+		axis->set_render_type(ERenderType::COLOR_NO_LIGHTING);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -187,6 +190,7 @@ void ScaleGizmo<GameEngineT>::init()
 
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](auto axis){
+		axis->set_render_type(ERenderType::COLOR_NO_LIGHTING);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
