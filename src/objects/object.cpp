@@ -28,9 +28,8 @@ Object::Object(Object&& other) noexcept :
 	shapes(std::move(other.shapes)),
 	children(std::move(other.children)),
 	parent(other.parent),
-	is_transform_old(other.is_transform_old),
-	cached_transform(std::move(other.cached_transform)),
-	transformation_components(std::move(other.transformation_components)),
+	world_transform(std::move(other.world_transform)),
+	relative_transform(std::move(other.relative_transform)),
 	bVisible(other.bVisible),
 	render_type(other.render_type),
 	aabb(std::move(other.aabb)),
@@ -50,94 +49,134 @@ uint32_t Object::get_num_vertex_indices() const
 		return total + shape.get_num_vertex_indices(); });
 }
 
+void Object::sync_world_from_relative() const
+{
+	if (!parent)
+	{
+		return;
+	}
+
+	world_transform.set_mat4(parent->get_transform() * relative_transform.get_mat4());
+}
+
+glm::mat4 Object::get_transform() const
+{
+	sync_world_from_relative();
+
+	return world_transform.get_mat4();
+}
+
+glm::vec3 Object::get_position() const
+{
+	sync_world_from_relative();
+
+	return world_transform.get_pos();
+}
+
+glm::vec3 Object::get_scale() const
+{
+	sync_world_from_relative();
+
+	return world_transform.get_scale();
+}
+
+glm::quat Object::get_rotation() const
+{
+	sync_world_from_relative();
+
+	return world_transform.get_orient();
+}
+
+void Object::set_transform(const glm::mat4& transform)
+{
+	sync_world_from_relative();
+	world_transform.set_mat4(transform);
+
+	if (parent)
+	{
+		// also set relative transform if this object is attached so the world
+		// transform doesn't get overwritten on next sync
+		relative_transform.set_mat4(glm::inverse(parent->get_transform()) * world_transform.get_mat4());
+	}
+}
+
 void Object::set_position(const glm::vec3& position)
 {
-	is_transform_old = true;
+	sync_world_from_relative();
+	world_transform.set_pos(position);
 
-	glm::vec3 diff = position - this->position;
-
-	this->position = position;
-	for (auto& child : children)
+	if (parent)
 	{
-		child.second->set_position(child.second->get_position() + diff);
+		// also set relative transform if this object is attached so the world
+		// transform doesn't get overwritten on next sync
+		relative_transform.set_mat4(glm::inverse(parent->get_transform()) * world_transform.get_mat4());
 	}
 }
 
 void Object::set_scale(const glm::vec3& scale)
 {
-	is_transform_old = true;
-	this->scale = scale;
+	sync_world_from_relative();
+	world_transform.set_scale(scale);
+
+	if (parent)
+	{
+		// also set relative transform if this object is attached so the world
+		// transform doesn't get overwritten on next sync
+		relative_transform.set_mat4(glm::inverse(parent->get_transform()) * world_transform.get_mat4());
+	}
 }
 
 void Object::set_rotation(const glm::quat& rotation)
 {
-	is_transform_old = true;
+	sync_world_from_relative();
+	world_transform.set_orient(rotation);
 
-	if (!children.empty())
+	if (parent)
 	{
-		glm::quat diff = glm::normalize(rotation * glm::conjugate(orientation));
-		for (auto& child : children)
-		{
-			// break;
-			// rotate the child about its own axis
-			// child.second->set_rotation(diff * child.second->get_rotation());
-
-			// in addition to the rotation of the child on its own axis
-			// we also need to rotate the child about the parent
-
-			// for rotating about arbitrary axis, we need to:
-			// 1. move it to the origin (relative to its parent)
-			glm::vec3 temp_pos = child.second->get_position() - get_position();
-
-			// 2. apply rotation
-			temp_pos = diff * temp_pos;
-
-			// 3. move it back to its location
-			child.second->set_position(temp_pos + get_position());
-
-			// 4. also apply rotation (in world space) to the child object
-			child.second->set_rotation(diff * child.second->get_rotation());
-		}
+		// also set relative transform if this object is attached so the world
+		// transform doesn't get overwritten on next sync
+		relative_transform.set_mat4(glm::inverse(parent->get_transform()) * world_transform.get_mat4());
 	}
-
-	orientation = rotation;
 }
 
-void Object::set_transformation_components(const Maths::TransformationComponents& components)
+glm::mat4 Object::get_relative_transform() const
 {
-	transformation_components = components;
-	is_transform_old = true;
+	return relative_transform.get_mat4();
 }
 
-glm::mat4 Object::get_transform() const
+glm::vec3 Object::get_relative_position() const
 {
-	if (is_transform_old)
-	{
-		is_transform_old = false;
-
-		cached_transform = glm::mat4_cast(glm::normalize(orientation)) * glm::scale(scale);
-		cached_transform[3] = glm::vec4(position, 1.0f);
-	}
-
-	return cached_transform;
+	return relative_transform.get_pos();
 }
 
-void Object::set_transform(const glm::mat4& transform)
+glm::vec3 Object::get_relative_scale() const
 {
-	is_transform_old = false;
-	cached_transform = transform;
+	return relative_transform.get_scale();
+}
 
-	auto get_vec3_len = [](const glm::vec4& vec4)
-	{
-		return std::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
-	};
+glm::quat Object::get_relative_rotation() const
+{
+	return relative_transform.get_orient();
+}
 
-	// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
-	orientation = glm::normalize(glm::quat_cast(transform));
-	scale[0] = get_vec3_len(transform[0]);
-	scale[1] = get_vec3_len(transform[1]);
-	scale[2] = get_vec3_len(transform[2]);
-	position = transform[3];
+void Object::set_relative_transform(const glm::mat4& transform)
+{
+	relative_transform.set_mat4(transform);
+}
+
+void Object::set_relative_position(const glm::vec3& position)
+{
+	relative_transform.set_pos(position);
+}
+
+void Object::set_relative_scale(const glm::vec3& scale)
+{
+	relative_transform.set_scale(scale);
+}
+
+void Object::set_relative_rotation(const glm::quat& rotation)
+{
+	relative_transform.set_orient(rotation);
 }
 
 void Object::detach_from()
@@ -178,6 +217,8 @@ void Object::attach_to(Object* new_parent)
 			detach_from();
 		}
 	}
+
+	set_relative_transform(get_transform() * glm::inverse(new_parent->get_transform()));
 	
 	// callbacks
 	on_parent_attached(new_parent);

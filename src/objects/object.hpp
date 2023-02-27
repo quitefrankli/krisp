@@ -68,21 +68,31 @@ public:
 	virtual void detach_all_children();
 
 public:
+	// world
 	virtual glm::mat4 get_transform() const;
-	virtual glm::vec3 get_position() const { return transformation_components.position; }
-	virtual glm::vec3 get_scale() const { return transformation_components.scale; }
-	virtual glm::quat get_rotation() const { return transformation_components.orientation; }
-	virtual const Maths::TransformationComponents& get_transformation_components() const { return transformation_components; }
-
-	const std::vector<Shape>& get_shapes() const { return shapes; }
-	AABB get_aabb() const { return aabb; }
-	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
+	virtual glm::vec3 get_position() const;
+	virtual glm::vec3 get_scale() const;
+	virtual glm::quat get_rotation() const;
 
 	virtual void set_transform(const glm::mat4& transform);
 	virtual void set_position(const glm::vec3& position);
 	virtual void set_scale(const glm::vec3& scale);
 	virtual void set_rotation(const glm::quat& rotation);
-	virtual void set_transformation_components(const Maths::TransformationComponents& components);
+
+	// relative
+	virtual glm::mat4 get_relative_transform() const;
+	virtual glm::vec3 get_relative_position() const;
+	virtual glm::vec3 get_relative_scale() const;
+	virtual glm::quat get_relative_rotation() const;
+
+	virtual void set_relative_transform(const glm::mat4& transform);
+	virtual void set_relative_position(const glm::vec3& position);
+	virtual void set_relative_scale(const glm::vec3& scale);
+	virtual void set_relative_rotation(const glm::quat& rotation);
+
+	const std::vector<Shape>& get_shapes() const { return shapes; }
+	AABB get_aabb() const { return aabb; }
+	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
 
 protected:
 	std::map<uint64_t, Object*> children;
@@ -102,16 +112,16 @@ private:
 	void calculate_shape_extent_sphere();
 
 private:
-	mutable bool is_transform_old = true;
-	mutable glm::mat4 cached_transform;
-	Maths::TransformationComponents transformation_components;
+	// there's a lot of caching going on with the below 2 transforms hence the mutable
+	mutable Maths::Transform world_transform;
+	mutable Maths::Transform relative_transform; // as opposed to world, relative SHOULD ALWAYS be up to date
+	// when relative_transform updates then world transform will be outdated
+	// mutable bool bIsWorldTransformOld = false;
+	void sync_world_from_relative() const;
+
 	AABB aabb;
 	Maths::Sphere bounding_sphere;
 
-	// not really necessary but it's nice to have for easy access
-	glm::vec3& position = transformation_components.position;
-	glm::vec3& scale = transformation_components.scale;
-	glm::quat& orientation = transformation_components.orientation;
 	bool bVisible = true;
 
 	ERenderType render_type = ERenderType::COLOR;

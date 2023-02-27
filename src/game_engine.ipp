@@ -40,8 +40,10 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	mouse(std::make_unique<Mouse<GameEngine>>(window)),
 	gizmo(std::make_unique<Gizmo<GameEngine>>(*this)),
 	graphics_engine(std::make_unique<GraphicsEngineT>(*this)),
-	camera(std::make_unique<Camera>(Listener(audio_engine), static_cast<float>(window.get_width())/static_cast<float>(window.get_height())))
+	camera(std::make_unique<Camera>(Listener(), 
+		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height())))
 {
+	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	draw_object(camera->focus_obj);
 	draw_object(camera->upvector_obj);
 	experimental = std::make_unique<Experimental<GameEngine>>(*this);

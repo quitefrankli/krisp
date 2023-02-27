@@ -78,4 +78,9 @@ private:
 
 	using Object::set_transform;
 	using Object::set_position;
+
+	static constexpr float panning_sensitivity = 0.2f;
+
+	class CameraTests;
+	friend CameraTests;
 };

@@ -56,8 +56,13 @@ reload the new dll file
 run `git-clang-format --style=file` before commiting
 
 ## Testing
+
+Run this after build step
+
 ```
+cd build
 cmake --build . --target unittests --config Debug
+bin/unittests
 ```
 
 ## Benchmarking

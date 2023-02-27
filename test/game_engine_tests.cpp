@@ -9,10 +9,10 @@
 #include <gtest/gtest.h>
 
 
-class TestFixture : public testing::Test
+class GameEngineTests : public testing::Test
 {
 public:
-    TestFixture() : engine([](){}, mock_window)
+    GameEngineTests() : engine([](){}, mock_window)
     {
         engine.set_application(&application);
     }
@@ -22,12 +22,12 @@ public:
     GameEngine<MockGraphicsEngine> engine;
 };
 
-TEST_F(TestFixture, Constructor)
+TEST_F(GameEngineTests, Constructor)
 {
     ASSERT_TRUE(engine.get_light_source());
 }
 
-TEST_F(TestFixture, main_loop)
+TEST_F(GameEngineTests, main_loop)
 {
     engine.main_loop(1.0f);
 }

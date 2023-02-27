@@ -3,6 +3,9 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/ext.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 #include <iostream>
 
@@ -92,4 +95,85 @@ namespace Maths
 			ray.origin + glm::dot(ray.direction, sphere.origin) * ray.direction;
 		return glm::distance(projP, sphere.origin) < sphere.radius;
 	}
+
+	const glm::vec3& Transform::get_pos()
+	{
+		if (is_old(0b1000))
+		{
+			position = transform[3];
+			is_up_to_date |= 0b1000;				
+		}
+		return position; 
+	}
+
+	const glm::vec3& Transform::get_scale()
+	{
+		if (is_old(0b0100))
+		{
+			const auto get_vec3_len = [](const glm::vec4& vec4)
+			{
+				return std::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
+			};
+
+			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
+			scale[0] = get_vec3_len(transform[0]);
+			scale[1] = get_vec3_len(transform[1]);
+			scale[2] = get_vec3_len(transform[2]);
+			
+			is_up_to_date |= 0b0100;				
+		}
+		return scale;
+	}
+
+	const glm::quat& Transform::get_orient()
+	{ 
+		if (is_old(0b0010))
+		{
+			orientation = glm::normalize(glm::quat_cast(transform));
+			is_up_to_date |= 0b0010;
+		}
+		return orientation;
+	}
+
+	const glm::mat4& Transform::get_mat4()
+	{
+		if (is_old(0b0001))
+		{
+			const auto tmp_orient = glm::normalize(get_orient());
+			const auto tmp_scale = get_scale();
+			const auto tmp_pos = get_pos();
+
+			transform = glm::mat4_cast(tmp_orient) * glm::scale(tmp_scale);
+			transform[3] = glm::vec4(tmp_pos, 1.0f);
+			is_up_to_date |= 0b0001;
+		}
+		return transform;
+	}
+
+	void Transform::set_pos(const glm::vec3& new_pos)
+	{
+		position = new_pos;
+		is_up_to_date |= 0b1000;
+		is_up_to_date &= 0b1110;
+	}
+
+	void Transform::set_scale(const glm::vec3& new_scale)
+	{
+		scale = new_scale;
+		is_up_to_date |= 0b0100;
+		is_up_to_date &= 0b1110;
+	}
+
+	void Transform::set_orient(const glm::quat& new_orient)
+	{
+		orientation = new_orient;
+		is_up_to_date |= 0b0010;
+		is_up_to_date &= 0b1110;
+	}
+
+	void Transform::set_mat4(const glm::mat4& new_transform)
+	{
+		transform = new_transform;
+		is_up_to_date = 0b0001;
+	}	
 }

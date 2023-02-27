@@ -6,3 +6,4 @@ vulkanSDKMacOS
 .DS_Store
 imgui.ini
 *.log
+Testing/

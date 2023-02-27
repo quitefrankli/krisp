@@ -25,7 +25,7 @@ protected:
 	GameEngineT& engine;
 	Gizmo<GameEngineT>& gizmo;
 	virtual bool is_essential_child(Object* child);
-	Maths::TransformationComponents reference_transform;
+	Maths::Transform reference_transform;
 	std::array<Object*, 3> axes;
 	Object* active_axis = nullptr; // when axis is clicked on
 	Maths::Plane plane; // plane of interaction

@@ -2,6 +2,7 @@
 
 #include <glm/vec3.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/constants.hpp>
 
 
 namespace Maths
@@ -46,11 +47,30 @@ namespace Maths
 		float radius;
 	};
 
-	struct TransformationComponents
+	struct Transform
 	{
-		glm::vec3 position = glm::vec3(0.f);
-		glm::vec3 scale = glm::vec3(1.f);
-		glm::quat orientation = glm::quat_identity<float, glm::highp>(); // default init creates identity quaternion
+	public:
+		const glm::vec3& get_pos();
+		const glm::vec3& get_scale();
+		const glm::quat& get_orient();
+		const glm::mat4& get_mat4();
+
+		void set_pos(const glm::vec3& new_pos);
+		void set_scale(const glm::vec3& new_scale);
+		void set_orient(const glm::quat& new_orient);
+		void set_mat4(const glm::mat4& new_transform);
+
+	private:
+		glm::vec3 position = glm::vec3(0.f); // 0b1000
+		glm::vec3 scale = glm::vec3(1.f); // 0b0100
+		glm::quat orientation = glm::quat_identity<float, glm::highp>(); // 0b0010
+		glm::mat4 transform = glm::mat4(1.0f); // 0b0001
+
+		// flags whether the above vars are old
+		// if it's old then it should be either recalculated to/from the mat4
+		uint8_t is_up_to_date = 0b1111;
+
+		bool is_old(uint8_t bitmask) const { return !(is_up_to_date & bitmask); }
 	};
 
 	// assume normalized already
@@ -75,7 +95,8 @@ namespace Maths
 	const glm::vec3 up_vec = { 0.0f, 1.0f, 0.0f };
 	const glm::vec3 forward_vec = { 0.0f, 0.0f, 1.0f };
 	const glm::vec3 zero_vec = {};
-
+	const glm::vec3 identity_vec = { 1.0f, 1.0f, 1.0f };
+	const glm::quat identity_quat = glm::quat_identity<float, glm::highp>();
 	enum class Direction
 	{
 		RIGHT,

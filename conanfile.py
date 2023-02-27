@@ -52,6 +52,11 @@ class vulkan_conan(ConanFile):
 
 			print('Vulkan-conan: building...')
 			cmake.build(target='Vulkan')
+			cmake.build(target='unittests')
+
+		if self.should_test:
+			print('Vulkan-conan: testing...')
+			cmake.test(output_on_failure=True)
 
 	@staticmethod
 	def process_option(option) -> str:

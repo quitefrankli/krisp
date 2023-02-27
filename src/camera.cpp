@@ -14,8 +14,6 @@ Camera::Camera(Listener&& listener, float aspect_ratio) :
 	ITrackableObject(this),
 	listener(std::move(listener))
 {
-	set_position(glm::vec3(0.0f, 0.0f, -2.0f));
-
 	const float fov = Maths::deg2rad(45.0f);
 	// const float aspect_ratio = aspect_ratio; // passed in
 	const float near_clipping = 0.1f;
@@ -138,7 +136,7 @@ void Camera::pan(const glm::vec3& axis, const float magnitude)
 void Camera::pan(const glm::vec2& axis, const float magnitude)
 {
 	// for 2d sensitivity is also a function of the focal length
-	const float sensitivity = 1.0f * 0.2f * get_focal_length();
+	const float sensitivity = panning_sensitivity * get_focal_length();
 	const glm::vec3 vec = sync_to_camera(axis);
 	pan(vec, magnitude * sensitivity);
 }

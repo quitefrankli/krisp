@@ -77,8 +77,8 @@ bool TranslationGizmo<GameEngineT>::check_collision(const Maths::Ray& ray)
 		if (axis->check_collision(ray))
 		{
 			active_axis = axis;
-			reference_transform.position = get_position();
-			reference_transform.orientation = get_rotation();
+			reference_transform.set_pos(get_position());
+			reference_transform.set_orient(get_rotation());
 
 			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
 			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
@@ -102,7 +102,7 @@ void TranslationGizmo<GameEngineT>::process(const Maths::Ray& r1, const Maths::R
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
 	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
 
-	gizmo.set_position(reference_transform.position + Vp1_p2);
+	gizmo.set_position(reference_transform.get_pos() + Vp1_p2);
 }
 
 //
@@ -138,8 +138,8 @@ bool RotationGizmo<GameEngineT>::check_collision(const Maths::Ray& ray)
 		if (axis->check_collision(ray))
 		{
 			active_axis = axis;
-			reference_transform.position = get_position();
-			reference_transform.orientation = get_rotation();
+			reference_transform.set_pos(get_position());
+			reference_transform.set_orient(get_rotation());
 
 			plane.normal = glm::normalize(active_axis->get_rotation() * Maths::forward_vec);
 			plane.offset = get_position();
@@ -162,7 +162,7 @@ void RotationGizmo<GameEngineT>::process(const Maths::Ray& r1, const Maths::Ray&
 		glm::normalize(p1-plane.offset), 
 		glm::normalize(p2-plane.offset),
 		plane.normal);
-	gizmo.set_rotation(glm::normalize(quat * reference_transform.orientation));
+	gizmo.set_rotation(glm::normalize(quat * reference_transform.get_orient()));
 }
 
 //
@@ -208,7 +208,7 @@ bool ScaleGizmo<GameEngineT>::check_collision(const Maths::Ray& ray)
 		if (axis->check_collision(ray))
 		{
 			active_axis = axis;
-			reference_transform.scale = gizmo.selected_object->get_scale();
+			reference_transform.set_scale(gizmo.selected_object->get_scale());
 
 			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
 			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
@@ -234,7 +234,7 @@ void ScaleGizmo<GameEngineT>::process(const Maths::Ray& r1, const Maths::Ray& r2
 	// const auto Vp1_p2 = tmp * curr_axis;
 
 	const auto& original_axis = static_cast<ScaleGizmoObj*>(active_axis)->original_axis;
-	const glm::vec3 new_scale = reference_transform.scale + original_axis * magnitude;
+	const glm::vec3 new_scale = reference_transform.get_scale() + original_axis * magnitude;
 	
 	if (glm::dot(new_scale, original_axis) < minimum_scale)
 	{
