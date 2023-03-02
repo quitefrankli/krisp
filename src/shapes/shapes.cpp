@@ -175,4 +175,46 @@ bool Cube::check_collision(const Maths::Ray& ray)
 	return true;
 }
 
+Sphere::Sphere(int nVertices, glm::vec3 color)
+{
+	vertices.reserve(nVertices * nVertices);
+	indices.reserve(nVertices * nVertices * 6);
+
+	for (int i = 0; i < nVertices; i++)
+	{
+		float m = (float)i/nVertices * Maths::PI * 2.0f;
+		for (int j = 0; j < nVertices; j++)
+		{
+			float n = (float)j/nVertices * Maths::PI;
+			vertices.emplace_back(
+				glm::vec3(cosf(m) * sinf(n) * 0.5f, cosf(n) * 0.5f, sinf(m) * sinf(n) * 0.5f),
+				color
+			);
+		}
+	}
+
+	for (int i = 0; i < nVertices-1; i++)
+	{
+		for (int j = 0; j < nVertices-1; j++)
+		{
+			indices.emplace_back(i * nVertices + j);
+			indices.emplace_back((i+1) * nVertices + j);
+			indices.emplace_back(i * nVertices + (j+1)%nVertices);
+
+			indices.emplace_back(i * nVertices + (j+1)%nVertices);
+			indices.emplace_back((i+1) * nVertices + j);
+			indices.emplace_back((i+1) * nVertices + (j+1)%nVertices);
+		}
+	}
+
+	generate_normals();
+}
+
+bool Sphere::check_collision(const Maths::Ray& ray)
+{
+	// TODO
+	return true;
+}
+
+
 }

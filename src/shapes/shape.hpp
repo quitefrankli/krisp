@@ -16,7 +16,7 @@ class Shape
 {
 public:
 	Shape() = default;
-	~Shape() = default;
+	virtual ~Shape() = default;
 	Shape(const Shape& shape) = delete;
 	Shape& operator=(const Shape& shape) = delete;
 	Shape(Shape&& shape) noexcept = default;
