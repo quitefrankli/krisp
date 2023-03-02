@@ -114,12 +114,12 @@ namespace Maths
 	{
 		if (is_old(0b0100))
 		{
+			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
 			const auto get_vec3_len = [](const glm::vec4& vec4)
 			{
 				return std::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
 			};
 
-			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
 			scale[0] = get_vec3_len(transform[0]);
 			scale[1] = get_vec3_len(transform[1]);
 			scale[2] = get_vec3_len(transform[2]);
@@ -133,7 +133,13 @@ namespace Maths
 	{ 
 		if (is_old(0b0010))
 		{
-			orientation = glm::normalize(glm::quat_cast(transform));
+			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
+			const auto scale = get_scale();
+			const glm::mat3 rotMtx(
+				glm::vec3(transform[0]) / scale[0],
+				glm::vec3(transform[1]) / scale[1],
+				glm::vec3(transform[2]) / scale[2]);
+    		orientation = glm::quat_cast(rotMtx);
 			is_up_to_date |= 0b0010;
 		}
 		return orientation;
@@ -180,4 +186,21 @@ namespace Maths
 		transform = new_transform;
 		is_up_to_date = 0b0001;
 	}	
+
+	std::optional<glm::vec3> ray_sphere_collision(const Sphere& sphere, const Ray& ray)
+	{
+		const float x_t = glm::dot(sphere.origin - ray.origin, ray.direction);
+		// x is the closest point on the ray to sphere's center
+		const glm::vec3 x = ray.origin + ray.direction * x_t;
+		const float h = glm::distance(sphere.origin, x);
+		// l is the distance between x and the surface of the sphere
+		const float l = std::sqrtf(std::powf(sphere.radius, 2.0f) - std::powf(h, 2.0f));
+		const float t = x_t - l;
+		if (t < 0)
+		{
+			return std::nullopt;
+		}
+		
+		return ray.origin + ray.direction * t;
+	}
 }

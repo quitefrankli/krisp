@@ -218,7 +218,7 @@ void Object::attach_to(Object* new_parent)
 		}
 	}
 
-	set_relative_transform(get_transform() * glm::inverse(new_parent->get_transform()));
+	set_relative_transform(glm::inverse(new_parent->get_transform()) * get_transform());
 	
 	// callbacks
 	on_parent_attached(new_parent);

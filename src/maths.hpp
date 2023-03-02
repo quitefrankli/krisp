@@ -4,6 +4,8 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/constants.hpp>
 
+#include <optional>
+
 
 namespace Maths
 {
@@ -95,6 +97,8 @@ namespace Maths
 	bool check_ray_plane_intersection(const Ray& ray, const Plane& plane);
 
 	bool check_spherical_collision(const Ray& ray, const Sphere& sphere);
+
+	std::optional<glm::vec3> ray_sphere_collision(const Sphere& sphere, const Ray& ray);
 
 	inline float signed_sum(const glm::vec3& v) { return v.x + v.y + v.z; }
 
