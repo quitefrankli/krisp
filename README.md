@@ -16,6 +16,7 @@ git clone $THIS_PROJECT
 ```
 conan install . -if build/ --build=missing -s build_type=Debug
 conan build . -bf build/ --configure
+sh shader_compiler.sh
 conan build . -bf build/ --build
 build/bin/Vulkan.exe
 ```
@@ -58,6 +59,15 @@ run `git-clang-format --style=file` before commiting
 ## Testing
 
 Run this after build step
+
+```
+conan install . -if build/ --build=missing -s build_type=Debug
+conan build . -bf build/ --configure
+sh shader_compiler.sh
+conan build . -bf build/ --testing
+```
+
+alternatively
 
 ```
 cd build

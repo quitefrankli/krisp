@@ -1,5 +1,15 @@
 from conans import ConanFile, CMake
 
+class CustomWrapper:
+	def __init__(self, conanfile: ConanFile):
+		self.conanfile = conanfile
+
+	def __enter__(self):
+		self.conanfile.should_build = True
+
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		self.conanfile.should_build = False
+
 class vulkan_conan(ConanFile):
 	settings = (
 		"os",
@@ -47,14 +57,14 @@ class vulkan_conan(ConanFile):
 			cmake.configure()
 
 		if self.should_build:
-			# generates shaders
-			self.run(f"sh {self.source_folder}/shader_compiler.sh")
-
 			print('Vulkan-conan: building...')
 			cmake.build(target='Vulkan')
-			cmake.build(target='unittests')
 
 		if self.should_test:
+			with CustomWrapper(self):
+				cmake.build(target='Vulkan')
+				cmake.build(target='unittests')
+				
 			print('Vulkan-conan: testing...')
 			cmake.test(output_on_failure=True)
 
