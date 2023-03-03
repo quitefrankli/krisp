@@ -49,12 +49,22 @@ namespace Shapes
 		virtual bool check_collision(const Maths::Ray& ray) override;
 	};
 
-	class Sphere : public Shape
+	class Tetrahedron : public Shape
 	{
 	public:
-		Sphere(int nVertices, glm::vec3 color = {0.0f, 1.0f, 0.0f});
-		Sphere(Sphere&&) noexcept = default;
-		virtual ~Sphere() override {};
+		Tetrahedron();
+		Tetrahedron(Tetrahedron&&) noexcept = default;
+		virtual ~Tetrahedron() override {};
+
+		virtual bool check_collision(const Maths::Ray& ray) override;
+	};
+
+	class Icosahedron : public Shape
+	{
+	public:
+		Icosahedron();
+		Icosahedron(Icosahedron&&) noexcept = default;
+		virtual ~Icosahedron() override {};
 
 		virtual bool check_collision(const Maths::Ray& ray) override;
 	};

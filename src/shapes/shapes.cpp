@@ -175,46 +175,67 @@ bool Cube::check_collision(const Maths::Ray& ray)
 	return true;
 }
 
-Sphere::Sphere(int nVertices, glm::vec3 color)
+Tetrahedron::Tetrahedron()
 {
-	vertices.reserve(nVertices * nVertices);
-	indices.reserve(nVertices * nVertices * 6);
+	vertices.reserve(4);
+	indices.reserve(12);
 
-	for (int i = 0; i < nVertices; i++)
-	{
-		float m = (float)i/nVertices * Maths::PI * 2.0f;
-		for (int j = 0; j < nVertices; j++)
-		{
-			float n = (float)j/nVertices * Maths::PI;
-			vertices.emplace_back(
-				glm::vec3(cosf(m) * sinf(n) * 0.5f, cosf(n) * 0.5f, sinf(m) * sinf(n) * 0.5f),
-				color
-			);
-		}
-	}
+	const float a = std::sqrtf(4.0f/3.0f)/4.0f;
+	const float b = std::sqrtf(8.0f/3.0f)/4.0f;
+	const glm::vec3 color{1.0f, 1.0f, 1.0f};
+	vertices.emplace_back(glm::vec3{-b, a, 0}, color);
+	vertices.emplace_back(glm::vec3{b, a, 0}, color);
+	vertices.emplace_back(glm::vec3{0, -a, -b}, color);
+	vertices.emplace_back(glm::vec3{0, -a, b}, color);
 
-	for (int i = 0; i < nVertices-1; i++)
-	{
-		for (int j = 0; j < nVertices-1; j++)
-		{
-			indices.emplace_back(i * nVertices + j);
-			indices.emplace_back((i+1) * nVertices + j);
-			indices.emplace_back(i * nVertices + (j+1)%nVertices);
-
-			indices.emplace_back(i * nVertices + (j+1)%nVertices);
-			indices.emplace_back((i+1) * nVertices + j);
-			indices.emplace_back((i+1) * nVertices + (j+1)%nVertices);
-		}
-	}
+	indices = {
+		0, 1, 2,
+		0, 2, 3,
+		0, 3, 1,
+		1, 3, 2
+	};
 
 	generate_normals();
 }
 
-bool Sphere::check_collision(const Maths::Ray& ray)
+bool Tetrahedron::check_collision(const Maths::Ray& ray)
 {
 	// TODO
 	return true;
 }
 
+Icosahedron::Icosahedron()
+{
+	// https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/
+	const float X=.525731112119133606f;
+	const float Z=.850650808352039932f;
+	const float N=0.f;
+	const glm::vec3 color{1.0f, 1.0f, 1.0f};
+	vertices = {
+		Vertex(glm::vec3{-X,N,Z}, color), Vertex(glm::vec3{X,N,Z}, color), 
+		Vertex(glm::vec3{-X,N,-Z}, color), Vertex(glm::vec3{X,N,-Z}, color),
+		Vertex(glm::vec3{N,Z,X}, color), Vertex(glm::vec3{N,Z,-X}, color), 
+		Vertex(glm::vec3{N,-Z,X}, color), Vertex(glm::vec3{N,-Z,-X}, color),
+		Vertex(glm::vec3{Z,X,N}, color), Vertex(glm::vec3{-Z,X, N}, color), 
+		Vertex(glm::vec3{Z,-X,N}, color), Vertex(glm::vec3{-Z,-X, N}, color)
+	};
+	
+	indices = {
+		0,4,1,0,9,4,9,5,4,4,5,8,4,8,1,
+		8,10,1,8,3,10,5,3,8,5,2,3,2,7,3,
+		7,10,3,7,6,10,7,11,6,11,0,6,0,1,6,
+		6,1,10,9,0,11,9,11,2,9,2,5,7,2,11
+	};
+
+	std::reverse(indices.begin(), indices.end());
+
+	generate_normals();
+}
+
+bool Icosahedron::check_collision(const Maths::Ray& ray)
+{
+	// TODO
+	return true;
+}
 
 }
