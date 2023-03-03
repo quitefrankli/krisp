@@ -76,6 +76,7 @@ App::Window::~Window()
 		return;
 	}
 
+	glfwSetErrorCallback([](int, const char*){}); //mutes annoying destruction message
 	glfwDestroyWindow(get_window());
 	glfwTerminate();
 }
