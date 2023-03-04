@@ -37,6 +37,10 @@ Object::Object(Object&& other) noexcept :
 {
 }
 
+Object::~Object()
+{
+}
+
 uint32_t Object::get_num_unique_vertices() const
 {
 	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
@@ -322,8 +326,4 @@ bool Object::check_collision(const Maths::Ray& ray, glm::vec3& intersection) con
 	{
 		return false;
 	}
-}
-
-Object::~Object()
-{
 }
