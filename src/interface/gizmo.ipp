@@ -344,6 +344,12 @@ bool Gizmo<GameEngineT>::check_collision(const Maths::Ray& ray)
 }
 
 template<typename GameEngineT>
+void Gizmo<GameEngineT>::dispatch_on_click(Object& object, const Maths::Ray& ray, const glm::vec3& intersection)
+{
+	select_object(&object);
+}
+
+template<typename GameEngineT>
 void Gizmo<GameEngineT>::delete_object()
 {
 	if (!selected_object)

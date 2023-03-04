@@ -3,6 +3,8 @@
 #include "gui/gui_manager.hpp"
 #include "game_engine.hpp"
 #include "objects/objects.hpp"
+#include "objects/generic_objects.hpp"
+#include "shapes/shape_factory.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "audio_engine/audio_source.hpp"
 #include "utility.hpp"
@@ -38,14 +40,19 @@ GuiObjectSpawner<GameEngineT>::GuiObjectSpawner()
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngineT& engine, bool textured)
 			{
-				auto& obj = engine.template spawn_object<Cube>();
+				auto& obj = engine.template spawn_object<GenericClickableObject>(ShapeFactory::generate_cube());
+				engine.add_clickable(obj.get_id(), &obj);
 				if (textured)
 				{
 					ResourceLoader::assign_object_texture(obj, Utility::get_texture("texture.jpg").data());
-				} 
+				}
 			})},
-		{"sphere", spawning_function_type([this](GameEngineT& engine, bool textured){ 
-			textured ? engine.template spawn_object<Sphere>() : engine.template spawn_object<Sphere>(); })}
+		{"sphere", spawning_function_type([this](GameEngineT& engine, bool textured)
+			{
+				auto& obj = engine.template spawn_object<GenericClickableObject>(
+					ShapeFactory::generate_sphere(ShapeFactory::GenerationMethod::ICO_SPHERE, 100));
+				engine.add_clickable(obj.get_id(), &obj);
+			})}
 	};
 }
 

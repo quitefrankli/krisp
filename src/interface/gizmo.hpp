@@ -3,6 +3,7 @@
 #include "objects/objects.hpp"
 #include "maths.hpp"
 #include "objects.hpp"
+#include "objects/object_interfaces/clickable.hpp"
 
 #include <array>
 
@@ -130,7 +131,7 @@ private:
 };
 
 template<typename GameEngineT>
-class Gizmo : public Object
+class Gizmo : public Object, public OnClickDispatchers::IBaseDispatcher
 {
 public:
 	Gizmo(GameEngineT& engine);
@@ -141,6 +142,7 @@ public:
 	// r1 is first mouse pos, and r2 is second mouse pos
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	virtual bool check_collision(const Maths::Ray& ray) override;
+	virtual void dispatch_on_click(Object& object, const Maths::Ray& ray, const glm::vec3& intersection) override;
 	void delete_object();
 
 private:

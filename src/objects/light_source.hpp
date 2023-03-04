@@ -1,9 +1,10 @@
 #pragma once
 
 #include "objects/object.hpp"
+#include "object_interfaces/clickable.hpp"
 
 
-class LightSource : public Object
+class LightSource : public Object, public IClickable
 {
 public:
 	LightSource(const glm::vec3& color);

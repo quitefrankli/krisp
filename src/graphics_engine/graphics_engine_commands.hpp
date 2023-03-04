@@ -25,13 +25,14 @@ struct SpawnObjectCmd : public GraphicsEngineCommand
 struct ObjectCommand : public GraphicsEngineCommand
 {
 	ObjectCommand(const Object& object);
+	ObjectCommand(uint64_t object_id) : object_id(object_id) {}
 	
 	const uint64_t object_id;
 };
 
 struct DeleteObjectCmd : public ObjectCommand
 {
-	DeleteObjectCmd(const Object& object) : ObjectCommand(object) {}
+	DeleteObjectCmd(uint64_t object_id) : ObjectCommand(object_id) {}
 	virtual void process(GraphicsEngineBase* engine) override;
 };
 

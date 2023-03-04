@@ -182,46 +182,66 @@ void GameEngine<GraphicsEngineTemplate>::handle_mouse_button_callback_impl(GLFWw
 		{
 			mouse->update_pos();
 			const Maths::Ray ray = camera->get_ray(mouse->curr_pos);
+			glm::vec3 intersection{};
 			if (mode == GLFW_MOD_SHIFT)
 			{
-				for (auto& obj_pair : objects)
+				// gizmo mode, TODO: make else case also a IBaseDispatcher
+				OnClickDispatchers::IBaseDispatcher& on_click_dispatcher = *gizmo;
+				IClickable* closest_clickable = nullptr;
+				float closest_clickable_distance = std::numeric_limits<float>::infinity();
+				execute_on_clickables([&closest_clickable, &closest_clickable_distance, &ray](IClickable* clickable)
 				{
-					if (obj_pair.second->check_collision(ray))
+					glm::vec3 intersection;
+					if (clickable->check_click(ray, intersection))
 					{
-						gizmo->select_object(obj_pair.second.get());
-						return;
+						const float new_distance = glm::distance2(ray.origin, intersection);
+						if (new_distance < closest_clickable_distance)
+						{
+							closest_clickable_distance = new_distance;
+							closest_clickable = clickable;
+						}
 					}
-				}
+					
+					return true;
+				});
 
 				// no objects detected deselect everything
-				gizmo->deselect();
+				if (closest_clickable)
+				{
+					closest_clickable->on_click(on_click_dispatcher, ray, intersection);
+				} else
+				{
+					gizmo->deselect();
+				}
 			} else {
 				if (gizmo->is_active())
 				{
 					gizmo->check_collision(ray);
 				} else {
-					Object* closest_object = nullptr;
-					float closest_distance = std::numeric_limits<float>::infinity();
-					for (auto& obj_pair : objects)
-					{
-						glm::vec3 intersection;
-						if (obj_pair.second->check_collision(ray, intersection))
-						{
-							// for debugging purposes TODO: add GuiWindow for debugging
-							// spawn_object<Sphere>().set_position(intersection);
-							const float new_distance  = glm::distance2(ray.origin, intersection);
-							if (new_distance < closest_distance)
-							{
-								closest_object = obj_pair.second.get();
-								closest_distance = new_distance;
-							}
-						}
-					}
+					// TODO: Add this back, but maybe we don't alert the "application" that a click occurred
 
-					if (closest_object)
-					{
-						application->on_click(*closest_object);
-					}
+					// Object* closest_object = nullptr;
+					// float closest_distance = std::numeric_limits<float>::infinity();
+					// for (auto& obj_pair : objects)
+					// {
+					// 	glm::vec3 intersection;
+					// 	if (obj_pair.second->check_collision(ray, intersection))
+					// 	{
+					// 		// for debugging purposes TODO: add GuiWindow for debugging
+					// 		// spawn_object<Sphere>().set_position(intersection);
+					// 		const float new_distance  = glm::distance2(ray.origin, intersection);
+					// 		if (new_distance < closest_distance)
+					// 		{
+					// 			closest_object = obj_pair.second.get();
+					// 			closest_distance = new_distance;
+					// 		}
+					// 	}
+					// }
+
+					// if (closest_object)
+					// {
+					// 	application->on_click(*closest_object);
+					// }
 				}
 
 				mouse->lmb_down = true;

@@ -50,7 +50,8 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	spawn_object<CubeMap>(); // background/horizon
 
 	light_source = &spawn_object<LightSource>(glm::vec3(1.0f));
-	light_source->set_position(glm::vec3(0.0f, 5.0f, 2.0f));
+	light_source->set_position(glm::vec3(0.0f, 10.0f, 2.0f));
+	add_clickable(light_source->get_id(), light_source);
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
@@ -171,14 +172,9 @@ GameEngine<GraphicsEngineTemplate>::~GameEngine() = default;
 template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::delete_object(uint64_t id)
 {
-	auto it_obj = objects.find(id);
-	if (it_obj == objects.end())
-	{
-		LOG_ERROR(Utility::get().get_logger(), "GameEngine::delete_object: attempted to delete non-existant object");
-		return;
-	}
-	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(*(it_obj->second)));
-	objects.erase(it_obj);
+	objects.erase(id);
+	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
+	erase_from_menagerie(id);
 }
 
 template<template<typename> typename GraphicsEngineTemplate>

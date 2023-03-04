@@ -12,7 +12,7 @@ Cube::Cube()
 	shapes.emplace_back(Shapes::Cube{});
 }
 
-Sphere::Sphere()
+Sphere::Sphere() : IClickable((Object&)(*this))
 {
 	const int M = 30;
 	const int N = 30;
@@ -83,6 +83,19 @@ Sphere::Sphere()
 
 	shape.generate_normals();
 	shapes.push_back(std::move(shape));
+}
+
+bool Sphere::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
+{
+	const std::optional<glm::vec3> x = Maths::ray_sphere_collision(Maths::Sphere(get_position(), get_radius()), ray);
+	if (x)
+	{
+		intersection = x.value();
+		return true;
+	} else 
+	{
+		return false;
+	}
 }
 
 HollowCylinder::HollowCylinder()

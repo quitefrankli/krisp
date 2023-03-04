@@ -1,6 +1,7 @@
 #pragma once
 
 #include "object.hpp"
+#include "objects/object_interfaces/clickable.hpp"
 
 
 class Cube : public Object
@@ -11,11 +12,14 @@ public:
 };
 
 // note that this is procedurally generated and very slow
-class Sphere : public Object
+class Sphere : public Object, public IClickable
 {
 public:
 	Sphere();
 	Sphere(Sphere&& cube) noexcept = default;
+	// assume unit sphere
+	float get_radius() const { return get_scale().x/2.0f; }
+	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 };
 
 class HollowCylinder : public Object

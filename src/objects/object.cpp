@@ -311,7 +311,17 @@ bool Object::check_collision(const Maths::Ray& ray)
 
 bool Object::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
 {
-	return false;
+	// assume unit sphere
+	const std::optional<glm::vec3> x = Maths::ray_sphere_collision(
+		Maths::Sphere(get_position(), 1.0f), ray);
+	if (x)
+	{
+		intersection = x.value();
+		return true;
+	} else 
+	{
+		return false;
+	}
 }
 
 Object::~Object()

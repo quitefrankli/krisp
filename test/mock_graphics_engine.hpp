@@ -10,8 +10,7 @@ template<typename GameEngineT>
 class MockGraphicsEngine : public GraphicsEngineBase
 {
 public:
-    MockGraphicsEngine(GameEngineT& engine) :
-		gui_manager()
+    MockGraphicsEngine(GameEngineT& engine)
     {
     }
 

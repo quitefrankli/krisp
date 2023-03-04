@@ -3,7 +3,9 @@
 #include "input.hpp"
 #include "objects/object.hpp"
 #include "objects/objects.hpp"
+#include "objects/object_interfaces/clickable.hpp"
 #include "resource_loader.hpp"
+#include "game_engine/object_interfaces_menagerie.hpp"
 #include "animations/animator.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
@@ -32,7 +34,7 @@ class Analytics;
 
 
 template<template<typename> typename GraphicsEngineTemplate>
-class GameEngine
+class GameEngine : public ObjectInterfacesMenagerie
 {
 public:
 	using GraphicsEngineT = GraphicsEngineTemplate<GameEngine>;
@@ -51,6 +53,7 @@ public:
 	void run();
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
+	
 	template<typename object_t, typename... Args>
 	object_t& spawn_object(Args&&... args)
 	{
@@ -60,6 +63,13 @@ public:
 		assert(result.second); // no duplicate ids
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
 		return static_cast<object_t&>(*(result.first->second));
+	}
+
+	Object& spawn_object(std::shared_ptr<Object>&& object)
+	{
+		auto it = objects.emplace(object->get_id(), std::move(object));
+		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
+		return *it.first->second;
 	}
 
 	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
@@ -100,6 +110,12 @@ public:
 	void set_tps(const float tps) { this->tps = tps; }
 	uint32_t get_window_width();
 	uint32_t get_window_height();
+
+	Object* get_object(uint64_t id)
+	{
+		auto it = objects.find(id);
+		return it == objects.end() ? nullptr : it->second.get();
+	}
 
 private:
 	App::Window& window;
