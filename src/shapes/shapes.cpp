@@ -207,8 +207,8 @@ bool Tetrahedron::check_collision(const Maths::Ray& ray)
 Icosahedron::Icosahedron()
 {
 	// https://schneide.blog/2016/07/15/generating-an-icosphere-in-c/
-	const float X=.525731112119133606f;
-	const float Z=.850650808352039932f;
+	const float X=.525731112119133606f/2.0f;
+	const float Z=.850650808352039932f/2.0f;
 	const float N=0.f;
 	const glm::vec3 color{1.0f, 1.0f, 1.0f};
 	vertices = {
