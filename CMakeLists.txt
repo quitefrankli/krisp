@@ -8,6 +8,7 @@ conan_basic_setup()
 
 set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version")
 set(CMAkE_CXX_STANDARD_REQUIRED True CACHE STRING "is standard required?")
+set(CMAKE_EXPORT_COMPILE_COMMANDS True)
 
 if(MSVC)
 	message("Detected Windows OS")
