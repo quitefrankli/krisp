@@ -11,6 +11,16 @@ git clone $THIS_PROJECT
 ### Initial Setup for MACOS
 1. download Vulkan SDK https://vulkan.lunarg.com/sdk/home (use portable installation)
 2. add Vulkan SDK 'root' directory to .zshrc/.bashprofile/.bashrc i.e. `export VULKAN_SDK=~/VulkanSDK/1.3.211.0/macOS`
+3. `source setup-env.sh`
+
+(for debugging with vscode) 
+
+4. `printenv > .env`
+5. add the following lines in `launch.json`
+```
+"envFile": "${workspaceFolder}/.env",
+"program": "${workspaceFolder}/build/bin/vulkan",
+```
 
 ### Building
 ```

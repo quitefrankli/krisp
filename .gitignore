@@ -7,3 +7,4 @@ vulkanSDKMacOS
 imgui.ini
 *.log
 Testing/
+.env
