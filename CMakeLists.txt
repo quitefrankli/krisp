@@ -39,10 +39,6 @@ if(NOT ENABLE_COMPILER_WARNINGS)
 	endif()
 endif()
 
-if(ENABLE_LOGGING)
-	add_definitions(-DENABLE_LOGGING)
-endif()
-
 if(DISABLE_SLEEP)
 	add_definitions(-DDISABLE_SLEEP)
 endif()

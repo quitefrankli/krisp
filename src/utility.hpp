@@ -47,6 +47,8 @@ public:
 
 	static std::filesystem::path get_child(const std::filesystem::path& parent, const std::string_view child);
 
+	void enable_logging();
+
 private:
 	quill::Logger* logger;
 	std::filesystem::path top_level_dir;

@@ -14,7 +14,7 @@ namespace App {
 	class Window
 	{
 	public:
-		Window();
+		Window(int x0, int y0);
 		~Window();
 
 		void setup_callbacks(IWindowCallbacks& callbacks);

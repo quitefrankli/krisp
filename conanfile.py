@@ -32,15 +32,8 @@ class vulkan_conan(ConanFile):
 		# "fmt/8.1.1", # already included by quill
 		"imgui/1.87",
 		"gtest/1.8.1",
+		"yaml-cpp/0.7.0"
 	) 
-
-	options = {
-		"enable_logging": [True, False]
-	}
-
-	default_options = {
-		"enable_logging": False
-	}
 
 	generators = (
 		"cmake",

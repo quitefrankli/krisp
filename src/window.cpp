@@ -66,7 +66,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 	}
 }
 
-App::Window::Window()
+App::Window::Window(int x0, int y0)
 {
     // Register error callback first
     glfwSetErrorCallback([](int err_no, const char* err_str){
@@ -82,7 +82,7 @@ App::Window::Window()
 	assert(window);
 
 	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
-	glfwSetWindowPos(window, (monitor->width - INITIAL_WINDOW_WIDTH)/2, 50);
+	glfwSetWindowPos(window, x0 == -1 ? (monitor->width - INITIAL_WINDOW_WIDTH)/2 : x0, y0 == -1 ? 50 : y0);
 	// glfwSetFramebufferSizeCallback(window, GameEngineT::handle_window_resize_callback);
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
 }

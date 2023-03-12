@@ -28,11 +28,11 @@ Utility::Utility()
 		"%D %H:%M:%S.%Qus",
 		quill::Timezone::LocalTime
 	);
+}
 
-#ifdef ENABLE_LOGGING
+void Utility::enable_logging()
+{
 	quill::start(); // this will consume CPU cycles
-#endif
-
 	LOG_INFO(logger, "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", models, textures, build, binary);
 }
 

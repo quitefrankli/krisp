@@ -1,6 +1,8 @@
 #include "game_engine.hpp"
-#include <graphics_engine/graphics_engine.hpp>
-#include <window.hpp>
+#include "graphics_engine/graphics_engine.hpp"
+#include "window.hpp"
+#include "config.hpp"
+#include "utility.hpp"
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -20,10 +22,17 @@ int main()
     try {
 		bool restart_signal = false;
 		do {
+			restart_signal = false;
+			
+			Config config(Utility::get().get_top_level_path().string() + "/configs/default.yaml");
+			if (config.enable_logging())
+			{
+				Utility::get().enable_logging();
+			}
+			
+			App::Window window(config.get_window_pos().first, config.get_window_pos().second);
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
-			restart_signal = false;
-			App::Window window;
 			GameEngine<GraphicsEngine> engine([&restart_signal](){restart_signal=true;}, window);
 			engine.run();
 		} while (restart_signal);
