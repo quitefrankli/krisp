@@ -19,13 +19,15 @@ public:
 	// maintains consistent loop frequency, regardless of other compute within the loop
 	struct LoopSleeper
 	{
-		LoopSleeper(std::chrono::milliseconds loop_period) : loop_period(loop_period) {}
-
+		LoopSleeper(std::chrono::milliseconds loop_period);
+		~LoopSleeper();
 		void operator()();
 
 	private:
 		const std::chrono::milliseconds loop_period;
 		std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+		struct Pimpl;
+		std::unique_ptr<Pimpl> pimpl;
 	};
 
 	static Utility& get() { return singleton; }

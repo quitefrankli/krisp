@@ -48,19 +48,24 @@ std::filesystem::path Utility::get_child(const std::filesystem::path& parent, co
 
 void Utility::sleep(std::chrono::milliseconds duration, bool precise)
 {
-	const auto start = std::chrono::high_resolution_clock::now();
-	// this was discovered through trial and error, it would appear that a 1ms sleep takes ~ 15ms on windows
-	const float precision_ms = 20.0f;
-	const auto imprecise_end = start + (duration - std::chrono::milliseconds(int(std::round(precision_ms))));
-	const auto precise_end = start + duration;
-	while (std::chrono::high_resolution_clock::now() < imprecise_end)
+	if (precise)
 	{
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	}
+		const auto start = std::chrono::high_resolution_clock::now();
+		const float precision_ms = 20.0f;
+		const auto imprecise_end = start + (duration - std::chrono::milliseconds(int(std::round(precision_ms))));
+		const auto precise_end = start + duration;
+		while (std::chrono::high_resolution_clock::now() < imprecise_end)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
 
-	// spin-lock
-	while (std::chrono::high_resolution_clock::now() < precise_end)
+		// spin-lock
+		while (std::chrono::high_resolution_clock::now() < precise_end)
+		{
+		}
+	} else
 	{
+		std::this_thread::sleep_for(duration);
 	}
 }
 
@@ -81,16 +86,95 @@ float Utility::get_rand(float min, float max)
 
 std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::UtilityImpl>();
 
-void Utility::LoopSleeper::operator()()
-{
-	const auto now = std::chrono::system_clock::now();
-	const auto elapsed = now - start;
 
-	if (elapsed < loop_period)
+#ifdef _WIN32
+#include <windows.h>    /* WinAPI */
+
+struct Utility::LoopSleeper::Pimpl
+{
+public:
+	Pimpl(int milliseconds)
 	{
-		std::this_thread::sleep_for(loop_period - elapsed);
-		// Utility::sleep(std::chrono::duration_cast<std::chrono::milliseconds>(loop_period - elapsed));
+		// Request high resolution timer
+		static MMRESULT result = timeBeginPeriod(timer_period);
+		assert(result == TIMERR_NOERROR);
+
+		/* Create timer */
+		timer = CreateWaitableTimer(NULL, FALSE, NULL);
+		assert(timer);
+
+		/* Set timer properties */
+		li.QuadPart = -milliseconds;
+		auto res = SetWaitableTimer(timer, &li, milliseconds, NULL, NULL, FALSE);
+		assert(res);
 	}
 
-	start = std::chrono::system_clock::now();
+	~Pimpl()
+	{
+		/* Clean resources */
+		CloseHandle(timer);
+
+		// Release high resolution timer
+		static MMRESULT result = timeEndPeriod(timer_period);
+		assert(result == TIMERR_NOERROR);
+	}
+
+	void sleep()
+	{
+		WaitForSingleObject(timer, INFINITE);
+	}
+
+    HANDLE timer;   /* Timer handle */
+    LARGE_INTEGER li{};   /* Time defintion */
+	const int timer_period = 1;
+};
+
+#elif defined(__unix__) || defined(__APPLE__)
+#include <time.h>   /* nanosleep */
+
+/* Unix sleep in 100ns units */
+int nanosleep(const struct timespec *req, struct timespec *rem){
+	struct timespec temp_rem;
+	if(nanosleep(req, rem) == -1)
+		nanosleep(rem, &temp_rem);
+	else
+		return 1;
+}
+#endif
+
+Utility::LoopSleeper::LoopSleeper(std::chrono::milliseconds loop_period) :
+	loop_period(loop_period),
+	pimpl(std::make_unique<Pimpl>(loop_period.count()))
+{
+}
+
+Utility::LoopSleeper::~LoopSleeper()
+{
+}
+
+void Utility::LoopSleeper::operator()()
+{
+#ifdef _WIN32
+	pimpl->sleep();
+#elif defined(__unix__) || defined(__APPLE__)
+	// nanosleep(loop_period.count() * 1e6);
+#endif
+
+	// const auto now = std::chrono::system_clock::now();
+	// const auto margin_of_error = std::chrono::milliseconds(1); // system can only sleep longer than requested
+	// auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
+	// std::chrono::nanoseconds sleep_ns = loop_period - elapsed;
+	// // nanosleep(sleep_ns.count()/1000);
+	// // nanosleep(3e6);
+	// // Sleep(10);
+	// // std::this_thread::sleep_for(std::chrono::milliseconds(17));
+	// // nanosleep(17e6);
+
+	// // while (elapsed < loop_period - margin_of_error)
+	// // {
+	// // 	std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	// // 	elapsed = std::chrono::system_clock::now() - start;
+	// // }
+
+	// start = std::chrono::system_clock::now();
 }
