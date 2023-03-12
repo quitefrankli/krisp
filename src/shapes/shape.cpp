@@ -3,6 +3,7 @@
 #include "maths.hpp"
 
 #include <unordered_map>
+#include <algorithm>
 
 
 void Shape::transform_vertices(const glm::mat4& transform)

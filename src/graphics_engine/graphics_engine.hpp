@@ -170,4 +170,8 @@ public: // commands
 	void handle_command(ToggleWireFrameModeCmd& cmd) final;
 	void handle_command(UpdateCommandBufferCmd& cmd) final;
 	void handle_command(UpdateRayTracingCmd& cmd) final;
+
+private:
+	static VkVertexInputBindingDescription get_binding_description();
+	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions();
 };

@@ -1,6 +1,8 @@
 #include "shape_factory.hpp"
 #include "shapes/shapes.hpp"
 
+#include <stdexcept>
+
 
 Shape ShapeFactory::generate_cube()
 {
