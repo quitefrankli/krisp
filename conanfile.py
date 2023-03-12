@@ -34,6 +34,14 @@ class vulkan_conan(ConanFile):
 		"gtest/1.8.1",
 	) 
 
+	options = {
+		"enable_logging": [True, False]
+	}
+
+	default_options = {
+		"enable_logging": False
+	}
+
 	generators = (
 		"cmake",
 		"cmake_find_package"

@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <string>
 #include <memory>
+#include <chrono>
 
 
 namespace quill {
@@ -14,6 +15,18 @@ class Utility
 {
 public:
 	Utility();
+
+	// maintains consistent loop frequency, regardless of other compute within the loop
+	struct LoopSleeper
+	{
+		LoopSleeper(std::chrono::milliseconds loop_period) : loop_period(loop_period) {}
+
+		void operator()();
+
+	private:
+		const std::chrono::milliseconds loop_period;
+		std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+	};
 
 	static Utility& get() { return singleton; }
 
@@ -28,7 +41,9 @@ public:
 	static float get_rand(float min, float max);
 
 	quill::Logger* get_logger() { return logger; }
-	static void sleep(int milliseconds);
+
+	// precision sleep uses a spin lock
+	static void sleep(std::chrono::milliseconds duration, bool precise = false);
 
 	static std::filesystem::path get_child(const std::filesystem::path& parent, const std::string_view child);
 
@@ -41,8 +56,6 @@ private:
 	std::filesystem::path build;
 	std::filesystem::path binary;
 	std::filesystem::path audio;
-	
-
 	
 	struct UtilityImpl;
 	static std::unique_ptr<UtilityImpl> impl;

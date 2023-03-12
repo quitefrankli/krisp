@@ -39,8 +39,8 @@ if(NOT ENABLE_COMPILER_WARNINGS)
 	endif()
 endif()
 
-if(PROJECT_ENABLE_LOGGING)
-	add_definitions(-DPROJECT_ENABLE_LOGGING)
+if(ENABLE_LOGGING)
+	add_definitions(-DENABLE_LOGGING)
 endif()
 
 if(DISABLE_SLEEP)

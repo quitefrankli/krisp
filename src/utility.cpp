@@ -29,7 +29,7 @@ Utility::Utility()
 		quill::Timezone::LocalTime
 	);
 
-#ifdef PROJECT_ENABLE_LOGGING
+#ifdef ENABLE_LOGGING
 	quill::start(); // this will consume CPU cycles
 #endif
 
@@ -46,13 +46,13 @@ std::filesystem::path Utility::get_child(const std::filesystem::path& parent, co
 	return std::filesystem::path(parent.string() + '/' + child.data());
 }
 
-void Utility::sleep(int milliseconds)
+void Utility::sleep(std::chrono::milliseconds duration, bool precise)
 {
 	const auto start = std::chrono::high_resolution_clock::now();
 	// this was discovered through trial and error, it would appear that a 1ms sleep takes ~ 15ms on windows
 	const float precision_ms = 20.0f;
-	const auto imprecise_end = start + std::chrono::milliseconds(int(milliseconds - precision_ms));
-	const auto precise_end = start + std::chrono::microseconds(int(std::round(milliseconds * 1e3)));
+	const auto imprecise_end = start + (duration - std::chrono::milliseconds(int(std::round(precision_ms))));
+	const auto precise_end = start + duration;
 	while (std::chrono::high_resolution_clock::now() < imprecise_end)
 	{
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -80,3 +80,17 @@ float Utility::get_rand(float min, float max)
 }
 
 std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::UtilityImpl>();
+
+void Utility::LoopSleeper::operator()()
+{
+	const auto now = std::chrono::system_clock::now();
+	const auto elapsed = now - start;
+
+	if (elapsed < loop_period)
+	{
+		std::this_thread::sleep_for(loop_period - elapsed);
+		// Utility::sleep(std::chrono::duration_cast<std::chrono::milliseconds>(loop_period - elapsed));
+	}
+
+	start = std::chrono::system_clock::now();
+}

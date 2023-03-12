@@ -12,12 +12,11 @@
 #include "graphics_engine_texture_manager.hpp"
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
-
+#include "window.hpp"
 #include "vertex.hpp"
 #include "queues.hpp"
 
 #include <vulkan/vulkan.hpp>
-#include <GLFW/glfw3.h>
 
 #include <vector>
 #include <mutex>
@@ -50,7 +49,7 @@ public:
 
 public: // getters and setters
 	VkExtent2D get_extent();
-	GLFWwindow* get_window();
+	App::Window& get_window();
 	Camera* get_camera();
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();

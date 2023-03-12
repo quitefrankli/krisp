@@ -13,9 +13,9 @@
 int main()
 {
 #ifdef NDEBUG
-	std::cout << "Release Mode\n";
+	fmt::print(fg(fmt::color::blue), "Release Mode\n");
 #else
-	std::cout << "Debug Mode\n";
+	fmt::print(fg(fmt::color::blue), "Debug Mode\n");
 #endif
     try {
 		bool restart_signal = false;

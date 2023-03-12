@@ -25,29 +25,9 @@
 
 
 template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode)
+void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, int action, int mode)
 {
-	if (ImGui::GetIO().WantCaptureKeyboard)
-	{
-		return;
-	}
-
-	try
-	{
-		GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
-		engine->handle_window_callback_impl(glfw_window, key, scan_code, action, mode);
-	} catch (const std::exception& e)
-	{
-		std::cerr << "Exception: " << e.what() << '\n';
-		throw e;
-	}
-}
-
-static int inc = 0;
-
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_window_callback_impl(GLFWwindow*, int key, int scan_code, int action, int mode)
-{
+	static int inc = 0;
 	auto pressed_key = glfwGetKeyName(key, scan_code);
 
 	// if (glfwGetKey(window.get_window(), key) == GLFW_RELEASE)
@@ -59,8 +39,9 @@ void GameEngine<GraphicsEngineTemplate>::handle_window_callback_impl(GLFWwindow*
 	{
 		// return; // ignore held keys
 	} else {
-		printf("input detected [%d], key:=%d, scan_code:=%d, action:=%d, mode:=%d, translated_key:=%s\n", 
-			inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+		LOG_INFO(Utility::get().get_logger(), 
+				 "input detected [{}], key:={}, scan_code:={}, action:={}, mode={}, translated_key:={}", 
+				 inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
 	}
 
 	if (action == GLFW_RELEASE)
@@ -135,38 +116,7 @@ void GameEngine<GraphicsEngineTemplate>::handle_window_callback_impl(GLFWwindow*
 }
 
 template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height) {
-	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_window_resize_callback_impl(glfw_window, width, height);
-}
-
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height)
-{
-	// graphics_engine->set_frame_buffer_resized();
-	// TODO handle resizing of window
-}
-
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode)
-{
-	if (ImGui::GetIO().WantCaptureMouse)
-	{
-		return;
-	}
-
-	try
-	{
-		GameEngine* engine = static_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window));
-		engine->handle_mouse_button_callback_impl(glfw_window, button, action, mode);
-	} catch (const std::exception& e)
-	{
-		std::cerr << "Exception: " << e.what() << '\n';
-		throw e;
-	}
-}
-
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode)
+void GameEngine<GraphicsEngineTemplate>::mouse_button_callback(int button, int action, int mode)
 {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		if (action == GLFW_PRESS) {
@@ -268,13 +218,7 @@ void GameEngine<GraphicsEngineTemplate>::handle_mouse_button_callback_impl(GLFWw
 }
 
 template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_scroll_callback(GLFWwindow* glfw_window, double, double yoffset)
-{
-	reinterpret_cast<GameEngine*>(glfwGetWindowUserPointer(glfw_window))->handle_scroll_callback_impl(glfw_window, yoffset);
-}
-
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::handle_scroll_callback_impl(GLFWwindow* glfw_window, double yoffset)
+void GameEngine<GraphicsEngineTemplate>::scroll_callback(double yoffset)
 {
 	camera->zoom_in(yoffset);
 }

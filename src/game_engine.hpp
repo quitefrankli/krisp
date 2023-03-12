@@ -11,6 +11,7 @@
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
+#include "window.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -18,8 +19,6 @@
 #include <unordered_map>
 
 
-class Window;
-class GLFWWindow;
 class Shape;
 class Camera;
 template<typename GameEngineT>
@@ -34,14 +33,14 @@ class Analytics;
 
 
 template<template<typename> typename GraphicsEngineTemplate>
-class GameEngine : public ObjectInterfacesMenagerie
+class GameEngine : public IWindowCallbacks, public ObjectInterfacesMenagerie
 {
 public:
 	using GraphicsEngineT = GraphicsEngineTemplate<GameEngine>;
 
 public: // getters and setters
 	Camera& get_camera() { return *camera; }
-	GLFWwindow* get_window() { return window.get_window(); }
+	App::Window& get_window() { return window; }
 	GraphicsEngineT& get_graphics_engine() { return *graphics_engine; }
 	GuiManager<GameEngine>& get_gui_manager();
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
@@ -147,17 +146,9 @@ private:
 	float tps;
 
 public: // callbacks
-	static void handle_window_callback(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
-	static void handle_window_resize_callback(GLFWwindow* glfw_window, int width, int height);
-	static void handle_mouse_button_callback(GLFWwindow* glfw_window, int button, int action, int mode);
-	static void handle_scroll_callback(GLFWwindow* glfw_window, double xoffset, double yoffset);
-
-private: // callbacks
-	void handle_window_callback_impl(GLFWwindow* glfw_window, int key, int scan_code, int action, int mode);
-	void handle_window_resize_callback_impl(GLFWwindow* glfw_window, int width, int height);
-	void handle_mouse_button_callback_impl(GLFWwindow* glfw_window, int button, int action, int mode);
-	void handle_scroll_callback_impl(GLFWwindow* glfw_window, double yoffset);
-
+	virtual void scroll_callback(double yoffset) override;
+	virtual void key_callback(int key, int scan_code, int action, int mode) override;
+	virtual void mouse_button_callback(int button, int action, int mode) override;
 	// void pause();
 	
 private: // friends

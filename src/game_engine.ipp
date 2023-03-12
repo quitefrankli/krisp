@@ -17,7 +17,6 @@
 #include "iapplication.hpp"
 #include "objects/light_source.hpp"
 
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <quill/Quill.h>
@@ -36,13 +35,14 @@ GameEngine<GraphicsEngineTemplate>* GameEngine<GraphicsEngineTemplate>::global_e
 template<template<typename> typename GraphicsEngineTemplate>
 GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_signaller, App::Window& window) :
 	restart_signaller(std::move(restart_signaller)),
-	window((window.init(this, GameEngine::handle_scroll_callback, GameEngine::handle_window_callback, GameEngine::handle_mouse_button_callback), window)),
+	window(window),
 	mouse(std::make_unique<Mouse<GameEngine>>(window)),
 	gizmo(std::make_unique<Gizmo<GameEngine>>(*this)),
 	graphics_engine(std::make_unique<GraphicsEngineT>(*this)),
 	camera(std::make_unique<Camera>(Listener(), 
 		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height())))
 {
+	window.setup_callbacks(*this);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	draw_object(camera->focus_obj);
 	draw_object(camera->upvector_obj);
@@ -64,7 +64,7 @@ template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::run()
 {
 	graphics_engine_thread = std::thread(&GraphicsEngineT::run, graphics_engine.get());
-	Utility::sleep(100);
+	Utility::sleep(std::chrono::milliseconds(100));
 
 	if (!application)
 	{
@@ -80,10 +80,11 @@ void GameEngine<GraphicsEngineTemplate>::run()
 	std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
 
 	TPS_counter->start();
-	while (!should_shutdown && !glfwWindowShouldClose(get_window()))
+	Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
+	while (!should_shutdown && !window.should_close())
 	{
 #ifndef DISABLE_SLEEP
-		Utility::sleep(17);
+		loop_sleeper();
 #endif
 		const std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
 		std::chrono::duration<float, std::milli> chrono_time_delta = new_time - time;
@@ -106,7 +107,7 @@ void GameEngine<GraphicsEngineTemplate>::run()
 template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::main_loop(const float time_delta)
 {
-	glfwPollEvents();
+	window.poll_events();
 
 	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
 	get_gui_manager().process(*this);

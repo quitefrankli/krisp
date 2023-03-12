@@ -9,12 +9,8 @@
 #include "utility_functions.hpp"
 #include "analytics.hpp"
 
-#include <GLFW/glfw3.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
-#include <ImGui/imgui_impl_vulkan.h>
-#include <ImGui/imgui_impl_glfw.h>
-#include <imgui.h>
 #include <fmt/core.h>
 #include <fmt/color.h>
 
@@ -61,12 +57,6 @@ Camera* GraphicsEngine<GameEngineT>::get_camera()
 }
 
 template<typename GameEngineT>
-GLFWwindow* GraphicsEngine<GameEngineT>::get_window()
-{
-	return game_engine.get_window();
-}
-
-template<typename GameEngineT>
 QueueFamilyIndices GraphicsEngine<GameEngineT>::findQueueFamilies(VkPhysicalDevice device) {
 	QueueFamilyIndices indices;
 	uint32_t queueFamilyCount = 0;
@@ -105,6 +95,7 @@ void GraphicsEngine<GameEngineT>::run() {
 		Analytics analytics;
 		analytics.text = "GraphicsEngine: average cycle ms";
 		FPS_tracker->start();
+		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
 		while (!should_shutdown)
 		{
 			// for FPS
@@ -126,7 +117,7 @@ void GraphicsEngine<GameEngineT>::run() {
 			swap_chain.draw();
 
 #ifndef DISABLE_SLEEP
-			Utility::sleep(17);
+			loop_sleeper();
 #endif
 
 			analytics.stop();
@@ -160,16 +151,19 @@ int GraphicsEngine<GameEngineT>::find_memory_type(uint32_t type_filter, VkMemory
 template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::recreate_swap_chain()
 {
-	// for when window is minimised
-	int width = 0, height = 0;
-    while (width == 0 || height == 0) {
-        glfwGetFramebufferSize(get_window(), &width, &height);
-        glfwWaitEvents();
-    }
+	// TODO:
+	// Reimplement this, or don't since resizing window is very low priority
 
-	vkDeviceWaitIdle(get_logical_device()); // we want to wait until resource is no longer in use
+	// // for when window is minimised
+	// int width = 0, height = 0;
+    // while (width == 0 || height == 0) {
+    //     glfwGetFramebufferSize(get_window(), &width, &height);
+    //     glfwWaitEvents();
+    // }
 
-	swap_chain.reset();
+	// vkDeviceWaitIdle(get_logical_device()); // we want to wait until resource is no longer in use
+
+	// swap_chain.reset();
 }
 
 template<typename GameEngineT>
@@ -309,4 +303,10 @@ VkImageView GraphicsEngine<GameEngineT>::create_image_view(VkImage& image,
 	}
 
 	return image_view;
+}
+
+template<typename GameEngineT>
+App::Window& GraphicsEngine<GameEngineT>::get_window()
+{
+	return game_engine.get_window();
 }

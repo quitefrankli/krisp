@@ -16,7 +16,7 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	ImGui::CreateContext();
-	ImGui_ImplGlfw_InitForVulkan(engine.get_window(), true);
+	ImGui_ImplGlfw_InitForVulkan(engine.get_window().get_glfw_window(), true);
 	
 	ImGui_ImplVulkan_InitInfo init_info{};
 	init_info.Instance = engine.get_instance();

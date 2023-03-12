@@ -11,6 +11,7 @@
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <quill/Quill.h>
 
 #include <iostream>
 #include <algorithm>

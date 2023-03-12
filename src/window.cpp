@@ -6,16 +6,67 @@
 #include "graphics_engine/graphics_engine.hpp"
 
 #include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <fmt/core.h>
 
 #include <cassert>
 
 
-void glfw_error_cb(int num, const char* err_str)
+static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	throw std::runtime_error(err_str);
+	if (ImGui::GetIO().WantCaptureMouse)
+	{
+		return;
+	}
+
+	try
+	{
+		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
+		window_callback->scroll_callback(yoffset);
+	} catch (const std::exception& e)
+	{
+		fmt::print("Exception: {}\n", e.what());
+		throw e;
+	}
 }
 
-void App::Window::init(void* callback_ptr, GLFWscrollfun scroll_cb, GLFWkeyfun key_cb, GLFWmousebuttonfun mouse_button_cb)
+static void key_callback(GLFWwindow* window, int key, int scan_code, int action, int mode)
+{
+	if (ImGui::GetIO().WantCaptureKeyboard)
+	{
+		return;
+	}
+
+	try
+	{
+		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
+		window_callback->key_callback(key, scan_code, action, mode);
+	} catch (const std::exception& e)
+	{
+		fmt::print("Exception: {}\n", e.what());
+		throw e;
+	}
+}
+
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mode)
+{
+	if (ImGui::GetIO().WantCaptureMouse)
+	{
+		return;
+	}
+
+	try
+	{
+		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
+		window_callback->mouse_button_callback(button, action, mode);
+	} catch (const std::exception& e)
+	{
+		fmt::print("Exception: {}\n", e.what());
+		throw e;
+	}
+}
+
+App::Window::Window()
 {
     // Register error callback first
     glfwSetErrorCallback([](int err_no, const char* err_str){
@@ -27,22 +78,35 @@ void App::Window::init(void* callback_ptr, GLFWscrollfun scroll_cb, GLFWkeyfun k
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	window = std::unique_ptr<GLFWwindow, std::function<void(GLFWwindow*)>>(
-		glfwCreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, "Vulkan", nullptr, nullptr),
-		[](GLFWwindow* _window)
-		{
-			glfwDestroyWindow(_window);
-		});
+	window = glfwCreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, "Vulkan", nullptr, nullptr);
+	assert(window);
 
 	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
-	glfwSetWindowPos(get_window(), (monitor->width - INITIAL_WINDOW_WIDTH)/2, 50);
-	// glfwSetFramebufferSizeCallback(get_window(), GameEngineT::handle_window_resize_callback);
+	glfwSetWindowPos(window, (monitor->width - INITIAL_WINDOW_WIDTH)/2, 50);
+	// glfwSetFramebufferSizeCallback(window, GameEngineT::handle_window_resize_callback);
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
+}
 
-	glfwSetWindowUserPointer(get_window(), callback_ptr);
-	glfwSetScrollCallback(get_window(), scroll_cb);
-	glfwSetKeyCallback(get_window(), key_cb);
-	glfwSetMouseButtonCallback(get_window(), mouse_button_cb);
+App::Window::~Window()
+{
+	if (!window)
+	{
+		return;
+	}
+
+	glfwDestroyWindow(window);
+	glfwTerminate();
+}
+
+void App::Window::setup_callbacks(IWindowCallbacks& callbacks)
+{
+	glfwSetWindowUserPointer(window, &callbacks);
+	// glfwSetFramebufferSizeCallback(window, IWindowCallbacks::window_resize_callback);
+	// glfwSetWindowCloseCallback(window, window_close_callback);
+	// glfwSetCursorPosCallback(window, IWindowCallbacks::cursor_pos_callback);
+	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetKeyCallback(window, key_callback);
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 }
 
 int App::Window::get_width()
@@ -53,7 +117,7 @@ int App::Window::get_width()
 	}
 
 	int width, height;
-	glfwGetWindowSize(get_window(), &width, &height);
+	glfwGetWindowSize(window, &width, &height);
 	return width;
 }
 
@@ -65,24 +129,27 @@ int App::Window::get_height()
 	}
 
 	int width, height;
-	glfwGetWindowSize(get_window(), &width, &height);
+	glfwGetWindowSize(window, &width, &height);
 	return height;
 }
 
-App::Window::~Window()
+glm::vec2 App::Window::get_cursor_pos()
 {
-	if (!window)
-	{
-		return;
-	}
-
-	glfwSetErrorCallback([](int, const char*){}); //mutes annoying destruction message
-	glfwDestroyWindow(get_window());
-	glfwTerminate();
+	double pixel_x, pixel_y;
+	glfwGetCursorPos(window, &pixel_x, &pixel_y);
+	return {
+		std::clamp( 2.0f * static_cast<float>(pixel_x) / static_cast<float>(get_width())  - 1.0f, -1.0f, 1.0f),
+		// glfw has top->down as negative but our coordinate system is Y+ up
+		std::clamp(-2.0f * static_cast<float>(pixel_y) / static_cast<float>(get_height()) + 1.0f, -1.0f, 1.0f)
+	};
 }
 
-GLFWwindow* App::Window::get_window()
+void App::Window::poll_events()
 {
-	assert(window);
-	return window.get();
+	glfwPollEvents();
+}
+
+bool App::Window::should_close()
+{
+	return glfwWindowShouldClose(window);
 }
