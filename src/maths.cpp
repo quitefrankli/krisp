@@ -8,10 +8,49 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include <iostream>
+#include <random>
 
 
 namespace Maths
 {
+	static std::mt19937 randGen(std::random_device{}());
+
+	template<>
+	float SigmoidFunction<float>(float input) { return 1.0 / (1 + pow(EULERS_NUMBER, -input)); }
+
+	template<>
+	float RandomUniform(float min, float max)
+	{
+		if (min > max)
+		{
+			return std::uniform_real_distribution<float>(max, min)(randGen);
+		}
+
+		return std::uniform_real_distribution<float>(min, max)(randGen);
+	}
+
+	template<>
+	int RandomUniform<int>(int min, int max)	
+	{
+		if (min > max)
+		{
+			return std::uniform_int_distribution<int>(max, min)(randGen);
+		}
+
+		return std::uniform_int_distribution<int>(min, max)(randGen);
+	}
+
+	template<>
+	float RandomNormal(float mean, float stdDev)
+	{
+		if (stdDev <= 0)
+		{
+			return mean;
+		}
+		
+		return std::normal_distribution<float>(mean, stdDev)(randGen);
+	}
+
 	// taken from http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
 	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end)
 	{

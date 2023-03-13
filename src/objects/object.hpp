@@ -42,9 +42,12 @@ private:
 class Object : public ObjectAbstract
 {
 public:
-	Object(const Object& object) = delete;
-
 	Object() = default;
+	Object(Shape&& shape)
+	{
+		shapes.push_back(std::move(shape));
+	}
+	Object(const Object& object) = delete;
 	Object(Object&& object) noexcept;
 	virtual ~Object() override;
 

@@ -10,7 +10,17 @@
 namespace Maths
 {
 	constexpr float PI = 3.14159265359f;
+    constexpr float EULERS_NUMBER = 2.7182818f;
 	constexpr float ACCEPTABLE_FLOATING_PT_DIFF = 0.00001f;
+
+	template<class T>
+	T SigmoidFunction(T input);
+
+	template<class T>
+	T RandomUniform(T min, T max);
+
+	template<class T>
+	T RandomNormal(T mean, T stdDev);
 
 	inline float deg2rad(float deg)
 	{
@@ -30,7 +40,7 @@ namespace Maths
 
 	struct Ray
 	{
-		Ray(glm::vec3 origin_, glm::vec3 direction_) : origin(origin_), direction(direction_) {}
+		Ray(glm::vec3 origin_, glm::vec3 direction_) : origin(origin_), direction(direction_) {};
 		Ray(float&& oX, float&& oY, float&& oZ, float&& dX, float&& dY, float&& dZ) :
 			origin(oX, oY, oZ), direction(dX, dY, dZ)
 		{}
