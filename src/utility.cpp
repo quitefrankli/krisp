@@ -21,7 +21,7 @@ Utility::Utility()
 	binary = PROJECT_BIN_DIR;
 	shaders = get_child(build, "shaders");
 
-	auto file_handler = quill::file_handler("log.log", "a");
+	auto file_handler = quill::file_handler(fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), "a");
 	logger = quill::create_logger("MAIN", file_handler);
 	file_handler->set_pattern(
 		QUILL_STRING("%(ascii_time): %(message)"),
