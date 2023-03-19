@@ -4,11 +4,11 @@
 #include "graphics_engine.hpp"
 #include "utility_functions.hpp"
 #include "graphics_engine_texture_manager.hpp"
+#include "utility.hpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-
-#include <iostream>
+#include <quill/Quill.h>
 
 
 template<typename GraphicsEngineT>
@@ -102,7 +102,9 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_image(std::string te
 	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
 	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
 
-	std::cout << "GraphicsEngineTexture::create_texture_image: created texture from " << texture_path << '\n';
+	LOG_INFO(Utility::get().get_logger(), 
+			 "GraphicsEngineTexture::create_texture_image: created texture from:={}\n", 
+			 texture_path);
 }
 
 // handle layout transition so that image is in right layout
@@ -209,7 +211,8 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_sampler()
 	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.anisotropyEnable = true; // small performance hiccup
-	sampler_info.maxAnisotropy = get_graphics_engine().get_device_module().get_physical_device_properties().limits.maxSamplerAnisotropy; // higher = slower
+	sampler_info.maxAnisotropy = get_graphics_engine().get_device_module().
+		get_physical_device_properties().properties.limits.maxSamplerAnisotropy; // higher = slower
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
 												  // so that you can use textures of varying resolutions with same coordinates
@@ -219,7 +222,6 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_sampler()
 	sampler_info.mipLodBias = 0.0f;
 	sampler_info.minLod = 0.0f;
 	sampler_info.maxLod = 0.0f;
-	std::cout << "texture sampler chosen max anisotropy=" << sampler_info.maxAnisotropy << std::endl;
 
 	if (vkCreateSampler(get_logical_device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)
 	{

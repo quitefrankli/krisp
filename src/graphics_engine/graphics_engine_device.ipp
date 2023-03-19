@@ -126,20 +126,31 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 		queue_create_info.pQueuePriorities = &queue_priority;
 		queue_create_infos.push_back(queue_create_info);
 	}
-	VkPhysicalDeviceFeatures deviceFeatures{}; // special features, we request
-	deviceFeatures.samplerAnisotropy = true;
-	deviceFeatures.fillModeNonSolid = true;
-	
+
 	VkDeviceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	create_info.pQueueCreateInfos = queue_create_infos.data();
 	create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
-	create_info.pEnabledFeatures = &deviceFeatures;
 	create_info.enabledExtensionCount = static_cast<uint32_t>(required_device_extensions.size());
 	create_info.ppEnabledExtensionNames = required_device_extensions.data();
-	std::vector<const char*> validation_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
-	create_info.enabledLayerCount = static_cast<uint32_t>(validation_layers.size());
-	create_info.ppEnabledLayerNames = validation_layers.data();
+
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
+	acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
+	ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+
+	VkPhysicalDeviceFeatures deviceFeatures{}; // special features, we request
+	deviceFeatures.samplerAnisotropy = true;
+	deviceFeatures.fillModeNonSolid = true;
+	VkPhysicalDeviceFeatures2 device_features2{};
+	device_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	device_features2.features = deviceFeatures;
+
+	// linked list of features
+	device_features2.pNext = &acceleration_structure_features;
+	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+	create_info.pNext = &device_features2;
 
 	if (vkCreateDevice(physicalDevice, &create_info, nullptr, &logical_device) != VK_SUCCESS)
 	{
@@ -154,32 +165,35 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 template<typename GraphicsEngineT>
 void GraphicsEngineDevice<GraphicsEngineT>::print_physical_device_settings()
 {
-	VkPhysicalDeviceProperties properties;
-	vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+	const auto& properties = get_physical_device_properties();
 
 	std::cout << "Cached physical device properties:" << 
-		"\n\tmaxBoundDescriptorSets: " << properties.limits.maxBoundDescriptorSets <<
+		"\n\tmaxBoundDescriptorSets: " << properties.properties.limits.maxBoundDescriptorSets <<
 		"\n\tmaxMSAA_Samples: " << get_max_usable_msaa() << '\n';
 }
 
 template<typename GraphicsEngineT>
-const VkPhysicalDeviceProperties& GraphicsEngineDevice<GraphicsEngineT>::get_physical_device_properties()
+const VkPhysicalDeviceProperties2& GraphicsEngineDevice<GraphicsEngineT>::get_physical_device_properties()
 {
-	if (!bPhysicalDevicePropertiesCached)
+	if (!physical_device_properties)
 	{
-		vkGetPhysicalDeviceProperties(get_physical_device(), &physical_device_properties);			
-		bPhysicalDevicePropertiesCached = true;
+		physical_device_properties = VkPhysicalDeviceProperties2{};
+		physical_device_properties->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+		physical_device_properties->pNext = &ray_tracing_properties;
+		vkGetPhysicalDeviceProperties2(get_physical_device(), &physical_device_properties.value());
 	}
 
-	return physical_device_properties;
+	return physical_device_properties.value();
 }
 
 template<typename GraphicsEngineT>
 VkSampleCountFlagBits GraphicsEngineDevice<GraphicsEngineT>::get_max_usable_msaa()
 {
-	auto properties = get_physical_device_properties();
+	const auto& properties = get_physical_device_properties();
 
-    VkSampleCountFlags counts = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+    VkSampleCountFlags counts = 
+		properties.properties.limits.framebufferColorSampleCounts & 
+		properties.properties.limits.framebufferDepthSampleCounts;
 	if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
 	if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
 	if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }

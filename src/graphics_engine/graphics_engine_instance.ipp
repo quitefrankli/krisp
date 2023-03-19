@@ -48,7 +48,10 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 	auto required_extensions_old = c_style_str_array(required_extensions);
 	create_info.enabledExtensionCount = required_extensions_old.size();
 	create_info.ppEnabledExtensionNames = required_extensions_old.data();
+
+#ifdef __APPLE__
 	create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
 
 	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create instance!");
@@ -92,5 +95,6 @@ std::vector<std::string> GraphicsEngineInstance<GraphicsEngineT>::get_required_e
 #ifdef __APPLE__
 	required_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 #endif
+
 	return required_extensions;
 }

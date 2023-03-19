@@ -2,6 +2,9 @@
 
 #include "graphics_engine_base_module.hpp"
 #include "graphics_engine_texture.hpp"
+#include "utility.hpp"
+
+#include <quill/Quill.h>
 
 #include <unordered_map>
 #include <string>
@@ -13,6 +16,9 @@ class GraphicsEngineTextureManager : public GraphicsEngineBaseModule<GraphicsEng
 public:
 	GraphicsEngineTextureManager(GraphicsEngineT& engine) : GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 	{
+		LOG_INFO(Utility::get().get_logger(),
+				 "GraphicsEngineTextureManager: chosen max anisotropy:={}\n",
+				 engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
 	}
 
 	GraphicsEngineTexture<GraphicsEngineT>& create_new_unit(std::string texture_path)

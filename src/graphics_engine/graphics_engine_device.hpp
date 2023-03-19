@@ -5,6 +5,8 @@
 #include <vulkan/vulkan.hpp>
 #include <vulkan/vulkan_beta.h>
 
+#include <optional>
+
 
 template<typename GraphicsEngineT>
 class GraphicsEngineDevice : public GraphicsEngineBaseModule<GraphicsEngineT>
@@ -20,7 +22,7 @@ public:
 
 	VkSampleCountFlagBits get_max_usable_msaa();
 
-	const VkPhysicalDeviceProperties& get_physical_device_properties();
+	const VkPhysicalDeviceProperties2& get_physical_device_properties();
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -31,8 +33,6 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
 	
-	bool bPhysicalDevicePropertiesCached = false;
-
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
 
@@ -42,7 +42,12 @@ private:
 		(const char*)(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
 	}};
 #else
-	static constexpr std::array<const char*, 1> required_device_extensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	static constexpr std::array<const char*, 4> required_device_extensions = { 
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+	};
 #endif
 	const std::vector<const char*> get_required_logical_device_extensions() const;
 
@@ -50,5 +55,6 @@ private:
 	void create_logical_device();
 	bool check_device_extension_support(VkPhysicalDevice device);
 
-	VkPhysicalDeviceProperties physical_device_properties;
+	std::optional<VkPhysicalDeviceProperties2> physical_device_properties;
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_properties{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
 };
