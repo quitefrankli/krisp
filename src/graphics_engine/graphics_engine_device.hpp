@@ -23,10 +23,10 @@ public:
 	VkSampleCountFlagBits get_max_usable_msaa();
 
 	const VkPhysicalDeviceProperties2& get_physical_device_properties();
+	VkDeviceAddress get_buffer_device_address(VkBuffer buffer);	
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;

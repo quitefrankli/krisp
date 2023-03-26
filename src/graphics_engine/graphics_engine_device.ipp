@@ -10,6 +10,7 @@
 #include <iostream>
 #include <set>
 #include <string_view>
+#include "graphics_engine_device.hpp"
 
 
 template<typename GraphicsEngineT>
@@ -134,23 +135,26 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 	create_info.enabledExtensionCount = static_cast<uint32_t>(required_device_extensions.size());
 	create_info.ppEnabledExtensionNames = required_device_extensions.data();
 
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{};
-	acceleration_structure_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
+	acceleration_structure_features.accelerationStructure = true;
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
+	ray_tracing_pipeline_features.rayTracingPipeline = true;
 
-	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{};
-	ray_tracing_pipeline_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+	// special features, we request
+	VkPhysicalDeviceFeatures2 device_features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	device_features2.features.samplerAnisotropy = true;
+	device_features2.features.fillModeNonSolid = true;
 
-	VkPhysicalDeviceFeatures deviceFeatures{}; // special features, we request
-	deviceFeatures.samplerAnisotropy = true;
-	deviceFeatures.fillModeNonSolid = true;
-	VkPhysicalDeviceFeatures2 device_features2{};
-	device_features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-	device_features2.features = deviceFeatures;
+	VkPhysicalDeviceVulkan12Features device_features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+	device_features12.bufferDeviceAddress = true;
 
-	// linked list of features
-	device_features2.pNext = &acceleration_structure_features;
-	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+	// link up the structs to create a chain of features
 	create_info.pNext = &device_features2;
+	device_features2.pNext = &device_features12;
+	device_features12.pNext = &acceleration_structure_features;
+	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
 
 	if (vkCreateDevice(physicalDevice, &create_info, nullptr, &logical_device) != VK_SUCCESS)
 	{
@@ -167,9 +171,12 @@ void GraphicsEngineDevice<GraphicsEngineT>::print_physical_device_settings()
 {
 	const auto& properties = get_physical_device_properties();
 
-	std::cout << "Cached physical device properties:" << 
-		"\n\tmaxBoundDescriptorSets: " << properties.properties.limits.maxBoundDescriptorSets <<
-		"\n\tmaxMSAA_Samples: " << get_max_usable_msaa() << '\n';
+	LOG_INFO(Utility::get().get_logger(),
+			 "Physical Device Properties: \n\tmaxBoundDescriptorSets: {}\n\tmaxMSAA_Samples: {}\n\t"
+			 "maxRayRecursionDepth: {}",
+			 properties.properties.limits.maxBoundDescriptorSets,
+			 get_max_usable_msaa(),
+			 ray_tracing_properties.maxRayRecursionDepth);
 }
 
 template<typename GraphicsEngineT>
@@ -184,6 +191,14 @@ const VkPhysicalDeviceProperties2& GraphicsEngineDevice<GraphicsEngineT>::get_ph
 	}
 
 	return physical_device_properties.value();
+}
+
+template<typename GraphicsEngineT>
+inline VkDeviceAddress GraphicsEngineDevice<GraphicsEngineT>::get_buffer_device_address(VkBuffer buffer)
+{
+	VkBufferDeviceAddressInfo info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+	info.buffer = buffer;
+	return vkGetBufferDeviceAddress(get_logical_device(), &info);
 }
 
 template<typename GraphicsEngineT>

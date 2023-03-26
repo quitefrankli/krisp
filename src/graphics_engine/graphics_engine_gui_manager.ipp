@@ -2,6 +2,7 @@
 
 #include "graphics_engine_gui_manager.hpp"
 #include "graphics_engine.hpp"
+#include "utility.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
 #include <ImGui/imgui_impl_vulkan.h>
@@ -16,6 +17,9 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	const std::string configs_path = fmt::format("{}/imgui.ini", Utility::get().get_config_path().string());
+	io.IniFilename = configs_path.c_str();
 	ImGui_ImplGlfw_InitForVulkan(engine.get_window().get_glfw_window(), true);
 	
 	ImGui_ImplVulkan_InitInfo init_info{};

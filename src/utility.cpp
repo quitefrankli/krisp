@@ -8,14 +8,13 @@
 #include <random>
 
 
-Utility Utility::singleton;
-
 Utility::Utility()
 {
 	top_level_dir = PROJECT_TOP_LEVEL_SRC_DIR;
 	models = get_child(top_level_dir, "resources/models");
 	textures = get_child(top_level_dir, "resources/textures");
 	audio = get_child(top_level_dir, "resources/sound");
+	config = get_child(top_level_dir, "configs");
 	
 	build = PROJECT_BUILD_DIR;
 	binary = PROJECT_BIN_DIR;
@@ -34,6 +33,13 @@ void Utility::enable_logging()
 {
 	quill::start(); // this will consume CPU cycles
 	LOG_INFO(logger, "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", models, textures, build, binary);
+}
+
+Utility& Utility::get()
+{
+	// inspired by meyer's singleton
+	static Utility singleton;
+	return singleton;
 }
 
 std::string Utility::get_texture(const std::string_view texture)

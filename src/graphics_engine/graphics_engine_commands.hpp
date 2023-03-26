@@ -62,3 +62,8 @@ struct UpdateCommandBufferCmd : public GraphicsEngineCommand
 {
 	virtual void process(GraphicsEngineBase* engine) override;
 };
+
+struct UpdateRayTracingCmd : public GraphicsEngineCommand
+{
+	virtual void process(GraphicsEngineBase* engine) override;
+};

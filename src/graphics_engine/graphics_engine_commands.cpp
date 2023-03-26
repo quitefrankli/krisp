@@ -52,3 +52,6 @@ void UpdateCommandBufferCmd::process(GraphicsEngineBase* engine)
 	engine->handle_command(*this);
 }
 
+void UpdateRayTracingCmd::process(GraphicsEngineBase* engine) {
+	engine->handle_command(*this);
+}

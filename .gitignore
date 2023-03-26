@@ -4,7 +4,6 @@ resources/*
 .vscode
 vulkanSDKMacOS
 .DS_Store
-imgui.ini
 *.log
 Testing/
 .env

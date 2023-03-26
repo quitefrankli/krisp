@@ -12,6 +12,8 @@
 #include "graphics_engine_texture_manager.hpp"
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
+#include "raytracing.hpp"
+#include "vulkan_wrappers.hpp"
 #include "window.hpp"
 #include "vertex.hpp"
 #include "queues.hpp"
@@ -54,7 +56,7 @@ public: // getters and setters
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
-	auto& get_objects() { return objects; }
+	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() { return objects; }
 	auto& get_stenciled_object_ids() { return stenciled_objects; }
 	auto& get_light_sources() { return light_sources; }
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
@@ -79,22 +81,8 @@ public: // getters and setters
 	void set_fps(const float fps) { this->fps = fps; }
 	float get_fps() const { return fps; }
 
-private: // flags (these must be before core components)
-	bool should_shutdown = false;
-
-private: // core components
-	GameEngineT& game_engine;
-	GraphicsEngineInstance<GraphicsEngine> instance;
-	GraphicsEngineValidationLayer<GraphicsEngine> validation_layer;
-	GraphicsEngineDevice<GraphicsEngine> device;
-	GraphicsEngineTextureManager<GraphicsEngine> texture_mgr;
-	GraphicsResourceManager<GraphicsEngine> pool;
-	GraphicsEngineDepthBuffer<GraphicsEngine> depth_buffer;
-	GraphicsEngineSwapChain<GraphicsEngine> swap_chain;
-	GraphicsEnginePipelineManager<GraphicsEngine> pipeline_mgr;
-	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT> gui_manager;
-
 private:
+	bool should_shutdown = false;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::vector<std::vector<Vertex>> vertex_sets;
@@ -127,7 +115,22 @@ public:
 					   VkMemoryPropertyFlags memory_flags, 
 					   VkBuffer& buffer, 
 					   VkDeviceMemory& device_memory);
+	// utilizes vkQueueWaitIdle to ensure that once the function returns, the data is copied into the staging buffer
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
+	GraphicsBuffer create_buffer(
+		size_t size, 
+		VkBufferUsageFlags usage_flags, 
+		VkMemoryPropertyFlags memory_flags);
+
+	// creates a staging buffer to faciliate transfer of data into final device buffer
+	// optionally, a copy function can be provided to copy data into the staging buffer, otherwise the data is copied directly
+	// utilizes vkQueueWaitIdle to ensure that once the function returns, the data is copied into the staging buffer
+	GraphicsBuffer create_buffer_from_data(
+		const void* data, 
+		size_t size, 
+		VkBufferUsageFlags usage_flags, 
+		VkMemoryPropertyFlags memory_flags,
+		const std::function<void(void* dest)> copy_func = nullptr);
 
 	// an image is an actual piece of data memory, similar to a buffer
 	void create_image(uint32_t width, 
@@ -156,6 +159,19 @@ public: // other
 public: // thread safe
 	void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 
+private: // core components
+	GameEngineT& game_engine;
+	GraphicsEngineInstance<GraphicsEngine> instance;
+	GraphicsEngineValidationLayer<GraphicsEngine> validation_layer;
+	GraphicsEngineDevice<GraphicsEngine> device;
+	GraphicsEngineTextureManager<GraphicsEngine> texture_mgr;
+	GraphicsResourceManager<GraphicsEngine> pool;
+	GraphicsEngineRayTracing<GraphicsEngine> ray_tracing;
+	GraphicsEngineDepthBuffer<GraphicsEngine> depth_buffer;
+	GraphicsEngineSwapChain<GraphicsEngine> swap_chain;
+	GraphicsEnginePipelineManager<GraphicsEngine> pipeline_mgr;
+	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT> gui_manager;
+
 public: // commands
 	void handle_command(SpawnObjectCmd& cmd) final;
 	void handle_command(DeleteObjectCmd& cmd) final;
@@ -164,4 +180,5 @@ public: // commands
 	void handle_command(ShutdownCmd& cmd) final;
 	void handle_command(ToggleWireFrameModeCmd& cmd) final;
 	void handle_command(UpdateCommandBufferCmd& cmd) final;
+	void handle_command(UpdateRayTracingCmd& cmd) final;
 };

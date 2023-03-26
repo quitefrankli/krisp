@@ -60,6 +60,12 @@ uint32_t GraphicsEngineObject<GraphicsEngineT>::get_num_vertex_indices() const
 	return get_game_object().get_num_vertex_indices();
 }
 
+template<typename GraphicsEngineT>
+inline uint32_t GraphicsEngineObject<GraphicsEngineT>::get_num_primitives() const
+{
+	return get_num_vertex_indices() / 3;
+}
+
 //
 // Derived objects
 //

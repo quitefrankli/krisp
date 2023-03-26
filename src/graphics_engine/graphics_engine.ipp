@@ -31,6 +31,7 @@ GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) :
 	texture_mgr(*this),
 	device(*this),
 	pool(*this),
+	ray_tracing(*this),
 	pipeline_mgr(*this),
 	depth_buffer(*this),
 	swap_chain(*this),
@@ -46,8 +47,9 @@ GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) :
 template<typename GameEngineT>
 GraphicsEngine<GameEngineT>::~GraphicsEngine() 
 {
-	std::cout<<"cleaning up\n";
+	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
+	objects.clear(); // must be cleared before the logical device is destroyed
 }
 
 template<typename GameEngineT>

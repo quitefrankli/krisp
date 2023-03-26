@@ -13,4 +13,5 @@ public:
 	virtual void handle_command(ShutdownCmd& cmd) {}
 	virtual void handle_command(ToggleWireFrameModeCmd& cmd) {}
 	virtual void handle_command(UpdateCommandBufferCmd& cmd) {}
+	virtual void handle_command(UpdateRayTracingCmd& cmd) {}
 };

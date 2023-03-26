@@ -44,6 +44,7 @@ public:
 
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
+	uint32_t get_num_primitives() const;
 	// replaces the old "get_vertex_sets" function
 	const std::vector<Shape>& get_shapes() const;
 

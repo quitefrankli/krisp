@@ -30,7 +30,7 @@ public:
 		std::unique_ptr<Pimpl> pimpl;
 	};
 
-	static Utility& get() { return singleton; }
+	static Utility& get();
 
 	const std::filesystem::path& get_top_level_path() const { return top_level_dir; }
 	const std::filesystem::path& get_shaders_path() const { return shaders; }
@@ -39,6 +39,8 @@ public:
 	const std::filesystem::path& get_build_path() const { return build; };
 	const std::filesystem::path& get_binary_path() const { return binary; };
 	const std::filesystem::path& get_audio_path() const { return audio; };
+	const std::filesystem::path& get_config_path() const { return config; };
+
 	static std::string get_texture(const std::string_view texture);
 	static float get_rand(float min, float max);
 
@@ -60,8 +62,8 @@ private:
 	std::filesystem::path build;
 	std::filesystem::path binary;
 	std::filesystem::path audio;
+	std::filesystem::path config;
 	
 	struct UtilityImpl;
 	static std::unique_ptr<UtilityImpl> impl;
-	static Utility singleton;
 };

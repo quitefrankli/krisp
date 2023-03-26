@@ -81,3 +81,9 @@ void GraphicsEngine<GameEngineT>::handle_command(UpdateCommandBufferCmd& cmd)
 {
 	update_command_buffer();
 }
+
+template<typename GameEngineT>
+inline void GraphicsEngine<GameEngineT>::handle_command(UpdateRayTracingCmd& cmd)
+{
+	ray_tracing.update_acceleration_structures();
+}
