@@ -18,7 +18,7 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 {
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
-	const std::string configs_path = fmt::format("{}/imgui.ini", Utility::get().get_config_path().string());
+	static const std::string configs_path = fmt::format("{}/imgui.ini", Utility::get().get_config_path().string());
 	io.IniFilename = configs_path.c_str();
 	ImGui_ImplGlfw_InitForVulkan(engine.get_window().get_glfw_window(), true);
 	

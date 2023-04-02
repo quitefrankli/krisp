@@ -7,3 +7,7 @@ vulkanSDKMacOS
 *.log
 Testing/
 .env
+
+configs/
+!configs/default.yaml
+!configs/README.md
