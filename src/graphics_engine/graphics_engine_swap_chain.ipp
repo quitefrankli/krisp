@@ -24,21 +24,18 @@ GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngine
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
 	VkPresentModeKHR present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	const auto extent = get_extent();
-
-	{
-		get_graphics_engine().create_image(extent.width, 
-											extent.height,
-											get_image_format(),
-											VK_IMAGE_TILING_OPTIMAL,
-											VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-											VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-											colorImage,
-											colorImageMemory,
-											msaa_samples);
-		colorImageView = get_graphics_engine().create_image_view(colorImage, 
-																get_image_format(),
-																VK_IMAGE_ASPECT_COLOR_BIT);
-	}
+	get_graphics_engine().create_image(extent.width, 
+										extent.height,
+										get_image_format(),
+										VK_IMAGE_TILING_OPTIMAL,
+										VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+										colorImage,
+										colorImageMemory,
+										msaa_samples);
+	colorImageView = get_graphics_engine().create_image_view(colorImage, 
+															get_image_format(),
+															VK_IMAGE_ASPECT_COLOR_BIT);
 
 	//+1 means that we won't have to wait for driver to complete internal operations before we can acquire another image to render
 	unsigned image_count = swap_chain_support.capabilities.minImageCount + 1;

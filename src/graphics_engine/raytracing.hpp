@@ -2,6 +2,7 @@
 
 #include "graphics_engine_base_module.hpp"
 #include "vulkan_wrappers.hpp"
+#include "graphics_engine/renderpass/offscreen_renderpass.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -105,6 +106,7 @@ private:
 	std::vector<VkDeviceMemory> buffer_memories;
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
+	OffScreenRenderPass<GraphicsEngineT> offscreen_renderpass;
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

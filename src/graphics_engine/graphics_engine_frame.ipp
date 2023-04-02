@@ -453,15 +453,13 @@ void GraphicsEngineFrame<GraphicsEngineT>::draw()
 	// this step submits the result of the swapchain to have it eventually show up on the screen
 	//
 
-	VkPresentInfoKHR present_info{};
-	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
 	present_info.waitSemaphoreCount = 1;
 	// the semaphore to wait on before presentation
 	present_info.pWaitSemaphores = signal_semaphores;
 
-	VkSwapchainKHR swap_chains[] = { swap_chain.get_swap_chain() };
 	present_info.swapchainCount = 1;
-	present_info.pSwapchains = swap_chains;
+	present_info.pSwapchains = &swap_chain.get_swap_chain();
 	present_info.pImageIndices = &image_index;
 	present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
 

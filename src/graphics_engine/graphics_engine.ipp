@@ -286,8 +286,7 @@ VkImageView GraphicsEngine<GameEngineT>::create_image_view(VkImage& image,
 															VkImageAspectFlags aspect_flags,
 															VkImageViewType view_type)
 {
-	VkImageViewCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	VkImageViewCreateInfo create_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	create_info.image = image;
 	create_info.viewType = view_type; // specifies how the image data should be interpreted
 												  // i.e. treat images as 1D, 2D, 3D textures and cube maps

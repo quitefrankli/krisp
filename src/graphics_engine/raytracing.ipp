@@ -22,6 +22,7 @@ VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix)
 template<typename GraphicsEngineT>
 inline GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 	GraphicsEngineT& engine) :
+	offscreen_renderpass(engine),
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	// update_blas();

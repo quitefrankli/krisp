@@ -41,8 +41,15 @@ private:
 	void pre_cmdbuffer_recording();
 
 public:
+	// Holds a block of memory that contains the raw pixel data
 	VkImage image;
+	// Interprets a VkImage and describes how to access it
 	VkImageView image_view;
+	// Describes a collection of 'attachments' that a render pass uses
+	// An attachment in the context of Vulkan is just a resource used during rendering
+	//	i.e. color, depth, stencil attachments
+	// Since this would also describe an image view another way of looking at frame buffer
+	// 	is that it is a collection of image views
 	VkFramebuffer frame_buffer;
 
 	VkCommandBuffer command_buffer;

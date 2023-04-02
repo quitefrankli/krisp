@@ -27,7 +27,7 @@ public:
 
 	void reset();
 
-	static const int EXPECTED_NUM_SWAPCHAIN_IMAGES = 3;
+	static constexpr int EXPECTED_NUM_SWAPCHAIN_IMAGES = 3;
 	void update_command_buffer();
 	void spawn_object(GraphicsEngineObject<GraphicsEngineT>& object);
 	void draw();
@@ -72,6 +72,12 @@ private:
 	// void recreate_swap_chain(); // useful for when size of window is changing
 
 	// for now the render_pass is simply shared between pipelines
+	// A render pass is a general description of steps to draw something on the screen
+	//	it's made of at least 1 subpass, which can be executed in parallel (subpasses are mostly used in mobile optimisations)
+	//	and also sequentially fed into each other (however this doesnt mean it makes
+	//	for a good processor as it can not sample surrounding pixels https://www.saschawillems.de/blog/2018/07/19/vulkan-input-attachments-and-sub-passes/)
+	// A render pass when provided a framebuffer will render into said buffer
+	// Multiple render passes would be used for post processing effects
 	VkRenderPass render_pass;
 
 	void create_render_pass();

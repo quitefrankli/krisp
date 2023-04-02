@@ -13,8 +13,13 @@ template<typename GraphicsEngineT>
 GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngineT& engine) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	high_freq_descriptor_set_layout(descriptor_set_layouts[0]),
-	low_freq_descriptor_set_layout(descriptor_set_layouts[1])
+	low_freq_descriptor_set_layout(descriptor_set_layouts[1]),
+	ray_tracing_descriptor_set_layout(descriptor_set_layouts[2])
 {
+	static_assert(
+		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
+		MAX_RAY_TRACING_DESCRIPTOR_SETS + MAX_IMGUI_DESCRIPTOR_SETS <= get_max_descriptor_sets(), 
+		"GraphicsResourceManager: too many descriptor sets!");
 	create_command_pool();
 	create_descriptor_set_layout();
 	create_descriptor_pool();
@@ -72,7 +77,22 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	// max number of combined image samplers per descriptor set
 	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET * get_max_descriptor_sets();
 
-	std::vector<VkDescriptorPoolSize> pool_sizes{ uniform_buffer_pool_size, combined_image_sampler_pool_size };
+	// for ray tracing
+	VkDescriptorPoolSize tlas_pool_size{};
+	tlas_pool_size.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+	tlas_pool_size.descriptorCount = get_max_descriptor_sets();
+
+	VkDescriptorPoolSize rt_storage_image_pool_size{};
+	rt_storage_image_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	rt_storage_image_pool_size.descriptorCount = get_max_descriptor_sets();
+
+	std::vector<VkDescriptorPoolSize> pool_sizes {
+		uniform_buffer_pool_size, 
+		combined_image_sampler_pool_size,
+		tlas_pool_size,
+		rt_storage_image_pool_size
+	};
+
 	VkDescriptorPoolCreateInfo poolInfo{};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = pool_sizes.size();
@@ -162,22 +182,43 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layout()
 		std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
 		create_layout(bindings, &low_freq_descriptor_set_layout);
 	}
+	
+	// ray tracing
+	{
+		ray_tracing_resources.tlas_binding = {};
+		ray_tracing_resources.tlas_binding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+		ray_tracing_resources.tlas_binding.binding = 0; // this must be synced with the one in the shaders
+		ray_tracing_resources.tlas_binding.descriptorCount = 1;
+		ray_tracing_resources.tlas_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+		ray_tracing_resources.output_binding = {};
+		ray_tracing_resources.output_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		ray_tracing_resources.output_binding.binding = 1; // this must be synced with the one in the shaders
+		ray_tracing_resources.output_binding.descriptorCount = 1;
+		ray_tracing_resources.output_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+
+		auto bindings = ray_tracing_resources.get_layout_bindings();
+		create_layout(bindings, &ray_tracing_descriptor_set_layout);
+	}
 }
 
 template<typename GraphicsEngineT>
 void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 {
 	// allocation + writing for low frequency descriptor sets
-	const int MAX_LOW_FREQ_DESCRIPTOR_SETS = 1;
 	{
-		VkDescriptorSetAllocateInfo alloc_info{};
-		alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 		alloc_info.descriptorPool = descriptor_pool;
 		alloc_info.descriptorSetCount = MAX_LOW_FREQ_DESCRIPTOR_SETS;
 		alloc_info.pSetLayouts = &low_freq_descriptor_set_layout;
 
-		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &global_descriptor_set) != VK_SUCCESS)
+		if (vkAllocateDescriptorSets(
+			get_logical_device(), 
+			&alloc_info, 
+			&global_descriptor_set) != VK_SUCCESS)
+		{
 			throw std::runtime_error("GraphicsResourceManager: failed to allocate low freq descriptor sets!");
+		}
 
 		VkDescriptorBufferInfo buffer_info{};
 		buffer_info.buffer = global_uniform_buffer;
@@ -195,23 +236,22 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 		uniform_buffer_descriptor_set.pImageInfo = nullptr;
 		uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
 
-		vkUpdateDescriptorSets(get_logical_device(), 
-								1, 
-								&uniform_buffer_descriptor_set, 
-								0, 
-								nullptr);
+		vkUpdateDescriptorSets(
+			get_logical_device(), 
+			1, 
+			&uniform_buffer_descriptor_set, 
+			0, 
+			nullptr);
 	}
 
 	// high frequency descriptor sets allocations, i.e. per object descriptor sets
 	{
-		const int num_sets = get_max_descriptor_sets() - MAX_IMGUI_DESCRIPTOR_SETS - MAX_LOW_FREQ_DESCRIPTOR_SETS;
-		std::vector<VkDescriptorSetLayout> layouts(num_sets, high_freq_descriptor_set_layout);
-		VkDescriptorSetAllocateInfo alloc_info{};
-		alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		std::vector<VkDescriptorSetLayout> layouts(MAX_HIGH_FREQ_DESCRIPTOR_SETS, high_freq_descriptor_set_layout);
+		VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 		alloc_info.descriptorPool = descriptor_pool;
-		alloc_info.descriptorSetCount = num_sets;
+		alloc_info.descriptorSetCount = MAX_HIGH_FREQ_DESCRIPTOR_SETS;
 		alloc_info.pSetLayouts = layouts.data();
-		std::vector<VkDescriptorSet> descriptor_sets(num_sets);
+		std::vector<VkDescriptorSet> descriptor_sets(MAX_HIGH_FREQ_DESCRIPTOR_SETS);
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
 			throw std::runtime_error("GraphicsResourceManager: failed to allocate high freq descriptor sets!");
 		for (auto& descriptor_set : descriptor_sets)
@@ -220,9 +260,50 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 }
 
 template<typename GraphicsEngineT>
-int GraphicsResourceManager<GraphicsEngineT>::get_max_descriptor_sets() const
+inline void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_sets_for_raytracing(
+	VkImageView rt_image_view)
 {
-	const int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 1000;
+	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+	alloc_info.descriptorPool = descriptor_pool;
+	alloc_info.descriptorSetCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
+	alloc_info.pSetLayouts = &ray_tracing_descriptor_set_layout;
+
+	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &ray_tracing_resources.ray_tracing_descriptor_set) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsResourceManager: failed to allocate ray tracing descriptor set!");
+	}
+
+	VkAccelerationStructureKHR tlas{};
+	VkWriteDescriptorSetAccelerationStructureKHR descASInfo{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
+	descASInfo.accelerationStructureCount = 1;
+	descASInfo.pAccelerationStructures = &tlas;
+	VkDescriptorImageInfo imageInfo{{}, rt_image_view, VK_IMAGE_LAYOUT_GENERAL};
+
+	VkWriteDescriptorSet tlas_write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	tlas_write.descriptorCount = 1;
+	tlas_write.descriptorType = ray_tracing_resources.tlas_binding.descriptorType;
+	tlas_write.dstBinding = ray_tracing_resources.tlas_binding.binding;
+	tlas_write.dstSet = ray_tracing_resources.ray_tracing_descriptor_set;
+	tlas_write.dstArrayElement = 0;
+	tlas_write.pNext = &descASInfo;
+
+	VkWriteDescriptorSet out_image_write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	out_image_write.descriptorCount = 1;
+	out_image_write.descriptorType = ray_tracing_resources.output_binding.descriptorType;
+	out_image_write.dstBinding = ray_tracing_resources.output_binding.binding;
+	out_image_write.dstSet = ray_tracing_resources.ray_tracing_descriptor_set;
+	out_image_write.dstArrayElement = 0;
+	out_image_write.pImageInfo = &imageInfo;
+
+	std::vector<VkWriteDescriptorSet> writes = { tlas_write, out_image_write };
+
+	vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+}
+
+template<typename GraphicsEngineT>
+constexpr int GraphicsResourceManager<GraphicsEngineT>::get_max_descriptor_sets()
+{
+	constexpr int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 1000;
 	return GraphicsEngineSwapChain<GraphicsEngineT>::EXPECTED_NUM_SWAPCHAIN_IMAGES * MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 	// return MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
 }
