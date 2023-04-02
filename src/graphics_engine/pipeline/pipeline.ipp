@@ -1,12 +1,13 @@
 #pragma once
 
-#include "graphics_engine/pipeline/pipeline.hpp"
-
+#include "pipeline.hpp"
+#include "pipelines.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "utility.hpp"
 
 #include <fstream>
 #include <iostream>
+#include "pipeline.hpp"
 
 
 //
@@ -50,44 +51,88 @@ static VkShaderModule create_shader_module(const std::vector<char>& code, VkDevi
 //
 
 template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT& engine, ERenderType render_type) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
-	render_type(render_type)
+std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<GraphicsEngineT>::create_pipeline(
+	GraphicsEngineT& engine,
+	ERenderType type)
 {
-	std::filesystem::path shader_path = Utility::get().get_shaders_path();
-	VkPolygonMode polygon_mode = VK_POLYGON_MODE_FILL;
+	std::unique_ptr<GraphicsEnginePipeline> new_pipeline;
+
+	switch (type)
+	{
+	case ERenderType::COLOR:
+		new_pipeline = std::make_unique<ColorPipeline<GraphicsEngineT>>(engine);
+		break;
+	case ERenderType::STANDARD:
+		new_pipeline = std::make_unique<TexturePipeline<GraphicsEngineT>>(engine);
+		break;
+	case ERenderType::COLOR_NO_LIGHTING:
+		new_pipeline = std::make_unique<ColorNoLightingPipeline<GraphicsEngineT>>(engine);
+		break;
+	case ERenderType::WIREFRAME:
+		new_pipeline = std::make_unique<WireframePipeline<GraphicsEngineT>>(engine);
+		break;
+	case ERenderType::LIGHT_SOURCE:
+		new_pipeline = std::make_unique<LightSourcePipeline<GraphicsEngineT>>(engine);
+		break;
+	case ERenderType::CUBEMAP:
+		new_pipeline = std::make_unique<CubemapPipeline<GraphicsEngineT>>(engine);
+		break;
+	case ERenderType::STENCIL:
+		new_pipeline = std::make_unique<StencilPipeline<GraphicsEngineT>>(engine);
+		break;
+	default:
+		throw std::runtime_error("GraphicsEnginePipeline::create_pipeline: invalid pipeline type");
+	}
+
+	new_pipeline->initialise();
+
+	return new_pipeline;
+}
+
+template<typename GraphicsEngineT>
+GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT& engine) :
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+{
+}
+
+template<typename GraphicsEngineT>
+GraphicsEnginePipeline<GraphicsEngineT>::~GraphicsEnginePipeline()
+{
+	vkDestroyPipeline(get_logical_device(), graphics_pipeline, nullptr);
+	vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);
+}
+
+template<typename GraphicsEngineT>
+VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo depth_stencil_info{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+	depth_stencil_info.depthTestEnable = VK_TRUE; // whether or not new fragments should be compared to depth buffer for incineration
+	depth_stencil_info.depthWriteEnable = VK_TRUE; // if new depth of fragments that pass depth test should be written to depth buffer
+	depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // comparison, less = closer
+	depth_stencil_info.depthBoundsTestEnable = VK_FALSE; // optional bound test so instead of min/max depths we have both
+	depth_stencil_info.minDepthBounds = 0.0f;
+	depth_stencil_info.maxDepthBounds = 0.0f;
+	depth_stencil_info.stencilTestEnable = VK_FALSE; // stencil buffer operationhs
+
+	depth_stencil_info.front.compareMask = UINT32_MAX;
+	depth_stencil_info.front.writeMask = UINT32_MAX;
+	depth_stencil_info.front.reference = UINT32_MAX;
+	depth_stencil_info.front.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
+	depth_stencil_info.front.passOp = VkStencilOp::VK_STENCIL_OP_REPLACE;
+	depth_stencil_info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	depth_stencil_info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+
+	return depth_stencil_info;
+}
+
+template<typename GraphicsEngineT>
+void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
+{
+	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
+	VkPolygonMode polygon_mode = get_polygon_mode();
 	// culling is determined by either clockerwise or counter clockwise vertex order
 	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
-	VkFrontFace front_face = VkFrontFace::VK_FRONT_FACE_CLOCKWISE;
-	switch (render_type)
-	{
-		case ERenderType::STANDARD:
-			shader_path.append("texture");
-			break;		
-		case ERenderType::COLOR:
-			shader_path.append("color");
-			break;
-		case ERenderType::COLOR_NO_LIGHTING:
-			shader_path.append("color_no_lighting");
-			break;
-		case ERenderType::WIREFRAME:
-			polygon_mode = VK_POLYGON_MODE_LINE;
-			shader_path.append("wireframe");
-			break;
-		case ERenderType::LIGHT_SOURCE:
-			shader_path.append("light_source");
-			break;
-		case ERenderType::CUBEMAP:
-			shader_path.append("cubemap");
-			front_face = VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; // nice trick to use since our cube is "inside out"
-			break;
-		case ERenderType::STENCIL:
-			shader_path.append("stencil");
-			break;
-		default:
-			shader_path.append("texture");
-			break;
-	}	
+	VkFrontFace front_face = get_front_face();
 
     const auto vertShaderCode = readFile(shader_path.string() + "/vertex_shader.spv");
     const auto fragShaderCode = readFile(shader_path.string() + "/fragment_shader.spv");
@@ -117,7 +162,8 @@ GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT&
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 
-	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS) {
+	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS)
+	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
 
@@ -208,43 +254,6 @@ GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT&
 	color_blending_create_info.blendConstants[2] = 0.0f; // Optional
 	color_blending_create_info.blendConstants[3] = 0.0f; // Optional
 
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_info{};
-	depth_stencil_info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	depth_stencil_info.depthTestEnable = VK_TRUE; // whether or not new fragments should be compared to depth buffer for incineration
-	depth_stencil_info.depthWriteEnable = VK_TRUE; // if new depth of fragments that pass depth test should be written to depth buffer
-	depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // comparison, less = closer
-	depth_stencil_info.depthBoundsTestEnable = VK_FALSE; // optional bound test so instead of min/max depths we have both
-	depth_stencil_info.minDepthBounds = 0.0f;
-	depth_stencil_info.maxDepthBounds = 0.0f;
-	depth_stencil_info.stencilTestEnable = render_type == ERenderType::CUBEMAP ? false : true; // stencil buffer operationhs
-
-	depth_stencil_info.front = [&]() {
-		VkStencilOpState stencil_op_state{};
-		stencil_op_state.compareMask = UINT32_MAX;
-		stencil_op_state.writeMask = UINT32_MAX;
-		stencil_op_state.reference = UINT32_MAX;
-
-		// render all objects twice
-		// on first render always succeed and write 1 to stencil buffer
-		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
-		if (render_type == ERenderType::STENCIL)
-		{
-			// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
-			stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
-			// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
-			stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-			stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-			stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-		} else {
-			stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
-			stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_REPLACE;
-			stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-			stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-		}
-
-		return stencil_op_state;
-	}();
-
 	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info{};
 	graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	graphics_pipeline_create_info.stageCount = 2;
@@ -257,7 +266,8 @@ GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT&
 	graphics_pipeline_create_info.pDepthStencilState = nullptr;
 	graphics_pipeline_create_info.pColorBlendState = &color_blending_create_info;
 	graphics_pipeline_create_info.pDynamicState = nullptr;
-	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_info;
+	auto depth_stencil_create_info = get_depth_stencil_create_info();
+	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_create_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;
 	graphics_pipeline_create_info.renderPass = get_render_pass();
 	graphics_pipeline_create_info.subpass = 0;
@@ -270,33 +280,17 @@ GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT&
 	graphics_pipeline_create_info.basePipelineIndex = -1;
 
 	// pipeline cache can be used to significantly speed up pipeline creation
-	if (vkCreateGraphicsPipelines(get_logical_device(), VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &graphics_pipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(
+		get_logical_device(), 
+		VK_NULL_HANDLE, 
+		1, 
+		&graphics_pipeline_create_info, 
+		nullptr, 
+		&graphics_pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
 
 	vkDestroyShaderModule(get_logical_device(), vertex_shader, nullptr);
 	vkDestroyShaderModule(get_logical_device(), fragment_shader, nullptr);
-}
-
-template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEnginePipeline<GraphicsEngineT>&& pipeline) noexcept :
-	GraphicsEngineBaseModule<GraphicsEngineT>(pipeline.get_graphics_engine()),
-	graphics_pipeline(std::move(pipeline.graphics_pipeline)),
-	pipeline_layout(std::move(pipeline.pipeline_layout)),
-	render_type(pipeline.render_type)
-{
-	pipeline.should_destroy = false;
-}
-
-template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>::~GraphicsEnginePipeline()
-{
-	if (!should_destroy)
-	{
-		return;
-	}
-	
-	vkDestroyPipeline(get_logical_device(), graphics_pipeline, nullptr);
-	vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);
 }

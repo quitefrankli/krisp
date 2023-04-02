@@ -15,7 +15,7 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	// pipeline is not copyable and initializer list requires copyable entries
 	const auto add_pipeline = [&](ERenderType type)
 	{
-		pipelines.emplace(type, GraphicsEnginePipeline(engine, type));
+		pipelines.emplace(type, PipelineType::create_pipeline(engine, type));
 	};
 	
 	add_pipeline(ERenderType::STANDARD);
@@ -41,5 +41,5 @@ GraphicsEnginePipeline<GraphicsEngineT>& GraphicsEnginePipelineManager<GraphicsE
 		throw std::runtime_error("GraphicsEnginePipelineManager::get_pipeline: invalid pipeline type");
 	}
 
-	return it->second;
+	return *(it->second);
 }

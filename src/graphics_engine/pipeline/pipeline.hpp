@@ -5,19 +5,31 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <string_view>
+
 
 template<typename GraphicsEngineT>
 class GraphicsEnginePipeline : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEnginePipeline(GraphicsEngineT& engine, ERenderType render_type);
-	GraphicsEnginePipeline(GraphicsEnginePipeline&&) noexcept;
+	static std::unique_ptr<GraphicsEnginePipeline> create_pipeline(GraphicsEngineT& engine, ERenderType type);
+
+	GraphicsEnginePipeline(GraphicsEngineT& engine);
 	~GraphicsEnginePipeline();
 
 	VkPipeline graphics_pipeline;
 	VkPipelineLayout pipeline_layout;
 
+protected:
+	virtual std::string_view get_shader_name() const = 0;
+	// face that is not culled
+	virtual VkFrontFace get_front_face() const { return VkFrontFace::VK_FRONT_FACE_CLOCKWISE; }
+	virtual VkPolygonMode get_polygon_mode() const { return VkPolygonMode::VK_POLYGON_MODE_FILL; }
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const;
+
 private:
+	void initialise(); // should be called after construction
+
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
@@ -25,6 +37,4 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
-	const ERenderType render_type;
 };
