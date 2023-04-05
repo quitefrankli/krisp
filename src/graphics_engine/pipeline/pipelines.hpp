@@ -75,3 +75,17 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "light_source"; }
 };
+
+template<typename GraphicsEngineT>
+class RaytracingPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	RaytracingPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "simple_raytracer"; }
+	virtual void initialise() override;
+
+private:
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
+};

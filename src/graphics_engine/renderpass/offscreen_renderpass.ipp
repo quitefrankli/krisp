@@ -12,7 +12,7 @@ OffScreenRenderPass<GraphicsEngineT>::OffScreenRenderPass(GraphicsEngineT& engin
 template<typename GraphicsEngineT>
 OffScreenRenderPass<GraphicsEngineT>::~OffScreenRenderPass()
 {
-	vkDestroyFramebuffer(get_graphics_engine().get_logical_device(), frame_buffer, nullptr);
+	// vkDestroyFramebuffer(get_graphics_engine().get_logical_device(), frame_buffer, nullptr);
 	vkDestroyRenderPass(get_graphics_engine().get_logical_device(), render_pass, nullptr);
 }
 

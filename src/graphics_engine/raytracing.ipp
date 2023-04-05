@@ -9,8 +9,6 @@
 #include <numeric>
 
 
-#define LOAD_VK_FUNCTION(name) reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(get_logical_device(), #name))
-
 VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix)
 {
 	VkTransformMatrixKHR vk_matrix;

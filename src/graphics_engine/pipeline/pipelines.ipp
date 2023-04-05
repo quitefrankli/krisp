@@ -18,3 +18,97 @@ inline VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT>::g
 
 	return info;
 }
+
+template<typename GraphicsEngineT>
+void RaytracingPipeline<GraphicsEngineT>::initialise()
+{
+	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
+	VkPolygonMode polygon_mode = get_polygon_mode();
+	// culling is determined by either clockerwise or counter clockwise vertex order
+	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
+	VkFrontFace front_face = get_front_face();
+
+	VkShaderModule raygen_shader = create_shader_module(shader_path.string() + "/raygen_shader.spv");
+	VkShaderModule rayhit_shader = create_shader_module(shader_path.string() + "/rayhit_shader.spv");
+	VkShaderModule raymiss_shader = create_shader_module(shader_path.string() + "/raymiss_shader.spv");
+
+	VkPipelineShaderStageCreateInfo raygen_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+	raygen_info.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+	raygen_info.module = raygen_shader;
+	raygen_info.pName = "main"; // function to invoke aka entrypoint
+
+	VkPipelineShaderStageCreateInfo rayhit_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+	rayhit_info.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	rayhit_info.module = rayhit_shader;
+	rayhit_info.pName = "main";
+
+	VkPipelineShaderStageCreateInfo raymiss_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+	raymiss_info.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
+	raymiss_info.module = raymiss_shader;
+	raymiss_info.pName = "main";
+
+	std::vector<VkPipelineShaderStageCreateInfo> shader_stages = { raygen_info, rayhit_info, raymiss_info };
+
+	VkRayTracingShaderGroupCreateInfoKHR rt_shader_group_info{VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
+	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR;
+	rt_shader_group_info.closestHitShader = VK_SHADER_UNUSED_KHR;
+	rt_shader_group_info.anyHitShader = VK_SHADER_UNUSED_KHR;
+	rt_shader_group_info.intersectionShader = VK_SHADER_UNUSED_KHR;
+
+	// raygen shader
+	rt_shader_group_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	rt_shader_group_info.generalShader = 0; // index of the shader in the shader stage array
+	shader_groups.push_back(rt_shader_group_info);
+	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR; // reset to unused
+
+	// rayhit shader
+	// this is for triangles only, if we were to use procedual geometry we would need to use intersection shaders
+	// i.e. this might be useful for spheres
+	rt_shader_group_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+	rt_shader_group_info.closestHitShader = 1;
+	shader_groups.push_back(rt_shader_group_info);
+	rt_shader_group_info.closestHitShader = VK_SHADER_UNUSED_KHR; // reset to unused
+
+	// raymiss shader
+	rt_shader_group_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	rt_shader_group_info.generalShader = 2;
+	shader_groups.push_back(rt_shader_group_info);
+	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR; // reset to unused
+
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+	pipeline_layout_create_info.setLayoutCount = get_graphics_engine().get_graphics_resource_manager().descriptor_set_layouts.size();
+	pipeline_layout_create_info.pSetLayouts = get_graphics_engine().get_graphics_resource_manager().descriptor_set_layouts.data();
+	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
+	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
+
+	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create pipeline layout!");
+	}
+
+	VkRayTracingPipelineCreateInfoKHR raytracing_pipeline_create_info{VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR};
+	raytracing_pipeline_create_info.stageCount = shader_stages.size();
+	raytracing_pipeline_create_info.pStages = shader_stages.data();
+	raytracing_pipeline_create_info.groupCount = shader_groups.size();
+	raytracing_pipeline_create_info.pGroups = shader_groups.data();
+	// max recursion depth for raytracing
+	// note that this can be quite expensive, it's ideal to keep it to 1 and instead use an iterative approach
+	raytracing_pipeline_create_info.maxPipelineRayRecursionDepth = 1;
+	raytracing_pipeline_create_info.layout = pipeline_layout;
+
+	if (LOAD_VK_FUNCTION(vkCreateRayTracingPipelinesKHR)(
+		get_logical_device(), 
+		VK_NULL_HANDLE, 
+		VK_NULL_HANDLE, 
+		1, 
+		&raytracing_pipeline_create_info, 
+		nullptr, 
+		&graphics_pipeline) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create raytracing pipeline!");
+	}
+
+	vkDestroyShaderModule(get_logical_device(), raygen_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), rayhit_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), raymiss_shader, nullptr);
+}

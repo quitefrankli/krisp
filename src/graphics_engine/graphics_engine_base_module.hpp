@@ -2,6 +2,8 @@
 
 #include "vulkan/vulkan.hpp"
 
+#define LOAD_VK_FUNCTION(name) reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(get_logical_device(), #name))
+
 
 template<typename GraphicsEngineT>
 class GraphicsEngineBaseModule

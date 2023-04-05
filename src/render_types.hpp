@@ -11,4 +11,5 @@ enum class ERenderType
 	LIGHT_SOURCE,
 	CUBEMAP, // 3D texture for horizon, there is a bit of a bug with this mode and WIREFRAME mode, very minor though
 	STENCIL, // for object highlighting
+	RAYTRACING,
 };

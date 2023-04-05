@@ -10,15 +10,13 @@
 #include "pipeline.hpp"
 
 
-//
-// static functions
-//
-
-static std::vector<char> readFile(const std::string& filename) {
+static std::vector<char> readFile(const std::string_view filename)
+{
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-    if (!file.is_open()) {
-        throw std::runtime_error(std::string("failed to open file! ") + filename);
+    if (!file.is_open())
+	{
+        throw std::runtime_error(fmt::format("failed to open file! {}\n", filename));
     }
 	
 	size_t fileSize = (size_t)file.tellg();
@@ -30,25 +28,22 @@ static std::vector<char> readFile(const std::string& filename) {
 	return buffer;
 }
 
-static VkShaderModule create_shader_module(const std::vector<char>& code, VkDevice& logical_device)
+template<typename GraphicsEngineT>
+VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(const std::string_view filename) 
 {
-	VkShaderModuleCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	const auto code = readFile(filename);
+	VkShaderModuleCreateInfo create_info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
 	create_info.codeSize = code.size();
 	create_info.pCode = reinterpret_cast<const uint32_t*>(code.data());
 
 	VkShaderModule shader_module;
-	if (vkCreateShaderModule(logical_device, &create_info, nullptr, &shader_module) != VK_SUCCESS)
+	if (vkCreateShaderModule(get_logical_device(), &create_info, nullptr, &shader_module) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create shader module!");
 	}
 
 	return shader_module;
 }
-
-//
-// GraphicsEnginePipeline
-//
 
 template<typename GraphicsEngineT>
 std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<GraphicsEngineT>::create_pipeline(
@@ -80,6 +75,9 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<
 	case ERenderType::STENCIL:
 		new_pipeline = std::make_unique<StencilPipeline<GraphicsEngineT>>(engine);
 		break;
+	case ERenderType::RAYTRACING:
+		new_pipeline = std::make_unique<RaytracingPipeline<GraphicsEngineT>>(engine);
+		break;
 	default:
 		throw std::runtime_error("GraphicsEnginePipeline::create_pipeline: invalid pipeline type");
 	}
@@ -98,8 +96,14 @@ GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT&
 template<typename GraphicsEngineT>
 GraphicsEnginePipeline<GraphicsEngineT>::~GraphicsEnginePipeline()
 {
-	vkDestroyPipeline(get_logical_device(), graphics_pipeline, nullptr);
-	vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);
+	if (graphics_pipeline != VK_NULL_HANDLE)
+	{
+		vkDestroyPipeline(get_logical_device(), graphics_pipeline, nullptr);
+	}
+	if (pipeline_layout != VK_NULL_HANDLE)
+	{
+		vkDestroyPipelineLayout(get_logical_device(), pipeline_layout, nullptr);
+	}
 }
 
 template<typename GraphicsEngineT>
@@ -134,11 +138,8 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
 	VkFrontFace front_face = get_front_face();
 
-    const auto vertShaderCode = readFile(shader_path.string() + "/vertex_shader.spv");
-    const auto fragShaderCode = readFile(shader_path.string() + "/fragment_shader.spv");
-
-	VkShaderModule vertex_shader = create_shader_module(vertShaderCode, get_logical_device());
-	VkShaderModule fragment_shader = create_shader_module(fragShaderCode, get_logical_device());
+	VkShaderModule vertex_shader = create_shader_module(shader_path.string() + "/vertex_shader.spv");
+	VkShaderModule fragment_shader = create_shader_module(shader_path.string() + "/fragment_shader.spv");
 
 	VkPipelineShaderStageCreateInfo vertex_shader_create_info{};
 	vertex_shader_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

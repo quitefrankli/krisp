@@ -25,6 +25,7 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	add_pipeline(ERenderType::LIGHT_SOURCE);
 	add_pipeline(ERenderType::CUBEMAP);
 	add_pipeline(ERenderType::STENCIL);
+	add_pipeline(ERenderType::RAYTRACING);
 }
 
 template<typename GraphicsEngineT>
