@@ -43,7 +43,6 @@ public: // getters
 
 	uint32_t get_num_images() const { return frames.size(); }
 	VkSwapchainKHR& get_swap_chain() { return swap_chain; }
-	static constexpr VkSampleCountFlagBits get_msaa_samples() { return msaa_samples; }
 	VkImageView get_color_image_view() { return colorImageView; }
 	// assuming swapchain draw call is last in the main graphics execution loop
 	// this will reflect the frame TO BE drawn
@@ -86,7 +85,6 @@ private: // color resources for MSAA sampling where we have multiple samples per
 	VkImage colorImage;
 	VkDeviceMemory colorImageMemory;
 	VkImageView colorImageView;
-	static constexpr VkSampleCountFlagBits msaa_samples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_4_BIT;
 
 private: // synchronisation
 	bool frame_buffer_resized = false;

@@ -18,18 +18,21 @@ VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix)
 
 
 template<typename GraphicsEngineT>
-inline GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
+GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 	GraphicsEngineT& engine) :
 	offscreen_renderpass(engine),
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
+	create_shader_binding_table();
 	// update_blas();
 	// update_tlas();
 }
 
 template<typename GraphicsEngineT>
-inline GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
+GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
 {
+	vkDestroyBuffer(get_logical_device(), sbt_buffer.buffer, nullptr);
+	vkFreeMemory(get_logical_device(), sbt_buffer.memory, nullptr);
 }
 
 template<typename GraphicsEngineT>
@@ -42,7 +45,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cleanup_acceleration_structure(A
 }
 
 template<typename GraphicsEngineT>
-inline void GraphicsEngineRayTracing<GraphicsEngineT>::update_acceleration_structures()
+void GraphicsEngineRayTracing<GraphicsEngineT>::update_acceleration_structures()
 {
 	update_blas();
 	update_tlas();
@@ -230,7 +233,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 }
 
 template<typename GraphicsEngineT>
-inline void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
+void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 {
 	auto& objects = get_graphics_engine().get_objects();
 	
@@ -441,7 +444,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::AccelerationStructure
 }
 
 template<typename GraphicsEngineT>
-inline VkDeviceAddress GraphicsEngineRayTracing<GraphicsEngineT>::getBlasDeviceAddress(uint32_t blasId)
+VkDeviceAddress GraphicsEngineRayTracing<GraphicsEngineT>::getBlasDeviceAddress(uint32_t blasId)
 {
 	assert(size_t(blasId) < bottom_as.size());
 	VkAccelerationStructureDeviceAddressInfoKHR addressInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR};
@@ -451,7 +454,7 @@ inline VkDeviceAddress GraphicsEngineRayTracing<GraphicsEngineT>::getBlasDeviceA
 }
 
 template<typename GraphicsEngineT>
-inline void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
+void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
 	const std::vector<VkAccelerationStructureInstanceKHR>& instances,
 	VkBuildAccelerationStructureFlagsKHR flags,
 	bool update)
@@ -483,4 +486,100 @@ inline void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
 
 	// TODO: cleanup instance_buffer
 	// also scratch_buffer
+}
+
+template<typename GraphicsEngineT>
+void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
+{
+	/*
+		SBT is a collection of up to four arrays containing the hanldes of the shader groups used
+		in the ray tracing pipeline, one array for {raygen, miss, hit, callable} shader groups.
+		From each array an appropriate shader is chosen depending on scenario (however for now the array
+		contains only one handle each)
+
+		|		Raygen		|		Miss		|		Hit			|		Callable	|
+		|		  |			|					|					|					|
+		0		  32		64					|					|					|
+		Handle Alignment
+		|					|
+		0					64
+		Base Alignment 
+
+		From the above each shader group is aligned according to a base alignment
+		and each shader in each shader group is aligned according to a handle alignment	
+	*/
+
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_props =
+		get_graphics_engine().get_device_module().get_ray_tracing_properties();
+
+	uint32_t raygen_count = 1;
+	uint32_t miss_count = 1;
+	uint32_t hit_count = 1;
+	uint32_t handle_count = raygen_count + miss_count + hit_count;
+	uint32_t handle_size = rt_pipeline_props.shaderGroupHandleSize;
+
+	const auto align_up = [](uint32_t val, uint32_t alignment) -> uint32_t
+	{
+		return uint32_t((val + (uint32_t(alignment) - 1)) & ~uint32_t(alignment - 1));
+	};
+
+	// sets the following strides and sizes for each group
+	const uint32_t handle_size_aligned = align_up(handle_size, rt_pipeline_props.shaderGroupHandleAlignment);
+
+	raygen_sbt_region.stride = align_up(raygen_count * handle_size_aligned, rt_pipeline_props.shaderGroupBaseAlignment);
+	raygen_sbt_region.size = raygen_sbt_region.stride;
+
+	raymiss_sbt_region.stride = handle_size_aligned;
+	raymiss_sbt_region.size = align_up(miss_count * handle_size_aligned, rt_pipeline_props.shaderGroupBaseAlignment);
+
+	rayhit_sbt_region.stride = handle_size_aligned;
+	rayhit_sbt_region.size = align_up(hit_count * handle_size_aligned, rt_pipeline_props.shaderGroupBaseAlignment);
+
+	// fetch the handles to the shader groups of the pipeline
+	const uint32_t data_size = handle_count * handle_size;
+	std::vector<std::byte> handles_data(data_size);
+	if (LOAD_VK_FUNCTION(vkGetRayTracingShaderGroupHandlesKHR)(
+		get_logical_device(), 
+		get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::RAYTRACING).graphics_pipeline, 
+		0, 
+		handle_count, 
+		data_size, 
+		handles_data.data()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsEngineRayTracing: Failed to fetch shader group handles.");
+	}
+
+	// allocate buffer that will hold the handle data
+	const uint32_t sbt_size = raygen_sbt_region.size + raymiss_sbt_region.size + 
+		rayhit_sbt_region.size + callable_sbt_region.size;
+	
+	// TODO: investigate if this buffer can be made it into device local buffer
+	// via usage of staging buffers
+	sbt_buffer = get_graphics_engine().create_buffer(
+		data_size, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | 
+			VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	// find the SBT addresses of each group
+	VkDeviceAddress sbt_address = get_graphics_engine().get_device_module().
+		get_buffer_device_address(sbt_buffer.buffer);
+	raygen_sbt_region.deviceAddress = sbt_address;
+	raymiss_sbt_region.deviceAddress = sbt_address + raygen_sbt_region.size;
+	rayhit_sbt_region.deviceAddress = sbt_address + raygen_sbt_region.size + raymiss_sbt_region.size;
+	// note callables are not used for now
+
+	void* mapped_data;
+	vkMapMemory(get_logical_device(), sbt_buffer.memory, 0, data_size, 0, &mapped_data);
+	
+	// copy the handles to the SBT, hard coded for now since we only have 1 handle per group
+	// TODO: when we add more shaders per group we need to take a more dynamic approach
+	void* p_data = mapped_data;
+	memcpy(p_data, handles_data.data() + handle_size * 0, handle_size);
+	p_data = reinterpret_cast<std::byte*>(mapped_data) + raygen_sbt_region.size;
+	memcpy(p_data, handles_data.data() + handle_size * 1, handle_size);
+	p_data = reinterpret_cast<std::byte*>(mapped_data) + raygen_sbt_region.size + raymiss_sbt_region.size;
+	memcpy(p_data, handles_data.data() + handle_size * 2, handle_size);
+
+	vkUnmapMemory(get_logical_device(), sbt_buffer.memory);
 }

@@ -102,11 +102,21 @@ private:
 		VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR,
 		bool update = false);
 
+	void create_shader_binding_table();
+
+private:
 	std::vector<VkBuffer> buffers;
 	std::vector<VkDeviceMemory> buffer_memories;
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
 	OffScreenRenderPass<GraphicsEngineT> offscreen_renderpass;
+
+	// sbt = shader binding table
+	GraphicsBuffer sbt_buffer;
+	VkStridedDeviceAddressRegionKHR raygen_sbt_region{};
+	VkStridedDeviceAddressRegionKHR raymiss_sbt_region{};
+	VkStridedDeviceAddressRegionKHR rayhit_sbt_region{};
+	VkStridedDeviceAddressRegionKHR callable_sbt_region{};
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

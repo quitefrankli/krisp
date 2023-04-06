@@ -32,7 +32,7 @@ GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngine
 										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 										colorImage,
 										colorImageMemory,
-										msaa_samples);
+										get_graphics_engine().get_msaa_samples());
 	colorImageView = get_graphics_engine().create_image_view(colorImage, 
 															get_image_format(),
 															VK_IMAGE_ASPECT_COLOR_BIT);
@@ -235,7 +235,7 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::create_render_pass()
 	//
 	VkAttachmentDescription color_attachment{};
 	color_attachment.format = get_image_format();
-	color_attachment.samples = get_msaa_samples(); // >1 if we are doing multisampling	
+	color_attachment.samples = get_graphics_engine().get_msaa_samples(); // >1 if we are doing multisampling	
 	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
 	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
 	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -257,7 +257,7 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::create_render_pass()
 	//
 	VkAttachmentDescription depth_attachment{};
 	depth_attachment.format = GraphicsEngineDepthBuffer<GraphicsEngineT>::findDepthFormat(get_physical_device());
-	depth_attachment.samples = get_msaa_samples();
+	depth_attachment.samples = get_graphics_engine().get_msaa_samples();
 	depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;

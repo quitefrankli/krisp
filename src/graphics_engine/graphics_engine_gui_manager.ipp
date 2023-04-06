@@ -31,7 +31,7 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 	init_info.MinImageCount = engine.get_num_swapchain_images();
 	init_info.ImageCount = engine.get_num_swapchain_images();
 	// temporary fix, Gui doesn't really need anti-aliasing it should use its own dedicated pipeline
-	init_info.MSAASamples = engine.get_swap_chain().get_msaa_samples();
+	init_info.MSAASamples = engine.get_msaa_samples();
 
 	ImGui_ImplVulkan_Init(&init_info, engine.get_swap_chain().get_render_pass());
 

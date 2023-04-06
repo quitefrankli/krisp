@@ -19,7 +19,7 @@ GraphicsEngineDepthBuffer<GraphicsEngineT>::GraphicsEngineDepthBuffer(GraphicsEn
 										VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 										image,
 										memory,
-										get_graphics_engine().get_swap_chain().get_msaa_samples());
+										get_graphics_engine().get_msaa_samples());
 
 	view = get_graphics_engine().create_image_view(image, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT);
 }

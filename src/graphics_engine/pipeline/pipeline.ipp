@@ -227,7 +227,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	VkPipelineMultisampleStateCreateInfo multisampling_create_info{};
 	multisampling_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling_create_info.sampleShadingEnable = VK_FALSE;
-	multisampling_create_info.rasterizationSamples = get_graphics_engine().get_swap_chain().get_msaa_samples();
+	multisampling_create_info.rasterizationSamples = get_graphics_engine().get_msaa_samples();
 	multisampling_create_info.minSampleShading = 1.0f;
 	multisampling_create_info.pSampleMask = nullptr;
 	multisampling_create_info.alphaToCoverageEnable = VK_FALSE;

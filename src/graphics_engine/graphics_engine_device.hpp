@@ -25,6 +25,11 @@ public:
 	const VkPhysicalDeviceProperties2& get_physical_device_properties();
 	VkDeviceAddress get_buffer_device_address(VkBuffer buffer);	
 
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_ray_tracing_properties() const 
+	{ 
+		return ray_tracing_properties; 
+	}
+
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;

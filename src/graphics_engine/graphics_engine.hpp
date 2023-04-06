@@ -80,6 +80,7 @@ public: // getters and setters
 	GraphicsEngineDevice<GraphicsEngine>& get_device_module() { return device; }
 	void set_fps(const float fps) { this->fps = fps; }
 	float get_fps() const { return fps; }
+	static constexpr VkSampleCountFlagBits get_msaa_samples() { return VK_SAMPLE_COUNT_4_BIT; }
 
 private:
 	bool should_shutdown = false;
@@ -166,10 +167,10 @@ private: // core components
 	GraphicsEngineDevice<GraphicsEngine> device;
 	GraphicsEngineTextureManager<GraphicsEngine> texture_mgr;
 	GraphicsResourceManager<GraphicsEngine> pool;
-	GraphicsEngineRayTracing<GraphicsEngine> ray_tracing;
 	GraphicsEngineDepthBuffer<GraphicsEngine> depth_buffer;
 	GraphicsEngineSwapChain<GraphicsEngine> swap_chain;
 	GraphicsEnginePipelineManager<GraphicsEngine> pipeline_mgr;
+	GraphicsEngineRayTracing<GraphicsEngine> ray_tracing;
 	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT> gui_manager;
 
 public: // commands
