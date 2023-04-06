@@ -18,8 +18,7 @@
 
 
 template<typename GameEngineT>
-GuiGraphicsSettings<GameEngineT>::GuiGraphicsSettings() :
-	light_ray(0.0f, 3.0f, 0.0f, 0.0f, -1.0f, 0.0f)
+GuiGraphicsSettings<GameEngineT>::GuiGraphicsSettings()
 {
 }
 
@@ -29,8 +28,7 @@ void GuiGraphicsSettings<GameEngineT>::draw()
 	ImGui::Begin("Graphics Settings");
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
-	ImGui::SliderFloat3("light position", glm::value_ptr(light_ray.origin), -50.0f, 50.0f);
-	ImGui::SliderFloat3("light direction", glm::value_ptr(light_ray.direction), -1.0f, 1.0f);
+	ImGui::Checkbox("RTX", &rtx_on);
 	
 	ImGui::End();
 }

@@ -486,8 +486,6 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	gubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
 
-	// gubo.light_pos = graphic_settings.light_ray.origin; // Gui controlled light position
-	
 	// light controlled by light source, only supports single light source and white lighting currently
 	auto& light_sources = get_graphics_engine().get_light_sources();
 	if (light_sources.empty())

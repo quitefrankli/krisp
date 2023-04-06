@@ -25,6 +25,25 @@ inline VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT>::g
 	info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
 	info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
 
+
+	info.front = [&]() {
+		VkStencilOpState stencil_op_state{};
+		stencil_op_state.compareMask = UINT32_MAX;
+		stencil_op_state.writeMask = UINT32_MAX;
+		stencil_op_state.reference = UINT32_MAX;
+
+		// render all objects twice
+		// on first render always succeed and write 1 to stencil buffer
+		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
+		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
+		stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
+		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
+		stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+
+		return stencil_op_state;
+	}();
 	return info;
 }
 

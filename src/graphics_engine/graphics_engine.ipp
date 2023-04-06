@@ -113,10 +113,16 @@ void GraphicsEngine<GameEngineT>::run() {
 			}
 			ge_cmd_q_mutex.unlock();
 
-			gui_manager.draw();
+			if (!gui_manager.graphic_settings.show_fps)
+			{
+				// swap chain draw should be last in execution loop
+				swap_chain.draw();
+			} else
+			{
+				ray_tracing.draw();
+			}
 
-			// swap chain draw should be last in execution loop
-			swap_chain.draw();
+			gui_manager.draw();
 
 #ifndef DISABLE_SLEEP
 			loop_sleeper();

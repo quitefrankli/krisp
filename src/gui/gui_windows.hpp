@@ -36,7 +36,7 @@ public:
 
 public:
 	float light_strength = 1.0f;
-	Maths::Ray light_ray;	
+	bool rtx_on = false;
 };
 
 template<typename GameEngineT>
