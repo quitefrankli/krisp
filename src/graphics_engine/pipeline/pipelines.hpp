@@ -42,6 +42,7 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "cubemap"; }
 	virtual VkFrontFace get_front_face() const override { return VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; }
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
 template<typename GraphicsEngineT>

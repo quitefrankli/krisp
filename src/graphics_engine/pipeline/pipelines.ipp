@@ -3,11 +3,20 @@
 #include "pipelines.hpp"
 
 
+
+template<typename GraphicsEngineT>
+VkPipelineDepthStencilStateCreateInfo CubemapPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	info.stencilTestEnable = VK_FALSE;
+
+	return info;
+}
+
 template<typename GraphicsEngineT>
 inline VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
-	info.stencilTestEnable = VK_TRUE;
 	// render all objects twice
 	// on first render always succeed and write 1 to stencil buffer
 	// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
