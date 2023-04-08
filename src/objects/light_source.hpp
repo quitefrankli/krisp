@@ -11,7 +11,7 @@ public:
 
 	glm::vec3 get_color() const { return color; }
 
-	virtual ERenderType get_render_type() const override { return ERenderType::LIGHT_SOURCE; }
+	virtual EPipelineType get_render_type() const override { return EPipelineType::LIGHT_SOURCE; }
 
 private:
 	// glm::vec3 light_direction; // directional light not supported for now

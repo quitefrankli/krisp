@@ -8,10 +8,10 @@
 #include "graphics_resource_manager.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
-#include "graphics_engine_depth_buffer.hpp"
 #include "graphics_engine_texture_manager.hpp"
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
+#include "renderers/renderer_manager.hpp"
 #include "raytracing.hpp"
 #include "vulkan_wrappers.hpp"
 #include "window.hpp"
@@ -66,14 +66,14 @@ public: // getters and setters
 	VkQueue& get_graphics_queue() { return graphics_queue; }
 	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	GraphicsEngineSwapChain<GraphicsEngine>& get_swap_chain() { return swap_chain; }
-	uint32_t get_num_swapchain_images() const { return swap_chain.get_num_images(); }
+	static constexpr uint32_t get_num_swapchain_images() { return decltype(swap_chain)::EXPECTED_NUM_SWAPCHAIN_IMAGES; }
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
-	GraphicsEngineDepthBuffer<GraphicsEngine>& get_depth_buffer() { return depth_buffer; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
 	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT>& get_graphics_gui_manager() { return gui_manager; }
 	GuiManager<GameEngineT>& get_gui_manager() { return static_cast<GuiManager<GameEngineT>&>(gui_manager); }
+	RendererManager<GraphicsEngine>& get_renderer_mgr() { return renderer_mgr; }
 	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
 	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
 	GraphicsResourceManager<GraphicsEngine>& get_graphics_resource_manager() { return pool; }
@@ -92,8 +92,8 @@ private:
 	std::unordered_set<uint64_t> stenciled_objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
-
 	std::unique_ptr<Analytics> FPS_tracker;
+	std::optional<VkFormat> depth_format;
 	float fps = 0.0f;
 
 // if confused about the different vulkan definitions see here
@@ -107,10 +107,7 @@ public: // command buffer
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
-public: // buffers
 	void create_object_buffers(GraphicsEngineObject<GraphicsEngine>& object);
-	
-public:
 	void create_buffer(size_t size, 
 					   VkBufferUsageFlags usage_flags, 
 					   VkMemoryPropertyFlags memory_flags, 
@@ -151,6 +148,9 @@ public:
 						   		  VkImageAspectFlags aspect_flags,
 								  VkImageViewType view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D);
 								  
+	RenderingAttachment create_depth_buffer_attachment();
+	VkFormat find_depth_format();
+
 public: // other
 	// graphics cards offer different types of memory to allocate from, each type of memory varies
 	// in therms of allowed operations and performance characteristics
@@ -167,7 +167,7 @@ private: // core components
 	GraphicsEngineDevice<GraphicsEngine> device;
 	GraphicsEngineTextureManager<GraphicsEngine> texture_mgr;
 	GraphicsResourceManager<GraphicsEngine> pool;
-	GraphicsEngineDepthBuffer<GraphicsEngine> depth_buffer;
+	RendererManager<GraphicsEngine> renderer_mgr;
 	GraphicsEngineSwapChain<GraphicsEngine> swap_chain;
 	GraphicsEnginePipelineManager<GraphicsEngine> pipeline_mgr;
 	GraphicsEngineRayTracing<GraphicsEngine> ray_tracing;

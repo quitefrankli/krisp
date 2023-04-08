@@ -103,7 +103,7 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_image(std::string te
 	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
 
 	LOG_INFO(Utility::get().get_logger(), 
-			 "GraphicsEngineTexture::create_texture_image: created texture from:={}\n", 
+			 "GraphicsEngineTexture::create_texture_image: created texture from:={}", 
 			 texture_path);
 }
 

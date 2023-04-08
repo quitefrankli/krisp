@@ -2,7 +2,6 @@
 
 #include "pipeline_manager.hpp"
 #include "graphics_engine/graphics_engine.hpp"
-#include "graphics_engine/graphics_engine_depth_buffer.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -13,19 +12,19 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	// pipeline is not copyable and initializer list requires copyable entries
-	const auto add_pipeline = [&](ERenderType type)
+	const auto add_pipeline = [&](EPipelineType type)
 	{
 		pipelines.emplace(type, PipelineType::create_pipeline(engine, type));
 	};
 	
-	add_pipeline(ERenderType::STANDARD);
-	add_pipeline(ERenderType::COLOR);
-	add_pipeline(ERenderType::COLOR_NO_LIGHTING);
-	add_pipeline(ERenderType::WIREFRAME);
-	add_pipeline(ERenderType::LIGHT_SOURCE);
-	add_pipeline(ERenderType::CUBEMAP);
-	add_pipeline(ERenderType::STENCIL);
-	add_pipeline(ERenderType::RAYTRACING);
+	add_pipeline(EPipelineType::STANDARD);
+	add_pipeline(EPipelineType::COLOR);
+	add_pipeline(EPipelineType::COLOR_NO_LIGHTING);
+	add_pipeline(EPipelineType::WIREFRAME);
+	add_pipeline(EPipelineType::LIGHT_SOURCE);
+	add_pipeline(EPipelineType::CUBEMAP);
+	add_pipeline(EPipelineType::STENCIL);
+	add_pipeline(EPipelineType::RAYTRACING);
 }
 
 template<typename GraphicsEngineT>
@@ -34,7 +33,7 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::~GraphicsEnginePipelineManager()
 }
 
 template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>& GraphicsEnginePipelineManager<GraphicsEngineT>::get_pipeline(ERenderType type)
+GraphicsEnginePipeline<GraphicsEngineT>& GraphicsEnginePipelineManager<GraphicsEngineT>::get_pipeline(EPipelineType type)
 {
 	auto it = pipelines.find(type);
 	if (it == pipelines.end())

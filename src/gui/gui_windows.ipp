@@ -136,7 +136,7 @@ GuiMusic<GameEngineT>::GuiMusic(AudioSource&& audio_source) :
 	{
 		if (!entry.is_directory() && entry.path().extension() == ".wav")
 		{
-			LOG_INFO(Utility::get().get_logger(), "GuiMusic<GameEngineT>::GuiMusic: adding {}\n", entry.path());
+			LOG_INFO(Utility::get().get_logger(), "GuiMusic<GameEngineT>::GuiMusic: adding {}", entry.path());
 			songs_paths.push_back(entry.path());
 			songs_.push_back(entry.path().filename().string());
 		}

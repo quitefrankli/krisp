@@ -43,4 +43,6 @@ int main()
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
         return EXIT_FAILURE;
 	}
+
+	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
 }

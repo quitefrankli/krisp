@@ -11,6 +11,8 @@
 #include <unordered_set>
 
 
+static uint32_t filtered_errors_count = 0;
+
 template<typename GraphicsEngineT>
 const std::vector<const char*> GraphicsEngineValidationLayer<GraphicsEngineT>::REQUIRED_VALIDATION_LAYERS = {
 	"VK_LAYER_KHRONOS_validation"
@@ -49,6 +51,8 @@ GraphicsEngineValidationLayer<GraphicsEngineT>::~GraphicsEngineValidationLayer()
 		// throw std::runtime_error("failed to destroy debug messenger!");
 		// I think there might be a bug here, the library seems to get unloaded as soon as this thread ends
 	}
+
+	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: num validation errors omitted:={}", filtered_errors_count);
 }
 
 template<typename GraphicsEngineT>
@@ -104,11 +108,20 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData) 
 {
-	std::string error(pCallbackData->pMessage);
+	const std::string_view error(pCallbackData->pMessage);
+	const std::vector<std::string_view> blacklist_filter = {
+		"Epic Games"
+	};
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT &&
-		error.find("Epic Games") == std::string::npos)
+		std::all_of(blacklist_filter.begin(), blacklist_filter.end(), [&error](const auto& filter) {
+			return error.find(filter) == std::string::npos;
+		}))
 	{
-		std::cerr << "validation layer: " << error << std::endl;
+		LOG_ERROR(Utility::get().get_logger(), "ValidationLayerMessage: {}", error);
+		fmt::print("ValidationLayerMessage: {}\n", error);
+	} else
+	{
+		++filtered_errors_count;
 	}
 
 	return VK_FALSE;

@@ -1,5 +1,4 @@
 #include "graphics_engine_base_module.ipp"
-#include "graphics_engine_depth_buffer.ipp"
 #include "graphics_engine_device.ipp"
 #include "graphics_engine_frame.ipp"
 #include "graphics_engine_gui_manager.ipp"
@@ -17,7 +16,6 @@ using GameEngineT = GameEngine<GraphicsEngine>;
 using GraphicsEngineT = GameEngineT::GraphicsEngineT;
 
 template class GraphicsEngineBaseModule<GraphicsEngineT>;
-template class GraphicsEngineDepthBuffer<GraphicsEngineT>;
 template class GraphicsEngineDevice<GraphicsEngineT>;
 template class GraphicsEngineFrame<GraphicsEngineT>;
 template class GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>;

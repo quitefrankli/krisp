@@ -28,13 +28,13 @@ GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) :
 	game_engine(game_engine),
 	instance(*this),
 	validation_layer(*this),
-	texture_mgr(*this),
 	device(*this),
+	texture_mgr(*this),
 	pool(*this),
-	ray_tracing(*this),
-	pipeline_mgr(*this),
-	depth_buffer(*this),
+	renderer_mgr(*this),
 	swap_chain(*this),
+	pipeline_mgr(*this),
+	ray_tracing(*this),
 	gui_manager(*this)
 {
 	FPS_tracker = std::make_unique<Analytics>(
@@ -113,16 +113,9 @@ void GraphicsEngine<GameEngineT>::run() {
 			}
 			ge_cmd_q_mutex.unlock();
 
-			if (!gui_manager.graphic_settings.show_fps)
-			{
-				// swap chain draw should be last in execution loop
-				swap_chain.draw();
-			} else
-			{
-				ray_tracing.draw();
-			}
-
 			gui_manager.draw();
+
+			swap_chain.draw();
 
 #ifndef DISABLE_SLEEP
 			loop_sleeper();
@@ -184,15 +177,7 @@ void GraphicsEngine<GameEngineT>::enqueue_cmd(std::unique_ptr<GraphicsEngineComm
 template<typename GameEngineT>
 VkCommandBuffer GraphicsEngine<GameEngineT>::begin_single_time_commands()
 {
-	VkCommandBufferAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = get_command_pool();
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(get_logical_device(), &allocInfo, &commandBuffer);
-
+	VkCommandBuffer commandBuffer = get_graphics_resource_manager().create_command_buffer();
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

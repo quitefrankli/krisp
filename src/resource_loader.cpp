@@ -46,7 +46,7 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 	fmt::print("ResourceLoader::load_object: loaded {}, shapes:={}, vertices:={}, indices:={}, texures:={}\n",
 		mesh, object.shapes.size(), object.get_num_unique_vertices(), object.get_num_vertex_indices(), textures.size());
 
-	object.set_render_type(ERenderType::STANDARD); // use textured render
+	object.set_render_type(EPipelineType::STANDARD); // use textured render
 
 	return object;
 }
@@ -66,7 +66,7 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 	fmt::print("ResourceLoader::load_object: loaded {}, shapes:={}, vertices:={}, indices:={}\n",
 		mesh, object.shapes.size(), object.get_num_unique_vertices(), object.get_num_vertex_indices());
 
-	object.set_render_type(ERenderType::COLOR); // use colored render
+	object.set_render_type(EPipelineType::COLOR); // use colored render
 
 	return object;
 }
@@ -186,7 +186,7 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 		new_obj.set_name(shape.name);
 		new_obj.set_aabb(shape.aabb);
 		new_obj.shapes.push_back(std::move(shape));
-		new_obj.set_render_type(ERenderType::STANDARD); // use textured render
+		new_obj.set_render_type(EPipelineType::STANDARD); // use textured render
 	}
 
 	fmt::print(
@@ -206,7 +206,7 @@ void ResourceLoader::assign_object_texture(Object& object, const std::string_vie
 	{
 		object.shapes[i].set_texture(texture);
 	}
-	object.set_render_type(ERenderType::STANDARD); // use textured render
+	object.set_render_type(EPipelineType::STANDARD); // use textured render
 }
 
 void ResourceLoader::assign_object_texture(Object& object, const std::vector<std::string_view> textures)
@@ -219,5 +219,5 @@ void ResourceLoader::assign_object_texture(Object& object, const std::vector<std
 	{
 		object.shapes[i].set_texture(textures[i]);
 	}
-	object.set_render_type(ERenderType::STANDARD); // use textured render
+	object.set_render_type(EPipelineType::STANDARD); // use textured render
 }

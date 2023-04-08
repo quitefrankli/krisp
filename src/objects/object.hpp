@@ -1,6 +1,6 @@
 #pragma once
 
-#include "render_types.hpp"
+#include "graphics_engine/pipeline/pipeline_types.hpp" // TODO: come up with a to decouiple this, having graphics engine code here is bad
 #include "shapes/shape.hpp"
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
@@ -53,8 +53,8 @@ public:
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
 
-	virtual ERenderType get_render_type() const { return render_type; }
-	void set_render_type(ERenderType type) { render_type = type; }
+	virtual EPipelineType get_render_type() const { return render_type; }
+	void set_render_type(EPipelineType type) { render_type = type; }
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }
 	virtual void set_visibility(bool isVisible) { bVisible = isVisible; }
@@ -124,7 +124,7 @@ private:
 
 	bool bVisible = true;
 
-	ERenderType render_type = ERenderType::COLOR;
+	EPipelineType render_type = EPipelineType::COLOR;
 
 //
 // collision

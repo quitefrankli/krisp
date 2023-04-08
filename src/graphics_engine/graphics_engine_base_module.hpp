@@ -29,7 +29,6 @@ public:
 							   VkBuffer& buffer, 
 							   VkDeviceMemory& device_memory);
 	uint32_t get_num_swapchain_frames() const;
-	virtual VkRenderPass get_render_pass();
 
 protected:
 	// for derived classes that we may not want to call destructor on because of a std::move

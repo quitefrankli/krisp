@@ -8,7 +8,7 @@
 #include "objects/light_source.hpp"
 #include "uniform_buffer_object.hpp"
 #include "camera.hpp"
-#include "render_types.hpp"
+#include "pipeline/pipeline_types.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -19,37 +19,21 @@ template<typename GraphicsEngineT>
 int GraphicsEngineFrame<GraphicsEngineT>::global_image_index = 0;
 
 template<typename GraphicsEngineT>
-GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineT& engine, GraphicsEngineSwapChain<GraphicsEngineT>& parent_swapchain, VkImage image) :
+GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
+	GraphicsEngineT& engine, 
+	GraphicsEngineSwapChain<GraphicsEngineT>& parent_swapchain, 
+	VkImage presentation_image) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	swap_chain(parent_swapchain),
-	image(image)
+	image_index(global_image_index++)
 {
-	image_index = global_image_index++;
-
-	// image view, in the context of a GraphicsEngineFrame, it's essentially a vulkan image that we can do processing on
-	image_view = get_graphics_engine().create_image_view(image, swap_chain.get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
-
-	// frame buffer
-	// note that while the color image is different for every frame, the depth image can be the same
-	std::vector<VkImageView> attachments { parent_swapchain.get_color_image_view(),
-											get_graphics_engine().get_depth_buffer().get_image_view(),
-											image_view };
-	VkFramebufferCreateInfo frame_buffer_create_info{};
-	frame_buffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	frame_buffer_create_info.renderPass = get_render_pass();
-	frame_buffer_create_info.attachmentCount = attachments.size();
-	frame_buffer_create_info.pAttachments = attachments.data();
-	frame_buffer_create_info.width = swap_chain.get_extent().width;
-	frame_buffer_create_info.height = swap_chain.get_extent().height;
-	frame_buffer_create_info.layers = 1;
-
-	if (vkCreateFramebuffer(get_logical_device(), &frame_buffer_create_info, nullptr, &frame_buffer) != VK_SUCCESS)
+	for (Renderer<GraphicsEngineT>* renderer : get_graphics_engine().get_renderer_mgr().get_renderers())
 	{
-		throw std::runtime_error("failed to create framebuffer!");
+		renderer->allocate_inflight_frame_resources(presentation_image);
 	}
 
 	create_synchronisation_objects();
-	create_command_buffer();
+	command_buffer = get_graphics_engine().get_graphics_resource_manager().create_command_buffer();
 
 	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
@@ -57,8 +41,7 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineT& engin
 template<typename GraphicsEngineT>
 GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	GraphicsEngineBaseModule<GraphicsEngineT>(frame.get_graphics_engine()),
-	image(std::move(frame.image)),
-	image_view(std::move(frame.image_view)),
+	presentation_image_view(std::move(frame.presentation_image_view)),
 	frame_buffer(std::move(frame.frame_buffer)),
 	command_buffer(std::move(frame.command_buffer)),
 	image_index(std::move(frame.image_index)),
@@ -83,9 +66,6 @@ GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
 
 	global_image_index--;
 	vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
-
-	vkDestroyImageView(get_logical_device(), image_view, nullptr);
-	vkDestroyFramebuffer(get_logical_device(), frame_buffer, nullptr);
 
 	// cleanup synchronisation objects
 	vkDestroySemaphore(get_logical_device(), image_available_semaphore, nullptr);
@@ -132,8 +112,8 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 
 		switch (object.get_render_type())
 		{
-			case ERenderType::STANDARD:
-			case ERenderType::CUBEMAP:
+			case EPipelineType::STANDARD:
+			case EPipelineType::CUBEMAP:
 				{
 					VkDescriptorImageInfo image_info{};
 					image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -174,35 +154,12 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::create_command_buffer()
-{
-	VkCommandBufferAllocateInfo allocation_info{};
-	allocation_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocation_info.commandPool = get_graphics_engine().get_command_pool();
-	allocation_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // specifies if allocated command buffers are primary or secondary command buffers, secondary can reuse primary
-	allocation_info.commandBufferCount = 1;
-
-	if (vkAllocateCommandBuffers(get_logical_device(), &allocation_info, &command_buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate command buffers!");
-	}
-
-	// update_command_buffer();
-}
-
-template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 {
 	// wait until command buffer is not used anymore i.e. when frame is no longer inflight
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
 	VkCommandBufferResetFlags reset_flags = 0;
 	vkResetCommandBuffer(command_buffer, reset_flags);
-
-	//
-	// do stuff that needs to be done before we record a new command buffer
-	// i.e. deleting objects
-	//
-	pre_cmdbuffer_recording();
 
 	// starting command buffer recording
 	VkCommandBufferBeginInfo begin_info{};
@@ -215,154 +172,15 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 		throw std::runtime_error("failed to begin recording command buffer!");
 	}
 
-	// starting a render pass
-	VkRenderPassBeginInfo render_pass_begin_info{};
-	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = get_render_pass();
-	render_pass_begin_info.framebuffer = frame_buffer;
-	render_pass_begin_info.renderArea.offset = { 0, 0 };
-	render_pass_begin_info.renderArea.extent = swap_chain.get_extent();
-	
-	std::vector<VkClearValue> clear_values(2);
-	clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clear_values[1].depthStencil = { 1.0f, 0 };
-	render_pass_begin_info.clearValueCount = clear_values.size();
-	render_pass_begin_info.pClearValues = clear_values.data();
-	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	//
+	// do stuff that needs to be done before we record a new command buffer
+	// i.e. deleting objects
+	//
+	pre_cmdbuffer_recording();
 
-	// vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline
-
-	// global descriptor object, for per frame updates
-	vkCmdBindDescriptorSets(command_buffer,
-							VK_PIPELINE_BIND_POINT_GRAPHICS,
-							// lets assume that global descriptor objects only use the STANDARD pipeline
-							get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STANDARD).pipeline_layout,
-							1,
-							1,
-							&get_graphics_engine().get_graphics_resource_manager().global_descriptor_set,
-							0,
-							nullptr);
-
-	const auto per_obj_draw_fn = [&](const GraphicsEngineObject<GraphicsEngineT>& object, const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
-	{
-		const auto& shapes = object.get_shapes();
-
-		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
-		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(
-			command_buffer, 
-			0, 					// offset
-			1, 					// number of bindings
-			&object.vertex_buffer, 	// array of vertex buffers to bind
-			offsets				// byte offset to start from for each buffer
-		);
-		vkCmdBindIndexBuffer(
-			command_buffer,
-			object.index_buffer,
-			0,						// offset
-			VK_INDEX_TYPE_UINT32
-		);
-
-		// this really should be per object, we will adjust in the future
-		int total_vertex_offset = 0;
-		int total_index_offset = 0;
-		for (int vertex_set_index = 0; vertex_set_index < shapes.size(); vertex_set_index++)
-		{
-			const auto& shape = shapes[vertex_set_index];
-
-			// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
-
-			vkCmdBindDescriptorSets(command_buffer, 
-									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
-									pipeline.pipeline_layout, 
-									0, // offset
-									1, // number of sets to bind
-									&object.descriptor_sets[vertex_set_index],
-									0,
-									nullptr);
-		
-			vkCmdDrawIndexed(
-				command_buffer,
-				shape.get_num_vertex_indices(),	// vertex count
-				1,	// instance count
-				total_index_offset,	// first index
-				total_vertex_offset,	// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
-				0	// first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
-			);
-
-			// this is not get_num_vertex_indices() because we want to offset the vertex set essentially
-			// see NOTE:A
-			total_vertex_offset += shape.get_num_unique_vertices();
-			total_index_offset += shape.get_num_vertex_indices();
-		}
-	};
-
-	const auto get_pipeline = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
-	{
-		ERenderType type = ERenderType::STANDARD;
-		switch (obj.type)
-		{
-		case ERenderType::CUBEMAP:
-			if (get_graphics_engine().is_wireframe_mode)
-			{
-				return nullptr;
-			}
-		default:
-			type = get_graphics_engine().is_wireframe_mode ? ERenderType::WIREFRAME : obj.type;
-			break;
-		}
-
-		return &get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
-	};
-	const auto& graphics_objects = get_graphics_engine().get_objects();
-	for (const auto& it_pair : graphics_objects)
-	{
-		const auto& graphics_object = *(it_pair.second);
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
-		if (!graphics_object.get_game_object().get_visibility())
-			continue;
-		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_pipeline(graphics_object);
-		if (!pipeline)
-			continue;
-			
-		vkCmdBindPipeline(command_buffer, 
-							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							pipeline->graphics_pipeline); // bind the graphics pipeline
-
-		per_obj_draw_fn(graphics_object, *pipeline);
-	}
-	
-	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	const GraphicsEnginePipeline<GraphicsEngineT>& stencil_pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(ERenderType::STENCIL);
-	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
-	{
-		const auto it_obj = graphics_objects.find(id);
-		if (it_obj == graphics_objects.end())
-			continue;
-
-		const auto& graphics_object = *it_obj->second;
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
-		if (!graphics_object.get_game_object().get_visibility())
-			continue;
-		
-		if (graphics_object.get_render_type() == ERenderType::CUBEMAP)
-			continue;
-		
-		vkCmdBindPipeline(command_buffer, 
-							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							stencil_pipeline.graphics_pipeline); // bind the graphics pipeline
-		per_obj_draw_fn(graphics_object, stencil_pipeline);
-	}
-
-	// render gui
-	get_graphics_engine().get_graphics_gui_manager().add_render_cmd(command_buffer);
-
-	vkCmdEndRenderPass(command_buffer);
+	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
+	renderer_mgr.get_renderer(ERendererType::RASTERIZATION)->submit_draw_commands(command_buffer, image_index);
+	renderer_mgr.get_renderer(ERendererType::GUI)->submit_draw_commands(command_buffer, image_index);
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{

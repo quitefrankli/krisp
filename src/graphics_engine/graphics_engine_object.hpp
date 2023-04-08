@@ -57,9 +57,9 @@ public:
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
 
-	ERenderType get_render_type() const { return type; }
+	EPipelineType get_render_type() const { return type; }
 
-	const ERenderType type;
+	const EPipelineType type;
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -68,8 +68,7 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
-
+	
 	bool marked_for_delete = false;
 
 	std::vector<GraphicsEngineTexture<GraphicsEngineT>*> textures;
@@ -91,8 +90,7 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
-
+	
 	std::shared_ptr<Object> object;
 };
 
@@ -112,7 +110,6 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
-	
+		
 	Object& object;
 };

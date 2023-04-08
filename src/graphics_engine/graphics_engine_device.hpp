@@ -36,7 +36,6 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
 	
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;

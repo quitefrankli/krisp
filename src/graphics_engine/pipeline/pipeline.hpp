@@ -1,7 +1,7 @@
 #pragma once
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
-#include "render_types.hpp"
+#include "pipeline_types.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -12,7 +12,7 @@ template<typename GraphicsEngineT>
 class GraphicsEnginePipeline : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	static std::unique_ptr<GraphicsEnginePipeline> create_pipeline(GraphicsEngineT& engine, ERenderType type);
+	static std::unique_ptr<GraphicsEnginePipeline> create_pipeline(GraphicsEngineT& engine, EPipelineType type);
 	~GraphicsEnginePipeline();
 
 	VkPipeline graphics_pipeline = VK_NULL_HANDLE;
@@ -37,5 +37,4 @@ protected:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
 };

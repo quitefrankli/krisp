@@ -2,7 +2,7 @@
 
 #include "pipeline.hpp"
 #include "graphics_engine/graphics_engine_base_module.hpp"
-#include "render_types.hpp"
+#include "pipeline_types.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -17,7 +17,7 @@ public:
 	GraphicsEnginePipelineManager(GraphicsEngineT& engine);
 	~GraphicsEnginePipelineManager();
 
-	PipelineType& get_pipeline(ERenderType type);
+	PipelineType& get_pipeline(EPipelineType type);
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -26,7 +26,6 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
-	std::unordered_map<ERenderType, std::unique_ptr<PipelineType>> pipelines;
+	std::unordered_map<EPipelineType, std::unique_ptr<PipelineType>> pipelines;
 };

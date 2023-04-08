@@ -48,34 +48,34 @@ VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(con
 template<typename GraphicsEngineT>
 std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<GraphicsEngineT>::create_pipeline(
 	GraphicsEngineT& engine,
-	ERenderType type)
+	EPipelineType type)
 {
 	std::unique_ptr<GraphicsEnginePipeline> new_pipeline;
 
 	switch (type)
 	{
-	case ERenderType::COLOR:
+	case EPipelineType::COLOR:
 		new_pipeline = std::make_unique<ColorPipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::STANDARD:
+	case EPipelineType::STANDARD:
 		new_pipeline = std::make_unique<TexturePipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::COLOR_NO_LIGHTING:
+	case EPipelineType::COLOR_NO_LIGHTING:
 		new_pipeline = std::make_unique<ColorNoLightingPipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::WIREFRAME:
+	case EPipelineType::WIREFRAME:
 		new_pipeline = std::make_unique<WireframePipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::LIGHT_SOURCE:
+	case EPipelineType::LIGHT_SOURCE:
 		new_pipeline = std::make_unique<LightSourcePipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::CUBEMAP:
+	case EPipelineType::CUBEMAP:
 		new_pipeline = std::make_unique<CubemapPipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::STENCIL:
+	case EPipelineType::STENCIL:
 		new_pipeline = std::make_unique<StencilPipeline<GraphicsEngineT>>(engine);
 		break;
-	case ERenderType::RAYTRACING:
+	case EPipelineType::RAYTRACING:
 		new_pipeline = std::make_unique<RaytracingPipeline<GraphicsEngineT>>(engine);
 		break;
 	default:
@@ -141,25 +141,23 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	VkShaderModule vertex_shader = create_shader_module(shader_path.string() + "/vertex_shader.spv");
 	VkShaderModule fragment_shader = create_shader_module(shader_path.string() + "/fragment_shader.spv");
 
-	VkPipelineShaderStageCreateInfo vertex_shader_create_info{};
-	vertex_shader_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	VkPipelineShaderStageCreateInfo vertex_shader_create_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	vertex_shader_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT; // tells vulkan which pipeline stage the shader is going to be used
 	vertex_shader_create_info.module = vertex_shader;
 	vertex_shader_create_info.pName = "main"; // function to invoke aka entrypoint
 	// vertex_shader_create_info.pSpecializationInfo = // allows for specification of shader constants
 
-	VkPipelineShaderStageCreateInfo fragment_shader_create_info{};
-	fragment_shader_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	VkPipelineShaderStageCreateInfo fragment_shader_create_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	fragment_shader_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	fragment_shader_create_info.module = fragment_shader;
 	fragment_shader_create_info.pName = "main";
 
 	VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_shader_create_info, fragment_shader_create_info };
 
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
-	pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipeline_layout_create_info.setLayoutCount = get_graphics_engine().get_graphics_resource_manager().descriptor_set_layouts.size();
-	pipeline_layout_create_info.pSetLayouts = get_graphics_engine().get_graphics_resource_manager().descriptor_set_layouts.data();
+	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+	const auto descriptor_set_layouts = get_graphics_engine().get_graphics_resource_manager().get_rasterization_descriptor_set_layouts();
+	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
+	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 
@@ -270,7 +268,8 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	auto depth_stencil_create_info = get_depth_stencil_create_info();
 	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_create_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;
-	graphics_pipeline_create_info.renderPass = get_render_pass();
+	graphics_pipeline_create_info.renderPass = 
+		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::RASTERIZATION)->get_render_pass();
 	graphics_pipeline_create_info.subpass = 0;
 	// for derived pipelines can either use base handle OR base index for the
 	// index of the pipeline to refer to the base pipeline

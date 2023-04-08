@@ -42,9 +42,3 @@ uint32_t GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames() c
 {
 	return graphics_engine.get_num_swapchain_images();
 }
-
-template<typename GraphicsEngineT>
-VkRenderPass GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass()
-{ 
-	return graphics_engine.get_swap_chain().get_render_pass(); 
-}

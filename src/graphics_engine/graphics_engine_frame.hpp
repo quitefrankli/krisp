@@ -32,7 +32,6 @@ public:
 
 private:
 	void create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object);
-	void create_command_buffer();
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
 	
@@ -41,10 +40,8 @@ private:
 	void pre_cmdbuffer_recording();
 
 public:
-	// Holds a block of memory that contains the raw pixel data
-	VkImage image;
 	// Interprets a VkImage and describes how to access it
-	VkImageView image_view;
+	VkImageView presentation_image_view;
 	// Describes a collection of 'attachments' that a render pass uses
 	// An attachment in the context of Vulkan is just a resource used during rendering
 	//	i.e. color, depth, stencil attachments
@@ -54,7 +51,7 @@ public:
 
 	VkCommandBuffer command_buffer;
 
-	uint32_t image_index;
+	const uint32_t image_index;
 	
 	// delete object
 	void mark_obj_for_delete(uint64_t id);
@@ -66,8 +63,7 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
+		using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
 	
 	GraphicsEngineSwapChain<GraphicsEngineT>& swap_chain;
 

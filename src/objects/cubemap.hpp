@@ -9,7 +9,7 @@ class CubeMap : public Object
 public:
 	CubeMap();
 
-	virtual ERenderType get_render_type() const override { return ERenderType::CUBEMAP; }
+	virtual EPipelineType get_render_type() const override { return EPipelineType::CUBEMAP; }
 
 	virtual bool check_collision(const Maths::Ray&) override { return false; }
 };

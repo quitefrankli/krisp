@@ -13,8 +13,8 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 {
 	switch (get_render_type())
 	{
-		case ERenderType::STANDARD:
-		case ERenderType::CUBEMAP:
+		case EPipelineType::STANDARD:
+		case EPipelineType::CUBEMAP:
 			for (const auto& shape : object.shapes)
 			{
 				textures.push_back(&get_graphics_engine().get_texture_mgr().create_new_unit(shape.texture));

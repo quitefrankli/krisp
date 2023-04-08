@@ -17,7 +17,7 @@ public:
 	GraphicsEngineTextureManager(GraphicsEngineT& engine) : GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 	{
 		LOG_INFO(Utility::get().get_logger(),
-				 "GraphicsEngineTextureManager: chosen max anisotropy:={}\n",
+				 "GraphicsEngineTextureManager: chosen max anisotropy:={}",
 				 engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
 	}
 
