@@ -39,7 +39,7 @@ protected:
 	//	for a good processor as it can not sample surrounding pixels https://www.saschawillems.de/blog/2018/07/19/vulkan-input-attachments-and-sub-passes/)
 	// A render pass when provided a framebuffer will render into said buffer
 	// Multiple render passes would be used for post processing effects
-	VkRenderPass render_pass;
+	VkRenderPass render_pass = VK_NULL_HANDLE;
 
 	// per frame resources
 	std::vector<VkFramebuffer> frame_buffers;

@@ -85,7 +85,7 @@ template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object)
 {
 	auto& engine = get_graphics_engine();
-	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_graphics_resource_manager().reserve_descriptor_sets(object.get_shapes().size());
+	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_graphics_resource_manager().reserve_high_frequency_dsets(object.get_shapes().size());
 	assert(new_descriptor_sets.size() == object.get_shapes().size());
 
 	for (int vertex_set_index = 0; vertex_set_index < object.get_shapes().size(); vertex_set_index++)
@@ -179,8 +179,13 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 	pre_cmdbuffer_recording();
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
-	renderer_mgr.get_renderer(ERendererType::RASTERIZATION)->submit_draw_commands(command_buffer, image_index);
-	renderer_mgr.get_renderer(ERendererType::GUI)->submit_draw_commands(command_buffer, image_index);
+	Renderer<GraphicsEngineT>& main_renderer = renderer_mgr.get_renderer(
+		get_graphics_engine().get_gui_manager().graphic_settings.rtx_on ?
+		ERendererType::RAYTRACING : ERendererType::RASTERIZATION);
+	Renderer<GraphicsEngineT>& gui_renderer = renderer_mgr.get_renderer(ERendererType::GUI);
+
+	main_renderer.submit_draw_commands(command_buffer, image_index);
+	gui_renderer.submit_draw_commands(command_buffer, image_index);
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{

@@ -45,7 +45,7 @@ Shape ShapeFactory::generate_sphere(GenerationMethod method, int nVertices)
 	case GenerationMethod::UV_SPHERE:
 		return generate_uv_sphere(nVertices);
 	case GenerationMethod::ICO_SPHERE:
-		return generate_ico_sphere(nVertices);
+		return generate_ico_sphere(nVertices*10);
 	default:
 		throw std::runtime_error("Invalid generation method");
 	}

@@ -66,11 +66,15 @@ public: // getters and setters
 	VkQueue& get_graphics_queue() { return graphics_queue; }
 	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	GraphicsEngineSwapChain<GraphicsEngine>& get_swap_chain() { return swap_chain; }
-	static constexpr uint32_t get_num_swapchain_images() { return decltype(swap_chain)::EXPECTED_NUM_SWAPCHAIN_IMAGES; }
+	static constexpr uint32_t get_num_swapchain_images()
+	{ 
+		return GraphicsEngineSwapChain<GraphicsEngine>::EXPECTED_NUM_SWAPCHAIN_IMAGES; 
+	}
 	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
+	GraphicsEngineRayTracing<GraphicsEngine>& get_raytracing() { return ray_tracing; }
 	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT>& get_graphics_gui_manager() { return gui_manager; }
 	GuiManager<GameEngineT>& get_gui_manager() { return static_cast<GuiManager<GameEngineT>&>(gui_manager); }
 	RendererManager<GraphicsEngine>& get_renderer_mgr() { return renderer_mgr; }
@@ -147,6 +151,12 @@ public: // command buffer
 								  VkFormat format,
 						   		  VkImageAspectFlags aspect_flags,
 								  VkImageViewType view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D);
+
+	void transition_image_layout(
+		VkImage image, 
+		VkImageLayout old_layout, 
+		VkImageLayout new_layout, 
+		VkCommandBuffer command_buffer = nullptr);
 								  
 	RenderingAttachment create_depth_buffer_attachment();
 	VkFormat find_depth_format();

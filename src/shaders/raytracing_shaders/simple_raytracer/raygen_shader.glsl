@@ -3,12 +3,8 @@
 
 
 // be vary of alignment issues
-layout(set=0, binding=0) uniform UniformBufferObject
-{
-	mat4 model;
-	mat4 mvp; // precomputed model-view-proj matrix
-	mat3 rot_mat; // in c++ this is actually a mat4
-} ubo;
+layout(set=0, binding=0) uniform accelerationStructureEXT topLevelAS;
+layout(set=0, binding=1, rgba32f) uniform image2D image;
 
 layout(set=1, binding=0) uniform GlobalUniformBufferObject
 {
@@ -19,8 +15,6 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 	float lighting_scalar;
 } gubo;
 
-layout(set=2, binding=0) uniform accelerationStructureEXT topLevelAS;
-layout(set=2, binding=1, rgba32f) uniform image2D image;
 
 void main() 
 {

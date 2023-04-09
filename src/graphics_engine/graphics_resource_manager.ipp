@@ -11,17 +11,14 @@
 
 template<typename GraphicsEngineT>
 GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
-	high_freq_descriptor_set_layout(descriptor_set_layouts[0]),
-	low_freq_descriptor_set_layout(descriptor_set_layouts[1]),
-	ray_tracing_descriptor_set_layout(descriptor_set_layouts[2])
+	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
 	static_assert(
 		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
 		MAX_RAY_TRACING_DESCRIPTOR_SETS + MAX_IMGUI_DESCRIPTOR_SETS <= get_max_descriptor_sets(), 
 		"GraphicsResourceManager: too many descriptor sets!");
 	create_command_pool();
-	create_descriptor_set_layout();
+	create_descriptor_set_layouts();
 	create_descriptor_pool();
 
 	// global uniform buffer
@@ -30,7 +27,11 @@ GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngine
 				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 				  global_uniform_buffer,
 				  global_uniform_buffer_memory);
-	allocate_descriptor_set();
+
+	allocate_rasterization_dsets();
+	allocate_raytracing_dsets();
+	// graphics engine only needs 1 global low freq desc set, hence only this is updated here
+	initialise_global_descriptor_set();
 }
 
 template<typename GraphicsEngineT>
@@ -38,7 +39,8 @@ GraphicsResourceManager<GraphicsEngineT>::~GraphicsResourceManager()
 {
 	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
 	vkDestroyDescriptorPool(get_logical_device(), descriptor_pool, nullptr);
-	for (auto& layout : descriptor_set_layouts)
+
+	for (auto layout : get_all_descriptor_set_layouts())
 	{
 		vkDestroyDescriptorSetLayout(get_logical_device(), layout, nullptr);
 	}
@@ -80,7 +82,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	// for ray tracing
 	VkDescriptorPoolSize tlas_pool_size{};
 	tlas_pool_size.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-	tlas_pool_size.descriptorCount = get_max_descriptor_sets();
+	tlas_pool_size.descriptorCount = get_max_descriptor_sets(); // TODO: this needs a proper value
 
 	VkDescriptorPoolSize rt_storage_image_pool_size{};
 	rt_storage_image_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -135,9 +137,9 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 }
 
 template<typename GraphicsEngineT>
-void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layout()
+void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 {
-	auto create_layout = [this](std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout* layout)
+	auto create_layout = [this](const std::vector<VkDescriptorSetLayoutBinding>& bindings, VkDescriptorSetLayout* layout)
 	{
 		VkDescriptorSetLayoutCreateInfo layout_info{};
 		layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -166,7 +168,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layout()
 		sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
 		sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
-		std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
 		create_layout(bindings, &high_freq_descriptor_set_layout);
 	}
 
@@ -179,7 +181,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layout()
 		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
 		gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
-		std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
 		create_layout(bindings, &low_freq_descriptor_set_layout);
 	}
 	
@@ -197,13 +199,13 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layout()
 		ray_tracing_resources.output_binding.descriptorCount = 1;
 		ray_tracing_resources.output_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
-		auto bindings = ray_tracing_resources.get_layout_bindings();
-		create_layout(bindings, &ray_tracing_descriptor_set_layout);
+		const std::vector<VkDescriptorSetLayoutBinding> bindings = ray_tracing_resources.get_layout_bindings();
+		create_layout(bindings, &ray_tracing_resources.descriptor_set_layout);
 	}
 }
 
 template<typename GraphicsEngineT>
-void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
+void GraphicsResourceManager<GraphicsEngineT>::allocate_rasterization_dsets()
 {
 	// allocation + writing for low frequency descriptor sets
 	{
@@ -219,29 +221,6 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 		{
 			throw std::runtime_error("GraphicsResourceManager: failed to allocate low freq descriptor sets!");
 		}
-
-		VkDescriptorBufferInfo buffer_info{};
-		buffer_info.buffer = global_uniform_buffer;
-		buffer_info.offset = 0;
-		buffer_info.range = sizeof(GlobalUniformBufferObject);
-
-		VkWriteDescriptorSet uniform_buffer_descriptor_set{};
-		uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		uniform_buffer_descriptor_set.dstSet = global_descriptor_set;
-		uniform_buffer_descriptor_set.dstBinding = 0; // also set to 3 in the shader
-		uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
-		uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniform_buffer_descriptor_set.descriptorCount = 1;
-		uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
-		uniform_buffer_descriptor_set.pImageInfo = nullptr;
-		uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
-
-		vkUpdateDescriptorSets(
-			get_logical_device(), 
-			1, 
-			&uniform_buffer_descriptor_set, 
-			0, 
-			nullptr);
 	}
 
 	// high frequency descriptor sets allocations, i.e. per object descriptor sets
@@ -253,51 +232,122 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_set()
 		alloc_info.pSetLayouts = layouts.data();
 		std::vector<VkDescriptorSet> descriptor_sets(MAX_HIGH_FREQ_DESCRIPTOR_SETS);
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
+		{
 			throw std::runtime_error("GraphicsResourceManager: failed to allocate high freq descriptor sets!");
-		for (auto& descriptor_set : descriptor_sets)
-			available_descriptor_sets.push(descriptor_set);
+		}
+		for (auto& dset : descriptor_sets)
+		{
+			available_high_freq_dsets.push(dset);
+		}
 	}
 }
 
 template<typename GraphicsEngineT>
-inline void GraphicsResourceManager<GraphicsEngineT>::allocate_descriptor_sets_for_raytracing(
-	VkImageView rt_image_view)
+void GraphicsResourceManager<GraphicsEngineT>::allocate_raytracing_dsets()
 {
+	std::vector<VkDescriptorSetLayout> layouts(MAX_RAY_TRACING_DESCRIPTOR_SETS, ray_tracing_resources.descriptor_set_layout);
 	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	alloc_info.descriptorPool = descriptor_pool;
 	alloc_info.descriptorSetCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
-	alloc_info.pSetLayouts = &ray_tracing_descriptor_set_layout;
+	alloc_info.pSetLayouts = layouts.data();
 
-	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &ray_tracing_resources.ray_tracing_descriptor_set) != VK_SUCCESS)
+	std::vector<VkDescriptorSet> descriptor_sets(MAX_RAY_TRACING_DESCRIPTOR_SETS);
+	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsResourceManager: failed to allocate ray tracing descriptor set!");
 	}
+	for (auto& dset : descriptor_sets)
+	{
+		available_raytracing_dsets.push(dset);
+	}
+}
 
-	VkAccelerationStructureKHR tlas{};
-	VkWriteDescriptorSetAccelerationStructureKHR descASInfo{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
-	descASInfo.accelerationStructureCount = 1;
-	descASInfo.pAccelerationStructures = &tlas;
-	VkDescriptorImageInfo imageInfo{{}, rt_image_view, VK_IMAGE_LAYOUT_GENERAL};
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_high_frequency_dsets(uint32_t n)
+{
+	// the reason this function is called 3x for every object spawn
+	// is because we have a bit of a design problem
+	// we really should be having per frame per object resources
+	// i.e. for every object in every frame in a swapchain, it should have its own descriptor sets
+	// fmt::print("GraphicsResourceManager::reserve_high_frequency_dsets: available_sets:={}, requested_sets:={}\n", available_high_freq_dsets.size(), n);
 
-	VkWriteDescriptorSet tlas_write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-	tlas_write.descriptorCount = 1;
-	tlas_write.descriptorType = ray_tracing_resources.tlas_binding.descriptorType;
-	tlas_write.dstBinding = ray_tracing_resources.tlas_binding.binding;
-	tlas_write.dstSet = ray_tracing_resources.ray_tracing_descriptor_set;
-	tlas_write.dstArrayElement = 0;
-	tlas_write.pNext = &descASInfo;
+	if (n > available_high_freq_dsets.size())
+	{
+		throw std::runtime_error("GraphicsResourceManager: not enough available descriptor sets!");
+	}
 
-	VkWriteDescriptorSet out_image_write = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-	out_image_write.descriptorCount = 1;
-	out_image_write.descriptorType = ray_tracing_resources.output_binding.descriptorType;
-	out_image_write.dstBinding = ray_tracing_resources.output_binding.binding;
-	out_image_write.dstSet = ray_tracing_resources.ray_tracing_descriptor_set;
-	out_image_write.dstArrayElement = 0;
-	out_image_write.pImageInfo = &imageInfo;
+	std::vector<VkDescriptorSet> sets;
+	sets.reserve(n);
+	for (int i = 0; i < n; i++)
+	{
+		sets.push_back(available_high_freq_dsets.front());
+		available_high_freq_dsets.pop();
+	}
 
-	std::vector<VkWriteDescriptorSet> writes = { tlas_write, out_image_write };
+	return sets;
+}
 
-	vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_raytracing_dsets(uint32_t n)
+{
+	if (n > available_raytracing_dsets.size())
+	{
+		throw std::runtime_error("GraphicsResourceManager: not enough available ray tracing descriptor sets!");
+	}
+
+	std::vector<VkDescriptorSet> sets;
+	sets.reserve(n);
+	for (int i = 0; i < n; i++)
+	{
+		sets.push_back(available_raytracing_dsets.front());
+		available_raytracing_dsets.pop();
+	}
+
+	return sets;
+}
+
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::initialise_global_descriptor_set()
+{
+	VkDescriptorBufferInfo buffer_info{};
+	buffer_info.buffer = global_uniform_buffer;
+	buffer_info.offset = 0;
+	buffer_info.range = sizeof(GlobalUniformBufferObject);
+
+	VkWriteDescriptorSet dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	dset_write.dstSet = global_descriptor_set;
+	dset_write.dstBinding = 0; // also set to 3 in the shader
+	dset_write.dstArrayElement = 0; // offset
+	dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	dset_write.descriptorCount = 1;
+	dset_write.pBufferInfo = &buffer_info;
+	dset_write.pImageInfo = nullptr;
+	dset_write.pTexelBufferView = nullptr;
+
+	vkUpdateDescriptorSets(
+		get_logical_device(), 
+		1, 
+		&dset_write, 
+		0, 
+		nullptr);
+}
+
+template<typename GraphicsEngineT>
+VkCommandBuffer GraphicsResourceManager<GraphicsEngineT>::create_command_buffer()
+{
+	VkCommandBufferAllocateInfo allocation_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+	allocation_info.commandPool = command_pool;
+	// specifies if allocated command buffers are primary or secondary command buffers, secondary can reuse primary
+	allocation_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	allocation_info.commandBufferCount = 1;
+
+	VkCommandBuffer command_buffer;
+	if (vkAllocateCommandBuffers(get_logical_device(), &allocation_info, &command_buffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsResourceManager: failed to allocate command buffers!");
+	}
+
+	return command_buffer;
 }
 
 template<typename GraphicsEngineT>
@@ -309,31 +359,45 @@ constexpr int GraphicsResourceManager<GraphicsEngineT>::get_max_descriptor_sets(
 }
 
 template<typename GraphicsEngineT>
-std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_descriptor_sets(int n)
+std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get_rasterization_descriptor_set_layouts() const
 {
-	// the reason this function is called 3x for every object spawn
-	// is because we have a bit of a design problem
-	// we really should be having per frame per object resources
-	// i.e. for every object in every frame in a swapchain, it should have its own descriptor sets
-	// fmt::print("GraphicsResourceManager::reserve_descriptor_sets: available_sets:={}, requested_sets:={}\n", available_descriptor_sets.size(), n);
+	return { high_freq_descriptor_set_layout, low_freq_descriptor_set_layout };
+}
 
-	if (n > available_descriptor_sets.size())
-		throw std::runtime_error("GraphicsResourceManager: not enough available descriptor sets!");
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get_raytracing_descriptor_set_layouts() const
+{
+	return { ray_tracing_resources.descriptor_set_layout, low_freq_descriptor_set_layout };
+}
 
-	std::vector<VkDescriptorSet> sets(n);
-	for (int i = 0; i < n; i++)
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get_all_descriptor_set_layouts()
+{
+	std::unordered_set<VkDescriptorSetLayout> layouts;
+	for (auto layout : get_rasterization_descriptor_set_layouts())
 	{
-		sets[i] = available_descriptor_sets.front();
-		available_descriptor_sets.pop();
+		if (layout != VK_NULL_HANDLE)
+		{
+			layouts.insert(layout);
+		}
+	}
+	for (auto layout : get_raytracing_descriptor_set_layouts())
+	{
+		if (layout != VK_NULL_HANDLE)
+		{
+			layouts.insert(layout);
+		}
 	}
 
-	return sets;
+	return std::vector<VkDescriptorSetLayout>(layouts.begin(), layouts.end());
 }
 
 template<typename GraphicsEngineT>
 void GraphicsResourceManager<GraphicsEngineT>::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
 {
-	// fmt::print("GraphicsResourceManager::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_descriptor_sets.size(), sets.size());
+	// fmt::print("GraphicsResourceManager::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_high_freq_dsets.size(), sets.size());
 	for (auto& set : sets)
-		available_descriptor_sets.push(set);
+	{
+		available_high_freq_dsets.push(set);
+	}
 }

@@ -97,12 +97,20 @@ bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhy
 
 	std::set<std::string_view> required_extensions(required_device_extensions.begin(), required_device_extensions.end());
 
+	std::string all_extensions_str;
+	all_extensions_str.reserve(availableExtensions.size() * 20);
 	for (const auto& extension : availableExtensions)
 	{
-		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineDevice: found physical device extension: {}", extension.extensionName);
 		required_extensions.erase(std::string_view{extension.extensionName});
+		if (!all_extensions_str.empty())
+		{
+			all_extensions_str += ", ";
+		}
+		all_extensions_str += extension.extensionName;
 	}
 
+	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineDevice: found physical device extensions: {}", all_extensions_str);
+	
 	return required_extensions.empty();
 }
 

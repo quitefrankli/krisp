@@ -298,6 +298,104 @@ VkImageView GraphicsEngine<GameEngineT>::create_image_view(VkImage& image,
 }
 
 template<typename GameEngineT>
+void GraphicsEngine<GameEngineT>::transition_image_layout(
+	VkImage image,
+	VkImageLayout old_layout,
+	VkImageLayout new_layout,
+	VkCommandBuffer command_buffer)
+{
+	const bool is_external_command_buffer = command_buffer != nullptr;
+	if (!command_buffer)
+	{
+		command_buffer = begin_single_time_commands();
+	}
+
+	// pipeline barrier to synchronize access to resources
+	VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	barrier.oldLayout = old_layout;
+	barrier.newLayout = new_layout;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = image; // specifies image affeced
+	// subresourceRange specifies what part of the image is affected
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0; // image is an array with no mip mapping
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.srcAccessMask = 0;
+	barrier.dstAccessMask = 0;
+
+	// transition types:
+	//  * undefined -> transfer destination: transfer writes that don't need to wait on anything
+	//  * transfer destination -> shader reading: shader reads should wait on transfer writes
+	//		specifically the shader reads in the fragment shader
+	const auto check_transition = [old_layout, new_layout](VkImageLayout x, VkImageLayout y) -> bool
+	{
+		return old_layout == x && new_layout == y;
+	};
+	VkPipelineStageFlags sourceStage, destinationStage;
+	if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)) 
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)) 
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	} else if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL))
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = 0;
+		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+	} else if (check_transition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL))
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR))
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = 0;
+		sourceStage = VK_ACCESS_TRANSFER_WRITE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL))
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = 0;
+		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+	} else 
+	{
+		throw std::runtime_error("unsupported image layout transition!");
+	}
+
+	vkCmdPipelineBarrier(
+		command_buffer,
+		sourceStage, // which pipeline stage the operation should occur before the barrier
+		destinationStage, // pipeline stage in which the operation will wait on the barrier
+		0, // 
+		0,
+		nullptr,
+		0,
+		nullptr,
+		1,
+		&barrier
+	);
+
+	if (!is_external_command_buffer)
+	{
+		end_single_time_commands(command_buffer);
+	}
+}
+
+template<typename GameEngineT>
 App::Window& GraphicsEngine<GameEngineT>::get_window()
 {
 	return game_engine.get_window();

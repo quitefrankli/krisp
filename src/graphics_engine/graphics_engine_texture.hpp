@@ -19,6 +19,9 @@ public:
 	VkImageView get_texture_image_view() const { return texture_image_view; }
 	VkSampler get_texture_sampler() const { return texture_sampler; }
 
+	// handle layout transition so that image is in right layout
+	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
+
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
@@ -48,9 +51,6 @@ private:
 	VkDeviceMemory texture_image_memory;
 
 	void create_texture_image(std::string filename);
-
-	// handle layout transition so that image is in right layout
-	void transition_image_layout(VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout);
 
 	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 

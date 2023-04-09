@@ -2,7 +2,6 @@
 
 #include "graphics_engine_base_module.hpp"
 #include "vulkan_wrappers.hpp"
-#include "graphics_engine/renderpass/offscreen_renderpass.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -53,6 +52,14 @@ public:
   	};
 
 	void update_acceleration_structures();
+
+public:
+	// sbt = shader binding table
+	GraphicsBuffer sbt_buffer;
+	VkStridedDeviceAddressRegionKHR raygen_sbt_region{};
+	VkStridedDeviceAddressRegionKHR raymiss_sbt_region{};
+	VkStridedDeviceAddressRegionKHR rayhit_sbt_region{};
+	VkStridedDeviceAddressRegionKHR callable_sbt_region{};
 
 private:
 	BlasInput object_to_blas(const GraphicsEngineObject<GraphicsEngineT>& object);
@@ -109,14 +116,6 @@ private:
 	std::vector<VkDeviceMemory> buffer_memories;
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
-	OffScreenRenderPass<GraphicsEngineT> offscreen_renderpass;
-
-	// sbt = shader binding table
-	GraphicsBuffer sbt_buffer;
-	VkStridedDeviceAddressRegionKHR raygen_sbt_region{};
-	VkStridedDeviceAddressRegionKHR raymiss_sbt_region{};
-	VkStridedDeviceAddressRegionKHR rayhit_sbt_region{};
-	VkStridedDeviceAddressRegionKHR callable_sbt_region{};
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -125,6 +124,5 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
 };

@@ -134,17 +134,29 @@ void GraphicsEngineTexture<GraphicsEngineT>::transition_image_layout(VkImage ima
 	//  * undefined -> transfer destination: transfer writes that don't need to wait on anything
 	//  * transfer destination -> shader reading: shader reads should wait on transfer writes
 	//		specifically the shader reads in the fragment shader
+	const auto check_transition = [old_layout, new_layout](VkImageLayout x, VkImageLayout y) -> bool
+	{
+		return old_layout == x && new_layout == y;
+	};
 	VkPipelineStageFlags sourceStage, destinationStage;
-	if (old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+	if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)) 
+	{
 		barrier.srcAccessMask = 0;
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	} else if (old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)) 
+	{
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	} else if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL))
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = 0;
+		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 	} else {
 		throw std::invalid_argument("unsupported layout transition!");
 	}

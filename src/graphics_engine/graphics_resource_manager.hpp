@@ -1,13 +1,14 @@
 #pragma once
 
 #include "graphics_engine_base_module.hpp"
+#include "graphics_engine_swap_chain.hpp"
 
 #include <queue>
 
 
 struct RaytracingResources
 {
-	VkDescriptorSet ray_tracing_descriptor_set;
+	VkDescriptorSetLayout descriptor_set_layout;
 	VkDescriptorSetLayoutBinding tlas_binding;
 	VkDescriptorSetLayoutBinding output_binding;
 
@@ -29,18 +30,36 @@ public:
 	VkBuffer global_uniform_buffer;
 	VkDeviceMemory global_uniform_buffer_memory;
 
-	void allocate_descriptor_set();
-	void allocate_descriptor_sets_for_raytracing(VkImageView rt_image_view);
+	VkCommandBuffer create_command_buffer();
+
+	RaytracingResources& get_raytracing_resources() { return ray_tracing_resources; }
 
 	// i.e. sphere uses 1 uniform while cube uses 6 per descriptor set
 	static constexpr int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;
 	static constexpr int MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET = 10;
 	static constexpr int MAX_IMGUI_DESCRIPTOR_SETS = 50;
 
-	std::vector<VkDescriptorSet> reserve_descriptor_sets(int n);
+	// other graphics components should call these methods to request descriptor sets
+	std::vector<VkDescriptorSet> reserve_high_frequency_dsets(uint32_t n);
+	std::vector<VkDescriptorSet> reserve_raytracing_dsets(uint32_t n);
+	// other graphics components should call these methods to release dsets back into the pool
 	void free_descriptor_sets(std::vector<VkDescriptorSet>& sets);
 
 	static constexpr int get_max_descriptor_sets();
+
+	// used in binding descriptor sets during draw
+	// corresponds to the "set" value in the "layout" in shaders
+	struct {
+		static constexpr int RASTERIZATION_LOW_FREQ = 1;
+		static constexpr int RASTERIZATION_HIGH_FREQ = 0;
+		static constexpr int RAYTRACING_LOW_FREQ = 1;
+		static constexpr int RAYTRACING_TLAS = 0;
+	} DSET_OFFSETS;
+
+	std::vector<VkDescriptorSetLayout> get_rasterization_descriptor_set_layouts() const;
+	std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
+
+	const VkDescriptorSet& get_low_freq_descriptor_set() const { return global_descriptor_set; }
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -49,25 +68,28 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_render_pass;
-	
+		
+	void allocate_rasterization_dsets();
+	void allocate_raytracing_dsets();
+	void initialise_global_descriptor_set(); // aka low_frequency
+
 	void create_command_pool();
 	void create_descriptor_pool();
-	void create_descriptor_set_layout();
+	void create_descriptor_set_layouts();
+	std::vector<VkDescriptorSetLayout> get_all_descriptor_set_layouts();
 	VkCommandPool command_pool;
 
-	std::queue<VkDescriptorSet> available_descriptor_sets;
+	VkDescriptorSet global_descriptor_set;
+	std::queue<VkDescriptorSet> available_high_freq_dsets;
+	std::queue<VkDescriptorSet> available_raytracing_dsets;
 	RaytracingResources ray_tracing_resources;
 
+	static constexpr int MAX_FRAMES = GraphicsEngineSwapChain<GraphicsEngineT>::EXPECTED_NUM_SWAPCHAIN_IMAGES;
 	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = 1; // for GUBO i.e. camera & lighting
 	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
-	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1; // for ray tracing
+	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1 * MAX_FRAMES; // for ray tracing
 
-public:
-	std::array<VkDescriptorSetLayout, 3> descriptor_set_layouts;
 	// a descriptor set layout describes the layout for a specific "descriptor set"
-	VkDescriptorSetLayout& low_freq_descriptor_set_layout;
-	VkDescriptorSetLayout& high_freq_descriptor_set_layout;
-	VkDescriptorSetLayout& ray_tracing_descriptor_set_layout;
-	VkDescriptorSet global_descriptor_set;
+	VkDescriptorSetLayout low_freq_descriptor_set_layout;
+	VkDescriptorSetLayout high_freq_descriptor_set_layout;
 };

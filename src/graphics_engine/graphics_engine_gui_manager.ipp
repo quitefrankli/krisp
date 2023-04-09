@@ -33,7 +33,7 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 	// temporary fix, Gui doesn't really need anti-aliasing it should use its own dedicated pipeline
 	init_info.MSAASamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; //engine.get_msaa_samples();
 
-	ImGui_ImplVulkan_Init(&init_info, engine.get_renderer_mgr().get_renderer(ERendererType::GUI)->get_render_pass());
+	ImGui_ImplVulkan_Init(&init_info, engine.get_renderer_mgr().get_renderer(ERendererType::GUI).get_render_pass());
 
 	// execute a GPU command to upload ImGui font textures
 	VkCommandBuffer buffer = engine.begin_single_time_commands();
