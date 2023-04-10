@@ -23,8 +23,8 @@ public:
 	~Renderer();
 
 	// generates framebuffers
-	virtual void allocate_inflight_frame_resources(VkImage presentation_image) = 0;
-	virtual void submit_draw_commands(VkCommandBuffer command_buffer, uint32_t frame_index) = 0;
+	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) = 0;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) = 0;
 	virtual constexpr ERendererType get_renderer_type() const = 0;
 
 	VkRenderPass get_render_pass() { return render_pass; }

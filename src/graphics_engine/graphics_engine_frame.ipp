@@ -27,9 +27,13 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
 	swap_chain(parent_swapchain),
 	image_index(global_image_index++)
 {
+	presentation_image_view = get_graphics_engine().create_image_view(
+		presentation_image, 
+		swap_chain.get_image_format(), 
+		VK_IMAGE_ASPECT_COLOR_BIT);
 	for (Renderer<GraphicsEngineT>* renderer : get_graphics_engine().get_renderer_mgr().get_renderers())
 	{
-		renderer->allocate_inflight_frame_resources(presentation_image);
+		renderer->allocate_per_frame_resources(presentation_image, presentation_image_view);
 	}
 
 	create_synchronisation_objects();
@@ -42,7 +46,6 @@ template<typename GraphicsEngineT>
 GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	GraphicsEngineBaseModule<GraphicsEngineT>(frame.get_graphics_engine()),
 	presentation_image_view(std::move(frame.presentation_image_view)),
-	frame_buffer(std::move(frame.frame_buffer)),
 	command_buffer(std::move(frame.command_buffer)),
 	image_index(std::move(frame.image_index)),
 	swap_chain(frame.swap_chain),
@@ -72,6 +75,7 @@ GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
 	vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
 	vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
 	// vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr); // this isn't an actual fence it's rather a reference to the inflight frame fence
+	vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
 }
 
 template<typename GraphicsEngineT>
@@ -184,8 +188,8 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 		ERendererType::RAYTRACING : ERendererType::RASTERIZATION);
 	Renderer<GraphicsEngineT>& gui_renderer = renderer_mgr.get_renderer(ERendererType::GUI);
 
-	main_renderer.submit_draw_commands(command_buffer, image_index);
-	gui_renderer.submit_draw_commands(command_buffer, image_index);
+	main_renderer.submit_draw_commands(command_buffer, presentation_image_view, image_index);
+	gui_renderer.submit_draw_commands(command_buffer, presentation_image_view, image_index);
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{

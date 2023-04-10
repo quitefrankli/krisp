@@ -42,13 +42,6 @@ private:
 public:
 	// Interprets a VkImage and describes how to access it
 	VkImageView presentation_image_view;
-	// Describes a collection of 'attachments' that a render pass uses
-	// An attachment in the context of Vulkan is just a resource used during rendering
-	//	i.e. color, depth, stencil attachments
-	// Since this would also describe an image view another way of looking at frame buffer
-	// 	is that it is a collection of image views
-	VkFramebuffer frame_buffer;
-
 	VkCommandBuffer command_buffer;
 
 	const uint32_t image_index;

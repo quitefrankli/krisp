@@ -10,8 +10,8 @@ public:
 	RasterizationRenderer(GraphicsEngineT& engine);
 	~RasterizationRenderer();
 
-	virtual void allocate_inflight_frame_resources(VkImage presentation_image) override;
-	virtual void submit_draw_commands(VkCommandBuffer command_buffer, uint32_t frame_index) override;
+	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
 
 private:
@@ -20,7 +20,7 @@ private:
 
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
-	std::vector<RenderingAttachment> presentation_attachments; // also responsible for msaa resolve
+	// presentation attachment which is also responsible for msaa resolve, is owned by the swapchain
 };
 
 template<typename GraphicsEngineT>
@@ -30,15 +30,13 @@ public:
 	GuiRenderer(GraphicsEngineT& engine);
 	~GuiRenderer();
 
-	virtual void allocate_inflight_frame_resources(VkImage presentation_image) override;
-	virtual void submit_draw_commands(VkCommandBuffer command_buffer, uint32_t frame_index) override;
+	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::GUI; }
 
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	void create_render_pass();
-
-	std::vector<RenderingAttachment> presentation_attachments; // also responsible for msaa resolve // TODO: move ownership of this to frame
 };
 
 template<typename GraphicsEngineT>
@@ -48,8 +46,8 @@ public:
 	RaytracingRenderer(GraphicsEngineT& engine);
 	~RaytracingRenderer();
 
-	virtual void allocate_inflight_frame_resources(VkImage presentation_image) override;
-	virtual void submit_draw_commands(VkCommandBuffer command_buffer, uint32_t frame_index) override;
+	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RAYTRACING; }
 
 private:
@@ -59,6 +57,6 @@ private:
 
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
-	std::vector<RenderingAttachment> presentation_attachments; // TODO: move ownership of this to frame
 	std::vector<VkDescriptorSet> rt_dsets;
+	std::vector<VkImage> presentation_images; // owned by the swapchain
 };

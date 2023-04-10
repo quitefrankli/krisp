@@ -15,12 +15,10 @@ RasterizationRenderer<GraphicsEngineT>::~RasterizationRenderer()
 		color_attachment.destroy(get_graphics_engine().get_logical_device());
 	for (auto& depth_attachment : depth_attachments)
 		depth_attachment.destroy(get_graphics_engine().get_logical_device());
-	for (auto& presentation_attachment : presentation_attachments)
-		presentation_attachment.destroy(get_graphics_engine().get_logical_device());
 }
 
 template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(VkImage presentation_image)
+void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
 	//
 	// Generate attachments
@@ -45,19 +43,8 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(V
 	RenderingAttachment depth_attachment = 
 		get_graphics_engine().create_depth_buffer_attachment();
 
-	RenderingAttachment presentation_attachment;
-	// NOTE: the below are intentionally commented out,
-	// 	presentation is mostly owned by the swapchain
-	// presentation_attachment.image = ; 
-	// presentation_attachment.image_memory = ;
-	presentation_attachment.image_view = get_graphics_engine().create_image_view(
-		presentation_image, 
-		get_image_format(),
-		VK_IMAGE_ASPECT_COLOR_BIT);
-
 	color_attachments.push_back(color_attachment);
 	depth_attachments.push_back(depth_attachment);
-	presentation_attachments.push_back(presentation_attachment);
 
 	//
 	// Create framebuffer
@@ -65,7 +52,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(V
 	std::vector<VkImageView> attachments { 
 		color_attachment.image_view, // main attachment color image_view, that shaders write to
 		depth_attachment.image_view, // depth buffer image_view
-		presentation_attachment.image_view // for presentation (msaa resolve is also applied at this step)
+		presentation_image_view // for presentation (msaa resolve is also applied at this step)
 	};
 
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -87,6 +74,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(V
 template<typename GraphicsEngineT>
 void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	VkCommandBuffer command_buffer,
+	VkImageView presentation_image_view,
 	uint32_t frame_index)
 {
 	// starting a render pass

@@ -22,14 +22,10 @@ inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
 	{
 		depth_attachment.destroy(get_logical_device());
 	}
-	for (auto& presentation_attachment : presentation_attachments)
-	{
-		vkDestroyImageView(get_logical_device(), presentation_attachment.image_view, nullptr);
-	}
 }
 
 template<typename GraphicsEngineT>
-void RaytracingRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(VkImage presentation_image)
+void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
 	const auto depth_format = get_graphics_engine().find_depth_format();
 	const auto extent = get_graphics_engine().get_extent();
@@ -73,26 +69,15 @@ void RaytracingRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(VkIm
 		depth_format,
 		VK_IMAGE_ASPECT_DEPTH_BIT);
 
-	// Create the presentation view
-	RenderingAttachment presentation_attachment;
-	// NOTE: the below are intentionally commented out,
-	// 	presentation is mostly owned by the swapchain
-	// presentation_attachment.image = ; 
-	// presentation_attachment.image_memory = ;
-	presentation_attachment.image_view = get_graphics_engine().create_image_view(
-		presentation_image, 
-		VK_FORMAT_B8G8R8A8_SRGB,
-		VK_IMAGE_ASPECT_COLOR_BIT);
-	presentation_attachment.image = presentation_image;
-
 	color_attachments.push_back(color_attachment);
 	depth_attachments.push_back(depth_attachment);
-	presentation_attachments.push_back(presentation_attachment);
+	presentation_images.push_back(presentation_image);
 }
 
 template<typename GraphicsEngineT>
 void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 	VkCommandBuffer command_buffer,
+	VkImageView presentation_image_view,
 	uint32_t frame_index)
 {
 	vkCmdBindPipeline(
@@ -125,7 +110,7 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 
 	// prepare current swapchain image as transfer destination
 	get_graphics_engine().transition_image_layout(
-		presentation_attachments[frame_index].image,
+		presentation_images[frame_index],
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		command_buffer);
@@ -151,23 +136,15 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		command_buffer,
 		color_attachments[frame_index].image,
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		presentation_attachments[frame_index].image,
+		presentation_images[frame_index],
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region,
 		VK_FILTER_NEAREST);
-	// vkCmdCopyImage(
-	// 	command_buffer, 
-	// 	color_attachments[frame_index].image, 
-	// 	VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-	// 	presentation_attachments[frame_index].image, 
-	// 	VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-	// 	1, 
-	// 	&copy_region);
 
 	// return current swapchain image to presentation layout
 	get_graphics_engine().transition_image_layout(
-		presentation_attachments[frame_index].image,
+		presentation_images[frame_index],
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 		command_buffer);

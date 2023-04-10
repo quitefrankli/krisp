@@ -12,39 +12,13 @@ GuiRenderer<GraphicsEngineT>::GuiRenderer(GraphicsEngineT& engine) :
 template<typename GraphicsEngineT>
 GuiRenderer<GraphicsEngineT>::~GuiRenderer()
 {
-	for (auto& attachment : presentation_attachments)
-	{
-		// vkFreeMemory(get_logical_device(), attachment.image_memory, nullptr);
-		// vkDestroyImage(get_logical_device(), attachment.image, nullptr);
-		vkDestroyImageView(get_logical_device(), attachment.image_view, nullptr);
-	}
 }
 
 template<typename GraphicsEngineT>
-void GuiRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(VkImage presentation_image)
+void GuiRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
-	//
-	// Generate attachments
-	//
 	const auto extent = get_graphics_engine().get_extent();
-	RenderingAttachment presentation_attachment;
-	// NOTE: the below are intentionally commented out,
-	// 	presentation is mostly owned by the swapchain
-	// presentation_attachment.image = ; 
-	// presentation_attachment.image_memory = ;
-	presentation_attachment.image_view = get_graphics_engine().create_image_view(
-		presentation_image, 
-		get_image_format(),
-		VK_IMAGE_ASPECT_COLOR_BIT);
-	presentation_attachments.push_back(presentation_attachment);
-
-	//
-	// Create framebuffer
-	//
-	std::vector<VkImageView> attachments { 
-		presentation_attachment.image_view
-	};
-
+	std::vector<VkImageView> attachments { presentation_image_view };
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
 	frame_buffer_create_info.renderPass = render_pass;
 	frame_buffer_create_info.attachmentCount = attachments.size();
@@ -62,7 +36,7 @@ void GuiRenderer<GraphicsEngineT>::allocate_inflight_frame_resources(VkImage pre
 }
 
 template<typename GraphicsEngineT>
-void GuiRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_buffer, uint32_t frame_index)
+void GuiRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index)
 {
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{};
