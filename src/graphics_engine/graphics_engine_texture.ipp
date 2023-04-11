@@ -12,12 +12,16 @@
 
 
 template<typename GraphicsEngineT>
-GraphicsEngineTexture<GraphicsEngineT>::GraphicsEngineTexture(GraphicsEngineTextureManager<GraphicsEngineT>& manager_, std::string texture_path) :
-	manager(manager_), GraphicsEngineBaseModule<GraphicsEngineT>(manager_.get_graphics_engine())
+GraphicsEngineTexture<GraphicsEngineT>::GraphicsEngineTexture(
+	GraphicsEngineTextureManager<GraphicsEngineT>& manager_, 
+	std::string_view texture_path,
+	ETextureSamplerType sampler_type) :
+	manager(manager_), 
+	GraphicsEngineBaseModule<GraphicsEngineT>(manager_.get_graphics_engine())
 {
-	create_texture_image(texture_path);
+	create_texture_image(texture_path.data());
 	texture_image_view = get_graphics_engine().create_image_view(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
-	create_texture_sampler();
+	create_texture_sampler(sampler_type);
 }
 
 template<typename GraphicsEngineT>
@@ -212,16 +216,29 @@ void GraphicsEngineTexture<GraphicsEngineT>::copy_buffer_to_image(VkBuffer buffe
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineTexture<GraphicsEngineT>::create_texture_sampler()
+void GraphicsEngineTexture<GraphicsEngineT>::create_texture_sampler(ETextureSamplerType sampler_type)
 {
+	VkSamplerAddressMode address_mode;
+	switch (sampler_type)
+	{
+	case ETextureSamplerType::ADDR_MODE_REPEAT:
+		address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		break;
+	case ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE:
+		address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		break;
+	default:
+		throw std::invalid_argument("unsupported texture sampler type!");
+	}
+	
 	VkSamplerCreateInfo sampler_info{};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
 	sampler_info.minFilter = VK_FILTER_LINEAR; // how to interpolate texels that are minimised, solves undersampling
 	// U,V,W is convention for texture space dimensions
-	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeU = address_mode;
+	sampler_info.addressModeV = address_mode;
+	sampler_info.addressModeW = address_mode;
 	sampler_info.anisotropyEnable = true; // small performance hiccup
 	sampler_info.maxAnisotropy = get_graphics_engine().get_device_module().
 		get_physical_device_properties().properties.limits.maxSamplerAnisotropy; // higher = slower

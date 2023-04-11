@@ -8,11 +8,20 @@
 template<typename GraphicsEngineT>
 class GraphicsEngineTextureManager;
 
+enum class ETextureSamplerType
+{
+	ADDR_MODE_REPEAT,
+	ADDR_MODE_CLAMP_TO_EDGE
+};
+
 template<typename GraphicsEngineT>
 class GraphicsEngineTexture : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineTexture(GraphicsEngineTextureManager<GraphicsEngineT>& manager_, std::string texture_path);
+	GraphicsEngineTexture(
+		GraphicsEngineTextureManager<GraphicsEngineT>& manager_, 
+		std::string_view texture_path,
+		ETextureSamplerType sampler_type = ETextureSamplerType::ADDR_MODE_REPEAT);
 	GraphicsEngineTexture(GraphicsEngineTexture&& other) noexcept;
 	~GraphicsEngineTexture();
 
@@ -55,5 +64,5 @@ private:
 	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 	// a sampler is essentially a functor that allows one to interpret an imageview
-	void create_texture_sampler();
+	void create_texture_sampler(ETextureSamplerType sampler_type);
 };

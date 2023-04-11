@@ -14,10 +14,16 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 	switch (get_render_type())
 	{
 		case EPipelineType::STANDARD:
+			for (const auto& shape : object.shapes)
+			{
+				textures.push_back(&get_graphics_engine().get_texture_mgr().
+					create_new_unit(shape.texture, ETextureSamplerType::ADDR_MODE_REPEAT));
+			}
 		case EPipelineType::CUBEMAP:
 			for (const auto& shape : object.shapes)
 			{
-				textures.push_back(&get_graphics_engine().get_texture_mgr().create_new_unit(shape.texture));
+				textures.push_back(&get_graphics_engine().get_texture_mgr().
+					create_new_unit(shape.texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
 			}
 			break;
 		default:
