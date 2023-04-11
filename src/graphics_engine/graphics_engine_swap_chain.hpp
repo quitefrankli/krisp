@@ -32,6 +32,9 @@ public:
 	void spawn_object(GraphicsEngineObject<GraphicsEngineT>& object);
 	void draw();
 
+	// TODO: deprecate this infavor of something more useful, i.e. recreating the entire swapchain
+	void destroy_and_recreate_frames();
+
 public: // getters
 	VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	

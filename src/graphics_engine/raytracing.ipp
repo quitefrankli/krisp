@@ -16,7 +16,6 @@ VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix)
 	return vk_matrix;
 }
 
-
 template<typename GraphicsEngineT>
 GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 	GraphicsEngineT& engine) :
@@ -32,8 +31,15 @@ GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 template<typename GraphicsEngineT>
 GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
 {
-	vkDestroyBuffer(get_logical_device(), sbt_buffer.buffer, nullptr);
-	vkFreeMemory(get_logical_device(), sbt_buffer.memory, nullptr);
+	VkDevice device = get_logical_device();
+	vkDestroyBuffer(device, sbt_buffer.buffer, nullptr);
+	vkFreeMemory(device, sbt_buffer.memory, nullptr);
+
+	for (auto& as : bottom_as)
+	{
+		destroy_as(as);
+	}
+	destroy_as(top_as);
 }
 
 template<typename GraphicsEngineT>
@@ -103,6 +109,10 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 	blas_inputs.reserve(objects.size());
 	for (auto& [id, object] : objects)
 	{
+		if (object->get_render_type() == EPipelineType::CUBEMAP)
+		{
+			continue;
+		}
 		blas_inputs.emplace_back(object_to_blas(*object));
 	}
 
@@ -230,6 +240,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 	// Clean up
 	vkDestroyQueryPool(get_logical_device(), queryPool, nullptr);
 	vkDestroyBuffer(get_logical_device(), scratch_buffer.buffer, nullptr);
+	vkFreeMemory(get_logical_device(), scratch_buffer.memory, nullptr);
 	// TODO: use RAII to destroy device memory as well
 }
 
@@ -244,6 +255,10 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
 	for (auto& [id, object] : objects)
 	{
+		if (object->get_render_type() == EPipelineType::CUBEMAP)
+		{
+			continue;
+		}
 		VkAccelerationStructureInstanceKHR ray_inst{};
 		ray_inst.transform = glm_to_vk(object->get_game_object().get_transform());
 		ray_inst.instanceCustomIndex = 0; // exists in shader as 'gl_InstanceCustomIndexEXT' TODO: dont hardcode this
@@ -487,6 +502,9 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
 
 	// TODO: cleanup instance_buffer
 	// also scratch_buffer
+	auto device = get_logical_device();
+	scratch_buffer.destroy(device);
+	instance_buffer.destroy(device);
 }
 
 template<typename GraphicsEngineT>
@@ -583,4 +601,13 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	memcpy(p_data, handles_data.data() + handle_size * 2, handle_size);
 
 	vkUnmapMemory(get_logical_device(), sbt_buffer.memory);
+}
+
+template<typename GraphicsEngineT>
+void GraphicsEngineRayTracing<GraphicsEngineT>::destroy_as(AccelerationStructure& as)
+{
+	VkDevice device = get_logical_device();
+	LOAD_VK_FUNCTION(vkDestroyAccelerationStructureKHR)(device, as.accel, nullptr);
+	vkDestroyBuffer(device, as.buffer, nullptr);
+	vkFreeMemory(device, as.memory, nullptr);
 }

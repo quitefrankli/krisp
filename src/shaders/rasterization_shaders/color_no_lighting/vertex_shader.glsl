@@ -8,9 +8,6 @@ layout(location = 1) in vec3 inColor;
 // layout(location = 3) in vec3 inNormal;
 
 layout(location=0) out vec3 fragColor;
-// layout(location=1) out vec3 light_normal;
-// layout(location=2) out vec3 surface_normal;
-// layout(location=3) out vec3 view_dir;
 layout(location=4) out vec3 fragPos;
 
 // be vary of alignment issues

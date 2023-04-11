@@ -50,6 +50,8 @@ public:
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RAYTRACING; }
 
+	void update_rt_dsets();
+
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_R32G32B32A32_SFLOAT; }
 	void create_render_pass();

@@ -3,9 +3,6 @@
 
 // note that the fragment shader receives the input as interpolated values
 layout(location=0) in vec3 fragColor;
-layout(location=1) in vec3 light_normal;
-layout(location=2) in vec3 surface_normal;
-layout(location=3) in vec3 view_dir;
 layout(location=4) in vec3 fragPos;
 
 layout(location = 0) out vec4 outColor;

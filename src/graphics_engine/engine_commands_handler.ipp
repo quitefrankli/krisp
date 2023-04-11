@@ -3,6 +3,7 @@
 #include "graphics_engine.hpp"
 #include "objects/light_source.hpp"
 #include "uniform_buffer_object.hpp"
+#include "renderers/renderers.hpp"
 
 
 template<typename GameEngineT>
@@ -86,4 +87,6 @@ template<typename GameEngineT>
 inline void GraphicsEngine<GameEngineT>::handle_command(UpdateRayTracingCmd& cmd)
 {
 	ray_tracing.update_acceleration_structures();
+	static_cast<RaytracingRenderer<GraphicsEngine>&>(
+		renderer_mgr.get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
 }

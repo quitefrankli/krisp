@@ -39,7 +39,7 @@ GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 
 	// this doesn't actually "deallocates" the descriptor sets, but rather makes
 	// them available for reuse in the same descriptor set pool
-	get_graphics_engine().get_graphics_resource_manager().free_descriptor_sets(descriptor_sets);
+	get_graphics_engine().get_graphics_resource_manager().free_high_frequency_dsets(descriptor_sets);
 }
 
 template<typename GraphicsEngineT>

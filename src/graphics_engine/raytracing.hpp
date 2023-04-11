@@ -53,6 +53,8 @@ public:
 
 	void update_acceleration_structures();
 
+	VkAccelerationStructureKHR get_tlas() const { return top_as.accel; }
+
 public:
 	// sbt = shader binding table
 	GraphicsBuffer sbt_buffer;
@@ -111,9 +113,9 @@ private:
 
 	void create_shader_binding_table();
 
+	void destroy_as(AccelerationStructure& as);
+
 private:
-	std::vector<VkBuffer> buffers;
-	std::vector<VkDeviceMemory> buffer_memories;
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
 

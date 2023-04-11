@@ -178,7 +178,8 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 		gubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		gubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
 		gubo_layout_binding.descriptorCount = 1;
-		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
+		// defines which shader stage the descriptor is going to be referenced
+		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 		gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
 		const std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
@@ -393,11 +394,22 @@ std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get
 }
 
 template<typename GraphicsEngineT>
-void GraphicsResourceManager<GraphicsEngineT>::free_descriptor_sets(std::vector<VkDescriptorSet>& sets)
+void GraphicsResourceManager<GraphicsEngineT>::free_high_frequency_dsets(std::vector<VkDescriptorSet>& sets)
 {
-	// fmt::print("GraphicsResourceManager::free_descriptor_sets: available_sets:={}, amount_to_free:={}\n", available_high_freq_dsets.size(), sets.size());
+	// fmt::print("GraphicsResourceManager::free_high_frequency_dsets: available_sets:={}, amount_to_free:={}\n", available_high_freq_dsets.size(), sets.size());
 	for (auto& set : sets)
 	{
 		available_high_freq_dsets.push(set);
 	}
 }
+
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::free_raytracing_dsets(std::vector<VkDescriptorSet>& sets)
+{
+	// fmt::print("GraphicsResourceManager::free_raytracing_dsets: available_sets:={}, amount_to_free:={}\n", available_high_freq_dsets.size(), sets.size());
+	for (auto& set : sets)
+	{
+		available_raytracing_dsets.push(set);
+	}
+}
+

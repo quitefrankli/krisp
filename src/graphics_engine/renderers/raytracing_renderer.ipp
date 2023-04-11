@@ -22,10 +22,13 @@ inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
 	{
 		depth_attachment.destroy(get_logical_device());
 	}
+	get_graphics_engine().get_graphics_resource_manager().free_high_frequency_dsets(rt_dsets);
 }
 
 template<typename GraphicsEngineT>
-void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
+void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(
+	VkImage presentation_image, 
+	VkImageView presentation_image_view)
 {
 	const auto depth_format = get_graphics_engine().find_depth_format();
 	const auto extent = get_graphics_engine().get_extent();
@@ -51,7 +54,7 @@ void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage p
 		color_attachment.image,
 		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_GENERAL);
-	rt_dsets.push_back(create_rt_dset(color_attachment.image_view));
+	// rt_dsets.push_back(create_rt_dset(color_attachment.image_view)); // TODO: uncomment me
 
 	// Creating the depth buffer
 	RenderingAttachment depth_attachment;
@@ -80,6 +83,11 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 	VkImageView presentation_image_view,
 	uint32_t frame_index)
 {
+	if (rt_dsets.empty()) // TODO: delete me
+	{
+		return;
+	}
+
 	vkCmdBindPipeline(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
@@ -88,12 +96,21 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).pipeline_layout,
+		get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RAYTRACING_LOW_FREQ,
+		1,
+		&get_graphics_engine().get_graphics_resource_manager().get_low_freq_descriptor_set(),
 		0,
+		nullptr);
+	vkCmdBindDescriptorSets(
+		command_buffer,
+		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).pipeline_layout,
+		get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RAYTRACING_TLAS,
 		1,
 		&rt_dsets[frame_index],
 		0,
 		nullptr);
-	GraphicsEngineRayTracing<GraphicsEngineT>& raytracing_comp = get_graphics_engine().get_raytracing();
+	GraphicsEngineRayTracing<GraphicsEngineT>& raytracing_comp = get_graphics_engine().get_raytracing_module();
 	LOAD_VK_FUNCTION(vkCmdTraceRaysKHR)(
 		command_buffer,
 		&raytracing_comp.raygen_sbt_region,
@@ -155,6 +172,19 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 		VK_IMAGE_LAYOUT_GENERAL,
 		command_buffer);
+}
+
+template<typename GraphicsEngineT>
+void RaytracingRenderer<GraphicsEngineT>::update_rt_dsets()
+{
+	// technically we don't really need to "free" up the descriptor sets
+	// but it's a little less code to just do it this way
+	get_graphics_engine().get_graphics_resource_manager().free_raytracing_dsets(rt_dsets);
+	rt_dsets.clear();
+	for (int i = 0; i < color_attachments.size(); i++)
+	{
+		rt_dsets.emplace_back(create_rt_dset(color_attachments[i].image_view));
+	}
 }
 
 template<typename GraphicsEngineT>
@@ -246,7 +276,7 @@ VkDescriptorSet RaytracingRenderer<GraphicsEngineT>::create_rt_dset(VkImageView 
 		get_graphics_engine().get_graphics_resource_manager().get_raytracing_resources();
 	auto rt_dset = get_graphics_engine().get_graphics_resource_manager().reserve_raytracing_dsets(1)[0];
 
-	VkAccelerationStructureKHR tlas{};
+	VkAccelerationStructureKHR tlas = get_graphics_engine().get_raytracing_module().get_tlas();
 	VkWriteDescriptorSetAccelerationStructureKHR descASInfo{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
 	descASInfo.accelerationStructureCount = 1;
 	descASInfo.pAccelerationStructures = &tlas;

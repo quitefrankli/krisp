@@ -74,7 +74,7 @@ public: // getters and setters
 	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
-	GraphicsEngineRayTracing<GraphicsEngine>& get_raytracing() { return ray_tracing; }
+	GraphicsEngineRayTracing<GraphicsEngine>& get_raytracing_module() { return ray_tracing; }
 	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT>& get_graphics_gui_manager() { return gui_manager; }
 	GuiManager<GameEngineT>& get_gui_manager() { return static_cast<GuiManager<GameEngineT>&>(gui_manager); }
 	RendererManager<GraphicsEngine>& get_renderer_mgr() { return renderer_mgr; }

@@ -186,7 +186,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	const auto extent = get_graphics_engine().get_extent();
 	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
 	// Vulkan uses right-hand coordinate system, so y is actually pointing down
-	// to fix this, we can flip the view port upside down
+	// to fix this, we flip the view port upside down
 	// https://www.saschawillems.de/blog/2019/03/29/flipping-the-vulkan-viewport/
 	view_port.x = 0.0f;
 	view_port.y = (float)extent.height;

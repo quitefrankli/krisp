@@ -7,6 +7,9 @@
 
 #include "graphics_engine.hpp"
 #include "objects/object.hpp"
+#include "utility.hpp"
+
+#include <quill/Quill.h>
 
 #include <algorithm>
 #include <iostream>
@@ -85,24 +88,7 @@ GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngine
 		throw std::runtime_error("failed to create swap chain!");
 	}
 
-	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, nullptr); // get num images
-	std::vector<VkImage> swap_chain_images(image_count);
-	// frames.resize(image_count);
-	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, swap_chain_images.data());
-	//GraphicsEngineFrame frame(get_graphics_engine(), *this, swap_chain_images[0]); // DELETE ME
-
-	frames.reserve(swap_chain_images.size());
-	if (frames.capacity() < swap_chain_images.size() || swap_chain_images.size() != EXPECTED_NUM_SWAPCHAIN_IMAGES)
-	{
-		throw std::runtime_error("GraphicsEngineSwapChain::GraphicsEngineSwapChain() ERROR in num swapchain images!");
-	}
-	for (auto &handle : swap_chain_images)
-	{
-		// create the frames
-		frames.emplace_back(get_graphics_engine(), *this, handle);
-	}
-
-	std::cout << "swap chain created, count=" << image_count << std::endl;
+	destroy_and_recreate_frames();
 }
 
 template<typename GraphicsEngineT>
@@ -209,6 +195,29 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::draw()
 	get_curr_frame().draw();
 
 	current_frame = (current_frame + 1) % frames.size();
+}
+
+template<typename GraphicsEngineT>
+void GraphicsEngineSwapChain<GraphicsEngineT>::destroy_and_recreate_frames()
+{
+	uint32_t image_count;
+	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, nullptr); // get num images
+	std::vector<VkImage> swap_chain_images(image_count);
+	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, swap_chain_images.data());
+
+	frames.clear();
+	frames.reserve(swap_chain_images.size());
+	if (frames.capacity() < swap_chain_images.size() || swap_chain_images.size() != EXPECTED_NUM_SWAPCHAIN_IMAGES)
+	{
+		throw std::runtime_error("GraphicsEngineSwapChain::GraphicsEngineSwapChain() ERROR in num swapchain images!");
+	}
+	for (auto &handle : swap_chain_images)
+	{
+		// create the frames
+		frames.emplace_back(get_graphics_engine(), *this, handle);
+	}
+
+	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineSwapChain: created {} frames", frames.size());
 }
 
 template<typename GraphicsEngineT>

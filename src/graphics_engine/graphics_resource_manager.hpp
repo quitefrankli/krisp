@@ -43,7 +43,8 @@ public:
 	std::vector<VkDescriptorSet> reserve_high_frequency_dsets(uint32_t n);
 	std::vector<VkDescriptorSet> reserve_raytracing_dsets(uint32_t n);
 	// other graphics components should call these methods to release dsets back into the pool
-	void free_descriptor_sets(std::vector<VkDescriptorSet>& sets);
+	void free_high_frequency_dsets(std::vector<VkDescriptorSet>& sets);
+	void free_raytracing_dsets(std::vector<VkDescriptorSet>& sets);
 
 	static constexpr int get_max_descriptor_sets();
 
