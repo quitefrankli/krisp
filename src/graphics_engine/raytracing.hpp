@@ -53,6 +53,7 @@ public:
 
 	void update_acceleration_structures();
 
+	void update_tlas2();
 	VkAccelerationStructureKHR get_tlas() const { return top_as.accel; }
 
 public:
@@ -64,7 +65,7 @@ public:
 	VkStridedDeviceAddressRegionKHR callable_sbt_region{};
 
 private:
-	BlasInput object_to_blas(const GraphicsEngineObject<GraphicsEngineT>& object);
+	BlasInput object_to_blas(const GraphicsEngineObject<GraphicsEngineT>& object, VkBuildAccelerationStructureFlagsKHR flags);
 	// blas = bottom level acceleration struction
 	// tlas = top level acceleration structure
 	void update_blas();
@@ -118,6 +119,7 @@ private:
 private:
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
+	std::vector<VkAccelerationStructureInstanceKHR> tlas_instances;
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

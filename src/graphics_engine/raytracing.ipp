@@ -5,14 +5,17 @@
 #include "utility.hpp"
 
 #include <quill/Quill.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <numeric>
 
 
 VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix)
 {
+	// glm uses column major while VkTransformMatrixKHR is row major
+	// so we need to transpose the matrix
 	VkTransformMatrixKHR vk_matrix;
-	std::memcpy(vk_matrix.matrix, &matrix, sizeof(vk_matrix.matrix));
+	std::memcpy(vk_matrix.matrix, glm::value_ptr(glm::transpose(matrix)), sizeof(vk_matrix.matrix));
 	return vk_matrix;
 }
 
@@ -39,28 +42,56 @@ GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
 	{
 		destroy_as(as);
 	}
+	bottom_as.clear();
 	destroy_as(top_as);
-}
-
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::cleanup_acceleration_structure(AccelerationStructure& as)
-{
-	LOAD_VK_FUNCTION(vkDestroyAccelerationStructureKHR)(get_logical_device(), as.accel, nullptr);
-	vkDestroyBuffer(get_logical_device(), as.buffer, nullptr);
-	vkFreeMemory(get_logical_device(), as.memory, nullptr);
-	as = AccelerationStructure{};
 }
 
 template<typename GraphicsEngineT>
 void GraphicsEngineRayTracing<GraphicsEngineT>::update_acceleration_structures()
 {
+	// important distinction regarding performance
+	// this is technically not an "update" but a "rebuild"
+	// 1. updates should be used when there are small amounts of changes
+	// 2. rebuilds should be used where there are large amounts of changes
+	//	this is due to accumulation of variance from original tree hierarchy
+	// An example is the bending of a branch = update, an explosion = rebuild
+	for (auto& as : bottom_as)
+	{
+		destroy_as(as);
+	}
+	bottom_as.clear();
+	destroy_as(top_as);
 	update_blas();
 	update_tlas();
 }
 
 template<typename GraphicsEngineT>
+void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas2()
+{
+	auto& objects = get_graphics_engine().get_objects();
+	
+	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
+	for (auto& [id, object] : objects)
+	{
+		if (object->get_render_type() == EPipelineType::CUBEMAP)
+		{
+			continue;
+		}
+		
+		auto& inst = tlas_instances[instance_id++];
+		inst.transform = glm_to_vk(object->get_game_object().get_transform());
+	}
+
+	build_tlas(
+		tlas_instances,
+		VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR, 
+		true);
+}
+
+template<typename GraphicsEngineT>
 typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayTracing<GraphicsEngineT>::object_to_blas(
-	const GraphicsEngineObject<GraphicsEngineT>& object)
+	const GraphicsEngineObject<GraphicsEngineT>& object,
+	VkBuildAccelerationStructureFlagsKHR flags)
 {
 	// BLAS builder requires raw device addresses.
 	VkDeviceAddress vertex_address = get_graphics_engine().get_device_module().get_buffer_device_address(object.vertex_buffer);
@@ -77,7 +108,11 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	triangles.indexType               = VK_INDEX_TYPE_UINT32;
 	triangles.indexData.deviceAddress = index_address;
 	// Indicate identity transform by setting transformData to null device pointer.
-	//triangles.transformData = {};
+	// Note it ACTUALLY is possible to transform objects in the BLAS here
+	// but apparently from some reading it might be expensive, and maybe better to do by updating TLAS
+	// However i'm not sure on this
+	// https://www.reddit.com/r/vulkan/comments/s79m2a/updating_the_top_level_acceleration_structure/
+	triangles.transformData = {};
 	triangles.maxVertex = object.get_num_unique_vertices();
 
 	// Identify the above data as containing opaque triangles.
@@ -97,6 +132,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	BlasInput input;
 	input.asGeometry.emplace_back(asGeom);
 	input.asBuildOffsetInfo.emplace_back(offset);
+	input.flags = flags;
 
 	return input;
 }
@@ -107,13 +143,14 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 	std::vector<BlasInput> blas_inputs;
 	auto& objects = get_graphics_engine().get_objects();
 	blas_inputs.reserve(objects.size());
+	VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 	for (auto& [id, object] : objects)
 	{
 		if (object->get_render_type() == EPipelineType::CUBEMAP)
 		{
 			continue;
 		}
-		blas_inputs.emplace_back(object_to_blas(*object));
+		blas_inputs.emplace_back(object_to_blas(*object, flags));
 	}
 
 	//--------------------------------------------------------------------------------------------------
@@ -138,7 +175,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 		// Other information will be filled in the createBlas (see #2)
 		buildAs[idx].buildInfo.type          = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
 		buildAs[idx].buildInfo.mode          = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-		buildAs[idx].buildInfo.flags         = blas_inputs[idx].flags | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		buildAs[idx].buildInfo.flags         = blas_inputs[idx].flags;
 		buildAs[idx].buildInfo.geometryCount = static_cast<uint32_t>(blas_inputs[idx].asGeometry.size());
 		buildAs[idx].buildInfo.pGeometries   = blas_inputs[idx].asGeometry.data();
 
@@ -212,7 +249,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 				// Destroy the non-compacted version
 				for (auto idx : indices)
 				{
-					cleanup_acceleration_structure(buildAs[idx].cleanupAS);
+					destroy_as(buildAs[idx].cleanupAS);
 				}
 			}
 			// Reset
@@ -248,9 +285,8 @@ template<typename GraphicsEngineT>
 void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 {
 	auto& objects = get_graphics_engine().get_objects();
-	
-	std::vector<VkAccelerationStructureInstanceKHR> tlas;
-	tlas.reserve(objects.size());
+	tlas_instances.clear();
+	tlas_instances.reserve(objects.size());
 
 	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
 	for (auto& [id, object] : objects)
@@ -261,19 +297,23 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 		}
 		VkAccelerationStructureInstanceKHR ray_inst{};
 		ray_inst.transform = glm_to_vk(object->get_game_object().get_transform());
+
 		ray_inst.instanceCustomIndex = 0; // exists in shader as 'gl_InstanceCustomIndexEXT' TODO: dont hardcode this
 		// TOOD: change this to use the actual object id, will need to refactor blas setup
 		ray_inst.accelerationStructureReference = getBlasDeviceAddress(instance_id++);
 		ray_inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
 		ray_inst.mask = 0xff; //  Only be hit if rayMask & instance.mask != 0
-
+		
 		// We will use the same hit group for all objects
 		// with more shaders maybe this should change
 		ray_inst.instanceShaderBindingTableRecordOffset = 0;
-		tlas.emplace_back(ray_inst);		
+		tlas_instances.emplace_back(ray_inst);		
 	}
 
-	build_tlas(tlas, VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR, false);
+	build_tlas(
+		tlas_instances, 
+		VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR, 
+		false);
 }
 
 template<typename GraphicsEngineT>
@@ -414,7 +454,10 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
     createInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
     createInfo.size = sizeInfo.accelerationStructureSize;
 
-    top_as = create_acceleration_structure(createInfo);
+    if (!update)
+	{
+		top_as = create_acceleration_structure(createInfo);
+	}
 	
 	// Allocate the scratch memory
 	scratch_buffer = get_graphics_engine().create_buffer(
@@ -426,7 +469,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
 	// Finally build the acceleration structure
 
 	// Update build information
-	buildInfo.srcAccelerationStructure  = VK_NULL_HANDLE;
+	buildInfo.srcAccelerationStructure  = update ? top_as.accel : VK_NULL_HANDLE;
 	buildInfo.dstAccelerationStructure  = top_as.accel;
 	buildInfo.scratchData.deviceAddress = scratch_address;
 
@@ -511,7 +554,7 @@ template<typename GraphicsEngineT>
 void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 {
 	/*
-		SBT is a collection of up to four arrays containing the hanldes of the shader groups used
+		SBT is a collection of up to four arrays containing the handles of the shader groups used
 		in the ray tracing pipeline, one array for {raygen, miss, hit, callable} shader groups.
 		From each array an appropriate shader is chosen depending on scenario (however for now the array
 		contains only one handle each)
@@ -607,7 +650,19 @@ template<typename GraphicsEngineT>
 void GraphicsEngineRayTracing<GraphicsEngineT>::destroy_as(AccelerationStructure& as)
 {
 	VkDevice device = get_logical_device();
-	LOAD_VK_FUNCTION(vkDestroyAccelerationStructureKHR)(device, as.accel, nullptr);
-	vkDestroyBuffer(device, as.buffer, nullptr);
-	vkFreeMemory(device, as.memory, nullptr);
+	if (as.accel != VK_NULL_HANDLE)
+	{
+		LOAD_VK_FUNCTION(vkDestroyAccelerationStructureKHR)(device, as.accel, nullptr);
+		as.accel = VK_NULL_HANDLE;
+	}
+	if (as.buffer != VK_NULL_HANDLE)
+	{
+		vkDestroyBuffer(device, as.buffer, nullptr);
+		as.buffer = VK_NULL_HANDLE;
+	}
+	if (as.memory != VK_NULL_HANDLE)
+	{
+		vkFreeMemory(device, as.memory, nullptr);
+		as.memory = VK_NULL_HANDLE;
+	}
 }

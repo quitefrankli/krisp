@@ -88,6 +88,11 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		return;
 	}
 
+	// updating the tlas every frame, this could potentially be very expensive!!!
+	// TODO: figure out performance costs and whether this is acceptable
+	get_graphics_engine().get_raytracing_module().update_tlas2();
+	update_rt_dsets();
+
 	vkCmdBindPipeline(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,

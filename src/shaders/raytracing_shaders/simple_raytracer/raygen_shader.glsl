@@ -29,8 +29,8 @@ void main()
 	vec2 pixel_normalized = inUV * 2.0 - 1.0; // normalize to [-1, 1]
 
 	// vec4 origin = vec4(gubo.view_pos, 1);
-	vec4 target = inverse(gubo.view) * vec4(pixel_normalized, 1, 1);
-	vec3 direction = normalize(target.xyz - gubo.view_pos);
+	vec4 target = inverse(gubo.proj) * vec4(pixel_normalized, 1, 1);
+	vec4 direction = inverse(gubo.view) * vec4(target.xyz, 0);
 
 	uint  rayFlags = gl_RayFlagsOpaqueEXT;
 	float tMin     = 0.001;
@@ -45,10 +45,11 @@ void main()
 		0,              // missIndex
 		gubo.view_pos,  // ray origin
 		tMin,           // ray min range
-		direction,      // ray direction
+		direction.xyz,      // ray direction
 		tMax,           // ray max range
 		0);             // payload (location = 0)
 
 	// 'imageStore' stores a vec4 value to an image
-    imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(payload.hit_value, 1.0));
+	const uint yflipped = gl_LaunchSizeEXT.y - gl_LaunchIDEXT.y - 1;
+    imageStore(image, ivec2(gl_LaunchIDEXT.x, yflipped), vec4(payload.hit_value, 1.0));
 }
