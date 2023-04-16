@@ -97,8 +97,8 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		VkDescriptorBufferInfo buffer_info{};
-		buffer_info.buffer = object.uniform_buffer;
-		buffer_info.offset = 0; // sizeof(UniformBufferObject)* (descriptor_sets.size() + vertex_set_index);
+		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
+		buffer_info.offset = get_rsrc_mgr().get_uniform_buffer_offset(object.get_game_object().get_id());
 		buffer_info.range = sizeof(UniformBufferObject);
 
 		VkWriteDescriptorSet uniform_buffer_descriptor_set{};
@@ -336,9 +336,8 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 		default_ubo.model = graphics_object->get_game_object().get_transform();
 		default_ubo.mvp = gubo.proj * gubo.view * default_ubo.model;
 		default_ubo.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
-		vkMapMemory(get_logical_device(), graphics_object->uniform_buffer_memory, 0, sizeof(UniformBufferObject), 0, &data);
-		memcpy(data, &default_ubo, sizeof(UniformBufferObject));
-		vkUnmapMemory(get_logical_device(), graphics_object->uniform_buffer_memory);
+
+		get_rsrc_mgr().write_to_uniform_buffer(default_ubo, graphics_object->get_game_object().get_id());
 	}
 }
 
@@ -374,6 +373,9 @@ void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 		const auto id = objs_to_delete.front();
 		get_graphics_engine().get_objects().erase(id);
 		get_graphics_engine().get_light_sources().erase(id);
+		get_rsrc_mgr().free_vertex_buffer(id);
+		get_rsrc_mgr().free_index_buffer(id);
+		get_rsrc_mgr().free_uniform_buffer(id);
 		objs_to_delete.pop();
 	}
 }

@@ -1,5 +1,5 @@
 #include "renderers.hpp"
-#include "graphics_engine/graphics_resource_manager.hpp"
+#include "graphics_engine/resource_manager/graphics_resource_manager.hpp"
 
 #include <mutex>
 

@@ -112,18 +112,20 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		const auto& shapes = object.get_shapes();
 
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
-		VkDeviceSize offsets[] = { 0 };
+		
+		VkDeviceSize buffer_offset = get_rsrc_mgr().get_vertex_buffer_offset(object.get_game_object().get_id());
+		VkBuffer buffer = get_rsrc_mgr().get_vertex_buffer();
 		vkCmdBindVertexBuffers(
 			command_buffer, 
-			0, 					// offset
-			1, 					// number of bindings
-			&object.vertex_buffer, 	// array of vertex buffers to bind
-			offsets				// byte offset to start from for each buffer
+			0, 										// first buffer in vertex buffers array
+			1, 										// number of vertex buffers
+			&buffer, 								// array of vertex buffers to bind
+			&buffer_offset							// byte offset to start from for each buffer
 		);
 		vkCmdBindIndexBuffer(
 			command_buffer,
-			object.index_buffer,
-			0,						// offset
+			get_rsrc_mgr().get_index_buffer(),
+			get_rsrc_mgr().get_index_buffer_offset(object.get_game_object().get_id()),
 			VK_INDEX_TYPE_UINT32
 		);
 

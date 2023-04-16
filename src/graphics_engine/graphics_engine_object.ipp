@@ -34,14 +34,11 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 template<typename GraphicsEngineT>
 GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 {
-	vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
+	// vkDestroyBuffer(get_logical_device(), vertex_buffer, nullptr);
+	// vkFreeMemory(get_logical_device(), vertex_buffer_memory, nullptr);
 
-	vkDestroyBuffer(get_logical_device(), index_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), index_buffer_memory, nullptr);
-
-	vkDestroyBuffer(get_logical_device(), uniform_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), uniform_buffer_memory, nullptr);
+	// vkDestroyBuffer(get_logical_device(), index_buffer, nullptr);
+	// vkFreeMemory(get_logical_device(), index_buffer_memory, nullptr);
 
 	// this doesn't actually "deallocates" the descriptor sets, but rather makes
 	// them available for reuse in the same descriptor set pool

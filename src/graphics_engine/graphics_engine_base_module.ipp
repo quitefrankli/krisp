@@ -28,6 +28,12 @@ VkInstance& GraphicsEngineBaseModule<GraphicsEngineT>::get_instance()
 }
 
 template<typename GraphicsEngineT>
+GraphicsResourceManager<GraphicsEngineT>& GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr()
+{
+	return graphics_engine.get_graphics_resource_manager();
+}
+
+template<typename GraphicsEngineT>
 void GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer(size_t size, 
 											 VkBufferUsageFlags usage_flags, 
 											 VkMemoryPropertyFlags memory_flags, 

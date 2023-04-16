@@ -30,7 +30,8 @@ int main()
 				Utility::get().enable_logging();
 			}
 			
-			App::Window window(config.get_window_pos().first, config.get_window_pos().second);
+			App::Window window;
+			window.open(config.get_window_pos().first, config.get_window_pos().second);
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			GameEngine<GraphicsEngine> engine([&restart_signal](){restart_signal=true;}, window);

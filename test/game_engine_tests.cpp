@@ -12,13 +12,14 @@
 class GameEngineTests : public testing::Test
 {
 public:
-    GameEngineTests() : engine([](){}, mock_window)
+    GameEngineTests() : 
+		engine([](){}, mock_window)
     {
         engine.set_application(&application);
     }
 
-    DummyApplication application;
 	MockWindow mock_window;
+    DummyApplication application;
     GameEngine<MockGraphicsEngine> engine;
 };
 

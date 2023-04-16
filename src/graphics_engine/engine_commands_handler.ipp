@@ -4,6 +4,7 @@
 #include "objects/light_source.hpp"
 #include "uniform_buffer_object.hpp"
 #include "renderers/renderers.hpp"
+#include "resource_manager/buffer_map.hpp"
 
 
 template<typename GameEngineT>
@@ -11,14 +12,21 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 {
 	auto spawn_object = [&](GraphicsEngineObject<GraphicsEngine>& graphics_object)
 	{
-		create_object_buffers(graphics_object);
+		// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
+		// per frame resource and therefore we only need 1 copy
+		const uint32_t id = graphics_object.get_game_object().get_id();
+		pool.reserve_vertex_buffer(id, graphics_object.get_num_unique_vertices() * sizeof(Vertex));
+		pool.reserve_index_buffer(id, graphics_object.get_num_vertex_indices() * sizeof(uint32_t));
+		pool.write_shapes_to_buffers(graphics_object.get_shapes(), id);
 
-		// uniform buffer
-		create_buffer(sizeof(UniformBufferObject),
-					VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-					VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-					graphics_object.uniform_buffer,
-					graphics_object.uniform_buffer_memory);
+		// TODO: we need per frame uniform buffers, could alternatively use a single buffer
+		get_graphics_resource_manager().reserve_uniform_buffer(id, sizeof(UniformBufferObject));
+
+		BufferMapEntry buffer_map;
+		buffer_map.vertex_offset = pool.get_vertex_buffer_offset(id);
+		buffer_map.index_offset = pool.get_index_buffer_offset(id);
+		buffer_map.uniform_offset = pool.get_uniform_buffer_offset(id);
+		pool.write_to_mapping_buffer(buffer_map, id);
 
 		swap_chain.spawn_object(graphics_object);
 

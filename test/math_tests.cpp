@@ -2,7 +2,6 @@
 
 #include <gtest/gtest.h>
 
-
 #include <iostream>
 #include <glm/gtx/string_cast.hpp>
 

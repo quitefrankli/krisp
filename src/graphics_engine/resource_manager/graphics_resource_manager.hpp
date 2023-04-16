@@ -1,7 +1,7 @@
 #pragma once
 
-#include "graphics_engine_base_module.hpp"
-#include "graphics_engine_swap_chain.hpp"
+#include "graphics_buffer_manager.hpp"
+#include "graphics_engine/graphics_engine_swap_chain.hpp"
 
 #include <queue>
 
@@ -19,11 +19,11 @@ struct RaytracingResources
 };
 
 template<typename GraphicsEngineT>
-class GraphicsResourceManager : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsResourceManager : public GraphicsBufferManager<GraphicsEngineT>
 {
 public:
 	GraphicsResourceManager(GraphicsEngineT& engine);
-	~GraphicsResourceManager();
+	virtual ~GraphicsResourceManager() override;
 	VkCommandPool& get_command_pool() { return command_pool; }
 	VkDescriptorPool descriptor_pool;
 
@@ -63,12 +63,12 @@ public:
 	const VkDescriptorSet& get_low_freq_descriptor_set() const { return global_descriptor_set; }
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
+	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
+	// using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 		
 	void allocate_rasterization_dsets();
 	void allocate_raytracing_dsets();

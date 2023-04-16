@@ -38,10 +38,6 @@ public:
 	VkBuffer index_buffer;
 	VkDeviceMemory index_buffer_memory;
 
-	// as opposed to vertex_buffers we expect to change uniform buffer every frame
-	VkBuffer uniform_buffer;
-	VkDeviceMemory uniform_buffer_memory;
-
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
 	uint32_t get_num_primitives() const;

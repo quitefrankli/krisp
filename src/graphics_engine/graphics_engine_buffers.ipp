@@ -46,53 +46,6 @@ void GraphicsEngine<GameEngineT>::create_buffer(size_t size,
 }
 
 template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::create_object_buffers(GraphicsEngineObject<GraphicsEngine>& object)
-{
-	GraphicsBuffer vertex_buffer = create_buffer_from_data(
-		nullptr,
-		object.get_num_unique_vertices() * sizeof(Vertex),
-		// transfer dst means that the buffer can be used as a destination for transfer operations
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		// device local here means it basically lives on the graphics card hence we can't map it,
-		// but it's alot faster than using COHERENT buffer
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		[&object](void* data) {
-			size_t offset = 0;
-			for (const auto& shape : object.get_shapes())
-			{
-				size_t size = shape.vertices.size() * sizeof(typename decltype(shape.vertices)::value_type);
-				memcpy((char*)data + offset, shape.vertices.data(), size);
-				offset += size;
-			}
-		}
-	);
-
-	GraphicsBuffer index_buffer = create_buffer_from_data(
-		nullptr,
-		object.get_num_vertex_indices() * sizeof(uint32_t),
-		// transfer dst means that the buffer can be used as a destination for transfer operations
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-		// device local here means it basically lives on the graphics card hence we can't map it,
-		// but it's alot faster than using COHERENT buffer
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		[&](void* data) {
-			size_t offset = 0;
-			for (const auto& shape : object.get_shapes())
-			{
-				size_t size = shape.indices.size() * sizeof(typename decltype(shape.indices)::value_type);
-				memcpy((char*)data + offset, shape.indices.data(), size);
-				offset += size;
-			}
-		}
-	);
-
-	object.vertex_buffer = vertex_buffer.buffer;
-	object.vertex_buffer_memory = vertex_buffer.memory;
-	object.index_buffer = index_buffer.buffer;
-	object.index_buffer_memory = index_buffer.memory;
-}
-
-template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
 {
 	// memory transfer operations are executed using command buffers

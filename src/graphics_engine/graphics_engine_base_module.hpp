@@ -6,6 +6,9 @@
 
 
 template<typename GraphicsEngineT>
+class GraphicsResourceManager;
+
+template<typename GraphicsEngineT>
 class GraphicsEngineBaseModule
 {
 public:
@@ -23,6 +26,7 @@ public:
 	virtual VkDevice& get_logical_device();
 	virtual VkPhysicalDevice& get_physical_device();
 	virtual VkInstance& get_instance();
+	GraphicsResourceManager<GraphicsEngineT>& get_rsrc_mgr();
 	virtual void create_buffer(size_t size, 
 							   VkBufferUsageFlags usage_flags, 
 							   VkMemoryPropertyFlags memory_flags, 

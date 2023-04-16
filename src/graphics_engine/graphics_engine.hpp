@@ -5,7 +5,7 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
-#include "graphics_resource_manager.hpp"
+#include "resource_manager/graphics_resource_manager.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
 #include "graphics_engine_texture_manager.hpp"
@@ -111,7 +111,6 @@ public: // command buffer
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
-	void create_object_buffers(GraphicsEngineObject<GraphicsEngine>& object);
 	void create_buffer(size_t size, 
 					   VkBufferUsageFlags usage_flags, 
 					   VkMemoryPropertyFlags memory_flags, 

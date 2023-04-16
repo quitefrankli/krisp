@@ -2,16 +2,16 @@
 
 #include "graphics_resource_manager.hpp"
 
-#include "graphics_engine.hpp"
-#include "queues.hpp"
-#include "uniform_buffer_object.hpp"
+#include "graphics_engine/graphics_engine.hpp"
+#include "graphics_engine/queues.hpp"
+#include "graphics_engine/uniform_buffer_object.hpp"
 
 #include <fmt/core.h>
 
 
 template<typename GraphicsEngineT>
 GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+	GraphicsBufferManager(engine)
 {
 	static_assert(
 		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
@@ -22,11 +22,12 @@ GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngine
 	create_descriptor_pool();
 
 	// global uniform buffer
-	create_buffer(sizeof(GlobalUniformBufferObject),
-				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  global_uniform_buffer,
-				  global_uniform_buffer_memory);
+	get_graphics_engine().create_buffer(
+		sizeof(GlobalUniformBufferObject),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		global_uniform_buffer,
+		global_uniform_buffer_memory);
 
 	allocate_rasterization_dsets();
 	allocate_raytracing_dsets();

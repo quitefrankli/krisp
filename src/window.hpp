@@ -14,18 +14,19 @@ namespace App {
 	class Window
 	{
 	public:
-		Window(int x0, int y0);
+		Window() = default;
 		~Window();
 
-		void setup_callbacks(IWindowCallbacks& callbacks);
-		void poll_events();
-		bool should_close();
+		virtual void open(int x0, int y0);
+		virtual void setup_callbacks(IWindowCallbacks& callbacks);
+		virtual void poll_events();
+		virtual bool should_close();
 		int get_width();
 		int get_height();
 
 		// returns position of cursor relative to window [-1:1]
 		// top left corner = {x:-1, y:1}
-		glm::vec2 get_cursor_pos();
+		virtual glm::vec2 get_cursor_pos();
 
 		GLFWwindow* get_glfw_window() { return window; }
 

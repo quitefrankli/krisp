@@ -582,7 +582,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 
 	const auto align_up = [](uint32_t val, uint32_t alignment) -> uint32_t
 	{
-		return uint32_t((val + (uint32_t(alignment) - 1)) & ~uint32_t(alignment - 1));
+		return (val + alignment - 1) & ~(alignment - 1);
 	};
 
 	// sets the following strides and sizes for each group
