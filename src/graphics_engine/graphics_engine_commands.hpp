@@ -63,6 +63,8 @@ struct UpdateCommandBufferCmd : public GraphicsEngineCommand
 	virtual void process(GraphicsEngineBase* engine) override;
 };
 
+// DEPRECATED, no longer necessary, acceleration structures are automatically
+// rebuilt on rtx toggle
 struct UpdateRayTracingCmd : public GraphicsEngineCommand
 {
 	virtual void process(GraphicsEngineBase* engine) override;

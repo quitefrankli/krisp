@@ -94,7 +94,7 @@ void GraphicsEngine<GameEngineT>::handle_command(UpdateCommandBufferCmd& cmd)
 template<typename GameEngineT>
 inline void GraphicsEngine<GameEngineT>::handle_command(UpdateRayTracingCmd& cmd)
 {
-	ray_tracing.update_acceleration_structures();
+	raytracing_component.update_acceleration_structures();
 	static_cast<RaytracingRenderer<GraphicsEngine>&>(
 		renderer_mgr.get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
 }

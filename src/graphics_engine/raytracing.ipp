@@ -3,6 +3,7 @@
 #include "raytracing.hpp"
 #include "vertex.hpp"
 #include "utility.hpp"
+#include "graphics_engine/renderers/renderers.hpp"
 
 #include <quill/Quill.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -87,6 +88,31 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas2()
 		tlas_instances,
 		VK_BUILD_ACCELERATION_STRUCTURE_ALLOW_UPDATE_BIT_KHR | VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_BUILD_BIT_KHR, 
 		true);
+}
+
+template<typename GraphicsEngineT>
+void GraphicsEngineRayTracing<GraphicsEngineT>::process()
+{
+	if (!is_enabled())
+	{
+		previous_is_enabled_state = false;
+		return;
+	}
+
+	// toggle on detected
+	if (!previous_is_enabled_state)
+	{
+		previous_is_enabled_state = true;
+		update_acceleration_structures();
+		static_cast<RaytracingRenderer<GraphicsEngineT>&>(get_graphics_engine().get_renderer_mgr().
+			get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
+	}
+}
+
+template<typename GraphicsEngineT>
+bool GraphicsEngineRayTracing<GraphicsEngineT>::is_enabled()
+{
+	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on;
 }
 
 template<typename GraphicsEngineT>

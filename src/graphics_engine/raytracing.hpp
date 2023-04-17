@@ -56,6 +56,10 @@ public:
 	void update_tlas2();
 	VkAccelerationStructureKHR get_tlas() const { return top_as.accel; }
 
+	void process();
+
+	bool is_enabled();
+
 public:
 	// sbt = shader binding table
 	GraphicsBuffer sbt_buffer;
@@ -120,6 +124,9 @@ private:
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
 	std::vector<VkAccelerationStructureInstanceKHR> tlas_instances;
+
+	// to check if raytracing got toggled on
+	bool previous_is_enabled_state = false;
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

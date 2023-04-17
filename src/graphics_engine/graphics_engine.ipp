@@ -34,7 +34,7 @@ GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) :
 	renderer_mgr(*this),
 	swap_chain(*this),
 	pipeline_mgr(*this),
-	ray_tracing(*this),
+	raytracing_component(*this),
 	gui_manager(*this)
 {
 	FPS_tracker = std::make_unique<Analytics>(
@@ -114,6 +114,8 @@ void GraphicsEngine<GameEngineT>::run() {
 			ge_cmd_q_mutex.unlock();
 
 			gui_manager.draw();
+
+			raytracing_component.process();
 
 			swap_chain.draw();
 

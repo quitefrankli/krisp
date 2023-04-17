@@ -69,9 +69,6 @@ public:
 	// manually triggered
 	void process()
 	{
-		engine.get_graphics_engine().enqueue_cmd(
-			std::make_unique<UpdateRayTracingCmd>()
-		);
 	}
 
 	// game engine triggers this periodically
