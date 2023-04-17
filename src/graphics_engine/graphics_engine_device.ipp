@@ -48,7 +48,9 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 		VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-		
+
+		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineDevice: checking device:={}", deviceProperties.deviceName);
+
 		if (!check_device_extension_support(device))
 		{
 			return false;
@@ -89,29 +91,40 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 template<typename GraphicsEngineT>
 bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhysicalDevice device)
 {
-	uint32_t extensionCount;
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-	std::set<std::string_view> required_extensions(required_device_extensions.begin(), required_device_extensions.end());
-
-	std::string all_extensions_str;
-	all_extensions_str.reserve(availableExtensions.size() * 20);
-	for (const auto& extension : availableExtensions)
+	const auto available_extensions = [&]()
 	{
-		required_extensions.erase(std::string_view{extension.extensionName});
-		if (!all_extensions_str.empty())
-		{
-			all_extensions_str += ", ";
-		}
-		all_extensions_str += extension.extensionName;
-	}
+		uint32_t extensionCount;
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
-	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineDevice: found physical device extensions: {}", all_extensions_str);
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+		std::vector<std::string> retval;
+		std::transform(availableExtensions.begin(), availableExtensions.end(), std::back_inserter(retval), [](const auto& extension)
+		{
+			return extension.extensionName;
+		});
+
+		return retval;
+	}();
+
+	auto required_extensions_set = [&]()
+	{
+		const auto required_device_extensions = get_required_extensions();
+		std::set<std::string_view> required_extensions(required_device_extensions.begin(), required_device_extensions.end());
+		return required_extensions;
+	}();
+
+	std::for_each(available_extensions.begin(), available_extensions.end(), [&required_extensions_set](const auto& extension)
+	{
+		required_extensions_set.erase(extension.data());
+	});
+
+	LOG_INFO(Utility::get().get_logger(), 
+			 "GraphicsEngineDevice: found physical device extensions: {}", 
+			 fmt::format("{}", fmt::join(available_extensions, ", ")));
 	
-	return required_extensions.empty();
+	return required_extensions_set.empty();
 }
 
 template<typename GraphicsEngineT>
@@ -136,33 +149,13 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 		queue_create_infos.push_back(queue_create_info);
 	}
 
-	VkDeviceCreateInfo create_info{};
-	create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	VkDeviceCreateInfo create_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	create_info.pQueueCreateInfos = queue_create_infos.data();
 	create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
+	const auto required_device_extensions = get_required_extensions();
 	create_info.enabledExtensionCount = static_cast<uint32_t>(required_device_extensions.size());
 	create_info.ppEnabledExtensionNames = required_device_extensions.data();
-
-	VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
-	acceleration_structure_features.accelerationStructure = true;
-	VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
-	ray_tracing_pipeline_features.rayTracingPipeline = true;
-
-	// special features, we request
-	VkPhysicalDeviceFeatures2 device_features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-	device_features2.features.samplerAnisotropy = true;
-	device_features2.features.fillModeNonSolid = true;
-
-	VkPhysicalDeviceVulkan12Features device_features12{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-	device_features12.bufferDeviceAddress = true;
-
-	// link up the structs to create a chain of features
-	create_info.pNext = &device_features2;
-	device_features2.pNext = &device_features12;
-	device_features12.pNext = &acceleration_structure_features;
-	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+	create_info.pNext = get_required_features();
 
 	if (vkCreateDevice(physicalDevice, &create_info, nullptr, &logical_device) != VK_SUCCESS)
 	{
@@ -207,6 +200,58 @@ inline VkDeviceAddress GraphicsEngineDevice<GraphicsEngineT>::get_buffer_device_
 	VkBufferDeviceAddressInfo info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
 	info.buffer = buffer;
 	return vkGetBufferDeviceAddress(get_logical_device(), &info);
+}
+
+template<typename GraphicsEngineT>
+std::vector<const char*> GraphicsEngineDevice<GraphicsEngineT>::get_required_extensions()
+{
+	std::vector<const char*> required_device_extensions;
+
+#ifdef __APPLE__
+	required_device_extensions.push_back((const char*)(VK_KHR_SWAPCHAIN_EXTENSION_NAME));
+	required_device_extensions.push_back((const char*)(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)); 
+#else
+	required_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	required_device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+	required_device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+	required_device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
+#endif
+
+#ifndef NDEBUG
+	// TODO: enable if want shader printf
+	// required_device_extensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
+#endif
+
+	return required_device_extensions;
+}
+
+template<typename GraphicsEngineT>
+constexpr VkPhysicalDeviceFeatures2* GraphicsEngineDevice<GraphicsEngineT>::get_required_features()
+{
+
+	static VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
+	acceleration_structure_features.accelerationStructure = true;
+
+	static VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
+	ray_tracing_pipeline_features.rayTracingPipeline = true;
+
+	// special features, we request
+	static VkPhysicalDeviceFeatures2 device_features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	device_features2.features.samplerAnisotropy = true;
+	device_features2.features.fillModeNonSolid = true;
+
+	static VkPhysicalDeviceVulkan12Features device_features12{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+	device_features12.bufferDeviceAddress = true;
+
+	// link up the structs to create a chain of features
+	device_features2.pNext = &device_features12;
+	device_features12.pNext = &acceleration_structure_features;
+	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
+
+	return &device_features2;
 }
 
 template<typename GraphicsEngineT>

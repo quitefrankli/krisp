@@ -11,8 +11,7 @@ template<typename GraphicsEngineT>
 GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT& engine) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
-	VkApplicationInfo app_info{};
-	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+	VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
 	app_info.pApplicationName = APPLICATION_NAME.c_str();
 	app_info.applicationVersion = VK_MAKE_VERSION(1, 3, 211); // i think this is application specific, so might not be necessary
 	app_info.pEngineName = ENGINE_NAME.c_str();
@@ -31,20 +30,37 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = GraphicsEngineValidationLayer<GraphicsEngineT>::get_messenger_create_info();
 	create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 
-	uint32_t extensionCount = 0;
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
-	std::vector<VkExtensionProperties> extensions(extensionCount);
-	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-	for (const auto& extension : extensions) {
-		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineInstance: available extension: {}", extension.extensionName);
-	}
+#ifndef NDEBUG
+	// TODO: enable if want shader debug printf
+	// std::vector<VkValidationFeatureEnableEXT> enables = {VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
+	// VkValidationFeaturesEXT features{VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT};
+	// features.enabledValidationFeatureCount = enables.size();
+	// features.pEnabledValidationFeatures = enables.data();
+	// debugCreateInfo.pNext = &features;
+#endif
+
+	const auto available_instance_extensions = [&]() {
+		uint32_t extensionCount = 0;
+		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
+		std::vector<VkExtensionProperties> extensions(extensionCount);
+		vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
+		std::vector<std::string> extensions_str;
+		for (const auto& extension : extensions) {
+			extensions_str.push_back(extension.extensionName);
+		}
+		return extensions_str;
+	}();
+
+	LOG_INFO(Utility::get().get_logger(), 
+			 "GraphicsEngineInstance: available extensions:={}", 
+			 fmt::format("{}", fmt::join(available_instance_extensions, ", ")));
 
 	// vulkan is platform agnostic and therefore an extension is necessary 
 	std::vector<std::string> required_extensions = get_required_extensions();
-	for (auto& required_extension : required_extensions)
-	{
-		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineInstance: required extension: {}", required_extension);
-	}
+	LOG_INFO(Utility::get().get_logger(), 
+			 "GraphicsEngineInstance: required extensions:={}", 
+			 fmt::format("{}", fmt::join(required_extensions, ", ")));
+
 	auto required_extensions_old = c_style_str_array(required_extensions);
 	create_info.enabledExtensionCount = required_extensions_old.size();
 	create_info.ppEnabledExtensionNames = required_extensions_old.data();

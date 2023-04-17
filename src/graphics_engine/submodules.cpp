@@ -6,6 +6,7 @@
 #include "graphics_engine_swap_chain.ipp"
 #include "graphics_engine_texture.ipp"
 #include "graphics_engine_validation_layer.ipp"
+#include "graphics_engine_instance.ipp"
 #include "raytracing.ipp"
 
 #include "game_engine.hpp"
@@ -25,3 +26,4 @@ template class GraphicsEngineSwapChain<GraphicsEngineT>;
 template class GraphicsEngineTexture<GraphicsEngineT>;
 template class GraphicsEngineValidationLayer<GraphicsEngineT>;
 template class GraphicsEngineRayTracing<GraphicsEngineT>;
+template class GraphicsEngineInstance<GraphicsEngineT>;

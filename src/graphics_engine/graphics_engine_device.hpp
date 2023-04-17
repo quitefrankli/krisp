@@ -40,19 +40,11 @@ private:
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
 
-#ifdef __APPLE__
-	static constexpr std::array<const char*, 2> required_device_extensions{{ 
-		(const char*)(VK_KHR_SWAPCHAIN_EXTENSION_NAME), 
-		(const char*)(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
-	}};
-#else
-	static constexpr std::array<const char*, 4> required_device_extensions = { 
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
-	};
-#endif
+	static std::vector<const char*> get_required_extensions();
+
+	// returns vulkan style linked list of features
+	static constexpr VkPhysicalDeviceFeatures2* get_required_features();
+
 	void pick_physical_device();
 	void create_logical_device();
 	bool check_device_extension_support(VkPhysicalDevice device);
