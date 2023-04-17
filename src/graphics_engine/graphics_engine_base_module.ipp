@@ -30,17 +30,23 @@ VkInstance& GraphicsEngineBaseModule<GraphicsEngineT>::get_instance()
 template<typename GraphicsEngineT>
 GraphicsResourceManager<GraphicsEngineT>& GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr()
 {
-	return graphics_engine.get_graphics_resource_manager();
+	return graphics_engine.get_rsrc_mgr();
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer(size_t size, 
-											 VkBufferUsageFlags usage_flags, 
-											 VkMemoryPropertyFlags memory_flags, 
-											 VkBuffer& buffer, 
-											 VkDeviceMemory& device_memory)
+GraphicsBuffer GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer(
+	size_t size, 
+	VkBufferUsageFlags usage_flags, 
+	VkMemoryPropertyFlags memory_flags)
 {
-	graphics_engine.create_buffer(size, usage_flags, memory_flags, buffer, device_memory);
+	return graphics_engine.get_rsrc_mgr().create_buffer(size, usage_flags, memory_flags);
+}
+
+template<typename GraphicsEngineT>
+VkDeviceAddress GraphicsEngineBaseModule<GraphicsEngineT>::get_buffer_device_address(
+	const GraphicsBuffer& buffer)
+{
+	return graphics_engine.get_device_module().get_buffer_device_address(buffer.get_buffer());
 }
 
 template<typename GraphicsEngineT>

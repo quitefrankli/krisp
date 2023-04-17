@@ -3,7 +3,7 @@
 #include <cstddef>
 
 
-GraphicsBufferV2::GraphicsBufferV2(VkBuffer buffer, VkDeviceMemory memory, uint32_t capacity, uint32_t alignment) :
+GraphicsBuffer::GraphicsBuffer(VkBuffer buffer, VkDeviceMemory memory, uint32_t capacity, uint32_t alignment) :
 	buffer(buffer),
 	memory(memory),
 	capacity(capacity),
@@ -16,7 +16,7 @@ GraphicsBufferV2::GraphicsBufferV2(VkBuffer buffer, VkDeviceMemory memory, uint3
 	free_slots[slot.offset] = slot;
 }
 
-GraphicsBufferV2::GraphicsBufferV2(GraphicsBufferV2&& other) noexcept :
+GraphicsBuffer::GraphicsBuffer(GraphicsBuffer&& other) noexcept :
 	buffer(other.buffer),
 	memory(other.memory),
 	capacity(other.capacity),
@@ -28,7 +28,7 @@ GraphicsBufferV2::GraphicsBufferV2(GraphicsBufferV2&& other) noexcept :
 	other.memory = nullptr;
 }
 
-GraphicsBufferV2::~GraphicsBufferV2()
+GraphicsBuffer::~GraphicsBuffer()
 {
 	if (buffer || memory)
 	{
@@ -36,7 +36,7 @@ GraphicsBufferV2::~GraphicsBufferV2()
 	}
 }
 
-void GraphicsBufferV2::destroy_buffer(VkDevice device)
+void GraphicsBuffer::destroy(VkDevice device)
 {
 	if (buffer)
 	{
@@ -51,7 +51,7 @@ void GraphicsBufferV2::destroy_buffer(VkDevice device)
 	memory = nullptr;
 }
 
-void GraphicsBufferV2::free_slot(uint32_t slot_id)
+void GraphicsBuffer::free_slot(uint32_t slot_id)
 {
 	auto it = filled_slots.find(slot_id);
 	if (it == filled_slots.end())
@@ -106,7 +106,7 @@ void GraphicsBufferV2::free_slot(uint32_t slot_id)
 	free_slots[slot.offset] = slot;
 }
 
-GraphicsBufferV2::offset_t GraphicsBufferV2::reserve_slot(uint32_t id, uint32_t size)
+GraphicsBuffer::offset_t GraphicsBuffer::reserve_slot(uint32_t id, uint32_t size)
 {
 	if (filled_slots.find(id) != filled_slots.end())
 	{
@@ -149,7 +149,7 @@ GraphicsBufferV2::offset_t GraphicsBufferV2::reserve_slot(uint32_t id, uint32_t 
 	return slot.offset;
 }
 
-GraphicsBufferV2::offset_t GraphicsBufferV2::get_offset(uint32_t id) const
+GraphicsBuffer::offset_t GraphicsBuffer::get_offset(uint32_t id) const
 {
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
@@ -160,7 +160,7 @@ GraphicsBufferV2::offset_t GraphicsBufferV2::get_offset(uint32_t id) const
 	return it->second.offset;
 }
 
-GraphicsBufferV2::Slot GraphicsBufferV2::get_slot(uint32_t id) const
+GraphicsBuffer::Slot GraphicsBuffer::get_slot(uint32_t id) const
 {
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
@@ -171,7 +171,7 @@ GraphicsBufferV2::Slot GraphicsBufferV2::get_slot(uint32_t id) const
 	return it->second;
 }
 
-std::byte* GraphicsBufferV2::map_slot(uint32_t id, VkDevice device)
+std::byte* GraphicsBuffer::map_slot(uint32_t id, VkDevice device)
 {
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
@@ -194,7 +194,7 @@ std::byte* GraphicsBufferV2::map_slot(uint32_t id, VkDevice device)
 	return mapped_memory;
 }
 
-void GraphicsBufferV2::unmap_slot(VkDevice device)
+void GraphicsBuffer::unmap_slot(VkDevice device)
 {
 	vkUnmapMemory(device, memory);
 }

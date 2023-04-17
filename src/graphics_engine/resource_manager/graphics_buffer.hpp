@@ -6,17 +6,17 @@
 #include <map>
 
 
-class GraphicsBufferV2
+class GraphicsBuffer
 {
 public:
 	using offset_t = uint32_t;
 
-	GraphicsBufferV2(VkBuffer buffer, VkDeviceMemory memory, uint32_t capacity, uint32_t alignment = 1);
-	GraphicsBufferV2(const GraphicsBufferV2&) = delete;
-	GraphicsBufferV2(GraphicsBufferV2&& other) noexcept;
-	~GraphicsBufferV2();
+	GraphicsBuffer(VkBuffer buffer, VkDeviceMemory memory, uint32_t capacity, uint32_t alignment = 1);
+	GraphicsBuffer(const GraphicsBuffer&) = delete;
+	GraphicsBuffer(GraphicsBuffer&& other) noexcept;
+	~GraphicsBuffer();
 
-	void destroy_buffer(VkDevice device);
+	void destroy(VkDevice device);
 
 	// potential slots for different objects etc.
 	struct Slot
@@ -55,15 +55,15 @@ private:
 class AppendOnlyGraphicsBuffer
 {
 public:
-	AppendOnlyGraphicsBuffer(GraphicsBufferV2&& buffer, uint32_t slot_size) :
+	AppendOnlyGraphicsBuffer(GraphicsBuffer&& buffer, uint32_t slot_size) :
 		buffer(std::move(buffer)),
 		slot_size(slot_size)
 	{
 	}
 
-	void destroy_buffer(VkDevice device)
+	void destroy(VkDevice device)
 	{
-		buffer.destroy_buffer(device);
+		buffer.destroy(device);
 	}
 
 	uint32_t get_slot_offset(uint32_t slot_num) const { return slot_num * slot_size; }
@@ -74,5 +74,5 @@ public:
 private:
 	const uint32_t slot_size;
 
-	GraphicsBufferV2 buffer;
+	GraphicsBuffer buffer;
 };

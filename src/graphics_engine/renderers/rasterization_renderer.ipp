@@ -99,9 +99,9 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							// lets assume that global descriptor objects only use the STANDARD pipeline
 							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
-							get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RASTERIZATION_LOW_FREQ,
+							get_rsrc_mgr().DSET_OFFSETS.RASTERIZATION_LOW_FREQ,
 							1,
-							&get_graphics_engine().get_graphics_resource_manager().get_low_freq_dset(),
+							&get_rsrc_mgr().get_low_freq_dset(),
 							0,
 							nullptr);
 
@@ -141,7 +141,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 			vkCmdBindDescriptorSets(command_buffer, 
 									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
 									pipeline.pipeline_layout, 
-									get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RASTERIZATION_HIGH_FREQ, // offset
+									get_rsrc_mgr().DSET_OFFSETS.RASTERIZATION_HIGH_FREQ, // offset
 									1, // number of sets to bind
 									&object.descriptor_sets[vertex_set_index],
 									0,

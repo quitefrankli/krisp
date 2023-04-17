@@ -27,9 +27,6 @@ public:
 	VkCommandPool& get_command_pool() { return command_pool; }
 	VkDescriptorPool descriptor_pool;
 
-	VkBuffer global_uniform_buffer;
-	VkDeviceMemory global_uniform_buffer_memory;
-
 	VkCommandBuffer create_command_buffer();
 
 	RaytracingResources& get_raytracing_resources() { return ray_tracing_resources; }
@@ -93,7 +90,6 @@ private:
 		std::queue<VkDescriptorSet>& queue, std::vector<VkDescriptorSet>& sets);
 
 	VkCommandPool command_pool;
-
 	VkDescriptorSet global_descriptor_set;
 	VkDescriptorSet mesh_data_descriptor_set;
 	std::queue<VkDescriptorSet> available_high_freq_dsets;

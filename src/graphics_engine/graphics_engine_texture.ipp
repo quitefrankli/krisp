@@ -72,19 +72,15 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_image(std::string te
 		throw std::runtime_error(std::string("failed to load texture image! ") + texture_path);
 	}
 
-	VkBuffer staging_buffer;
-	VkDeviceMemory staging_buffer_memory;
-
-	get_graphics_engine().create_buffer(size, 
-				  VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-				  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-				  staging_buffer,
-				  staging_buffer_memory);
+	GraphicsBuffer staging_buffer = create_buffer(
+		size, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	void* data;
-	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, size, 0, &data);
+	vkMapMemory(get_logical_device(), staging_buffer.get_memory(), 0, size, 0, &data);
 	memcpy(data, pixels.get(), static_cast<size_t>(size));
-	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
+	vkUnmapMemory(get_logical_device(), staging_buffer.get_memory());
 
 	get_graphics_engine().create_image(width, 
 				 height, 
@@ -98,13 +94,12 @@ void GraphicsEngineTexture<GraphicsEngineT>::create_texture_image(std::string te
 	// copy the staging buffer to the texture image,
 	// undefined image layout works because we don't care about the contents before performing copy
 	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copy_buffer_to_image(staging_buffer, texture_image, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+	copy_buffer_to_image(staging_buffer.get_buffer(), texture_image, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 
 	// transition one more time for shader access
 	transition_image_layout(texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
+	staging_buffer.destroy(get_logical_device());
 
 	LOG_INFO(Utility::get().get_logger(), 
 			 "GraphicsEngineTexture::create_texture_image: created texture from:={}", 

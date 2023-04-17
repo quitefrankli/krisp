@@ -62,7 +62,6 @@ public:
 
 public:
 	// sbt = shader binding table
-	GraphicsBuffer sbt_buffer;
 	VkStridedDeviceAddressRegionKHR raygen_sbt_region{};
 	VkStridedDeviceAddressRegionKHR raymiss_sbt_region{};
 	VkStridedDeviceAddressRegionKHR rayhit_sbt_region{};
@@ -96,11 +95,10 @@ private:
 		std::vector<BuildAccelerationStructure>& build_as,
 		VkQueryPool query_pool);
 
-	void cmd_create_tlas(
+	GraphicsBuffer cmd_create_tlas(
 		VkCommandBuffer cmd_buf,
 		uint32_t nInstances,
 		VkDeviceAddress inst_buffer_addr,
-		GraphicsBuffer& scratch_buffer,
 		VkBuildAccelerationStructureFlagsKHR flags,
 		bool update);
 
@@ -121,6 +119,8 @@ private:
 	void destroy_as(AccelerationStructure& as);
 
 private:
+	// sbt = shader binding table
+	std::unique_ptr<GraphicsBuffer> sbt_buffer;
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
 	std::vector<VkAccelerationStructureInstanceKHR> tlas_instances;

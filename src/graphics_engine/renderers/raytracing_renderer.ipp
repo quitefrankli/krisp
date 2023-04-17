@@ -22,7 +22,7 @@ inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
 	{
 		depth_attachment.destroy(get_logical_device());
 	}
-	get_graphics_engine().get_graphics_resource_manager().free_high_frequency_dsets(rt_dsets);
+	get_rsrc_mgr().free_high_frequency_dsets(rt_dsets);
 }
 
 template<typename GraphicsEngineT>
@@ -181,7 +181,7 @@ void RaytracingRenderer<GraphicsEngineT>::update_rt_dsets()
 {
 	// technically we don't really need to "free" up the descriptor sets
 	// but it's a little less code to just do it this way
-	get_graphics_engine().get_graphics_resource_manager().free_raytracing_dsets(rt_dsets);
+	get_rsrc_mgr().free_raytracing_dsets(rt_dsets);
 	rt_dsets.clear();
 	for (int i = 0; i < color_attachments.size(); i++)
 	{
@@ -275,8 +275,8 @@ template<typename GraphicsEngineT>
 VkDescriptorSet RaytracingRenderer<GraphicsEngineT>::create_rt_dset(VkImageView rt_image_view)
 {
 	RaytracingResources& ray_tracing_resources = 
-		get_graphics_engine().get_graphics_resource_manager().get_raytracing_resources();
-	auto rt_dset = get_graphics_engine().get_graphics_resource_manager().reserve_raytracing_dsets(1)[0];
+		get_rsrc_mgr().get_raytracing_resources();
+	auto rt_dset = get_rsrc_mgr().reserve_raytracing_dsets(1)[0];
 
 	VkAccelerationStructureKHR tlas = get_graphics_engine().get_raytracing_module().get_tlas();
 	VkWriteDescriptorSetAccelerationStructureKHR descASInfo{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};

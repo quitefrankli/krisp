@@ -33,6 +33,9 @@ public:
 	VkBuffer get_index_buffer() const { return index_buffer.get_buffer(); }
 	VkBuffer get_uniform_buffer() const { return uniform_buffer.get_buffer(); }
 	VkBuffer get_mapping_buffer() const { return mapping_buffer.get_buffer(); }
+	VkBuffer get_global_uniform_buffer() const { return global_uniform_buffer.get_buffer(); }
+
+	VkDeviceMemory get_global_uniform_buffer_memory() const { return global_uniform_buffer.get_memory(); }
 
 	void write_to_vertex_buffer(const std::vector<Vertex>& vertices, uint32_t id);
 	void write_to_index_buffer(const std::vector<uint32_t>& indices, uint32_t id);
@@ -43,26 +46,35 @@ public:
 	void write_to_mapping_buffer(const std::vector<BufferMapEntry>& entries, uint32_t id);
 	void write_to_mapping_buffer(const BufferMapEntry& entry, uint32_t id);
 
-	GraphicsBufferV2 create_buffer(
+	GraphicsBuffer create_buffer(
 		size_t size, 
 		VkBufferUsageFlags usage_flags, 
 		VkMemoryPropertyFlags memory_flags,
 		uint32_t alignment = 1);
 
-protected:
-	// in bytes
-	const size_t VERTEX_BUFFER_CAPACITY = sizeof(Vertex) * 2e5;
-	const size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
-	const size_t UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject) * 1e3;
-	const size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * 1e3;
+	// Deprecated dont use this
+	void create_buffer(
+		size_t size,
+		VkBufferUsageFlags usage_flags,
+		VkMemoryPropertyFlags memory_flags,
+		VkBuffer& buffer,
+		VkDeviceMemory& buffer_memory);
 
-private:
 	void stage_data_to_buffer(
 		VkBuffer destination_buffer,
 		const uint32_t destination_buffer_offset,
 		const uint32_t size,
 		const std::function<void(std::byte*)>& write_function);
 
+protected:
+	// in bytes
+	const size_t VERTEX_BUFFER_CAPACITY = sizeof(Vertex) * 2e5;
+	const size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
+	const size_t UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject) * 1e3;
+	const size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject);
+	const size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * 1e3;
+
+private:
 	const VkBufferUsageFlags VERTEX_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | 
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -70,17 +82,20 @@ private:
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	const VkBufferUsageFlags UNIFORM_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	const VkBufferUsageFlags GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
 	const VkBufferUsageFlags MAPPING_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
 	const VkMemoryPropertyFlags VERTEX_BUFFER_MEMORY_FLAGS = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	const VkMemoryPropertyFlags INDEX_BUFFER_MEMORY_FLAGS = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	const VkMemoryPropertyFlags UNIFORM_BUFFER_MEMORY_FLAGS = 
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+	const VkMemoryPropertyFlags GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS = UNIFORM_BUFFER_MEMORY_FLAGS;
 	const VkMemoryPropertyFlags MAPPING_BUFFER_MEMORY_FLAGS = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-	GraphicsBufferV2 vertex_buffer;
-	GraphicsBufferV2 index_buffer;
-	GraphicsBufferV2 uniform_buffer;
+	GraphicsBuffer vertex_buffer;
+	GraphicsBuffer index_buffer;
+	GraphicsBuffer uniform_buffer;
+	GraphicsBuffer global_uniform_buffer;
 	// maps object id to starting offset in the vertex, index and uniform buffers
 	// unlike the other buffers, entries in this buffer never gets removed
 	AppendOnlyGraphicsBuffer mapping_buffer;

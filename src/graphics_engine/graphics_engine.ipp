@@ -30,7 +30,7 @@ GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) :
 	validation_layer(*this),
 	device(*this),
 	texture_mgr(*this),
-	pool(*this),
+	rsrc_mgr(*this),
 	renderer_mgr(*this),
 	swap_chain(*this),
 	pipeline_mgr(*this),
@@ -179,7 +179,7 @@ void GraphicsEngine<GameEngineT>::enqueue_cmd(std::unique_ptr<GraphicsEngineComm
 template<typename GameEngineT>
 VkCommandBuffer GraphicsEngine<GameEngineT>::begin_single_time_commands()
 {
-	VkCommandBuffer commandBuffer = get_graphics_resource_manager().create_command_buffer();
+	VkCommandBuffer commandBuffer = get_rsrc_mgr().create_command_buffer();
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;

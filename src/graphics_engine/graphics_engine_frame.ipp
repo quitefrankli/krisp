@@ -37,7 +37,7 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
 	}
 
 	create_synchronisation_objects();
-	command_buffer = get_graphics_engine().get_graphics_resource_manager().create_command_buffer();
+	command_buffer = get_rsrc_mgr().create_command_buffer();
 
 	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
@@ -89,7 +89,7 @@ template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object)
 {
 	auto& engine = get_graphics_engine();
-	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_graphics_resource_manager().reserve_high_frequency_dsets(object.get_shapes().size());
+	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_rsrc_mgr().reserve_high_frequency_dsets(object.get_shapes().size());
 	assert(new_descriptor_sets.size() == object.get_shapes().size());
 
 	for (int vertex_set_index = 0; vertex_set_index < object.get_shapes().size(); vertex_set_index++)
@@ -324,9 +324,9 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	gubo.lighting = graphic_settings.light_strength;
 
 	void* data;
-	vkMapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
+	vkMapMemory(get_logical_device(), get_rsrc_mgr().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
 	memcpy(data, &gubo, sizeof(gubo));
-	vkUnmapMemory(get_logical_device(), get_graphics_engine().get_global_uniform_buffer_memory());
+	vkUnmapMemory(get_logical_device(), get_rsrc_mgr().get_global_uniform_buffer_memory());
 
 	// update per object uniforms
 	UniformBufferObject default_ubo{};

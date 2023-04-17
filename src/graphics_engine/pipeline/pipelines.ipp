@@ -98,7 +98,7 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	shader_groups.push_back(rt_shader_group_info);
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	const auto descriptor_set_layouts = get_graphics_engine().get_graphics_resource_manager().get_raytracing_descriptor_set_layouts();
+	const auto descriptor_set_layouts = get_rsrc_mgr().get_raytracing_descriptor_set_layouts();
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional

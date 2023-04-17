@@ -35,9 +35,7 @@ GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 template<typename GraphicsEngineT>
 GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
 {
-	VkDevice device = get_logical_device();
-	vkDestroyBuffer(device, sbt_buffer.buffer, nullptr);
-	vkFreeMemory(device, sbt_buffer.memory, nullptr);
+	sbt_buffer->destroy(get_logical_device());
 
 	for (auto& as : bottom_as)
 	{
@@ -240,11 +238,11 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 
 	// Allocate the scratch buffers holding the temporary data of the acceleration structure builder
 	// TODO: track these and ddestroy them
-	GraphicsBuffer scratch_buffer = get_graphics_engine().create_buffer(
+	GraphicsBuffer scratch_buffer = create_buffer(
 		maxScratchSize, 
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkDeviceAddress scratchAddress = get_graphics_engine().get_device_module().get_buffer_device_address(scratch_buffer.buffer);
+	VkDeviceAddress scratchAddress = get_buffer_device_address(scratch_buffer);
 
 	// Allocate a query pool for storing the needed size for every BLAS compaction.
 	VkQueryPool queryPool{VK_NULL_HANDLE};
@@ -308,9 +306,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 
 	// Clean up
 	vkDestroyQueryPool(get_logical_device(), queryPool, nullptr);
-	vkDestroyBuffer(get_logical_device(), scratch_buffer.buffer, nullptr);
-	vkFreeMemory(get_logical_device(), scratch_buffer.memory, nullptr);
-	// TODO: use RAII to destroy device memory as well
+	scratch_buffer.destroy(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
@@ -449,11 +445,10 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_compact_blas(VkCommandBuffer
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
+GraphicsBuffer GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
 	VkCommandBuffer cmd_buf,
 	uint32_t nInstances,
 	VkDeviceAddress inst_buffer_addr,
-	GraphicsBuffer& scratch_buffer,
 	VkBuildAccelerationStructureFlagsKHR flags,
 	bool update)
 {
@@ -493,11 +488,11 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
 	}
 	
 	// Allocate the scratch memory
-	scratch_buffer = get_graphics_engine().create_buffer(
+	GraphicsBuffer scratch_buffer(get_rsrc_mgr().create_buffer(
 		sizeInfo.buildScratchSize, 
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkDeviceAddress scratch_address = get_graphics_engine().get_device_module().get_buffer_device_address(scratch_buffer.buffer);
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+	VkDeviceAddress scratch_address = get_buffer_device_address(scratch_buffer);
 
 	// Finally build the acceleration structure
 
@@ -512,6 +507,8 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
 
 	// Build the TLAS
 	LOAD_VK_FUNCTION(vkCmdBuildAccelerationStructuresKHR)(cmd_buf, 1, &buildInfo, &pBuildOffsetInfo);
+
+	return scratch_buffer;
 }
 
 template<typename GraphicsEngineT>
@@ -522,7 +519,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::AccelerationStructure
 	// Allocating the buffer to hold the acceleration structure
 	// TODO: might need to clean the buffer and device memory up
 	AccelerationStructure resultAccel;
-	create_buffer(
+	get_rsrc_mgr().create_buffer(
 		create_info.size, 
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -556,31 +553,31 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
 		throw std::runtime_error("Cannot call buildTlas twice except to update.");
 	}
 
+    // Create a buffer holding the actual instance data (matrices++) for use by the AS builder
 	const auto instance_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-    // Create a buffer holding the actual instance data (matrices++) for use by the AS builder
-	GraphicsBuffer instance_buffer = get_graphics_engine().create_buffer_from_data(
-		instances.data(),
+	GraphicsBuffer instance_buffer(get_rsrc_mgr().create_buffer(
 		instances.size() * sizeof(VkAccelerationStructureInstanceKHR),
 		instance_buffer_usage_flags,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+	get_rsrc_mgr().stage_data_to_buffer(
+		instance_buffer.get_buffer(),
+		0,
+		instance_buffer.get_capacity(),
+		[&instances, &instance_buffer](std::byte* dest) { 
+			std::memcpy(dest, reinterpret_cast<const std::byte*>(instances.data()), instance_buffer.get_capacity()); 
+		});
 	VkCommandBuffer cmd_buf = get_graphics_engine().begin_single_time_commands();
-	GraphicsBuffer scratch_buffer;
-	cmd_create_tlas(
+	GraphicsBuffer scratch_buffer(cmd_create_tlas(
 		cmd_buf, 
 		instances.size(), 
-		get_graphics_engine().get_device_module().get_buffer_device_address(instance_buffer.buffer),
-		scratch_buffer,
+		get_buffer_device_address(instance_buffer),
 		flags, 
-		update);
+		update));
 	get_graphics_engine().end_single_time_commands(cmd_buf);
 
-	// TODO: cleanup instance_buffer
-	// also scratch_buffer
-	auto device = get_logical_device();
-	scratch_buffer.destroy(device);
-	instance_buffer.destroy(device);
+	scratch_buffer.destroy(get_logical_device());
+	instance_buffer.destroy(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
@@ -655,22 +652,21 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	
 	// TODO: investigate if this buffer can be made it into device local buffer
 	// via usage of staging buffers
-	sbt_buffer = get_graphics_engine().create_buffer(
+	sbt_buffer = std::make_unique<GraphicsBuffer>(create_buffer(
 		sbt_size, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | 
 			VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
 
 	// find the SBT addresses of each group
-	VkDeviceAddress sbt_address = get_graphics_engine().get_device_module().
-		get_buffer_device_address(sbt_buffer.buffer);
+	VkDeviceAddress sbt_address = get_buffer_device_address(*sbt_buffer);
 	raygen_sbt_region.deviceAddress = sbt_address;
 	raymiss_sbt_region.deviceAddress = sbt_address + raygen_sbt_region.size;
 	rayhit_sbt_region.deviceAddress = sbt_address + raygen_sbt_region.size + raymiss_sbt_region.size;
 	// note callables are not used for now
 
 	void* mapped_data;
-	vkMapMemory(get_logical_device(), sbt_buffer.memory, 0, sbt_size, 0, &mapped_data);
+	vkMapMemory(get_logical_device(), sbt_buffer->get_memory(), 0, sbt_size, 0, &mapped_data);
 	
 	// copy the handles to the SBT, hard coded for now since we only have 1 handle per group
 	// TODO: when we add more shaders per group we need to take a more dynamic approach
@@ -681,7 +677,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	p_data = reinterpret_cast<std::byte*>(mapped_data) + raygen_sbt_region.size + raymiss_sbt_region.size;
 	memcpy(p_data, handles_data.data() + handle_size * 2, handle_size);
 
-	vkUnmapMemory(get_logical_device(), sbt_buffer.memory);
+	vkUnmapMemory(get_logical_device(), sbt_buffer->get_memory());
 }
 
 template<typename GraphicsEngineT>

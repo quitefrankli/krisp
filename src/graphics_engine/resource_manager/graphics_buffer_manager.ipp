@@ -9,6 +9,8 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	vertex_buffer(create_buffer(VERTEX_BUFFER_CAPACITY, VERTEX_BUFFER_USAGE_FLAGS, VERTEX_BUFFER_MEMORY_FLAGS, 4)),
 	index_buffer(create_buffer(INDEX_BUFFER_CAPACITY, INDEX_BUFFER_USAGE_FLAGS, INDEX_BUFFER_MEMORY_FLAGS, 4)),
 	uniform_buffer(create_buffer(UNIFORM_BUFFER_CAPACITY, UNIFORM_BUFFER_USAGE_FLAGS, UNIFORM_BUFFER_MEMORY_FLAGS, 4)),
+	global_uniform_buffer(create_buffer(
+		GLOBAL_UNIFORM_BUFFER_CAPACITY, GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS)),
 	mapping_buffer(create_buffer(
 		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(BufferMapEntry))
 {
@@ -17,10 +19,11 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 template<typename GraphicsEngineT>
 GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager() 
 {
-	vertex_buffer.destroy_buffer(get_logical_device());
-	index_buffer.destroy_buffer(get_logical_device());
-	uniform_buffer.destroy_buffer(get_logical_device());
-	mapping_buffer.destroy_buffer(get_logical_device());
+	vertex_buffer.destroy(get_logical_device());
+	index_buffer.destroy(get_logical_device());
+	uniform_buffer.destroy(get_logical_device());
+	global_uniform_buffer.destroy(get_logical_device());
+	mapping_buffer.destroy(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
@@ -77,7 +80,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const Buffe
 }
 
 template<typename GraphicsEngineT>
-GraphicsBufferV2 GraphicsBufferManager<GraphicsEngineT>::create_buffer(size_t size,
+GraphicsBuffer GraphicsBufferManager<GraphicsEngineT>::create_buffer(size_t size,
                                                                        VkBufferUsageFlags usage_flags,
                                                                        VkMemoryPropertyFlags memory_flags,
 																	   uint32_t alignment)
@@ -115,22 +118,59 @@ GraphicsBufferV2 GraphicsBufferManager<GraphicsEngineT>::create_buffer(size_t si
 
 	vkBindBufferMemory(get_logical_device(), buffer, memory, 0);
 
-	return GraphicsBufferV2(buffer, memory, size, alignment);
+	return GraphicsBuffer(buffer, memory, size, alignment);
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(
-	VkBuffer destination_buffer,
-	const uint32_t destination_buffer_offset,
-	const uint32_t size,
-	const std::function<void(std::byte*)>& write_function)
+void GraphicsBufferManager<GraphicsEngineT>::create_buffer(size_t size,
+														   VkBufferUsageFlags usage_flags,
+														   VkMemoryPropertyFlags memory_flags,
+														   VkBuffer& buffer,
+														   VkDeviceMemory& buffer_memory)
+{
+	VkBufferCreateInfo buffer_create_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+	buffer_create_info.size = size;
+	buffer_create_info.usage = usage_flags;
+	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
+
+	if (vkCreateBuffer(get_logical_device(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsEngine::create_buffer: failed to create buffer!");
+	}
+
+	VkMemoryRequirements memory_requirements;
+	vkGetBufferMemoryRequirements(get_logical_device(), buffer, &memory_requirements);
+	
+	VkMemoryAllocateInfo memory_allocate_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+	memory_allocate_info.allocationSize = memory_requirements.size;
+	memory_allocate_info.memoryTypeIndex = 
+		get_graphics_engine().find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
+
+	VkMemoryAllocateFlagsInfo memory_allocate_flags_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+	memory_allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+
+	memory_allocate_info.pNext = &memory_allocate_flags_info;
+
+	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate device buffer memory!");
+	}
+
+	vkBindBufferMemory(get_logical_device(), buffer, buffer_memory, 0);
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(VkBuffer destination_buffer,
+                                                                  const uint32_t destination_buffer_offset,
+                                                                  const uint32_t size,
+                                                                  const std::function<void(std::byte*)>& write_function)
 {
 	// create staging buffer, used for copying the data from staging to vertex buffer
 	// the staging buffer is the buffer that can be accessed by CPU
 	// TODO: this can be optimised in two ways
 	// 1. something about using different queues https://www.reddit.com/r/vulkan/comments/pnweh0/vkcmdcopybuffer_performance_worse_on_nvidia_than/
 	// 2. Use a large cached staging buffer so we don't need to recreate everytime
-	GraphicsBufferV2 staging_buffer = create_buffer(
+	GraphicsBuffer staging_buffer = create_buffer(
 		size,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		// make sure that the memory heap is host coherent
@@ -156,5 +196,5 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(
 	get_graphics_engine().end_single_time_commands(command_buffer);
 
 	// clean up staging buffer
-	staging_buffer.destroy_buffer(get_logical_device());
+	staging_buffer.destroy(get_logical_device());
 }

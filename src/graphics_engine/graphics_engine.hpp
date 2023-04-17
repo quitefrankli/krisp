@@ -70,17 +70,15 @@ public: // getters and setters
 	{ 
 		return GraphicsEngineSwapChain<GraphicsEngine>::EXPECTED_NUM_SWAPCHAIN_IMAGES; 
 	}
-	VkDescriptorPool& get_descriptor_pool() { return pool.descriptor_pool; }
-	VkCommandPool& get_command_pool() { return pool.get_command_pool(); }
+	VkDescriptorPool& get_descriptor_pool() { return get_rsrc_mgr().descriptor_pool; }
+	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
 	GraphicsEngineRayTracing<GraphicsEngine>& get_raytracing_module() { return raytracing_component; }
 	GraphicsEngineGuiManager<GraphicsEngine, GameEngineT>& get_graphics_gui_manager() { return gui_manager; }
 	GuiManager<GameEngineT>& get_gui_manager() { return static_cast<GuiManager<GameEngineT>&>(gui_manager); }
 	RendererManager<GraphicsEngine>& get_renderer_mgr() { return renderer_mgr; }
-	VkBuffer& get_global_uniform_buffer() { return pool.global_uniform_buffer; }
-	VkDeviceMemory& get_global_uniform_buffer_memory() { return pool.global_uniform_buffer_memory; }
-	GraphicsResourceManager<GraphicsEngine>& get_graphics_resource_manager() { return pool; }
+	GraphicsResourceManager<GraphicsEngine>& get_rsrc_mgr() { return rsrc_mgr; }
 	GraphicsEngineDevice<GraphicsEngine>& get_device_module() { return device; }
 	void set_fps(const float fps) { this->fps = fps; }
 	float get_fps() const { return fps; }
@@ -111,27 +109,8 @@ public: // command buffer
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
-	void create_buffer(size_t size, 
-					   VkBufferUsageFlags usage_flags, 
-					   VkMemoryPropertyFlags memory_flags, 
-					   VkBuffer& buffer, 
-					   VkDeviceMemory& device_memory);
 	// utilizes vkQueueWaitIdle to ensure that once the function returns, the data is copied into the staging buffer
 	void copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size);
-	GraphicsBuffer create_buffer(
-		size_t size, 
-		VkBufferUsageFlags usage_flags, 
-		VkMemoryPropertyFlags memory_flags);
-
-	// creates a staging buffer to faciliate transfer of data into final device buffer
-	// optionally, a copy function can be provided to copy data into the staging buffer, otherwise the data is copied directly
-	// utilizes vkQueueWaitIdle to ensure that once the function returns, the data is copied into the staging buffer
-	GraphicsBuffer create_buffer_from_data(
-		const void* data, 
-		size_t size, 
-		VkBufferUsageFlags usage_flags, 
-		VkMemoryPropertyFlags memory_flags,
-		const std::function<void(void* dest)> copy_func = nullptr);
 
 	// an image is an actual piece of data memory, similar to a buffer
 	void create_image(uint32_t width, 
@@ -175,7 +154,7 @@ private: // core components
 	GraphicsEngineValidationLayer<GraphicsEngine> validation_layer;
 	GraphicsEngineDevice<GraphicsEngine> device;
 	GraphicsEngineTextureManager<GraphicsEngine> texture_mgr;
-	GraphicsResourceManager<GraphicsEngine> pool;
+	GraphicsResourceManager<GraphicsEngine> rsrc_mgr;
 	RendererManager<GraphicsEngine> renderer_mgr;
 	GraphicsEngineSwapChain<GraphicsEngine> swap_chain;
 	GraphicsEnginePipelineManager<GraphicsEngine> pipeline_mgr;

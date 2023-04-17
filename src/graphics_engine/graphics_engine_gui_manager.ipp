@@ -27,7 +27,7 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 	init_info.PhysicalDevice = engine.get_physical_device();
 	init_info.Device = engine.get_logical_device();
 	init_info.Queue = engine.get_graphics_queue();
-	init_info.DescriptorPool = engine.get_graphics_resource_manager().descriptor_pool;
+	init_info.DescriptorPool = engine.get_rsrc_mgr().descriptor_pool;
 	init_info.MinImageCount = engine.get_num_swapchain_images();
 	init_info.ImageCount = init_info.MinImageCount;
 	// temporary fix, Gui doesn't really need anti-aliasing it should use its own dedicated pipeline

@@ -5,47 +5,6 @@
 
 
 template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::create_buffer(size_t size, 
-								   VkBufferUsageFlags usage_flags, 
-								   VkMemoryPropertyFlags memory_flags, 
-								   VkBuffer& buffer, 
-								   VkDeviceMemory& device_memory)
-{
-	VkBufferCreateInfo buffer_create_info{};
-	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	buffer_create_info.size = size;
-	buffer_create_info.usage = usage_flags;
-	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
-
-	if (vkCreateBuffer(get_logical_device(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("GraphicsEngine::create_buffer: failed to create buffer!");
-	}
-
-	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(get_logical_device(), buffer, &memory_requirements);
-	
-	VkMemoryAllocateInfo memory_allocate_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-	memory_allocate_info.allocationSize = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
-
-	VkMemoryAllocateFlagsInfo memory_allocate_flags_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
-	memory_allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-
-	memory_allocate_info.pNext = &memory_allocate_flags_info;
-
-	// allocate memory, note that this is quite inefficient, the correct way of doing this would be to 
-	// allocate 1 giant lump of memory and then use offsets to choose which section to use
-	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &device_memory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate device buffer memory!");
-	}
-
-	// bind memory
-	vkBindBufferMemory(get_logical_device(), buffer, device_memory, 0);
-}
-
-template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
 {
 	// memory transfer operations are executed using command buffers
@@ -58,59 +17,6 @@ void GraphicsEngine<GameEngineT>::copy_buffer(VkBuffer src_buffer, VkBuffer dest
 	vkCmdCopyBuffer(command_buffer, src_buffer, dest_buffer, 1, &copy_region);
 
 	end_single_time_commands(command_buffer);
-}
-
-template<typename GameEngineT>
-GraphicsBuffer GraphicsEngine<GameEngineT>::create_buffer(size_t size,
-                                                                 VkBufferUsageFlags usage_flags,
-                                                                 VkMemoryPropertyFlags memory_flags)
-{
-	GraphicsBuffer buffer;
-	create_buffer(size, usage_flags, memory_flags, buffer.buffer, buffer.memory);
-	
-	return buffer;
-}
-
-template<typename GameEngineT>
-GraphicsBuffer GraphicsEngine<GameEngineT>::create_buffer_from_data(
-	const void* data,
-	size_t size,
-	VkBufferUsageFlags usage_flags,
-	VkMemoryPropertyFlags memory_flags,
-	const std::function<void(void* dest)> copy_func)
-{
-	// create staging buffer, used for copying the data from staging to vertex buffer
-	// the staging buffer is the buffer that can be accessed by CPU
-	GraphicsBuffer staging_buffer = create_buffer(
-		size,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		// make sure that the memory heap is host coherent
-		// this is because the driver may not immediately copy the data into the buffer memory
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	// fill the staging buffer
-	void* mapped_data;
-	vkMapMemory(get_logical_device(), staging_buffer.memory, 0, size, 0, &mapped_data);
-	if (copy_func)
-	{
-		copy_func(mapped_data);
-	} else 
-	{
-		std::memcpy(mapped_data, data, size);
-	}
-	vkUnmapMemory(get_logical_device(), staging_buffer.memory);
-
-	// now create the actual buffer we want to use. AKA the destination buffer
-	GraphicsBuffer buffer = create_buffer(size, usage_flags, memory_flags);
-
-	// issue the command to copy from staging to device
-	copy_buffer(staging_buffer.buffer, buffer.buffer, size);
-
-	// clean up staging buffer
-	vkDestroyBuffer(get_logical_device(), staging_buffer.buffer, nullptr);
-	vkFreeMemory(get_logical_device(), staging_buffer.memory, nullptr);
-
-	return buffer;
 }
 
 template<typename GameEngineT>

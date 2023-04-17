@@ -17,14 +17,6 @@ GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngine
 	create_descriptor_set_layouts();
 	create_descriptor_pool();
 
-	// global uniform buffer
-	get_graphics_engine().create_buffer(
-		sizeof(GlobalUniformBufferObject),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		global_uniform_buffer,
-		global_uniform_buffer_memory);
-
 	allocate_rasterization_dsets();
 	allocate_raytracing_dsets();
 	allocate_mesh_data_dsets();
@@ -45,9 +37,6 @@ GraphicsResourceManager<GraphicsEngineT>::~GraphicsResourceManager()
 	{
 		vkDestroyDescriptorSetLayout(get_logical_device(), layout, nullptr);
 	}
-
-	vkDestroyBuffer(get_logical_device(), global_uniform_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), global_uniform_buffer_memory, nullptr);
 }
 
 template<typename GraphicsEngineT>
@@ -315,14 +304,14 @@ template<typename GraphicsEngineT>
 void GraphicsResourceManager<GraphicsEngineT>::initialise_global_descriptor_set()
 {
 	VkDescriptorBufferInfo buffer_info{};
-	buffer_info.buffer = global_uniform_buffer;
+	buffer_info.buffer = get_global_uniform_buffer();
 	buffer_info.offset = 0;
 	buffer_info.range = sizeof(GlobalUniformBufferObject);
 
 	VkWriteDescriptorSet dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	dset_write.dstSet = global_descriptor_set;
-	dset_write.dstBinding = 0; // also set to 3 in the shader
-	dset_write.dstArrayElement = 0; // offset
+	dset_write.dstBinding = 0;
+	dset_write.dstArrayElement = 0;
 	dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	dset_write.descriptorCount = 1;
 	dset_write.pBufferInfo = &buffer_info;

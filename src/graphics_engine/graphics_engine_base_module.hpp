@@ -2,8 +2,10 @@
 
 #include "vulkan/vulkan.hpp"
 
-#define LOAD_VK_FUNCTION(name) reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(get_logical_device(), #name))
+#include "resource_manager/graphics_buffer.hpp"
 
+
+#define LOAD_VK_FUNCTION(name) reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(get_logical_device(), #name))
 
 template<typename GraphicsEngineT>
 class GraphicsResourceManager;
@@ -27,11 +29,11 @@ public:
 	virtual VkPhysicalDevice& get_physical_device();
 	virtual VkInstance& get_instance();
 	GraphicsResourceManager<GraphicsEngineT>& get_rsrc_mgr();
-	virtual void create_buffer(size_t size, 
-							   VkBufferUsageFlags usage_flags, 
-							   VkMemoryPropertyFlags memory_flags, 
-							   VkBuffer& buffer, 
-							   VkDeviceMemory& device_memory);
+	virtual GraphicsBuffer create_buffer(
+		size_t size, 
+		VkBufferUsageFlags usage_flags, 
+		VkMemoryPropertyFlags memory_flags);
+	virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);		
 	uint32_t get_num_swapchain_frames() const;
 
 protected:
