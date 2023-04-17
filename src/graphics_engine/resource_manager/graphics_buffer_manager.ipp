@@ -7,8 +7,8 @@ template<typename GraphicsEngineT>
 GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& engine) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	vertex_buffer(create_buffer(VERTEX_BUFFER_CAPACITY, VERTEX_BUFFER_USAGE_FLAGS, VERTEX_BUFFER_MEMORY_FLAGS, 4)),
-	index_buffer(create_buffer(INDEX_BUFFER_CAPACITY, INDEX_BUFFER_USAGE_FLAGS, INDEX_BUFFER_MEMORY_FLAGS)),
-	uniform_buffer(create_buffer(UNIFORM_BUFFER_CAPACITY, UNIFORM_BUFFER_USAGE_FLAGS, UNIFORM_BUFFER_MEMORY_FLAGS)),
+	index_buffer(create_buffer(INDEX_BUFFER_CAPACITY, INDEX_BUFFER_USAGE_FLAGS, INDEX_BUFFER_MEMORY_FLAGS, 4)),
+	uniform_buffer(create_buffer(UNIFORM_BUFFER_CAPACITY, UNIFORM_BUFFER_USAGE_FLAGS, UNIFORM_BUFFER_MEMORY_FLAGS, 4)),
 	mapping_buffer(create_buffer(
 		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(BufferMapEntry))
 {

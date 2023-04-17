@@ -97,22 +97,19 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).graphics_pipeline);
+
+	std::vector<VkDescriptorSet> dsets = {
+		rt_dsets[frame_index],
+		get_rsrc_mgr().get_low_freq_dset(),
+		get_rsrc_mgr().get_mesh_data_dset()
+	};
 	vkCmdBindDescriptorSets(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).pipeline_layout,
-		get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RAYTRACING_LOW_FREQ,
-		1,
-		&get_graphics_engine().get_graphics_resource_manager().get_low_freq_descriptor_set(),
 		0,
-		nullptr);
-	vkCmdBindDescriptorSets(
-		command_buffer,
-		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).pipeline_layout,
-		get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RAYTRACING_TLAS,
-		1,
-		&rt_dsets[frame_index],
+		dsets.size(),
+		dsets.data(),
 		0,
 		nullptr);
 	GraphicsEngineRayTracing<GraphicsEngineT>& raytracing_comp = get_graphics_engine().get_raytracing_module();

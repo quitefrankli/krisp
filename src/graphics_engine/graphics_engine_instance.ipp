@@ -14,10 +14,10 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 	VkApplicationInfo app_info{};
 	app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	app_info.pApplicationName = APPLICATION_NAME.c_str();
-	app_info.applicationVersion = VK_MAKE_VERSION(1, 2, 172); // i think this is application specific, so might not be necessary
+	app_info.applicationVersion = VK_MAKE_VERSION(1, 3, 211); // i think this is application specific, so might not be necessary
 	app_info.pEngineName = ENGINE_NAME.c_str();
-	app_info.engineVersion = VK_MAKE_VERSION(1, 2, 172); // needs to be associated with vulkan version
-	app_info.apiVersion = VK_API_VERSION_1_2;
+	app_info.engineVersion = VK_MAKE_VERSION(1, 3, 211); // needs to be associated with vulkan version
+	app_info.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -36,7 +36,7 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 	std::vector<VkExtensionProperties> extensions(extensionCount);
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 	for (const auto& extension : extensions) {
-		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineInstance: available instance: {}", extension.extensionName);
+		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineInstance: available extension: {}", extension.extensionName);
 	}
 
 	// vulkan is platform agnostic and therefore an extension is necessary 

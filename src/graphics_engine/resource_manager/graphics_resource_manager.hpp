@@ -34,19 +34,25 @@ public:
 
 	RaytracingResources& get_raytracing_resources() { return ray_tracing_resources; }
 
-	// i.e. sphere uses 1 uniform while cube uses 6 per descriptor set
-	static constexpr int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;
-	static constexpr int MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET = 10;
-	static constexpr int MAX_IMGUI_DESCRIPTOR_SETS = 50;
-
 	// other graphics components should call these methods to request descriptor sets
-	std::vector<VkDescriptorSet> reserve_high_frequency_dsets(uint32_t n);
-	std::vector<VkDescriptorSet> reserve_raytracing_dsets(uint32_t n);
-	// other graphics components should call these methods to release dsets back into the pool
-	void free_high_frequency_dsets(std::vector<VkDescriptorSet>& sets);
-	void free_raytracing_dsets(std::vector<VkDescriptorSet>& sets);
+	std::vector<VkDescriptorSet> reserve_high_frequency_dsets(uint32_t n)
+	{
+		return reserve_dsets_common_impl(available_high_freq_dsets, n);
+	}
+	std::vector<VkDescriptorSet> reserve_raytracing_dsets(uint32_t n)
+	{
+		return reserve_dsets_common_impl(available_raytracing_dsets, n);
+	}
 
-	static constexpr int get_max_descriptor_sets();
+	// other graphics components should call these methods to release dsets back into the pool
+	void free_high_frequency_dsets(std::vector<VkDescriptorSet>& sets)
+	{
+		free_dsets_common_impl(available_high_freq_dsets, sets);
+	}
+	void free_raytracing_dsets(std::vector<VkDescriptorSet>& sets)
+	{
+		free_dsets_common_impl(available_raytracing_dsets, sets);
+	}
 
 	// used in binding descriptor sets during draw
 	// corresponds to the "set" value in the "layout" in shaders
@@ -60,7 +66,8 @@ public:
 	std::vector<VkDescriptorSetLayout> get_rasterization_descriptor_set_layouts() const;
 	std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
 
-	const VkDescriptorSet& get_low_freq_descriptor_set() const { return global_descriptor_set; }
+	const VkDescriptorSet& get_low_freq_dset() const { return global_descriptor_set; }
+	VkDescriptorSet get_mesh_data_dset() const { return mesh_data_descriptor_set; }
 
 private:
 	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -72,25 +79,49 @@ private:
 		
 	void allocate_rasterization_dsets();
 	void allocate_raytracing_dsets();
+	void allocate_mesh_data_dsets();
 	void initialise_global_descriptor_set(); // aka low_frequency
+	void initialise_mesh_data_descriptor_set();
 
 	void create_command_pool();
 	void create_descriptor_pool();
 	void create_descriptor_set_layouts();
 	std::vector<VkDescriptorSetLayout> get_all_descriptor_set_layouts();
+	std::vector<VkDescriptorSet> reserve_dsets_common_impl(
+		std::queue<VkDescriptorSet>& queue, uint32_t n);
+	void free_dsets_common_impl(
+		std::queue<VkDescriptorSet>& queue, std::vector<VkDescriptorSet>& sets);
+
 	VkCommandPool command_pool;
 
 	VkDescriptorSet global_descriptor_set;
+	VkDescriptorSet mesh_data_descriptor_set;
 	std::queue<VkDescriptorSet> available_high_freq_dsets;
 	std::queue<VkDescriptorSet> available_raytracing_dsets;
 	RaytracingResources ray_tracing_resources;
 
-	static constexpr int MAX_FRAMES = GraphicsEngineSwapChain<GraphicsEngineT>::EXPECTED_NUM_SWAPCHAIN_IMAGES;
 	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = 1; // for GUBO i.e. camera & lighting
 	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
-	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1 * MAX_FRAMES; // for ray tracing
+	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000; // for ray tracing
+	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
+	static constexpr int MAX_STORAGE_BUFFER_DESCRIPTOR_SETS = 10;
+
+	// i.e. sphere uses 1 uniform while cube uses 6 per descriptor set
+	static constexpr int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;
+	static constexpr int MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET = 10;
+	static constexpr int MAX_IMGUI_DESCRIPTOR_SETS = 50;
+
+	// upper bound for descriptor sets, statically checked
+	static constexpr int MAX_DESCRIPTOR_SETS = 5000;
+
+	static_assert(
+		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
+		MAX_RAY_TRACING_DESCRIPTOR_SETS + MAX_MESH_DATA_DESCRIPTOR_SETS +
+		MAX_IMGUI_DESCRIPTOR_SETS <= MAX_DESCRIPTOR_SETS, 
+		"GraphicsResourceManager: too many descriptor sets!");
 
 	// a descriptor set layout describes the layout for a specific "descriptor set"
 	VkDescriptorSetLayout low_freq_descriptor_set_layout;
 	VkDescriptorSetLayout high_freq_descriptor_set_layout;
+	VkDescriptorSetLayout mesh_data_descriptor_set_layout;
 };

@@ -11,3 +11,5 @@ Testing/
 configs/
 !configs/default.yaml
 !configs/README.md
+
+tmp/

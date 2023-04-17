@@ -13,10 +13,6 @@ template<typename GraphicsEngineT>
 GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngineT& engine) :
 	GraphicsBufferManager(engine)
 {
-	static_assert(
-		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
-		MAX_RAY_TRACING_DESCRIPTOR_SETS + MAX_IMGUI_DESCRIPTOR_SETS <= get_max_descriptor_sets(), 
-		"GraphicsResourceManager: too many descriptor sets!");
 	create_command_pool();
 	create_descriptor_set_layouts();
 	create_descriptor_pool();
@@ -31,8 +27,12 @@ GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngine
 
 	allocate_rasterization_dsets();
 	allocate_raytracing_dsets();
+	allocate_mesh_data_dsets();
 	// graphics engine only needs 1 global low freq desc set, hence only this is updated here
 	initialise_global_descriptor_set();
+
+	// same with mesh data i.e. vertices and indices
+	initialise_mesh_data_descriptor_set();
 }
 
 template<typename GraphicsEngineT>
@@ -73,27 +73,32 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	// max number of uniform buffers per descriptor set
-	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORMS_PER_DESCRIPTOR_SET * get_max_descriptor_sets();
+	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORMS_PER_DESCRIPTOR_SET * MAX_HIGH_FREQ_DESCRIPTOR_SETS;
 
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	// max number of combined image samplers per descriptor set
-	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET * get_max_descriptor_sets();
+	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET * MAX_HIGH_FREQ_DESCRIPTOR_SETS;
 
 	// for ray tracing
 	VkDescriptorPoolSize tlas_pool_size{};
 	tlas_pool_size.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-	tlas_pool_size.descriptorCount = get_max_descriptor_sets(); // TODO: this needs a proper value
+	tlas_pool_size.descriptorCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
 
 	VkDescriptorPoolSize rt_storage_image_pool_size{};
 	rt_storage_image_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	rt_storage_image_pool_size.descriptorCount = get_max_descriptor_sets();
+	rt_storage_image_pool_size.descriptorCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
+
+	VkDescriptorPoolSize storage_buffer_pool_size{};
+	storage_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	storage_buffer_pool_size.descriptorCount = MAX_STORAGE_BUFFER_DESCRIPTOR_SETS;
 
 	std::vector<VkDescriptorPoolSize> pool_sizes {
 		uniform_buffer_pool_size, 
 		combined_image_sampler_pool_size,
 		tlas_pool_size,
-		rt_storage_image_pool_size
+		rt_storage_image_pool_size,
+		storage_buffer_pool_size
 	};
 
 	VkDescriptorPoolCreateInfo poolInfo{};
@@ -101,7 +106,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	poolInfo.poolSizeCount = pool_sizes.size();
 	poolInfo.pPoolSizes = pool_sizes.data();
 	// defines maximum number of descriptor sets that may be allocated
-	poolInfo.maxSets = get_max_descriptor_sets();
+	poolInfo.maxSets = MAX_DESCRIPTOR_SETS;
 
 	//
 	// below may be necessary for ImGui
@@ -180,7 +185,8 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 		gubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
 		gubo_layout_binding.descriptorCount = 1;
 		// defines which shader stage the descriptor is going to be referenced
-		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
+			VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
 		const std::vector<VkDescriptorSetLayoutBinding> bindings{ gubo_layout_binding };
@@ -203,6 +209,33 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 
 		const std::vector<VkDescriptorSetLayoutBinding> bindings = ray_tracing_resources.get_layout_bindings();
 		create_layout(bindings, &ray_tracing_resources.descriptor_set_layout);
+	}
+
+	// mesh data: vertices, indices, materials
+	{
+		VkDescriptorSetLayoutBinding buffer_mapper_binding{};
+		buffer_mapper_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		buffer_mapper_binding.binding = 0; // this must be synced with the one in the shaders
+		buffer_mapper_binding.descriptorCount = 1;
+		buffer_mapper_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		buffer_mapper_binding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding vertices_binding{};
+		vertices_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		vertices_binding.binding = 1; // this must be synced with the one in the shaders
+		vertices_binding.descriptorCount = 1;
+		vertices_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		vertices_binding.pImmutableSamplers = nullptr;
+
+		VkDescriptorSetLayoutBinding indices_binding{};
+		indices_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		indices_binding.binding = 2; // this must be synced with the one in the shaders
+		indices_binding.descriptorCount = 1;
+		indices_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		indices_binding.pImmutableSamplers = nullptr;		
+
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ buffer_mapper_binding, vertices_binding, indices_binding };
+		create_layout(bindings, &mesh_data_descriptor_set_layout);
 	}
 }
 
@@ -265,47 +298,17 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_raytracing_dsets()
 }
 
 template<typename GraphicsEngineT>
-std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_high_frequency_dsets(uint32_t n)
+void GraphicsResourceManager<GraphicsEngineT>::allocate_mesh_data_dsets()
 {
-	// the reason this function is called 3x for every object spawn
-	// is because we have a bit of a design problem
-	// we really should be having per frame per object resources
-	// i.e. for every object in every frame in a swapchain, it should have its own descriptor sets
-	// fmt::print("GraphicsResourceManager::reserve_high_frequency_dsets: available_sets:={}, requested_sets:={}\n", available_high_freq_dsets.size(), n);
-
-	if (n > available_high_freq_dsets.size())
+	std::vector<VkDescriptorSetLayout> layouts(MAX_MESH_DATA_DESCRIPTOR_SETS, mesh_data_descriptor_set_layout);
+	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+	alloc_info.descriptorPool = descriptor_pool;
+	alloc_info.descriptorSetCount = MAX_MESH_DATA_DESCRIPTOR_SETS;
+	alloc_info.pSetLayouts = layouts.data();
+	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &mesh_data_descriptor_set) != VK_SUCCESS)
 	{
-		throw std::runtime_error("GraphicsResourceManager: not enough available descriptor sets!");
+		throw std::runtime_error("GraphicsResourceManager: failed to allocate mesh data descriptor set!");
 	}
-
-	std::vector<VkDescriptorSet> sets;
-	sets.reserve(n);
-	for (int i = 0; i < n; i++)
-	{
-		sets.push_back(available_high_freq_dsets.front());
-		available_high_freq_dsets.pop();
-	}
-
-	return sets;
-}
-
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_raytracing_dsets(uint32_t n)
-{
-	if (n > available_raytracing_dsets.size())
-	{
-		throw std::runtime_error("GraphicsResourceManager: not enough available ray tracing descriptor sets!");
-	}
-
-	std::vector<VkDescriptorSet> sets;
-	sets.reserve(n);
-	for (int i = 0; i < n; i++)
-	{
-		sets.push_back(available_raytracing_dsets.front());
-		available_raytracing_dsets.pop();
-	}
-
-	return sets;
 }
 
 template<typename GraphicsEngineT>
@@ -335,6 +338,88 @@ void GraphicsResourceManager<GraphicsEngineT>::initialise_global_descriptor_set(
 }
 
 template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::initialise_mesh_data_descriptor_set()
+{
+	// create descriptor set for object's mesh and material (not implemented yet) data
+	VkDescriptorBufferInfo buffer_mapper_info{};
+	buffer_mapper_info.buffer = get_mapping_buffer();
+	buffer_mapper_info.offset = 0;
+	buffer_mapper_info.range = MAPPING_BUFFER_CAPACITY;
+	VkWriteDescriptorSet buffer_mapper_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	buffer_mapper_dset_write.dstSet = mesh_data_descriptor_set;
+	buffer_mapper_dset_write.dstBinding = 0;
+	buffer_mapper_dset_write.dstArrayElement = 0;
+	buffer_mapper_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	buffer_mapper_dset_write.descriptorCount = 1;
+	buffer_mapper_dset_write.pBufferInfo = &buffer_mapper_info;
+
+	VkDescriptorBufferInfo vertices_buffer_info{};
+	vertices_buffer_info.buffer = get_vertex_buffer();
+	vertices_buffer_info.offset = 0;
+	vertices_buffer_info.range = VERTEX_BUFFER_CAPACITY;
+	VkWriteDescriptorSet vertices_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	vertices_dset_write.dstSet = mesh_data_descriptor_set;
+	vertices_dset_write.dstBinding = 1;
+	vertices_dset_write.dstArrayElement = 0;
+	vertices_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	vertices_dset_write.descriptorCount = 1;
+	vertices_dset_write.pBufferInfo = &vertices_buffer_info;
+
+	VkDescriptorBufferInfo indices_buffer_info{};
+	indices_buffer_info.buffer = get_index_buffer();
+	indices_buffer_info.offset = 0;
+	indices_buffer_info.range = INDEX_BUFFER_CAPACITY;
+	VkWriteDescriptorSet indices_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	indices_dset_write.dstSet = mesh_data_descriptor_set;
+	indices_dset_write.dstBinding = 2;
+	indices_dset_write.dstArrayElement = 0;
+	indices_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	indices_dset_write.descriptorCount = 1;
+	indices_dset_write.pBufferInfo = &indices_buffer_info;
+
+	std::vector<VkWriteDescriptorSet> dsets{buffer_mapper_dset_write, vertices_dset_write, indices_dset_write};
+
+	vkUpdateDescriptorSets(
+		get_logical_device(),
+		static_cast<uint32_t>(dsets.size()),
+		dsets.data(),
+		0,
+		nullptr);
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSet> GraphicsResourceManager<GraphicsEngineT>::reserve_dsets_common_impl(
+	std::queue<VkDescriptorSet>& queue,
+	uint32_t n)
+{
+	if (n > queue.size())
+	{
+		throw std::runtime_error("GraphicsResourceManager: not enough available descriptor sets!");
+	}
+
+	std::vector<VkDescriptorSet> sets;
+	sets.reserve(n);
+	for (int i = 0; i < n; i++)
+	{
+		sets.push_back(queue.front());
+		queue.pop();
+	}
+
+	return sets;;
+}
+
+template<typename GraphicsEngineT>
+void GraphicsResourceManager<GraphicsEngineT>::free_dsets_common_impl(
+	std::queue<VkDescriptorSet>& queue,
+	std::vector<VkDescriptorSet>& dsets)
+{
+	for (auto dset : dsets)
+	{
+		queue.push(dset);
+	}
+}
+
+template<typename GraphicsEngineT>
 VkCommandBuffer GraphicsResourceManager<GraphicsEngineT>::create_command_buffer()
 {
 	VkCommandBufferAllocateInfo allocation_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
@@ -353,23 +438,24 @@ VkCommandBuffer GraphicsResourceManager<GraphicsEngineT>::create_command_buffer(
 }
 
 template<typename GraphicsEngineT>
-constexpr int GraphicsResourceManager<GraphicsEngineT>::get_max_descriptor_sets()
+std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::
+	get_rasterization_descriptor_set_layouts() const
 {
-	constexpr int MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS = 1000;
-	return GraphicsEngineSwapChain<GraphicsEngineT>::EXPECTED_NUM_SWAPCHAIN_IMAGES * MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
-	// return MAX_PER_SWAPCHAIN_IMAGE_DESCRIPTOR_SETS;
+	return { 
+		high_freq_descriptor_set_layout, 
+		low_freq_descriptor_set_layout 
+	};
 }
 
 template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get_rasterization_descriptor_set_layouts() const
+std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::
+	get_raytracing_descriptor_set_layouts() const
 {
-	return { high_freq_descriptor_set_layout, low_freq_descriptor_set_layout };
-}
-
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get_raytracing_descriptor_set_layouts() const
-{
-	return { ray_tracing_resources.descriptor_set_layout, low_freq_descriptor_set_layout };
+	return { 
+		ray_tracing_resources.descriptor_set_layout, 
+		low_freq_descriptor_set_layout, 
+		mesh_data_descriptor_set_layout
+	};
 }
 
 template<typename GraphicsEngineT>
@@ -393,24 +479,3 @@ std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::get
 
 	return std::vector<VkDescriptorSetLayout>(layouts.begin(), layouts.end());
 }
-
-template<typename GraphicsEngineT>
-void GraphicsResourceManager<GraphicsEngineT>::free_high_frequency_dsets(std::vector<VkDescriptorSet>& sets)
-{
-	// fmt::print("GraphicsResourceManager::free_high_frequency_dsets: available_sets:={}, amount_to_free:={}\n", available_high_freq_dsets.size(), sets.size());
-	for (auto& set : sets)
-	{
-		available_high_freq_dsets.push(set);
-	}
-}
-
-template<typename GraphicsEngineT>
-void GraphicsResourceManager<GraphicsEngineT>::free_raytracing_dsets(std::vector<VkDescriptorSet>& sets)
-{
-	// fmt::print("GraphicsResourceManager::free_raytracing_dsets: available_sets:={}, amount_to_free:={}\n", available_high_freq_dsets.size(), sets.size());
-	for (auto& set : sets)
-	{
-		available_raytracing_dsets.push(set);
-	}
-}
-

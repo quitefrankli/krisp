@@ -101,7 +101,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
 							get_graphics_engine().get_graphics_resource_manager().DSET_OFFSETS.RASTERIZATION_LOW_FREQ,
 							1,
-							&get_graphics_engine().get_graphics_resource_manager().get_low_freq_descriptor_set(),
+							&get_graphics_engine().get_graphics_resource_manager().get_low_freq_dset(),
 							0,
 							nullptr);
 

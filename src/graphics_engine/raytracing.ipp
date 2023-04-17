@@ -73,7 +73,8 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas2()
 	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
 	for (auto& [id, object] : objects)
 	{
-		if (object->get_render_type() == EPipelineType::CUBEMAP)
+		if (object->get_render_type() == EPipelineType::CUBEMAP ||
+			!object->get_game_object().get_visibility())
 		{
 			continue;
 		}
@@ -94,8 +95,12 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	VkBuildAccelerationStructureFlagsKHR flags)
 {
 	// BLAS builder requires raw device addresses.
-	VkDeviceAddress vertex_address = get_graphics_engine().get_device_module().get_buffer_device_address(object.vertex_buffer);
-	VkDeviceAddress index_address = get_graphics_engine().get_device_module().get_buffer_device_address(object.index_buffer);
+	VkDeviceAddress vertex_address = get_graphics_engine().get_device_module().
+		get_buffer_device_address(get_rsrc_mgr().get_vertex_buffer());
+	vertex_address += get_rsrc_mgr().get_vertex_buffer_offset(object.get_game_object().get_id());
+	VkDeviceAddress index_address = get_graphics_engine().get_device_module().
+		get_buffer_device_address(get_rsrc_mgr().get_index_buffer());
+	index_address += get_rsrc_mgr().get_index_buffer_offset(object.get_game_object().get_id());
 
 	uint32_t maxPrimitiveCount = object.get_num_primitives();
 
@@ -146,7 +151,8 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 	VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 	for (auto& [id, object] : objects)
 	{
-		if (object->get_render_type() == EPipelineType::CUBEMAP)
+		if (object->get_render_type() == EPipelineType::CUBEMAP ||
+			!object->get_game_object().get_visibility())
 		{
 			continue;
 		}
@@ -291,14 +297,15 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
 	for (auto& [id, object] : objects)
 	{
-		if (object->get_render_type() == EPipelineType::CUBEMAP)
+		if (object->get_render_type() == EPipelineType::CUBEMAP ||
+			!object->get_game_object().get_visibility())
 		{
 			continue;
 		}
 		VkAccelerationStructureInstanceKHR ray_inst{};
 		ray_inst.transform = glm_to_vk(object->get_game_object().get_transform());
 
-		ray_inst.instanceCustomIndex = 0; // exists in shader as 'gl_InstanceCustomIndexEXT' TODO: dont hardcode this
+		ray_inst.instanceCustomIndex = object->get_game_object().get_id(); // exists in shader as 'gl_InstanceCustomIndexEXT'
 		// TOOD: change this to use the actual object id, will need to refactor blas setup
 		ray_inst.accelerationStructureReference = getBlasDeviceAddress(instance_id++);
 		ray_inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
@@ -574,11 +581,11 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	VkPhysicalDeviceRayTracingPipelinePropertiesKHR rt_pipeline_props =
 		get_graphics_engine().get_device_module().get_ray_tracing_properties();
 
-	uint32_t raygen_count = 1;
-	uint32_t miss_count = 1;
-	uint32_t hit_count = 1;
-	uint32_t handle_count = raygen_count + miss_count + hit_count;
-	uint32_t handle_size = rt_pipeline_props.shaderGroupHandleSize;
+	const uint32_t raygen_count = 1; // there can only ever be 1 raygen shader
+	const uint32_t miss_count = 1;
+	const uint32_t hit_count = 1;
+	const uint32_t handle_count = raygen_count + miss_count + hit_count;
+	const uint32_t handle_size = rt_pipeline_props.shaderGroupHandleSize;
 
 	const auto align_up = [](uint32_t val, uint32_t alignment) -> uint32_t
 	{
@@ -598,27 +605,32 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	rayhit_sbt_region.size = align_up(hit_count * handle_size_aligned, rt_pipeline_props.shaderGroupBaseAlignment);
 
 	// fetch the handles to the shader groups of the pipeline
-	const uint32_t data_size = handle_count * handle_size;
-	std::vector<std::byte> handles_data(data_size);
-	if (LOAD_VK_FUNCTION(vkGetRayTracingShaderGroupHandlesKHR)(
-		get_logical_device(), 
-		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).graphics_pipeline, 
-		0, 
-		handle_count, 
-		data_size, 
-		handles_data.data()) != VK_SUCCESS)
+	std::vector<std::byte> handles_data = [&]()
 	{
-		throw std::runtime_error("GraphicsEngineRayTracing: Failed to fetch shader group handles.");
-	}
+		const uint32_t data_size = handle_count * handle_size;
+		std::vector<std::byte> handles_data(data_size);
+		if (LOAD_VK_FUNCTION(vkGetRayTracingShaderGroupHandlesKHR)(
+			get_logical_device(), 
+			get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).graphics_pipeline, 
+			0, 
+			handle_count, 
+			data_size, 
+			handles_data.data()) != VK_SUCCESS)
+		{
+			throw std::runtime_error("GraphicsEngineRayTracing: Failed to fetch shader group handles.");
+		}
+
+		return std::move(handles_data);
+	}();
 
 	// allocate buffer that will hold the handle data
-	const uint32_t sbt_size = raygen_sbt_region.size + raymiss_sbt_region.size + 
+	const VkDeviceSize sbt_size = raygen_sbt_region.size + raymiss_sbt_region.size + 
 		rayhit_sbt_region.size + callable_sbt_region.size;
 	
 	// TODO: investigate if this buffer can be made it into device local buffer
 	// via usage of staging buffers
 	sbt_buffer = get_graphics_engine().create_buffer(
-		data_size, 
+		sbt_size, 
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | 
 			VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -632,11 +644,11 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	// note callables are not used for now
 
 	void* mapped_data;
-	vkMapMemory(get_logical_device(), sbt_buffer.memory, 0, data_size, 0, &mapped_data);
+	vkMapMemory(get_logical_device(), sbt_buffer.memory, 0, sbt_size, 0, &mapped_data);
 	
 	// copy the handles to the SBT, hard coded for now since we only have 1 handle per group
 	// TODO: when we add more shaders per group we need to take a more dynamic approach
-	void* p_data = mapped_data;
+	auto* p_data = reinterpret_cast<std::byte*>(mapped_data);
 	memcpy(p_data, handles_data.data() + handle_size * 0, handle_size);
 	p_data = reinterpret_cast<std::byte*>(mapped_data) + raygen_sbt_region.size;
 	memcpy(p_data, handles_data.data() + handle_size * 1, handle_size);

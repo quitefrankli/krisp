@@ -21,6 +21,8 @@ class vulkan_conan(ConanFile):
 	requires = (
 		"glfw/3.3.8",
 		"glm/0.9.9.8",
+		# updates to vulkan requires updates to version in code
+		# checkout GraphicsEngineInstance
 		"vulkan-headers/1.3.211.0",
 		"vulkan-loader/1.3.211.0",
 		"vulkan-validationlayers/1.3.211.0",

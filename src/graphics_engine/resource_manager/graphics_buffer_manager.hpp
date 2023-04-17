@@ -32,6 +32,7 @@ public:
 	VkBuffer get_vertex_buffer() const { return vertex_buffer.get_buffer(); }
 	VkBuffer get_index_buffer() const { return index_buffer.get_buffer(); }
 	VkBuffer get_uniform_buffer() const { return uniform_buffer.get_buffer(); }
+	VkBuffer get_mapping_buffer() const { return mapping_buffer.get_buffer(); }
 
 	void write_to_vertex_buffer(const std::vector<Vertex>& vertices, uint32_t id);
 	void write_to_index_buffer(const std::vector<uint32_t>& indices, uint32_t id);
@@ -48,6 +49,13 @@ public:
 		VkMemoryPropertyFlags memory_flags,
 		uint32_t alignment = 1);
 
+protected:
+	// in bytes
+	const size_t VERTEX_BUFFER_CAPACITY = sizeof(Vertex) * 2e5;
+	const size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
+	const size_t UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject) * 1e3;
+	const size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * 1e3;
+
 private:
 	void stage_data_to_buffer(
 		VkBuffer destination_buffer,
@@ -55,18 +63,14 @@ private:
 		const uint32_t size,
 		const std::function<void(std::byte*)>& write_function);
 
-	// in bytes
-	const size_t VERTEX_BUFFER_CAPACITY = sizeof(Vertex) * 2e5;
-	const size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
-	const size_t UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject) * 1e4;
-	const size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * 1e4;
-
-	const VkBufferUsageFlags VERTEX_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | 
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-	const VkBufferUsageFlags INDEX_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+	const VkBufferUsageFlags VERTEX_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | 
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	const VkBufferUsageFlags INDEX_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | 
+		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 	const VkBufferUsageFlags UNIFORM_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	const VkBufferUsageFlags MAPPING_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+	const VkBufferUsageFlags MAPPING_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 
 	const VkMemoryPropertyFlags VERTEX_BUFFER_MEMORY_FLAGS = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	const VkMemoryPropertyFlags INDEX_BUFFER_MEMORY_FLAGS = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;

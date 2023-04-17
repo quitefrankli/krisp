@@ -51,11 +51,6 @@ template<typename GraphicsEngineT>
 void RaytracingPipeline<GraphicsEngineT>::initialise()
 {
 	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
-	VkPolygonMode polygon_mode = get_polygon_mode();
-	// culling is determined by either clockerwise or counter clockwise vertex order
-	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
-	VkFrontFace front_face = get_front_face();
-
 	VkShaderModule raygen_shader = create_shader_module(shader_path.string() + "/raygen_shader.spv");
 	VkShaderModule rayhit_shader = create_shader_module(shader_path.string() + "/rayhit_shader.spv");
 	VkShaderModule raymiss_shader = create_shader_module(shader_path.string() + "/raymiss_shader.spv");
@@ -65,17 +60,17 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	raygen_info.module = raygen_shader;
 	raygen_info.pName = "main"; // function to invoke aka entrypoint
 
-	VkPipelineShaderStageCreateInfo rayhit_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
-	rayhit_info.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-	rayhit_info.module = rayhit_shader;
-	rayhit_info.pName = "main";
-
 	VkPipelineShaderStageCreateInfo raymiss_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	raymiss_info.stage = VK_SHADER_STAGE_MISS_BIT_KHR;
 	raymiss_info.module = raymiss_shader;
 	raymiss_info.pName = "main";
 
-	std::vector<VkPipelineShaderStageCreateInfo> shader_stages = { raygen_info, rayhit_info, raymiss_info };
+	VkPipelineShaderStageCreateInfo rayhit_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+	rayhit_info.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	rayhit_info.module = rayhit_shader;
+	rayhit_info.pName = "main";
+
+	std::vector<VkPipelineShaderStageCreateInfo> shader_stages = { raygen_info, raymiss_info, rayhit_info };
 
 	VkRayTracingShaderGroupCreateInfoKHR rt_shader_group_info{VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR};
 	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR;
@@ -89,19 +84,18 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	shader_groups.push_back(rt_shader_group_info);
 	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR; // reset to unused
 
+	// raymiss shader
+	rt_shader_group_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+	rt_shader_group_info.generalShader = 1;
+	shader_groups.push_back(rt_shader_group_info);
+	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR; // reset to unused
+
 	// rayhit shader
 	// this is for triangles only, if we were to use procedual geometry we would need to use intersection shaders
 	// i.e. this might be useful for spheres
 	rt_shader_group_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-	rt_shader_group_info.closestHitShader = 1;
+	rt_shader_group_info.closestHitShader = 2;
 	shader_groups.push_back(rt_shader_group_info);
-	rt_shader_group_info.closestHitShader = VK_SHADER_UNUSED_KHR; // reset to unused
-
-	// raymiss shader
-	rt_shader_group_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-	rt_shader_group_info.generalShader = 2;
-	shader_groups.push_back(rt_shader_group_info);
-	rt_shader_group_info.generalShader = VK_SHADER_UNUSED_KHR; // reset to unused
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
 	const auto descriptor_set_layouts = get_graphics_engine().get_graphics_resource_manager().get_raytracing_descriptor_set_layouts();
