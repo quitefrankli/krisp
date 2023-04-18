@@ -2,7 +2,6 @@
 
 #include "graphics_engine.hpp"
 #include "queues.hpp"
-#include "utility_functions.hpp"
 #include "utility.hpp"
 
 #include <quill/Quill.h>

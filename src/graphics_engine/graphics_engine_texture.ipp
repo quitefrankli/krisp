@@ -2,7 +2,6 @@
 
 #include "graphics_engine_texture.hpp"
 #include "graphics_engine.hpp"
-#include "utility_functions.hpp"
 #include "graphics_engine_texture_manager.hpp"
 #include "utility.hpp"
 

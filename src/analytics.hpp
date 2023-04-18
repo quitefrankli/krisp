@@ -1,7 +1,5 @@
 #pragma once
 
-#include "utility_functions.hpp"
-
 #include <string>
 #include <chrono>
 #include <functional>

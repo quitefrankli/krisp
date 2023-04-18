@@ -61,7 +61,13 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 			 "GraphicsEngineInstance: required extensions:={}", 
 			 fmt::format("{}", fmt::join(required_extensions, ", ")));
 
-	auto required_extensions_old = c_style_str_array(required_extensions);
+	// convert vector of string to vector const char pointer
+	std::vector<const char*> required_extensions_old;
+	for (const auto& extension : required_extensions)
+	{
+		required_extensions_old.push_back(extension.c_str());
+	}
+
 	create_info.enabledExtensionCount = required_extensions_old.size();
 	create_info.ppEnabledExtensionNames = required_extensions_old.data();
 
@@ -102,7 +108,12 @@ std::vector<std::string> GraphicsEngineInstance<GraphicsEngineT>::get_required_e
 		throw std::runtime_error("GraphicsEngineInstance: no glfw extensions found!");
 	}
 
-	std::vector<std::string> required_extensions = char_ptr_arr_to_str_vec(glfwExtensions, glfwExtensionCount);
+	std::vector<std::string> required_extensions;
+	for (int i = 0; i < glfwExtensionCount; ++i)
+	{
+		required_extensions.push_back(glfwExtensions[i]);
+	}
+
 	if (GraphicsEngineValidationLayer<GraphicsEngineT>::is_enabled())
 	{
 		required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);

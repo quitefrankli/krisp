@@ -6,7 +6,6 @@
 #include "game_engine.hpp"
 #include "objects/object.hpp"
 #include "uniform_buffer_object.hpp"
-#include "utility_functions.hpp"
 #include "analytics.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>

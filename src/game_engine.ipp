@@ -7,7 +7,6 @@
 #include "objects/cubemap.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
-#include "utility_functions.hpp"
 #include "utility.hpp"
 #include "analytics.hpp"
 #include "interface/gizmo.hpp"
