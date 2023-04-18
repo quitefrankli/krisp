@@ -77,11 +77,6 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 			experimental->process();
 			break;
 		}
-		case GLFW_KEY_F: // wireframe mode
-		{
-			graphics_engine->enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
-			break;
-		}
 		case GLFW_KEY_C: // toggle camera focus visibility
 		{
 			if (mode == GLFW_MOD_SHIFT)

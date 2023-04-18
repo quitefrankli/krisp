@@ -62,6 +62,7 @@ public:
 	float light_strength = 1.0f;
 	GuiVar<bool> rtx_on = false;
 	GuiVar<int> selected_camera_projection = 0;
+	GuiVar<bool> wireframe_mode = false;
 
 private:
 	const std::vector<const char*> camera_projections = { "perspective", "orthographic" };

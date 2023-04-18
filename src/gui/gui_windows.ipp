@@ -44,6 +44,7 @@ void GuiGraphicsSettings<GameEngineT>::draw()
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
 	rtx_on.changed = ImGui::Checkbox("RTX", &rtx_on.value);
+	wireframe_mode.changed = ImGui::Checkbox("wireframe", &wireframe_mode.value);
 	ImGui::SetNextItemWidth(combo_width);
 	selected_camera_projection.changed = ImGui::Combo(
 		"projection", 
@@ -59,6 +60,11 @@ void GuiGraphicsSettings<GameEngineT>::process(GameEngineT& engine)
 	if (selected_camera_projection.changed)
 	{
 		engine.get_camera().toggle_projection();
+	}
+
+	if (wireframe_mode.changed)
+	{
+		engine.get_graphics_engine().enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
 	}
 }
 
