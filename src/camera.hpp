@@ -14,15 +14,11 @@
 
 class Camera : public Object, public ITrackableObject
 {
-private:
-	glm::mat4 perspective_matrix;
-	glm::vec3 prev_focus;
-
 public:
 	Camera(Listener&& listener, float aspect_ratio);
 	~Camera();
 
-	glm::mat4 get_perspective() const;
+	glm::mat4 get_projection() const;
 	glm::mat4 get_view() const;
 
 	// converts a screen-space axis to a camera space axis
@@ -50,6 +46,7 @@ public:
 	void set_mode(Mode mode);
 	Mode get_mode() const { return mode; }
 
+	void toggle_projection();
 
 public: // object
 	virtual void update_tracker() override;
@@ -73,6 +70,11 @@ protected:
 	virtual void set_rotation(const glm::quat& rotation) override;
 
 private:
+	glm::mat4 perspective_matrix;
+	glm::mat4 orthographic_matrix;
+
+	glm::vec3 prev_focus;
+
 	Mode mode;
 	Listener listener;
 
@@ -80,6 +82,11 @@ private:
 	using Object::set_position;
 
 	static constexpr float panning_sensitivity = 0.2f;
+	bool projection_is_perspective = true;
+	const float aspect_ratio;
+	const float fov = Maths::deg2rad(45.0f);
+	const float near_clipping = 0.1f;
+	const float far_clipping = 250.0f;
 
 	class CameraTests;
 	friend CameraTests;

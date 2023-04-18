@@ -125,9 +125,6 @@ private:
 	AccelerationStructure top_as;
 	std::vector<VkAccelerationStructureInstanceKHR> tlas_instances;
 
-	// to check if raytracing got toggled on
-	bool previous_is_enabled_state = false;
-
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;

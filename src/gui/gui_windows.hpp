@@ -10,6 +10,29 @@
 #include <optional>
 
 
+template<typename T>
+struct GuiVar
+{
+	bool changed = false;
+	T value;
+
+	GuiVar() = default;
+	GuiVar(const T& value) : value(value)
+	{
+	}
+
+	GuiVar& operator=(const T& value)
+	{
+		this->value = value;
+		return *this;
+	}
+
+	T operator()() const
+	{
+		return value;
+	}
+};
+
 template<typename GameEngineT>
 class GuiWindow
 {
@@ -33,10 +56,15 @@ public:
 	GuiGraphicsSettings();
 
 	virtual void draw() override;
+	virtual void process(GameEngineT& engine) override;
 
 public:
 	float light_strength = 1.0f;
-	bool rtx_on = false;
+	GuiVar<bool> rtx_on = false;
+	GuiVar<int> selected_camera_projection = 0;
+
+private:
+	const std::vector<const char*> camera_projections = { "perspective", "orthographic" };
 };
 
 template<typename GameEngineT>

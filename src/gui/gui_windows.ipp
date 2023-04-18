@@ -8,6 +8,7 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "audio_engine/audio_source.hpp"
 #include "utility.hpp"
+#include "camera.hpp"
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -15,6 +16,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include "gui_windows.hpp"
 
 
 template<typename GameEngineT>
@@ -25,12 +27,39 @@ GuiGraphicsSettings<GameEngineT>::GuiGraphicsSettings()
 template<typename GameEngineT>
 void GuiGraphicsSettings<GameEngineT>::draw()
 {
+	static const float combo_width = [&]() 
+	{
+		float width = 0.0f;
+		for (auto& projection : camera_projections)
+		{
+			width = std::max(ImGui::CalcTextSize(projection).x, width);
+		}
+
+		const float drop_down_icon_width = 18.5f;
+
+		return width + ImGui::GetStyle().FramePadding.x * 2.0f + drop_down_icon_width;
+	}();
+
 	ImGui::Begin("Graphics Settings");
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
-	ImGui::Checkbox("RTX", &rtx_on);
-	
+	rtx_on.changed = ImGui::Checkbox("RTX", &rtx_on.value);
+	ImGui::SetNextItemWidth(combo_width);
+	selected_camera_projection.changed = ImGui::Combo(
+		"projection", 
+		&selected_camera_projection.value, 
+		camera_projections.data(), 
+		camera_projections.size());
+
 	ImGui::End();
+}
+template<typename GameEngineT>
+void GuiGraphicsSettings<GameEngineT>::process(GameEngineT& engine)
+{
+	if (selected_camera_projection.changed)
+	{
+		engine.get_camera().toggle_projection();
+	}
 }
 
 template<typename GameEngineT>

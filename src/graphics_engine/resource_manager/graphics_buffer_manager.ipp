@@ -14,6 +14,8 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	mapping_buffer(create_buffer(
 		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(BufferMapEntry))
 {
+	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
+	global_uniform_buffer.reserve_slot(0, global_uniform_buffer.get_capacity());
 }
 
 template<typename GraphicsEngineT>
@@ -37,6 +39,14 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_uniform_buffer(
 	std::byte* mapped_memory = uniform_buffer.map_slot(id, get_logical_device());
 	*reinterpret_cast<UniformBufferObject*>(mapped_memory) = ubos;
 	uniform_buffer.unmap_slot(get_logical_device());
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(const GlobalUniformBufferObject& ubo)
+{
+	std::byte* mapped_memory = global_uniform_buffer.map_slot(0, get_logical_device());
+	*reinterpret_cast<GlobalUniformBufferObject*>(mapped_memory) = ubo;
+	global_uniform_buffer.unmap_slot(get_logical_device());
 }
 
 template<typename GraphicsEngineT>

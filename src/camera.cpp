@@ -12,14 +12,11 @@
 
 Camera::Camera(Listener&& listener, float aspect_ratio) :
 	ITrackableObject(this),
-	listener(std::move(listener))
+	listener(std::move(listener)),
+	aspect_ratio(aspect_ratio)
 {
-	const float fov = Maths::deg2rad(45.0f);
-	// const float aspect_ratio = aspect_ratio; // passed in
-	const float near_clipping = 0.1f;
-	const float far_clipping = 250.0f;
-
 	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
+	orthographic_matrix = glm::orthoLH(-aspect_ratio, aspect_ratio, -1.0f, 1.0f, near_clipping, far_clipping);
 	focus_obj = std::make_shared<Sphere>();
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	focus_obj->set_visibility(false);
@@ -69,7 +66,7 @@ glm::vec3 Camera::sync_to_camera(const glm::vec2& axis)
 
 Maths::Ray Camera::get_ray(const glm::vec2& screen) const
 {
-	auto proj_mat = get_perspective();
+	auto proj_mat = get_projection();
 	const auto proj_view_mat = glm::inverse(proj_mat * get_view());
 
 	auto unproj = [&](const float depth)
@@ -87,9 +84,9 @@ Maths::Ray Camera::get_ray(const glm::vec2& screen) const
 	return Maths::Ray(get_position(), glm::normalize(p2-p1));
 }
 
-glm::mat4 Camera::get_perspective() const
+glm::mat4 Camera::get_projection() const
 {
-	return perspective_matrix;
+	return projection_is_perspective ? perspective_matrix : orthographic_matrix;
 }
 
 glm::mat4 Camera::get_view() const
@@ -100,6 +97,11 @@ glm::mat4 Camera::get_view() const
 void Camera::set_rotation(const glm::quat& rotation)
 {
 	Object::set_rotation(rotation);
+}
+
+void Camera::toggle_projection()
+{
+	projection_is_perspective = !projection_is_perspective;
 }
 
 void Camera::update_tracker()
@@ -166,6 +168,13 @@ void Camera::zoom_in(float length)
 	length = std::max(focal_len - maximum_distance, length);
 	const glm::vec3 offset = focus_obj->get_rotation() * Maths::forward_vec * length;
 	set_position(get_position() + offset);
+
+	if (!projection_is_perspective)
+	{
+		length = std::fabsf(length);
+		orthographic_matrix = glm::orthoLH(
+			-aspect_ratio * length, aspect_ratio * length, -length, length, near_clipping, far_clipping);
+	}
 }
 
 void Camera::toggle_visibility()

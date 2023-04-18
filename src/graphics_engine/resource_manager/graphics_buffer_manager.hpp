@@ -41,6 +41,7 @@ public:
 	void write_to_index_buffer(const std::vector<uint32_t>& indices, uint32_t id);
 	void write_to_uniform_buffer(const std::vector<UniformBufferObject>& ubos, uint32_t id);
 	void write_to_uniform_buffer(const UniformBufferObject& ubos, uint32_t id);
+	void write_to_global_uniform_buffer(const GlobalUniformBufferObject& ubo);
 	// does both vertex and index buffer writing
 	void write_shapes_to_buffers(const std::vector<Shape>& shapes, uint32_t id);
 	void write_to_mapping_buffer(const std::vector<BufferMapEntry>& entries, uint32_t id);
@@ -71,7 +72,7 @@ protected:
 	const size_t VERTEX_BUFFER_CAPACITY = sizeof(Vertex) * 2e5;
 	const size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
 	const size_t UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject) * 1e3;
-	const size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(UniformBufferObject);
+	const size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(GlobalUniformBufferObject);
 	const size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * 1e3;
 
 private:

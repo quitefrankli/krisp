@@ -93,14 +93,11 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::process()
 {
 	if (!is_enabled())
 	{
-		previous_is_enabled_state = false;
 		return;
 	}
 
-	// toggle on detected
-	if (!previous_is_enabled_state)
+	if (get_graphics_engine().get_gui_manager().graphic_settings.rtx_on.changed)
 	{
-		previous_is_enabled_state = true;
 		update_acceleration_structures();
 		static_cast<RaytracingRenderer<GraphicsEngineT>&>(get_graphics_engine().get_renderer_mgr().
 			get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
@@ -110,7 +107,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::process()
 template<typename GraphicsEngineT>
 bool GraphicsEngineRayTracing<GraphicsEngineT>::is_enabled()
 {
-	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on;
+	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on();
 }
 
 template<typename GraphicsEngineT>

@@ -184,7 +184,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
 	Renderer<GraphicsEngineT>& main_renderer = renderer_mgr.get_renderer(
-		get_graphics_engine().get_gui_manager().graphic_settings.rtx_on ?
+		get_graphics_engine().get_gui_manager().graphic_settings.rtx_on() ?
 		ERendererType::RAYTRACING : ERendererType::RASTERIZATION);
 	Renderer<GraphicsEngineT>& gui_renderer = renderer_mgr.get_renderer(ERendererType::GUI);
 
@@ -310,7 +310,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().graphic_settings;
 	GlobalUniformBufferObject gubo;
 	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
-	gubo.proj = get_graphics_engine().get_camera()->get_perspective(); // we can move this to push constant
+	gubo.proj = get_graphics_engine().get_camera()->get_projection(); // we can move this to push constant
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
 
 	// light controlled by light source, only supports single light source and white lighting currently
@@ -323,10 +323,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	}
 	gubo.lighting = graphic_settings.light_strength;
 
-	void* data;
-	vkMapMemory(get_logical_device(), get_rsrc_mgr().get_global_uniform_buffer_memory(), 0, sizeof(gubo), 0, &data);
-	memcpy(data, &gubo, sizeof(gubo));
-	vkUnmapMemory(get_logical_device(), get_rsrc_mgr().get_global_uniform_buffer_memory());
+	get_rsrc_mgr().write_to_global_uniform_buffer(gubo);
 
 	// update per object uniforms
 	UniformBufferObject default_ubo{};
