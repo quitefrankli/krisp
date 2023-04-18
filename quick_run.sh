@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function run () {
-	cmake --build . --target $1 --config Debug && bin/$1
+	cmake --build build/ --target $1 --config Debug && build/bin/$1
 }
 
 function benchmark() {

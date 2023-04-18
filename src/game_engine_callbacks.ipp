@@ -55,9 +55,10 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 			break;
 
 		case GLFW_KEY_LEFT:
-			break;
-
 		case GLFW_KEY_RIGHT:
+		case GLFW_KEY_UP:
+		case GLFW_KEY_DOWN:
+			application->on_key_press(key, scan_code, action, mode);
 			break;
 
 		case GLFW_KEY_S:
