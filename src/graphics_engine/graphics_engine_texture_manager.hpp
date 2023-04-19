@@ -14,33 +14,22 @@ template<typename GraphicsEngineT>
 class GraphicsEngineTextureManager : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	GraphicsEngineTextureManager(GraphicsEngineT& engine) : GraphicsEngineBaseModule<GraphicsEngineT>(engine)
-	{
-		LOG_INFO(Utility::get().get_logger(),
-				 "GraphicsEngineTextureManager: chosen max anisotropy:={}",
-				 engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
-	}
+	GraphicsEngineTextureManager(GraphicsEngineT& engine);
+	~GraphicsEngineTextureManager();
 
-	GraphicsEngineTexture<GraphicsEngineT>& create_new_unit(
-		std::string_view texture_path,
-		ETextureSamplerType sampler_type)
-	{
-		auto it = texture_units.find(texture_path.data());
-		if (it != texture_units.end())
-		{
-			return it->second;
-		}
+	// automatically generates texture if requested texture does not exist
+	GraphicsEngineTexture& fetch_texture(std::string_view texture_path, ETextureSamplerType sampler_type);
 
-		// note there is a bug that can cause emplace to still construct an object which is why
-		// the above logic is required
-		it = texture_units.emplace(
-			std::piecewise_construct, 
-			std::forward_as_tuple(texture_path), 
-			std::forward_as_tuple(*this, texture_path, sampler_type)).first;
-		return it->second;
-	}
+private:
+	GraphicsEngineTexture create_texture(const std::string_view texture_path, ETextureSamplerType sampler_type);
+	void create_texture_image(
+		const std::string_view texture_path, 
+		VkImage& texture_image,
+		VkDeviceMemory& texture_image_memory);
+	VkSampler create_texture_sampler(ETextureSamplerType sampler_type);
+	void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 private:
 	// note that this is not deleted even when an object referencing this texture gets destroyed
-	std::unordered_map<std::string, GraphicsEngineTexture<GraphicsEngineT>> texture_units;
+	std::unordered_map<std::string, GraphicsEngineTexture> texture_units;
 };

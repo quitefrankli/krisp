@@ -9,6 +9,7 @@
 template<typename GraphicsEngineT>
 GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& engine, const Object& object) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
+	material(object.get_material()),
 	type(object.get_render_type())
 {
 	switch (get_render_type())
@@ -17,13 +18,13 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 			for (const auto& shape : object.shapes)
 			{
 				textures.push_back(&get_graphics_engine().get_texture_mgr().
-					create_new_unit(shape.texture, ETextureSamplerType::ADDR_MODE_REPEAT));
+					fetch_texture(shape.texture, ETextureSamplerType::ADDR_MODE_REPEAT));
 			}
 		case EPipelineType::CUBEMAP:
 			for (const auto& shape : object.shapes)
 			{
 				textures.push_back(&get_graphics_engine().get_texture_mgr().
-					create_new_unit(shape.texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
+					fetch_texture(shape.texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
 			}
 			break;
 		default:

@@ -7,6 +7,7 @@
 #include "graphics_engine_texture.ipp"
 #include "graphics_engine_validation_layer.ipp"
 #include "graphics_engine_instance.ipp"
+#include "graphics_engine_texture_manager.ipp"
 #include "raytracing.ipp"
 
 #include "game_engine.hpp"
@@ -23,7 +24,7 @@ template class GraphicsEngineObject<GraphicsEngineT>;
 template class GraphicsEngineObjectPtr<GraphicsEngineT>;
 template class GraphicsEngineObjectRef<GraphicsEngineT>;
 template class GraphicsEngineSwapChain<GraphicsEngineT>;
-template class GraphicsEngineTexture<GraphicsEngineT>;
 template class GraphicsEngineValidationLayer<GraphicsEngineT>;
 template class GraphicsEngineRayTracing<GraphicsEngineT>;
 template class GraphicsEngineInstance<GraphicsEngineT>;
+template class GraphicsEngineTextureManager<GraphicsEngineT>;
