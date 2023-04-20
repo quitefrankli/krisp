@@ -49,7 +49,7 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	spawn_object<CubeMap>(); // background/horizon
 
 	light_source = &spawn_object<LightSource>(glm::vec3(1.0f));
-	light_source->set_position(glm::vec3(0.0f, 10.0f, 2.0f));
+	light_source->set_position(glm::vec3(0.0f, 5.0f, 0.0f));
 	add_clickable(light_source->get_id(), light_source);
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());

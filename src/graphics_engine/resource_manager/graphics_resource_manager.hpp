@@ -100,7 +100,7 @@ private:
 	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
 	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000; // for ray tracing
 	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
-	static constexpr int MAX_STORAGE_BUFFER_DESCRIPTOR_SETS = 10;
+	static constexpr int MAX_STORAGE_BUFFER_DESCRIPTOR_SETS = 1000;
 
 	// i.e. sphere uses 1 uniform while cube uses 6 per descriptor set
 	static constexpr int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;

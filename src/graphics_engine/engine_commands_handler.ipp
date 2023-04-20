@@ -2,7 +2,7 @@
 
 #include "graphics_engine.hpp"
 #include "objects/light_source.hpp"
-#include "uniform_buffer_object.hpp"
+#include "shared_data_structures.hpp"
 #include "renderers/renderers.hpp"
 #include "resource_manager/buffer_map.hpp"
 
@@ -19,8 +19,17 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 		get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_num_vertex_indices() * sizeof(uint32_t));
 		get_rsrc_mgr().write_shapes_to_buffers(graphics_object.get_shapes(), id);
 
+		// upload materials
+		for (int i = 0; i < graphics_object.get_shapes().size(); ++i)
+		{
+			const Shape& shape = graphics_object.get_shapes()[i];
+			const SDS::MaterialData& material = graphics_object.get_materials()[i].get_data();
+			get_rsrc_mgr().reserve_materials_buffer(shape.get_id(), sizeof(material));
+			get_rsrc_mgr().write_to_materials_buffer(material, shape.get_id());
+		}
+
 		// TODO: we need per frame uniform buffers, could alternatively use a single buffer
-		get_rsrc_mgr().reserve_uniform_buffer(id, sizeof(UniformBufferObject));
+		get_rsrc_mgr().reserve_uniform_buffer(id, sizeof(SDS::ObjectData));
 
 		BufferMapEntry buffer_map;
 		buffer_map.vertex_offset = get_rsrc_mgr().get_vertex_buffer_offset(id);

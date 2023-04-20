@@ -16,7 +16,7 @@ public:
 
 	static Shape generate_cube();
 
-	static Shape generate_sphere(GenerationMethod method = GenerationMethod::UV_SPHERE, int nVertices = 32);
+	static Shape generate_sphere(GenerationMethod method = GenerationMethod::UV_SPHERE, int nVertices = 128);
 
 private:
 	static Shape generate_uv_sphere(int nVertices);

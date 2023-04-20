@@ -5,7 +5,7 @@
 #include "camera.hpp"
 #include "game_engine.hpp"
 #include "objects/object.hpp"
-#include "uniform_buffer_object.hpp"
+#include "shared_data_structures.hpp"
 #include "analytics.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -311,8 +311,7 @@ void GraphicsEngine<GameEngineT>::create_image(uint32_t width,
 
 	VkMemoryRequirements mem_req;
 	vkGetImageMemoryRequirements(get_logical_device(), image, &mem_req);
-	VkMemoryAllocateInfo alloc_info{};
-	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	VkMemoryAllocateInfo alloc_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
 	alloc_info.allocationSize = mem_req.size;
 	alloc_info.memoryTypeIndex = find_memory_type(mem_req.memoryTypeBits, properties);
 

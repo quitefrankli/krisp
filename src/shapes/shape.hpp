@@ -2,6 +2,7 @@
 
 #include "vertex.hpp"
 #include "collision/bounding_box.hpp"
+#include "materials.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -12,11 +13,31 @@ namespace Maths
 	struct Ray;
 }
 
+struct ShapeID
+{
+public:
+	ShapeID(uint64_t id) : id(id) {}
+
+	bool operator==(const ShapeID& other) const { return id == other.id; }
+	bool operator!=(const ShapeID& other) const { return id != other.id; }
+	bool operator<(const ShapeID& other) const { return id < other.id; }
+	bool operator>(const ShapeID& other) const { return id > other.id; }
+
+	ShapeID operator++() { return ShapeID(++id); }
+	ShapeID operator++(int) { return ShapeID(id++); }
+
+	uint64_t get_underlying() const { return id; }
+
+private:
+	uint64_t id;
+};
+
 class Shape
 {
 public:
-	Shape() = default;
+	Shape() : id(global_id++) {}
 	virtual ~Shape() = default;
+
 	Shape(const Shape& shape) = delete;
 	Shape& operator=(const Shape& shape) = delete;
 	Shape(Shape&& shape) noexcept = default;
@@ -30,16 +51,23 @@ public:
 	void transform_vertices(const glm::quat& quat);
 	void translate_vertices(const glm::vec3& vec);
 	void generate_normals();
-	void set_color(const glm::vec3& color);
-	void set_texture(const std::string_view texture);
+
+	void set_material(const Material& material) { this->material = material; }
+	const Material& get_material() const { return material; }
 
 	// WARNING this is expensive
 	void deduplicate_vertices();
 
 	virtual bool check_collision(const Maths::Ray& ray);
-
-	std::string texture;
-	std::string name;
-
 	AABB aabb;
+
+	ShapeID get_id() const { return id; }
+
+protected:
+	Material material;
+	
+private:
+	const ShapeID id;
+
+	static ShapeID global_id;
 };

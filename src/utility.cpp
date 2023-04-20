@@ -22,6 +22,10 @@ Utility::Utility()
 
 	auto file_handler = quill::file_handler(fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), "a");
 	logger = quill::create_logger("MAIN", file_handler);
+
+	// guarantees a blocking flush when a log level at or higher than this is logged
+	logger->init_backtrace(10, quill::LogLevel::Error);
+
 	file_handler->set_pattern(
 		QUILL_STRING("%(ascii_time): %(message)"),
 		"%D %H:%M:%S.%Qus",

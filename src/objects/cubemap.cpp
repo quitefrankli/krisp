@@ -45,12 +45,19 @@ CubeMap::CubeMap()
 	bottom.transform_vertices(transform);
 
 	const auto texture_path = Utility::get().get_textures_path().string();
-	front.texture = texture_path + "/skybox/front.bmp";
-	left.texture = texture_path + "/skybox/left.bmp";
-	right.texture = texture_path + "/skybox/right.bmp";
-	back.texture = texture_path + "/skybox/back.bmp";
-	top.texture = texture_path + "/skybox/top.bmp";
-	bottom.texture = texture_path + "/skybox/bottom.bmp";
+	Material material;
+	material.texture_path = texture_path + "/skybox/front.bmp";
+	front.set_material(material);
+	material.texture_path = texture_path + "/skybox/left.bmp";
+	left.set_material(material);
+	material.texture_path = texture_path + "/skybox/right.bmp";
+	right.set_material(material);
+	material.texture_path = texture_path + "/skybox/back.bmp";
+	back.set_material(material);
+	material.texture_path = texture_path + "/skybox/top.bmp";
+	top.set_material(material);
+	material.texture_path = texture_path + "/skybox/bottom.bmp";
+	bottom.set_material(material);
 
 	shapes.push_back(std::move(left));
 	shapes.push_back(std::move(right));

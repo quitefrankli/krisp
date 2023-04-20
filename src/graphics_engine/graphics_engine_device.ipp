@@ -172,11 +172,12 @@ void GraphicsEngineDevice<GraphicsEngineT>::print_physical_device_settings()
 	const auto& properties = get_physical_device_properties();
 
 	LOG_INFO(Utility::get().get_logger(),
-			 "Physical Device Properties: \n\tmaxBoundDescriptorSets: {}\n\tmaxMSAA_Samples: {}\n\t"
-			 "maxRayRecursionDepth: {}",
+			 "Physical Device Properties: maxBoundDescriptorSets: {}, maxMSAA_Samples: {}, "
+			 "maxRayRecursionDepth: {}, minStorageBufferOffsetAlignment: {}",
 			 properties.properties.limits.maxBoundDescriptorSets,
 			 get_max_usable_msaa(),
-			 ray_tracing_properties.maxRayRecursionDepth);
+			 ray_tracing_properties.maxRayRecursionDepth,
+			 properties.properties.limits.minStorageBufferOffsetAlignment);
 }
 
 template<typename GraphicsEngineT>

@@ -40,7 +40,9 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 	auto textures_it = textures.begin();
 	for (auto& shape : object.shapes)
 	{
-		shape.texture = *textures_it++;
+		Material mat;
+		mat.texture_path = *textures_it++;
+		shape.set_material(mat);
 	}
 
 	fmt::print("ResourceLoader::load_object: loaded {}, shapes:={}, vertices:={}, indices:={}, texures:={}\n",
@@ -58,10 +60,16 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 	Object object;
 	const auto vertex_loader = [&color](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
 		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
-		new_vertex.color = color;
 	};
 
 	load_object_impl(object, mesh, vertex_loader, transform);
+
+	for (auto& shape : object.shapes)
+	{
+		Material mat;
+		mat.material_data.diffuse = color;
+		shape.set_material(mat);
+	}
 
 	fmt::print("ResourceLoader::load_object: loaded {}, shapes:={}, vertices:={}, indices:={}\n",
 		mesh, object.shapes.size(), object.get_num_unique_vertices(), object.get_num_vertex_indices());
@@ -128,7 +136,6 @@ static void load_object_impl(Object& object,
 		}
 
 		new_shape.generate_normals();
-		new_shape.name = shape.name;
 
 		object.shapes.push_back(std::move(new_shape));
 	}
@@ -161,7 +168,9 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 	auto textures_it = textures.begin();
 	for (auto& shape : object.shapes)
 	{
-		shape.texture = *textures_it++;
+		Material mat;
+		mat.texture_path = *textures_it++;
+		shape.set_material(mat);
 		switch (setting)
 		{
 			case ResourceLoader::Setting::ZERO_MESH: {
@@ -183,7 +192,6 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
 				break;
 		}
 		auto& new_obj = objects.emplace_back();
-		new_obj.set_name(shape.name);
 		new_obj.set_aabb(shape.aabb);
 		new_obj.shapes.push_back(std::move(shape));
 		new_obj.set_render_type(EPipelineType::STANDARD); // use textured render
@@ -204,7 +212,9 @@ void ResourceLoader::assign_object_texture(Object& object, const std::string_vie
 {
 	for (int i = 0; i < object.shapes.size(); i++)
 	{
-		object.shapes[i].set_texture(texture);
+		Material mat = object.shapes[i].get_material();
+		mat.texture_path = texture;
+		object.shapes[i].set_material(mat);
 	}
 	object.set_render_type(EPipelineType::STANDARD); // use textured render
 }
@@ -217,7 +227,9 @@ void ResourceLoader::assign_object_texture(Object& object, const std::vector<std
 	}
 	for (int i = 0; i < object.shapes.size(); i++)
 	{
-		object.shapes[i].set_texture(textures[i]);
+		Material mat = object.shapes[i].get_material();
+		mat.texture_path = textures[i];
+		object.shapes[i].set_material(mat);
 	}
 	object.set_render_type(EPipelineType::STANDARD); // use textured render
 }

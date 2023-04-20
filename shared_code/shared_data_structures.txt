@@ -1,0 +1,25 @@
+struct MaterialData
+{
+	VEC3 ambient;
+	VEC3 diffuse;
+	VEC3 specular;
+	VEC3 emissive;
+	float shininess;
+};
+
+// be vary of alignment issues
+struct ObjectData
+{
+	MAT4 model;
+    MAT4 mvp; // precomputed model-view-proj matrix
+    CPP_MAT4_GLSL_MAT3 rot_mat; // glsl alignment issue workaround
+};
+
+struct GlobalData
+{
+    MAT4 view; // camera
+    MAT4 proj;
+    ALIGN(16) VEC3 view_pos; // camera eye
+    ALIGN(16) VEC3 light_pos;
+    float lighting_scalar;
+};

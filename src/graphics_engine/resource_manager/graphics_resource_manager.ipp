@@ -4,7 +4,7 @@
 
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/queues.hpp"
-#include "graphics_engine/uniform_buffer_object.hpp"
+#include "shared_data_structures.hpp"
 
 #include <fmt/core.h>
 
@@ -78,6 +78,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	rt_storage_image_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	rt_storage_image_pool_size.descriptorCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
 
+	// for meshes and materials
 	VkDescriptorPoolSize storage_buffer_pool_size{};
 	storage_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	storage_buffer_pool_size.descriptorCount = MAX_STORAGE_BUFFER_DESCRIPTOR_SETS;
@@ -90,40 +91,15 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 		storage_buffer_pool_size
 	};
 
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 	poolInfo.poolSizeCount = pool_sizes.size();
 	poolInfo.pPoolSizes = pool_sizes.data();
 	// defines maximum number of descriptor sets that may be allocated
 	poolInfo.maxSets = MAX_DESCRIPTOR_SETS;
 
-	//
-	// below may be necessary for ImGui
-	//
-
-	// pool_sizes =
-	// {
-	// 	{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-	// 	{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-	// };
-	// // poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	// poolInfo.maxSets = 10000 * pool_sizes.size();
-	// poolInfo.poolSizeCount = (uint32_t)pool_sizes.size();
-	// poolInfo.pPoolSizes = pool_sizes.data();
-
-	fmt::print("GraphicsResourceManager::create_descriptor_pool: max_sets:={}\n"
-		"\tper_set_max_uniform_buffer_count:={}\n"
-		"\tper_set_max_combined_image_sampler_count:={}\n",
-		poolInfo.maxSets, uniform_buffer_pool_size.descriptorCount, combined_image_sampler_pool_size.descriptorCount);
+	LOG_INFO(Utility::get().get_logger(), 
+			 "GraphicsResourceManager::create_descriptor_pool: max_sets:={}\n",
+		   	 poolInfo.maxSets);
 
 	if (vkCreateDescriptorPool(get_logical_device(), &poolInfo, nullptr, &descriptor_pool) != VK_SUCCESS)
 	{
@@ -163,7 +139,14 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 		sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
 		sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
-		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding };
+		VkDescriptorSetLayoutBinding materials_layout_binding{};
+		materials_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		materials_layout_binding.binding = 2;
+		materials_layout_binding.descriptorCount = 1;
+		materials_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		materials_layout_binding.pImmutableSamplers = nullptr;
+
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding, materials_layout_binding };
 		create_layout(bindings, &high_freq_descriptor_set_layout);
 	}
 
@@ -306,7 +289,7 @@ void GraphicsResourceManager<GraphicsEngineT>::initialise_global_descriptor_set(
 	VkDescriptorBufferInfo buffer_info{};
 	buffer_info.buffer = get_global_uniform_buffer();
 	buffer_info.offset = 0;
-	buffer_info.range = sizeof(GlobalUniformBufferObject);
+	buffer_info.range = sizeof(SDS::GlobalData);
 
 	VkWriteDescriptorSet dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	dset_write.dstSet = global_descriptor_set;
@@ -432,7 +415,7 @@ std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::
 {
 	return { 
 		high_freq_descriptor_set_layout, 
-		low_freq_descriptor_set_layout 
+		low_freq_descriptor_set_layout
 	};
 }
 

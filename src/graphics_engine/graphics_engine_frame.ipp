@@ -6,7 +6,7 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "objects/object.hpp"
 #include "objects/light_source.hpp"
-#include "uniform_buffer_object.hpp"
+#include "shared_data_structures.hpp"
 #include "camera.hpp"
 #include "pipeline/pipeline_types.hpp"
 
@@ -97,20 +97,18 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		VkDescriptorBufferInfo buffer_info{};
+		const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_uniform_buffer_slot(object.get_game_object().get_id());
 		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
-		buffer_info.offset = get_rsrc_mgr().get_uniform_buffer_offset(object.get_game_object().get_id());
-		buffer_info.range = sizeof(UniformBufferObject);
+		buffer_info.offset = buffer_slot.offset;
+		buffer_info.range = buffer_slot.size;
 
-		VkWriteDescriptorSet uniform_buffer_descriptor_set{};
-		uniform_buffer_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		VkWriteDescriptorSet uniform_buffer_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 		uniform_buffer_descriptor_set.dstSet = new_descriptor_sets[vertex_set_index];
 		uniform_buffer_descriptor_set.dstBinding = 0; // also set to 0 in the shader
 		uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
 		uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uniform_buffer_descriptor_set.descriptorCount = 1;
 		uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
-		uniform_buffer_descriptor_set.pImageInfo = nullptr;
-		uniform_buffer_descriptor_set.pTexelBufferView = nullptr;
 
 		descriptor_writes.push_back(uniform_buffer_descriptor_set);
 
@@ -126,19 +124,16 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 					// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
 					// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
 					// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-					image_info.imageView = object.get_textures()[vertex_set_index]->get_texture_image_view();
-					image_info.sampler = object.get_textures()[vertex_set_index]->get_texture_sampler();
+					image_info.imageView = object.get_materials()[vertex_set_index].get_texture().get_texture_image_view();
+					image_info.sampler = object.get_materials()[vertex_set_index].get_texture().get_texture_sampler();
 
-					VkWriteDescriptorSet combined_image_sampler_descriptor_set{};
-					combined_image_sampler_descriptor_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+					VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 					combined_image_sampler_descriptor_set.dstSet = new_descriptor_sets[vertex_set_index];
 					combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
 					combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
 					combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 					combined_image_sampler_descriptor_set.descriptorCount = 1;
-					combined_image_sampler_descriptor_set.pBufferInfo = nullptr; 
 					combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-					combined_image_sampler_descriptor_set.pTexelBufferView = nullptr;
 
 					descriptor_writes.push_back(combined_image_sampler_descriptor_set);
 				}
@@ -146,6 +141,22 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 			default:
 				break;
 		}
+
+		const GraphicsBuffer::Slot mat_slot = 
+			get_rsrc_mgr().get_materials_buffer_slot(object.get_shapes()[vertex_set_index].get_id());
+		VkDescriptorBufferInfo material_buffer_info{};
+		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
+		material_buffer_info.offset = mat_slot.offset;
+		material_buffer_info.range = mat_slot.size;
+		VkWriteDescriptorSet material_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		material_buffer_dset.dstSet = new_descriptor_sets[vertex_set_index];
+		material_buffer_dset.dstBinding = 2;
+		material_buffer_dset.dstArrayElement = 0;
+		material_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		material_buffer_dset.descriptorCount = 1;
+		material_buffer_dset.pBufferInfo = &material_buffer_info;
+
+		descriptor_writes.push_back(material_buffer_dset);
 
 		vkUpdateDescriptorSets(get_logical_device(),
 							   static_cast<uint32_t>(descriptor_writes.size()), 
@@ -308,7 +319,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 {
 	// update global uniform buffer
 	auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().graphic_settings;
-	GlobalUniformBufferObject gubo;
+	SDS::GlobalData gubo;
 	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
 	gubo.proj = get_graphics_engine().get_camera()->get_projection(); // we can move this to push constant
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
@@ -321,20 +332,20 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	} else {
 		gubo.light_pos = light_sources.begin()->second.get().get_position();
 	}
-	gubo.lighting = graphic_settings.light_strength;
+	gubo.lighting_scalar = graphic_settings.light_strength;
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(gubo);
 
 	// update per object uniforms
-	UniformBufferObject default_ubo{};
+	SDS::ObjectData object_data{};
 	for (const auto& it_pair : get_graphics_engine().get_objects())
 	{
 		const auto& graphics_object = it_pair.second;
-		default_ubo.model = graphics_object->get_game_object().get_transform();
-		default_ubo.mvp = gubo.proj * gubo.view * default_ubo.model;
-		default_ubo.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
+		object_data.model = graphics_object->get_game_object().get_transform();
+		object_data.mvp = gubo.proj * gubo.view * object_data.model;
+		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
 
-		get_rsrc_mgr().write_to_uniform_buffer(default_ubo, graphics_object->get_game_object().get_id());
+		get_rsrc_mgr().write_to_uniform_buffer(object_data, graphics_object->get_game_object().get_id());
 	}
 }
 

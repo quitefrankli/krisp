@@ -41,8 +41,7 @@ public:
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }
 
-	// I think we need a couple more different derived GraphcisEngineObjects, i.e. light_source/textured/colored
-	const std::vector<GraphicsEngineTexture*>& get_textures() const { return textures; }
+	const std::vector<GraphicsMaterial>& get_materials() const { return materials; }
 
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
@@ -52,17 +51,9 @@ public:
 	const EPipelineType type;
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	
 	bool marked_for_delete = false;
 
-	std::vector<GraphicsEngineTexture*> textures;
-	GraphicsMaterial material;
+	std::vector<GraphicsMaterial> materials;
 };
 
 // this object derivation CAN be destroyed while graphics engine is running
@@ -75,13 +66,6 @@ public:
 	const Object& get_game_object() const override;
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	
 	std::shared_ptr<Object> object;
 };
 
@@ -95,12 +79,5 @@ public:
 	const Object& get_game_object() const override;
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-		
 	Object& object;
 };

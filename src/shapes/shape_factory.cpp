@@ -124,6 +124,10 @@ Shape ShapeFactory::generate_uv_sphere(int nVertices)
 
 	shape.generate_normals();
 
+	Material mat;
+	mat.material_data.diffuse = glm::vec3(0.0f, 1.0f, 0.0f);
+	shape.set_material(mat);
+
 	return shape;
 }
 

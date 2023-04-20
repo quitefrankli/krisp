@@ -8,7 +8,16 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	vertex_buffer(create_buffer(VERTEX_BUFFER_CAPACITY, VERTEX_BUFFER_USAGE_FLAGS, VERTEX_BUFFER_MEMORY_FLAGS, 4)),
 	index_buffer(create_buffer(INDEX_BUFFER_CAPACITY, INDEX_BUFFER_USAGE_FLAGS, INDEX_BUFFER_MEMORY_FLAGS, 4)),
-	uniform_buffer(create_buffer(UNIFORM_BUFFER_CAPACITY, UNIFORM_BUFFER_USAGE_FLAGS, UNIFORM_BUFFER_MEMORY_FLAGS, 4)),
+	uniform_buffer(create_buffer(
+		UNIFORM_BUFFER_CAPACITY, 
+		UNIFORM_BUFFER_USAGE_FLAGS, 
+		UNIFORM_BUFFER_MEMORY_FLAGS, 
+		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment)),
+	materials_buffer(create_buffer(
+		MATERIALS_BUFFER_CAPACITY, 
+		MATERIALS_BUFFER_USAGE_FLAGS, 
+		MATERIALS_BUFFER_MEMORY_FLAGS, 
+		engine.get_device_module().get_physical_device_properties().properties.limits.minStorageBufferOffsetAlignment)),
 	global_uniform_buffer(create_buffer(
 		GLOBAL_UNIFORM_BUFFER_CAPACITY, GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS)),
 	mapping_buffer(create_buffer(
@@ -24,28 +33,26 @@ GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager()
 	vertex_buffer.destroy(get_logical_device());
 	index_buffer.destroy(get_logical_device());
 	uniform_buffer.destroy(get_logical_device());
+	materials_buffer.destroy(get_logical_device());
 	global_uniform_buffer.destroy(get_logical_device());
 	mapping_buffer.destroy(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
 void GraphicsBufferManager<GraphicsEngineT>::write_to_uniform_buffer(
-	const UniformBufferObject& ubos,
+	const SDS::ObjectData& ubos,
 	uint32_t id)
 {
-	const auto offset = uniform_buffer.get_offset(id);
-	VkBuffer buffer = uniform_buffer.get_buffer();
-
 	std::byte* mapped_memory = uniform_buffer.map_slot(id, get_logical_device());
-	*reinterpret_cast<UniformBufferObject*>(mapped_memory) = ubos;
+	*reinterpret_cast<SDS::ObjectData*>(mapped_memory) = ubos;
 	uniform_buffer.unmap_slot(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(const GlobalUniformBufferObject& ubo)
+void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(const SDS::GlobalData& ubo)
 {
 	std::byte* mapped_memory = global_uniform_buffer.map_slot(0, get_logical_device());
-	*reinterpret_cast<GlobalUniformBufferObject*>(mapped_memory) = ubo;
+	*reinterpret_cast<SDS::GlobalData*>(mapped_memory) = ubo;
 	global_uniform_buffer.unmap_slot(get_logical_device());
 }
 
@@ -76,6 +83,18 @@ void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::
 			std::memcpy(destination, shape.indices.data(), index_set_size);
 			destination += index_set_size;
 		}
+	});
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::write_to_materials_buffer(const SDS::MaterialData& material, ShapeID id)
+{
+	// TODO: lots of objects will share the same material, need to come up with way to hash materials and only write unique ones
+	const auto slot = materials_buffer.get_slot(id.get_underlying());
+	stage_data_to_buffer(materials_buffer.get_buffer(), slot.offset, slot.size,
+	[&material](std::byte* destination)
+	{
+		std::memcpy(destination, &material, sizeof(material));
 	});
 }
 

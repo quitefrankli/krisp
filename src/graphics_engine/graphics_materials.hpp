@@ -1,30 +1,33 @@
 #pragma once
 
 #include "materials.hpp"
+#include "shared_data_structures.hpp"
+#include "graphics_engine_texture.hpp"
 
 #include <vulkan/vulkan.h>
-
-
-// needs to be synced in shader
-struct MaterialData
-{
-	glm::vec3 color;
-	float roughness;
-	float specular;
-};
 
 struct GraphicsMaterial
 {
 public:
-	GraphicsMaterial(const Material& material)
+	GraphicsMaterial(const Material& material, GraphicsEngineTexture* texture = nullptr) :
+		texture(texture),
+		data(material.material_data)
 	{
-		data.color = material.color;
-		data.roughness = material.roughness;
-		data.specular = material.specular;
 	}
 
-private:
-	VkSampler sampler;
+	GraphicsEngineTexture& get_texture() const
+	{ 
+		if (!texture)
+		{
+			throw std::runtime_error("GraphicsMaterial::get_texture() - texture is nullptr");
+		}
 
-	MaterialData data;
+		return *texture; 
+	}
+
+	const SDS::MaterialData& get_data() const { return data; }
+
+private:
+	GraphicsEngineTexture* texture;
+	SDS::MaterialData data;
 };

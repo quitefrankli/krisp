@@ -6,6 +6,8 @@
 #include <algorithm>
 
 
+ShapeID Shape::global_id = 0;
+
 void Shape::transform_vertices(const glm::mat4& transform)
 {
 	for (auto& vertex : vertices)
@@ -89,16 +91,3 @@ void Shape::deduplicate_vertices()
 }
 
 bool Shape::check_collision(const Maths::Ray& ray) { return true; }
-
-void Shape::set_color(const glm::vec3& color)
-{
-	for (auto& vertex : vertices)
-	{
-		vertex.color = color;
-	}
-}
-
-void Shape::set_texture(const std::string_view texture)
-{
-	this->texture = texture;
-}

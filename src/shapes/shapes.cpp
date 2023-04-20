@@ -31,6 +31,8 @@ Square::Square()
 	{
 		0, 1, 2, 2, 3, 0
 	};
+
+	material.material_data.diffuse = glm::vec3(1.0f);
 }
 
 Circle::Circle(int nVertices, glm::vec3 color)
@@ -167,6 +169,8 @@ Cube::Cube()
 
 	// deduplicate_vertices(); // TODO: do this
 	generate_normals();
+
+	material.material_data.diffuse = glm::vec3(1.0f);
 }
 
 bool Cube::check_collision(const Maths::Ray& ray)

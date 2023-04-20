@@ -1,5 +1,6 @@
 #include "objects.hpp"
 #include "shapes/shapes.hpp"
+#include "shapes/shape_factory.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -14,80 +15,12 @@ Cube::Cube()
 
 Sphere::Sphere() : IClickable((Object&)(*this))
 {
-	const int M = 30;
-	const int N = 30;
-	auto calculate_vertex = [&M, &N](float m, float n)
-	{
-		m = m / (float)M * Maths::PI;
-		n = n / (float)N * Maths::PI;
-		Vertex vertex;
-		vertex.pos = {
-			sinf(2.0f * n) * sinf(m),
-			cosf(m),
-			cosf(2.0f * n) * sinf(m)
-		};
-		vertex.pos /= 2.0f;
-		vertex.color = {
-			sinf(m*2.0f)/2.0f+0.5f, 1.0f, sinf(n*2.0f)/2.0f+0.5f
-		};
-		return vertex;
-	};
-
-	// generate all vertices of sphere
-	Shape shape;
-	shape.vertices.reserve(M*N);
-	shape.indices.reserve(M*N*8);
-
-	for (int m = 0; m <= M; m++)
-	{
-		for (int n = 0; n < N; n++)
-		{
-			shape.vertices.push_back(calculate_vertex(m, n));
-		}
-	}
-	
-	auto get_index = [&](int m, int n)
-	{
-		return m*N + n;
-	};
-
-	// edge case first row
-	for (int n = 0; n < N; n++)
-	{
-		const int m = 1;
-		shape.indices.push_back(0);
-		shape.indices.push_back(get_index(m, n));
-		shape.indices.push_back(get_index(m, (n+1)%N));
-	}
-	for (int m = 1; m < M-1; m++)
-	{
-		for (int n = 0; n < N; n++)
-		{
-			shape.indices.push_back(get_index(m, n));
-			shape.indices.push_back(get_index(m+1, n));
-			// mod N here due to edge case at last column of a row
-			shape.indices.push_back(get_index(m+1, (n+1)%N));
-			shape.indices.push_back(get_index(m, n));
-			shape.indices.push_back(get_index(m+1, (n+1)%N));
-			shape.indices.push_back(get_index(m, (n+1)%N));
-		}
-	}
-	// edge case last row
-	for (int n = 0; n < N; n++)
-	{
-		const int m = M-1;
-		shape.indices.push_back(get_index(m, n));
-		shape.indices.push_back(shape.vertices.size()-1);
-		shape.indices.push_back(get_index(m, (n+1)%N));
-	}
-
-	shape.generate_normals();
-	shapes.push_back(std::move(shape));
+	shapes.emplace_back(ShapeFactory::generate_sphere(ShapeFactory::GenerationMethod::UV_SPHERE, 128));
 }
 
 bool Sphere::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
 {
-	const std::optional<glm::vec3> x = Maths::ray_sphere_collision(Maths::Sphere(get_position(), get_radius()), ray);
+	const auto x = Maths::ray_sphere_collision(Maths::Sphere(get_position(), get_radius()), ray);
 	if (x)
 	{
 		intersection = x.value();
