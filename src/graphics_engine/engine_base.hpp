@@ -7,6 +7,7 @@ class GraphicsEngineBase
 {
 public:
 	virtual void handle_command(SpawnObjectCmd& cmd) {}
+	virtual void handle_command(AddLightSourceCmd& cmd) {}
 	virtual void handle_command(DeleteObjectCmd& cmd) {}
 	virtual void handle_command(StencilObjectCmd& cmd) {}
 	virtual void handle_command(UnStencilObjectCmd& cmd) {}

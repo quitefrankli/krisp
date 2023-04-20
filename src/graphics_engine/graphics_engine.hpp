@@ -163,6 +163,7 @@ private: // core components
 
 public: // commands
 	void handle_command(SpawnObjectCmd& cmd) final;
+	void handle_command(AddLightSourceCmd& cmd) final;
 	void handle_command(DeleteObjectCmd& cmd) final;
 	void handle_command(StencilObjectCmd& cmd) final;
 	void handle_command(UnStencilObjectCmd& cmd) final;

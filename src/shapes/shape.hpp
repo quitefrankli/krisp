@@ -2,7 +2,7 @@
 
 #include "vertex.hpp"
 #include "collision/bounding_box.hpp"
-#include "materials.hpp"
+#include "materials/materials.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>

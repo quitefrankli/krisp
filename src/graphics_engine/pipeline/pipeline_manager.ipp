@@ -19,9 +19,7 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	
 	add_pipeline(EPipelineType::STANDARD);
 	add_pipeline(EPipelineType::COLOR);
-	add_pipeline(EPipelineType::COLOR_NO_LIGHTING);
 	add_pipeline(EPipelineType::WIREFRAME);
-	add_pipeline(EPipelineType::LIGHT_SOURCE);
 	add_pipeline(EPipelineType::CUBEMAP);
 	add_pipeline(EPipelineType::STENCIL);
 	add_pipeline(EPipelineType::RAYTRACING);

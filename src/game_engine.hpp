@@ -53,6 +53,8 @@ public:
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
 	
+	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
+
 	template<typename object_t, typename... Args>
 	object_t& spawn_object(Args&&... args)
 	{
@@ -71,8 +73,6 @@ public:
 		return *it.first->second;
 	}
 
-	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
-	
 	// this function assumes something else manages the lifetime of object
 	template<typename object_t>
 	void draw_object(const std::shared_ptr<object_t>& object)

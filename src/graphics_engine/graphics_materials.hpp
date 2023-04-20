@@ -1,6 +1,6 @@
 #pragma once
 
-#include "materials.hpp"
+#include "materials/materials.hpp"
 #include "shared_data_structures.hpp"
 #include "graphics_engine_texture.hpp"
 

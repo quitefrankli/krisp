@@ -55,3 +55,13 @@ void UpdateCommandBufferCmd::process(GraphicsEngineBase* engine)
 void UpdateRayTracingCmd::process(GraphicsEngineBase* engine) {
 	engine->handle_command(*this);
 }
+
+AddLightSourceCmd::AddLightSourceCmd(LightSource& object) :
+	object(object)
+{
+}
+
+void AddLightSourceCmd::process(GraphicsEngineBase* engine) 
+{
+	engine->handle_command(*this);
+}

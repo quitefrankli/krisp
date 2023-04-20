@@ -60,14 +60,8 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<
 	case EPipelineType::STANDARD:
 		new_pipeline = std::make_unique<TexturePipeline<GraphicsEngineT>>(engine);
 		break;
-	case EPipelineType::COLOR_NO_LIGHTING:
-		new_pipeline = std::make_unique<ColorNoLightingPipeline<GraphicsEngineT>>(engine);
-		break;
 	case EPipelineType::WIREFRAME:
 		new_pipeline = std::make_unique<WireframePipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::LIGHT_SOURCE:
-		new_pipeline = std::make_unique<LightSourcePipeline<GraphicsEngineT>>(engine);
 		break;
 	case EPipelineType::CUBEMAP:
 		new_pipeline = std::make_unique<CubemapPipeline<GraphicsEngineT>>(engine);

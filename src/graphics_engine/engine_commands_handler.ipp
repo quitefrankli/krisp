@@ -38,13 +38,6 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 		get_rsrc_mgr().write_to_mapping_buffer(buffer_map, id);
 
 		swap_chain.spawn_object(graphics_object);
-
-		if (graphics_object.type == EPipelineType::LIGHT_SOURCE)
-		{
-			light_sources.emplace(
-				graphics_object.get_game_object().get_id(), 
-				static_cast<const LightSource&>(graphics_object.get_game_object()));
-		}
 	};
 
 	if (cmd.object_ref)
@@ -60,6 +53,12 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 			std::make_unique<GraphicsEngineObjectPtr<GraphicsEngine>>(*this, std::move(cmd.object)));
 		spawn_object(*graphics_object.first->second);
 	}
+}
+
+template<typename GameEngineT>
+void GraphicsEngine<GameEngineT>::handle_command(AddLightSourceCmd& cmd)
+{
+	light_sources.emplace(cmd.object.get_id(), cmd.object);
 }
 
 template<typename GameEngineT>

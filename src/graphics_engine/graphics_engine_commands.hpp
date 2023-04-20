@@ -5,6 +5,7 @@
 
 class Object;
 class GraphicsEngineBase;
+class LightSource;
 
 struct GraphicsEngineCommand
 {
@@ -20,6 +21,14 @@ struct SpawnObjectCmd : public GraphicsEngineCommand
 
 	std::shared_ptr<Object> object;
 	Object* object_ref = nullptr; // used for a GraphicsEngineObjectRef type object
+};
+
+struct AddLightSourceCmd : public GraphicsEngineCommand
+{
+	AddLightSourceCmd(LightSource& object);
+	virtual void process(GraphicsEngineBase* engine) override;
+
+	LightSource& object;
 };
 
 struct ObjectCommand : public GraphicsEngineCommand

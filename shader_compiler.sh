@@ -58,10 +58,6 @@ echo -e "${YELLOW}compiling shaders...${NC}"
 for directory in $SHADERS_DIR/*/*/
 do
 	shader_name=$(basename $directory)
-	if [ $shader_name == library ]
-	then
-		continue
-	fi
 	compile_shader_dir $shader_name $directory
 done
 

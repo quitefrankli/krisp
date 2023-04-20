@@ -54,8 +54,12 @@ void TranslationGizmo<GameEngineT>::init()
 	zAxis.point(Maths::zero_vec, Maths::forward_vec);
 
 	axes = {&xAxis, &yAxis, &zAxis};
-	std::for_each(axes.begin(), axes.end(), [this](auto axis){
-		axis->set_render_type(EPipelineType::COLOR_NO_LIGHTING);
+	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
+	{
+		for (auto& shape : axis->shapes)
+		{
+			shape.set_material(Material::create_material(EMaterialType::GIZMO_ARROW));
+		}
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -116,8 +120,12 @@ void RotationGizmo<GameEngineT>::init()
 	yAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, Maths::right_vec));
 
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
-	std::for_each(axes.begin(), axes.end(), [this](auto axis){
-		axis->set_render_type(EPipelineType::COLOR_NO_LIGHTING);
+	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
+	{
+		for (auto& shape : axis->shapes)
+		{
+			shape.set_material(Material::create_material(EMaterialType::GIZMO_ARC));
+		}
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -187,8 +195,12 @@ void ScaleGizmo<GameEngineT>::init()
 	zAxis.point(Maths::zero_vec, Maths::forward_vec);
 
 	axes = {&xAxis, &yAxis, &zAxis};
-	std::for_each(axes.begin(), axes.end(), [this](auto axis){
-		axis->set_render_type(EPipelineType::COLOR_NO_LIGHTING);
+	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
+	{
+		for (auto& shape : axis->shapes)
+		{
+			shape.set_material(Material::create_material(EMaterialType::GIZMO_ARROW));
+		}
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});

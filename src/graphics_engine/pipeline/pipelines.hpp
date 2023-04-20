@@ -24,16 +24,6 @@ protected:
 };
 
 template<typename GraphicsEngineT>
-class ColorNoLightingPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
-{
-public:
-	ColorNoLightingPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "color_no_lighting"; }
-};
-
-template<typename GraphicsEngineT>
 class CubemapPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
@@ -65,16 +55,6 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "wireframe"; }
 	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
-};
-
-template<typename GraphicsEngineT>
-class LightSourcePipeline : public GraphicsEnginePipeline<GraphicsEngineT>
-{
-public:
-	LightSourcePipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "light_source"; }
 };
 
 template<typename GraphicsEngineT>
