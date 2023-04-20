@@ -2,7 +2,7 @@
 
 #extension GL_GOOGLE_include_directive : enable
 
-#include "../../../../shared_code/shared_data_structures.glsl"
+#include "../../../shared_code/shared_data_structures.glsl"
 
 // keep in mind that some types such as dvec3 uses 2 slots therefore we need the next layout location to be 2 indices after
 layout(location = 0) in vec3 inPosition;

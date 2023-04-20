@@ -8,7 +8,7 @@ SRC_DIR=$(dirname -- "${BASH_SOURCE[0]}")
 # only necessary for windows
 SRC_DIR=$(echo $SRC_DIR | sed 's/\\/\//g')
 OUTPUT_DIR=$SRC_DIR/build/shaders
-SHADERS_DIR=$SRC_DIR/src/shaders
+SHADERS_DIR=$SRC_DIR/shaders
 
 compile_if_file_exists()
 {

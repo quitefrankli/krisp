@@ -2,7 +2,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_GOOGLE_include_directive : enable
 
-#include "../../../../shared_code/shared_data_structures.glsl"
+#include "../../../shared_code/shared_data_structures.glsl"
 
 // note that the fragment shader receives the input as interpolated values
 layout(location=2) in vec3 surface_normal;
