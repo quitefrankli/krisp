@@ -104,6 +104,17 @@ void Camera::toggle_projection()
 	projection_is_perspective = !projection_is_perspective;
 }
 
+void Camera::set_orthographic_projection(const glm::vec2& horizontal_span)
+{
+	orthographic_matrix = glm::orthoLH(
+		horizontal_span.x, 
+		horizontal_span.y, 
+		horizontal_span.x / aspect_ratio, 
+		horizontal_span.y / aspect_ratio, 
+		near_clipping, 
+		far_clipping);
+}
+
 void Camera::update_tracker()
 {
 	set_old_position(focus_obj->get_position());

@@ -12,8 +12,6 @@
 #include <fmt/core.h>
 #include <fmt/color.h>
 #include <glm/gtx/string_cast.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include "glm/gtx/hash.hpp"
 
 #include <iostream>
 
@@ -41,21 +39,21 @@ public:
 		floor.transform_vertices(transform);
 
 		Shape left_wall = Shapes::Cube();
-		transform = glm::translate(glm::mat4(1.0f), glm::vec3(-width/2, 0.0f, 0.0f));
+		transform = glm::translate(glm::mat4(1.0f), glm::vec3(-width/2-0.5f, 0.0f, 0.0f));
 		transform = glm::scale(transform, glm::vec3(1.0f, height, 3.0f));
 		material.material_data.diffuse = glm::vec3(0.2f, 0.3f, 0.2f);
 		left_wall.set_material(material);
 		left_wall.transform_vertices(transform);
 
 		Shape right_wall = Shapes::Cube();
-		transform = glm::translate(glm::mat4(1.0f), glm::vec3(width/2, 0.0f, 0.0f));
+		transform = glm::translate(glm::mat4(1.0f), glm::vec3(width/2+0.5f, 0.0f, 0.0f));
 		transform = glm::scale(transform, glm::vec3(1.0f, height, 3.0f));
 		right_wall.set_material(material);
 		right_wall.transform_vertices(transform);
 
 		Shape back_wall = Shapes::Cube();
 		transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.0f));
-		transform = glm::scale(transform, glm::vec3(width, height, 1.0f));
+		transform = glm::scale(transform, glm::vec3(width+2, height, 1.0f));
 		material.material_data.diffuse = glm::vec3(0.2f, 0.3f, 0.2f);
 		back_wall.set_material(material);
 		back_wall.transform_vertices(transform);
@@ -213,10 +211,11 @@ public:
 	virtual void on_tick(float delta) override
 	{
 		static float elapsed_sec = 0;
+		const float period = 0.5f;
 		elapsed_sec += delta;
 
 		// actual game tick has occurred
-		if (elapsed_sec > 1.0f)
+		if (elapsed_sec > period)
 		{
 			elapsed_sec = 0;
 
@@ -234,9 +233,11 @@ public:
 	{
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
 		engine.get_light_source()->set_position(glm::vec3(0.0f, 0.0f, -100.0f));
-		environment.set_position(glm::vec3(0.0f, 0.5f, 0.0f));
+		environment.set_position(glm::vec3(-0.5f, 0.5f, 0.0f));
 		engine.draw_object(environment);
 		generate_next_piece();
+		engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
+		engine.get_camera().toggle_projection();
 	}
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
@@ -274,10 +275,8 @@ public:
 					try_transform_piece(transform);
 					break;
 				case GLFW_KEY_SPACE:
-					generate_next_piece();
 					break;
 				case GLFW_KEY_Z:
-					draw_corresponding_cell_locations();
 					break;
 				default:
 					break;
@@ -287,7 +286,7 @@ public:
 
 	TetrisPiece& get_latest_piece()
 	{
-		return *pieces.back();
+		return *current_piece;
 	}
 
 private:
@@ -304,14 +303,13 @@ private:
 
 	void generate_next_piece()
 	{
+		assert(!current_piece);
 		const int piece_type = Maths::RandomUniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
 		const int color = Maths::RandomUniform<int>(0, standard_colors.size() - 1);
 		// offsets due to some shapes such as L that can poke past the walls
 		const glm::vec3 position = glm::vec3(Maths::RandomUniform(-width/2+2, width/2-3), height/2.0f, 0.0f);
-		auto& new_piece = pieces.emplace_back(std::make_unique<TetrisPiece>(
-			static_cast<TetrisPieceType>(piece_type), standard_colors[color]));
-		new_piece->set_position(position + new_piece->get_type_specific_offset());
-		engine.draw_object(*new_piece); 
+		current_piece = &engine.spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), standard_colors[color]);
+		current_piece->set_position(position + current_piece->get_type_specific_offset());
 	}
 
 	bool check_for_collision(const glm::mat4& transform)
@@ -329,7 +327,7 @@ private:
 		// check for collision with environment
 		for (glm::ivec2 cell : cell_locations)
 		{
-			if (cell.x <= -width/2 || cell.x >= width/2 || cell.y <= -height/2)
+			if (cell.x < -width/2 || cell.x >= width/2 || cell.y <= -height/2)
 			{
 				return true;
 			}
@@ -346,41 +344,71 @@ private:
 			filled_spots.insert(cell);
 		}
 
-		// check for full rows
+		// hacky workaround, replace all cells with a new object
+		// we really should have all cells be objects NOT shapes
+		for (auto cell : get_latest_piece().get_cell_locations())
+		{
+			Shape new_cell = ShapeFactory::generate_cube();
+			new_cell.set_material(get_latest_piece().get_shapes().back().get_material());
+			auto& obj = engine.spawn_object<Object>(std::move(new_cell));
+			obj.set_position(glm::vec3(cell, 0.0f));
+			entrenched_cells[cell.y+height/2].push_back(&obj);
+		}
+		engine.delete_object(get_latest_piece().get_id());
+		current_piece = nullptr;
 
+		// check for full rows, go from bottom to top
+		for (int row = 0; row < entrenched_cells.size();)
+		{
+			if (clear_row_if_necessary(row))
+			{
+				// move all rows above down
+				for (int row_above = row+1; row_above < entrenched_cells.size(); row_above++)
+				{
+					for (auto* cell : entrenched_cells[row_above])
+					{
+						filled_spots.erase(glm::ivec2(
+							std::round(cell->get_position().x), 
+							std::round(cell->get_position().y)));
+						filled_spots.insert(glm::ivec2(
+							std::round(cell->get_position().x), 
+							std::round(cell->get_position().y) - 1));
+						cell->set_position(cell->get_position() - Maths::up_vec);
+					}
+					entrenched_cells[row_above-1] = std::move(entrenched_cells[row_above]);
+				}
+			} else
+			{
+				++row;
+			}
+		}
 
 		// generate new piece
 		generate_next_piece();
 	}
 
-	void draw_corresponding_cell_locations()
+	bool clear_row_if_necessary(int row)
 	{
-		if (temporary_objects.empty())
+		if (entrenched_cells[row].size() == width)
 		{
-			for (auto& piece : pieces)
+			for (auto* cell : entrenched_cells[row])
 			{
-				for (auto& cell : piece->get_cell_locations())
-				{
-					auto& obj = engine.spawn_object<Object>(ShapeFactory::generate_cube());
-					obj.set_position(glm::vec3(cell, -0.5f));
-					temporary_objects.push_back(obj.get_id());
-				}
+				const auto pos = cell->get_position();
+				filled_spots.erase(glm::ivec2(std::round(pos.x), std::round(pos.y)));
+				engine.delete_object(cell->get_id());
 			}
-		} else 
-		{
-			for (auto id : temporary_objects)
-			{
-				engine.delete_object(id);
-			}
-
-			temporary_objects.clear();
+			entrenched_cells[row].clear();
+			return true;
 		}
+		return false;
 	}
 
+private:
 	GameEngineT& engine;
-	std::vector<std::unique_ptr<TetrisPiece>> pieces;
+	TetrisPiece* current_piece = nullptr;
 	Environment environment;
 
+	std::array<std::vector<Object*>, height> entrenched_cells;
 	std::unordered_set<glm::ivec2> filled_spots;
 	std::vector<uint64_t> temporary_objects;
 };
@@ -415,4 +443,6 @@ int main()
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
         return EXIT_FAILURE;
 	}
+
+	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
 }

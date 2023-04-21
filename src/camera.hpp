@@ -48,6 +48,8 @@ public:
 
 	void toggle_projection();
 
+	void set_orthographic_projection(const glm::vec2& horizontal_span);
+
 public: // object
 	virtual void update_tracker() override;
 
