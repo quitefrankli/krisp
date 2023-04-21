@@ -76,7 +76,7 @@ void AudioSource::play()
 	if (state == AL_PLAYING)
 	{
 		std::cout << "AudioSource::play: warning attempted to play while something was already playing\n";
-		return;
+		alSourceStop(p_Source);
 	}
 
 	alSourcePlay(p_Source);

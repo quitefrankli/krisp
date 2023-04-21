@@ -208,14 +208,25 @@ public:
 	{
 		ImGui::Begin("Tetris");
 		ImGui::Text("Score: %d", score);
+		restart = ImGui::Button("New Game");
+		pause_unpause_toggled = ImGui::Button(paused ? "Unpause" : "Pause");
 		ImGui::End();
 	}
 
 	void process(GameEngineT& engine) override
 	{
+		if (pause_unpause_toggled)
+		{
+			paused = !paused;
+		}
 	}
 
 	int score = 0;
+	bool restart = false;
+	bool paused = false;
+
+private:
+	bool pause_unpause_toggled = false;
 };
 
 class Application : public IApplication
@@ -228,6 +239,18 @@ public:
 
 	virtual void on_tick(float delta) override
 	{
+		if (gui->restart)
+		{
+			gui->restart = false;
+			restart();
+			return;
+		}
+
+		if (gui->paused)
+		{
+			return;
+		}
+
 		static float elapsed_sec = 0;
 		const float period = 0.5f;
 		elapsed_sec += delta;
@@ -246,7 +269,7 @@ public:
 	virtual void on_click(Object& object) override
 	{
 	}
-	
+
 	virtual void on_begin() override
 	{
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
@@ -273,6 +296,11 @@ public:
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
 	{
+		if (gui->paused)
+		{
+			return;
+		}
+
 		const glm::mat4 curr_transform = get_latest_piece().get_transform();
 		glm::mat4 transform;
 
@@ -367,6 +395,29 @@ private:
 		return false;
 	}
 
+	void restart()
+	{
+		// destroy remnants of previous game
+		for (auto& row : entrenched_cells)
+		{
+			for (auto* cell : row)
+			{
+				engine.delete_object(cell->get_id());
+			}
+			row.clear();
+		}
+
+		filled_spots.clear();
+		engine.delete_object(get_latest_piece().get_id());
+		current_piece = nullptr;
+
+		// prepare for next game
+		generate_next_piece();
+		
+		main_theme->play();
+		gui->score = 0;
+	}
+
 	void on_collision()
 	{
 		// move piece to filled spots and generate new piece
@@ -450,7 +501,6 @@ private:
 
 	std::array<std::vector<Object*>, height> entrenched_cells;
 	std::unordered_set<glm::ivec2> filled_spots;
-	std::vector<uint64_t> temporary_objects;
 	std::unique_ptr<AudioSource> main_theme;
 	std::unique_ptr<AudioSource> clear_line_fx;
 };
