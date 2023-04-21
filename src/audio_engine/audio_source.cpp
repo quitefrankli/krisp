@@ -45,6 +45,11 @@ AudioSource::~AudioSource()
 
 void AudioSource::set_audio(const std::string_view filename)
 {
+	if (std::string(filename.data()).find(".wav") == std::string::npos)
+	{
+		throw std::runtime_error("AudioSource::set_audio: only wav files are supported");
+	}
+
 	set_audio_buffer(audio_engine.get_buffer(filename.data()));
 }
 

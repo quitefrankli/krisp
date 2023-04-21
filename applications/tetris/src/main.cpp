@@ -238,6 +238,12 @@ public:
 		generate_next_piece();
 		engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
 		engine.get_camera().toggle_projection();
+
+		Utility::get().set_appname_for_path("tetris");
+		main_theme = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
+		main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
+		main_theme->set_gain(0.2f);
+		main_theme->play();
 	}
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
@@ -411,6 +417,8 @@ private:
 	std::array<std::vector<Object*>, height> entrenched_cells;
 	std::unordered_set<glm::ivec2> filled_spots;
 	std::vector<uint64_t> temporary_objects;
+	std::unique_ptr<AudioSource> main_theme;
+	std::unique_ptr<AudioSource> sound_fx;
 };
 
 int main()

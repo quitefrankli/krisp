@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <optional>
 
 
 namespace quill {
@@ -33,13 +34,18 @@ public:
 	static Utility& get();
 
 	const std::filesystem::path& get_top_level_path() const { return top_level_dir; }
-	const std::filesystem::path& get_shaders_path() const { return shaders; }
-	const std::filesystem::path& get_model_path() const { return models; }
-	const std::filesystem::path& get_textures_path() const { return textures; };
 	const std::filesystem::path& get_build_path() const { return build; };
+	const std::filesystem::path& get_shaders_path() const { return shaders; }
 	const std::filesystem::path& get_binary_path() const { return binary; };
-	const std::filesystem::path& get_audio_path() const { return audio; };
 	const std::filesystem::path& get_config_path() const { return config; };
+	const std::filesystem::path& get_model_path() const { return models; }
+	const std::filesystem::path& get_textures_path() const { return textures; }
+	const std::filesystem::path& get_audio_path() const { return audio; }
+
+	void set_appname_for_path(const std::string_view app);
+	std::filesystem::path get_app_model_path() const;
+	std::filesystem::path get_app_textures_path() const;
+	std::filesystem::path get_app_audio_path() const;
 
 	static std::string get_texture(const std::string_view texture);
 	static float get_rand(float min, float max);
@@ -63,6 +69,7 @@ private:
 	std::filesystem::path binary;
 	std::filesystem::path audio;
 	std::filesystem::path config;
+	std::optional<std::filesystem::path> app_rsrc_path;
 	
 	struct UtilityImpl;
 	static std::unique_ptr<UtilityImpl> impl;

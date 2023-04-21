@@ -46,6 +46,26 @@ Utility& Utility::get()
 	return singleton;
 }
 
+void Utility::set_appname_for_path(const std::string_view app)
+{
+	app_rsrc_path = get_top_level_path() / "resources/applications" / app.data();
+}
+
+std::filesystem::path Utility::get_app_model_path() const
+{
+	return app_rsrc_path ? app_rsrc_path.value() / "models" : models;
+}
+
+std::filesystem::path Utility::get_app_textures_path() const
+{
+	return app_rsrc_path ? app_rsrc_path.value() / "textures" : textures;
+}
+
+std::filesystem::path Utility::get_app_audio_path() const
+{
+	return app_rsrc_path ? app_rsrc_path.value() / "sound" : audio;
+}
+
 std::string Utility::get_texture(const std::string_view texture)
 {
 	return get().get_textures_path().string() + '/' + texture.data();
