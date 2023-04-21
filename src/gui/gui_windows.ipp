@@ -197,6 +197,8 @@ void GuiMusic<GameEngineT>::process(GameEngineT& engine)
 template<typename GameEngineT>
 void GuiMusic<GameEngineT>::draw()
 {
+	ImGui::Begin("Audio");
+
 	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
@@ -207,4 +209,6 @@ void GuiMusic<GameEngineT>::draw()
 		audio_source->set_audio(songs_paths[selected_song].string());
 		audio_source->play();
 	}
+
+	ImGui::End();
 }

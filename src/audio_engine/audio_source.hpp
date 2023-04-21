@@ -23,6 +23,7 @@ public: // getters and setters
 	void set_gain(float gain);
 	void set_pitch(float pitch);
 	void set_position(const glm::vec3& position);
+	void set_loop(bool loop) { p_LoopSound = loop; }
 
 private:
 	void set_audio_buffer(const uint32_t buffer);

@@ -12,6 +12,7 @@
 #include <fmt/core.h>
 #include <fmt/color.h>
 #include <glm/gtx/string_cast.hpp>
+#include <imgui.h>
 
 #include <iostream>
 
@@ -200,6 +201,23 @@ private:
 	std::vector<glm::vec2> cell_locations;
 };
 
+class TetrisGui : public GuiWindow<GameEngineT>
+{
+public:
+	void draw() override
+	{
+		ImGui::Begin("Tetris");
+		ImGui::Text("Score: %d", score);
+		ImGui::End();
+	}
+
+	void process(GameEngineT& engine) override
+	{
+	}
+
+	int score = 0;
+};
+
 class Application : public IApplication
 {
 public:
@@ -243,7 +261,14 @@ public:
 		main_theme = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
 		main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
 		main_theme->set_gain(0.2f);
+		main_theme->set_loop(true);
 		main_theme->play();
+
+		clear_line_fx = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
+		clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
+		clear_line_fx->set_gain(0.5f);
+
+		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
 	}
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
@@ -364,10 +389,12 @@ private:
 		current_piece = nullptr;
 
 		// check for full rows, go from bottom to top
+		int rows_cleared = 0;
 		for (int row = 0; row < entrenched_cells.size();)
 		{
 			if (clear_row_if_necessary(row))
 			{
+				++rows_cleared;
 				// move all rows above down
 				for (int row_above = row+1; row_above < entrenched_cells.size(); row_above++)
 				{
@@ -387,6 +414,12 @@ private:
 			{
 				++row;
 			}
+		}
+
+		if (rows_cleared)
+		{
+			clear_line_fx->play();
+			gui->score += rows_cleared * rows_cleared * 100;
 		}
 
 		// generate new piece
@@ -413,12 +446,13 @@ private:
 	GameEngineT& engine;
 	TetrisPiece* current_piece = nullptr;
 	Environment environment;
+	TetrisGui* gui = nullptr;
 
 	std::array<std::vector<Object*>, height> entrenched_cells;
 	std::unordered_set<glm::ivec2> filled_spots;
 	std::vector<uint64_t> temporary_objects;
 	std::unique_ptr<AudioSource> main_theme;
-	std::unique_ptr<AudioSource> sound_fx;
+	std::unique_ptr<AudioSource> clear_line_fx;
 };
 
 int main()
