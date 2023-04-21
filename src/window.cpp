@@ -126,10 +126,18 @@ glm::vec2 App::Window::get_cursor_pos()
 void App::Window::open(int x0, int y0)
 {
     // Register error callback first
-    glfwSetErrorCallback([](int err_no, const char* err_str){
-		throw std::runtime_error(
-			fmt::format("App::Window: GLFW Error! errno: {}, reason: '{}'", err_no, err_str)
-		);
+    glfwSetErrorCallback([](int err_no, const char* err_str)
+	{
+		const std::vector<int> recoverable_errors =
+		{
+			65540, // INVALID SCAN CODE
+		};
+
+		if (std::find(recoverable_errors.begin(), recoverable_errors.end(), err_no) != recoverable_errors.end())
+		{
+			fmt::print("App::Window: GLFW Error! errno: {}, reason: '{}'\n", err_no, err_str);
+			return;
+		}
 	});
 	
 	glfwInit();
