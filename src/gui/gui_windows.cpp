@@ -9,3 +9,4 @@ template class GuiGraphicsSettings<GameEngineT>;
 template class GuiObjectSpawner<GameEngineT>;
 template class GuiFPSCounter<GameEngineT>;
 template class GuiMusic<GameEngineT>;
+template class GuiStatistics<GameEngineT>;

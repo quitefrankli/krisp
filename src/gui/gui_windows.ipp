@@ -44,9 +44,9 @@ void GuiGraphicsSettings<GameEngineT>::draw()
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
 	rtx_on.changed = ImGui::Checkbox("RTX", &rtx_on.value);
-	wireframe_mode.changed = ImGui::Checkbox("wireframe", &wireframe_mode.value);
+	wireframe_mode.changed |= ImGui::Checkbox("wireframe", &wireframe_mode.value);
 	ImGui::SetNextItemWidth(combo_width);
-	selected_camera_projection.changed = ImGui::Combo(
+	selected_camera_projection.changed |= ImGui::Combo(
 		"projection", 
 		&selected_camera_projection.value, 
 		camera_projections.data(), 
@@ -60,11 +60,13 @@ void GuiGraphicsSettings<GameEngineT>::process(GameEngineT& engine)
 	if (selected_camera_projection.changed)
 	{
 		engine.get_camera().toggle_projection();
+		selected_camera_projection.changed = false;
 	}
 
 	if (wireframe_mode.changed)
 	{
 		engine.get_graphics_engine().enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
+		wireframe_mode.changed = false;
 	}
 }
 
@@ -211,4 +213,55 @@ void GuiMusic<GameEngineT>::draw()
 	}
 
 	ImGui::End();
+}
+
+template<typename GameEngineT>
+void GuiStatistics<GameEngineT>::process(GameEngineT& engine)
+{
+}
+
+template<typename GameEngineT>
+void GuiStatistics<GameEngineT>::draw()
+{
+	ImGui::Begin("Statistics");
+
+	ImGui::ProgressBar(
+		float(vertex_buffer_capacity.filled_capacity) / float(vertex_buffer_capacity.total_capacity), 
+		ImVec2(0.0f, 0.0f), 
+		"vertex buffer");
+	ImGui::ProgressBar(
+		float(index_buffer_capacity.filled_capacity) / float(index_buffer_capacity.total_capacity), 
+		ImVec2(0.0f, 0.0f), 
+		"index buffer");
+	ImGui::ProgressBar(
+		float(uniform_buffer_capacity.filled_capacity) / float(uniform_buffer_capacity.total_capacity), 
+		ImVec2(0.0f, 0.0f), 
+		"uniform buffer");
+	ImGui::ProgressBar(
+		float(materials_buffer_capacity.filled_capacity) / float(materials_buffer_capacity.total_capacity), 
+		ImVec2(0.0f, 0.0f), 
+		"materials buffer");
+	ImGui::ProgressBar(
+		float(mapping_buffer_capacity.filled_capacity) / float(mapping_buffer_capacity.total_capacity), 
+		ImVec2(0.0f, 0.0f), 
+		"mapping buffer");
+
+	ImGui::End();
+}
+
+template<typename GameEngineT>
+void GuiStatistics<GameEngineT>::update_buffer_capacities(
+	const std::vector<std::pair<size_t, size_t>>& buffer_capacities)
+{
+	assert(buffer_capacities.size() == 5);
+	vertex_buffer_capacity.filled_capacity = buffer_capacities[0].first;
+	vertex_buffer_capacity.total_capacity = buffer_capacities[0].second;
+	index_buffer_capacity.filled_capacity = buffer_capacities[1].first;
+	index_buffer_capacity.total_capacity = buffer_capacities[1].second;
+	uniform_buffer_capacity.filled_capacity = buffer_capacities[2].first;
+	uniform_buffer_capacity.total_capacity = buffer_capacities[2].second;
+	materials_buffer_capacity.filled_capacity = buffer_capacities[3].first;
+	materials_buffer_capacity.total_capacity = buffer_capacities[3].second;
+	mapping_buffer_capacity.filled_capacity = buffer_capacities[4].first;
+	mapping_buffer_capacity.total_capacity = buffer_capacities[4].second;
 }

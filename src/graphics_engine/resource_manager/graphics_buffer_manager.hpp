@@ -10,6 +10,9 @@
 #include "shared_data_structures.hpp"
 
 
+template<typename GraphicsEngineT>
+class GuiStatistics;
+
 // Manages buffers associated with objects such as vertex buffer
 // Memory is virtualised so that the GPU sees a continuous memory space
 template<typename GraphicsEngineT>
@@ -19,15 +22,15 @@ public:
 	GraphicsBufferManager(GraphicsEngineT& engine);
 	virtual ~GraphicsBufferManager() override;
 
-	void reserve_vertex_buffer(uint32_t id, uint32_t size) { vertex_buffer.reserve_slot(id, size); }
-	void reserve_index_buffer(uint32_t id, uint32_t size) { index_buffer.reserve_slot(id, size); }
-	void reserve_uniform_buffer(uint32_t id, uint32_t size) { uniform_buffer.reserve_slot(id, size); }
-	void reserve_materials_buffer(ShapeID id, uint32_t size) { materials_buffer.reserve_slot(id.get_underlying(), size); }
+	void reserve_vertex_buffer(uint32_t id, uint32_t size) { reserve_buffer(vertex_buffer, id, size); }
+	void reserve_index_buffer(uint32_t id, uint32_t size) { reserve_buffer(index_buffer, id, size); }
+	void reserve_uniform_buffer(uint32_t id, uint32_t size) { reserve_buffer(uniform_buffer, id, size); }
+	void reserve_materials_buffer(ShapeID id, uint32_t size) { reserve_buffer(materials_buffer, id.get_underlying(), size); }
 
-	void free_vertex_buffer(uint32_t id) { vertex_buffer.free_slot(id); }
-	void free_index_buffer(uint32_t id) { index_buffer.free_slot(id); }
-	void free_uniform_buffer(uint32_t id) { uniform_buffer.free_slot(id); }
-	void free_materials_buffer(ShapeID id) { materials_buffer.free_slot(id.get_underlying()); }
+	void free_vertex_buffer(uint32_t id) { free_buffer(vertex_buffer, id); }
+	void free_index_buffer(uint32_t id) { free_buffer(index_buffer, id); }
+	void free_uniform_buffer(uint32_t id) { free_buffer(uniform_buffer, id); }
+	void free_materials_buffer(ShapeID id) { free_buffer(materials_buffer, id.get_underlying()); }
 
 	uint32_t get_vertex_buffer_offset(uint32_t id) const { return vertex_buffer.get_offset(id); }
 	uint32_t get_index_buffer_offset(uint32_t id) const { return index_buffer.get_offset(id); }
@@ -92,6 +95,10 @@ protected:
 	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * NUM_EXPECTED_OBJECTS;
 
 private:
+	void reserve_buffer(GraphicsBuffer& buffer, uint64_t id, size_t size);
+	void free_buffer(GraphicsBuffer& buffer, uint64_t id);
+	void update_buffer_stats();
+
 	static constexpr VkBufferUsageFlags VERTEX_BUFFER_USAGE_FLAGS = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | 
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR |
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -119,4 +126,6 @@ private:
 	// maps object id to starting offset in the vertex, index and uniform buffers
 	// unlike the other buffers, entries in this buffer never gets removed
 	AppendOnlyGraphicsBuffer mapping_buffer;
+
+	friend GuiStatistics;
 };

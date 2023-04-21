@@ -57,6 +57,7 @@ public: // getters and setters
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
 	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() { return objects; }
+	GraphicsEngineObject<GraphicsEngine>& get_object(uint64_t id) { return *objects.at(id); }
 	auto& get_stenciled_object_ids() { return stenciled_objects; }
 	auto& get_light_sources() { return light_sources; }
 	VkDevice& get_logical_device() { return device.get_logical_device(); }

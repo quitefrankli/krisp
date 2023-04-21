@@ -379,11 +379,15 @@ void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 	while (!objs_to_delete.empty())
 	{
 		const auto id = objs_to_delete.front();
-		get_graphics_engine().get_objects().erase(id);
-		get_graphics_engine().get_light_sources().erase(id);
 		get_rsrc_mgr().free_vertex_buffer(id);
 		get_rsrc_mgr().free_index_buffer(id);
 		get_rsrc_mgr().free_uniform_buffer(id);
+		for (const auto& shape : get_graphics_engine().get_object(id).get_shapes())
+		{
+			get_rsrc_mgr().free_materials_buffer(shape.get_id());
+		}
+		get_graphics_engine().get_objects().erase(id);
+		get_graphics_engine().get_light_sources().erase(id);
 		objs_to_delete.pop();
 	}
 }

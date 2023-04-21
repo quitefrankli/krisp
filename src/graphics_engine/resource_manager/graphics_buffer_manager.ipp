@@ -101,11 +101,13 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_materials_buffer(const SDS
 template<typename GraphicsEngineT>
 void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const BufferMapEntry& entry, uint32_t id)
 {
+	mapping_buffer.decrease_free_capacity(sizeof(entry));
 	stage_data_to_buffer(mapping_buffer.get_buffer(), mapping_buffer.get_slot_offset(id), sizeof(entry), 
 	[&entry](std::byte* destination)
 	{
 		std::memcpy(destination, &entry, sizeof(entry));
 	});
+	update_buffer_stats();
 }
 
 template<typename GraphicsEngineT>
@@ -226,4 +228,33 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(VkBuffer desti
 
 	// clean up staging buffer
 	staging_buffer.destroy(get_logical_device());
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::reserve_buffer(GraphicsBuffer& buffer, uint64_t id, size_t size)
+{
+	buffer.reserve_slot(id, size);
+	update_buffer_stats();
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::free_buffer(GraphicsBuffer& buffer, uint64_t id)
+{
+	buffer.free_slot(id);
+	update_buffer_stats();
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::update_buffer_stats()
+{
+	const std::vector<std::pair<size_t, size_t>> buffer_capacities =
+	{
+		{ vertex_buffer.get_filled_capacity(), vertex_buffer.get_capacity() },
+		{ index_buffer.get_filled_capacity(), index_buffer.get_capacity() },
+		{ uniform_buffer.get_filled_capacity(), uniform_buffer.get_capacity() },
+		{ materials_buffer.get_filled_capacity(), materials_buffer.get_capacity() },
+		{ mapping_buffer.get_filled_capacity(), mapping_buffer.get_capacity() }
+		// { staging_buffer.get_filled_capacity(), staging_buffer.get_capacity() }
+	};
+	get_graphics_engine().get_gui_manager().update_buffer_capacities(buffer_capacities);
 }

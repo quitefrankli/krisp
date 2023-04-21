@@ -16,7 +16,8 @@ public:
 	GuiManager() :
 		graphic_settings(spawn_gui<GuiGraphicsSettings<GameEngineT>>()),
 		object_spawner(spawn_gui<GuiObjectSpawner<GameEngineT>>()),
-		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>())
+		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>()),
+		statistics(spawn_gui<GuiStatistics<GameEngineT>>())
 	{
 	}
 
@@ -28,10 +29,16 @@ public:
 		return *static_cast<Gui_T*>(gui.get());
 	}
 
+	void update_buffer_capacities(const std::vector<std::pair<size_t, size_t>>& capacities)
+	{
+		statistics.update_buffer_capacities(capacities);
+	}
+
 	// references the GuiManager::gui_windows
 	GuiGraphicsSettings<GameEngineT>& graphic_settings;
 	GuiObjectSpawner<GameEngineT>& object_spawner;
 	GuiFPSCounter<GameEngineT>& fps_counter;
+	GuiStatistics<GameEngineT>& statistics;
 
 public: // for GameEngine
 	void process(GameEngineT& engine)

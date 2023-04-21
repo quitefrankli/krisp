@@ -126,3 +126,26 @@ private:
 	std::vector<std::string> songs_;
 	std::vector<std::filesystem::path> songs_paths;
 };
+
+template<typename GameEngineT>
+class GuiStatistics : public GuiWindow<GameEngineT>
+{
+public:
+	virtual void process(GameEngineT& engine) override;
+	virtual void draw() override;
+
+	void update_buffer_capacities(const std::vector<std::pair<size_t, size_t>>& buffer_capacities);
+
+private:
+	struct BufferCapacity
+	{
+		size_t total_capacity = 0;
+		size_t filled_capacity = 0;
+	};
+
+	BufferCapacity vertex_buffer_capacity;
+	BufferCapacity index_buffer_capacity;
+	BufferCapacity uniform_buffer_capacity;
+	BufferCapacity materials_buffer_capacity;
+	BufferCapacity mapping_buffer_capacity;
+};

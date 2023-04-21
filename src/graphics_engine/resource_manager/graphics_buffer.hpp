@@ -31,7 +31,8 @@ public:
 	std::byte* map_slot(uint32_t id, VkDevice device);
 	void unmap_slot(VkDevice device);
 
-	uint32_t get_capacity() const { return capacity; }
+	size_t get_capacity() const { return capacity; }
+	size_t get_filled_capacity() const { return filled_capacity; }
 	offset_t get_offset(uint32_t id) const;
 	VkBuffer get_buffer() const { return buffer; }
 	VkDeviceMemory get_memory() const { return memory; }
@@ -47,7 +48,8 @@ private:
 
 	VkBuffer buffer = nullptr;
 	VkDeviceMemory memory = nullptr;
-	const uint32_t capacity;
+	size_t filled_capacity = 0;
+	const size_t capacity;
 	const uint32_t alignment;
 };
 
@@ -66,13 +68,19 @@ public:
 		buffer.destroy(device);
 	}
 
+	void decrease_free_capacity(size_t size) { filled_capacity += size; }
+
 	uint32_t get_slot_offset(uint32_t slot_num) const { return slot_num * slot_size; }
 
 	VkBuffer get_buffer() const { return buffer.get_buffer(); }
 	VkDeviceMemory get_memory() const { return buffer.get_memory(); }
 
+	size_t get_capacity() const { return buffer.get_capacity(); }
+	size_t get_filled_capacity() const { return filled_capacity; }
+
 private:
 	const uint32_t slot_size;
+	size_t filled_capacity = 0;
 
 	GraphicsBuffer buffer;
 };

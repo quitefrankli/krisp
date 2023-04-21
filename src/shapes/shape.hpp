@@ -16,7 +16,7 @@ namespace Maths
 struct ShapeID
 {
 public:
-	ShapeID(uint64_t id) : id(id) {}
+	explicit ShapeID(uint64_t id) : id(id) {}
 
 	bool operator==(const ShapeID& other) const { return id == other.id; }
 	bool operator!=(const ShapeID& other) const { return id != other.id; }

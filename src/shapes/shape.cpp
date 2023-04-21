@@ -6,7 +6,7 @@
 #include <algorithm>
 
 
-ShapeID Shape::global_id = 0;
+ShapeID Shape::global_id = ShapeID(0);
 
 void Shape::transform_vertices(const glm::mat4& transform)
 {

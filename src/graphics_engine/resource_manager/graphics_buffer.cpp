@@ -62,7 +62,7 @@ void GraphicsBuffer::free_slot(uint32_t slot_id)
 	Slot slot = it->second;
 	slot.size = slot.capacity;
 	filled_slots.erase(it);
-	
+	filled_capacity -= slot.capacity;
 
 	//
 	// Now do some housekeeping
@@ -145,6 +145,7 @@ GraphicsBuffer::offset_t GraphicsBuffer::reserve_slot(uint32_t id, uint32_t size
 	slot.size = size;
 	slot.capacity = slot_capacity;
 	filled_slots[id] = slot;
+	filled_capacity += slot_capacity;
 
 	return slot.offset;
 }

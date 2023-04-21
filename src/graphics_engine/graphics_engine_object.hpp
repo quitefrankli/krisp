@@ -27,7 +27,7 @@ public:
 	//
 	// I realised i messed up big time, these resources should be per swapchain image per object
 	// (perhaps vertex can be just per object unless we decide to add dynamic meshes)
-	// however uniform buffer should dedfinently be per swapchain image per object
+	// however uniform buffer should definently be per swapchain image per object
 	//
 
 	const virtual Object& get_game_object() const = 0;
