@@ -76,7 +76,7 @@ void AudioSource::play()
 	if (state == AL_PLAYING)
 	{
 		std::cout << "AudioSource::play: warning attempted to play while something was already playing\n";
-		alSourceStop(p_Source);
+		return;
 	}
 
 	alSourcePlay(p_Source);
@@ -87,6 +87,18 @@ void AudioSource::play()
 	// 	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
 	// }
 	// std::cout << "done playing sound\n";
+}
+
+void AudioSource::stop()
+{
+	ALint state;
+	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
+	if (state == AL_STOPPED)
+	{
+		return;
+	}
+
+	alSourceStop(p_Source);
 }
 
 void AudioSource::set_gain(float gain)
@@ -113,4 +125,12 @@ void AudioSource::set_position(const glm::vec3& position)
 		return;
 	this->position = position;
 	alSource3f(p_Source, AL_POSITION, position.x, position.y, position.z);
+}
+
+void AudioSource::set_loop(bool loop) 
+{
+	if (loop == p_LoopSound)
+		return;
+	p_LoopSound = loop;
+	alSourcei(p_Source, AL_LOOPING, loop);
 }

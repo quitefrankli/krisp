@@ -18,12 +18,13 @@ public:
 
 	void set_audio(const std::string_view filename);
 	void play();
+	void stop();
 
 public: // getters and setters
 	void set_gain(float gain);
 	void set_pitch(float pitch);
 	void set_position(const glm::vec3& position);
-	void set_loop(bool loop) { p_LoopSound = loop; }
+	void set_loop(bool loop);
 
 private:
 	void set_audio_buffer(const uint32_t buffer);

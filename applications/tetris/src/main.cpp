@@ -207,9 +207,15 @@ public:
 	void draw() override
 	{
 		ImGui::Begin("Tetris");
-		ImGui::Text("Score: %d", score);
+		ImGui::Text("Level: %d, Score: %d", level, score);
 		restart = ImGui::Button("New Game");
-		pause_unpause_toggled = ImGui::Button(paused ? "Unpause" : "Pause");
+		if (!game_over)
+		{
+			pause_unpause_toggled = ImGui::Button(paused ? "Unpause" : "Pause");
+		} else
+		{
+			ImGui::Text("Game Over!");
+		}
 		ImGui::End();
 	}
 
@@ -222,8 +228,10 @@ public:
 	}
 
 	int score = 0;
+	int level = 0;
 	bool restart = false;
 	bool paused = false;
+	bool game_over = false;
 
 private:
 	bool pause_unpause_toggled = false;
@@ -252,7 +260,6 @@ public:
 		}
 
 		static float elapsed_sec = 0;
-		const float period = 0.5f;
 		elapsed_sec += delta;
 
 		// actual game tick has occurred
@@ -272,6 +279,7 @@ public:
 
 	virtual void on_begin() override
 	{
+		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
 		engine.get_light_source()->set_position(glm::vec3(0.0f, 0.0f, -100.0f));
 		environment.set_position(glm::vec3(-0.5f, 0.5f, 0.0f));
@@ -290,8 +298,6 @@ public:
 		clear_line_fx = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
 		clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
 		clear_line_fx->set_gain(0.5f);
-
-		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
 	}
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
@@ -323,7 +329,7 @@ public:
 					}
 					break;
 				case GLFW_KEY_UP:
-					transform = curr_transform * glm::rotate(glm::mat4(1.0f), Maths::PI/2.0f, Maths::forward_vec);
+					transform = curr_transform * glm::rotate(glm::mat4(1.0f), -Maths::PI/2.0f, Maths::forward_vec);
 					if (!check_for_collision(transform))
 					{
 						get_latest_piece().set_transform(transform);
@@ -334,6 +340,7 @@ public:
 					try_transform_piece(transform);
 					break;
 				case GLFW_KEY_SPACE:
+					while (try_transform_piece(glm::translate(glm::mat4(1.0f), -Maths::up_vec) * get_latest_piece().get_transform()));
 					break;
 				case GLFW_KEY_Z:
 					break;
@@ -349,14 +356,16 @@ public:
 	}
 
 private:
-	void try_transform_piece(const glm::mat4& transform)
+	bool try_transform_piece(const glm::mat4& transform)
 	{
 		if (check_for_collision(transform))
 		{
 			on_collision();
+			return false;
 		} else 
 		{
 			get_latest_piece().set_transform(transform);
+			return true;
 		}
 	}
 
@@ -369,6 +378,16 @@ private:
 		const glm::vec3 position = glm::vec3(Maths::RandomUniform(-width/2+2, width/2-3), height/2.0f, 0.0f);
 		current_piece = &engine.spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), standard_colors[color]);
 		current_piece->set_position(position + current_piece->get_type_specific_offset());
+
+		// if we are already colliding with another piece then this is game over
+		if (check_for_collision(current_piece->get_transform()))
+		{
+			game_over();
+		}
+
+		++piece_count;
+		gui->level = get_level();
+		period = std::clamp(1.0f - get_level() * 0.075f, 0.1f, 1.0f);
 	}
 
 	bool check_for_collision(const glm::mat4& transform)
@@ -413,9 +432,12 @@ private:
 
 		// prepare for next game
 		generate_next_piece();
-		
+		main_theme->stop();
 		main_theme->play();
 		gui->score = 0;
+		gui->game_over = false;
+		gui->paused = false;
+		piece_count = 0;
 	}
 
 	void on_collision()
@@ -493,13 +515,28 @@ private:
 		return false;
 	}
 
+	int get_level() const 
+	{
+		return std::min(piece_count / 10 + 1, 20);
+	}
+
+	void game_over()
+	{
+		main_theme->stop();
+		gui->game_over = true;
+		// can simulate game over with a paused game that can only be resumed on new game
+		gui->paused = true;
+	}
+
 private:
 	GameEngineT& engine;
 	TetrisPiece* current_piece = nullptr;
 	Environment environment;
 	TetrisGui* gui = nullptr;
+	int piece_count = 0;
+	float period = 0.5f; // periodicity of piece movement in sec
 
-	std::array<std::vector<Object*>, height> entrenched_cells;
+	std::array<std::vector<Object*>, height+2> entrenched_cells;
 	std::unordered_set<glm::ivec2> filled_spots;
 	std::unique_ptr<AudioSource> main_theme;
 	std::unique_ptr<AudioSource> clear_line_fx;
