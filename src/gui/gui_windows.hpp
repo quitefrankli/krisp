@@ -148,4 +148,5 @@ private:
 	BufferCapacity uniform_buffer_capacity;
 	BufferCapacity materials_buffer_capacity;
 	BufferCapacity mapping_buffer_capacity;
+	BufferCapacity staging_buffer_capacity;
 };

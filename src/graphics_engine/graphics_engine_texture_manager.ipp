@@ -71,16 +71,6 @@ void GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(const s
 		throw std::runtime_error(fmt::format("failed to load texture image! {}", texture_path));
 	}
 
-	GraphicsBuffer staging_buffer = create_buffer(
-		size, 
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	void* data;
-	vkMapMemory(get_logical_device(), staging_buffer.get_memory(), 0, size, 0, &data);
-	memcpy(data, pixels.get(), static_cast<size_t>(size));
-	vkUnmapMemory(get_logical_device(), staging_buffer.get_memory());
-
 	get_graphics_engine().create_image(width, 
 		height, 
 		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB
@@ -94,13 +84,20 @@ void GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(const s
 	// undefined image layout works because we don't care about the contents before performing copy
 	get_graphics_engine().transition_image_layout(
 		texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copy_buffer_to_image(staging_buffer.get_buffer(), texture_image, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+
+	get_rsrc_mgr().stage_data_to_image(
+		texture_image, 
+		static_cast<uint32_t>(width), 
+		static_cast<uint32_t>(height),
+		static_cast<size_t>(size),
+		[&pixels, &size](std::byte* destination)
+		{
+			memcpy(destination, pixels.get(), static_cast<size_t>(size));
+		});
 
 	// transition one more time for shader access
 	get_graphics_engine().transition_image_layout(
 		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	staging_buffer.destroy(get_logical_device());
 
 	LOG_INFO(Utility::get().get_logger(), 
 			 "GraphicsEngineTextureManager::create_texture_image: created texture from:={}", 

@@ -21,7 +21,8 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	global_uniform_buffer(create_buffer(
 		GLOBAL_UNIFORM_BUFFER_CAPACITY, GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS)),
 	mapping_buffer(create_buffer(
-		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(BufferMapEntry))
+		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(BufferMapEntry)),
+	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
 	global_uniform_buffer.reserve_slot(0, global_uniform_buffer.get_capacity());
@@ -36,6 +37,7 @@ GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager()
 	materials_buffer.destroy(get_logical_device());
 	global_uniform_buffer.destroy(get_logical_device());
 	mapping_buffer.destroy(get_logical_device());
+	staging_buffer.destroy(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
@@ -196,17 +198,14 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(VkBuffer desti
                                                                   const uint32_t size,
                                                                   const std::function<void(std::byte*)>& write_function)
 {
-	// create staging buffer, used for copying the data from staging to vertex buffer
-	// the staging buffer is the buffer that can be accessed by CPU
-	// TODO: this can be optimised in two ways
+	// TODO: this can be optimised:
 	// 1. something about using different queues https://www.reddit.com/r/vulkan/comments/pnweh0/vkcmdcopybuffer_performance_worse_on_nvidia_than/
-	// 2. Use a large cached staging buffer so we don't need to recreate everytime
-	GraphicsBuffer staging_buffer = create_buffer(
-		size,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		// make sure that the memory heap is host coherent
-		// this is because the driver may not immediately copy the data into the buffer memory
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	if (staging_buffer.get_capacity() < size)
+	{
+		// recreate the staging buffer if it is too small
+		staging_buffer.destroy(get_logical_device());
+		new (&staging_buffer) GraphicsBuffer(create_buffer(size, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS));
+	}
 
 	// fill the staging buffer
 	void* mapped_data;
@@ -225,9 +224,61 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(VkBuffer desti
 	vkCmdCopyBuffer(command_buffer, staging_buffer.get_buffer(), destination_buffer, 1, &copy_region);
 
 	get_graphics_engine().end_single_time_commands(command_buffer);
+}
 
-	// clean up staging buffer
-	staging_buffer.destroy(get_logical_device());
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_image(
+	VkImage destination_image,
+	const uint32_t width,
+	const uint32_t height,
+	const size_t size,
+	const std::function<void(std::byte*)>& write_function)
+{
+	// TODO: this can be optimised:
+	// 1. something about using different queues https://www.reddit.com/r/vulkan/comments/pnweh0/vkcmdcopybuffer_performance_worse_on_nvidia_than/
+	if (staging_buffer.get_capacity() < size)
+	{
+		// recreate the staging buffer if it is too small
+		staging_buffer.destroy(get_logical_device());
+		new (&staging_buffer) GraphicsBuffer(create_buffer(size, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS));
+	}
+
+	// fill the staging buffer
+	void* mapped_data;
+	vkMapMemory(get_logical_device(), staging_buffer.get_memory(), 0, size, 0, &mapped_data);
+	write_function(reinterpret_cast<std::byte*>(mapped_data));
+	vkUnmapMemory(get_logical_device(), staging_buffer.get_memory());
+
+	// issue the command to copy from staging to device
+	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+
+	region.imageOffset = {0, 0, 0};
+	region.imageExtent = {
+		width,
+		height,
+		1
+	};
+
+	vkCmdCopyBufferToImage(
+		command_buffer,
+		staging_buffer.get_buffer(),
+		destination_image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&region
+	);
+
+	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
 template<typename GraphicsEngineT>
@@ -253,8 +304,8 @@ void GraphicsBufferManager<GraphicsEngineT>::update_buffer_stats()
 		{ index_buffer.get_filled_capacity(), index_buffer.get_capacity() },
 		{ uniform_buffer.get_filled_capacity(), uniform_buffer.get_capacity() },
 		{ materials_buffer.get_filled_capacity(), materials_buffer.get_capacity() },
-		{ mapping_buffer.get_filled_capacity(), mapping_buffer.get_capacity() }
-		// { staging_buffer.get_filled_capacity(), staging_buffer.get_capacity() }
+		{ mapping_buffer.get_filled_capacity(), mapping_buffer.get_capacity() },
+		{ staging_buffer.get_filled_capacity(), staging_buffer.get_capacity() }
 	};
 	get_graphics_engine().get_gui_manager().update_buffer_capacities(buffer_capacities);
 }

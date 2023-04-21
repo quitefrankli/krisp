@@ -229,22 +229,32 @@ void GuiStatistics<GameEngineT>::draw()
 		float(vertex_buffer_capacity.filled_capacity) / float(vertex_buffer_capacity.total_capacity), 
 		ImVec2(0.0f, 0.0f), 
 		"vertex buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", vertex_buffer_capacity.total_capacity / 1024);
 	ImGui::ProgressBar(
 		float(index_buffer_capacity.filled_capacity) / float(index_buffer_capacity.total_capacity), 
 		ImVec2(0.0f, 0.0f), 
 		"index buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", index_buffer_capacity.total_capacity / 1024);
 	ImGui::ProgressBar(
 		float(uniform_buffer_capacity.filled_capacity) / float(uniform_buffer_capacity.total_capacity), 
 		ImVec2(0.0f, 0.0f), 
 		"uniform buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", uniform_buffer_capacity.total_capacity / 1024);
 	ImGui::ProgressBar(
 		float(materials_buffer_capacity.filled_capacity) / float(materials_buffer_capacity.total_capacity), 
 		ImVec2(0.0f, 0.0f), 
 		"materials buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", materials_buffer_capacity.total_capacity / 1024);
 	ImGui::ProgressBar(
 		float(mapping_buffer_capacity.filled_capacity) / float(mapping_buffer_capacity.total_capacity), 
 		ImVec2(0.0f, 0.0f), 
 		"mapping buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", mapping_buffer_capacity.total_capacity / 1024);
+	ImGui::ProgressBar(
+		float(staging_buffer_capacity.filled_capacity) / float(staging_buffer_capacity.total_capacity), 
+		ImVec2(0.0f, 0.0f), 
+		"staging buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", staging_buffer_capacity.total_capacity / 1024);
 
 	ImGui::End();
 }
@@ -253,7 +263,7 @@ template<typename GameEngineT>
 void GuiStatistics<GameEngineT>::update_buffer_capacities(
 	const std::vector<std::pair<size_t, size_t>>& buffer_capacities)
 {
-	assert(buffer_capacities.size() == 5);
+	assert(buffer_capacities.size() == 6);
 	vertex_buffer_capacity.filled_capacity = buffer_capacities[0].first;
 	vertex_buffer_capacity.total_capacity = buffer_capacities[0].second;
 	index_buffer_capacity.filled_capacity = buffer_capacities[1].first;
@@ -264,4 +274,6 @@ void GuiStatistics<GameEngineT>::update_buffer_capacities(
 	materials_buffer_capacity.total_capacity = buffer_capacities[3].second;
 	mapping_buffer_capacity.filled_capacity = buffer_capacities[4].first;
 	mapping_buffer_capacity.total_capacity = buffer_capacities[4].second;
+	staging_buffer_capacity.filled_capacity = buffer_capacities[5].first;
+	staging_buffer_capacity.total_capacity = buffer_capacities[5].second;
 }
