@@ -150,3 +150,11 @@ private:
 	BufferCapacity mapping_buffer_capacity;
 	BufferCapacity staging_buffer_capacity;
 };
+
+template<typename GameEngineT>
+class GuiDebug : public GuiWindow<GameEngineT>
+{
+public:
+	virtual void process(GameEngineT& engine) override;
+	virtual void draw() override;
+};

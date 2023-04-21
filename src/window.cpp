@@ -7,6 +7,7 @@
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
+#include <ImGui/imgui_impl_glfw.h>
 #include <fmt/core.h>
 
 #include <cassert>
@@ -16,6 +17,7 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	if (ImGui::GetIO().WantCaptureMouse)
 	{
+		ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
 		return;
 	}
 
@@ -34,6 +36,7 @@ static void key_callback(GLFWwindow* window, int key, int scan_code, int action,
 {
 	if (ImGui::GetIO().WantCaptureKeyboard)
 	{
+		ImGui_ImplGlfw_KeyCallback(window, key, scan_code, action, mode);
 		return;
 	}
 
@@ -52,6 +55,7 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 {
 	if (ImGui::GetIO().WantCaptureMouse)
 	{
+		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mode);
 		return;
 	}
 

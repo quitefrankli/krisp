@@ -387,7 +387,7 @@ private:
 
 		++piece_count;
 		gui->level = get_level();
-		period = std::clamp(1.0f - get_level() * 0.075f, 0.1f, 1.0f);
+		period = std::clamp(1.0f - get_level() * 0.04f, 0.1f, 1.0f);
 	}
 
 	bool check_for_collision(const glm::mat4& transform)

@@ -99,7 +99,7 @@ protected:
 	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_SHAPES;
 	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData);
-	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * NUM_EXPECTED_OBJECTS * 1e3;
+	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * NUM_EXPECTED_OBJECTS * 1e2;
 	static constexpr size_t INITIAL_STAGING_BUFFER_CAPACITY = 1e4; // staging buffer capacity dynamically grows
 
 private:

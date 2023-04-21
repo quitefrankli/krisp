@@ -32,7 +32,7 @@ class vulkan_conan(ConanFile):
 		"openal/1.21.1",
 		"libsndfile/1.0.31",
 		# "fmt/8.1.1", # already included by quill
-		"imgui/1.87",
+		"imgui/1.87", # also update backend under third_party
 		"gtest/1.8.1",
 		"yaml-cpp/0.7.0"
 	) 
