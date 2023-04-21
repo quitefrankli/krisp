@@ -7,3 +7,8 @@ file(GLOB_RECURSE TETRIS_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 add_executable(tetris ${TETRIS_SOURCES})
 target_include_directories(tetris PRIVATE ${VulkanIncludes})
 target_link_libraries(tetris VulkanLibs ${CONAN_LIBS})
+
+# omits the annoying pdb debug symbol missing console spam
+if(MSVC)
+	set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/ignore:4099")
+endif()
