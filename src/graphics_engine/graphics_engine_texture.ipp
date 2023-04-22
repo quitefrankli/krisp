@@ -13,11 +13,13 @@ GraphicsEngineTexture::GraphicsEngineTexture(
 	VkImage texture_image,
 	VkDeviceMemory texture_image_memory,
 	VkImageView texture_image_view,
-	VkSampler texture_sampler) :
+	VkSampler texture_sampler,
+	const glm::uvec3& dimensions) :
 	texture_image(texture_image),
 	texture_image_memory(texture_image_memory),
 	texture_image_view(texture_image_view),
-	texture_sampler(texture_sampler)
+	texture_sampler(texture_sampler),
+	dimensions(dimensions)
 {
 }
 
@@ -25,7 +27,8 @@ GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngineTexture&& other) noex
 	texture_image(other.texture_image),
 	texture_sampler(other.texture_sampler),
 	texture_image_view(other.texture_image_view),
-	texture_image_memory(other.texture_image_memory)
+	texture_image_memory(other.texture_image_memory),
+	dimensions(other.dimensions)
 {
 	other.texture_sampler = nullptr;
 	other.texture_image_view = nullptr;

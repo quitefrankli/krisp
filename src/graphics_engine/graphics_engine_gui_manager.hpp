@@ -2,6 +2,7 @@
 
 #include "graphics_engine_base_module.hpp"
 #include "gui/gui_manager.hpp"
+#include "gui/gui_windows.hpp"
 #include "analytics.hpp"
 
 #include <vector>
@@ -25,7 +26,13 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
+
+	void setup_imgui();
+	// some gui_windows require setup in the graphics_engine thread
+	void setup_gui_windows();
 	
+	void compose_texture_for_gui_window(const std::string_view texture_path, GuiPhotoBase& gui_photo);
+
 public:
 	using GuiManager<GameEngineT>::gui_windows;
 	using GuiManager<GameEngineT>::graphic_settings;

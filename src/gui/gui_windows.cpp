@@ -10,3 +10,5 @@ template class GuiObjectSpawner<GameEngineT>;
 template class GuiFPSCounter<GameEngineT>;
 template class GuiMusic<GameEngineT>;
 template class GuiStatistics<GameEngineT>;
+template class GuiDebug<GameEngineT>;
+template class GuiPhoto<GameEngineT>;

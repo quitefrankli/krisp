@@ -22,7 +22,7 @@ public:
 
 private:
 	GraphicsEngineTexture create_texture(const std::string_view texture_path, ETextureSamplerType sampler_type);
-	void create_texture_image(
+	glm::uvec3 create_texture_image(
 		const std::string_view texture_path, 
 		VkImage& texture_image,
 		VkDeviceMemory& texture_image_memory);

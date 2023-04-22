@@ -277,3 +277,108 @@ void GuiStatistics<GameEngineT>::update_buffer_capacities(
 	staging_buffer_capacity.filled_capacity = buffer_capacities[5].first;
 	staging_buffer_capacity.total_capacity = buffer_capacities[5].second;
 }
+
+template<typename GameEngineT>
+void GuiDebug<GameEngineT>::process(GameEngineT& engine)
+{
+}
+
+template<typename GameEngineT>
+void GuiDebug<GameEngineT>::draw()
+{
+	ImGui::Begin("Debug");
+
+	if (img_rsrc)
+	{
+		ImGui::Image((ImTextureID)img_rsrc, ImVec2(300, 300));
+	}
+
+	ImGui::End();
+}
+
+void GuiPhotoBase::update(void* img_rsrc, const glm::uvec2& true_img_size, uint32_t requested_width)
+{
+	this->img_rsrc = img_rsrc;
+	true_dims = true_img_size;
+}
+
+template<typename GameEngineT>
+GuiPhoto<GameEngineT>::GuiPhoto()
+{
+	static const std::vector<std::string_view> recognised_extensions =
+	{
+		".jpg", ".JPG", ".PNG", ".png"
+	};
+	for (const auto& entry : std::filesystem::directory_iterator(Utility::get().get_textures_path()))
+	{
+		if (!entry.is_directory() && 
+			std::find_if(
+				recognised_extensions.begin(), 
+				recognised_extensions.end(), 
+				[&entry](const std::string_view ext)
+				{
+					return entry.path().extension() == ext;
+				}
+			) != recognised_extensions.end())
+		{
+			LOG_INFO(Utility::get().get_logger(), "GuiPhoto<GameEngineT>::GuiPhoto: adding {}", entry.path());
+			photo_paths.push_back(entry.path());
+			photos.push_back(entry.path().filename().string());
+		}
+	}
+
+	for (const std::string& photo : photos)
+	{
+		photos_cstr.push_back(photo.c_str());
+	}
+
+	selected_image = 0;
+	selected_image.changed = true;
+}
+
+template<typename GameEngineT>
+void GuiPhoto<GameEngineT>::init(std::function<void(const std::string_view)>&& texture_requester)
+{
+	this->texture_requester = std::move(texture_requester);
+}
+
+template<typename GameEngineT>
+void GuiPhoto<GameEngineT>::process(GameEngineT& engine)
+{
+}
+
+template<typename GameEngineT>
+void GuiPhoto<GameEngineT>::draw()
+{
+	ImGui::Begin("Texture Viewer");
+
+	if (ImGui::Combo("Texture", &selected_image.value, photos_cstr.data(), photos_cstr.size()))
+	{
+		selected_image.changed = true;
+	}
+
+	ImGui::InputInt("width", &requested_width);
+
+	if (ImGui::Button("Show"))
+	{
+		if (selected_image.changed)
+		{
+			texture_requester(photo_paths[selected_image()].string().c_str());
+			selected_image.changed = false;
+		}
+		should_show = true;
+	}
+
+	ImGui::SameLine();
+	if (ImGui::Button("Hide"))
+	{
+		should_show = false;
+	}
+
+	if (should_show && img_rsrc && requested_width > 5)
+	{
+		ImGui::Image((ImTextureID)img_rsrc, ImVec2(get_requested_width(), get_requested_height()));
+	}
+
+	ImGui::End();
+}

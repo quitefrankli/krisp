@@ -17,7 +17,9 @@ public:
 		graphic_settings(spawn_gui<GuiGraphicsSettings<GameEngineT>>()),
 		object_spawner(spawn_gui<GuiObjectSpawner<GameEngineT>>()),
 		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>()),
-		statistics(spawn_gui<GuiStatistics<GameEngineT>>())
+		statistics(spawn_gui<GuiStatistics<GameEngineT>>()),
+		debug(spawn_gui<GuiDebug<GameEngineT>>()),
+		photo(spawn_gui<GuiPhoto<GameEngineT>>())
 	{
 	}
 
@@ -39,6 +41,8 @@ public:
 	GuiObjectSpawner<GameEngineT>& object_spawner;
 	GuiFPSCounter<GameEngineT>& fps_counter;
 	GuiStatistics<GameEngineT>& statistics;
+	GuiDebug<GameEngineT>& debug;
+	GuiPhoto<GameEngineT>& photo;
 
 public: // for GameEngine
 	void process(GameEngineT& engine)

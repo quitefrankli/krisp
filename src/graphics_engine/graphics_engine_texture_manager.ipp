@@ -43,18 +43,18 @@ GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_text
 {
 	VkImage texture_image;
 	VkDeviceMemory texture_image_memory;
-	create_texture_image(texture_path, texture_image, texture_image_memory);
+	const auto dim = create_texture_image(texture_path, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
 		VK_FORMAT_R8G8B8A8_SRGB, 
 		VK_IMAGE_ASPECT_COLOR_BIT);
 	VkSampler texture_sampler = create_texture_sampler(sampler_type);
 
-	return GraphicsEngineTexture(texture_image,  texture_image_memory, texture_image_view, texture_sampler);
+	return GraphicsEngineTexture(texture_image, texture_image_memory, texture_image_view, texture_sampler, dim);
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(const std::string_view texture_path,
+glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(const std::string_view texture_path,
                                                                          VkImage& texture_image,
                                                                          VkDeviceMemory& texture_image_memory)
 {
@@ -102,6 +102,8 @@ void GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(const s
 	LOG_INFO(Utility::get().get_logger(), 
 			 "GraphicsEngineTextureManager::create_texture_image: created texture from:={}", 
 			 texture_path);
+
+	return glm::uvec3(width, height, channels);
 }
 
 template<typename GraphicsEngineT>

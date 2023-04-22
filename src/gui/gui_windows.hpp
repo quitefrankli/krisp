@@ -157,4 +157,45 @@ class GuiDebug : public GuiWindow<GameEngineT>
 public:
 	virtual void process(GameEngineT& engine) override;
 	virtual void draw() override;
+
+	void* img_rsrc = nullptr;
+	uint32_t width = 0;
+	uint32_t height = 0;
+};
+
+class GuiPhotoBase
+{
+public:
+	void update(void* img_rsrc, const glm::uvec2& true_img_size, uint32_t requested_width = 0);
+
+	uint32_t get_requested_width() const { return requested_width; }
+	uint32_t get_requested_height() const { return static_cast<uint32_t>(static_cast<float>(requested_width) / get_aspect_ratio()); }
+
+protected:
+	// width/height
+	float get_aspect_ratio() const { return float(true_dims.x) / float(true_dims.y); } 
+
+	void* img_rsrc = nullptr; // for vulkan this is a VkDescriptorSet
+	glm::uvec2 true_dims;
+	int requested_width = 300;
+};
+
+template<typename GameEngineT>
+class GuiPhoto : public GuiWindow<GameEngineT>, public GuiPhotoBase
+{
+public:
+	GuiPhoto();
+
+	void init(std::function<void(const std::string_view)>&& texture_requester);
+
+	virtual void process(GameEngineT& engine) override;
+	virtual void draw() override;
+
+private:
+	std::vector<std::string> photos;
+	std::vector<const char*> photos_cstr; // imgui only accepts const char* for combo boxes
+	std::vector<std::filesystem::path> photo_paths;
+	bool should_show = false;
+	GuiVar<int> selected_image = 0;
+	std::function<void(const std::string_view)> texture_requester;
 };

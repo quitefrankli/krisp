@@ -19,7 +19,7 @@ struct RaytracingResources
 };
 
 template<typename GraphicsEngineT>
-class GraphicsResourceManager : public GraphicsBufferManager<GraphicsEngineT>
+class GraphicsResourceManager : virtual public GraphicsBufferManager<GraphicsEngineT>
 {
 public:
 	GraphicsResourceManager(GraphicsEngineT& engine);
