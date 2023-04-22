@@ -38,7 +38,7 @@ GraphicsEngineTexture::GraphicsEngineTexture(GraphicsEngineTexture&& other) noex
 
 GraphicsEngineTexture::~GraphicsEngineTexture()
 {
-	if (texture_sampler || texture_image_view || texture_image || texture_image_memory)
+	if (texture_image_view || texture_image || texture_image_memory)
 	{
 		LOG_ERROR(Utility::get().get_logger(), "GraphicsEngineTexture: texture was not destroyed!");
 		throw std::runtime_error("GraphicsEngineTexture: texture was not destroyed!");
@@ -47,11 +47,6 @@ GraphicsEngineTexture::~GraphicsEngineTexture()
 
 void GraphicsEngineTexture::destroy(VkDevice device)
 {
-	if (texture_sampler)
-	{
-		vkDestroySampler(device, texture_sampler, nullptr);
-		texture_sampler = nullptr;
-	}
 	// note we destroy the view before the actual image
 	if (texture_image_view)
 	{

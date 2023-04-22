@@ -469,30 +469,6 @@ void GraphicsEngine<GameEngineT>::copy_buffer(VkBuffer src_buffer, VkBuffer dest
 }
 
 template<typename GameEngineT>
-RenderingAttachment GraphicsEngine<GameEngineT>::create_depth_buffer_attachment()
-{
-	const VkFormat depth_format = find_depth_format();
-	const auto extent = get_extent();
-	RenderingAttachment depth_attachment;
-	create_image(
-		extent.width,
-		extent.height,
-		depth_format,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		depth_attachment.image,
-		depth_attachment.image_memory,
-		get_msaa_samples());
-	depth_attachment.image_view = create_image_view(
-		depth_attachment.image, 
-		depth_format, 
-		VK_IMAGE_ASPECT_DEPTH_BIT);
-
-	return depth_attachment;
-}
-
-template<typename GameEngineT>
 VkFormat GraphicsEngine<GameEngineT>::find_depth_format()
 {
 	if (!depth_format)

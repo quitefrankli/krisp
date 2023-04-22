@@ -220,3 +220,11 @@ uint32_t GameEngine<GraphicsEngineTemplate>::get_window_height()
 {
 	return window.get_height();
 }
+
+template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::preview_objs_in_gui(
+	const std::vector<Object*>& objs, 
+	GuiPhotoBase& gui_window) 
+{
+	send_graphics_cmd(std::make_unique<PreviewObjectsCmd>(objs, gui_window));
+}

@@ -18,6 +18,11 @@ public:
 
 	void add_render_cmd(VkCommandBuffer& cmd_buffer);
 	void draw();
+	void update_preview_window(
+		GuiPhotoBase& gui, 
+		VkSampler sampler, 
+		VkImageView image_view, 
+		const glm::uvec2& dimensions);
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

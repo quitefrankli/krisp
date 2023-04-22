@@ -100,9 +100,35 @@ void GraphicsEngine<GameEngineT>::handle_command(UpdateCommandBufferCmd& cmd)
 }
 
 template<typename GameEngineT>
-inline void GraphicsEngine<GameEngineT>::handle_command(UpdateRayTracingCmd& cmd)
+void GraphicsEngine<GameEngineT>::handle_command(UpdateRayTracingCmd& cmd)
 {
 	raytracing_component.update_acceleration_structures();
 	static_cast<RaytracingRenderer<GraphicsEngine>&>(
 		renderer_mgr.get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
+}
+
+template<typename GameEngineT>
+void GraphicsEngine<GameEngineT>::handle_command(PreviewObjectsCmd& cmd)
+{
+	offscreen_rendering_objects.clear();
+	for (Object* object : cmd.objects)
+	{
+		const auto id = object->get_id();
+		auto it = objects.find(id);
+		if (it == objects.end())
+		{
+			LOG_WARNING(Utility::get().get_logger(), "PreviewObjectsCmd: ignoring obj with id:={}", id);
+			continue;
+		}
+
+		offscreen_rendering_objects.emplace(id, it->second.get());
+	}
+
+	Renderer<GraphicsEngine>& renderer = get_renderer_mgr().get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT);
+	const auto extent = renderer.get_extent();
+	get_graphics_gui_manager().update_preview_window(
+		cmd.gui, 
+		get_texture_mgr().fetch_sampler(ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE),
+		renderer.get_output_image_view(),
+		glm::uvec2(extent.width, extent.height));
 }

@@ -20,6 +20,11 @@ GraphicsEngineTextureManager<GraphicsEngineT>::~GraphicsEngineTextureManager()
 	{
 		texture_unit.destroy(get_logical_device());
 	}
+
+	for (auto& [sampler_type, sampler] : samplers)
+	{
+		vkDestroySampler(get_logical_device(), sampler, nullptr);
+	}
 }
 
 template<typename GraphicsEngineT>
@@ -37,6 +42,18 @@ GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_text
 }
 
 template<typename GraphicsEngineT>
+VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::fetch_sampler(ETextureSamplerType sampler_type)
+{
+	auto it = samplers.find(sampler_type);
+	if (it != samplers.end())
+	{
+		return it->second;
+	}
+
+	return samplers.emplace(sampler_type, create_texture_sampler(sampler_type)).first->second;
+}
+
+template<typename GraphicsEngineT>
 GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_texture(
 	const std::string_view texture_path,
 	ETextureSamplerType sampler_type)
@@ -48,7 +65,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_text
 		texture_image, 
 		VK_FORMAT_R8G8B8A8_SRGB, 
 		VK_IMAGE_ASPECT_COLOR_BIT);
-	VkSampler texture_sampler = create_texture_sampler(sampler_type);
+	VkSampler texture_sampler = fetch_sampler(sampler_type);
 
 	return GraphicsEngineTexture(texture_image, texture_image_memory, texture_image_view, texture_sampler, dim);
 }

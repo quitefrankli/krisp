@@ -65,3 +65,14 @@ void AddLightSourceCmd::process(GraphicsEngineBase* engine)
 {
 	engine->handle_command(*this);
 }
+
+PreviewObjectsCmd::PreviewObjectsCmd(const std::vector<Object*>& objects, GuiPhotoBase& gui) :
+	objects(objects),
+	gui(gui)
+{
+}
+
+void PreviewObjectsCmd::process(GraphicsEngineBase* engine)
+{
+	engine->handle_command(*this);
+}

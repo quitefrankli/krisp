@@ -2,6 +2,7 @@
 #include "rasterization_renderer.ipp"
 #include "gui_renderer.ipp"
 #include "raytracing_renderer.ipp"
+#include "offscreen_gui_viewport_renderer.ipp"
 #include "renderer_manager.ipp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "game_engine.hpp"
@@ -30,6 +31,12 @@ Renderer<GraphicsEngineT>::~Renderer()
 }
 
 template<typename GraphicsEngineT>
+VkExtent2D Renderer<GraphicsEngineT>::get_extent()
+{
+	return get_graphics_engine().get_extent();
+}
+
+template<typename GraphicsEngineT>
 constexpr uint32_t Renderer<GraphicsEngineT>::get_num_inflight_frames()
 {
 	return GraphicsEngineT::get_num_swapchain_images();	
@@ -40,3 +47,4 @@ template class RasterizationRenderer<GraphicsEngineT>;
 template class RaytracingRenderer<GraphicsEngineT>;
 template class GuiRenderer<GraphicsEngineT>;
 template class RendererManager<GraphicsEngineT>;
+template class OffscreenGuiViewportRenderer<GraphicsEngineT>;

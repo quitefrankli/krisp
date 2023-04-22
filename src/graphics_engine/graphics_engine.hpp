@@ -56,7 +56,14 @@ public: // getters and setters
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
-	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() { return objects; }
+	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() 
+	{ 
+		return objects; 
+	}
+	std::unordered_map<uint64_t, GraphicsEngineObject<GraphicsEngine>*>& get_offscreen_rendering_objects() 
+	{ 
+		return offscreen_rendering_objects; 
+	}
 	GraphicsEngineObject<GraphicsEngine>& get_object(uint64_t id) { return *objects.at(id); }
 	auto& get_stenciled_object_ids() { return stenciled_objects; }
 	auto& get_light_sources() { return light_sources; }
@@ -93,6 +100,9 @@ private:
 	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
 	std::unordered_map<uint64_t, std::reference_wrapper<const LightSource>> light_sources;
 	std::unordered_set<uint64_t> stenciled_objects;
+	// currently used for OffscreenGuiViewportRenderer, in future we should have a scene system
+	// and this would be a separate scene
+	std::unordered_map<uint64_t, GraphicsEngineObject<GraphicsEngine>*> offscreen_rendering_objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 	std::unique_ptr<Analytics> FPS_tracker;
@@ -104,8 +114,6 @@ private:
 
 public: // swap chain
 	void recreate_swap_chain(); // useful for when size of window is changing
-
-public: // command buffer
 	void update_command_buffer();
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
@@ -137,7 +145,6 @@ public: // command buffer
 		VkImageLayout new_layout, 
 		VkCommandBuffer command_buffer = nullptr);
 								  
-	RenderingAttachment create_depth_buffer_attachment();
 	VkFormat find_depth_format();
 
 public: // other
@@ -172,6 +179,7 @@ public: // commands
 	void handle_command(ToggleWireFrameModeCmd& cmd) final;
 	void handle_command(UpdateCommandBufferCmd& cmd) final;
 	void handle_command(UpdateRayTracingCmd& cmd) final;
+	void handle_command(PreviewObjectsCmd& cmd) final;
 
 private:
 	static VkVertexInputBindingDescription get_binding_description();

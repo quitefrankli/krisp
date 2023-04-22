@@ -10,7 +10,8 @@ enum class ERendererType
 {
 	RASTERIZATION,
 	RAYTRACING,
-	GUI
+	GUI,
+	OFFSCREEN_GUI_VIEWPORT
 };
 
 // A renderer is simply anything that submits draw commands and fills up a command buffer
@@ -26,11 +27,14 @@ public:
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) = 0;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) = 0;
 	virtual constexpr ERendererType get_renderer_type() const = 0;
+	virtual VkImageView get_output_image_view() = 0;
 
 	VkRenderPass get_render_pass() { return render_pass; }
+	virtual VkExtent2D get_extent();
 
 protected:
 	static constexpr uint32_t get_num_inflight_frames();
+	virtual VkSampleCountFlagBits get_msaa_sample_count() const { return VK_SAMPLE_COUNT_4_BIT; }
 
 protected:
 	// A render pass is a general description of steps to draw something on the screen

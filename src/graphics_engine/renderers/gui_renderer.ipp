@@ -17,7 +17,7 @@ GuiRenderer<GraphicsEngineT>::~GuiRenderer()
 template<typename GraphicsEngineT>
 void GuiRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
-	const auto extent = get_graphics_engine().get_extent();
+	const auto extent = get_extent();
 	std::vector<VkImageView> attachments { presentation_image_view };
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
 	frame_buffer_create_info.renderPass = render_pass;
@@ -44,7 +44,7 @@ void GuiRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_
 	render_pass_begin_info.renderPass = render_pass;
 	render_pass_begin_info.framebuffer = frame_buffers[frame_index];
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
-	render_pass_begin_info.renderArea.extent = get_graphics_engine().get_extent();
+	render_pass_begin_info.renderArea.extent = get_extent();
 	
 	std::vector<VkClearValue> clear_values(2);
 	clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };

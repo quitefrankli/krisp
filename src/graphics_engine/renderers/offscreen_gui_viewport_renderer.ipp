@@ -1,15 +1,17 @@
 #include "renderers.hpp"
 
+#include <ImGui/imgui_impl_vulkan.h>
+
 
 template<typename GraphicsEngineT>
-RasterizationRenderer<GraphicsEngineT>::RasterizationRenderer(GraphicsEngineT& engine) :
+OffscreenGuiViewportRenderer<GraphicsEngineT>::OffscreenGuiViewportRenderer(GraphicsEngineT& engine) :
 	Renderer<GraphicsEngineT>(engine)
 {
 	create_render_pass();
 }
 
 template<typename GraphicsEngineT>
-RasterizationRenderer<GraphicsEngineT>::~RasterizationRenderer()
+OffscreenGuiViewportRenderer<GraphicsEngineT>::~OffscreenGuiViewportRenderer()
 {
 	for (auto& color_attachment : color_attachments)
 		color_attachment.destroy(get_graphics_engine().get_logical_device());
@@ -18,7 +20,7 @@ RasterizationRenderer<GraphicsEngineT>::~RasterizationRenderer()
 }
 
 template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
+void OffscreenGuiViewportRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage, VkImageView)
 {
 	//
 	// Generate attachments
@@ -30,7 +32,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 		extent.height,
 		get_image_format(),
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+		VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		color_attachment.image,
 		color_attachment.image_memory,
@@ -47,7 +49,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 		extent.height,
 		depth_format,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		depth_attachment.image,
 		depth_attachment.image_memory,
@@ -65,8 +67,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 	//
 	std::vector<VkImageView> attachments { 
 		color_attachment.image_view, // main attachment color image_view, that shaders write to
-		depth_attachment.image_view, // depth buffer image_view
-		presentation_image_view // for presentation (msaa resolve is also applied at this step)
+		depth_attachment.image_view // depth buffer image_view
 	};
 
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -86,14 +87,18 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 }
 
 template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
-	VkCommandBuffer command_buffer,
-	VkImageView presentation_image_view,
-	uint32_t frame_index)
+void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_buffer,
+																		 VkImageView,
+																		 uint32_t frame_index)
 {
+	const auto& graphics_objects = get_graphics_engine().get_offscreen_rendering_objects();
+	// if (graphics_objects.empty())
+	// {
+	// 	return; // nothing to draw, but maybe we should still keep this so it gets refreshed?
+	// }
+
 	// starting a render pass
-	VkRenderPassBeginInfo render_pass_begin_info{};
-	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	VkRenderPassBeginInfo render_pass_begin_info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
 	render_pass_begin_info.renderPass = render_pass;
 	render_pass_begin_info.framebuffer = frame_buffers[frame_index];
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
@@ -105,8 +110,6 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	render_pass_begin_info.clearValueCount = clear_values.size();
 	render_pass_begin_info.pClearValues = clear_values.data();
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
-
-	// vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline
 
 	// global descriptor object, for per frame updates
 	vkCmdBindDescriptorSets(command_buffer,
@@ -177,91 +180,60 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		}
 	};
 
-	const auto get_pipeline = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
-	{
-		EPipelineType type = EPipelineType::STANDARD;
-		switch (obj.type)
-		{
-		case EPipelineType::CUBEMAP:
-			if (get_graphics_engine().is_wireframe_mode)
-			{
-				return nullptr;
-			}
-		default:
-			type = get_graphics_engine().is_wireframe_mode ? EPipelineType::WIREFRAME : obj.type;
-			break;
-		}
-
-		return &get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
-	};
-	const auto& graphics_objects = get_graphics_engine().get_objects();
 	for (const auto& it_pair : graphics_objects)
 	{
 		const auto& graphics_object = *(it_pair.second);
 		if (graphics_object.is_marked_for_delete())
 			continue;
 
-		if (!graphics_object.get_game_object().get_visibility())
-			continue;
+		// if (!graphics_object.get_game_object().get_visibility())
+			// continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_pipeline(graphics_object);
-		if (!pipeline)
-			continue;
-			
-		vkCmdBindPipeline(command_buffer, 
-							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							pipeline->graphics_pipeline); // bind the graphics pipeline
-
-		per_obj_draw_fn(graphics_object, *pipeline);
-	}
-	
-	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	const GraphicsEnginePipeline<GraphicsEngineT>& stencil_pipeline = 
-		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STENCIL);
-	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
-	{
-		const auto it_obj = graphics_objects.find(id);
-		if (it_obj == graphics_objects.end())
+		// only support color and texture render types for now
+		if (graphics_object.get_render_type() != EPipelineType::COLOR && 
+			graphics_object.get_render_type() != EPipelineType::STANDARD)
 			continue;
 
-		const auto& graphics_object = *it_obj->second;
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
-		if (!graphics_object.get_game_object().get_visibility())
-			continue;
-		
-		if (graphics_object.get_render_type() == EPipelineType::CUBEMAP)
-			continue;
-		
+		GraphicsEnginePipeline<GraphicsEngineT>& pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(
+				EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
 		vkCmdBindPipeline(
 			command_buffer, 
 			VK_PIPELINE_BIND_POINT_GRAPHICS, 
-			stencil_pipeline.graphics_pipeline); // bind the graphics pipeline
-		per_obj_draw_fn(graphics_object, stencil_pipeline);
-	}
+			pipeline.graphics_pipeline);
 
+		per_obj_draw_fn(graphics_object, pipeline);
+	}
+	
 	vkCmdEndRenderPass(command_buffer);
 }
 
 template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
+VkExtent2D OffscreenGuiViewportRenderer<GraphicsEngineT>::get_extent()
+{
+	// remember to keep aspect ratio the same as default window
+	const VkExtent2D main_extent = Renderer::get_extent();
+	return VkExtent2D
+	{ 
+		static_cast<uint32_t>(main_extent.width * 0.33f), 
+		static_cast<uint32_t>(main_extent.height * 0.33f)	
+	};
+}
+
+template<typename GraphicsEngineT>
+void OffscreenGuiViewportRenderer<GraphicsEngineT>::create_render_pass()
 {
 	//
 	// Color Attachment
 	//
 	VkAttachmentDescription color_attachment{}; // main attachment that our shaders write to
 	color_attachment.format = get_image_format();
-	color_attachment.samples = get_msaa_sample_count(); // >1 if we are doing multisampling	
+	color_attachment.samples = get_msaa_sample_count(); // number of samples to write for each pixel
 	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
 	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
 	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // specifies which layout the image will have before the render pass begins
-	// color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
-	// with multisampled images, we don't want to present them directly, first they have to be resolved
-	// to a single regular image
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	color_attachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // specifies the layout to automatically transition to when the render pass finishes
 
 	// subpasses and attachment references
 	// a single render pass can consist of multiple subpasses
@@ -287,23 +259,6 @@ void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
 	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	//
-	// Multi-sampling
-	//
-	VkAttachmentDescription color_attachment_resolve{}; // resolves the multisampled image to a regular image
-    color_attachment_resolve.format = get_image_format();
-    color_attachment_resolve.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment_resolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment_resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment_resolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment_resolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment_resolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment_resolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-	VkAttachmentReference color_attachment_resolve_ref{};
-	color_attachment_resolve_ref.attachment = 2;
-	color_attachment_resolve_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	//
 	// Subpass
 	//
 	VkSubpassDescription subpass{};
@@ -311,7 +266,7 @@ void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &color_attachment_ref;
 	// subpass.pInputAttachments // attachments that read from a shader
-	subpass.pResolveAttachments = &color_attachment_resolve_ref;
+	// subpass.pResolveAttachments = &color_attachment_resolve_ref;
 	subpass.pDepthStencilAttachment = &depthAttachmentRef;
 	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
 
@@ -325,7 +280,7 @@ void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-	std::vector<VkAttachmentDescription> attachments{ color_attachment, depth_attachment, color_attachment_resolve };
+	std::vector<VkAttachmentDescription> attachments{ color_attachment, depth_attachment };
 	VkRenderPassCreateInfo render_pass_create_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
 	render_pass_create_info.attachmentCount = attachments.size();
 	render_pass_create_info.pAttachments = attachments.data();

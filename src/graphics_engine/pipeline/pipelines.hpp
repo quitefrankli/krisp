@@ -70,3 +70,19 @@ protected:
 private:
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 };
+
+template<typename GraphicsEngineT>
+class LightWeightOffscreenPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	LightWeightOffscreenPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "color"; }
+	virtual VkSampleCountFlagBits get_msaa_sample_counts() override
+	{ 
+		return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; 
+	}
+	virtual VkRenderPass get_render_pass() override;
+	virtual VkExtent2D get_extent() override;
+};

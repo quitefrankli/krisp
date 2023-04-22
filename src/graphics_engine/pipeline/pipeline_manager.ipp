@@ -23,6 +23,7 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	add_pipeline(EPipelineType::CUBEMAP);
 	add_pipeline(EPipelineType::STENCIL);
 	add_pipeline(EPipelineType::RAYTRACING);
+	add_pipeline(EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
 }
 
 template<typename GraphicsEngineT>

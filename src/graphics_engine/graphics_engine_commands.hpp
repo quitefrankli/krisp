@@ -1,11 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 
 class Object;
 class GraphicsEngineBase;
 class LightSource;
+class GuiPhotoBase;
 
 struct GraphicsEngineCommand
 {
@@ -77,4 +79,13 @@ struct UpdateCommandBufferCmd : public GraphicsEngineCommand
 struct UpdateRayTracingCmd : public GraphicsEngineCommand
 {
 	virtual void process(GraphicsEngineBase* engine) override;
+};
+
+struct PreviewObjectsCmd : public GraphicsEngineCommand
+{
+	PreviewObjectsCmd(const std::vector<Object*>& objects, GuiPhotoBase& gui);
+	virtual void process(GraphicsEngineBase* engine) override;
+
+	const std::vector<Object*> objects;
+	GuiPhotoBase& gui;
 };

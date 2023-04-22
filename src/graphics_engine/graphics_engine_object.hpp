@@ -46,6 +46,9 @@ public:
 	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
 	std::vector<VkDescriptorSet> descriptor_sets;
 
+	// TODO: come up with a different enum class (not pipeline or renderer type) that expresses an object's
+	// rendering 'style'. This is because an object can be rendered with different pipeline/renderer than
+	// the associated 'style'.
 	EPipelineType get_render_type() const { return type; }
 
 	const EPipelineType type;

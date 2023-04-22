@@ -31,6 +31,10 @@ protected:
 
 	VkShaderModule create_shader_module(const std::string_view filename);
 
+	virtual VkExtent2D get_extent();
+	virtual VkSampleCountFlagBits get_msaa_sample_counts();
+	virtual VkRenderPass get_render_pass();
+
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;

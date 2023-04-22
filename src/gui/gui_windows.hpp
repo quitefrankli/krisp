@@ -159,8 +159,8 @@ public:
 	virtual void draw() override;
 
 	void* img_rsrc = nullptr;
-	uint32_t width = 0;
-	uint32_t height = 0;
+	uint32_t width = 300;
+	uint32_t height = 300;
 };
 
 class GuiPhotoBase
@@ -174,6 +174,8 @@ public:
 protected:
 	// width/height
 	float get_aspect_ratio() const { return float(true_dims.x) / float(true_dims.y); } 
+	// IMPORTANT, call this between ImGui::Begin and ImGui::End
+	void draw();
 
 	void* img_rsrc = nullptr; // for vulkan this is a VkDescriptorSet
 	glm::uvec2 true_dims;

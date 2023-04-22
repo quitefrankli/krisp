@@ -46,6 +46,25 @@ VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(con
 }
 
 template<typename GraphicsEngineT>
+VkExtent2D GraphicsEnginePipeline<GraphicsEngineT>::get_extent()
+{
+	return get_graphics_engine().get_extent();
+}
+
+template<typename GraphicsEngineT>
+VkSampleCountFlagBits GraphicsEnginePipeline<GraphicsEngineT>::get_msaa_sample_counts()
+{
+	return get_graphics_engine().get_msaa_samples();
+}
+
+template<typename GraphicsEngineT>
+VkRenderPass GraphicsEnginePipeline<GraphicsEngineT>::get_render_pass()
+{
+	return get_graphics_engine().get_renderer_mgr().
+		get_renderer(ERendererType::RASTERIZATION).get_render_pass();
+}
+
+template<typename GraphicsEngineT>
 std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<GraphicsEngineT>::create_pipeline(
 	GraphicsEngineT& engine,
 	EPipelineType type)
@@ -71,6 +90,9 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<
 		break;
 	case EPipelineType::RAYTRACING:
 		new_pipeline = std::make_unique<RaytracingPipeline<GraphicsEngineT>>(engine);
+		break;
+	case EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
+		new_pipeline = std::make_unique<LightWeightOffscreenPipeline<GraphicsEngineT>>(engine);
 		break;
 	default:
 		throw std::runtime_error("GraphicsEnginePipeline::create_pipeline: invalid pipeline type");
@@ -164,20 +186,18 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	// fixed functions
 	//
 
-	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{};
-	vertex_input_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 	vertex_input_create_info.vertexBindingDescriptionCount = 1;
 	vertex_input_create_info.pVertexBindingDescriptions = &get_graphics_engine().binding_description;
 	vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(get_graphics_engine().attribute_descriptions.size());
 	vertex_input_create_info.pVertexAttributeDescriptions = get_graphics_engine().attribute_descriptions.data();
 
 	// describes what kind of geomertry will be drawn from the vertices and if primitive restart should be enabled
-	VkPipelineInputAssemblyStateCreateInfo input_assembly{};
-	input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+	VkPipelineInputAssemblyStateCreateInfo input_assembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
-	const auto extent = get_graphics_engine().get_extent();
+	const VkExtent2D extent = get_extent();
 	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
 	// Vulkan uses right-hand coordinate system, so y is actually pointing down
 	// to fix this, we flip the view port upside down
@@ -193,15 +213,14 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	scissor.offset = { 0, 0 };
 	scissor.extent = extent;
 
-	VkPipelineViewportStateCreateInfo view_port_state_create_info{};
-	view_port_state_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+	VkPipelineViewportStateCreateInfo view_port_state_create_info{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
 	view_port_state_create_info.viewportCount = 1;
 	view_port_state_create_info.pViewports = &view_port;
 	view_port_state_create_info.scissorCount = 1;
 	view_port_state_create_info.pScissors = &scissor;
 
-	VkPipelineRasterizationStateCreateInfo rasterizer_create_info{}; // takes the geometry shaped by vertices and turns it into fragments to be colored by fragment shader
-	rasterizer_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+	// takes the geometry shaped by vertices and turns it into fragments to be colored by fragment shader
+	VkPipelineRasterizationStateCreateInfo rasterizer_create_info{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO}; 
 	rasterizer_create_info.depthClampEnable = VK_FALSE; // true = fragments beyond near and far planes are clamped, false = discarded
 	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
 	rasterizer_create_info.polygonMode = polygon_mode;
@@ -216,10 +235,9 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	rasterizer_create_info.depthBiasSlopeFactor = 0.0f;
 
 	// multisampling is one way of performing anti-aliasing, by combining fragments that lie ontop of the same pixel
-	VkPipelineMultisampleStateCreateInfo multisampling_create_info{};
-	multisampling_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+	VkPipelineMultisampleStateCreateInfo multisampling_create_info{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 	multisampling_create_info.sampleShadingEnable = VK_FALSE;
-	multisampling_create_info.rasterizationSamples = get_graphics_engine().get_msaa_samples();
+	multisampling_create_info.rasterizationSamples = get_msaa_sample_counts();
 	multisampling_create_info.minSampleShading = 1.0f;
 	multisampling_create_info.pSampleMask = nullptr;
 	multisampling_create_info.alphaToCoverageEnable = VK_FALSE;
@@ -236,8 +254,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
 
-	VkPipelineColorBlendStateCreateInfo color_blending_create_info{};
-	color_blending_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+	VkPipelineColorBlendStateCreateInfo color_blending_create_info{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
 	color_blending_create_info.logicOpEnable = VK_FALSE;
 	color_blending_create_info.logicOp = VK_LOGIC_OP_COPY; // Optional
 	color_blending_create_info.attachmentCount = 1;
@@ -247,8 +264,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	color_blending_create_info.blendConstants[2] = 0.0f; // Optional
 	color_blending_create_info.blendConstants[3] = 0.0f; // Optional
 
-	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info{};
-	graphics_pipeline_create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
 	graphics_pipeline_create_info.stageCount = 2;
 	graphics_pipeline_create_info.pStages = shader_stages;
 	graphics_pipeline_create_info.pVertexInputState = &vertex_input_create_info;
@@ -262,8 +278,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	auto depth_stencil_create_info = get_depth_stencil_create_info();
 	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_create_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;
-	graphics_pipeline_create_info.renderPass = 
-		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::RASTERIZATION).get_render_pass();
+	graphics_pipeline_create_info.renderPass = get_render_pass();
 	graphics_pipeline_create_info.subpass = 0;
 	// for derived pipelines can either use base handle OR base index for the
 	// index of the pipeline to refer to the base pipeline

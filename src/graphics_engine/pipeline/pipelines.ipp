@@ -135,3 +135,17 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	vkDestroyShaderModule(get_logical_device(), rayhit_shader, nullptr);
 	vkDestroyShaderModule(get_logical_device(), raymiss_shader, nullptr);
 }
+
+template<typename GraphicsEngineT>
+VkRenderPass LightWeightOffscreenPipeline<GraphicsEngineT>::get_render_pass()
+{
+	return get_graphics_engine().get_renderer_mgr().
+		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_render_pass();
+}
+
+template<typename GraphicsEngineT>
+VkExtent2D LightWeightOffscreenPipeline<GraphicsEngineT>::get_extent()
+{
+	return get_graphics_engine().get_renderer_mgr().
+		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_extent();	
+}

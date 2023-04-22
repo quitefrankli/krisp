@@ -302,6 +302,14 @@ void GuiPhotoBase::update(void* img_rsrc, const glm::uvec2& true_img_size, uint3
 	true_dims = true_img_size;
 }
 
+void GuiPhotoBase::draw()
+{
+	if (img_rsrc)
+	{
+		ImGui::Image((ImTextureID)img_rsrc, ImVec2(get_requested_width(), get_requested_height()));
+	}
+}
+
 template<typename GameEngineT>
 GuiPhoto<GameEngineT>::GuiPhoto()
 {

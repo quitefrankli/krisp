@@ -197,10 +197,16 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 	Renderer<GraphicsEngineT>& main_renderer = renderer_mgr.get_renderer(
 		get_graphics_engine().get_gui_manager().graphic_settings.rtx_on() ?
 		ERendererType::RAYTRACING : ERendererType::RASTERIZATION);
-	Renderer<GraphicsEngineT>& gui_renderer = renderer_mgr.get_renderer(ERendererType::GUI);
 
 	main_renderer.submit_draw_commands(command_buffer, presentation_image_view, image_index);
-	gui_renderer.submit_draw_commands(command_buffer, presentation_image_view, image_index);
+
+	// Offscreen
+	renderer_mgr.get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).submit_draw_commands(
+		command_buffer, presentation_image_view, image_index);
+
+	// ImGui
+	renderer_mgr.get_renderer(ERendererType::GUI).submit_draw_commands(
+		command_buffer, presentation_image_view, image_index);
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{
