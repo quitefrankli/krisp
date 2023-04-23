@@ -115,10 +115,10 @@ const std::vector<glm::vec3> standard_colors =
 class TetrisPiece : public Object
 {
 public:
-	TetrisPiece(TetrisPieceType type, const glm::vec3& color) :
+	TetrisPiece(TetrisPieceType type) :
 		type(type)
 	{
-		const auto per_shape_fn = [&](const glm::vec3& translation)
+		const auto per_shape_fn = [&](const glm::vec3& translation, const glm::vec3& color)
 		{
 			Material material;
 			material.material_data.specular = Maths::zero_vec;
@@ -134,39 +134,39 @@ public:
 		case TetrisPieceType::I:
 			shapes = generate_shapes({ 12, 13, 14, 15 });
 			// move so that origin matches the rotation point
-			per_shape_fn(glm::vec3(-1.5f, 0.5f, 0.0f));
+			per_shape_fn(glm::vec3(-1.5f, 0.5f, 0.0f), standard_colors[0]);
 			cell_locations = { { -1.5f, 0.5f }, { -0.5f, 0.5f }, { 0.5f, 0.5f }, { 1.5f, 0.5f } };
 			type_specific_offset = glm::vec3(0.5f, 0.5f, 0.0f);
 			break;
 		case TetrisPieceType::J:
 			shapes = generate_shapes({ 8, 12, 13, 14 });
-			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f));
+			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f), standard_colors[1]);
 			cell_locations = { { -1.0f, 1.0f }, { -1.0f, 0.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f } };
 			break;
 		case TetrisPieceType::L:
 			shapes = generate_shapes({ 10, 12, 13, 14 });
-			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f)); 
+			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f), standard_colors[2]); 
 			cell_locations = { { -1.0f, 0.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f } };
 			break;
 		case TetrisPieceType::O:
 			shapes = generate_shapes({ 8, 9, 12, 13 });
-			per_shape_fn(glm::vec3(-0.5f, -0.5f, 0.0f)); 
+			per_shape_fn(glm::vec3(-0.5f, -0.5f, 0.0f), standard_colors[3]); 
 			cell_locations = { { -0.5f, 0.5f }, { 0.5f, 0.5f }, { -0.5f, -0.5f }, { 0.5f, -0.5f } };
 			type_specific_offset = glm::vec3(0.5f, 0.5f, 0.0f);
 			break;
 		case TetrisPieceType::S:
 			shapes = generate_shapes({ 9, 10, 12, 13 });
-			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f)); 
+			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f), standard_colors[4]); 
 			cell_locations = { { -1.0f, 0.0f }, { 0.0f, 0.0f }, { 0.0f, 1.0f }, { 1.0f, 1.0f } };
 			break;
 		case TetrisPieceType::T:
 			shapes = generate_shapes({ 9, 12, 13, 14 });
-			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f)); 
+			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f), standard_colors[5]); 
 			cell_locations = { { -1.0f, 0.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.0f, 1.0f } };
 			break;
 		case TetrisPieceType::Z:
 			shapes = generate_shapes({ 8, 9, 13, 14 });
-			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f)); 
+			per_shape_fn(glm::vec3(-1.0f, 0.0f, 0.0f), standard_colors[6]); 
 			cell_locations = { { -1.0f, 1.0f }, { 0.0f, 1.0f }, { 0.0f, 0.0f }, { 1.0f, 0.0f } };
 			break;
 		default:
@@ -201,21 +201,27 @@ private:
 	std::vector<glm::vec2> cell_locations;
 };
 
-class TetrisGui : public GuiWindow<GameEngineT>
+class TetrisGui : public GuiWindow<GameEngineT>, public GuiPhotoBase
 {
 public:
 	void draw() override
 	{
 		ImGui::Begin("Tetris");
+
 		ImGui::Text("Level: %d, Score: %d", level, score);
 		restart = ImGui::Button("New Game");
 		if (!game_over)
 		{
+			ImGui::SameLine();
 			pause_unpause_toggled = ImGui::Button(paused ? "Unpause" : "Pause");
 		} else
 		{
 			ImGui::Text("Game Over!");
 		}
+
+		ImGui::Text("Next Piece");
+		GuiPhotoBase::draw();
+
 		ImGui::End();
 	}
 
@@ -372,15 +378,32 @@ private:
 	void generate_next_piece()
 	{
 		assert(!current_piece);
-		const int piece_type = Maths::RandomUniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
-		const int color = Maths::RandomUniform<int>(0, standard_colors.size() - 1);
-		// offsets due to some shapes such as L that can poke past the walls
+
+		const auto generate_new_piece = [&]()
+		{
+			const int piece_type = Maths::RandomUniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
+			// offsets due to some shapes such as L that can poke past the walls
+			auto* new_piece = &engine.spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type));
+			new_piece->set_visibility(false); // hide it from the main rasterization renderer (can be made simpler with a scene system)
+			new_piece->set_scale(glm::vec3(3.0f)); // make it larger so it looks normal size in preview
+			return new_piece;
+		};
+
+		if (!next_piece)
+		{
+			next_piece = generate_new_piece();
+		}
+
+		current_piece = next_piece;
 		const glm::vec3 position = glm::vec3(Maths::RandomUniform(-width/2+2, width/2-3), height/2.0f, 0.0f);
-		current_piece = &engine.spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), standard_colors[color]);
 		current_piece->set_position(position + current_piece->get_type_specific_offset());
+		current_piece->set_visibility(true);
+		current_piece->set_scale(glm::vec3(1.0f)); // reset scale to normal size
+		next_piece = generate_new_piece();
+		engine.preview_objs_in_gui({ next_piece }, dynamic_cast<GuiPhotoBase&>(*gui));
 
 		// if we are already colliding with another piece then this is game over
-		if (check_for_collision(current_piece->get_transform()))
+		if (check_for_collision(get_latest_piece().get_transform()))
 		{
 			game_over();
 		}
@@ -530,6 +553,7 @@ private:
 
 private:
 	GameEngineT& engine;
+	TetrisPiece* next_piece = nullptr;
 	TetrisPiece* current_piece = nullptr;
 	Environment environment;
 	TetrisGui* gui = nullptr;
