@@ -4,7 +4,7 @@
 #include "shapes/shape.hpp"
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
-
+#include "object_id.hpp"
 #include <glm/gtc/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -13,7 +13,6 @@
 
 
 class ResourceLoader;
-
 class ObjectAbstract
 {
 public:
@@ -21,12 +20,11 @@ public:
 	ObjectAbstract& operator=(const ObjectAbstract& object) = delete;
 
 	ObjectAbstract();
-	ObjectAbstract(uint64_t id);
+	ObjectAbstract(ObjectID id);
 	ObjectAbstract(ObjectAbstract&& object) noexcept = default;
 	virtual ~ObjectAbstract() = default;
 
-	uint64_t get_id() const { return id; }
-	void generate_new_id() { id = global_id++; }
+	ObjectID get_id() const { return id; }
 
 public: // getters and setters
 	const std::string& get_name() const { return name; }
@@ -35,8 +33,8 @@ public: // getters and setters
 
 private:
 	std::string name;
-	static uint64_t global_id;
-	uint64_t id;
+	static ObjectID global_id;
+	ObjectID id;
 };
 
 class Object : public ObjectAbstract
@@ -98,7 +96,7 @@ public:
 	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
 
 protected:
-	std::map<uint64_t, Object*> children;
+	std::map<ObjectID, Object*> children;
 	Object* parent = nullptr;
 
 	// callback when a child gets attached

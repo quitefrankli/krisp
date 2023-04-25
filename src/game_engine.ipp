@@ -171,7 +171,7 @@ template<template<typename> typename GraphicsEngineTemplate>
 GameEngine<GraphicsEngineTemplate>::~GameEngine() = default;
 
 template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::delete_object(uint64_t id)
+void GameEngine<GraphicsEngineTemplate>::delete_object(ObjectID id)
 {
 	objects.erase(id);
 	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));

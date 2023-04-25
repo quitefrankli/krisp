@@ -11,16 +11,14 @@
 #include <limits>
 
 
-uint64_t ObjectAbstract::global_id = 0;
+ObjectID ObjectAbstract::global_id = ObjectID(0);
 
-ObjectAbstract::ObjectAbstract()
+ObjectAbstract::ObjectAbstract() : id(global_id++)
 {
-	generate_new_id();
 }
 
-ObjectAbstract::ObjectAbstract(uint64_t id)
+ObjectAbstract::ObjectAbstract(ObjectID id) : id(id)
 {
-	this->id = id;
 }
 
 Object::Object(Object&& other) noexcept :

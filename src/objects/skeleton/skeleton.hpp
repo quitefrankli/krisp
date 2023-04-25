@@ -19,7 +19,7 @@
 // 	// these functors aim to reduce coupling with the engine
 // 	// if the spawner is passed a nullptr clickable, then it should still spawn the object
 // 	using obj_spawner_t = std::function<void(std::shared_ptr<Object>&&)>;
-// 	using obj_remover_t = std::function<void(uint64_t)>;
+// 	using obj_remover_t = std::function<void(ObjectID)>;
 
 // 	// the ctor accepts an obj_spawner that tells game_engine to spawn an object
 // 	Skeleton(obj_spawner_t spawner, obj_remover_t remover);

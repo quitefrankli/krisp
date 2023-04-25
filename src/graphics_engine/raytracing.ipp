@@ -324,7 +324,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 		VkAccelerationStructureInstanceKHR ray_inst{};
 		ray_inst.transform = glm_to_vk(object->get_game_object().get_transform());
 
-		ray_inst.instanceCustomIndex = object->get_game_object().get_id(); // exists in shader as 'gl_InstanceCustomIndexEXT'
+		ray_inst.instanceCustomIndex = object->get_game_object().get_id().get_underlying(); // exists in shader as 'gl_InstanceCustomIndexEXT'
 		// TOOD: change this to use the actual object id, will need to refactor blas setup
 		ray_inst.accelerationStructureReference = getBlasDeviceAddress(instance_id++);
 		ray_inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "objects/object_id.hpp"
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_buffer.hpp"
 #include "vertex.hpp"
@@ -10,9 +11,6 @@
 #include "shared_data_structures.hpp"
 
 
-template<typename GraphicsEngineT>
-class GuiStatistics;
-
 // Manages buffers associated with objects such as vertex buffer
 // Memory is virtualised so that the GPU sees a continuous memory space
 template<typename GraphicsEngineT>
@@ -22,20 +20,20 @@ public:
 	GraphicsBufferManager(GraphicsEngineT& engine);
 	virtual ~GraphicsBufferManager() override;
 
-	void reserve_vertex_buffer(uint32_t id, uint32_t size) { reserve_buffer(vertex_buffer, id, size); }
-	void reserve_index_buffer(uint32_t id, uint32_t size) { reserve_buffer(index_buffer, id, size); }
-	void reserve_uniform_buffer(uint32_t id, uint32_t size) { reserve_buffer(uniform_buffer, id, size); }
-	void reserve_materials_buffer(ShapeID id, uint32_t size) { reserve_buffer(materials_buffer, id.get_underlying(), size); }
+	void reserve_vertex_buffer(ObjectID id, size_t size) { reserve_buffer(vertex_buffer, id.get_underlying(), size); }
+	void reserve_index_buffer(ObjectID id, size_t size) { reserve_buffer(index_buffer, id.get_underlying(), size); }
+	void reserve_uniform_buffer(ObjectID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
+	void reserve_materials_buffer(ShapeID id, size_t size) { reserve_buffer(materials_buffer, id.get_underlying(), size); }
 
-	void free_vertex_buffer(uint32_t id) { free_buffer(vertex_buffer, id); }
-	void free_index_buffer(uint32_t id) { free_buffer(index_buffer, id); }
-	void free_uniform_buffer(uint32_t id) { free_buffer(uniform_buffer, id); }
+	void free_vertex_buffer(ObjectID id) { free_buffer(vertex_buffer, id.get_underlying()); }
+	void free_index_buffer(ObjectID id) { free_buffer(index_buffer, id.get_underlying()); }
+	void free_uniform_buffer(ObjectID id) { free_buffer(uniform_buffer, id.get_underlying()); }
 	void free_materials_buffer(ShapeID id) { free_buffer(materials_buffer, id.get_underlying()); }
 
-	uint32_t get_vertex_buffer_offset(uint32_t id) const { return vertex_buffer.get_offset(id); }
-	uint32_t get_index_buffer_offset(uint32_t id) const { return index_buffer.get_offset(id); }
-	uint32_t get_uniform_buffer_offset(uint32_t id) const { return uniform_buffer.get_offset(id); }
-	uint32_t get_materials_buffer_offset(ShapeID id) const { return materials_buffer.get_offset(id.get_underlying()); }
+	size_t get_vertex_buffer_offset(ObjectID id) const { return vertex_buffer.get_offset(id.get_underlying()); }
+	size_t get_index_buffer_offset(ObjectID id) const { return index_buffer.get_offset(id.get_underlying()); }
+	size_t get_uniform_buffer_offset(ObjectID id) const { return uniform_buffer.get_offset(id.get_underlying()); }
+	size_t get_materials_buffer_offset(ShapeID id) const { return materials_buffer.get_offset(id.get_underlying()); }
 
 	VkBuffer get_vertex_buffer() const { return vertex_buffer.get_buffer(); }
 	VkBuffer get_index_buffer() const { return index_buffer.get_buffer(); }
@@ -46,20 +44,18 @@ public:
 
 	VkDeviceMemory get_global_uniform_buffer_memory() const { return global_uniform_buffer.get_memory(); }
 
-	void write_to_vertex_buffer(const std::vector<Vertex>& vertices, uint32_t id);
-	void write_to_index_buffer(const std::vector<uint32_t>& indices, uint32_t id);
-	void write_to_uniform_buffer(const std::vector<SDS::ObjectData>& ubos, uint32_t id);
-	void write_to_uniform_buffer(const SDS::ObjectData& ubos, uint32_t id);
+	void write_to_vertex_buffer(const std::vector<Vertex>& vertices, ObjectID id);
+	void write_to_index_buffer(const std::vector<uint32_t>& indices, ObjectID id);
+	void write_to_uniform_buffer(const SDS::ObjectData& ubos, ObjectID id);
 	void write_to_global_uniform_buffer(const SDS::GlobalData& ubo);
 	// does both vertex and index buffer writing
-	void write_shapes_to_buffers(const std::vector<Shape>& shapes, uint32_t id);
+	void write_shapes_to_buffers(const std::vector<Shape>& shapes, ObjectID id);
 	void write_to_materials_buffer(const SDS::MaterialData& material, ShapeID id);
-	void write_to_mapping_buffer(const std::vector<BufferMapEntry>& entries, uint32_t id);
-	void write_to_mapping_buffer(const BufferMapEntry& entry, uint32_t id);
+	void write_to_mapping_buffer(const BufferMapEntry& entry, ObjectID id);
 
-	GraphicsBuffer::Slot get_vertex_buffer_slot(uint32_t id) const { return vertex_buffer.get_slot(id); }
-	GraphicsBuffer::Slot get_index_buffer_slot(uint32_t id) const { return index_buffer.get_slot(id); }
-	GraphicsBuffer::Slot get_uniform_buffer_slot(uint32_t id) const { return uniform_buffer.get_slot(id); }
+	GraphicsBuffer::Slot get_vertex_buffer_slot(ObjectID id) const { return vertex_buffer.get_slot(id.get_underlying()); }
+	GraphicsBuffer::Slot get_index_buffer_slot(ObjectID id) const { return index_buffer.get_slot(id.get_underlying()); }
+	GraphicsBuffer::Slot get_uniform_buffer_slot(ObjectID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_materials_buffer_slot(ShapeID id) const { return materials_buffer.get_slot(id.get_underlying()); }
 
 	GraphicsBuffer create_buffer(
@@ -137,6 +133,4 @@ private:
 	// maps object id to starting offset in the vertex, index and uniform buffers
 	// unlike the other buffers, entries in this buffer never gets removed
 	AppendOnlyGraphicsBuffer mapping_buffer;
-
-	friend GuiStatistics;
 };

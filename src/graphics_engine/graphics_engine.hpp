@@ -56,15 +56,15 @@ public: // getters and setters
 	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
 	std::vector<std::vector<Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
-	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() 
+	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() 
 	{ 
 		return objects; 
 	}
-	std::unordered_map<uint64_t, GraphicsEngineObject<GraphicsEngine>*>& get_offscreen_rendering_objects() 
+	std::unordered_map<ObjectID, GraphicsEngineObject<GraphicsEngine>*>& get_offscreen_rendering_objects() 
 	{ 
 		return offscreen_rendering_objects; 
 	}
-	GraphicsEngineObject<GraphicsEngine>& get_object(uint64_t id) { return *objects.at(id); }
+	GraphicsEngineObject<GraphicsEngine>& get_object(ObjectID id) { return *objects.at(id); }
 	auto& get_stenciled_object_ids() { return stenciled_objects; }
 	auto& get_light_sources() { return light_sources; }
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
@@ -97,12 +97,12 @@ private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::vector<std::vector<Vertex>> vertex_sets;
-	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
-	std::unordered_map<uint64_t, std::reference_wrapper<const LightSource>> light_sources;
-	std::unordered_set<uint64_t> stenciled_objects;
+	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
+	std::unordered_map<ObjectID, std::reference_wrapper<const LightSource>> light_sources;
+	std::unordered_set<ObjectID> stenciled_objects;
 	// currently used for OffscreenGuiViewportRenderer, in future we should have a scene system
 	// and this would be a separate scene
-	std::unordered_map<uint64_t, GraphicsEngineObject<GraphicsEngine>*> offscreen_rendering_objects;
+	std::unordered_map<ObjectID, GraphicsEngineObject<GraphicsEngine>*> offscreen_rendering_objects;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 	std::unique_ptr<Analytics> FPS_tracker;

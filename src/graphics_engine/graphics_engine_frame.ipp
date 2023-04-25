@@ -374,7 +374,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_synchronisation_objects()
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::mark_obj_for_delete(uint64_t id)
+void GraphicsEngineFrame<GraphicsEngineT>::mark_obj_for_delete(ObjectID id)
 {
 	objs_to_delete.push(id);
 }

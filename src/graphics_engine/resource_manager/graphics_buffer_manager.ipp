@@ -43,9 +43,9 @@ GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager()
 template<typename GraphicsEngineT>
 void GraphicsBufferManager<GraphicsEngineT>::write_to_uniform_buffer(
 	const SDS::ObjectData& ubos,
-	uint32_t id)
+	ObjectID id)
 {
-	std::byte* mapped_memory = uniform_buffer.map_slot(id, get_logical_device());
+	std::byte* mapped_memory = uniform_buffer.map_slot(id.get_underlying(), get_logical_device());
 	*reinterpret_cast<SDS::ObjectData*>(mapped_memory) = ubos;
 	uniform_buffer.unmap_slot(get_logical_device());
 }
@@ -59,11 +59,11 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(cons
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::vector<Shape>& shapes, uint32_t id)
+void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::vector<Shape>& shapes, ObjectID id)
 {
 	// assume that the size of the data in shapes is equal to the size of the buffer slot
-	const auto vertex_slot = vertex_buffer.get_slot(id);
-	const auto index_slot = index_buffer.get_slot(id);
+	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
+	const auto index_slot = index_buffer.get_slot(id.get_underlying());
  
 	stage_data_to_buffer(vertex_buffer.get_buffer(), vertex_slot.offset, vertex_slot.size,
 	[&shapes](std::byte* destination)
@@ -101,10 +101,10 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_materials_buffer(const SDS
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const BufferMapEntry& entry, uint32_t id)
+void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const BufferMapEntry& entry, ObjectID id)
 {
 	mapping_buffer.decrease_free_capacity(sizeof(entry));
-	stage_data_to_buffer(mapping_buffer.get_buffer(), mapping_buffer.get_slot_offset(id), sizeof(entry), 
+	stage_data_to_buffer(mapping_buffer.get_buffer(), mapping_buffer.get_slot_offset(id.get_underlying()), sizeof(entry), 
 	[&entry](std::byte* destination)
 	{
 		std::memcpy(destination, &entry, sizeof(entry));

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "graphics_engine_base_module.hpp"
-
+#include "objects/object_id.hpp"
 #include "analytics.hpp"
 
 #include <vulkan/vulkan.hpp>
@@ -47,7 +47,7 @@ public:
 	const uint32_t image_index;
 	
 	// delete object
-	void mark_obj_for_delete(uint64_t id);
+	void mark_obj_for_delete(ObjectID id);
 
 private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
@@ -56,7 +56,6 @@ private:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-		using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
 	
 	GraphicsEngineSwapChain<GraphicsEngineT>& swap_chain;
 
@@ -80,5 +79,5 @@ private:
 
 	Analytics analytics;
 
-	std::queue<uint64_t> objs_to_delete;
+	std::queue<ObjectID> objs_to_delete;
 };

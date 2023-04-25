@@ -1,5 +1,7 @@
 #pragma once
 
+#include "objects/object_id.hpp"
+
 #include <memory>
 #include <vector>
 
@@ -36,14 +38,14 @@ struct AddLightSourceCmd : public GraphicsEngineCommand
 struct ObjectCommand : public GraphicsEngineCommand
 {
 	ObjectCommand(const Object& object);
-	ObjectCommand(uint64_t object_id) : object_id(object_id) {}
+	ObjectCommand(ObjectID object_id) : object_id(object_id) {}
 	
-	const uint64_t object_id;
+	const ObjectID object_id;
 };
 
 struct DeleteObjectCmd : public ObjectCommand
 {
-	DeleteObjectCmd(uint64_t object_id) : ObjectCommand(object_id) {}
+	DeleteObjectCmd(ObjectID object_id) : ObjectCommand(object_id) {}
 	virtual void process(GraphicsEngineBase* engine) override;
 };
 

@@ -86,7 +86,7 @@ public:
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 
-	void delete_object(uint64_t id);
+	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
 	void restart();
@@ -110,7 +110,7 @@ public:
 	uint32_t get_window_width();
 	uint32_t get_window_height();
 
-	Object* get_object(uint64_t id)
+	Object* get_object(ObjectID id)
 	{
 		auto it = objects.find(id);
 		return it == objects.end() ? nullptr : it->second.get();
@@ -129,7 +129,7 @@ private:
 	ResourceLoader resource_loader;
 
 	std::atomic<bool> should_shutdown = false;
-	std::unordered_map<uint64_t, std::shared_ptr<Object>> objects;
+	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<Experimental<GameEngine>> experimental;
 	LightSource* light_source = nullptr;
