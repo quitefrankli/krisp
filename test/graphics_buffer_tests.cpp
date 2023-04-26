@@ -15,8 +15,8 @@ public:
 	const uint32_t buffer_size_1 = 100;
 	const uint32_t buffer_size_2 = 100;
 	const uint32_t alignment = 4;
-	GraphicsBufferV2 buffer1;
-	GraphicsBufferV2 buffer2;
+	GraphicsBuffer buffer1;
+	GraphicsBuffer buffer2;
 };
 
 TEST_F(GraphicsBufferFixture, partially_fill_buffer)
