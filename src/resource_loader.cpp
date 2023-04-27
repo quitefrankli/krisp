@@ -15,7 +15,7 @@
 
 static void load_object_impl(Object& object, 
 		const std::string_view mesh, 
-		const std::function<void(Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index)>& vertex_loader,
+		const std::function<void(SDS::Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index)>& vertex_loader,
 		const glm::mat4& transform);
 
 Object ResourceLoader::load_object(const std::string_view mesh, 
@@ -23,7 +23,7 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 								   const glm::mat4& transform)
 {
 	Object object;
-	const auto vertex_loader = [](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
+	const auto vertex_loader = [](SDS::Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
 		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
 		new_vertex.texCoord = {
 			attrib.texcoords[2 * index.texcoord_index + 0],
@@ -58,7 +58,7 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 					 			   const glm::mat4& transform)
 {
 	Object object;
-	const auto vertex_loader = [&color](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
+	const auto vertex_loader = [&color](SDS::Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
 		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
 	};
 
@@ -81,7 +81,7 @@ Object ResourceLoader::load_object(const std::string_view mesh,
 
 static void load_object_impl(Object& object, 
 	const std::string_view mesh, 
-	const std::function<void(Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index)>& vertex_loader,
+	const std::function<void(SDS::Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index)>& vertex_loader,
 	const glm::mat4& transform)
 {
 	Analytics analytics;
@@ -105,7 +105,7 @@ static void load_object_impl(Object& object,
 	object.shapes.reserve(shapes.size());
 	for (auto& shape : shapes)
 	{
-		std::unordered_map<Vertex, uint32_t> unique_vertices;
+		std::unordered_map<SDS::Vertex, uint32_t> unique_vertices;
 		
 		Shape new_shape;
 		new_shape.indices.reserve(shape.mesh.indices.size());
@@ -113,10 +113,10 @@ static void load_object_impl(Object& object,
 		
 		for (tinyobj::index_t& index : shape.mesh.indices)
 		{
-			std::pair<Vertex, uint32_t> new_pair{};
+			std::pair<SDS::Vertex, uint32_t> new_pair{};
 			new_pair.second = new_shape.vertices.size();
 
-			Vertex& new_vertex = new_pair.first;
+			SDS::Vertex& new_vertex = new_pair.first;
 			vertex_loader(new_vertex, attrib, index);
 
 			auto unique_vertex_element = unique_vertices.insert(std::move(new_pair));
@@ -148,7 +148,7 @@ std::vector<Object> ResourceLoader::load_objects(const std::string_view mesh,
                                                  const ResourceLoader::Setting setting)
 {
 	Object object;
-	const auto vertex_loader = [](Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
+	const auto vertex_loader = [](SDS::Vertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
 		memcpy(&new_vertex.pos, &attrib.vertices[3 * index.vertex_index], sizeof(new_vertex.pos));
 		new_vertex.texCoord = { attrib.texcoords[2 * index.texcoord_index + 0],
 			                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1] };

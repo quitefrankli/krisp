@@ -252,7 +252,7 @@ void Object::calculate_bounding_primitive<Maths::Sphere>()
 
 	for (Shape& shape : shapes)
 	{
-		for (Vertex& vertex : shape.vertices)
+		for (SDS::Vertex& vertex : shape.vertices)
 		{
 			auto& p = vertex.pos;
 			left = std::min<float>(left, p.x);

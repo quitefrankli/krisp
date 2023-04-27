@@ -3,7 +3,7 @@
 #include "objects/object_id.hpp"
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_buffer.hpp"
-#include "vertex.hpp"
+#include "shared_data_structures.hpp"
 #include "shapes/shape.hpp"
 #include "shared_data_structures.hpp"
 #include "buffer_map.hpp"
@@ -44,7 +44,7 @@ public:
 
 	VkDeviceMemory get_global_uniform_buffer_memory() const { return global_uniform_buffer.get_memory(); }
 
-	void write_to_vertex_buffer(const std::vector<Vertex>& vertices, ObjectID id);
+	void write_to_vertex_buffer(const std::vector<SDS::Vertex>& vertices, ObjectID id);
 	void write_to_index_buffer(const std::vector<uint32_t>& indices, ObjectID id);
 	void write_to_uniform_buffer(const SDS::ObjectData& ubos, ObjectID id);
 	void write_to_global_uniform_buffer(const SDS::GlobalData& ubo);
@@ -90,7 +90,7 @@ protected:
 	static constexpr size_t NUM_EXPECTED_SHAPES = NUM_EXPECTED_OBJECTS * 2;
 
 	// in bytes
-	static constexpr size_t VERTEX_BUFFER_CAPACITY = sizeof(Vertex) * 2e5;
+	static constexpr size_t VERTEX_BUFFER_CAPACITY = sizeof(SDS::Vertex) * 2e5;
 	static constexpr size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
 	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_SHAPES;

@@ -35,3 +35,17 @@ struct GlobalData
     ALIGN(16) VEC3 light_pos;
     ALIGN(4) float lighting_scalar;
 };
+
+struct Vertex
+{
+	glm::vec3 pos;
+	glm::vec3 color;
+	glm::vec2 texCoord;
+	glm::vec3 normal;
+
+	// default comparison is available in C++20
+	bool operator==(const SDS::Vertex& other) const
+	{
+		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
+	};
+};

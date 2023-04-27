@@ -22,10 +22,10 @@ Square::Square()
 	// DIRECTION of rotation follows the curled fingers
 
 	// {pos, color, texCoord, normal}
-	vertices.push_back(Vertex({-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f})); // bottom left
-	vertices.push_back(Vertex({ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f})); // bottom right
-	vertices.push_back(Vertex({ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f})); // top right
-	vertices.push_back(Vertex({-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f})); // top left
+	vertices.push_back(SDS::Vertex{{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}); // bottom left
+	vertices.push_back(SDS::Vertex{{ 0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}); // bottom right
+	vertices.push_back(SDS::Vertex{{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}); // top right
+	vertices.push_back(SDS::Vertex{{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}); // top left
 
 	indices = 
 	{
@@ -40,12 +40,11 @@ Circle::Circle(int nVertices, glm::vec3 color)
 	for (int i = 0; i < nVertices; i++)
 	{
 		float m = (float)i/nVertices * Maths::PI * 2.0f;
-		vertices.emplace_back(
+		vertices.emplace_back(SDS::Vertex{
 			glm::vec3(cosf(m) * 0.5f, 0.0f, sinf(m) * 0.5f),
-			color
-		);
+			color});
 	}
-	vertices.emplace_back(glm::vec3(0.0f), color); // center
+	vertices.emplace_back(SDS::Vertex{glm::vec3(0.0f), color}); // center
 
 	for (int i = 0; i < nVertices; i++)
 	{
@@ -62,17 +61,16 @@ Cylinder::Cylinder(int nVertices, glm::vec3 color)
 		for (int i = 0; i < nVertices; i++)
 		{
 			float m = (float)i/nVertices * Maths::PI * 2.0f;
-			vertices.emplace_back(
+			vertices.emplace_back(SDS::Vertex{
 				glm::vec3(cosf(m) * 0.5f, y, sinf(m) * 0.5f),
-				color
-			);
+				color});
 		}
 	};
 
 	generate_vertices(0.5f);
 	generate_vertices(-0.5f); // edges
-	vertices.emplace_back(glm::vec3(0.0f, 0.5f, 0.0f), color);
-	vertices.emplace_back(glm::vec3(0.0f, -0.5f, 0.0f), color); // centers
+	vertices.emplace_back(SDS::Vertex{glm::vec3(0.0f, 0.5f, 0.0f), color});
+	vertices.emplace_back(SDS::Vertex{glm::vec3(0.0f, -0.5f, 0.0f), color}); // centers
 
 	for (int i = 0; i < nVertices; i++)
 	{
@@ -105,16 +103,15 @@ Cone::Cone(int nVertices, glm::vec3 color)
 		for (int i = 0; i < nVertices; i++)
 		{
 			float m = (float)i/nVertices * Maths::PI * 2.0f;
-			vertices.emplace_back(
+			vertices.emplace_back(SDS::Vertex{
 				glm::vec3(cosf(m) * 0.5f, y, sinf(m) * 0.5f),
-				color
-			);
+				color});
 		}
 	};
 
 	generate_vertices(-0.5f); // edges
-	vertices.emplace_back(glm::vec3(0.0f, -0.5f, 0.0f), color); // centers
-	vertices.emplace_back(glm::vec3(0.0f, 0.5f, 0.0f), color);
+	vertices.emplace_back(SDS::Vertex{glm::vec3(0.0f, -0.5f, 0.0f), color}); // cente}rs
+	vertices.emplace_back(SDS::Vertex{glm::vec3(0.0f, 0.5f, 0.0f), color});
 
 	for (int i = 0; i < nVertices; i++)
 	{
@@ -187,10 +184,10 @@ Tetrahedron::Tetrahedron()
 	const float a = std::sqrtf(4.0f/3.0f)/4.0f;
 	const float b = std::sqrtf(8.0f/3.0f)/4.0f;
 	const glm::vec3 color{1.0f, 1.0f, 1.0f};
-	vertices.emplace_back(glm::vec3{-b, a, 0}, color);
-	vertices.emplace_back(glm::vec3{b, a, 0}, color);
-	vertices.emplace_back(glm::vec3{0, -a, -b}, color);
-	vertices.emplace_back(glm::vec3{0, -a, b}, color);
+	vertices.emplace_back(SDS::Vertex{glm::vec3{-b, a, 0}, color});
+	vertices.emplace_back(SDS::Vertex{glm::vec3{b, a, 0}, color});
+	vertices.emplace_back(SDS::Vertex{glm::vec3{0, -a, -b}, color});
+	vertices.emplace_back(SDS::Vertex{glm::vec3{0, -a, b}, color});
 
 	indices = {
 		0, 1, 2,
@@ -216,12 +213,12 @@ Icosahedron::Icosahedron()
 	const float N=0.f;
 	const glm::vec3 color{1.0f, 1.0f, 1.0f};
 	vertices = {
-		Vertex(glm::vec3{-X,N,Z}, color), Vertex(glm::vec3{X,N,Z}, color), 
-		Vertex(glm::vec3{-X,N,-Z}, color), Vertex(glm::vec3{X,N,-Z}, color),
-		Vertex(glm::vec3{N,Z,X}, color), Vertex(glm::vec3{N,Z,-X}, color), 
-		Vertex(glm::vec3{N,-Z,X}, color), Vertex(glm::vec3{N,-Z,-X}, color),
-		Vertex(glm::vec3{Z,X,N}, color), Vertex(glm::vec3{-Z,X, N}, color), 
-		Vertex(glm::vec3{Z,-X,N}, color), Vertex(glm::vec3{-Z,-X, N}, color)
+		{glm::vec3{-X,N,Z}, color}, {glm::vec3{X,N,Z}, color}, 
+		{glm::vec3{-X,N,-Z}, color}, {glm::vec3{X,N,-Z}, color},
+		{glm::vec3{N,Z,X}, color}, {glm::vec3{N,Z,-X}, color}, 
+		{glm::vec3{N,-Z,X}, color}, {glm::vec3{N,-Z,-X}, color},
+		{glm::vec3{Z,X,N}, color}, {glm::vec3{-Z,X, N}, color}, 
+		{glm::vec3{Z,-X,N}, color}, {glm::vec3{-Z,-X, N}, color}
 	};
 	
 	indices = {

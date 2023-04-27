@@ -38,7 +38,7 @@ void Shape::translate_vertices(const glm::vec3& vec)
 void Shape::generate_normals()
 {
 	// zero all normals
-	std::for_each(vertices.begin(), vertices.end(), [](Vertex& vertex){vertex.normal = glm::vec3(0.0f);});
+	std::for_each(vertices.begin(), vertices.end(), [](SDS::Vertex& vertex){vertex.normal = glm::vec3(0.0f);});
 	
 	// used for counting, after which we take the average of the normals
 	std::vector<uint32_t> counter(indices.size(), 0);
@@ -69,7 +69,7 @@ void Shape::generate_normals()
 // this doesn't actually seem to work :/
 void Shape::deduplicate_vertices()
 {
-	std::unordered_map<Vertex, uint32_t> unique_vertices;
+	std::unordered_map<SDS::Vertex, uint32_t> unique_vertices;
 	indices.clear();
 	indices.reserve(vertices.size());
 

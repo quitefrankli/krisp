@@ -15,7 +15,7 @@
 #include "raytracing.hpp"
 #include "vulkan_wrappers.hpp"
 #include "window.hpp"
-#include "vertex.hpp"
+#include "shared_data_structures.hpp"
 #include "queues.hpp"
 
 #include <vulkan/vulkan.hpp>
@@ -53,8 +53,8 @@ public: // getters and setters
 	VkExtent2D get_extent();
 	App::Window& get_window();
 	Camera* get_camera();
-	void add_vertex_set(const std::vector<Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
-	std::vector<std::vector<Vertex>>& get_vertex_sets();
+	void add_vertex_set(const std::vector<SDS::Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
+	std::vector<std::vector<SDS::Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() 
 	{ 
@@ -96,7 +96,7 @@ private:
 	bool should_shutdown = false;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
-	std::vector<std::vector<Vertex>> vertex_sets;
+	std::vector<std::vector<SDS::Vertex>> vertex_sets;
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
 	std::unordered_map<ObjectID, std::reference_wrapper<const LightSource>> light_sources;
 	std::unordered_set<ObjectID> stenciled_objects;

@@ -61,7 +61,7 @@ Shape ShapeFactory::generate_uv_sphere(int nVertices)
 	{
 		m = m / (float)M * Maths::PI;
 		n = n / (float)N * Maths::PI;
-		Vertex vertex;
+		SDS::Vertex vertex;
 		vertex.pos = {
 			sinf(2.0f * n) * sinf(m),
 			cosf(m),
@@ -156,9 +156,9 @@ Shape ShapeFactory::generate_ico_sphere(int nVertices)
 
 			// calculate the new new_shape.vertices
 			// these lie on the mid point of edges of the above triangle
-			new_shape.vertices.emplace_back(glm::normalize(v1 + v2)*0.5f, color);
-			new_shape.vertices.emplace_back(glm::normalize(v2 + v3)*0.5f, color);
-			new_shape.vertices.emplace_back(glm::normalize(v3 + v1)*0.5f, color);
+			new_shape.vertices.emplace_back(SDS::Vertex{glm::normalize(v1 + v2)*0.5f, color});
+			new_shape.vertices.emplace_back(SDS::Vertex{glm::normalize(v2 + v3)*0.5f, color});
+			new_shape.vertices.emplace_back(SDS::Vertex{glm::normalize(v3 + v1)*0.5f, color});
 
 			const uint32_t i12 = new_shape.vertices.size()-3;
 			const uint32_t i23 = new_shape.vertices.size()-2;

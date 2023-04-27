@@ -1,7 +1,7 @@
 #pragma once
 
 #include "raytracing.hpp"
-#include "vertex.hpp"
+#include "shared_data_structures.hpp"
 #include "utility.hpp"
 #include "graphics_engine/renderers/renderers.hpp"
 
@@ -129,7 +129,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	VkAccelerationStructureGeometryTrianglesDataKHR triangles{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR};
 	triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;  // vec3 vertex position data.
 	triangles.vertexData.deviceAddress = vertex_address;
-	triangles.vertexStride             = sizeof(Vertex);
+	triangles.vertexStride             = sizeof(SDS::Vertex);
 	// Describe index data (32-bit unsigned int)
 	triangles.indexType               = VK_INDEX_TYPE_UINT32;
 	triangles.indexData.deviceAddress = index_address;

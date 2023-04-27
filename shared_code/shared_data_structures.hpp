@@ -5,6 +5,7 @@
 #include <glm/mat4x4.hpp>
 
 
+#define CPPONLY
 #define VEC3 glm::vec3
 #define MAT3 glm::mat3
 #define MAT4 glm::mat4
@@ -21,3 +22,22 @@ namespace SDS // stands for shared data structures
 #undef MAT4
 #undef CPP_MAT4_GLSL_MAT3
 #undef ALIGN
+#undef CPPONLY
+
+#include <glm/gtx/hash.hpp>
+
+namespace std
+{
+	template<>
+	struct hash<SDS::Vertex>
+	{
+		size_t operator()(SDS::Vertex const& vertex) const
+		{
+			return 
+				hash<glm::vec3>()(vertex.pos) ^ 
+				hash<glm::vec3>()(vertex.color) ^
+				hash<glm::vec2>()(vertex.texCoord) ^
+				hash<glm::vec3>()(vertex.normal);
+		}
+	};
+}

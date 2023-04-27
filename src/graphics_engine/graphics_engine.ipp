@@ -60,7 +60,7 @@ VkVertexInputBindingDescription GraphicsEngine<GameEngineT>::get_binding_descrip
 
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
-	binding_description.stride = sizeof(Vertex);
+	binding_description.stride = sizeof(SDS::Vertex);
 	// move to the next data entry after each vertex
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	// move to the next data entry after each instance
@@ -78,22 +78,22 @@ std::vector<VkVertexInputAttributeDescription> GraphicsEngine<GameEngineT>::get_
 	position_attr.binding = 0;
 	position_attr.location = 0; // specify in shader
 	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
-	position_attr.offset = offsetof(Vertex, pos);
+	position_attr.offset = offsetof(SDS::Vertex, pos);
 
 	color_attr.binding = 0;
 	color_attr.location = 1; // specify in shader
 	color_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
-	color_attr.offset = offsetof(Vertex, color);
+	color_attr.offset = offsetof(SDS::Vertex, color);
 
 	texCoord_attr.binding = 0;
 	texCoord_attr.location = 2; // specify in shader
 	texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
-	texCoord_attr.offset = offsetof(Vertex, texCoord);
+	texCoord_attr.offset = offsetof(SDS::Vertex, texCoord);
 
 	normal_attr.binding = 0;
 	normal_attr.location = 3;
 	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
-	normal_attr.offset = offsetof(Vertex, normal);
+	normal_attr.offset = offsetof(SDS::Vertex, normal);
 
 	attribute_descriptions.push_back(position_attr);
 	attribute_descriptions.push_back(color_attr);

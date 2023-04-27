@@ -15,7 +15,7 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 		// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
 		// per frame resource and therefore we only need 1 copy
 		const auto id = graphics_object.get_game_object().get_id();
-		get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_num_unique_vertices() * sizeof(Vertex));
+		get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_num_unique_vertices() * sizeof(SDS::Vertex));
 		get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_num_vertex_indices() * sizeof(uint32_t));
 		get_rsrc_mgr().write_shapes_to_buffers(graphics_object.get_shapes(), id);
 

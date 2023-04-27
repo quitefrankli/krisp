@@ -37,7 +37,7 @@ HollowCylinder::HollowCylinder()
 	auto calculate_vec = [&M](float m, float y, float radius=1.0f, bool reverse=false)
 	{
 		m = m / (float)M * Maths::PI * 2.0f;
-		Vertex vertex;
+		SDS::Vertex vertex;
 		vertex.pos = {
 			sinf(m) * radius * 0.5f,
 			y * 0.5f,
@@ -103,7 +103,7 @@ static Shape generate_cylinder(const int nVertices)
 	auto calculate_vec = [&nVertices, &COLOR](float m, float y)
 	{
 		m = m / (float)nVertices * Maths::PI * 2.0f;
-		Vertex vertex;
+		SDS::Vertex vertex;
 		vertex.pos = {
 			sinf(m) * 0.5f,
 			y * 0.5f,
@@ -117,8 +117,8 @@ static Shape generate_cylinder(const int nVertices)
 
 	Shape shape;
 	shape.vertices.reserve(1024);
-	Vertex top{ glm::vec3(0.0f, 0.5f, 0.0f), COLOR };
-	Vertex bottom{ glm::vec3(0.0f, -0.5f, 0.0f), COLOR };
+	SDS::Vertex top{ glm::vec3(0.0f, 0.5f, 0.0f), COLOR };
+	SDS::Vertex bottom{ glm::vec3(0.0f, -0.5f, 0.0f), COLOR };
 	for (int m = 0; m < nVertices; m++)
 	{
 		// side
@@ -291,10 +291,9 @@ Arc::Arc()
 	arc.vertices.reserve(N * 2);
 	auto gen_vertex = [&](const float radius, const float y, const int i)
 	{
-		arc.vertices.emplace_back(
+		arc.vertices.emplace_back(SDS::Vertex{
 			radius * glm::vec3(sinf(inc * i), y, cosf(inc * i)),
-			glm::vec3((float)i/(float)N, 1.0f, 1.0f)
-		);
+			glm::vec3((float)i/(float)N, 1.0f, 1.0f)});
 	};
 	for (int i = 0; i <= N; i++)
 		gen_vertex(outer_radius, thickness*0.5f, i);
