@@ -10,6 +10,8 @@ public:
 	TexturePipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
+	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 	virtual std::string_view get_shader_name() const override { return "texture"; }
 };
 
@@ -30,6 +32,8 @@ public:
 	CubemapPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
+	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 	virtual std::string_view get_shader_name() const override { return "cubemap"; }
 	virtual VkFrontFace get_front_face() const override { return VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
@@ -44,6 +48,44 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	template<typename VertexType>
+	static VkVertexInputBindingDescription _get_binding_description();
+	template<typename VertexType>
+	static std::vector<VkVertexInputAttributeDescription> _get_attribute_descriptions();
+};
+
+template<typename GraphicsEngineT>
+class StencilColorVerticesPipeline : public StencilPipeline<GraphicsEngineT>
+{
+public:
+	StencilColorVerticesPipeline(GraphicsEngineT& engine) : StencilPipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual VkVertexInputBindingDescription get_binding_description() const override
+	{
+		return _get_binding_description<SDS::ColorVertex>();
+	}
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override
+	{
+		return _get_attribute_descriptions<SDS::ColorVertex>();
+	}
+};
+
+template<typename GraphicsEngineT>
+class StencilTextureVerticesPipeline : public StencilPipeline<GraphicsEngineT>
+{
+public:
+	StencilTextureVerticesPipeline(GraphicsEngineT& engine) : StencilPipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual VkVertexInputBindingDescription get_binding_description() const override
+	{
+		return _get_binding_description<SDS::TexVertex>();
+	}
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override
+	{
+		return _get_attribute_descriptions<SDS::TexVertex>();
+	}
 };
 
 template<typename GraphicsEngineT>
@@ -55,6 +97,44 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "wireframe"; }
 	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
+	template<typename VertexType>
+	static VkVertexInputBindingDescription _get_binding_description();
+	template<typename VertexType>
+	static std::vector<VkVertexInputAttributeDescription> _get_attribute_descriptions();
+};
+
+template<typename GraphicsEngineT>
+class WireframeColorVerticesPipeline : public WireframePipeline<GraphicsEngineT>
+{
+public:
+	WireframeColorVerticesPipeline(GraphicsEngineT& engine) : WireframePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual VkVertexInputBindingDescription get_binding_description() const override 
+	{ 
+		return _get_binding_description<SDS::ColorVertex>(); 
+	}
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override 
+	{ 
+		return _get_attribute_descriptions<SDS::ColorVertex>(); 
+	};
+};
+
+template<typename GraphicsEngineT>
+class WireframeTextureVerticesPipeline : public WireframePipeline<GraphicsEngineT>
+{
+public:
+	WireframeTextureVerticesPipeline(GraphicsEngineT& engine) : WireframePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual VkVertexInputBindingDescription get_binding_description() const override 
+	{ 
+		return _get_binding_description<SDS::TexVertex>(); 
+	};
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override 
+	{
+		return _get_attribute_descriptions<SDS::TexVertex>(); 
+	};
 };
 
 template<typename GraphicsEngineT>

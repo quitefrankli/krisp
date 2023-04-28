@@ -36,7 +36,7 @@ public:
 	uint32_t get_num_vertex_indices() const;
 	uint32_t get_num_primitives() const;
 	// replaces the old "get_vertex_sets" function
-	const std::vector<Shape>& get_shapes() const;
+	const std::vector<ShapePtr>& get_shapes() const;
 
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }

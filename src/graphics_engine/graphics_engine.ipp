@@ -22,8 +22,6 @@
 
 template<typename GameEngineT>
 GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) : 
-	binding_description(get_binding_description()),
-	attribute_descriptions(get_attribute_descriptions()),
 	game_engine(game_engine),
 	instance(*this),
 	validation_layer(*this),
@@ -49,58 +47,6 @@ GraphicsEngine<GameEngineT>::~GraphicsEngine()
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
 	objects.clear(); // must be cleared before the logical device is destroyed
-}
-
-template<typename GameEngineT>
-VkVertexInputBindingDescription GraphicsEngine<GameEngineT>::get_binding_description()
-{
-	// describes at which rate to load data from memory thoughout the vertices
-	// it specifies the number of bytes between data entries and whether to 
-	// move to the next data entry after each vertex or after each instance
-
-	VkVertexInputBindingDescription binding_description{};
-	binding_description.binding = 0;
-	binding_description.stride = sizeof(SDS::Vertex);
-	// move to the next data entry after each vertex
-	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-	// move to the next data entry after each instance
-	// binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE; // wow this was a source of alot of pain... 07/08/2021
-
-	return binding_description;
-}
-
-template<typename GameEngineT>
-std::vector<VkVertexInputAttributeDescription> GraphicsEngine<GameEngineT>::get_attribute_descriptions()
-{
-	// how to handle the vertex input
-	std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-	VkVertexInputAttributeDescription position_attr, color_attr, texCoord_attr, normal_attr;
-	position_attr.binding = 0;
-	position_attr.location = 0; // specify in shader
-	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
-	position_attr.offset = offsetof(SDS::Vertex, pos);
-
-	color_attr.binding = 0;
-	color_attr.location = 1; // specify in shader
-	color_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
-	color_attr.offset = offsetof(SDS::Vertex, color);
-
-	texCoord_attr.binding = 0;
-	texCoord_attr.location = 2; // specify in shader
-	texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
-	texCoord_attr.offset = offsetof(SDS::Vertex, texCoord);
-
-	normal_attr.binding = 0;
-	normal_attr.location = 3;
-	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
-	normal_attr.offset = offsetof(SDS::Vertex, normal);
-
-	attribute_descriptions.push_back(position_attr);
-	attribute_descriptions.push_back(color_attr);
-	attribute_descriptions.push_back(texCoord_attr);
-	attribute_descriptions.push_back(normal_attr);
-
-	return attribute_descriptions;
 }
 
 template<typename GameEngineT>

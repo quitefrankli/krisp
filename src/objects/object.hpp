@@ -41,7 +41,7 @@ class Object : public ObjectAbstract
 {
 public:
 	Object() = default;
-	Object(Shape&& shape)
+	Object(std::unique_ptr<Shape>&& shape)
 	{
 		shapes.push_back(std::move(shape));
 	}
@@ -49,10 +49,12 @@ public:
 	Object(Object&& object) noexcept;
 	virtual ~Object() override;
 
-	std::vector<Shape> shapes;
 	// when using indexed draws, the number of unique vertices < number of indices
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
+
+	size_t get_vertices_data_size() const;
+	size_t get_indices_data_size() const;
 
 	virtual EPipelineType get_render_type() const { return render_type; }
 	void set_render_type(EPipelineType type) { render_type = type; }
@@ -91,13 +93,15 @@ public:
 	virtual void set_relative_scale(const glm::vec3& scale);
 	virtual void set_relative_rotation(const glm::quat& rotation);
 
-	const std::vector<Shape>& get_shapes() const { return shapes; }
+	std::vector<std::unique_ptr<Shape>>& get_shapes() { return shapes; }
+	const std::vector<std::unique_ptr<Shape>>& get_shapes() const { return shapes; }
 	AABB get_aabb() const { return aabb; }
 	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
 
 protected:
 	std::map<ObjectID, Object*> children;
 	Object* parent = nullptr;
+	std::vector<std::unique_ptr<Shape>> shapes;
 
 	// callback when a child gets attached
 	virtual void on_child_attached(Object* new_child) {}

@@ -46,6 +46,42 @@ VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(con
 }
 
 template<typename GraphicsEngineT>
+VkVertexInputBindingDescription GraphicsEnginePipeline<GraphicsEngineT>::get_binding_description() const
+{
+	// describes at which rate to load data from memory thoughout the vertices
+	// it specifies the number of bytes between data entries and whether to 
+	// move to the next data entry after each vertex or after each instance
+
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(SDS::ColorVertex);
+	// move to the next data entry after each vertex
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+	// move to the next data entry after each instance
+	// binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+	return binding_description;
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkVertexInputAttributeDescription> GraphicsEnginePipeline<GraphicsEngineT>::get_attribute_descriptions() const
+{
+	// how to handle the vertex input
+	VkVertexInputAttributeDescription position_attr, normal_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(SDS::ColorVertex, pos);
+
+	normal_attr.binding = 0;
+	normal_attr.location = 3;
+	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	normal_attr.offset = offsetof(SDS::ColorVertex, normal);
+
+	return {position_attr, normal_attr};
+}
+
+template<typename GraphicsEngineT>
 VkExtent2D GraphicsEnginePipeline<GraphicsEngineT>::get_extent()
 {
 	return get_graphics_engine().get_extent();
@@ -79,14 +115,8 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<
 	case EPipelineType::STANDARD:
 		new_pipeline = std::make_unique<TexturePipeline<GraphicsEngineT>>(engine);
 		break;
-	case EPipelineType::WIREFRAME:
-		new_pipeline = std::make_unique<WireframePipeline<GraphicsEngineT>>(engine);
-		break;
 	case EPipelineType::CUBEMAP:
 		new_pipeline = std::make_unique<CubemapPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::STENCIL:
-		new_pipeline = std::make_unique<StencilPipeline<GraphicsEngineT>>(engine);
 		break;
 	case EPipelineType::RAYTRACING:
 		new_pipeline = std::make_unique<RaytracingPipeline<GraphicsEngineT>>(engine);
@@ -94,6 +124,20 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<
 	case EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
 		new_pipeline = std::make_unique<LightWeightOffscreenPipeline<GraphicsEngineT>>(engine);
 		break;
+	case EPipelineType::_STENCIL_COLOR_VERTICES:
+		new_pipeline = std::make_unique<StencilColorVerticesPipeline<GraphicsEngineT>>(engine);
+		break;
+	case EPipelineType::_STENCIL_TEXTURE_VERTICES:
+		new_pipeline = std::make_unique<StencilTextureVerticesPipeline<GraphicsEngineT>>(engine);
+		break;
+	case EPipelineType::_WIREFRAME_COLOR_VERTICES:
+		new_pipeline = std::make_unique<WireframeColorVerticesPipeline<GraphicsEngineT>>(engine);
+		break;
+	case EPipelineType::_WIREFRAME_TEXTURE_VERTICES:
+		new_pipeline = std::make_unique<WireframeTextureVerticesPipeline<GraphicsEngineT>>(engine);
+		break;
+	case EPipelineType::STENCIL:
+	case EPipelineType::WIREFRAME:
 	default:
 		throw std::runtime_error("GraphicsEnginePipeline::create_pipeline: invalid pipeline type");
 	}
@@ -186,11 +230,13 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	// fixed functions
 	//
 
+	const auto binding_description = get_binding_description();
+	const auto attribute_descriptions = get_attribute_descriptions();
 	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 	vertex_input_create_info.vertexBindingDescriptionCount = 1;
-	vertex_input_create_info.pVertexBindingDescriptions = &get_graphics_engine().binding_description;
-	vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(get_graphics_engine().attribute_descriptions.size());
-	vertex_input_create_info.pVertexAttributeDescriptions = get_graphics_engine().attribute_descriptions.data();
+	vertex_input_create_info.pVertexBindingDescriptions = &binding_description;
+	vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
+	vertex_input_create_info.pVertexAttributeDescriptions = attribute_descriptions.data();
 
 	// describes what kind of geomertry will be drawn from the vertices and if primitive restart should be enabled
 	VkPipelineInputAssemblyStateCreateInfo input_assembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};

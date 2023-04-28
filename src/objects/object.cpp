@@ -42,13 +42,25 @@ Object::~Object()
 uint32_t Object::get_num_unique_vertices() const
 {
 	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
-		return total + shape.get_num_unique_vertices(); });
+		return total + shape->get_num_unique_vertices(); });
 }
 
 uint32_t Object::get_num_vertex_indices() const
 {
 	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
-		return total + shape.get_num_vertex_indices(); });
+		return total + shape->get_num_vertex_indices(); });
+}
+
+size_t Object::get_vertices_data_size() const
+{
+	return std::accumulate(shapes.begin(), shapes.end(), 0, [](size_t total, const auto& shape){ 
+		return total + shape->get_vertices_data_size(); });
+}
+
+size_t Object::get_indices_data_size() const
+{
+	return std::accumulate(shapes.begin(), shapes.end(), 0, [](size_t total, const auto& shape){ 
+		return total + shape->get_indices_data_size(); });
 }
 
 void Object::sync_world_from_relative() const
@@ -243,32 +255,25 @@ void Object::detach_all_children()
 template<>
 void Object::calculate_bounding_primitive<Maths::Sphere>()
 {
-	float left = std::numeric_limits<float>::max();
-	float down = std::numeric_limits<float>::max();
-	float in = std::numeric_limits<float>::max();
-	float right = -std::numeric_limits<float>::max();
-	float up = -std::numeric_limits<float>::max();
-	float out = -std::numeric_limits<float>::max();
-
-	for (Shape& shape : shapes)
+	AABB aabb(
+	{ 
+		std::numeric_limits<float>::max(),
+		std::numeric_limits<float>::max(),
+		std::numeric_limits<float>::max()
+	},
 	{
-		for (SDS::Vertex& vertex : shape.vertices)
-		{
-			auto& p = vertex.pos;
-			left = std::min<float>(left, p.x);
-			down = std::min<float>(down, p.y);
-			in = std::min<float>(in, p.z);
+		-std::numeric_limits<float>::max(),
+		-std::numeric_limits<float>::max(),
+		-std::numeric_limits<float>::max()
+	});
 
-			right = std::max<float>(right, p.x);
-			up = std::max<float>(up, p.y);
-			out = std::max<float>(out, p.z);
-		}
+	for (auto& shape : shapes)
+	{
+		aabb.min_max(shape->calculate_bounding_box());
 	}
 
-	glm::vec3 min_bound(left, down, in);
-	glm::vec3 max_bound(right, up, out);
-	bounding_primitive_sphere.origin = (min_bound + max_bound) / 2.0f;
-	bounding_primitive_sphere.radius = glm::compMax(glm::abs(max_bound - min_bound))/2.0f;
+	bounding_primitive_sphere.origin = (aabb.min_bound + aabb.max_bound) / 2.0f;
+	bounding_primitive_sphere.radius = glm::compMax(glm::abs(aabb.max_bound - aabb.min_bound))/2.0f;
 
 	is_bounding_primitive_cached = true;
 }

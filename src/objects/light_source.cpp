@@ -8,6 +8,6 @@ LightSource::LightSource(const glm::vec3& color) :
 	color(color),
 	IClickable((Object&)(*this))
 {
-	shapes.push_back(ShapeFactory::generate_sphere());
-	shapes.back().set_material(Material::create_material(EMaterialType::LIGHT_SOURCE));
+	shapes.push_back(ShapeFactory::sphere());
+	shapes.back()->set_material(Material::create_material(EMaterialType::LIGHT_SOURCE));
 }

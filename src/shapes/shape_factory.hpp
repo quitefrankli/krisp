@@ -6,6 +6,12 @@
 class ShapeFactory
 {
 public:
+	enum class EVertexType
+	{
+		COLOR,
+		TEXTURE
+	};
+
 	enum class GenerationMethod
 	{
 		// sphere
@@ -13,12 +19,20 @@ public:
 		ICO_SPHERE
 	};
 
+	using RetType = std::unique_ptr<Shape>;
 
-	static Shape generate_cube();
-
-	static Shape generate_sphere(GenerationMethod method = GenerationMethod::UV_SPHERE, int nVertices = 512);
+	static RetType quad(EVertexType vertex_type = EVertexType::COLOR);
+	static RetType cube(EVertexType vertex_type = EVertexType::COLOR);
+	static RetType circle(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 10);
+	static RetType icosahedron(EVertexType vertex_type = EVertexType::COLOR);
+	static RetType sphere(
+		EVertexType vertex_type = EVertexType::COLOR, 
+		GenerationMethod method = GenerationMethod::UV_SPHERE, 
+		int nVertices = 512);
+	static RetType cone(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 10);
+	static RetType cylinder(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 10);
 
 private:
-	static Shape generate_uv_sphere(int nVertices);
-	static Shape generate_ico_sphere(int nVertices);
+	static RetType generate_uv_sphere(int nVertices);
+	static RetType generate_ico_sphere(int nVertices);
 };

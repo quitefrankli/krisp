@@ -143,7 +143,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 		}
 
 		const GraphicsBuffer::Slot mat_slot = 
-			get_rsrc_mgr().get_materials_buffer_slot(object.get_shapes()[vertex_set_index].get_id());
+			get_rsrc_mgr().get_materials_buffer_slot(object.get_shapes()[vertex_set_index]->get_id());
 		VkDescriptorBufferInfo material_buffer_info{};
 		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
 		material_buffer_info.offset = mat_slot.offset;
@@ -390,7 +390,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 		get_rsrc_mgr().free_uniform_buffer(id);
 		for (const auto& shape : get_graphics_engine().get_object(id).get_shapes())
 		{
-			get_rsrc_mgr().free_materials_buffer(shape.get_id());
+			get_rsrc_mgr().free_materials_buffer(shape->get_id());
 		}
 		get_graphics_engine().get_objects().erase(id);
 		get_graphics_engine().get_light_sources().erase(id);

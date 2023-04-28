@@ -1,6 +1,5 @@
 #include "objects.hpp"
-
-#include "shapes/shapes.hpp"
+#include "shapes/shape_factory.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -11,18 +10,18 @@ ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 	original_axis(original_axis)
 {
 	shapes.reserve(2);
-	auto& rod = shapes.emplace_back(Shapes::Cube{});
-	auto& block = shapes.emplace_back(Shapes::Cube{});
+	auto& rod = shapes.emplace_back(ShapeFactory::cube());
+	auto& block = shapes.emplace_back(ShapeFactory::cube());
 
 	auto rod_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.5f));
 	rod_transform = glm::scale(rod_transform, glm::vec3(THICKNESS, THICKNESS, 1.0f));
-	rod.transform_vertices(rod_transform);
+	rod->transform_vertices(rod_transform);
 
 	// to prevent z-fighting
 	const float small_offset = 0.0001f;
 	auto block_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 1.0f - BLOCK_LENGTH * 0.5f + small_offset));
 	block_transform = glm::scale(block_transform, glm::vec3(BLOCK_LENGTH));
-	block.transform_vertices(block_transform);
+	block->transform_vertices(block_transform);
 
 	// warning this is expensive
 	calculate_bounding_primitive<Maths::Sphere>();
@@ -47,7 +46,6 @@ bool ScaleGizmoObj::check_collision(const Maths::Ray& ray)
 	);
 	if (!Maths::check_spherical_collision(ray, collision_sphere))
 	{
-		std::cout << "level 0 collision failed\n";
 		return false;
 	}
 

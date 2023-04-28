@@ -8,7 +8,32 @@
 
 ShapeID Shape::global_id = ShapeID(0);
 
-void Shape::transform_vertices(const glm::mat4& transform)
+// // this doesn't actually seem to work :/
+// void Shape::deduplicate_vertices()
+// {
+// 	std::unordered_map<SDS::Vertex, uint32_t> unique_vertices;
+// 	indices.clear();
+// 	indices.reserve(vertices.size());
+
+// 	uint32_t true_vertex_index = 0;
+// 	for (auto& vertex : vertices)
+// 	{
+// 		auto unique_vertex_element = unique_vertices.try_emplace(std::move(vertex), true_vertex_index);
+// 		if (unique_vertex_element.second)
+// 		{
+// 			// new vertex
+// 			vertices[true_vertex_index] = vertex;
+// 			indices.emplace_back(true_vertex_index++);
+// 		} else
+// 		{
+// 			// if already occupied, set index to the index in which said vertex occupies
+// 			indices.emplace_back(unique_vertex_element.first->second);
+// 		}
+// 	}
+// }
+
+template<typename VertexType>
+static void Shape::transform_vertices(std::vector<VertexType>& vertices, const glm::mat4& transform)
 {
 	for (auto& vertex : vertices)
 	{
@@ -17,7 +42,8 @@ void Shape::transform_vertices(const glm::mat4& transform)
 	}
 }
 
-void Shape::transform_vertices(const glm::quat& quat)
+template<typename VertexType>
+static void Shape::transform_vertices(std::vector<VertexType>& vertices, const glm::quat& quat)
 {
 	for (auto& vertex : vertices)
 	{
@@ -26,23 +52,23 @@ void Shape::transform_vertices(const glm::quat& quat)
 	}
 }
 
-void Shape::translate_vertices(const glm::vec3& vec)
+template<typename VertexType>
+static void Shape::translate_vertices(std::vector<VertexType>& vertices, const glm::vec3& vec)
 {
 	for (auto& vertex : vertices)
 	{
 		vertex.pos += vec;
-		// no rotation so no change to the normals
 	}
 }
 
-void Shape::generate_normals()
+template<typename VertexType>
+static void Shape::generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& indices)
 {
 	// zero all normals
-	std::for_each(vertices.begin(), vertices.end(), [](SDS::Vertex& vertex){vertex.normal = glm::vec3(0.0f);});
+	std::for_each(vertices.begin(), vertices.end(), [](VertexType& vertex){vertex.normal = glm::vec3(0.0f);});
 	
 	// used for counting, after which we take the average of the normals
 	std::vector<uint32_t> counter(indices.size(), 0);
-
 
 	// every offset of 3 is a new triangle, we generate the normal by taking
 	// the cross product of the sides
@@ -66,28 +92,36 @@ void Shape::generate_normals()
 	}
 }
 
-// this doesn't actually seem to work :/
-void Shape::deduplicate_vertices()
+template<typename VertexType>
+AABB Shape::calculate_bounding_box(const std::vector<VertexType>& vertices)
 {
-	std::unordered_map<SDS::Vertex, uint32_t> unique_vertices;
-	indices.clear();
-	indices.reserve(vertices.size());
-
-	uint32_t true_vertex_index = 0;
-	for (auto& vertex : vertices)
+	AABB aabb(glm::vec3(std::numeric_limits<float>::max()), glm::vec3(-std::numeric_limits<float>::max()));
+	for (const VertexType& vertex : vertices)
 	{
-		auto unique_vertex_element = unique_vertices.try_emplace(std::move(vertex), true_vertex_index);
-		if (unique_vertex_element.second)
-		{
-			// new vertex
-			vertices[true_vertex_index] = vertex;
-			indices.emplace_back(true_vertex_index++);
-		} else
-		{
-			// if already occupied, set index to the index in which said vertex occupies
-			indices.emplace_back(unique_vertex_element.first->second);
-		}
+		auto& p = vertex.pos;
+		aabb.min_bound.x = std::min<float>(aabb.min_bound.x, p.x);
+		aabb.min_bound.y = std::min<float>(aabb.min_bound.y, p.y);
+		aabb.min_bound.z = std::min<float>(aabb.min_bound.z, p.z);
+
+		aabb.max_bound.x = std::max<float>(aabb.max_bound.x, p.x);
+		aabb.max_bound.y = std::max<float>(aabb.max_bound.y, p.y);
+		aabb.max_bound.z = std::max<float>(aabb.max_bound.z, p.z);
 	}
+
+	return aabb;
 }
 
-bool Shape::check_collision(const Maths::Ray& ray) { return true; }
+//
+// template method instantiations
+//
+
+template void Shape::transform_vertices(std::vector<SDS::ColorVertex>& vertices, const glm::mat4& transform);
+template void Shape::transform_vertices(std::vector<SDS::TexVertex>& vertices, const glm::mat4& transform);
+template void Shape::transform_vertices(std::vector<SDS::ColorVertex>& vertices, const glm::quat& quat);
+template void Shape::transform_vertices(std::vector<SDS::TexVertex>& vertices, const glm::quat& quat);
+template void Shape::translate_vertices(std::vector<SDS::ColorVertex>& vertices, const glm::vec3& vec);
+template void Shape::translate_vertices(std::vector<SDS::TexVertex>& vertices, const glm::vec3& vec);
+template void Shape::generate_normals(std::vector<SDS::ColorVertex>& vertices, std::vector<uint32_t>& indices);
+template void Shape::generate_normals(std::vector<SDS::TexVertex>& vertices, std::vector<uint32_t>& indices);
+template AABB Shape::calculate_bounding_box(const std::vector<SDS::ColorVertex>& vertices);
+template AABB Shape::calculate_bounding_box(const std::vector<SDS::TexVertex>& vertices);

@@ -126,7 +126,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 		const GraphicsEngineObject<GraphicsEngineT>& object, 
 		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
 	{
-		const auto& shapes = object.get_shapes();
+		const std::vector<ShapePtr>& shapes = object.get_shapes();
 
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		
@@ -166,7 +166,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 		
 			vkCmdDrawIndexed(
 				command_buffer,
-				shape.get_num_vertex_indices(),	// vertex count
+				shape->get_num_vertex_indices(),	// vertex count
 				1,	// instance count
 				total_index_offset,	// first index
 				total_vertex_offset,	// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
@@ -175,8 +175,8 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 
 			// this is not get_num_vertex_indices() because we want to offset the vertex set essentially
 			// see NOTE:A
-			total_vertex_offset += shape.get_num_unique_vertices();
-			total_index_offset += shape.get_num_vertex_indices();
+			total_vertex_offset += shape->get_num_unique_vertices();
+			total_index_offset += shape->get_num_vertex_indices();
 		}
 	};
 

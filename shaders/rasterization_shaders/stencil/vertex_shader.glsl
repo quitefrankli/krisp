@@ -20,7 +20,9 @@ layout(set=1, binding=0) uniform GlobalUniformBufferObject
 	float lighting_scalar;
 } gubo;
 
+const float stencil_offset = 1.1;
+
 void main()
 {
-	gl_Position = ubo.mvp * vec4(inPosition*1.1, 1.0);
+	gl_Position = ubo.mvp * vec4(inPosition * stencil_offset, 1.0);
 }

@@ -30,6 +30,8 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const;
 
 	VkShaderModule create_shader_module(const std::string_view filename);
+	virtual VkVertexInputBindingDescription get_binding_description() const;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const;
 
 	virtual VkExtent2D get_extent();
 	virtual VkSampleCountFlagBits get_msaa_sample_counts();

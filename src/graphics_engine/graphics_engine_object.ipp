@@ -14,26 +14,26 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 	switch (get_render_type())
 	{
 		case EPipelineType::STANDARD:
-			for (const auto& shape : object.shapes)
+			for (const auto& shape : object.get_shapes())
 			{
 				materials.emplace_back(
-					shape.get_material(), 
+					shape->get_material(), 
 					&get_graphics_engine().get_texture_mgr().fetch_texture(
-					shape.get_material().texture_path, ETextureSamplerType::ADDR_MODE_REPEAT));
+					shape->get_material().texture_path, ETextureSamplerType::ADDR_MODE_REPEAT));
 			}
 		case EPipelineType::CUBEMAP:
-			for (const auto& shape : object.shapes)
+			for (const auto& shape : object.get_shapes())
 			{
 				materials.emplace_back(
-					shape.get_material(), 
+					shape->get_material(), 
 					&get_graphics_engine().get_texture_mgr().fetch_texture(
-					shape.get_material().texture_path, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
+					shape->get_material().texture_path, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
 			}
 			break;
 		default:
-			for (const auto& shape : object.shapes)
+			for (const auto& shape : object.get_shapes())
 			{
-				materials.emplace_back(shape.get_material());
+				materials.emplace_back(shape->get_material());
 			}
 			break;
 	}
@@ -48,9 +48,9 @@ GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 }
 
 template<typename GraphicsEngineT>
-const std::vector<Shape>& GraphicsEngineObject<GraphicsEngineT>::get_shapes() const
+const std::vector<ShapePtr>& GraphicsEngineObject<GraphicsEngineT>::get_shapes() const
 {
-	return get_game_object().shapes;
+	return get_game_object().get_shapes();
 }
 
 template<typename GraphicsEngineT>

@@ -67,10 +67,10 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 		{
 			if (mode == GLFW_MOD_SHIFT)
 			{
-				auto& obj = spawn_object<Cube>();
+				auto& obj = spawn_object<Object>(ShapeFactory::cube());
 				obj.set_position(glm::vec3(1.0f, 0.3f, 0.0f));
 			} else {
-				auto& obj = spawn_object<Sphere>();
+				auto& obj = spawn_object<Object>(ShapeFactory::sphere());
 				obj.set_position(glm::vec3(-1.0f, -0.3f, 0.0f));
 			}
 			break;

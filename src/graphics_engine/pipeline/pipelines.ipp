@@ -3,6 +3,91 @@
 #include "pipelines.hpp"
 
 
+template<typename GraphicsEngineT>
+VkVertexInputBindingDescription TexturePipeline<GraphicsEngineT>::get_binding_description() const
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(SDS::TexVertex);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkVertexInputAttributeDescription> TexturePipeline<GraphicsEngineT>::get_attribute_descriptions() const
+{
+	VkVertexInputAttributeDescription position_attr, texCoord_attr, normal_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(SDS::TexVertex, pos);
+
+	texCoord_attr.binding = 0;
+	texCoord_attr.location = 2; // specify in shader
+	texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	texCoord_attr.offset = offsetof(SDS::TexVertex, texCoord);
+
+	normal_attr.binding = 0;
+	normal_attr.location = 3;
+	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	normal_attr.offset = offsetof(SDS::TexVertex, normal);
+
+	return {position_attr, texCoord_attr, normal_attr};
+}
+
+template<typename GraphicsEngineT>
+VkVertexInputBindingDescription CubemapPipeline<GraphicsEngineT>::get_binding_description() const
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(SDS::TexVertex);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkVertexInputAttributeDescription> CubemapPipeline<GraphicsEngineT>::get_attribute_descriptions() const
+{
+	VkVertexInputAttributeDescription position_attr, texCoord_attr, normal_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(SDS::TexVertex, pos);
+
+	texCoord_attr.binding = 0;
+	texCoord_attr.location = 2; // specify in shader
+	texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	texCoord_attr.offset = offsetof(SDS::TexVertex, texCoord);
+
+	return {position_attr, texCoord_attr};
+}
+
+template<typename GraphicsEngineT>
+template<typename VertexType>
+VkVertexInputBindingDescription StencilPipeline<GraphicsEngineT>::_get_binding_description()
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(VertexType);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;
+}
+
+template<typename GraphicsEngineT>
+template<typename VertexType>
+std::vector<VkVertexInputAttributeDescription> StencilPipeline<GraphicsEngineT>::_get_attribute_descriptions()
+{
+	VkVertexInputAttributeDescription position_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(VertexType, pos);
+
+	return {position_attr};
+}
 
 template<typename GraphicsEngineT>
 VkPipelineDepthStencilStateCreateInfo CubemapPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
@@ -45,6 +130,31 @@ inline VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT>::g
 		return stencil_op_state;
 	}();
 	return info;
+}
+
+template<typename GraphicsEngineT>
+template<typename VertexType>
+VkVertexInputBindingDescription WireframePipeline<GraphicsEngineT>::_get_binding_description()
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(VertexType);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;
+}
+
+template<typename GraphicsEngineT>
+template<typename VertexType>
+std::vector<VkVertexInputAttributeDescription> WireframePipeline<GraphicsEngineT>::_get_attribute_descriptions()
+{
+	VkVertexInputAttributeDescription position_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(VertexType, pos);
+
+	return {position_attr};
 }
 
 template<typename GraphicsEngineT>

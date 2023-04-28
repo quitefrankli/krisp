@@ -44,12 +44,10 @@ public:
 
 	VkDeviceMemory get_global_uniform_buffer_memory() const { return global_uniform_buffer.get_memory(); }
 
-	void write_to_vertex_buffer(const std::vector<SDS::Vertex>& vertices, ObjectID id);
-	void write_to_index_buffer(const std::vector<uint32_t>& indices, ObjectID id);
 	void write_to_uniform_buffer(const SDS::ObjectData& ubos, ObjectID id);
 	void write_to_global_uniform_buffer(const SDS::GlobalData& ubo);
 	// does both vertex and index buffer writing
-	void write_shapes_to_buffers(const std::vector<Shape>& shapes, ObjectID id);
+	void write_shapes_to_buffers(const std::vector<std::unique_ptr<Shape>>& shapes, ObjectID id);
 	void write_to_materials_buffer(const SDS::MaterialData& material, ShapeID id);
 	void write_to_mapping_buffer(const BufferMapEntry& entry, ObjectID id);
 
@@ -90,7 +88,8 @@ protected:
 	static constexpr size_t NUM_EXPECTED_SHAPES = NUM_EXPECTED_OBJECTS * 2;
 
 	// in bytes
-	static constexpr size_t VERTEX_BUFFER_CAPACITY = sizeof(SDS::Vertex) * 2e5;
+	// takes average size different vertex types
+	static constexpr size_t VERTEX_BUFFER_CAPACITY = (sizeof(SDS::ColorVertex) + sizeof(SDS::TexVertex)) * 1e5;
 	static constexpr size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
 	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_SHAPES;

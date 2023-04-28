@@ -17,7 +17,7 @@
 // {
 // public:
 // 	SkeletonBone(Shape&& shape) : GenericClickableObject(std::move(shape)) {}
-// 	SkeletonBone(std::vector<Shape>&& shapes) : GenericClickableObject(std::move(shapes)) {}
+// 	SkeletonBone(std::vector<ShapePtr>&& shapes) : GenericClickableObject(std::move(shapes)) {}
 // 	void add_child_joint(SkeletonJoint& joint, const glm::vec3& pos1, const glm::vec3& pos2);
 // 	virtual void on_click(OnClickDispatchers::IBaseDispatcher& dispatcher, const Maths::Ray& ray, const glm::vec3& intersection) override;
 

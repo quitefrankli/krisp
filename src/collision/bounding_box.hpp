@@ -13,13 +13,9 @@ class Object;
 struct AABB
 {
 	AABB();
-	AABB(const Shape& shape);
-	AABB(const std::vector<Shape>& shapes);
-	AABB(const Object& object);
 	AABB(const glm::vec3& min_bound, const glm::vec3& max_bound);
 
-	glm::vec3 min_bound;
-	glm::vec3 max_bound;
+	void min_max(const AABB& other);
 
 	bool check_collision(const Maths::Ray& ray) const;
 	bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const;
@@ -44,4 +40,8 @@ struct AABB
 		max_bound -= vec;
 		return *this;
 	}
+
+public:
+	glm::vec3 min_bound;
+	glm::vec3 max_bound;
 };

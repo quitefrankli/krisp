@@ -15,17 +15,17 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 		// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
 		// per frame resource and therefore we only need 1 copy
 		const auto id = graphics_object.get_game_object().get_id();
-		get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_num_unique_vertices() * sizeof(SDS::Vertex));
-		get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_num_vertex_indices() * sizeof(uint32_t));
+		get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_game_object().get_vertices_data_size());
+		get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_game_object().get_indices_data_size());
 		get_rsrc_mgr().write_shapes_to_buffers(graphics_object.get_shapes(), id);
 
 		// upload materials
 		for (int i = 0; i < graphics_object.get_shapes().size(); ++i)
 		{
-			const Shape& shape = graphics_object.get_shapes()[i];
+			const ShapePtr& shape = graphics_object.get_shapes()[i];
 			const SDS::MaterialData& material = graphics_object.get_materials()[i].get_data();
-			get_rsrc_mgr().reserve_materials_buffer(shape.get_id(), sizeof(material));
-			get_rsrc_mgr().write_to_materials_buffer(material, shape.get_id());
+			get_rsrc_mgr().reserve_materials_buffer(shape->get_id(), sizeof(material));
+			get_rsrc_mgr().write_to_materials_buffer(material, shape->get_id());
 		}
 
 		// TODO: we need per frame uniform buffers, could alternatively use a single buffer

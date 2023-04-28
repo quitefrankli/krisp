@@ -22,7 +22,7 @@
 // {
 // public:
 // 	SkeletonJoint(Shape&& shape) : GenericClickableObject(std::move(shape)) {}
-// 	SkeletonJoint(std::vector<Shape>&& shapes) : GenericClickableObject(std::move(shapes)) {}
+// 	SkeletonJoint(std::vector<ShapePtr>&& shapes) : GenericClickableObject(std::move(shapes)) {}
 // 	void add_child_bone(SkeletonBone& bone, const glm::vec3& pos1, const glm::vec3& pos2);
 // 	void update();
 // 	virtual void set_rotation(const glm::quat& rotation) override;

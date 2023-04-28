@@ -19,7 +19,6 @@
 #include <unordered_map>
 
 
-class Shape;
 class Camera;
 template<typename GameEngineT>
 class GuiManager;

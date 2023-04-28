@@ -59,7 +59,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(cons
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::vector<Shape>& shapes, ObjectID id)
+void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::vector<std::unique_ptr<Shape>>& shapes, ObjectID id)
 {
 	// assume that the size of the data in shapes is equal to the size of the buffer slot
 	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
@@ -70,9 +70,8 @@ void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::
 	{
 		for (auto& shape : shapes)
 		{
-			const uint32_t vertex_set_size = shape.vertices.size() * sizeof(typename decltype(shape.vertices)::value_type);
-			std::memcpy(destination, shape.vertices.data(), vertex_set_size);
-			destination += vertex_set_size;
+			std::memcpy(destination, shape->get_vertices_data(), shape->get_vertices_data_size());
+			destination += shape->get_vertices_data_size();
 		}
 	});
 
@@ -81,9 +80,8 @@ void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::
 	{
 		for (auto& shape : shapes)
 		{
-			const uint32_t index_set_size = shape.indices.size() * sizeof(typename decltype(shape.indices)::value_type);
-			std::memcpy(destination, shape.indices.data(), index_set_size);
-			destination += index_set_size;
+			std::memcpy(destination, shape->get_indices_data(), shape->get_indices_data_size());
+			destination += shape->get_indices_data_size();
 		}
 	});
 }

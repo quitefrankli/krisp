@@ -123,7 +123,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		const GraphicsEngineObject<GraphicsEngineT>& object, 
 		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
 	{
-		const auto& shapes = object.get_shapes();
+		const std::vector<ShapePtr>& shapes = object.get_shapes();
 
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		
@@ -163,7 +163,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		
 			vkCmdDrawIndexed(
 				command_buffer,
-				shape.get_num_vertex_indices(),	// vertex count
+				shape->get_num_vertex_indices(),	// vertex count
 				1,	// instance count
 				total_index_offset,	// first index
 				total_vertex_offset,	// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
@@ -172,27 +172,28 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 
 			// this is not get_num_vertex_indices() because we want to offset the vertex set essentially
 			// see NOTE:A
-			total_vertex_offset += shape.get_num_unique_vertices();
-			total_index_offset += shape.get_num_vertex_indices();
+			total_vertex_offset += shape->get_num_unique_vertices();
+			total_index_offset += shape->get_num_vertex_indices();
 		}
 	};
 
-	const auto get_pipeline = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
+	const auto pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
 	{
-		EPipelineType type = EPipelineType::STANDARD;
-		switch (obj.type)
+		if (!get_graphics_engine().is_wireframe_mode)
 		{
-		case EPipelineType::CUBEMAP:
-			if (get_graphics_engine().is_wireframe_mode)
-			{
-				return nullptr;
-			}
-		default:
-			type = get_graphics_engine().is_wireframe_mode ? EPipelineType::WIREFRAME : obj.type;
-			break;
+			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(obj.get_render_type());
 		}
 
-		return &get_graphics_engine().get_pipeline_mgr().get_pipeline(type);
+		switch (obj.get_render_type())
+		{
+		case EPipelineType::CUBEMAP:
+			return nullptr;
+		case EPipelineType::STANDARD:
+			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_WIREFRAME_TEXTURE_VERTICES);
+		case EPipelineType::COLOR:
+		default:
+			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_WIREFRAME_COLOR_VERTICES);
+		}
 	};
 	const auto& graphics_objects = get_graphics_engine().get_objects();
 	for (const auto& it_pair : graphics_objects)
@@ -204,7 +205,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		if (!graphics_object.get_game_object().get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_pipeline(graphics_object);
+		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = pipeline_getter(graphics_object);
 		if (!pipeline)
 			continue;
 			
@@ -216,8 +217,20 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	}
 	
 	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	const GraphicsEnginePipeline<GraphicsEngineT>& stencil_pipeline = 
-		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STENCIL);
+	const auto stenciled_pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
+	{
+		switch (obj.get_render_type())
+		{
+		case EPipelineType::CUBEMAP:
+			return nullptr;
+		case EPipelineType::STANDARD:
+			// Maybe this logic should be abstracted within pipeline_mgr
+			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_STENCIL_TEXTURE_VERTICES);
+		case EPipelineType::COLOR:
+		default:
+			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_STENCIL_COLOR_VERTICES);
+		}
+	};
 	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
 	{
 		const auto it_obj = graphics_objects.find(id);
@@ -231,14 +244,15 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		if (!graphics_object.get_game_object().get_visibility())
 			continue;
 		
-		if (graphics_object.get_render_type() == EPipelineType::CUBEMAP)
+		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = stenciled_pipeline_getter(graphics_object);
+		if (!pipeline)
 			continue;
 		
 		vkCmdBindPipeline(
 			command_buffer, 
 			VK_PIPELINE_BIND_POINT_GRAPHICS, 
-			stencil_pipeline.graphics_pipeline); // bind the graphics pipeline
-		per_obj_draw_fn(graphics_object, stencil_pipeline);
+			pipeline->graphics_pipeline); // bind the graphics pipeline
+		per_obj_draw_fn(graphics_object, *pipeline);
 	}
 
 	vkCmdEndRenderPass(command_buffer);

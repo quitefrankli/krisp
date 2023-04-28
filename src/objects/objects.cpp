@@ -1,5 +1,4 @@
 #include "objects.hpp"
-#include "shapes/shapes.hpp"
 #include "shapes/shape_factory.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -8,163 +7,16 @@
 #include <iostream>
 
 
-Cube::Cube()
-{
-	shapes.emplace_back(Shapes::Cube{});
-}
-
-Sphere::Sphere() : IClickable((Object&)(*this))
-{
-	shapes.emplace_back(ShapeFactory::generate_sphere(ShapeFactory::GenerationMethod::UV_SPHERE, 128));
-}
-
-bool Sphere::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
-{
-	const auto x = Maths::ray_sphere_collision(Maths::Sphere(get_position(), get_radius()), ray);
-	if (x)
-	{
-		intersection = x.value();
-		return true;
-	} else 
-	{
-		return false;
-	}
-}
-
-HollowCylinder::HollowCylinder()
-{
-	const int M = 30;
-	auto calculate_vec = [&M](float m, float y, float radius=1.0f, bool reverse=false)
-	{
-		m = m / (float)M * Maths::PI * 2.0f;
-		SDS::Vertex vertex;
-		vertex.pos = {
-			sinf(m) * radius * 0.5f,
-			y * 0.5f,
-			cosf(m) * radius * 0.5f
-		};
-		if (reverse)
-			vertex.color = { 0.0f, m/(float)M, 0.0f };
-		else
-			vertex.color = { m/(float)M, 0.0f, 0.0f };
-
-		return vertex;
-	};
-
-	Shape shape;
-	shape.vertices.reserve(1024);
-	for (int m = 0; m < M; m++)
-	{
-		// side
-		shape.vertices.push_back(calculate_vec(m, 0.5f));
-		shape.vertices.push_back(calculate_vec(m, -0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
-		shape.vertices.push_back(calculate_vec(m, 0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, 0.5f));
-
-		// inside side
-		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f, true));
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f, true));
-		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f, true));
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f, true));
-		shape.vertices.push_back(calculate_vec(m, -0.5f, 0.5f, true));
-		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f, true));
-
-		// top
-		shape.vertices.push_back(calculate_vec(m, 0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f));
-		shape.vertices.push_back(calculate_vec(m, 0.5f, 0.5f));
-		shape.vertices.push_back(calculate_vec(m, 0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, 0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, 0.5f, 0.5f));
-
-		//bottom
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f));
-		shape.vertices.push_back(calculate_vec(m, -0.5f));
-		shape.vertices.push_back(calculate_vec(m, -0.5f, 0.5f));
-		shape.vertices.push_back(calculate_vec(m+1, -0.5f, 0.5f));
-		shape.vertices.push_back(calculate_vec(m, -0.5f));
-	}
-	shapes.push_back(std::move(shape));
-
-	// make the bottom its origin
-	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.25f, 0.0f));
-	for (auto& shape : shapes)
-	{
-		shape.transform_vertices(vertex_transform);
-	}
-}
-
-static Shape generate_cylinder(const int nVertices)
-{
-	const glm::vec3 COLOR{ 1.0f, 1.0f, 0.0f };
-	auto calculate_vec = [&nVertices, &COLOR](float m, float y)
-	{
-		m = m / (float)nVertices * Maths::PI * 2.0f;
-		SDS::Vertex vertex;
-		vertex.pos = {
-			sinf(m) * 0.5f,
-			y * 0.5f,
-			cosf(m) * 0.5f
-		};
-
-		vertex.color = COLOR;
-
-		return vertex;
-	};
-
-	Shape shape;
-	shape.vertices.reserve(1024);
-	SDS::Vertex top{ glm::vec3(0.0f, 0.5f, 0.0f), COLOR };
-	SDS::Vertex bottom{ glm::vec3(0.0f, -0.5f, 0.0f), COLOR };
-	for (int m = 0; m < nVertices; m++)
-	{
-		// side
-		shape.vertices.push_back(calculate_vec(m, 1.0f));
-		shape.vertices.push_back(calculate_vec(m, -1.0f));
-		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
-		shape.vertices.push_back(calculate_vec(m, 1.0f));
-		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
-		shape.vertices.push_back(calculate_vec(m+1, 1.0f));
-
-		// top
-		shape.vertices.push_back(calculate_vec(m, 1.0f));
-		shape.vertices.push_back(calculate_vec(m+1, 1.0f));
-		shape.vertices.push_back(top);
-
-		//bottom
-		shape.vertices.push_back(bottom);
-		shape.vertices.push_back(calculate_vec(m+1, -1.0f));
-		shape.vertices.push_back(calculate_vec(m, -1.0f));
-	}
-	
-	return shape;
-}
-
-Cylinder::Cylinder()
-{
-	shapes.push_back(std::move(generate_cylinder(30)));
-
-	// make the bottom its origin
-	auto vertex_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f, 0.0f));
-	for (auto& shape : shapes)
-	{
-		shape.transform_vertices(vertex_transform);
-	}
-}
-
 Arrow::Arrow()
 {
 	const int nVertices = 8;
 	const glm::vec3 COLOR{ 1.0f, 1.0f, 0.0f };
 	
-	shapes.emplace_back(Shapes::Cylinder(nVertices, COLOR));
-	shapes.emplace_back(Shapes::Cone(nVertices, COLOR));
+	shapes.emplace_back(ShapeFactory::cylinder(ShapeFactory::EVertexType::COLOR, nVertices));
+	shapes.emplace_back(ShapeFactory::cone(ShapeFactory::EVertexType::COLOR, nVertices));
 
-	Shape& cylinder = shapes[0];
-	Shape& cone = shapes[1];
+	Shape& cylinder = *shapes[0];
+	Shape& cone = *shapes[1];
 
 	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
 
@@ -287,12 +139,12 @@ Arc::Arc()
 	const float inc = Maths::PI/2.0f/(float)N;
 
 	// generate all vertices
-	Shape arc;
-	arc.vertices.reserve(N * 2);
+	ColorShape arc;
+	arc.get_vertices().reserve(N * 2);
 	auto gen_vertex = [&](const float radius, const float y, const int i)
 	{
-		arc.vertices.emplace_back(SDS::Vertex{
-			radius * glm::vec3(sinf(inc * i), y, cosf(inc * i)),
+		arc.get_vertices().emplace_back(SDS::ColorVertex{
+			radius * glm::vec3(std::sinf(inc * i), y, std::cosf(inc * i)),
 			glm::vec3((float)i/(float)N, 1.0f, 1.0f)});
 	};
 	for (int i = 0; i <= N; i++)
@@ -311,29 +163,29 @@ Arc::Arc()
 	for (int i = 0; i < N; i++)
 	{
 		// top
-		arc.indices.push_back(outer_top_offset + i);
-		arc.indices.push_back(inner_top_offset + i);
-		arc.indices.push_back(outer_top_offset + i + 1);
-		arc.indices.push_back(outer_top_offset + i + 1);
-		arc.indices.push_back(inner_top_offset + i);
-		arc.indices.push_back(inner_top_offset + i + 1);
+		arc.get_indices().push_back(outer_top_offset + i);
+		arc.get_indices().push_back(inner_top_offset + i);
+		arc.get_indices().push_back(outer_top_offset + i + 1);
+		arc.get_indices().push_back(outer_top_offset + i + 1);
+		arc.get_indices().push_back(inner_top_offset + i);
+		arc.get_indices().push_back(inner_top_offset + i + 1);
 
 		// bottom
-		arc.indices.push_back(outer_bot_offset + i);
-		arc.indices.push_back(outer_bot_offset + i + 1);
-		arc.indices.push_back(inner_bot_offset + i);
-		arc.indices.push_back(inner_bot_offset + i);
-		arc.indices.push_back(outer_bot_offset + i + 1);
-		arc.indices.push_back(inner_bot_offset + i + 1);
+		arc.get_indices().push_back(outer_bot_offset + i);
+		arc.get_indices().push_back(outer_bot_offset + i + 1);
+		arc.get_indices().push_back(inner_bot_offset + i);
+		arc.get_indices().push_back(inner_bot_offset + i);
+		arc.get_indices().push_back(outer_bot_offset + i + 1);
+		arc.get_indices().push_back(inner_bot_offset + i + 1);
 
 		// we don't actually need the sides given a thin enough thickness and single sided shading
 	}
 
 	// let default plane normal be the forward axis
 	arc.transform_vertices(glm::angleAxis(-Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-
 	arc.generate_normals();
-	shapes.push_back(std::move(arc));
+
+	shapes.push_back(std::make_unique<ColorShape>(std::move(arc)));
 }
 
 bool Arc::check_collision(const Maths::Ray& ray)

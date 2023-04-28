@@ -43,9 +43,6 @@ public:
 	void run();
 	void shutdown() { should_shutdown = true; }
 
-	const VkVertexInputBindingDescription binding_description;
-	const std::vector<VkVertexInputAttributeDescription> attribute_descriptions;
-
 public:
 	bool is_wireframe_mode = false;
 
@@ -53,8 +50,6 @@ public: // getters and setters
 	VkExtent2D get_extent();
 	App::Window& get_window();
 	Camera* get_camera();
-	void add_vertex_set(const std::vector<SDS::Vertex>& vertex_set) { vertex_sets.emplace_back(vertex_set); }
-	std::vector<std::vector<SDS::Vertex>>& get_vertex_sets();
 	void insert_object(Object* object);
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() 
 	{ 
@@ -96,7 +91,6 @@ private:
 	bool should_shutdown = false;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
-	std::vector<std::vector<SDS::Vertex>> vertex_sets;
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
 	std::unordered_map<ObjectID, std::reference_wrapper<const LightSource>> light_sources;
 	std::unordered_set<ObjectID> stenciled_objects;
@@ -182,6 +176,5 @@ public: // commands
 	void handle_command(PreviewObjectsCmd& cmd) final;
 
 private:
-	static VkVertexInputBindingDescription get_binding_description();
 	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions();
 };

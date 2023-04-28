@@ -129,7 +129,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	VkAccelerationStructureGeometryTrianglesDataKHR triangles{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR};
 	triangles.vertexFormat             = VK_FORMAT_R32G32B32_SFLOAT;  // vec3 vertex position data.
 	triangles.vertexData.deviceAddress = vertex_address;
-	triangles.vertexStride             = sizeof(SDS::Vertex);
+	triangles.vertexStride             = sizeof(SDS::ColorVertex); // WARNING TEXTURE ISN'T SUPPORTED YET FOR RAYTRACING
 	// Describe index data (32-bit unsigned int)
 	triangles.indexType               = VK_INDEX_TYPE_UINT32;
 	triangles.indexData.deviceAddress = index_address;

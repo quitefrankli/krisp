@@ -45,7 +45,7 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 
 TEST_F(GameEngineTests, clickable_objects)
 {
-	auto& obj = engine.spawn_object<GenericClickableObject>(Shapes::Circle(10));
+	auto& obj = engine.spawn_object<GenericClickableObject>(ShapeFactory::circle());
 	auto& clickable = dynamic_cast<IClickable&>(obj);
 	const auto id = obj.get_id();
 	engine.add_clickable(id, &clickable);
