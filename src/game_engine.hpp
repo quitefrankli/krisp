@@ -6,7 +6,6 @@
 #include "objects/object_interfaces/clickable.hpp"
 #include "resource_loader.hpp"
 #include "game_engine/object_interfaces_menagerie.hpp"
-#include "animations/animator.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
@@ -132,9 +131,6 @@ private:
 	IApplication* application = nullptr;
 
 	std::unique_ptr<Experimental<GameEngine>> experimental;
-
-public:
-	Animator animator;
 
 private:
 	void create_camera();
