@@ -29,9 +29,6 @@
 static DummyApplication dummy_app;
 
 template<template<typename> typename GraphicsEngineTemplate>
-GameEngine<GraphicsEngineTemplate>* GameEngine<GraphicsEngineTemplate>::global_engine = nullptr;
-
-template<template<typename> typename GraphicsEngineTemplate>
 GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_signaller, App::Window& window) :
 	restart_signaller(std::move(restart_signaller)),
 	window(window),
@@ -151,6 +148,7 @@ void GameEngine<GraphicsEngineTemplate>::main_loop(const float time_delta)
 	}
 
 	animator.process(time_delta);
+	ecs_manager.process(time_delta);
 	experimental->process(time_delta);
 	application->on_tick(time_delta);
 }

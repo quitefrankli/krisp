@@ -69,6 +69,18 @@ namespace Maths
 	struct Transform
 	{
 	public:
+		Transform() = default;
+		Transform(const glm::vec3& pos, const glm::vec3& scale, const glm::quat& orient) :
+			position(pos), scale(scale), orientation(orient)
+		{
+			is_up_to_date_flags = 0b1110;
+		}
+
+		Transform(const glm::mat4& mat4) : transform(mat4) 
+		{
+			is_up_to_date_flags = 0b0001;
+		}
+
 		const glm::vec3& get_pos();
 		const glm::vec3& get_scale();
 		const glm::quat& get_orient();
@@ -87,9 +99,11 @@ namespace Maths
 
 		// flags whether the above vars are old
 		// if it's old then it should be either recalculated to/from the mat4
-		uint8_t is_up_to_date = 0b1111;
+		// 1 means it's up to date 0 means it's old
+		uint8_t is_up_to_date_flags = 0b0000;
 
-		bool is_old(uint8_t bitmask) const { return !(is_up_to_date & bitmask); }
+		void set_not_old(uint8_t bitmask) { is_up_to_date_flags |= bitmask; }
+		bool is_old(uint8_t bitmask) const { return !(is_up_to_date_flags & bitmask); }
 	};
 
 	// assume normalized already

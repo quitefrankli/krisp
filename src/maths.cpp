@@ -144,7 +144,7 @@ namespace Maths
 		if (is_old(0b1000))
 		{
 			position = transform[3];
-			is_up_to_date |= 0b1000;				
+			set_not_old(0b1000);
 		}
 		return position; 
 	}
@@ -163,7 +163,8 @@ namespace Maths
 			scale[1] = get_vec3_len(transform[1]);
 			scale[2] = get_vec3_len(transform[2]);
 			
-			is_up_to_date |= 0b0100;				
+			set_not_old(0b0100);
+
 		}
 		return scale;
 	}
@@ -179,7 +180,7 @@ namespace Maths
 				glm::vec3(transform[1]) / scale[1],
 				glm::vec3(transform[2]) / scale[2]);
     		orientation = glm::quat_cast(rotMtx);
-			is_up_to_date |= 0b0010;
+			set_not_old(0b0010);
 		}
 		return orientation;
 	}
@@ -194,7 +195,7 @@ namespace Maths
 
 			transform = glm::mat4_cast(tmp_orient) * glm::scale(tmp_scale);
 			transform[3] = glm::vec4(tmp_pos, 1.0f);
-			is_up_to_date |= 0b0001;
+			set_not_old(0b0001);
 		}
 		return transform;
 	}
@@ -202,28 +203,28 @@ namespace Maths
 	void Transform::set_pos(const glm::vec3& new_pos)
 	{
 		position = new_pos;
-		is_up_to_date |= 0b1000;
-		is_up_to_date &= 0b1110;
+		is_up_to_date_flags |= 0b1000;
+		is_up_to_date_flags &= 0b1110;
 	}
 
 	void Transform::set_scale(const glm::vec3& new_scale)
 	{
 		scale = new_scale;
-		is_up_to_date |= 0b0100;
-		is_up_to_date &= 0b1110;
+		is_up_to_date_flags |= 0b0100;
+		is_up_to_date_flags &= 0b1110;
 	}
 
 	void Transform::set_orient(const glm::quat& new_orient)
 	{
 		orientation = new_orient;
-		is_up_to_date |= 0b0010;
-		is_up_to_date &= 0b1110;
+		is_up_to_date_flags |= 0b0010;
+		is_up_to_date_flags &= 0b1110;
 	}
 
 	void Transform::set_mat4(const glm::mat4& new_transform)
 	{
 		transform = new_transform;
-		is_up_to_date = 0b0001;
+		is_up_to_date_flags = 0b0001;
 	}	
 
 	std::optional<glm::vec3> ray_sphere_collision(const Sphere& sphere, const Ray& ray)
