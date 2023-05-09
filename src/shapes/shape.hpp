@@ -47,6 +47,7 @@ public:
 	Shape() : id(global_id++) {}
 
 	std::vector<uint32_t>& get_indices() { return indices; }
+	void set_indices(std::vector<uint32_t>&& indices) { this->indices = std::move(indices); }
 
 	virtual uint32_t get_num_unique_vertices() const = 0;
 	virtual uint32_t get_num_vertex_indices() const { return static_cast<uint32_t>(indices.size()); };
@@ -108,6 +109,7 @@ public:
 	virtual void translate_vertices(const glm::vec3& vec) override { Shape::translate_vertices(vertices, vec); }
 	virtual void generate_normals() override { Shape::generate_normals(vertices, indices); }
 	std::vector<SDS::ColorVertex>& get_vertices() { return vertices; }
+	void set_vertices(std::vector<SDS::ColorVertex>&& vertices) { this->vertices = std::move(vertices); }
 	virtual const std::byte* get_vertices_data() const override { return reinterpret_cast<const std::byte*>(vertices.data()); }
 	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(SDS::ColorVertex); }
 	virtual AABB calculate_bounding_box() const override { return Shape::calculate_bounding_box(vertices); }
@@ -130,6 +132,7 @@ public:
 	virtual void translate_vertices(const glm::vec3& vec) override { Shape::translate_vertices(vertices, vec); }
 	virtual void generate_normals() override { Shape::generate_normals(vertices, indices); }
 	std::vector<SDS::TexVertex>& get_vertices() { return vertices; }
+	void set_vertices(std::vector<SDS::TexVertex>&& vertices) { this->vertices = std::move(vertices); }
 	virtual const std::byte* get_vertices_data() const override { return reinterpret_cast<const std::byte*>(vertices.data()); }
 	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(SDS::TexVertex); }
 	virtual AABB calculate_bounding_box() const override { return Shape::calculate_bounding_box(vertices); }

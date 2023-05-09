@@ -137,9 +137,9 @@ void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 	set_position(from);
 }
 
-void Camera::look_at(const glm::vec3& pos)
+void Camera::look_at(const glm::vec3& focus)
 {
-	look_at(pos, get_position());
+	look_at(focus, get_position());
 }
 
 void Camera::pan(const glm::vec3& axis, const float magnitude)

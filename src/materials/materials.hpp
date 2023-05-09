@@ -19,6 +19,16 @@ enum class EMaterialType
 	GIZMO_ARC
 };
 
+struct MaterialTexture
+{
+	std::byte* data = nullptr; // not owned by this struct
+	size_t data_len = 0;
+	uint32_t width = 0;
+	uint32_t height = 0;
+	uint32_t channels = 4; 
+	uint32_t texture_id = 0;
+};
+
 struct Material
 {
 public:
@@ -27,7 +37,7 @@ public:
 	static Material create_material(EMaterialType type);
 
 public:
-	std::string texture_path;
+	MaterialTexture texture;
 	EPipelineType pipeline_type = EPipelineType::COLOR;
 
 	SDS::MaterialData material_data;

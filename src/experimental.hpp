@@ -9,6 +9,7 @@
 #include "utility.hpp"
 #include "objects/skeleton/skeleton.hpp"
 #include "shapes/shape_factory.hpp"
+#include "objects/generic_objects.hpp"
 
 #include <iostream>
 
@@ -65,15 +66,19 @@ public:
 		// hand.add_child_joint(*joint, {}, {});
 		// joint->add_child_bone(finger, {}, {});
 
-		auto& cube = engine.spawn_object(std::make_unique<Object>(ShapeFactory::cube()));
-		Maths::Transform t1;
-		Maths::Transform t2;
-		t1.set_pos({0.0f, 1.0f, 0.0f});
-		t2.set_pos({2.0f, 0.0f, 0.0f});
-		t2.set_orient(glm::angleAxis(glm::radians(45.0f), Maths::up_vec));
-		t2.set_scale(t1.get_scale() * 2.0f);
-		AnimationSequence anim(t1, t2, 10.0f);
-		engine.get_ecs_mgr().animate(cube.get_id(), anim);
+		// auto& cube = engine.spawn_object(std::make_unique<Object>(ShapeFactory::cube()));
+		// Maths::Transform t1;
+		// Maths::Transform t2;
+		// t1.set_pos({0.0f, 1.0f, 0.0f});
+		// t2.set_pos({2.0f, 0.0f, 0.0f});
+		// t2.set_orient(glm::angleAxis(glm::radians(45.0f), Maths::up_vec));
+		// t2.set_scale(t1.get_scale() * 2.0f);
+		// AnimationSequence anim(t1, t2, 10.0f);
+		// engine.get_ecs_mgr().animate(cube.get_id(), anim);
+
+		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/"donut.gltf").string());
+		auto& donut = engine.spawn_object<GenericClickableObject>(std::move(res));
+		engine.add_clickable(donut.get_id(), &donut);
 	}
 
 	// manually triggered

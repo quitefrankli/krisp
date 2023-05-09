@@ -76,13 +76,14 @@ GuiObjectSpawner<GameEngineT>::GuiObjectSpawner()
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngineT& engine, bool textured)
 			{
-				auto& obj = engine.template spawn_object<GenericClickableObject>(ShapeFactory::cube(
+				auto obj = std::make_shared<GenericClickableObject>(ShapeFactory::cube(
 					textured ? ShapeFactory::EVertexType::TEXTURE : ShapeFactory::EVertexType::COLOR));
-				engine.add_clickable(obj.get_id(), &obj);
 				if (textured)
 				{
-					ResourceLoader::assign_object_texture(obj, Utility::get_texture("texture.jpg").data());
+					ResourceLoader::get().assign_object_texture(*obj, Utility::get_texture("texture.jpg").data());
 				}
+				engine.add_clickable(obj->get_id(), obj.get());
+				engine.spawn_object(std::move(obj));
 			})},
 		{"sphere", spawning_function_type([this](GameEngineT& engine, bool textured)
 			{
@@ -282,6 +283,25 @@ void GuiStatistics<GameEngineT>::update_buffer_capacities(
 template<typename GameEngineT>
 void GuiDebug<GameEngineT>::process(GameEngineT& engine)
 {
+	if (selected_object.changed)
+	{
+		const auto pos = engine.get_object(selected_object())->get_position();
+		engine.get_camera().look_at(pos);
+		selected_object.changed = false;
+	}
+
+	if (should_refresh_objects_list)
+	{
+		object_ids.clear();
+		object_ids_strs.clear();
+		for (auto& [id, object] : engine.get_objects())
+		{
+			object_ids.push_back(id);
+			object_ids_strs.push_back(std::to_string(id.get_underlying()));
+		}
+
+		should_refresh_objects_list = false;
+	}
 }
 
 template<typename GameEngineT>
@@ -289,9 +309,29 @@ void GuiDebug<GameEngineT>::draw()
 {
 	ImGui::Begin("Debug");
 
-	if (img_rsrc)
+	if (ImGui::Button("Refresh Objects List"))
 	{
-		ImGui::Image((ImTextureID)img_rsrc, ImVec2(300, 300));
+		should_refresh_objects_list = true;
+	}
+
+	if (ImGui::BeginCombo("Objects", "Select Object"))
+	{
+		for (int i = 0; i < object_ids.size(); i++)
+		{
+			// bool is_selected = (current_item == items[n]); // You can store your selection however you want, outside or inside your objects
+			if (ImGui::Selectable(object_ids_strs[i].data(), selected_object() == object_ids[i]))
+			{
+				selected_object = object_ids[i];
+				selected_object.changed = true;
+			}
+				// current_item = items[n];
+
+			// if (is_selected)
+			// {
+			// 	ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+			// }
+		}
+		ImGui::EndCombo();
 	}
 
 	ImGui::End();

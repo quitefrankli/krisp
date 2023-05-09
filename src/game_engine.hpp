@@ -110,6 +110,7 @@ public:
 		auto it = objects.find(id);
 		return it == objects.end() ? nullptr : it->second.get();
 	}
+	std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() { return objects; }
 
 	void preview_objs_in_gui(const std::vector<Object*>& objs, GuiPhotoBase& gui_window);
 

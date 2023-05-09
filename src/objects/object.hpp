@@ -45,9 +45,14 @@ public:
 	{
 		shapes.push_back(std::move(shape));
 	}
+	Object(std::vector<std::unique_ptr<Shape>>&& shapes) : shapes(std::move(shapes))
+	{
+	}
 	Object(const Object& object) = delete;
 	Object(Object&& object) noexcept;
 	virtual ~Object() override;
+
+	Object& operator=(const Object& object) = delete;
 
 	// when using indexed draws, the number of unique vertices < number of indices
 	uint32_t get_num_unique_vertices() const;

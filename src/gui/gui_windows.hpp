@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maths.hpp"
+#include "objects/object_id.hpp"
 
 #include <map>
 #include <string>
@@ -151,6 +152,7 @@ private:
 	BufferCapacity staging_buffer_capacity;
 };
 
+class Object;
 template<typename GameEngineT>
 class GuiDebug : public GuiWindow<GameEngineT>
 {
@@ -158,9 +160,11 @@ public:
 	virtual void process(GameEngineT& engine) override;
 	virtual void draw() override;
 
-	void* img_rsrc = nullptr;
-	uint32_t width = 300;
-	uint32_t height = 300;
+private:
+	bool should_refresh_objects_list = false;
+	std::vector<ObjectID> object_ids;
+	std::vector<std::string> object_ids_strs;
+	GuiVar<ObjectID> selected_object = ObjectID(0);
 };
 
 class GuiPhotoBase

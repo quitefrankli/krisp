@@ -19,7 +19,7 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 				materials.emplace_back(
 					shape->get_material(), 
 					&get_graphics_engine().get_texture_mgr().fetch_texture(
-					shape->get_material().texture_path, ETextureSamplerType::ADDR_MODE_REPEAT));
+					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_REPEAT));
 			}
 		case EPipelineType::CUBEMAP:
 			for (const auto& shape : object.get_shapes())
@@ -27,7 +27,7 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 				materials.emplace_back(
 					shape->get_material(), 
 					&get_graphics_engine().get_texture_mgr().fetch_texture(
-					shape->get_material().texture_path, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
+					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
 			}
 			break;
 		default:

@@ -3,6 +3,7 @@
 #include "maths.hpp"
 #include "utility.hpp"
 #include "shapes/shape_factory.hpp"
+#include "resource_loader.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -10,6 +11,8 @@
 
 CubeMap::CubeMap()
 {
+	ResourceLoader& resource_loader = ResourceLoader::get();
+
 	auto left = ShapeFactory::quad(ShapeFactory::EVertexType::TEXTURE);
 	auto right = ShapeFactory::quad(ShapeFactory::EVertexType::TEXTURE);
 	auto front = ShapeFactory::quad(ShapeFactory::EVertexType::TEXTURE);
@@ -27,41 +30,41 @@ CubeMap::CubeMap()
 	// for transformation relative to world apply right->left, for local transformation it's left->right
 	transform = glm::translate(transform, glm::vec3(-0.5f, 0.0f, 0.0f));
 	transform = glm::rotate(transform, -Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	material.texture_path = texture_path + "/skybox/left.bmp";
+	material.texture = resource_loader.fetch_texture(texture_path + "/skybox/left.bmp");
 	left->transform_vertices(transform);
 	left->set_material(material);
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.5f, 0.0f, 0.0f));
 	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	material.texture_path = texture_path + "/skybox/right.bmp";
+	material.texture = resource_loader.fetch_texture(texture_path + "/skybox/right.bmp");
 	right->transform_vertices(transform);
 	right->set_material(material);
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, 0.5f));
-	material.texture_path = texture_path + "/skybox/front.bmp";
+	material.texture = resource_loader.fetch_texture(texture_path + "/skybox/front.bmp");
 	front->transform_vertices(transform);
 	front->set_material(material);
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.0f, -0.5f));
 	transform = glm::rotate(transform, Maths::deg2rad(180.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	material.texture_path = texture_path + "/skybox/back.bmp";
+	material.texture = resource_loader.fetch_texture(texture_path + "/skybox/back.bmp");
 	back->transform_vertices(transform);
 	back->set_material(material);
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, 0.5f, 0.0f));
 	transform = glm::rotate(transform, Maths::deg2rad(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	material.texture_path = texture_path + "/skybox/top.bmp";
+	material.texture = resource_loader.fetch_texture(texture_path + "/skybox/top.bmp");
 	top->transform_vertices(transform);
 	top->set_material(material);
 
 	transform = idt;
 	transform = glm::translate(transform, glm::vec3(0.0f, -0.5f, 0.0f));
 	transform = glm::rotate(transform, Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	material.texture_path = texture_path + "/skybox/bottom.bmp";
+	material.texture = resource_loader.fetch_texture(texture_path + "/skybox/bottom.bmp");
 	bottom->transform_vertices(transform);
 	bottom->set_material(material);
 

@@ -16,7 +16,7 @@ GraphicsEngineTextureManager<GraphicsEngineT>::GraphicsEngineTextureManager(Grap
 template<typename GraphicsEngineT>
 GraphicsEngineTextureManager<GraphicsEngineT>::~GraphicsEngineTextureManager()
 {
-	for (auto& [texture_path, texture_unit] : texture_units)
+	for (auto& [texture_id, texture_unit] : texture_units)
 	{
 		texture_unit.destroy(get_logical_device());
 	}
@@ -29,16 +29,16 @@ GraphicsEngineTextureManager<GraphicsEngineT>::~GraphicsEngineTextureManager()
 
 template<typename GraphicsEngineT>
 GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_texture(
-	std::string_view texture_path,
+	const MaterialTexture& material_texture,
 	ETextureSamplerType sampler_type)
 {
-	auto it = texture_units.find(texture_path.data());
+	auto it = texture_units.find(material_texture.texture_id);
 	if (it != texture_units.end())
 	{
 		return it->second;
 	}
 
-	return texture_units.emplace(texture_path, create_texture(texture_path, sampler_type)).first->second;
+	return texture_units.emplace(material_texture.texture_id, create_texture(material_texture, sampler_type)).first->second;
 }
 
 template<typename GraphicsEngineT>
@@ -55,12 +55,12 @@ VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::fetch_sampler(ETextureS
 
 template<typename GraphicsEngineT>
 GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_texture(
-	const std::string_view texture_path,
+	const MaterialTexture& material_texture,
 	ETextureSamplerType sampler_type)
 {
 	VkImage texture_image;
 	VkDeviceMemory texture_image_memory;
-	const auto dim = create_texture_image(texture_path, texture_image, texture_image_memory);
+	const auto dim = create_texture_image(material_texture, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
 		VK_FORMAT_R8G8B8A8_SRGB, 
@@ -71,25 +71,17 @@ GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_text
 }
 
 template<typename GraphicsEngineT>
-glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(const std::string_view texture_path,
-                                                                         VkImage& texture_image,
-                                                                         VkDeviceMemory& texture_image_memory)
+glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
+	const MaterialTexture& material_texture,
+	VkImage& texture_image,
+	VkDeviceMemory& texture_image_memory)
 {
-	int width, height, channels;
-	std::unique_ptr<stbi_uc, std::function<void(stbi_uc*)>> pixels( 
-		stbi_load(texture_path.data(), &width, &height, &channels, STBI_rgb_alpha),
-		// custom unique_ptr destructor
-		[](stbi_uc* ptr) { stbi_image_free(ptr); });
+	// VkDeviceSize size = material_texture.width * material_texture.height * channels; // for some reason channels = 3?
+	VkDeviceSize size = material_texture.width * material_texture.height * 4;
 
-	// VkDeviceSize size = width * height * channels; // for some reason channels = 3?
-	VkDeviceSize size = width * height * 4;
-	if (!pixels.get())
-	{
-		throw std::runtime_error(fmt::format("failed to load texture image! {}", texture_path));
-	}
-
-	get_graphics_engine().create_image(width, 
-		height, 
+	get_graphics_engine().create_image(
+		material_texture.width, 
+		material_texture.height, 
 		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
@@ -104,23 +96,19 @@ glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(c
 
 	get_rsrc_mgr().stage_data_to_image(
 		texture_image, 
-		static_cast<uint32_t>(width), 
-		static_cast<uint32_t>(height),
+		material_texture.width, 
+		material_texture.height,
 		static_cast<size_t>(size),
-		[&pixels, &size](std::byte* destination)
+		[&material_texture, &size](std::byte* destination)
 		{
-			memcpy(destination, pixels.get(), static_cast<size_t>(size));
+			std::memcpy(destination, material_texture.data, static_cast<size_t>(size));
 		});
 
 	// transition one more time for shader access
 	get_graphics_engine().transition_image_layout(
 		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	LOG_INFO(Utility::get().get_logger(), 
-			 "GraphicsEngineTextureManager::create_texture_image: created texture from:={}", 
-			 texture_path);
-
-	return glm::uvec3(width, height, channels);
+	return glm::uvec3(material_texture.width, material_texture.height, material_texture.channels);
 }
 
 template<typename GraphicsEngineT>

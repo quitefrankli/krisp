@@ -58,8 +58,8 @@ public: // object
 
 	// sets camera at "from" and the focus at "focus"
 	void look_at(const glm::vec3& focus, const glm::vec3& from);
-	// sets camera at "pos" but does not move focus
-	void look_at(const glm::vec3& pos);
+	// does not move camera but rotates it to look at "focus"
+	void look_at(const glm::vec3& focus);
 	// rotates camera based on screen offset from last screen pos
 	void rotate_camera(const glm::vec2& offset, float delta_time);
 	// pans both camera and focus in a direction
