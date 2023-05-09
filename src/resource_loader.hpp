@@ -14,6 +14,7 @@
 
 class Object;
 class Shape;
+struct RawTextureData; // internal use only
 
 class ResourceLoader
 {
@@ -26,6 +27,8 @@ public:
 		ZERO_MESH, // per shape center moved to (0,0,0)
 		ZERO_XZ,   // per shape center moved to (0,y,0) and bottom of mesh is at y=0
 	};
+
+	~ResourceLoader();
 
 	static ResourceLoader& get() { return global_resource_loader; }
 
@@ -55,11 +58,18 @@ public:
 
 private:
 	void load_texture(const std::string_view file);
+	TextureID get_next_texture_id() { return global_texture_id_counter++; }
+	struct TextureData;
+	MaterialTexture create_material_texture(TextureData& texture_data);
 
 private:
 	struct TextureData
 	{
-		std::unique_ptr<std::byte, std::function<void(std::byte*)>> data;
+		TextureData() = default;
+		TextureData(const TextureData& other) = default;
+		TextureData(TextureData&& other) noexcept = default;
+		~TextureData();
+		std::unique_ptr<RawTextureData> data;
 		int width = 0;
 		int height = 0;
 		int channels = 0;

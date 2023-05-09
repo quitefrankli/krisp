@@ -77,8 +77,10 @@ public:
 		// engine.get_ecs_mgr().animate(cube.get_id(), anim);
 
 		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/"donut.gltf").string());
-		auto& donut = engine.spawn_object<GenericClickableObject>(std::move(res));
-		engine.add_clickable(donut.get_id(), &donut);
+		auto donut = std::make_shared<GenericClickableObject>(std::move(res));
+		engine.add_clickable(donut->get_id(), donut.get());
+		donut->set_render_type(EPipelineType::STANDARD);
+		engine.spawn_object(std::move(donut));
 	}
 
 	// manually triggered

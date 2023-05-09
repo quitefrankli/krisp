@@ -19,14 +19,68 @@
 ResourceLoader ResourceLoader::global_resource_loader;
 ResourceLoader::TextureID ResourceLoader::global_texture_id_counter = 0;
 
+struct RawTextureData
+{
+	virtual ~RawTextureData()
+	{
+	}
+
+	virtual std::byte* get() = 0;
+};
+
+struct RawTextureDataSTB : public RawTextureData
+{
+	RawTextureDataSTB(stbi_uc* data)
+	{
+		this->data = reinterpret_cast<std::byte*>(data);
+	}
+
+	~RawTextureDataSTB() 
+	{
+		stbi_image_free(data); 
+	}
+
+	virtual std::byte* get() override 
+	{ 
+		return data; 
+	}
+
+private:
+	std::byte* data;
+};
+
+struct RawTextureDataGLFT : public RawTextureData
+{
+	RawTextureDataGLFT(std::vector<unsigned char>&& data) :
+		data(std::move(data))
+	{
+	}
+
+	virtual std::byte* get() override 
+	{ 
+		return reinterpret_cast<std::byte*>(data.data()); 
+	}
+
+private:
+	std::vector<unsigned char> data;
+};
+
 static void load_object_impl(Object& object, 
 		const std::string_view mesh, 
 		const std::function<void(SDS::TexVertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index)>& vertex_loader,
 		const glm::mat4& transform);
 
-Object ResourceLoader::load_object(const std::string_view mesh, 
-								   const std::vector<std::string_view>& textures,
-								   const glm::mat4& transform)
+ResourceLoader::TextureData::~TextureData() 
+{
+}
+
+ResourceLoader::~ResourceLoader() 
+{
+}
+
+Object ResourceLoader::load_object(const std::string_view mesh,
+                                   const std::vector<std::string_view>& textures,
+                                   const glm::mat4& transform)
 {
 	Object object;
 	const auto vertex_loader = [](SDS::TexVertex& new_vertex, tinyobj::attrib_t& attrib, tinyobj::index_t& index) {
@@ -95,13 +149,7 @@ MaterialTexture ResourceLoader::fetch_texture(const std::string_view file)
 	const auto texture_id = texture_name_to_id[file.data()];
 	TextureData& texture_data = cached_textures[texture_id];
 
-	MaterialTexture texture;
-	texture.data = texture_data.data.get();
-	texture.width = texture_data.width;
-	texture.height = texture_data.height;
-	texture.texture_id = texture_id;
-
-	return texture;
+	return create_material_texture(texture_data);
 }
 
 std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string_view file)
@@ -119,6 +167,9 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 			err,
 			warn));
 	}
+
+	using vertex_t = SDS::TexVertex;
+	using shape_t = TexShape;
 
 	std::vector<std::unique_ptr<Shape>> shapes;
 	for (auto& mesh : model.meshes)
@@ -186,14 +237,14 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 		const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
 
 		// convert data to our Shape format
-		std::vector<SDS::ColorVertex> vertices;
+		std::vector<vertex_t> vertices;
 		vertices.reserve(pos_accessor.count);
 
 		for (size_t i = 0; i < pos_accessor.count; ++i)
 		{
-			SDS::ColorVertex vertex;
+			vertex_t vertex;
 			vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
-			// vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
+			vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
 			vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
 			vertices.push_back(vertex);
 		}
@@ -203,7 +254,6 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 		{
 			const auto* index_data = 
 				reinterpret_cast<const uint16_t*>(&index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
-
 			for (size_t i = 0; i < index_accessor.count; ++i)
 			{
 				indices[i] = index_data[i];
@@ -215,13 +265,30 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 			std::memcpy(indices.data(), index_data, indices.size() * sizeof(indices[0]));
 		}
 
-		ColorShape new_shape;
+		shape_t new_shape;
 		new_shape.set_vertices(std::move(vertices));
 		new_shape.set_indices(std::move(indices));
 
 		// apply materials
 		const auto& mat = model.materials[primitive.material];
 		Material new_material;
+
+		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
+		// has color texture
+		if (color_texture.index >= 0)
+		{
+			tinygltf::Image& image = model.images[color_texture.index];
+			TextureData new_texture_data;
+			new_texture_data.width = image.width;
+			new_texture_data.height = image.height;
+			new_texture_data.channels = image.component;
+			new_texture_data.data = std::make_unique<RawTextureDataGLFT>(std::move(image.image));
+			new_texture_data.texture_id = get_next_texture_id();
+
+			auto pair = cached_textures.emplace(new_texture_data.texture_id, std::move(new_texture_data));
+			new_material.texture = create_material_texture(pair.first->second);
+		}
+
 		new_material.material_data.diffuse = glm::vec3(
 			mat.pbrMetallicRoughness.baseColorFactor[0],
 			mat.pbrMetallicRoughness.baseColorFactor[1],
@@ -232,7 +299,7 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 
 		new_shape.set_material(std::move(new_material));
 
-		shapes.push_back(std::make_unique<ColorShape>(std::move(new_shape)));
+		shapes.push_back(std::make_unique<shape_t>(std::move(new_shape)));
 	}
 
 	// new_obj.set_render_type(EPipelineType::STANDARD); // use textured render
@@ -395,23 +462,32 @@ void ResourceLoader::assign_object_texture(Object& object, const std::vector<std
 void ResourceLoader::load_texture(const std::string_view file) 
 {
 	TextureData new_texture;
-	new_texture.data = std::unique_ptr<std::byte, std::function<void(std::byte*)>>( 
-		reinterpret_cast<std::byte*>(stbi_load(
-			file.data(), 
-			&new_texture.width, 
-			&new_texture.height, 
-			&new_texture.channels, 
-			STBI_rgb_alpha)),
-		// custom unique_ptr destructor
-		[](std::byte* ptr) { stbi_image_free(ptr); });
+	new_texture.data = std::make_unique<RawTextureDataSTB>(stbi_load(
+		file.data(), 
+		&new_texture.width, 
+		&new_texture.height, 
+		&new_texture.channels, 
+		STBI_rgb_alpha));
 
 	if (!new_texture.data.get())
 	{
 		throw std::runtime_error(fmt::format("failed to load texture image! {}", file));
 	}
 
-	const auto new_texture_id = global_texture_id_counter++;
+	const auto new_texture_id = get_next_texture_id();
 	new_texture.texture_id = new_texture_id;
 	texture_name_to_id.emplace(file.data(), new_texture_id);
 	cached_textures.emplace(new_texture_id, std::move(new_texture));
+}
+
+MaterialTexture ResourceLoader::create_material_texture(TextureData& texture_data)
+{
+	MaterialTexture texture;
+	texture.data = texture_data.data->get();
+	texture.width = texture_data.width;
+	texture.height = texture_data.height;
+	texture.channels = texture_data.channels;
+	texture.texture_id = texture_data.texture_id;
+
+	return texture;
 }
