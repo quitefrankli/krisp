@@ -27,7 +27,6 @@ class vulkan_conan(ConanFile):
 		"vulkan-loader/1.3.211.0",
 		"vulkan-validationlayers/1.3.211.0",
 		"stb/20190512@conan/stable",
-		"tinyobjloader/1.0.6",
 		"tinygltf/2.5.0",
 		"quill/1.6.3",
 		"openal/1.21.1",

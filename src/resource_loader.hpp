@@ -32,14 +32,6 @@ public:
 
 	static ResourceLoader& get() { return global_resource_loader; }
 
-	// ONLY SUPPORTS TEXTURED MESHES FOR NOW
-	Object load_object(const std::string_view mesh, 
-					   const std::vector<std::string_view>& textures, 
-					   const glm::mat4& transform = glm::mat4(1.0f)); // per vertex transform
-	Object load_object(const std::string_view mesh,
-					   const glm::vec3& color,
-					   const glm::mat4& transform = glm::mat4(1.0f)); // per vertex transform
-
 	MaterialTexture fetch_texture(const std::string_view file);
 
 	std::vector<std::unique_ptr<Shape>> load_model(const std::string_view file);
