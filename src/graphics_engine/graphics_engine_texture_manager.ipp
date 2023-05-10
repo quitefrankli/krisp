@@ -79,6 +79,11 @@ glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
 	// VkDeviceSize size = material_texture.width * material_texture.height * channels; // for some reason channels = 3?
 	VkDeviceSize size = material_texture.width * material_texture.height * 4;
 
+	if (size == 0)
+	{
+		throw std::runtime_error("GraphicsEngineTextureManager::create_texture_image: supplied material texture is invalid, size=0!");
+	}
+
 	get_graphics_engine().create_image(
 		material_texture.width, 
 		material_texture.height, 

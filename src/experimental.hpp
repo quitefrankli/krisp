@@ -76,11 +76,13 @@ public:
 		// AnimationSequence anim(t1, t2, 10.0f);
 		// engine.get_ecs_mgr().animate(cube.get_id(), anim);
 
-		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/"donut.gltf").string());
-		auto donut = std::make_shared<GenericClickableObject>(std::move(res));
-		engine.add_clickable(donut->get_id(), donut.get());
-		donut->set_render_type(EPipelineType::STANDARD);
-		engine.spawn_object(std::move(donut));
+		const std::string model_name = "skellyjack_without_materials.gltf";
+		// const std::string model_name = "donut.gltf";
+		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/model_name).string());
+		auto obj = std::make_shared<GenericClickableObject>(std::move(res));
+		engine.add_clickable(obj->get_id(), obj.get());
+		// obj->set_render_type(EPipelineType::STANDARD);
+		engine.spawn_object(std::move(obj));
 	}
 
 	// manually triggered

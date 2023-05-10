@@ -85,6 +85,122 @@ MaterialTexture ResourceLoader::fetch_texture(const std::string_view file)
 	return create_material_texture(texture_data);
 }
 
+template<typename ShapeType>
+ShapePtr create_shape_with_vertices(const tinygltf::Model& model, tinygltf::Primitive& primitive);
+
+template<>
+ShapePtr create_shape_with_vertices<ColorShape>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
+{
+	using ShapeType = ColorShape; 
+	
+	if (primitive.attributes.find("POSITION") == primitive.attributes.end() || 
+		primitive.attributes.find("NORMAL") == primitive.attributes.end())
+	{
+		throw std::runtime_error("ResourceLoader: missing attributes");
+	}
+
+	const auto& pos_accessor = model.accessors[primitive.attributes["POSITION"]];
+	const auto& norm_accessor = model.accessors[primitive.attributes["NORMAL"]];
+
+	if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || pos_accessor.type != TINYGLTF_TYPE_VEC3)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec3 positions are supported");
+	}
+
+	if (norm_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || norm_accessor.type != TINYGLTF_TYPE_VEC3)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec3 normals are supported");
+	}
+
+	const auto& pos_buffer_view = model.bufferViews[pos_accessor.bufferView];
+	const auto& norm_buffer_view = model.bufferViews[norm_accessor.bufferView];
+
+	const auto& pos_buffer = model.buffers[pos_buffer_view.buffer];
+	const auto& norm_buffer = model.buffers[norm_buffer_view.buffer];
+
+	const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
+	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
+
+	// convert data to our Shape format
+	std::vector<ShapeType::VertexType> vertices;
+	vertices.reserve(pos_accessor.count);
+
+	for (size_t i = 0; i < pos_accessor.count; ++i)
+	{
+		ShapeType::VertexType vertex;
+		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
+		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
+		vertices.push_back(vertex);
+	}
+
+	auto new_shape = std::make_unique<ShapeType>();
+	new_shape->set_vertices(std::move(vertices));
+
+	return new_shape;
+}
+
+template<>
+ShapePtr create_shape_with_vertices<TexShape>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
+{
+	using ShapeType = TexShape; 
+	
+	if (primitive.attributes.find("POSITION") == primitive.attributes.end() || 
+		primitive.attributes.find("NORMAL") == primitive.attributes.end() || 
+		primitive.attributes.find("TEXCOORD_0") == primitive.attributes.end())
+	{
+		throw std::runtime_error("ResourceLoader: missing attributes");
+	}
+
+	const auto& pos_accessor = model.accessors[primitive.attributes["POSITION"]];
+	const auto& norm_accessor = model.accessors[primitive.attributes["NORMAL"]];
+	const auto& tex_accessor = model.accessors[primitive.attributes["TEXCOORD_0"]];
+
+	if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || pos_accessor.type != TINYGLTF_TYPE_VEC3)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec3 positions are supported");
+	}
+
+	if (norm_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || norm_accessor.type != TINYGLTF_TYPE_VEC3)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec3 normals are supported");
+	}
+
+	if (tex_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || tex_accessor.type != TINYGLTF_TYPE_VEC2)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec2 texcoords are supported");
+	}
+
+	const auto& pos_buffer_view = model.bufferViews[pos_accessor.bufferView];
+	const auto& norm_buffer_view = model.bufferViews[norm_accessor.bufferView];
+	const auto& tex_buffer_view = model.bufferViews[tex_accessor.bufferView];
+
+	const auto& pos_buffer = model.buffers[pos_buffer_view.buffer];
+	const auto& norm_buffer = model.buffers[norm_buffer_view.buffer];
+	const auto& tex_buffer = model.buffers[tex_buffer_view.buffer];
+
+	const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
+	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
+	const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
+
+	// convert data to our Shape format
+	std::vector<ShapeType::VertexType> vertices;
+	vertices.reserve(pos_accessor.count);
+
+	for (size_t i = 0; i < pos_accessor.count; ++i)
+	{
+		ShapeType::VertexType vertex;
+		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
+		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
+		vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
+		vertices.push_back(vertex);
+	}
+
+	auto new_shape = std::make_unique<ShapeType>();
+	new_shape->set_vertices(std::move(vertices));
+
+	return new_shape;
+}
+
 std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string_view file)
 {
 	const std::string file_str(file);
@@ -100,9 +216,6 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 			err,
 			warn));
 	}
-
-	using vertex_t = SDS::TexVertex;
-	using shape_t = TexShape;
 
 	std::vector<std::unique_ptr<Shape>> shapes;
 	for (auto& mesh : model.meshes)
@@ -123,65 +236,18 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 			throw std::runtime_error("ResourceLoader::load_model: no indices found");
 		}
 
-		if (primitive.attributes.find("POSITION") == primitive.attributes.end() ||
-			primitive.attributes.find("TEXCOORD_0") == primitive.attributes.end() ||
-			primitive.attributes.find("NORMAL") == primitive.attributes.end())
-		{
-			throw std::runtime_error("ResourceLoader::load_model: missing attributes");
-		}
-
-		const auto& pos_accessor = model.accessors[primitive.attributes["POSITION"]];
-		const auto& tex_accessor = model.accessors[primitive.attributes["TEXCOORD_0"]];
-		const auto& norm_accessor = model.accessors[primitive.attributes["NORMAL"]];
 		const auto& index_accessor = model.accessors[primitive.indices];
-
-		if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || pos_accessor.type != TINYGLTF_TYPE_VEC3)
-		{
-			throw std::runtime_error("ResourceLoader::load_model: only float vec3 positions are supported");
-		}
-
-		if (tex_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || tex_accessor.type != TINYGLTF_TYPE_VEC2)
-		{
-			throw std::runtime_error("ResourceLoader::load_model: only float vec2 texcoords are supported");
-		}
-
-		if (norm_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || norm_accessor.type != TINYGLTF_TYPE_VEC3)
-		{
-			throw std::runtime_error("ResourceLoader::load_model: only float vec3 normals are supported");
-		}
-
-		if (index_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT && index_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-		{
-			throw std::runtime_error("ResourceLoader::load_model: only unsigned int and unsigned short indices are supported");
-		}
-
-		const auto& pos_buffer_view = model.bufferViews[pos_accessor.bufferView];
-		const auto& tex_buffer_view = model.bufferViews[tex_accessor.bufferView];
-		const auto& norm_buffer_view = model.bufferViews[norm_accessor.bufferView];
 		const auto& index_buffer_view = model.bufferViews[index_accessor.bufferView];
-
-		const auto& pos_buffer = model.buffers[pos_buffer_view.buffer];
-		const auto& tex_buffer = model.buffers[tex_buffer_view.buffer];
-		const auto& norm_buffer = model.buffers[norm_buffer_view.buffer];
 		const auto& index_buffer = model.buffers[index_buffer_view.buffer];
 
-		const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
-		const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
-		const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
-
-		// convert data to our Shape format
-		std::vector<vertex_t> vertices;
-		vertices.reserve(pos_accessor.count);
-
-		for (size_t i = 0; i < pos_accessor.count; ++i)
+		const auto check_has_texture = [](auto& primitive)
 		{
-			vertex_t vertex;
-			vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
-			vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
-			vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
-			vertices.push_back(vertex);
-		}
+			return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end();
+		};
+		ShapePtr new_shape = check_has_texture(primitive) ? 
+			create_shape_with_vertices<TexShape>(model, primitive) : create_shape_with_vertices<ColorShape>(model, primitive);
 
+		// load indices onto shape
 		std::vector<uint32_t> indices(index_accessor.count);
 		if (index_accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 		{
@@ -197,42 +263,40 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 				reinterpret_cast<const uint32_t*>(&index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
 			std::memcpy(indices.data(), index_data, indices.size() * sizeof(indices[0]));
 		}
-
-		shape_t new_shape;
-		new_shape.set_vertices(std::move(vertices));
-		new_shape.set_indices(std::move(indices));
+		new_shape->set_indices(std::move(indices));
 
 		// apply materials
-		const auto& mat = model.materials[primitive.material];
 		Material new_material;
-
-		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
-		// has color texture
-		if (color_texture.index >= 0)
+		if (primitive.material >= 0) // if it contains a material
 		{
-			tinygltf::Image& image = model.images[color_texture.index];
-			TextureData new_texture_data;
-			new_texture_data.width = image.width;
-			new_texture_data.height = image.height;
-			new_texture_data.channels = image.component;
-			new_texture_data.data = std::make_unique<RawTextureDataGLFT>(std::move(image.image));
-			new_texture_data.texture_id = get_next_texture_id();
+			const auto& mat = model.materials[primitive.material];
+			const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
+			// has color texture
+			if (color_texture.index >= 0)
+			{
+				tinygltf::Image& image = model.images[color_texture.index];
+				TextureData new_texture_data;
+				new_texture_data.width = image.width;
+				new_texture_data.height = image.height;
+				new_texture_data.channels = image.component;
+				new_texture_data.data = std::make_unique<RawTextureDataGLFT>(std::move(image.image));
+				new_texture_data.texture_id = get_next_texture_id();
 
-			auto pair = cached_textures.emplace(new_texture_data.texture_id, std::move(new_texture_data));
-			new_material.texture = create_material_texture(pair.first->second);
+				auto pair = cached_textures.emplace(new_texture_data.texture_id, std::move(new_texture_data));
+				new_material.texture = create_material_texture(pair.first->second);
+			}
+
+			new_material.material_data.diffuse = glm::vec3(
+				mat.pbrMetallicRoughness.baseColorFactor[0],
+				mat.pbrMetallicRoughness.baseColorFactor[1],
+				mat.pbrMetallicRoughness.baseColorFactor[2]);
+			new_material.material_data.ambient = new_material.material_data.diffuse;
+			new_material.material_data.specular = (new_material.material_data.specular + new_material.material_data.diffuse)/2.0f;
+			new_material.material_data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
 		}
+		new_shape->set_material(std::move(new_material));
 
-		new_material.material_data.diffuse = glm::vec3(
-			mat.pbrMetallicRoughness.baseColorFactor[0],
-			mat.pbrMetallicRoughness.baseColorFactor[1],
-			mat.pbrMetallicRoughness.baseColorFactor[2]);
-		new_material.material_data.ambient = new_material.material_data.diffuse;
-		new_material.material_data.specular = (new_material.material_data.specular + new_material.material_data.diffuse)/2.0f;
-		new_material.material_data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
-
-		new_shape.set_material(std::move(new_material));
-
-		shapes.push_back(std::make_unique<shape_t>(std::move(new_shape)));
+		shapes.push_back(std::move(new_shape));
 	}
 
 	// new_obj.set_render_type(EPipelineType::STANDARD); // use textured render

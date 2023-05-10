@@ -95,48 +95,31 @@ private:
 
 using ShapePtr = std::unique_ptr<Shape>;
 
-class ColorShape : public Shape
+template<typename vertex_t>
+class DerivedShape : public Shape
 {
 public:
-	ColorShape() = default;
-	ColorShape(const ColorShape& shape) = delete;
-	ColorShape& operator=(const ColorShape& shape) = delete;
-	ColorShape(ColorShape&& shape) noexcept = default;
+	using VertexType = vertex_t;
+
+	DerivedShape() = default;
+	DerivedShape(const DerivedShape& shape) = delete;
+	DerivedShape& operator=(const DerivedShape& shape) = delete;
+	DerivedShape(DerivedShape&& shape) noexcept = default;
 
 	uint32_t get_num_unique_vertices() const override { return static_cast<uint32_t>(vertices.size()); }
 	virtual void transform_vertices(const glm::mat4& transform) override { Shape::transform_vertices(vertices, transform); }
 	virtual void transform_vertices(const glm::quat& quat) override { Shape::transform_vertices(vertices, quat); }
 	virtual void translate_vertices(const glm::vec3& vec) override { Shape::translate_vertices(vertices, vec); }
 	virtual void generate_normals() override { Shape::generate_normals(vertices, indices); }
-	std::vector<SDS::ColorVertex>& get_vertices() { return vertices; }
-	void set_vertices(std::vector<SDS::ColorVertex>&& vertices) { this->vertices = std::move(vertices); }
+	std::vector<VertexType>& get_vertices() { return vertices; }
+	void set_vertices(std::vector<VertexType>&& vertices) { this->vertices = std::move(vertices); }
 	virtual const std::byte* get_vertices_data() const override { return reinterpret_cast<const std::byte*>(vertices.data()); }
-	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(SDS::ColorVertex); }
+	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(VertexType); }
 	virtual AABB calculate_bounding_box() const override { return Shape::calculate_bounding_box(vertices); }
 
 private:
-	std::vector<SDS::ColorVertex> vertices;
+	std::vector<VertexType> vertices;
 };
 
-class TexShape : public Shape
-{
-public:
-	TexShape() = default;
-	TexShape(const TexShape& shape) = delete;
-	TexShape& operator=(const TexShape& shape) = delete;
-	TexShape(TexShape&& shape) noexcept = default;
-
-	uint32_t get_num_unique_vertices() const override { return static_cast<uint32_t>(vertices.size()); }
-	virtual void transform_vertices(const glm::mat4& transform) override { Shape::transform_vertices(vertices, transform); }
-	virtual void transform_vertices(const glm::quat& quat) override { Shape::transform_vertices(vertices, quat); }
-	virtual void translate_vertices(const glm::vec3& vec) override { Shape::translate_vertices(vertices, vec); }
-	virtual void generate_normals() override { Shape::generate_normals(vertices, indices); }
-	std::vector<SDS::TexVertex>& get_vertices() { return vertices; }
-	void set_vertices(std::vector<SDS::TexVertex>&& vertices) { this->vertices = std::move(vertices); }
-	virtual const std::byte* get_vertices_data() const override { return reinterpret_cast<const std::byte*>(vertices.data()); }
-	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(SDS::TexVertex); }
-	virtual AABB calculate_bounding_box() const override { return Shape::calculate_bounding_box(vertices); }
-
-private:
-	std::vector<SDS::TexVertex> vertices;
-};
+using ColorShape = DerivedShape<SDS::ColorVertex>;
+using TexShape = DerivedShape<SDS::TexVertex>;
