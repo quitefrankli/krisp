@@ -88,13 +88,24 @@ else()
 	message(FATAL_ERROR "CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE} is not supported!")
 endif()
 
-# could be useful for recompiling shaders or dynamic library
-# add_custom_command(
-# 	OUTPUT None
-# 	COMMAND cat testfile.txt
-# 	DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/README.md
-# 	VERBATIM
-# )
+# build shaders
+file(
+	GLOB_RECURSE 
+	SHADER_FILES 
+	${CMAKE_SOURCE_DIR}/shaders/*
+	${CMAKE_SOURCE_DIR}/shared_code/*.txt
+	${CMAKE_SOURCE_DIR}/shared_code/*.glsl)
+
+set(DUMMY_FILE ${CMAKE_BINARY_DIR}/shaders/dummy)
+
+add_custom_command(
+	OUTPUT ${DUMMY_FILE}
+	COMMENT "Cmake detected changes in shaders, rebuilding shaders..."
+	COMMAND bash ${CMAKE_SOURCE_DIR}/shader_compiler.sh && touch ${DUMMY_FILE}
+	DEPENDS ${SHADER_FILES})
+	
+add_custom_target(shaders DEPENDS ${DUMMY_FILE})
+add_dependencies(VulkanLibs shaders)
 
 # target_link_libraries(Vulkan ${CONAN_LIBS} shared_lib) # this links a start-time dynamic lib when we actually want a run-time dynamic lib
 # target_include_directories(Vulkan PRIVATE "src/" "shared_lib/src/")
