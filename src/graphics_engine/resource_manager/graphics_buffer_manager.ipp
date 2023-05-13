@@ -21,7 +21,7 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	global_uniform_buffer(create_buffer(
 		GLOBAL_UNIFORM_BUFFER_CAPACITY, GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS)),
 	mapping_buffer(create_buffer(
-		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(BufferMapEntry)),
+		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(SDS::BufferMapEntry)),
 	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
@@ -59,7 +59,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(cons
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::vector<std::unique_ptr<Shape>>& shapes, ObjectID id)
+void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::vector<GraphicsMesh>& shapes, ObjectID id)
 {
 	// assume that the size of the data in shapes is equal to the size of the buffer slot
 	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
@@ -70,8 +70,8 @@ void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::
 	{
 		for (auto& shape : shapes)
 		{
-			std::memcpy(destination, shape->get_vertices_data(), shape->get_vertices_data_size());
-			destination += shape->get_vertices_data_size();
+			std::memcpy(destination, shape.get_vertices_data(), shape.get_vertices_data_size());
+			destination += shape.get_vertices_data_size();
 		}
 	});
 
@@ -80,8 +80,8 @@ void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(const std::
 	{
 		for (auto& shape : shapes)
 		{
-			std::memcpy(destination, shape->get_indices_data(), shape->get_indices_data_size());
-			destination += shape->get_indices_data_size();
+			std::memcpy(destination, shape.get_indices_data(), shape.get_indices_data_size());
+			destination += shape.get_indices_data_size();
 		}
 	});
 }
@@ -99,7 +99,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_materials_buffer(const SDS
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const BufferMapEntry& entry, ObjectID id)
+void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const SDS::BufferMapEntry& entry, ObjectID id)
 {
 	mapping_buffer.decrease_free_capacity(sizeof(entry));
 	stage_data_to_buffer(mapping_buffer.get_buffer(), mapping_buffer.get_slot_offset(id.get_underlying()), sizeof(entry), 

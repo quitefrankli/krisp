@@ -6,36 +6,33 @@
 #include "graphics_engine/graphics_engine.hpp"
 
 
+GraphicsMesh::GraphicsMesh(Shape& shape, GraphicsEngineTexture* texture) :
+	shape(shape),
+	material(shape.get_material(), texture)
+{
+}
+
 template<typename GraphicsEngineT>
 GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& engine, const Object& object) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	type(object.get_render_type())
 {
-	switch (get_render_type())
+	for (const auto& shape : object.get_shapes())
 	{
-		case EPipelineType::STANDARD:
-			for (const auto& shape : object.get_shapes())
-			{
-				materials.emplace_back(
-					shape->get_material(), 
-					&get_graphics_engine().get_texture_mgr().fetch_texture(
+		switch (get_render_type())
+		{
+			case EPipelineType::STANDARD:
+				meshes.emplace_back(*shape, &get_graphics_engine().get_texture_mgr().fetch_texture(
 					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_REPEAT));
-			}
-		case EPipelineType::CUBEMAP:
-			for (const auto& shape : object.get_shapes())
-			{
-				materials.emplace_back(
-					shape->get_material(), 
-					&get_graphics_engine().get_texture_mgr().fetch_texture(
+				break;
+			case EPipelineType::CUBEMAP:
+				meshes.emplace_back(*shape, &get_graphics_engine().get_texture_mgr().fetch_texture(
 					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
-			}
-			break;
-		default:
-			for (const auto& shape : object.get_shapes())
-			{
-				materials.emplace_back(shape->get_material());
-			}
-			break;
+				break;
+			default:
+				meshes.emplace_back(*shape);
+				break;
+		}
 	}
 }
 
@@ -44,13 +41,14 @@ GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 {
 	// this doesn't actually "deallocates" the descriptor sets, but rather makes
 	// them available for reuse in the same descriptor set pool
-	get_rsrc_mgr().free_high_frequency_dsets(descriptor_sets);
-}
+	for (auto& mesh : meshes)
+	{
+		get_rsrc_mgr().free_high_freq_per_shape_dsets(mesh.get_dsets());
+		mesh.get_dsets().clear();
+	}
 
-template<typename GraphicsEngineT>
-const std::vector<ShapePtr>& GraphicsEngineObject<GraphicsEngineT>::get_shapes() const
-{
-	return get_game_object().get_shapes();
+	get_rsrc_mgr().free_high_freq_per_obj_dsets(dsets);
+	dsets.clear();
 }
 
 template<typename GraphicsEngineT>

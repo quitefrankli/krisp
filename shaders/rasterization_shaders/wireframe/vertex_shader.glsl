@@ -1,26 +1,15 @@
 #version 450
 
-// keep in mind that some types such as dvec3 uses 2 slots therefore we need the next layout location to be 2 indices after
-layout(location = 0) in vec3 inPosition;
+#include "../../library/library.glsl"
 
-// be vary of alignment issues
-layout(set=0, binding=0) uniform UniformBufferObject
-{
-	mat4 model;
-	mat4 mvp; // precomputed model-view-proj matrix
-	mat3 rot_mat; // in c++ this is actually a mat4
-} ubo;
+layout(location = 0) in vec3 in_position;
 
-layout(set=1, binding=0) uniform GlobalUniformBufferObject
+layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
-	mat4 view; // camera
-	mat4 proj;
-	vec3 view_pos; // camera eye
-	vec3 light_pos;
-	float lighting_scalar;
-} gubo;
+	ObjectData data;
+} object_data;
 
 void main()
 {
-	gl_Position = ubo.mvp * vec4(inPosition, 1.0);
+	gl_Position = object_data.data.mvp * vec4(in_position, 1.0);
 }

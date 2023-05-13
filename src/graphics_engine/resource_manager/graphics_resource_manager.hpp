@@ -32,9 +32,13 @@ public:
 	RaytracingResources& get_raytracing_resources() { return ray_tracing_resources; }
 
 	// other graphics components should call these methods to request descriptor sets
-	std::vector<VkDescriptorSet> reserve_high_frequency_dsets(uint32_t n)
+	std::vector<VkDescriptorSet> reserve_high_freq_per_obj_dsets(uint32_t n)
 	{
-		return reserve_dsets_common_impl(available_high_freq_dsets, n);
+		return reserve_dsets_common_impl(available_high_freq_per_obj_dsets, n);
+	}
+	std::vector<VkDescriptorSet> reserve_high_freq_per_shape_dsets(uint32_t n)
+	{
+		return reserve_dsets_common_impl(available_high_freq_per_shape_dsets, n);
 	}
 	std::vector<VkDescriptorSet> reserve_raytracing_dsets(uint32_t n)
 	{
@@ -42,23 +46,18 @@ public:
 	}
 
 	// other graphics components should call these methods to release dsets back into the pool
-	void free_high_frequency_dsets(std::vector<VkDescriptorSet>& sets)
+	void free_high_freq_per_obj_dsets(std::vector<VkDescriptorSet>& sets)
 	{
-		free_dsets_common_impl(available_high_freq_dsets, sets);
+		free_dsets_common_impl(available_high_freq_per_obj_dsets, sets);
+	}
+	void free_high_freq_per_shape_dsets(std::vector<VkDescriptorSet>& sets)
+	{
+		free_dsets_common_impl(available_high_freq_per_shape_dsets, sets);
 	}
 	void free_raytracing_dsets(std::vector<VkDescriptorSet>& sets)
 	{
 		free_dsets_common_impl(available_raytracing_dsets, sets);
 	}
-
-	// used in binding descriptor sets during draw
-	// corresponds to the "set" value in the "layout" in shaders
-	struct {
-		static constexpr int RASTERIZATION_LOW_FREQ = 1;
-		static constexpr int RASTERIZATION_HIGH_FREQ = 0;
-		static constexpr int RAYTRACING_LOW_FREQ = 1;
-		static constexpr int RAYTRACING_TLAS = 0;
-	} DSET_OFFSETS;
 
 	std::vector<VkDescriptorSetLayout> get_rasterization_descriptor_set_layouts() const;
 	std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
@@ -92,7 +91,8 @@ private:
 	VkCommandPool command_pool;
 	VkDescriptorSet global_descriptor_set;
 	VkDescriptorSet mesh_data_descriptor_set;
-	std::queue<VkDescriptorSet> available_high_freq_dsets;
+	std::queue<VkDescriptorSet> available_high_freq_per_obj_dsets;
+	std::queue<VkDescriptorSet> available_high_freq_per_shape_dsets;
 	std::queue<VkDescriptorSet> available_raytracing_dsets;
 	RaytracingResources ray_tracing_resources;
 
@@ -118,6 +118,7 @@ private:
 
 	// a descriptor set layout describes the layout for a specific "descriptor set"
 	VkDescriptorSetLayout low_freq_descriptor_set_layout;
-	VkDescriptorSetLayout high_freq_descriptor_set_layout;
+	VkDescriptorSetLayout rasterization_high_freq_per_obj_dset_layout;
+	VkDescriptorSetLayout rasterization_high_freq_per_shape_dset_layout;
 	VkDescriptorSetLayout mesh_data_descriptor_set_layout;
 };

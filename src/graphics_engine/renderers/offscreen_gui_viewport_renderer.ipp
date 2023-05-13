@@ -1,4 +1,5 @@
 #include "renderers.hpp"
+#include "shared_data_structures.hpp"
 
 #include <ImGui/imgui_impl_vulkan.h>
 
@@ -116,7 +117,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							// lets assume that global descriptor objects only use the STANDARD pipeline
 							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
-							get_rsrc_mgr().DSET_OFFSETS.RASTERIZATION_LOW_FREQ,
+							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
 							1,
 							&get_rsrc_mgr().get_low_freq_dset(),
 							0,
@@ -126,11 +127,9 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 		const GraphicsEngineObject<GraphicsEngineT>& object, 
 		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
 	{
-		const std::vector<ShapePtr>& shapes = object.get_shapes();
-
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		
-		VkDeviceSize buffer_offset = get_rsrc_mgr().get_vertex_buffer_offset(object.get_game_object().get_id());
+		VkDeviceSize buffer_offset = get_rsrc_mgr().get_vertex_buffer_offset(object.get_id());
 		VkBuffer buffer = get_rsrc_mgr().get_vertex_buffer();
 		vkCmdBindVertexBuffers(
 			command_buffer, 
@@ -142,31 +141,40 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 		vkCmdBindIndexBuffer(
 			command_buffer,
 			get_rsrc_mgr().get_index_buffer(),
-			get_rsrc_mgr().get_index_buffer_offset(object.get_game_object().get_id()),
+			get_rsrc_mgr().get_index_buffer_offset(object.get_id()),
 			VK_INDEX_TYPE_UINT32
 		);
+
+		std::vector<VkDescriptorSet> object_dsets = { object.get_dset(frame_index) };
+		vkCmdBindDescriptorSets(
+			command_buffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipeline.pipeline_layout,
+			SDS::RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET,
+			object_dsets.size(),
+			object_dsets.data(),
+			0,
+			nullptr);
 
 		// this really should be per object, we will adjust in the future
 		int total_vertex_offset = 0;
 		int total_index_offset = 0;
-		for (int vertex_set_index = 0; vertex_set_index < shapes.size(); vertex_set_index++)
+		for (const auto& shape : object.get_shapes())
 		{
-			const auto& shape = shapes[vertex_set_index];
-
 			// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
-
+			std::vector<VkDescriptorSet> shape_dsets = { shape.get_dset(frame_index) };
 			vkCmdBindDescriptorSets(command_buffer, 
 									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
 									pipeline.pipeline_layout, 
-									get_rsrc_mgr().DSET_OFFSETS.RASTERIZATION_HIGH_FREQ, // offset
-									1, // number of sets to bind
-									&object.descriptor_sets[vertex_set_index],
+									SDS::RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, // offset
+									shape_dsets.size(),
+									shape_dsets.data(),
 									0,
 									nullptr);
 		
 			vkCmdDrawIndexed(
 				command_buffer,
-				shape->get_num_vertex_indices(),	// vertex count
+				shape.get_num_vertex_indices(),	// vertex count
 				1,	// instance count
 				total_index_offset,	// first index
 				total_vertex_offset,	// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
@@ -175,8 +183,8 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 
 			// this is not get_num_vertex_indices() because we want to offset the vertex set essentially
 			// see NOTE:A
-			total_vertex_offset += shape->get_num_unique_vertices();
-			total_index_offset += shape->get_num_vertex_indices();
+			total_vertex_offset += shape.get_num_unique_vertices();
+			total_index_offset += shape.get_num_vertex_indices();
 		}
 	};
 
@@ -186,7 +194,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 		if (graphics_object.is_marked_for_delete())
 			continue;
 
-		// if (!graphics_object.get_game_object().get_visibility())
+		// if (!graphics_object.get_visibility())
 			// continue;
 		
 		// only support color and texture render types for now

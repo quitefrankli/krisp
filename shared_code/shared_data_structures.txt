@@ -36,6 +36,42 @@ struct GlobalData
     ALIGN(4) float lighting_scalar;
 };
 
+// in glsl this refers to the set index in the layout, in c++ this refers to the descriptor set offset
+const int RASTERIZATION_LOW_FREQ_SET_OFFSET = 0;
+const int RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET = 1;
+const int RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET = 2;
+const int RAYTRACING_LOW_FREQ_SET_OFFSET = 0;
+const int RAYTRACING_TLAS_SET_OFFSET = 1;
+const int RAYTRACING_MESH_DATA_SET_OFFSET = 2;
+
+// in glsl this refers to the binding index in the layout, in c++ this refers to the descriptor binding
+const int GLOBAL_DATA_BINDING = 0;
+const int BUFFER_MAPPER_BINDING = 0;
+const int VERTICES_DATA_BINDING = 1;
+const int INDICES_DATA_BINDING = 2;
+
+const int RASTERIZATION_GLOBAL_DATA_BINDING = GLOBAL_DATA_BINDING;
+const int RASTERIZATION_OBJECT_DATA_BINDING = 0;
+const int RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING = 1;
+const int RASTERIZATION_MATERIAL_DATA_BINDING = 2;
+const int RAYTRACING_GLOBAL_DATA_BINDING = GLOBAL_DATA_BINDING;
+const int RAYTRACING_TLAS_DATA_BINDING = 0;
+const int RAYTRACING_ALBEDO_TEXTURE_DATA_BINDING = RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+const int RAYTRACING_OUTPUT_IMAGE_BINDING = 1;
+const int RAYTRACING_BUFFER_MAPPER_BINDING = BUFFER_MAPPER_BINDING;
+const int RAYTRACING_VERTICES_DATA_BINDING = VERTICES_DATA_BINDING;
+const int RAYTRACING_INDICES_DATA_BINDING = INDICES_DATA_BINDING;
+
+// maps object id to starting offset in the vertex, index and uniform buffers
+struct BufferMapEntry
+{
+	UINT vertex_offset;
+	UINT index_offset;
+	UINT uniform_offset;
+};
+
+const UINT BUFFER_MAP_ENTRY_SIZE = 12;
+
 struct ColorVertex
 {
 	VEC3 pos;
@@ -49,6 +85,8 @@ struct ColorVertex
 #endif
 };
 
+const UINT COLOR_VERTEX_SIZE = 6;
+
 struct TexVertex
 {
 	VEC3 pos;
@@ -61,4 +99,20 @@ struct TexVertex
 		return pos == other.pos && texCoord == other.texCoord && normal == other.normal;
 	};
 #endif
+};
+
+struct SkinnedVertex
+{
+	// although bone_ids is really supposed to be an integer array we are using a vec4 for convenience with glsl
+	VEC4 bone_ids;
+	VEC4 bone_weights;
+	ALIGN(16) VEC3 pos;
+	ALIGN(16) VEC3 normal;
+	ALIGN(8) VEC2 texCoord;
+};
+
+struct Bone
+{
+	MAT4 inverse_transform; // inverse bind pose, used to transform vertices to bone space
+	MAT4 final_transform;
 };

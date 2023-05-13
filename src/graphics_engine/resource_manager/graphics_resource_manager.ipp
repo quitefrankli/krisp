@@ -123,38 +123,45 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 		}
 	};
 
-	// Model + Texture
+	// Object
 	{
 		VkDescriptorSetLayoutBinding ubo_layout_binding{};
 		ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		ubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
+		ubo_layout_binding.binding = SDS::RASTERIZATION_OBJECT_DATA_BINDING;
 		ubo_layout_binding.descriptorCount = 1;
 		ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
 		ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding };
+		create_layout(bindings, &rasterization_high_freq_per_obj_dset_layout);
+	}
+
+	// Materials
+	{
+
 		VkDescriptorSetLayoutBinding sampler_layout_binding{};
 		sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		sampler_layout_binding.binding = 1; // this must be synced with the one in the shaders
+		sampler_layout_binding.binding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
 		sampler_layout_binding.descriptorCount = 1;
 		sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
 		sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
 		VkDescriptorSetLayoutBinding materials_layout_binding{};
 		materials_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		materials_layout_binding.binding = 2;
+		materials_layout_binding.binding = SDS::RASTERIZATION_MATERIAL_DATA_BINDING;
 		materials_layout_binding.descriptorCount = 1;
 		materials_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 		materials_layout_binding.pImmutableSamplers = nullptr;
 
-		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, sampler_layout_binding, materials_layout_binding };
-		create_layout(bindings, &high_freq_descriptor_set_layout);
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ sampler_layout_binding, materials_layout_binding };
+		create_layout(bindings, &rasterization_high_freq_per_shape_dset_layout);
 	}
 
 	// global uniforms i.e. camera & lighting
 	{
 		VkDescriptorSetLayoutBinding gubo_layout_binding{};
 		gubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		gubo_layout_binding.binding = 0; // this must be synced with the one in the shaders
+		gubo_layout_binding.binding = SDS::RASTERIZATION_GLOBAL_DATA_BINDING;
 		gubo_layout_binding.descriptorCount = 1;
 		// defines which shader stage the descriptor is going to be referenced
 		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
@@ -169,13 +176,13 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 	{
 		ray_tracing_resources.tlas_binding = {};
 		ray_tracing_resources.tlas_binding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-		ray_tracing_resources.tlas_binding.binding = 0; // this must be synced with the one in the shaders
+		ray_tracing_resources.tlas_binding.binding = SDS::RAYTRACING_TLAS_DATA_BINDING;
 		ray_tracing_resources.tlas_binding.descriptorCount = 1;
 		ray_tracing_resources.tlas_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
 		ray_tracing_resources.output_binding = {};
 		ray_tracing_resources.output_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		ray_tracing_resources.output_binding.binding = 1; // this must be synced with the one in the shaders
+		ray_tracing_resources.output_binding.binding = SDS::RAYTRACING_OUTPUT_IMAGE_BINDING;
 		ray_tracing_resources.output_binding.descriptorCount = 1;
 		ray_tracing_resources.output_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 
@@ -183,25 +190,25 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 		create_layout(bindings, &ray_tracing_resources.descriptor_set_layout);
 	}
 
-	// mesh data: vertices, indices, materials
+	// mesh data: vertices, indices
 	{
 		VkDescriptorSetLayoutBinding buffer_mapper_binding{};
 		buffer_mapper_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		buffer_mapper_binding.binding = 0; // this must be synced with the one in the shaders
+		buffer_mapper_binding.binding = SDS::RAYTRACING_BUFFER_MAPPER_BINDING;
 		buffer_mapper_binding.descriptorCount = 1;
 		buffer_mapper_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		buffer_mapper_binding.pImmutableSamplers = nullptr;
 
 		VkDescriptorSetLayoutBinding vertices_binding{};
 		vertices_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		vertices_binding.binding = 1; // this must be synced with the one in the shaders
+		vertices_binding.binding = SDS::RAYTRACING_VERTICES_DATA_BINDING;
 		vertices_binding.descriptorCount = 1;
 		vertices_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		vertices_binding.pImmutableSamplers = nullptr;
 
 		VkDescriptorSetLayoutBinding indices_binding{};
 		indices_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		indices_binding.binding = 2; // this must be synced with the one in the shaders
+		indices_binding.binding = SDS::RAYTRACING_INDICES_DATA_BINDING;
 		indices_binding.descriptorCount = 1;
 		indices_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 		indices_binding.pImmutableSamplers = nullptr;		
@@ -230,23 +237,28 @@ void GraphicsResourceManager<GraphicsEngineT>::allocate_rasterization_dsets()
 		}
 	}
 
-	// high frequency descriptor sets allocations, i.e. per object descriptor sets
+	// high frequency descriptor sets allocations, i.e. per object and per shape dsets
+	// this might cause slow startup, we may be able to optimise by allocating blocks at runtime instead
+	const auto allocate_high_freq_dsets = [&](VkDescriptorSetLayout layout, std::queue<VkDescriptorSet>& q)
 	{
-		std::vector<VkDescriptorSetLayout> layouts(MAX_HIGH_FREQ_DESCRIPTOR_SETS, high_freq_descriptor_set_layout);
+		std::vector<VkDescriptorSetLayout> layouts(MAX_HIGH_FREQ_DESCRIPTOR_SETS, layout);
 		VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 		alloc_info.descriptorPool = descriptor_pool;
-		alloc_info.descriptorSetCount = MAX_HIGH_FREQ_DESCRIPTOR_SETS;
+		alloc_info.descriptorSetCount = layouts.size();
 		alloc_info.pSetLayouts = layouts.data();
 		std::vector<VkDescriptorSet> descriptor_sets(MAX_HIGH_FREQ_DESCRIPTOR_SETS);
 		if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, descriptor_sets.data()) != VK_SUCCESS)
 		{
 			throw std::runtime_error("GraphicsResourceManager: failed to allocate high freq descriptor sets!");
 		}
-		for (auto& dset : descriptor_sets)
+		for (auto dset : descriptor_sets)
 		{
-			available_high_freq_dsets.push(dset);
+			q.push(dset);
 		}
-	}
+	};
+
+	allocate_high_freq_dsets(rasterization_high_freq_per_obj_dset_layout, available_high_freq_per_obj_dsets);
+	allocate_high_freq_dsets(rasterization_high_freq_per_shape_dset_layout, available_high_freq_per_shape_dsets);
 }
 
 template<typename GraphicsEngineT>
@@ -293,7 +305,7 @@ void GraphicsResourceManager<GraphicsEngineT>::initialise_global_descriptor_set(
 
 	VkWriteDescriptorSet dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	dset_write.dstSet = global_descriptor_set;
-	dset_write.dstBinding = 0;
+	dset_write.dstBinding = SDS::GLOBAL_DATA_BINDING;
 	dset_write.dstArrayElement = 0;
 	dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	dset_write.descriptorCount = 1;
@@ -319,7 +331,7 @@ void GraphicsResourceManager<GraphicsEngineT>::initialise_mesh_data_descriptor_s
 	buffer_mapper_info.range = MAPPING_BUFFER_CAPACITY;
 	VkWriteDescriptorSet buffer_mapper_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	buffer_mapper_dset_write.dstSet = mesh_data_descriptor_set;
-	buffer_mapper_dset_write.dstBinding = 0;
+	buffer_mapper_dset_write.dstBinding = SDS::BUFFER_MAPPER_BINDING;
 	buffer_mapper_dset_write.dstArrayElement = 0;
 	buffer_mapper_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	buffer_mapper_dset_write.descriptorCount = 1;
@@ -331,7 +343,7 @@ void GraphicsResourceManager<GraphicsEngineT>::initialise_mesh_data_descriptor_s
 	vertices_buffer_info.range = VERTEX_BUFFER_CAPACITY;
 	VkWriteDescriptorSet vertices_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	vertices_dset_write.dstSet = mesh_data_descriptor_set;
-	vertices_dset_write.dstBinding = 1;
+	vertices_dset_write.dstBinding = SDS::VERTICES_DATA_BINDING;
 	vertices_dset_write.dstArrayElement = 0;
 	vertices_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	vertices_dset_write.descriptorCount = 1;
@@ -343,7 +355,7 @@ void GraphicsResourceManager<GraphicsEngineT>::initialise_mesh_data_descriptor_s
 	indices_buffer_info.range = INDEX_BUFFER_CAPACITY;
 	VkWriteDescriptorSet indices_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	indices_dset_write.dstSet = mesh_data_descriptor_set;
-	indices_dset_write.dstBinding = 2;
+	indices_dset_write.dstBinding = SDS::INDICES_DATA_BINDING;
 	indices_dset_write.dstArrayElement = 0;
 	indices_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	indices_dset_write.descriptorCount = 1;
@@ -414,8 +426,9 @@ std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::
 	get_rasterization_descriptor_set_layouts() const
 {
 	return { 
-		high_freq_descriptor_set_layout, 
-		low_freq_descriptor_set_layout
+		low_freq_descriptor_set_layout,
+		rasterization_high_freq_per_obj_dset_layout,
+		rasterization_high_freq_per_shape_dset_layout 
 	};
 }
 
@@ -424,8 +437,8 @@ std::vector<VkDescriptorSetLayout> GraphicsResourceManager<GraphicsEngineT>::
 	get_raytracing_descriptor_set_layouts() const
 {
 	return { 
+		low_freq_descriptor_set_layout,
 		ray_tracing_resources.descriptor_set_layout, 
-		low_freq_descriptor_set_layout, 
 		mesh_data_descriptor_set_layout
 	};
 }

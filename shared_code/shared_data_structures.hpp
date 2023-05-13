@@ -10,10 +10,12 @@
 #define CPPONLY
 #define VEC2 glm::vec2
 #define VEC3 glm::vec3
+#define VEC4 glm::vec4
 #define MAT3 glm::mat3
 #define MAT4 glm::mat4
 #define CPP_MAT4_GLSL_MAT3 glm::mat4
 #define ALIGN(X) alignas(X)
+#define UINT uint32_t
 
 namespace SDS // stands for shared data structures
 {
@@ -22,10 +24,12 @@ namespace SDS // stands for shared data structures
 
 #undef VEC2
 #undef VEC3
+#undef VEC4
 #undef MAT3
 #undef MAT4
 #undef CPP_MAT4_GLSL_MAT3
 #undef ALIGN
+#undef UINT
 #undef CPPONLY
 
 namespace std

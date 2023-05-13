@@ -11,7 +11,7 @@ layout(location=3) in vec3 in_normal; // vertex normal
 layout(location=2) out vec3 surface_normal;
 layout(location=4) out vec3 frag_pos;
 
-layout(set=0, binding=0) uniform ObjectDataBuffer
+layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
 	ObjectData data;
 } object_data;
@@ -19,6 +19,6 @@ layout(set=0, binding=0) uniform ObjectDataBuffer
 void main()
 {
     gl_Position = object_data.data.mvp * vec4(in_position, 1.0);
-    surface_normal = object_data.data.rot_mat * in_normal;
+    surface_normal = (object_data.data.model * vec4(in_normal, 0.0)).xyz;
 	frag_pos = (object_data.data.model * vec4(in_position, 1.0)).xyz;
 }

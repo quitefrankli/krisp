@@ -1,46 +1,41 @@
 #version 450
 
+#include "../../library/library.glsl"
+
 // keep in mind that some types such as dvec3 uses 2 slots therefore we need the next layout location to be 2 indices after
-layout(location = 0) in vec3 inPosition;
+layout(location = 0) in vec3 in_position;
 layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec3 inNormal;
 
-layout(location=0) out vec2 fragTexCoord;
+layout(location=0) out vec2 frag_tex_coord;
 layout(location=1) out vec3 light_normal;
 layout(location=2) out vec3 surface_normal;
 layout(location=3) out vec3 view_dir;
-layout(location=4) out vec3 fragPos;
+layout(location=4) out vec3 frag_pos;
 
-// be vary of alignment issues
-layout(set=0, binding=0) uniform UniformBufferObject
+layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
-	mat4 model;
-	mat4 mvp; // precomputed model-view-proj matrix
-	mat3 rot_mat; // in c++ this is actually a mat4
-} ubo;
+	ObjectData data;
+} object_data;
 
-layout(set=1, binding=0) uniform GlobalUniformBufferObject
+layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
 {
-	mat4 view; // camera
-	mat4 proj;
-	vec3 view_pos; // camera eye
-	vec3 light_pos;
-	float lighting_scalar;
-} gubo;
+	GlobalData data;
+} global_data;
 
 vec3 get_light_normal()
 {
-	return normalize(gubo.light_pos - ubo.rot_mat * inPosition);
+	return normalize(global_data.data.light_pos - object_data.data.rot_mat * in_position);
 }
 
 void main()
 {
-	gl_Position = ubo.mvp * vec4(inPosition, 1.0);
+	gl_Position = object_data.data.mvp * vec4(in_position, 1.0);
 
-	fragTexCoord = inTexCoord;
+	frag_tex_coord = inTexCoord;
 	light_normal = get_light_normal();
-	surface_normal = ubo.rot_mat * inNormal;
-	// it's likely we can remove the need for gubo.view_pos and compute everything in "view space"
-	view_dir = normalize(gubo.view_pos - mat3(ubo.model) * inPosition);
-	fragPos = (ubo.model * vec4(inPosition, 1.0)).xyz;
+	surface_normal = object_data.data.rot_mat * inNormal;
+	// it's likely we can remove the need for global_data.data.view_pos and compute everything in "view space"
+	view_dir = normalize(global_data.data.view_pos - mat3(object_data.data.model) * in_position);
+	frag_pos = (object_data.data.model * vec4(in_position, 1.0)).xyz;
 }

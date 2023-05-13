@@ -22,7 +22,7 @@ inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
 	{
 		depth_attachment.destroy(get_logical_device());
 	}
-	get_rsrc_mgr().free_high_frequency_dsets(rt_dsets);
+	get_rsrc_mgr().free_raytracing_dsets(rt_dsets);
 }
 
 template<typename GraphicsEngineT>

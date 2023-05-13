@@ -4,6 +4,7 @@
 #include "collision/bounding_box.hpp"
 #include "materials/materials.hpp"
 #include "collision/bounding_box.hpp"
+#include "shape_id.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -13,25 +14,6 @@ namespace Maths
 {
 	struct Ray;
 }
-
-struct ShapeID
-{
-public:
-	explicit ShapeID(uint64_t id) : id(id) {}
-
-	bool operator==(const ShapeID& other) const { return id == other.id; }
-	bool operator!=(const ShapeID& other) const { return id != other.id; }
-	bool operator<(const ShapeID& other) const { return id < other.id; }
-	bool operator>(const ShapeID& other) const { return id > other.id; }
-
-	ShapeID operator++() { return ShapeID(++id); }
-	ShapeID operator++(int) { return ShapeID(id++); }
-
-	uint64_t get_underlying() const { return id; }
-
-private:
-	uint64_t id;
-};
 
 // abstract shape
 class Shape
@@ -123,3 +105,4 @@ private:
 
 using ColorShape = DerivedShape<SDS::ColorVertex>;
 using TexShape = DerivedShape<SDS::TexVertex>;
+using SkinnedShape = DerivedShape<SDS::SkinnedVertex>;

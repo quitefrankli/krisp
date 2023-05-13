@@ -4,7 +4,7 @@
 #include "objects/light_source.hpp"
 #include "shared_data_structures.hpp"
 #include "renderers/renderers.hpp"
-#include "resource_manager/buffer_map.hpp"
+#include "shared_data_structures.hpp"
 
 
 template<typename GameEngineT>
@@ -14,24 +14,24 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 	{
 		// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
 		// per frame resource and therefore we only need 1 copy
-		const auto id = graphics_object.get_game_object().get_id();
+		const auto id = graphics_object.get_id();
 		get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_game_object().get_vertices_data_size());
 		get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_game_object().get_indices_data_size());
 		get_rsrc_mgr().write_shapes_to_buffers(graphics_object.get_shapes(), id);
 
-		// upload materials
-		for (int i = 0; i < graphics_object.get_shapes().size(); ++i)
+		for (const auto& shape : graphics_object.get_shapes())
 		{
-			const ShapePtr& shape = graphics_object.get_shapes()[i];
-			const SDS::MaterialData& material = graphics_object.get_materials()[i].get_data();
-			get_rsrc_mgr().reserve_materials_buffer(shape->get_id(), sizeof(material));
-			get_rsrc_mgr().write_to_materials_buffer(material, shape->get_id());
+			// upload materials
+			const SDS::MaterialData& material = shape.get_material().get_data();
+			get_rsrc_mgr().reserve_materials_buffer(shape.get_id(), sizeof(material));
+			get_rsrc_mgr().write_to_materials_buffer(material, shape.get_id());
 		}
 
-		// TODO: we need per frame uniform buffers, could alternatively use a single buffer
+		// TODO: we need swapchain image uniform buffers, when this is done the dset needs to be updated
+		// as well in frame.ipp
 		get_rsrc_mgr().reserve_uniform_buffer(id, sizeof(SDS::ObjectData));
 
-		BufferMapEntry buffer_map;
+		SDS::BufferMapEntry buffer_map;
 		buffer_map.vertex_offset = get_rsrc_mgr().get_vertex_buffer_offset(id);
 		buffer_map.index_offset = get_rsrc_mgr().get_index_buffer_offset(id);
 		buffer_map.uniform_offset = get_rsrc_mgr().get_uniform_buffer_offset(id);

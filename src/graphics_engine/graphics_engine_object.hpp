@@ -3,13 +3,51 @@
 #include "graphics_engine_base_module.hpp"
 #include "pipeline/pipeline.hpp"
 #include "graphics_materials.hpp"
+#include "shapes/shape.hpp"
 
 #include <vulkan/vulkan.hpp>
 
 
 class Object;
-class Shape;
 class GraphicsEngineTexture;
+
+class GraphicsMesh // aka GraphicsEngineShape
+{
+public:
+	GraphicsMesh(Shape& shape, GraphicsEngineTexture* texture = nullptr);
+
+	~GraphicsMesh()
+	{
+		if (!dsets.empty())
+		{
+			throw std::runtime_error("GraphicsMesh::~GraphicsMesh: dsets not empty");
+		}
+	}
+
+	// const GraphicsMaterial& get_material() const { return material; }
+	// const GraphicsEngineTexture* get_texture() const { return texture; }
+
+	ShapeID get_id() const { return shape.get_id(); }
+
+	std::vector<VkDescriptorSet>& get_dsets() { return dsets; }
+	VkDescriptorSet get_dset(uint32_t frame_idx) const { return dsets[frame_idx]; }
+	void set_dset(VkDescriptorSet dset, uint32_t frame_idx) { dsets[frame_idx] = dset; }
+
+	uint32_t get_num_vertex_indices() const { return shape.get_num_vertex_indices(); }
+	uint32_t get_num_unique_vertices() const { return shape.get_num_unique_vertices(); }
+	const std::byte* get_vertices_data() const { return shape.get_vertices_data(); }
+	size_t get_vertices_data_size() const { return shape.get_vertices_data_size(); }
+	const std::byte* get_indices_data() const { return shape.get_indices_data(); }
+	size_t get_indices_data_size() const { return shape.get_indices_data_size(); }
+
+	GraphicsMaterial& get_material() { return material; }
+	const GraphicsMaterial& get_material() const { return material; }
+
+private:
+	const Shape& shape;
+	std::vector<VkDescriptorSet> dsets;
+	GraphicsMaterial material;
+};
 
 template<typename GraphicsEngineT>
 class GraphicsEngineObject : public GraphicsEngineBaseModule<GraphicsEngineT>
@@ -35,16 +73,14 @@ public:
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
 	uint32_t get_num_primitives() const;
-	// replaces the old "get_vertex_sets" function
-	const std::vector<ShapePtr>& get_shapes() const;
+	ObjectID get_id() const { return get_game_object().get_id(); }
+	bool get_visibility() const { return get_game_object().get_visibility(); }
+
+	std::vector<GraphicsMesh>& get_shapes() { return meshes; }
+	const std::vector<GraphicsMesh>& get_shapes() const { return meshes; }
 
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }
-
-	const std::vector<GraphicsMaterial>& get_materials() const { return materials; }
-
-	// doesn't need to be cleaned up, as descriptor pool will automatically clean it up
-	std::vector<VkDescriptorSet> descriptor_sets;
 
 	// TODO: come up with a different enum class (not pipeline or renderer type) that expresses an object's
 	// rendering 'style'. This is because an object can be rendered with different pipeline/renderer than
@@ -53,10 +89,14 @@ public:
 
 	const EPipelineType type;
 
+	std::vector<VkDescriptorSet>& get_dsets() { return dsets; }
+	VkDescriptorSet get_dset(uint32_t frame_idx) const { return dsets[frame_idx]; }
+	void set_dset(VkDescriptorSet dset, uint32_t frame_idx) { dsets[frame_idx] = dset; }
+
 private:
 	bool marked_for_delete = false;
-
-	std::vector<GraphicsMaterial> materials;
+	std::vector<VkDescriptorSet> dsets;
+	std::vector<GraphicsMesh> meshes;
 };
 
 // this object derivation CAN be destroyed while graphics engine is running

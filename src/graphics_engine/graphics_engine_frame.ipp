@@ -88,83 +88,89 @@ void GraphicsEngineFrame<GraphicsEngineT>::spawn_object(GraphicsEngineObject<Gra
 template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object)
 {
-	auto& engine = get_graphics_engine();
-	std::vector<VkDescriptorSet> new_descriptor_sets = engine.get_rsrc_mgr().reserve_high_frequency_dsets(object.get_shapes().size());
-	assert(new_descriptor_sets.size() == object.get_shapes().size());
-
-	for (int vertex_set_index = 0; vertex_set_index < object.get_shapes().size(); vertex_set_index++)
+	// per object descriptor set
 	{
+		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_high_freq_per_obj_dsets(1)[0];
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		VkDescriptorBufferInfo buffer_info{};
-		const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_uniform_buffer_slot(object.get_game_object().get_id());
+		const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_uniform_buffer_slot(object.get_id());
 		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
 		buffer_info.offset = buffer_slot.offset;
 		buffer_info.range = buffer_slot.size;
-
 		VkWriteDescriptorSet uniform_buffer_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		uniform_buffer_descriptor_set.dstSet = new_descriptor_sets[vertex_set_index];
-		uniform_buffer_descriptor_set.dstBinding = 0; // also set to 0 in the shader
+		uniform_buffer_descriptor_set.dstSet = new_descriptor_set;
+		uniform_buffer_descriptor_set.dstBinding = SDS::RASTERIZATION_OBJECT_DATA_BINDING;
 		uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
 		uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		uniform_buffer_descriptor_set.descriptorCount = 1;
 		uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
-
 		descriptor_writes.push_back(uniform_buffer_descriptor_set);
 
-		switch (object.get_render_type())
-		{
-			case EPipelineType::STANDARD:
-			case EPipelineType::CUBEMAP:
-				{
-					VkDescriptorImageInfo image_info{};
-					image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-					// some useful links when we get up to this part
-					// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
-					// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
-					// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
-					// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-					image_info.imageView = object.get_materials()[vertex_set_index].get_texture().get_texture_image_view();
-					image_info.sampler = object.get_materials()[vertex_set_index].get_texture().get_texture_sampler();
+		vkUpdateDescriptorSets(get_logical_device(), 
+							   descriptor_writes.size(), 
+							   descriptor_writes.data(), 
+							   0, 
+							   nullptr);
+		object.set_dset(new_descriptor_set, image_index);
+	}
 
-					VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-					combined_image_sampler_descriptor_set.dstSet = new_descriptor_sets[vertex_set_index];
-					combined_image_sampler_descriptor_set.dstBinding = 1; // also set to 1 in the shader
-					combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-					combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-					combined_image_sampler_descriptor_set.descriptorCount = 1;
-					combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-
-					descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-				}
-				break;
-			default:
-				break;
-		}
+	// per shape descriptor set
+	for (auto& shape : object.get_shapes())
+	{
+		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_high_freq_per_shape_dsets(1)[0];
+		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		const GraphicsBuffer::Slot mat_slot = 
-			get_rsrc_mgr().get_materials_buffer_slot(object.get_shapes()[vertex_set_index]->get_id());
+			get_rsrc_mgr().get_materials_buffer_slot(shape.get_id());
 		VkDescriptorBufferInfo material_buffer_info{};
 		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
 		material_buffer_info.offset = mat_slot.offset;
 		material_buffer_info.range = mat_slot.size;
 		VkWriteDescriptorSet material_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		material_buffer_dset.dstSet = new_descriptor_sets[vertex_set_index];
-		material_buffer_dset.dstBinding = 2;
+		material_buffer_dset.dstSet = new_descriptor_set;
+		material_buffer_dset.dstBinding = SDS::RASTERIZATION_MATERIAL_DATA_BINDING;
 		material_buffer_dset.dstArrayElement = 0;
 		material_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		material_buffer_dset.descriptorCount = 1;
 		material_buffer_dset.pBufferInfo = &material_buffer_info;
-
 		descriptor_writes.push_back(material_buffer_dset);
+
+		switch (object.get_render_type())
+		{
+			case EPipelineType::STANDARD:
+			case EPipelineType::CUBEMAP:
+			{
+				VkDescriptorImageInfo image_info{};
+				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				// some useful links when we get up to this part
+				// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
+				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
+				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
+				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
+				image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
+				image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
+
+				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
+				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				combined_image_sampler_descriptor_set.descriptorCount = 1;
+				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+				break;
+			}
+			default:
+				break;
+		}
 
 		vkUpdateDescriptorSets(get_logical_device(),
 							   static_cast<uint32_t>(descriptor_writes.size()), 
 							   descriptor_writes.data(), 
 							   0, 
 							   nullptr);
-		
-		object.descriptor_sets.push_back(std::move(new_descriptor_sets[vertex_set_index]));
+		shape.set_dset(new_descriptor_set, image_index);
 	}
 }
 
@@ -344,12 +350,12 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 
 	// update per object uniforms
 	SDS::ObjectData object_data{};
-	for (const auto& it_pair : get_graphics_engine().get_objects())
+	for (const auto& [id, graphics_object] : get_graphics_engine().get_objects())
 	{
-		const auto& graphics_object = it_pair.second;
 		object_data.model = graphics_object->get_game_object().get_transform();
 		object_data.mvp = gubo.proj * gubo.view * object_data.model;
 		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
+		get_rsrc_mgr().write_to_uniform_buffer(object_data, graphics_object->get_id());
 
 		get_rsrc_mgr().write_to_uniform_buffer(object_data, graphics_object->get_game_object().get_id());
 	}
@@ -390,7 +396,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 		get_rsrc_mgr().free_uniform_buffer(id);
 		for (const auto& shape : get_graphics_engine().get_object(id).get_shapes())
 		{
-			get_rsrc_mgr().free_materials_buffer(shape->get_id());
+			get_rsrc_mgr().free_materials_buffer(shape.get_id());
 		}
 		get_graphics_engine().get_objects().erase(id);
 		get_graphics_engine().get_light_sources().erase(id);

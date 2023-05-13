@@ -10,12 +10,12 @@ layout(location=4) in vec3 frag_pos;
 
 layout(location = 0) out vec4 out_color;
 
-layout(set=0, binding=2) buffer MaterialDataBuffer
+layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_MATERIAL_DATA_BINDING) buffer MaterialDataBuffer
 {
 	MaterialData data;
 } mat_data;
 
-layout(set=1, binding=0) uniform GlobalDataBuffer
+layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
 {
 	GlobalData data;
 } global_data;

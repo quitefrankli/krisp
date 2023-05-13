@@ -73,7 +73,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas2()
 	for (auto& [id, object] : objects)
 	{
 		if (object->get_render_type() == EPipelineType::CUBEMAP ||
-			!object->get_game_object().get_visibility())
+			!object->get_visibility())
 		{
 			continue;
 		}
@@ -118,10 +118,10 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	// BLAS builder requires raw device addresses.
 	VkDeviceAddress vertex_address = get_graphics_engine().get_device_module().
 		get_buffer_device_address(get_rsrc_mgr().get_vertex_buffer());
-	vertex_address += get_rsrc_mgr().get_vertex_buffer_offset(object.get_game_object().get_id());
+	vertex_address += get_rsrc_mgr().get_vertex_buffer_offset(object.get_id());
 	VkDeviceAddress index_address = get_graphics_engine().get_device_module().
 		get_buffer_device_address(get_rsrc_mgr().get_index_buffer());
-	index_address += get_rsrc_mgr().get_index_buffer_offset(object.get_game_object().get_id());
+	index_address += get_rsrc_mgr().get_index_buffer_offset(object.get_id());
 
 	uint32_t maxPrimitiveCount = object.get_num_primitives();
 
@@ -173,7 +173,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 	for (auto& [id, object] : objects)
 	{
 		if (object->get_render_type() == EPipelineType::CUBEMAP ||
-			!object->get_game_object().get_visibility())
+			!object->get_visibility())
 		{
 			continue;
 		}
@@ -317,14 +317,14 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 	for (auto& [id, object] : objects)
 	{
 		if (object->get_render_type() == EPipelineType::CUBEMAP ||
-			!object->get_game_object().get_visibility())
+			!object->get_visibility())
 		{
 			continue;
 		}
 		VkAccelerationStructureInstanceKHR ray_inst{};
 		ray_inst.transform = glm_to_vk(object->get_game_object().get_transform());
 
-		ray_inst.instanceCustomIndex = object->get_game_object().get_id().get_underlying(); // exists in shader as 'gl_InstanceCustomIndexEXT'
+		ray_inst.instanceCustomIndex = object->get_id().get_underlying(); // exists in shader as 'gl_InstanceCustomIndexEXT'
 		// TOOD: change this to use the actual object id, will need to refactor blas setup
 		ray_inst.accelerationStructureReference = getBlasDeviceAddress(instance_id++);
 		ray_inst.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;

@@ -1,20 +1,17 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
+#include "../../library/library.glsl"
 #include "../raytracing_common.glsl"
 
 // be vary of alignment issues
-layout(set=0, binding=0) uniform accelerationStructureEXT topLevelAS;
-layout(set=0, binding=1, rgba32f) uniform image2D image;
+layout(set=RAYTRACING_TLAS_SET_OFFSET, binding=RAYTRACING_TLAS_DATA_BINDING) uniform accelerationStructureEXT topLevelAS;
+layout(set=RAYTRACING_TLAS_SET_OFFSET, binding=RAYTRACING_ALBEDO_TEXTURE_DATA_BINDING, rgba32f) uniform image2D image;
 
-layout(set=1, binding=0) uniform GlobalUniformBufferObject
+layout(set=RAYTRACING_LOW_FREQ_SET_OFFSET, binding=RAYTRACING_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
 {
-	mat4 view; // camera
-	mat4 proj;
-	vec3 view_pos; // camera eye (not focus object)
-	vec3 light_pos;
-	float lighting_scalar;
-} gubo;
+	GlobalData data;
+} global_data;
 
 layout(location = 0) rayPayloadEXT HitPayload payload;
 
@@ -28,9 +25,9 @@ void main()
 	const vec2 inUV = pixel_center / vec2(gl_LaunchSizeEXT.xy);
 	vec2 pixel_normalized = inUV * 2.0 - 1.0; // normalize to [-1, 1]
 
-	// vec4 origin = vec4(gubo.view_pos, 1);
-	vec4 target = inverse(gubo.proj) * vec4(pixel_normalized, 1, 1);
-	vec4 direction = inverse(gubo.view) * vec4(target.xyz, 0);
+	// vec4 origin = vec4(global_data.data.view_pos, 1);
+	vec4 target = inverse(global_data.data.proj) * vec4(pixel_normalized, 1, 1);
+	vec4 direction = inverse(global_data.data.view) * vec4(target.xyz, 0);
 
 	uint  rayFlags = gl_RayFlagsOpaqueEXT;
 	float tMin     = 0.001;
@@ -43,7 +40,7 @@ void main()
 		0,              // sbtRecordOffset
 		0,              // sbtRecordStride
 		0,              // missIndex
-		gubo.view_pos,  // ray origin
+		global_data.data.view_pos,  // ray origin
 		tMin,           // ray min range
 		direction.xyz,      // ray direction
 		tMax,           // ray max range

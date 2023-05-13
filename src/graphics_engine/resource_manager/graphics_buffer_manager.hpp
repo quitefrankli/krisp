@@ -4,11 +4,9 @@
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_buffer.hpp"
 #include "shared_data_structures.hpp"
-#include "shapes/shape.hpp"
-#include "shared_data_structures.hpp"
-#include "buffer_map.hpp"
+#include "shapes/shape_id.hpp"
+#include "graphics_engine/graphics_engine_object.hpp"
 #include "graphics_engine/graphics_materials.hpp"
-#include "shared_data_structures.hpp"
 
 
 // Manages buffers associated with objects such as vertex buffer
@@ -47,9 +45,9 @@ public:
 	void write_to_uniform_buffer(const SDS::ObjectData& ubos, ObjectID id);
 	void write_to_global_uniform_buffer(const SDS::GlobalData& ubo);
 	// does both vertex and index buffer writing
-	void write_shapes_to_buffers(const std::vector<std::unique_ptr<Shape>>& shapes, ObjectID id);
+	void write_shapes_to_buffers(const std::vector<GraphicsMesh>& shapes, ObjectID id);
 	void write_to_materials_buffer(const SDS::MaterialData& material, ShapeID id);
-	void write_to_mapping_buffer(const BufferMapEntry& entry, ObjectID id);
+	void write_to_mapping_buffer(const SDS::BufferMapEntry& entry, ObjectID id);
 
 	GraphicsBuffer::Slot get_vertex_buffer_slot(ObjectID id) const { return vertex_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_index_buffer_slot(ObjectID id) const { return index_buffer.get_slot(id.get_underlying()); }
@@ -94,7 +92,7 @@ protected:
 	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_SHAPES;
 	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData);
-	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(BufferMapEntry) * NUM_EXPECTED_OBJECTS * 1e2;
+	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(SDS::BufferMapEntry) * NUM_EXPECTED_OBJECTS * 1e2;
 	static constexpr size_t INITIAL_STAGING_BUFFER_CAPACITY = 1e4; // staging buffer capacity dynamically grows
 
 private:
