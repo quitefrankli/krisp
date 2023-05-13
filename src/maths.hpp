@@ -81,10 +81,10 @@ namespace Maths
 			is_up_to_date_flags = 0b0001;
 		}
 
-		const glm::vec3& get_pos();
-		const glm::vec3& get_scale();
-		const glm::quat& get_orient();
-		const glm::mat4& get_mat4();
+		const glm::vec3& get_pos() const;
+		const glm::vec3& get_scale() const;
+		const glm::quat& get_orient() const;
+		const glm::mat4& get_mat4() const;
 
 		void set_pos(const glm::vec3& new_pos);
 		void set_scale(const glm::vec3& new_scale);
@@ -92,17 +92,17 @@ namespace Maths
 		void set_mat4(const glm::mat4& new_transform);
 
 	private:
-		glm::vec3 position = glm::vec3(0.f); // 0b1000
-		glm::vec3 scale = glm::vec3(1.f); // 0b0100
-		glm::quat orientation = glm::quat_identity<float, glm::highp>(); // 0b0010
-		glm::mat4 transform = glm::mat4(1.0f); // 0b0001
+		mutable glm::vec3 position = glm::vec3(0.f); // 0b1000
+		mutable glm::vec3 scale = glm::vec3(1.f); // 0b0100
+		mutable glm::quat orientation = glm::quat_identity<float, glm::highp>(); // 0b0010
+		mutable glm::mat4 transform = glm::mat4(1.0f); // 0b0001
 
 		// flags whether the above vars are old
 		// if it's old then it should be either recalculated to/from the mat4
 		// 1 means it's up to date 0 means it's old
-		uint8_t is_up_to_date_flags = 0b0000;
+		mutable uint8_t is_up_to_date_flags = 0b0000;
 
-		void set_not_old(uint8_t bitmask) { is_up_to_date_flags |= bitmask; }
+		void set_not_old(uint8_t bitmask) const { is_up_to_date_flags |= bitmask; }
 		bool is_old(uint8_t bitmask) const { return !(is_up_to_date_flags & bitmask); }
 	};
 

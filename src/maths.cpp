@@ -139,7 +139,7 @@ namespace Maths
 		return glm::distance(projP, sphere.origin) < sphere.radius;
 	}
 
-	const glm::vec3& Transform::get_pos()
+	const glm::vec3& Transform::get_pos() const
 	{
 		if (is_old(0b1000))
 		{
@@ -149,7 +149,7 @@ namespace Maths
 		return position; 
 	}
 
-	const glm::vec3& Transform::get_scale()
+	const glm::vec3& Transform::get_scale() const
 	{
 		if (is_old(0b0100))
 		{
@@ -169,7 +169,7 @@ namespace Maths
 		return scale;
 	}
 
-	const glm::quat& Transform::get_orient()
+	const glm::quat& Transform::get_orient() const
 	{ 
 		if (is_old(0b0010))
 		{
@@ -185,7 +185,7 @@ namespace Maths
 		return orientation;
 	}
 
-	const glm::mat4& Transform::get_mat4()
+	const glm::mat4& Transform::get_mat4() const
 	{
 		if (is_old(0b0001))
 		{

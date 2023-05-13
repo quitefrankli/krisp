@@ -259,3 +259,50 @@ VkExtent2D LightWeightOffscreenPipeline<GraphicsEngineT>::get_extent()
 	return get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_extent();	
 }
+
+template<typename GraphicsEngineT>
+VkVertexInputBindingDescription SkinnedPipeline<GraphicsEngineT>::get_binding_description() const
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = sizeof(SDS::TexVertex);
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkVertexInputAttributeDescription> SkinnedPipeline<GraphicsEngineT>::get_attribute_descriptions() const
+{	
+	VkVertexInputAttributeDescription position_attr{};
+	position_attr.binding = 0;
+	position_attr.location = 0;
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(SDS::SkinnedVertex, pos);
+
+	VkVertexInputAttributeDescription normal_attr{};
+	normal_attr.binding = 0;
+	normal_attr.location = 1;
+	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	normal_attr.offset = offsetof(SDS::SkinnedVertex, normal);
+
+	VkVertexInputAttributeDescription texCoord_attr{};
+	texCoord_attr.binding = 0;
+	texCoord_attr.location = 2;
+	texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	texCoord_attr.offset = offsetof(SDS::SkinnedVertex, texCoord);
+
+	VkVertexInputAttributeDescription bone_ids_attr{};
+	bone_ids_attr.binding = 0;
+	bone_ids_attr.location = 3;
+	bone_ids_attr.format = VK_FORMAT_R32G32B32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
+	bone_ids_attr.offset = offsetof(SDS::SkinnedVertex, bone_ids);
+
+	VkVertexInputAttributeDescription bone_weights_attr{};
+	bone_weights_attr.binding = 0;
+	bone_weights_attr.location = 4;
+	bone_weights_attr.format = VK_FORMAT_R32G32B32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
+	bone_weights_attr.offset = offsetof(SDS::SkinnedVertex, bone_weights);
+
+	return {position_attr, texCoord_attr, normal_attr};
+}

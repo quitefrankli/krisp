@@ -22,6 +22,8 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 		GLOBAL_UNIFORM_BUFFER_CAPACITY, GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS)),
 	mapping_buffer(create_buffer(
 		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(SDS::BufferMapEntry)),
+	bone_buffer(create_buffer(
+		BONE_BUFFER_CAPACITY, BONE_BUFFER_USAGE_FLAGS, BONE_BUFFER_MEMORY_FLAGS)),
 	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
@@ -37,6 +39,7 @@ GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager()
 	materials_buffer.destroy(get_logical_device());
 	global_uniform_buffer.destroy(get_logical_device());
 	mapping_buffer.destroy(get_logical_device());
+	bone_buffer.destroy(get_logical_device());
 	staging_buffer.destroy(get_logical_device());
 }
 
@@ -108,6 +111,15 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(const SDS::
 		std::memcpy(destination, &entry, sizeof(entry));
 	});
 	update_buffer_stats();
+}
+
+template<typename GraphicsEngineT>
+void GraphicsBufferManager<GraphicsEngineT>::write_to_bone_buffer(const std::vector<SDS::Bone>& bones, ObjectID id)
+{
+	assert(!bones.empty());
+	std::byte* mapped_memory = bone_buffer.map_slot(id.get_underlying(), get_logical_device());
+	std::memcpy(mapped_memory, bones.data(), bones.size() * sizeof(bones[0]));
+	bone_buffer.unmap_slot(get_logical_device());
 }
 
 template<typename GraphicsEngineT>
@@ -303,7 +315,7 @@ void GraphicsBufferManager<GraphicsEngineT>::update_buffer_stats()
 		{ uniform_buffer.get_filled_capacity(), uniform_buffer.get_capacity() },
 		{ materials_buffer.get_filled_capacity(), materials_buffer.get_capacity() },
 		{ mapping_buffer.get_filled_capacity(), mapping_buffer.get_capacity() },
-		{ staging_buffer.get_filled_capacity(), staging_buffer.get_capacity() }
+		{ bone_buffer.get_filled_capacity(), bone_buffer.get_capacity() }
 	};
 	get_graphics_engine().get_gui_manager().update_buffer_capacities(buffer_capacities);
 }

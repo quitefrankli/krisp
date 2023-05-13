@@ -78,7 +78,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_pool()
 	rt_storage_image_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	rt_storage_image_pool_size.descriptorCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
 
-	// for meshes and materials
+	// for meshes, materials and bones
 	VkDescriptorPoolSize storage_buffer_pool_size{};
 	storage_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	storage_buffer_pool_size.descriptorCount = MAX_STORAGE_BUFFER_DESCRIPTOR_SETS;
@@ -132,7 +132,15 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 		ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT; // defines which shader stage the descriptor is going to be referenced
 		ubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
-		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding };
+		// buffer of bone data containing transformation matrices
+		VkDescriptorSetLayoutBinding bone_layout_binding{};
+		bone_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		bone_layout_binding.binding = 3;
+		bone_layout_binding.descriptorCount = 1;
+		bone_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+		bone_layout_binding.pImmutableSamplers = nullptr;
+
+		const std::vector<VkDescriptorSetLayoutBinding> bindings{ ubo_layout_binding, bone_layout_binding };
 		create_layout(bindings, &rasterization_high_freq_per_obj_dset_layout);
 	}
 
@@ -161,7 +169,7 @@ void GraphicsResourceManager<GraphicsEngineT>::create_descriptor_set_layouts()
 	{
 		VkDescriptorSetLayoutBinding gubo_layout_binding{};
 		gubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		gubo_layout_binding.binding = SDS::RASTERIZATION_GLOBAL_DATA_BINDING;
+		gubo_layout_binding.binding = SDS::GLOBAL_DATA_BINDING;
 		gubo_layout_binding.descriptorCount = 1;
 		// defines which shader stage the descriptor is going to be referenced
 		gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 

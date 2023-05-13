@@ -253,10 +253,10 @@ void GuiStatistics<GameEngineT>::draw()
 		"mapping buffer");
 	ImGui::SameLine(); ImGui::Text("%ukB", mapping_buffer_capacity.total_capacity / 1024);
 	ImGui::ProgressBar(
-		float(staging_buffer_capacity.filled_capacity) / float(staging_buffer_capacity.total_capacity), 
+		float(bone_buffer_capacity.filled_capacity) / float(bone_buffer_capacity.total_capacity), 
 		ImVec2(0.0f, 0.0f), 
-		"staging buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", staging_buffer_capacity.total_capacity / 1024);
+		"bone buffer");
+	ImGui::SameLine(); ImGui::Text("%ukB", bone_buffer_capacity.total_capacity / 1024);
 
 	ImGui::End();
 }
@@ -276,8 +276,8 @@ void GuiStatistics<GameEngineT>::update_buffer_capacities(
 	materials_buffer_capacity.total_capacity = buffer_capacities[3].second;
 	mapping_buffer_capacity.filled_capacity = buffer_capacities[4].first;
 	mapping_buffer_capacity.total_capacity = buffer_capacities[4].second;
-	staging_buffer_capacity.filled_capacity = buffer_capacities[5].first;
-	staging_buffer_capacity.total_capacity = buffer_capacities[5].second;
+	bone_buffer_capacity.filled_capacity = buffer_capacities[5].first;
+	bone_buffer_capacity.total_capacity = buffer_capacities[5].second;
 }
 
 template<typename GameEngineT>

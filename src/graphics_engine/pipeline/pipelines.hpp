@@ -10,9 +10,9 @@ public:
 	TexturePipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
+	virtual std::string_view get_shader_name() const override { return "texture"; }
 	virtual VkVertexInputBindingDescription get_binding_description() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
-	virtual std::string_view get_shader_name() const override { return "texture"; }
 };
 
 template<typename GraphicsEngineT>
@@ -165,4 +165,16 @@ protected:
 	}
 	virtual VkRenderPass get_render_pass() override;
 	virtual VkExtent2D get_extent() override;
+};
+
+template<typename GraphicsEngineT>
+class SkinnedPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	SkinnedPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "skinned"; }
+	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
