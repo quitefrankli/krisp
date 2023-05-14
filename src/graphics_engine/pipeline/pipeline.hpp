@@ -37,10 +37,4 @@ protected:
 	virtual VkSampleCountFlagBits get_msaa_sample_counts();
 	virtual VkRenderPass get_render_pass();
 
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 };

@@ -5,6 +5,7 @@
 #include "shared_data_structures.hpp"
 #include "renderers/renderers.hpp"
 #include "shared_data_structures.hpp"
+#include "entity_component_system/ecs.hpp"
 
 
 template<typename GameEngineT>
@@ -30,6 +31,15 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 		// TODO: we need swapchain image uniform buffers, when this is done the dset needs to be updated
 		// as well in frame.ipp
 		get_rsrc_mgr().reserve_uniform_buffer(id, sizeof(SDS::ObjectData));
+
+		// allocate space for bone matrices if needed
+		if (graphics_object.get_render_type() == EPipelineType::SKINNED)
+		{
+			// TODO: like the uniform buffer, this should also really be duplicated per swapchain image,
+			// when this is done the dset needs to be updated as well in frame.ipp
+			const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
+			get_rsrc_mgr().reserve_bone_buffer(id, bone_data_size);
+		}
 
 		SDS::BufferMapEntry buffer_map;
 		buffer_map.vertex_offset = get_rsrc_mgr().get_vertex_buffer_offset(id);

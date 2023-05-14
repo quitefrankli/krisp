@@ -304,5 +304,5 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline<GraphicsEngineT>:
 	bone_weights_attr.format = VK_FORMAT_R32G32B32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
 	bone_weights_attr.offset = offsetof(SDS::SkinnedVertex, bone_weights);
 
-	return {position_attr, texCoord_attr, normal_attr};
+	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr};
 }

@@ -87,7 +87,7 @@ public:
 		const size_t size,
 		const std::function<void(std::byte*)>& write_function);
 
-protected:
+public:
 	static constexpr size_t NUM_EXPECTED_OBJECTS = 1e3;
 	static constexpr size_t NUM_EXPECTED_SHAPES = NUM_EXPECTED_OBJECTS * 2;
 

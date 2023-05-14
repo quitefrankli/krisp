@@ -8,6 +8,7 @@
 #include "objects/light_source.hpp"
 #include "shared_data_structures.hpp"
 #include "camera.hpp"
+#include "pipeline/pipeline.hpp"
 #include "pipeline/pipeline_types.hpp"
 
 #include <glm/gtx/string_cast.hpp>
@@ -90,7 +91,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 {
 	// per object descriptor set
 	{
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_high_freq_per_obj_dsets(1)[0];
+		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		VkDescriptorBufferInfo buffer_info{};
@@ -107,6 +108,24 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 		uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
 		descriptor_writes.push_back(uniform_buffer_descriptor_set);
 
+		if (object.get_render_type() == EPipelineType::SKINNED)
+		{
+			const GraphicsBuffer::Slot bone_slot = 
+				get_rsrc_mgr().get_bone_buffer_slot(object.get_id());
+			VkDescriptorBufferInfo bone_buffer_info{};
+			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
+			bone_buffer_info.offset = bone_slot.offset;
+			bone_buffer_info.range = bone_slot.size;
+			VkWriteDescriptorSet bone_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			bone_buffer_dset.dstSet = new_descriptor_set;
+			bone_buffer_dset.dstBinding = 3;
+			bone_buffer_dset.dstArrayElement = 0;
+			bone_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bone_buffer_dset.descriptorCount = 1;
+			bone_buffer_dset.pBufferInfo = &bone_buffer_info;
+			descriptor_writes.push_back(bone_buffer_dset);
+		}
+
 		vkUpdateDescriptorSets(get_logical_device(), 
 							   descriptor_writes.size(), 
 							   descriptor_writes.data(), 
@@ -118,7 +137,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 	// per shape descriptor set
 	for (auto& shape : object.get_shapes())
 	{
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_high_freq_per_shape_dsets(1)[0];
+		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_shape_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		const GraphicsBuffer::Slot mat_slot = 
@@ -357,7 +376,12 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
 		get_rsrc_mgr().write_to_uniform_buffer(object_data, graphics_object->get_id());
 
-		get_rsrc_mgr().write_to_uniform_buffer(object_data, graphics_object->get_game_object().get_id());
+		// if object contains skinned meshes update the bone matrices
+		if (graphics_object->get_render_type() == EPipelineType::SKINNED)
+		{
+			const std::vector<SDS::Bone>& bones = get_graphics_engine().get_ecs().get_bones(graphics_object->get_id());
+			get_rsrc_mgr().write_to_bone_buffer(bones, graphics_object->get_id());
+		}
 	}
 }
 

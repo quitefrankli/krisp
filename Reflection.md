@@ -55,3 +55,9 @@
 	Disadvantages:
 	* Code bloat.
 	* Tight coupling between graphics engine and graphics engine modules.
+
+
+## Principles I Followed/Plan on Following
+
+* Dedicate time early on to designing interfaces before implementation, good interfaces/abstractions can be monumental
+* Move fast and break things, as the engine grows more and more complexity will be introduced if on every feature we go through and make sure every niche component doesn't break then this will become an exponentially compounding time drain. Instead by fixing things when needed and only in between multiple features, we can potentially save time on potential redesigns

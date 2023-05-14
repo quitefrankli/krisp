@@ -124,6 +124,9 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<
 	case EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
 		new_pipeline = std::make_unique<LightWeightOffscreenPipeline<GraphicsEngineT>>(engine);
 		break;
+	case EPipelineType::SKINNED:
+		new_pipeline = std::make_unique<SkinnedPipeline<GraphicsEngineT>>(engine);
+		break;
 	case EPipelineType::_STENCIL_COLOR_VERTICES:
 		new_pipeline = std::make_unique<StencilColorVerticesPipeline<GraphicsEngineT>>(engine);
 		break;

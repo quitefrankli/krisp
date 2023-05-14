@@ -43,11 +43,11 @@ GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 	// them available for reuse in the same descriptor set pool
 	for (auto& mesh : meshes)
 	{
-		get_rsrc_mgr().free_high_freq_per_shape_dsets(mesh.get_dsets());
+		get_rsrc_mgr().free_dsets(mesh.get_dsets());
 		mesh.get_dsets().clear();
 	}
 
-	get_rsrc_mgr().free_high_freq_per_obj_dsets(dsets);
+	get_rsrc_mgr().free_dsets(dsets);
 	dsets.clear();
 }
 

@@ -11,6 +11,7 @@ enum class EPipelineType
 	STENCIL, // for object highlighting
 	RAYTRACING,
 	LIGHTWEIGHT_OFFSCREEN_PIPELINE,
+	SKINNED, // for skinned meshes
 
 	// Internal Use
 

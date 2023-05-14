@@ -56,7 +56,7 @@ void GraphicsBuffer::free_slot(uint32_t slot_id)
 	auto it = filled_slots.find(slot_id);
 	if (it == filled_slots.end())
 	{
-		throw std::runtime_error("Slot not found!");
+		throw std::runtime_error("GraphicsBuffer::free_slot: Slot not found!");
 	}
 
 	Slot slot = it->second;
@@ -155,7 +155,7 @@ GraphicsBuffer::offset_t GraphicsBuffer::get_offset(uint32_t id) const
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
 	{
-		throw std::runtime_error("Slot not found!");
+		throw std::runtime_error("GraphicsBuffer::get_offset: Slot not found!");
 	}
 
 	return it->second.offset;
@@ -166,7 +166,7 @@ GraphicsBuffer::Slot GraphicsBuffer::get_slot(uint32_t id) const
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
 	{
-		throw std::runtime_error("Slot not found!");
+		throw std::runtime_error("GraphicsBuffer::get_slot: Slot not found!");
 	}
 
 	return it->second;
@@ -177,7 +177,7 @@ std::byte* GraphicsBuffer::map_slot(uint32_t id, VkDevice device)
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
 	{
-		throw std::runtime_error("Slot not found!");
+		throw std::runtime_error("GraphicsBuffer::map_slot: Slot not found!");
 	}
 
 	std::byte* mapped_memory = nullptr;

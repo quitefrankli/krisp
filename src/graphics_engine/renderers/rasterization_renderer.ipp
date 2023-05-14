@@ -113,10 +113,11 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							// lets assume that global descriptor objects only use the STANDARD pipeline
+							// this is a little dodgy but it seems to be working?
 							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
 							1,
-							&get_rsrc_mgr().get_low_freq_dset(),
+							&get_rsrc_mgr().get_global_dset(),
 							0,
 							nullptr);
 

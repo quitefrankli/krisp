@@ -119,7 +119,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
 							1,
-							&get_rsrc_mgr().get_low_freq_dset(),
+							&get_rsrc_mgr().get_global_dset(),
 							0,
 							nullptr);
 

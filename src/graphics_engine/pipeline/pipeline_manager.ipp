@@ -19,11 +19,12 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	
 	add_pipeline(EPipelineType::STANDARD);
 	add_pipeline(EPipelineType::COLOR);
-	// add_pipeline(EPipelineType::WIREFRAME); // INTENTIONALLY OMITTED
+	// add_pipeline(EPipelineType::WIREFRAME); // INTENTIONALLY OMITTED, see below for _WIREFRAME_COLOR_VERTICES and _WIREFRAME_TEXTURE_VERTICES
 	add_pipeline(EPipelineType::CUBEMAP);
-	// add_pipeline(EPipelineType::STENCIL); // INTENTIONALLY OMITTED
+	// add_pipeline(EPipelineType::STENCIL); // INTENTIONALLY OMITTED, see below for _STENCIL_COLOR_VERTICES and _STENCIL_TEXTURE_VERTICES
 	add_pipeline(EPipelineType::RAYTRACING);
 	add_pipeline(EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
+	add_pipeline(EPipelineType::SKINNED);
 
 	add_pipeline(EPipelineType::_STENCIL_COLOR_VERTICES);
 	add_pipeline(EPipelineType::_STENCIL_TEXTURE_VERTICES);

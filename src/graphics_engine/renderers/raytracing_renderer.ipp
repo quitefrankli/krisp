@@ -22,7 +22,10 @@ inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
 	{
 		depth_attachment.destroy(get_logical_device());
 	}
-	get_rsrc_mgr().free_raytracing_dsets(rt_dsets);
+	if (!rt_dsets.empty())
+	{
+		get_rsrc_mgr().free_dsets(rt_dsets);
+	}
 }
 
 template<typename GraphicsEngineT>
@@ -99,15 +102,15 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).graphics_pipeline);
 
 	std::vector<VkDescriptorSet> dsets = {
+		get_rsrc_mgr().get_global_dset(),
 		rt_dsets[frame_index],
-		get_rsrc_mgr().get_low_freq_dset(),
 		get_rsrc_mgr().get_mesh_data_dset()
 	};
 	vkCmdBindDescriptorSets(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
 		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).pipeline_layout,
-		0,
+		SDS::RAYTRACING_LOW_FREQ_SET_OFFSET,
 		dsets.size(),
 		dsets.data(),
 		0,
@@ -181,7 +184,7 @@ void RaytracingRenderer<GraphicsEngineT>::update_rt_dsets()
 {
 	// technically we don't really need to "free" up the descriptor sets
 	// but it's a little less code to just do it this way
-	get_rsrc_mgr().free_raytracing_dsets(rt_dsets);
+	get_rsrc_mgr().free_dsets(rt_dsets);
 	rt_dsets.clear();
 	for (int i = 0; i < color_attachments.size(); i++)
 	{
@@ -274,10 +277,8 @@ void RaytracingRenderer<GraphicsEngineT>::create_render_pass()
 template<typename GraphicsEngineT>
 VkDescriptorSet RaytracingRenderer<GraphicsEngineT>::create_rt_dset(VkImageView rt_image_view)
 {
-	RaytracingResources& ray_tracing_resources = 
-		get_rsrc_mgr().get_raytracing_resources();
-	auto rt_dset = get_rsrc_mgr().reserve_raytracing_dsets(1)[0];
-
+	auto rt_dset = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_raytracing_tlas_dset_layout());
+	
 	VkAccelerationStructureKHR tlas = get_graphics_engine().get_raytracing_module().get_tlas();
 	VkWriteDescriptorSetAccelerationStructureKHR descASInfo{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR};
 	descASInfo.accelerationStructureCount = 1;
@@ -288,16 +289,16 @@ VkDescriptorSet RaytracingRenderer<GraphicsEngineT>::create_rt_dset(VkImageView 
 
 	VkWriteDescriptorSet tlas_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	tlas_write.descriptorCount = 1;
-	tlas_write.descriptorType = ray_tracing_resources.tlas_binding.descriptorType;
-	tlas_write.dstBinding = ray_tracing_resources.tlas_binding.binding;
+	tlas_write.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+	tlas_write.dstBinding = SDS::RAYTRACING_TLAS_DATA_BINDING;
 	tlas_write.dstSet = rt_dset;
 	tlas_write.dstArrayElement = 0;
 	tlas_write.pNext = &descASInfo;
 
 	VkWriteDescriptorSet out_image_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	out_image_write.descriptorCount = 1;
-	out_image_write.descriptorType = ray_tracing_resources.output_binding.descriptorType;
-	out_image_write.dstBinding = ray_tracing_resources.output_binding.binding;
+	out_image_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	out_image_write.dstBinding = SDS::RAYTRACING_OUTPUT_IMAGE_BINDING;
 	out_image_write.dstSet = rt_dset;
 	out_image_write.dstArrayElement = 0;
 	out_image_write.pImageInfo = &imageInfo;
