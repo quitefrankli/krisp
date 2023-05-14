@@ -7,6 +7,7 @@
 #include "objects/object.hpp"
 #include "shared_data_structures.hpp"
 #include "analytics.hpp"
+#include "entity_component_system/ecs.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -147,6 +148,18 @@ int GraphicsEngine<GameEngineT>::find_memory_type(uint32_t type_filter, VkMemory
 
 	throw std::runtime_error("failed to find suitable memory type!");
 };
+
+template<typename GameEngineT>
+ECS& GraphicsEngine<GameEngineT>::get_ecs()
+{
+	return game_engine.get_ecs();
+}
+
+template<typename GameEngineT>
+const ECS& GraphicsEngine<GameEngineT>::get_ecs() const
+{
+	return game_engine.get_ecs();
+}
 
 template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::recreate_swap_chain()

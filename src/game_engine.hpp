@@ -11,7 +11,7 @@
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
 #include "window.hpp"
-#include "entity_component_system/ecs_manager.hpp"
+#include "entity_component_system/ecs.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -62,7 +62,7 @@ public:
 		auto result = objects.emplace(id, std::move(tmp_new_obj));
 		assert(result.second); // no duplicate ids
 		Object& new_obj = *(result.first->second);
-		ecs_manager.add_object(new_obj);
+		ecs.add_object(new_obj);
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
 		return static_cast<object_t&>(new_obj);
 	}
@@ -71,7 +71,7 @@ public:
 	{
 		auto it = objects.emplace(object->get_id(), std::move(object));
 		Object& new_obj = *(it.first->second);
-		ecs_manager.add_object(new_obj);
+		ecs.add_object(new_obj);
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
 		return new_obj;
 	}
@@ -98,7 +98,8 @@ public:
 
 	LightSource* get_light_source() { return light_source; }
 
-	ECSManager& get_ecs_mgr() { return ecs_manager; }
+	ECS& get_ecs() { return ecs; }
+	const ECS& get_ecs() const { return ecs; }
 
 	float get_tps() const { return tps; }
 	void set_tps(const float tps) { this->tps = tps; }
@@ -123,7 +124,7 @@ private:
 	Keyboard keyboard;
 	std::unique_ptr<Mouse<GameEngine>> mouse;
 	ResourceLoader resource_loader;
-	ECSManager ecs_manager;
+	ECS ecs;
 
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;

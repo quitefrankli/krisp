@@ -147,7 +147,7 @@ void GameEngine<GraphicsEngineTemplate>::main_loop(const float time_delta)
 		}
 	}
 
-	ecs_manager.process(time_delta);
+	ecs.process(time_delta);
 	experimental->process(time_delta);
 	application->on_tick(time_delta);
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ecs_component.hpp"
-#include "animation_system.hpp"
+#include "animation.hpp"
+#include "skeletal.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
@@ -14,17 +14,18 @@ enum class ECSComponentType
 	RIGID_BODY,
 };
 
-class ECSManager
+class ECS : public SkeletalSystem, public AnimationSystem
 {
 public:
-	ECSManager();
-	~ECSManager();
+	ECS();
+	~ECS();
 
 	void process(const float delta_secs);
 
+	virtual ECS& get_ecs() override { return *this; }
+
 	// ECSComponent& get_component(const ECSComponentType type) { return *components[type]; }
 
-	void animate(const ObjectID id, const AnimationSequence& sequence) { animation.add_entity(id, sequence); }
 
 	// animation system automatically removes animation components when they are finished
 	// void remove_animation(const ObjectID id) { animation.remove_component(id); }
@@ -40,6 +41,4 @@ private:
 	// std::unordered_map<ECSComponentType, std::unique_ptr<ECSComponent>> components;
 	
 	std::unordered_map<ObjectID, Object*> objects;
-
-	AnimationECS animation;
 };

@@ -1,15 +1,10 @@
-#include "animation_system.hpp"
-#include "ecs_manager.hpp"
+#include "animation.hpp"
+#include "ecs.hpp"
 
 #include <stdexcept>
 
 
-AnimationECS::AnimationECS(ECSManager& manager) :
-	ECSComponent(manager)
-{
-}
-
-void AnimationECS::process(const float delta_secs) 
+void AnimationSystem::process(const float delta_secs) 
 {
 	std::vector<ObjectID> to_remove;
 
@@ -20,7 +15,7 @@ void AnimationECS::process(const float delta_secs)
 		const auto pos = glm::mix(animation_sequence.initial_transform.get_pos(), animation_sequence.final_transform.get_pos(), t);
 		const auto scale = glm::mix(animation_sequence.initial_transform.get_scale(), animation_sequence.final_transform.get_scale(), t);
 		const auto quat = glm::slerp(animation_sequence.initial_transform.get_orient(), animation_sequence.final_transform.get_orient(), t);
-		Object& object = ecs_manager.get_object(id);
+		Object& object = get_ecs().get_object(id);
 		if (animation_sequence.is_relative)
 		{
 			object.set_relative_position(pos);
@@ -45,10 +40,10 @@ void AnimationECS::process(const float delta_secs)
 	}
 }
 
-void AnimationECS::add_entity(const ObjectID id, const AnimationSequence& sequence)
+void AnimationSystem::add_entity(const ObjectID id, const AnimationSequence& sequence)
 {
 	if (!entities.emplace(id, sequence).second)
 	{
-		throw std::runtime_error("AnimationECS::add_component: component already exists");
+		throw std::runtime_error("AnimationSystem::add_component: component already exists");
 	}
 }

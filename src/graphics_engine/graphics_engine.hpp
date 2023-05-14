@@ -31,6 +31,7 @@ class Camera;
 template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 class LightSource;
+class ECS;
 
 template<typename GameEngineT>
 class GraphicsEngine : public GraphicsEngineBase
@@ -73,7 +74,6 @@ public: // getters and setters
 	{ 
 		return GraphicsEngineSwapChain<GraphicsEngine>::EXPECTED_NUM_SWAPCHAIN_IMAGES; 
 	}
-	VkDescriptorPool& get_descriptor_pool() { return get_rsrc_mgr().descriptor_pool; }
 	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
@@ -86,6 +86,8 @@ public: // getters and setters
 	void set_fps(const float fps) { this->fps = fps; }
 	float get_fps() const { return fps; }
 	static constexpr VkSampleCountFlagBits get_msaa_samples() { return VK_SAMPLE_COUNT_4_BIT; }
+	ECS& get_ecs();
+	const ECS& get_ecs() const;
 
 private:
 	bool should_shutdown = false;

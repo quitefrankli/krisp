@@ -1,10 +1,11 @@
 #pragma once
 
-#include "ecs_component.hpp"
 #include "maths.hpp"
+#include "objects/object_id.hpp"
 
 
-class AnimationECS;
+class AnimationSystem;
+class ECS;
 
 struct AnimationSequence
 {
@@ -22,20 +23,23 @@ struct AnimationSequence
 	bool is_relative = false; // whether to use relative or global transform
 
 private:
-	friend AnimationECS;
+	friend AnimationSystem;
 	float elapsed_secs = 0;
 };
 
-class AnimationECS : public ECSComponent
+class AnimationSystem
 {
 public:
-	AnimationECS(ECSManager& manager);
-	virtual ~AnimationECS() override = default;
+	void animate(const ObjectID id, const AnimationSequence& sequence)
+	{ 
+		add_entity(id, sequence); 
+	}
 
+protected:
+	virtual ECS& get_ecs() = 0;
 	void process(const float delta_secs);
-
-	void add_entity(const ObjectID id, const AnimationSequence& sequence);
 	void remove_entity(const ObjectID id) { entities.erase(id); }
+	void add_entity(const ObjectID id, const AnimationSequence& sequence);
 
 private:
 	std::unordered_map<ObjectID, AnimationSequence> entities;
