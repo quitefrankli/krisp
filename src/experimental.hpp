@@ -3,11 +3,9 @@
 #include "game_engine.hpp"
 #include "hot_reload.hpp"
 #include "objects/cubemap.hpp"
-#include "objects/light_source.hpp"
 #include "objects/objects.hpp"
 #include "resource_loader.hpp"
 #include "utility.hpp"
-#include "objects/skeleton/skeleton.hpp"
 #include "shapes/shape_factory.hpp"
 #include "objects/generic_objects.hpp"
 
@@ -74,12 +72,12 @@ public:
 		// t2.set_orient(glm::angleAxis(glm::radians(45.0f), Maths::up_vec));
 		// t2.set_scale(t1.get_scale() * 2.0f);
 		// AnimationSequence anim(t1, t2, 10.0f);
-		// engine.get_ecs_mgr().animate(cube.get_id(), anim);
+		// engine.get_ecs().animate(cube.get_id(), anim);
 
 		const std::string model_name = "skellyjack_without_materials.gltf";
 		// const std::string model_name = "donut.gltf";
 		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/model_name).string());
-		auto obj = std::make_shared<GenericClickableObject>(std::move(res));
+		auto obj = std::make_shared<GenericClickableObject>(std::move(res.shapes));
 		engine.add_clickable(obj->get_id(), obj.get());
 		// obj->set_render_type(EPipelineType::STANDARD);
 		engine.spawn_object(std::move(obj));

@@ -2,6 +2,7 @@
 
 #include "animation.hpp"
 #include "skeletal.hpp"
+#include "light_source.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
@@ -14,7 +15,10 @@ enum class ECSComponentType
 	RIGID_BODY,
 };
 
-class ECS : public SkeletalSystem, public AnimationSystem
+class ECS : 
+	public SkeletalSystem, 
+	public AnimationSystem,
+	public LightSystem
 {
 public:
 	ECS();

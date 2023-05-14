@@ -56,16 +56,6 @@ void UpdateRayTracingCmd::process(GraphicsEngineBase* engine) {
 	engine->handle_command(*this);
 }
 
-AddLightSourceCmd::AddLightSourceCmd(LightSource& object) :
-	object(object)
-{
-}
-
-void AddLightSourceCmd::process(GraphicsEngineBase* engine) 
-{
-	engine->handle_command(*this);
-}
-
 PreviewObjectsCmd::PreviewObjectsCmd(const std::vector<Object*>& objects, GuiPhotoBase& gui) :
 	objects(objects),
 	gui(gui)

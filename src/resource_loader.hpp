@@ -1,6 +1,7 @@
 #pragma once
 
 #include "materials/materials.hpp"
+#include "entity_component_system/skeletal.hpp"
 
 #include <glm/mat4x4.hpp>
 
@@ -10,11 +11,13 @@
 #include <unordered_map>
 #include <cstddef>
 #include <memory>
+#include <optional>
 
 
 class Object;
 class Shape;
 struct RawTextureData; // internal use only
+struct SkeletalComponent;
 
 class ResourceLoader
 {
@@ -28,13 +31,23 @@ public:
 		ZERO_XZ,   // per shape center moved to (0,y,0) and bottom of mesh is at y=0
 	};
 
+	// used as a return value when loading models
+	struct LoadedModel
+	{
+		std::vector<std::unique_ptr<Shape>> shapes;
+		std::optional<SkeletalComponent> bones;
+		// add other custom parameters here, that we want to return from the resource loader i.e.
+		// PipelineType
+		// AnimationSequence
+	};
+
 	~ResourceLoader();
 
 	static ResourceLoader& get() { return global_resource_loader; }
 
 	MaterialTexture fetch_texture(const std::string_view file);
 
-	std::vector<std::unique_ptr<Shape>> load_model(const std::string_view file);
+	LoadedModel load_model(const std::string_view file);
 
 	// // for when there are many objects within a single mesh
 	// // each shape within the mesh will be associated with a single object

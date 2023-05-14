@@ -14,7 +14,6 @@
 #include "gui/gui_manager.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
-#include "objects/light_source.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -45,10 +44,10 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	experimental = std::make_unique<Experimental<GameEngine>>(*this);
 	spawn_object<CubeMap>(); // background/horizon
 
-	light_source = &spawn_object<LightSource>(glm::vec3(1.0f));
-	light_source->set_position(glm::vec3(0.0f, 5.0f, 0.0f));
-	send_graphics_cmd(std::make_unique<AddLightSourceCmd>(*light_source));
-	add_clickable(light_source->get_id(), light_source);
+	auto& light_source = spawn_object<Object>(ShapeFactory::sphere());
+	light_source.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
+	ecs.add_light_source(light_source.get_id(), LightComponent());
+	// add_clickable(light_source->get_id(), light_source);
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {

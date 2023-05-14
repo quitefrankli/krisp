@@ -40,6 +40,9 @@ public:
 	void remove_bones(Entity id) { skeletons.erase(id); }
 	std::vector<SDS::Bone> get_bones(Entity id) const { return skeletons.at(id).get_bones_data(); }
 
+protected:
+	void remove_entity(Entity id) { remove_bones(id); }
+
 private:
 	std::unordered_map<Entity, SkeletalComponent> skeletons;
 };

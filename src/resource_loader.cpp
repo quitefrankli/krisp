@@ -1,8 +1,8 @@
 #include "resource_loader.hpp"
-
 #include "maths.hpp"
 #include "objects/object.hpp"
 #include "analytics.hpp"
+#include "entity_component_system/skeletal.hpp"
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -201,7 +201,7 @@ ShapePtr create_shape_with_vertices<TexShape>(const tinygltf::Model& model, tiny
 	return new_shape;
 }
 
-std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string_view file)
+ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view file)
 {
 	const std::string file_str(file);
 	tinygltf::Model model;
@@ -217,7 +217,8 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 			warn));
 	}
 
-	std::vector<std::unique_ptr<Shape>> shapes;
+	LoadedModel retval;
+
 	for (auto& mesh : model.meshes)
 	{
 		if (mesh.primitives.size() != 1)
@@ -296,11 +297,10 @@ std::vector<std::unique_ptr<Shape>> ResourceLoader::load_model(const std::string
 		}
 		new_shape->set_material(std::move(new_material));
 
-		shapes.push_back(std::move(new_shape));
+		retval.shapes.push_back(std::move(new_shape));
 	}
 
-	// new_obj.set_render_type(EPipelineType::STANDARD); // use textured render
-	return shapes;
+	return retval;
 }
 
 void ResourceLoader::assign_object_texture(Object& object, const std::string_view texture)

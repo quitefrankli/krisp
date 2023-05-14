@@ -18,5 +18,7 @@ void ECS::process(const float delta_secs)
 void ECS::remove_object(const ObjectID id) 
 {
 	objects.erase(id);
+	SkeletalSystem::remove_entity(id);
 	AnimationSystem::remove_entity(id);
+	LightSystem::remove_entity(id);
 }

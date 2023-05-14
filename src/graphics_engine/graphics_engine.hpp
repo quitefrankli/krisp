@@ -30,7 +30,6 @@ class Analytics;
 class Camera;
 template<typename GraphicsEngineT>
 class GraphicsEngineObject;
-class LightSource;
 class ECS;
 
 template<typename GameEngineT>
@@ -62,7 +61,6 @@ public: // getters and setters
 	}
 	GraphicsEngineObject<GraphicsEngine>& get_object(ObjectID id) { return *objects.at(id); }
 	auto& get_stenciled_object_ids() { return stenciled_objects; }
-	auto& get_light_sources() { return light_sources; }
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
 	VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
 	VkInstance& get_instance() { return instance.get(); }
@@ -94,7 +92,6 @@ private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>> objects;
-	std::unordered_map<ObjectID, std::reference_wrapper<const LightSource>> light_sources;
 	std::unordered_set<ObjectID> stenciled_objects;
 	// currently used for OffscreenGuiViewportRenderer, in future we should have a scene system
 	// and this would be a separate scene
@@ -167,7 +164,6 @@ private: // core components
 
 public: // commands
 	void handle_command(SpawnObjectCmd& cmd) final;
-	void handle_command(AddLightSourceCmd& cmd) final;
 	void handle_command(DeleteObjectCmd& cmd) final;
 	void handle_command(StencilObjectCmd& cmd) final;
 	void handle_command(UnStencilObjectCmd& cmd) final;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "graphics_engine.hpp"
-#include "objects/light_source.hpp"
 #include "shared_data_structures.hpp"
 #include "renderers/renderers.hpp"
 #include "shared_data_structures.hpp"
@@ -63,12 +62,6 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 			std::make_unique<GraphicsEngineObjectPtr<GraphicsEngine>>(*this, std::move(cmd.object)));
 		spawn_object(*graphics_object.first->second);
 	}
-}
-
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(AddLightSourceCmd& cmd)
-{
-	light_sources.emplace(cmd.object.get_id(), cmd.object);
 }
 
 template<typename GameEngineT>

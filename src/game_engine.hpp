@@ -27,7 +27,6 @@ class Experimental;
 template<typename GameEngineT>
 class Gizmo;
 class IApplication;
-class LightSource;
 class Analytics;
 
 
@@ -96,8 +95,6 @@ public:
 
 	void set_application(IApplication* application) { this->application=application; }
 
-	LightSource* get_light_source() { return light_source; }
-
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
 
@@ -129,7 +126,6 @@ private:
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
-	LightSource* light_source = nullptr;
 	IApplication* application = nullptr;
 
 	std::unique_ptr<Experimental<GameEngine>> experimental;

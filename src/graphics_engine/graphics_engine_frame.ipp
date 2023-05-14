@@ -5,7 +5,6 @@
 #include "graphics_engine.hpp"
 #include "graphics_engine_swap_chain.hpp"
 #include "objects/object.hpp"
-#include "objects/light_source.hpp"
 #include "shared_data_structures.hpp"
 #include "camera.hpp"
 #include "pipeline/pipeline.hpp"
@@ -356,13 +355,9 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
 
 	// light controlled by light source, only supports single light source and white lighting currently
-	auto& light_sources = get_graphics_engine().get_light_sources();
-	if (light_sources.empty())
-	{
-		gubo.light_pos = {};
-	} else {
-		gubo.light_pos = light_sources.begin()->second.get().get_position();
-	}
+	ObjectID entity = get_graphics_engine().get_ecs().get_global_light_source();
+	auto& light_source = get_graphics_engine().get_object(entity);
+	gubo.light_pos = light_source.get_game_object().get_position();
 	gubo.lighting_scalar = graphic_settings.light_strength;
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(gubo);
@@ -423,7 +418,6 @@ void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 			get_rsrc_mgr().free_materials_buffer(shape.get_id());
 		}
 		get_graphics_engine().get_objects().erase(id);
-		get_graphics_engine().get_light_sources().erase(id);
 		objs_to_delete.pop();
 	}
 }
