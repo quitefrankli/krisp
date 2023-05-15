@@ -167,6 +167,35 @@ template<template<typename> typename GraphicsEngineTemplate>
 GameEngine<GraphicsEngineTemplate>::~GameEngine() = default;
 
 template<template<typename> typename GraphicsEngineTemplate>
+inline Object& GameEngine<GraphicsEngineTemplate>::spawn_object(std::shared_ptr<Object>&& object)
+{
+	auto it = objects.emplace(object->get_id(), std::move(object));
+	Object& new_obj = *(it.first->second);
+	ecs.add_object(new_obj);
+	send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
+
+	return new_obj;
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
+Object& GameEngine<GraphicsEngineTemplate>::spawn_skinned_object(std::shared_ptr<Object>&& object,
+                                                                 std::vector<Bone>&& bones)
+{
+	object->set_render_type(EPipelineType::SKINNED);
+	ecs.add_bones(object->get_id(), bones);
+	std::vector<ObjectID> visualisers;
+	for (const auto& bone : bones)
+	{
+		Object& obj = spawn_object<Object>(ShapeFactory::arrow());
+		obj.set_visibility(false);
+		visualisers.push_back(obj.get_id());
+	}
+	ecs.add_bone_visualisers(object->get_id(), visualisers);
+	
+	return spawn_object(std::move(object));
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::delete_object(ObjectID id)
 {
 	objects.erase(id);

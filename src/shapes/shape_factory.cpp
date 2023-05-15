@@ -274,6 +274,37 @@ ShapeFactory::RetType ShapeFactory::cylinder(EVertexType vertex_type, uint32_t n
 	return std::make_unique<ColorShape>(std::move(shape));
 }
 
+ShapeFactory::RetType ShapeFactory::arrow(float radius, uint32_t nVertices)
+{
+	auto cylinder = ShapeFactory::cylinder(ShapeFactory::EVertexType::COLOR, nVertices);
+	auto cone = ShapeFactory::cone(ShapeFactory::EVertexType::COLOR, nVertices);
+
+	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, Maths::right_vec);
+
+	glm::mat4 cylinder_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.4f, 0.0f));
+	cylinder_transform = cylinder_transform * glm::scale(glm::mat4(1.0f), glm::vec3(radius*2.0f, 0.8f, radius*2.0f));
+	cylinder_transform = glm::mat4_cast(quat) * cylinder_transform;
+	cylinder->transform_vertices(cylinder_transform);
+
+	glm::mat4 cone_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.9f, 0.0f));
+	cone_transform = cone_transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.2f, 0.3f));
+	cone_transform = glm::mat4_cast(quat) * cone_transform;
+	cone->transform_vertices(cone_transform);
+
+	const auto idx_offset = cylinder->get_num_unique_vertices();
+	ColorShape& color_shape = cylinder->as<ColorShape>();
+	color_shape.get_vertices().insert(
+		color_shape.get_vertices().end(),
+		std::make_move_iterator(cone->as<ColorShape>().get_vertices().begin()),
+		std::make_move_iterator(cone->as<ColorShape>().get_vertices().end()));
+	for (const auto index : cone->get_indices())
+	{
+		color_shape.get_indices().push_back(index + idx_offset);
+	}
+
+	return std::move(cylinder);
+}
+
 ShapeFactory::RetType ShapeFactory::generate_uv_sphere(int nVertices)
 {
 	const int M = std::sqrtf(nVertices);

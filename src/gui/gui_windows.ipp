@@ -283,6 +283,20 @@ void GuiStatistics<GameEngineT>::update_buffer_capacities(
 template<typename GameEngineT>
 void GuiDebug<GameEngineT>::process(GameEngineT& engine)
 {
+	if (show_bone_visualisers.changed)
+	{
+		for (const auto entity : engine.get_ecs().get_all_skinned_entities())
+		{
+			engine.get_object(entity)->set_visibility(!show_bone_visualisers());
+			for (const auto visualiser : engine.get_ecs().get_skeletal_component(entity).get_visualisers())
+			{
+				engine.get_object(visualiser)->set_visibility(show_bone_visualisers());
+			}
+		}
+
+		show_bone_visualisers.changed = false;
+	}
+
 	if (selected_object.changed)
 	{
 		const auto pos = engine.get_object(selected_object())->get_position();
@@ -308,6 +322,11 @@ template<typename GameEngineT>
 void GuiDebug<GameEngineT>::draw()
 {
 	ImGui::Begin("Debug");
+
+	if (ImGui::Checkbox("Show Bone Visualisers", &show_bone_visualisers.value))
+	{
+		show_bone_visualisers.changed = true;
+	}
 
 	if (ImGui::Button("Refresh Objects List"))
 	{

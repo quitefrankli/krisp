@@ -265,7 +265,7 @@ VkVertexInputBindingDescription SkinnedPipeline<GraphicsEngineT>::get_binding_de
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
-	binding_description.stride = sizeof(SDS::TexVertex);
+	binding_description.stride = sizeof(SDS::SkinnedVertex);
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	return binding_description;
@@ -295,13 +295,13 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline<GraphicsEngineT>:
 	VkVertexInputAttributeDescription bone_ids_attr{};
 	bone_ids_attr.binding = 0;
 	bone_ids_attr.location = 3;
-	bone_ids_attr.format = VK_FORMAT_R32G32B32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
+	bone_ids_attr.format = VK_FORMAT_R32G32B32A32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
 	bone_ids_attr.offset = offsetof(SDS::SkinnedVertex, bone_ids);
 
 	VkVertexInputAttributeDescription bone_weights_attr{};
 	bone_weights_attr.binding = 0;
 	bone_weights_attr.location = 4;
-	bone_weights_attr.format = VK_FORMAT_R32G32B32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
+	bone_weights_attr.format = VK_FORMAT_R32G32B32A32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
 	bone_weights_attr.offset = offsetof(SDS::SkinnedVertex, bone_weights);
 
 	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr};

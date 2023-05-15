@@ -6,16 +6,19 @@
 
 
 using Entity = ObjectID;
+class ECS;
 
 struct Bone
 {
 	Maths::Transform relative_transform;
+	Maths::Transform inverse_bind_pose;
 	uint32_t parent_node;
 };
 
 struct SkeletalComponent
 {
 public:
+	SkeletalComponent() = default;
 	SkeletalComponent(const std::vector<Bone>& bones) : bones(bones) {}
 
 	Bone& get_bone(const uint32_t node_id) { return bones[node_id]; }
@@ -29,16 +32,27 @@ public:
 
 	std::vector<SDS::Bone> get_bones_data() const;
 
+	const std::vector<Entity>& get_visualisers() const { return visualisers; }
+	void set_visualisers(const std::vector<Entity>& visualisers);
+
 private:
 	std::vector<Bone> bones;
+	std::vector<Entity> visualisers;
 };
 
 class SkeletalSystem
 {
 public:
+	virtual ECS& get_ecs() = 0;
+
 	void add_bones(Entity id, const std::vector<Bone>& bones) { skeletons.emplace(id, bones); }
 	void remove_bones(Entity id) { skeletons.erase(id); }
 	std::vector<SDS::Bone> get_bones(Entity id) const { return skeletons.at(id).get_bones_data(); }
+	std::vector<Entity> get_all_skinned_entities() const;
+	const SkeletalComponent& get_skeletal_component(Entity id) const { return skeletons.at(id); }
+	void add_bone_visualisers(Entity id, const std::vector<Entity>& bones);
+
+	void process(const float delta_secs);
 
 protected:
 	void remove_entity(Entity id) { remove_bones(id); }

@@ -66,14 +66,8 @@ public:
 		return static_cast<object_t&>(new_obj);
 	}
 
-	Object& spawn_object(std::shared_ptr<Object>&& object)
-	{
-		auto it = objects.emplace(object->get_id(), std::move(object));
-		Object& new_obj = *(it.first->second);
-		ecs.add_object(new_obj);
-		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
-		return new_obj;
-	}
+	Object& spawn_object(std::shared_ptr<Object>&& object);
+	Object& spawn_skinned_object(std::shared_ptr<Object>&& object, std::vector<Bone>&& bones);
 
 	// this function assumes something else manages the lifetime of object
 	template<typename object_t>
