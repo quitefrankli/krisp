@@ -85,7 +85,7 @@ public:
 
 	DerivedShape() = default;
 	DerivedShape(const DerivedShape& shape) = delete;
-	DerivedShape& operator=(const DerivedShape& shape) = delete;
+	DerivedShape& operator=(const DerivedShape& shape) = default;
 	DerivedShape(DerivedShape&& shape) noexcept = default;
 
 	uint32_t get_num_unique_vertices() const override { return static_cast<uint32_t>(vertices.size()); }

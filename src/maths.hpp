@@ -132,6 +132,10 @@ namespace Maths
 	const glm::vec3 zero_vec = {};
 	const glm::vec3 identity_vec = { 1.0f, 1.0f, 1.0f };
 	const glm::quat identity_quat = glm::quat_identity<float, glm::highp>();
+	const glm::mat4 identity_mat = glm::mat4(1.0f);
+	const glm::quat xRot90 = glm::angleAxis(PI / 2.0f, right_vec);
+	const glm::quat yRot90 = glm::angleAxis(PI / 2.0f, up_vec);
+	const glm::quat zRot90 = glm::angleAxis(PI / 2.0f, forward_vec);
 	enum class Direction
 	{
 		RIGHT,

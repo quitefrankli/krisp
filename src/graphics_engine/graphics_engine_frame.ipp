@@ -98,14 +98,14 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
 		buffer_info.offset = buffer_slot.offset;
 		buffer_info.range = buffer_slot.size;
-		VkWriteDescriptorSet uniform_buffer_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		uniform_buffer_descriptor_set.dstSet = new_descriptor_set;
-		uniform_buffer_descriptor_set.dstBinding = SDS::RASTERIZATION_OBJECT_DATA_BINDING;
-		uniform_buffer_descriptor_set.dstArrayElement = 0; // offset
-		uniform_buffer_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniform_buffer_descriptor_set.descriptorCount = 1;
-		uniform_buffer_descriptor_set.pBufferInfo = &buffer_info;
-		descriptor_writes.push_back(uniform_buffer_descriptor_set);
+		VkWriteDescriptorSet uniform_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		uniform_buffer_dset_write.dstSet = new_descriptor_set;
+		uniform_buffer_dset_write.dstBinding = SDS::RASTERIZATION_OBJECT_DATA_BINDING;
+		uniform_buffer_dset_write.dstArrayElement = 0; // offset
+		uniform_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		uniform_buffer_dset_write.descriptorCount = 1;
+		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
+		descriptor_writes.push_back(uniform_buffer_dset_write);
 
 		if (object.get_render_type() == EPipelineType::SKINNED)
 		{
@@ -115,14 +115,14 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
 			bone_buffer_info.offset = bone_slot.offset;
 			bone_buffer_info.range = bone_slot.size;
-			VkWriteDescriptorSet bone_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-			bone_buffer_dset.dstSet = new_descriptor_set;
-			bone_buffer_dset.dstBinding = 3;
-			bone_buffer_dset.dstArrayElement = 0;
-			bone_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			bone_buffer_dset.descriptorCount = 1;
-			bone_buffer_dset.pBufferInfo = &bone_buffer_info;
-			descriptor_writes.push_back(bone_buffer_dset);
+			VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			bone_buffer_dset_write.dstSet = new_descriptor_set;
+			bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
+			bone_buffer_dset_write.dstArrayElement = 0;
+			bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bone_buffer_dset_write.descriptorCount = 1;
+			bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
+			descriptor_writes.push_back(bone_buffer_dset_write);
 		}
 
 		vkUpdateDescriptorSets(get_logical_device(), 

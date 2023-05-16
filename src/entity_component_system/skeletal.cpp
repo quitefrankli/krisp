@@ -10,6 +10,7 @@ std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 
 	std::vector<SDS::Bone> final_bones_data(bones.size());
 	final_bones_data[0].final_transform = bones[0].relative_transform.get_mat4();
+	final_bones_data[0].inverse_transform = bones[0].inverse_bind_pose.get_mat4();
 	for (uint32_t i = 1; i < bones.size(); ++i)
 	{
 		const auto& bone = bones[i];

@@ -8,6 +8,7 @@
 #include <tiny_gltf.h>
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <fmt/core.h>
 
 #include <iostream>
@@ -201,23 +202,192 @@ ShapePtr create_shape_with_vertices<TexShape>(const tinygltf::Model& model, tiny
 	return new_shape;
 }
 
+template<>
+ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
+{
+	using ShapeType = SkinnedShape;
+
+	if (primitive.attributes.find("POSITION") == primitive.attributes.end() ||
+		primitive.attributes.find("NORMAL") == primitive.attributes.end() ||
+		primitive.attributes.find("JOINTS_0") == primitive.attributes.end() ||
+		primitive.attributes.find("WEIGHTS_0") == primitive.attributes.end())
+	{
+		throw std::runtime_error("ResourceLoader: missing attributes");
+	}
+
+	if (model.skins.size() != 1)
+	{
+		throw std::runtime_error("ResourceLoader: only one skin is supported");
+	}
+
+	const auto& pos_accessor = model.accessors[primitive.attributes["POSITION"]];
+	const auto& norm_accessor = model.accessors[primitive.attributes["NORMAL"]];
+	const auto& joint_accessor = model.accessors[primitive.attributes["JOINTS_0"]];
+	const auto& weight_accessor = model.accessors[primitive.attributes["WEIGHTS_0"]];
+
+	if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || pos_accessor.type != TINYGLTF_TYPE_VEC3)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec3 positions are supported");
+	}
+
+	if (norm_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || norm_accessor.type != TINYGLTF_TYPE_VEC3)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec3 normals are supported");
+	}
+
+	if (joint_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE || joint_accessor.type != TINYGLTF_TYPE_VEC4)
+	{
+		throw std::runtime_error("ResourceLoader: only unsigned byte vec4 joints are supported");
+	}
+
+	if (weight_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || weight_accessor.type != TINYGLTF_TYPE_VEC4)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec4 weights are supported");
+	}
+
+	const auto& pos_buffer_view = model.bufferViews[pos_accessor.bufferView];
+	const auto& norm_buffer_view = model.bufferViews[norm_accessor.bufferView];
+	const auto& joint_buffer_view = model.bufferViews[joint_accessor.bufferView];
+	const auto& weight_buffer_view = model.bufferViews[weight_accessor.bufferView];
+
+	const auto& pos_buffer = model.buffers[pos_buffer_view.buffer];
+	const auto& norm_buffer = model.buffers[norm_buffer_view.buffer];
+	const auto& joint_buffer = model.buffers[joint_buffer_view.buffer];
+	const auto& weight_buffer = model.buffers[weight_buffer_view.buffer];
+
+	const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
+	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
+	const auto* joint_data = reinterpret_cast<const uint8_t*>(&joint_buffer.data[joint_accessor.byteOffset + joint_buffer_view.byteOffset]);
+	const auto* weight_data = reinterpret_cast<const float*>(&weight_buffer.data[weight_accessor.byteOffset + weight_buffer_view.byteOffset]);
+
+	std::vector<ShapeType::VertexType> vertices;
+	vertices.reserve(pos_accessor.count);
+	for (size_t i = 0; i < pos_accessor.count; ++i)
+	{
+		ShapeType::VertexType vertex;
+		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
+		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
+		vertex.bone_ids = glm::vec4(joint_data[4 * i], joint_data[4 * i + 1], joint_data[4 * i + 2], joint_data[4 * i + 3]);
+		vertex.bone_weights = glm::vec4(weight_data[4 * i], weight_data[4 * i + 1], weight_data[4 * i + 2], weight_data[4 * i + 3]);
+		vertices.push_back(vertex);
+	}
+
+	auto new_shape = std::make_unique<ShapeType>();
+	new_shape->set_vertices(std::move(vertices));
+
+	return new_shape;
+}
+
+static std::vector<Bone> load_bones(const tinygltf::Model& model)
+{
+	if (model.skins.size() != 1)
+	{
+		throw std::runtime_error("ResourceLoader: only one skin is supported");
+	}
+	const auto& skin = model.skins[0];
+
+	const auto& inverse_bind_matrices_accessor = model.accessors[skin.inverseBindMatrices];
+
+	if (inverse_bind_matrices_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || inverse_bind_matrices_accessor.type != TINYGLTF_TYPE_MAT4)
+	{
+		throw std::runtime_error("ResourceLoader: only float mat4 inverse bind matrices are supported");
+	}
+
+	const auto& inverse_bind_matrices_buffer_view = model.bufferViews[inverse_bind_matrices_accessor.bufferView];
+	const auto& inverse_bind_matrices_buffer = model.buffers[inverse_bind_matrices_buffer_view.buffer];
+	const auto* inverse_bind_matrices_data = reinterpret_cast<const float*>(
+		&inverse_bind_matrices_buffer.data[inverse_bind_matrices_accessor.byteOffset + inverse_bind_matrices_buffer_view.byteOffset]);
+
+	const std::map<int, int> joint_id_to_bone_idx = [&skin]()
+	{
+		std::map<int, int> retval;
+		for (int i = 0; i < skin.joints.size(); i++)
+		{
+			retval[skin.joints[i]] = i;
+		}
+		return retval;
+	}();
+	std::vector<Bone> bones(skin.joints.size());
+	for (int i = 0; i < bones.size(); i++)
+	{
+		const auto joint_idx = skin.joints[i];
+		const auto& node = model.nodes[joint_idx];
+		Bone& bone = bones[i];
+
+		bone.name = node.name;
+		bone.inverse_bind_pose.set_mat4(glm::make_mat4(&inverse_bind_matrices_data[i*sizeof(glm::mat4)/sizeof(float)]));
+
+		if (node.children.size() > 4)
+		{
+			throw std::runtime_error("ResourceLoader: only 4 children per bone are supported");
+		}
+
+		for (int child : node.children)
+		{
+			bones[joint_id_to_bone_idx.at(child)].parent_node = i;
+		}
+
+		if (!node.translation.empty())
+		{
+			bone.relative_transform.set_pos(glm::vec3(node.translation[0], node.translation[1], node.translation[2]));
+		}
+
+		if (!node.rotation.empty())
+		{
+			bone.relative_transform.set_orient(glm::quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]));
+		}
+
+		if (!node.scale.empty())
+		{
+			bone.relative_transform.set_scale(glm::vec3(node.scale[0], node.scale[1], node.scale[2]));
+		}
+	}
+
+	return bones;
+}
+
 ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view file)
 {
-	const std::string file_str(file);
+	std::filesystem::path file_path(file);
 	tinygltf::Model model;
 	std::string err;
 	std::string warn;
 	tinygltf::TinyGLTF loader;
-	if (!loader.LoadASCIIFromFile(&model, &err, &warn, file_str))
+
+	if (file_path.extension().string() == ".gltf")
 	{
-		throw std::runtime_error(fmt::format(
-			"ResourceLoader::load_model: failed to load model: {}, err {}, warn {}", 
-			file,
-			err,
-			warn));
+		if (!loader.LoadASCIIFromFile(&model, &err, &warn, file_path.string()))
+		{
+			throw std::runtime_error(fmt::format(
+				"ResourceLoader::load_model: failed to load model: {}, err {}, warn {}", 
+				file,
+				err,
+				warn));
+		}
+	} else
+	{
+		if (!loader.LoadBinaryFromFile(&model, &err, &warn, file_path.string()))
+		{
+			throw std::runtime_error(fmt::format(
+				"ResourceLoader::load_model: failed to load model: {}, err {}, warn {}", 
+				file,
+				err,
+				warn));
+		}
+	}
+
+	if (model.meshes.empty())
+	{
+		throw std::runtime_error("ResourceLoader::load_model: no meshes found");
 	}
 
 	LoadedModel retval;
+
+	const bool has_bones = [&model](){ return !model.skins.empty(); }();
+	if (has_bones)
+	{
+		retval.bones = load_bones(model);
+	}
 
 	for (auto& mesh : model.meshes)
 	{
@@ -241,12 +411,17 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		const auto& index_buffer_view = model.bufferViews[index_accessor.bufferView];
 		const auto& index_buffer = model.buffers[index_buffer_view.buffer];
 
-		const auto check_has_texture = [](auto& primitive)
+		const bool has_texture = [&primitive]() { return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
+
+		ShapePtr new_shape;
+		if (has_bones)
 		{
-			return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end();
-		};
-		ShapePtr new_shape = check_has_texture(primitive) ? 
-			create_shape_with_vertices<TexShape>(model, primitive) : create_shape_with_vertices<ColorShape>(model, primitive);
+			new_shape = create_shape_with_vertices<SkinnedShape>(model, primitive);
+		} else 
+		{
+			new_shape = has_texture ? 
+				create_shape_with_vertices<TexShape>(model, primitive) : create_shape_with_vertices<ColorShape>(model, primitive);
+		}
 
 		// load indices onto shape
 		std::vector<uint32_t> indices(index_accessor.count);

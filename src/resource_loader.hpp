@@ -35,7 +35,7 @@ public:
 	struct LoadedModel
 	{
 		std::vector<std::unique_ptr<Shape>> shapes;
-		std::optional<SkeletalComponent> bones;
+		std::vector<Bone> bones;
 		// add other custom parameters here, that we want to return from the resource loader i.e.
 		// PipelineType
 		// AnimationSequence

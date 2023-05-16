@@ -116,12 +116,19 @@ AABB Shape::calculate_bounding_box(const std::vector<VertexType>& vertices)
 //
 
 template void Shape::transform_vertices(std::vector<SDS::ColorVertex>& vertices, const glm::mat4& transform);
-template void Shape::transform_vertices(std::vector<SDS::TexVertex>& vertices, const glm::mat4& transform);
 template void Shape::transform_vertices(std::vector<SDS::ColorVertex>& vertices, const glm::quat& quat);
-template void Shape::transform_vertices(std::vector<SDS::TexVertex>& vertices, const glm::quat& quat);
 template void Shape::translate_vertices(std::vector<SDS::ColorVertex>& vertices, const glm::vec3& vec);
-template void Shape::translate_vertices(std::vector<SDS::TexVertex>& vertices, const glm::vec3& vec);
 template void Shape::generate_normals(std::vector<SDS::ColorVertex>& vertices, std::vector<uint32_t>& indices);
-template void Shape::generate_normals(std::vector<SDS::TexVertex>& vertices, std::vector<uint32_t>& indices);
 template AABB Shape::calculate_bounding_box(const std::vector<SDS::ColorVertex>& vertices);
+
+template void Shape::transform_vertices(std::vector<SDS::TexVertex>& vertices, const glm::mat4& transform);
+template void Shape::transform_vertices(std::vector<SDS::TexVertex>& vertices, const glm::quat& quat);
+template void Shape::translate_vertices(std::vector<SDS::TexVertex>& vertices, const glm::vec3& vec);
+template void Shape::generate_normals(std::vector<SDS::TexVertex>& vertices, std::vector<uint32_t>& indices);
 template AABB Shape::calculate_bounding_box(const std::vector<SDS::TexVertex>& vertices);
+
+template void Shape::transform_vertices(std::vector<SDS::SkinnedVertex>& vertices, const glm::mat4& transform);
+template void Shape::transform_vertices(std::vector<SDS::SkinnedVertex>& vertices, const glm::quat& quat);
+template void Shape::translate_vertices(std::vector<SDS::SkinnedVertex>& vertices, const glm::vec3& vec);
+template void Shape::generate_normals(std::vector<SDS::SkinnedVertex>& vertices, std::vector<uint32_t>& indices);
+template AABB Shape::calculate_bounding_box(const std::vector<SDS::SkinnedVertex>& vertices);

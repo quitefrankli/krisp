@@ -12,6 +12,7 @@ struct Bone
 {
 	Maths::Transform relative_transform;
 	Maths::Transform inverse_bind_pose;
+	std::string name;
 	uint32_t parent_node;
 };
 

@@ -18,74 +18,19 @@ class Experimental
 public:
 	Experimental(GameEngineT& engine) : 
 		engine(engine)
-		// skeleton(
-		// 	[&engine](std::shared_ptr<Object>&& object)
-		// 	{
-		// 		IClickable* clickable = dynamic_cast<IClickable*>(object.get());
-		// 		if (clickable)
-		// 		{
-		// 			engine.add_clickable(object->get_id(), clickable);
-		// 		}
-		// 		engine.spawn_object(std::move(object));
-		// 	},
-		// 	[&engine](uint64_t id)
-		// 	{
-		// 		engine.delete_object(id);
-		// 	}
-		// )
 	{
-		// SkeletonBone& root = skeleton.new_bone();
-		// engine.add_clickable(root.get_id(), &root);
-		// SkeletonBone& arm = skeleton.new_bone();
-		// arm.set_scale({1.0f, 5.0f, 1.0f});
-		// arm.set_position({0.0f, 2.5f, 0.0f});
-		// SkeletonBone& hand = skeleton.new_bone();
-		// hand.set_scale({5.0f, 1.0f, 1.0f});
-		// hand.set_position({2.5f, 5.0f, 0.0f});
-		// SkeletonBone& finger = skeleton.new_bone();
-		// finger.set_scale({1.0f, 5.0f, 1.0f});
-		// finger.set_position({5.0f, 7.5f, 0.0f});
-
-		// // connect them all together
-		// SkeletonJoint* joint = nullptr;
-		// skeleton.set_root(&root);
-
-		// joint = &skeleton.new_joint();
-		// root.add_child_joint(*joint, {}, {});
-		// joint->add_child_bone(arm, {}, {});
-
-		// joint = &skeleton.new_joint();
-		// joint->set_position({0.0f, 5.0f, 0.0f});
-		// arm.add_child_joint(*joint, {}, {});
-		// joint->add_child_bone(hand, {}, {});
-		
-		// joint = &skeleton.new_joint();
-		// joint->set_position({5.0f, 5.0f, 0.0f});
-		// hand.add_child_joint(*joint, {}, {});
-		// joint->add_child_bone(finger, {}, {});
-
-		// auto& cube = engine.spawn_object(std::make_unique<Object>(ShapeFactory::cube()));
-		// Maths::Transform t1;
-		// Maths::Transform t2;
-		// t1.set_pos({0.0f, 1.0f, 0.0f});
-		// t2.set_pos({2.0f, 0.0f, 0.0f});
-		// t2.set_orient(glm::angleAxis(glm::radians(45.0f), Maths::up_vec));
-		// t2.set_scale(t1.get_scale() * 2.0f);
-		// AnimationSequence anim(t1, t2, 10.0f);
-		// engine.get_ecs().animate(cube.get_id(), anim);
-
-		const std::string model_name = "skellyjack_without_materials.gltf";
-		// const std::string model_name = "donut.gltf";
-		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/model_name).string());
-		auto obj = std::make_shared<GenericClickableObject>(std::move(res.shapes));
-		engine.add_clickable(obj->get_id(), obj.get());
-		// obj->set_render_type(EPipelineType::STANDARD);
-		engine.spawn_object(std::move(obj));
 	}
 
 	// manually triggered
 	void process()
 	{
+		// const std::string model_name = "skeletal_ecs_tests.gltf";
+		const std::string model_name = "skellyjack_without_materials.gltf";
+		// const std::string model_name = "donut.gltf";
+		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/model_name).string());
+		auto obj = std::make_shared<GenericClickableObject>(std::move(res.shapes));
+		engine.add_clickable(obj->get_id(), obj.get());
+		engine.spawn_skinned_object(std::move(obj), std::move(res.bones));
 	}
 
 	// game engine triggers this periodically
@@ -98,11 +43,9 @@ public:
 			time_elapsed = 0;
 		}
 		
-		// skeleton.process(time_delta);
 	}
 
 private:
 	GameEngineT& engine;
-	// Skeleton skeleton;
 	float time_elapsed = 0;
 };

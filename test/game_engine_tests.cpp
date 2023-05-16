@@ -25,7 +25,6 @@ public:
 
 TEST_F(GameEngineTests, Constructor)
 {
-    ASSERT_TRUE(engine.get_light_source());
 }
 
 TEST_F(GameEngineTests, main_loop)

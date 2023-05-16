@@ -31,9 +31,8 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 
 mat4 get_bone_matrix(float index)
 {
+	// TODOL: it may be possible to do this on the CPU
 	return bone_data.data[int(index)].final_transform * bone_data.data[int(index)].inverse_transform;
-	// return bone_data.data[int(index)].final_transform;
-	// return mat4(1.0);
 }
 
 void main()
