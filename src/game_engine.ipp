@@ -108,15 +108,30 @@ void GameEngine<GraphicsEngineTemplate>::main_loop(const float time_delta)
 	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
 	get_gui_manager().process(*this);
 
-	if (mouse->rmb_down)
+	if (mouse->mmb_down)
 	{
-		const float min_threshold = 0.001f;
-		mouse->update_pos();
-		glm::vec2 offset = mouse->get_prev_offset();
-		float magnitude = glm::length(offset);
-		if (magnitude > min_threshold)
+		if (window.is_shift_down())
 		{
-			camera->rotate_camera(offset, time_delta);
+			// panning
+			const float min_threshold = 0.01f;
+			mouse->update_pos();
+			const glm::vec2 offset_vec = mouse->get_orig_offset();
+			const float magnitude = glm::length(offset_vec);
+			if (magnitude > min_threshold)
+			{
+				camera->pan(offset_vec, magnitude);
+			}
+		} else
+		{
+			// orbiting
+			const float min_threshold = 0.001f;
+			mouse->update_pos();
+			glm::vec2 offset = mouse->get_prev_offset();
+			float magnitude = glm::length(offset);
+			if (magnitude > min_threshold)
+			{
+				camera->rotate_camera(offset, time_delta);
+			}
 		}
 	} else if (mouse->lmb_down)
 	{
@@ -133,16 +148,6 @@ void GameEngine<GraphicsEngineTemplate>::main_loop(const float time_delta)
 			const Maths::Ray r1 = camera->get_ray(mouse->orig_pos);
 			const Maths::Ray r2 = camera->get_ray(mouse->curr_pos);
 			gizmo->process(r1, r2);
-		}
-	} else if (mouse->mmb_down)
-	{
-		const float min_threshold = 0.01f;
-		mouse->update_pos();
-		const glm::vec2 offset_vec = mouse->get_orig_offset();
-		const float magnitude = glm::length(offset_vec);
-		if (magnitude > min_threshold)
-		{
-			camera->pan(offset_vec, magnitude);
 		}
 	}
 

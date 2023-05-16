@@ -50,6 +50,7 @@ public:
 	void remove_bones(Entity id) { skeletons.erase(id); }
 	std::vector<SDS::Bone> get_bones(Entity id) const { return skeletons.at(id).get_bones_data(); }
 	std::vector<Entity> get_all_skinned_entities() const;
+	SkeletalComponent& get_skeletal_component(Entity id) { return skeletons.at(id); }
 	const SkeletalComponent& get_skeletal_component(Entity id) const { return skeletons.at(id); }
 	void add_bone_visualisers(Entity id, const std::vector<Entity>& bones);
 

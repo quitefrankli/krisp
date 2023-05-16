@@ -43,15 +43,11 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 				 inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
 	}
 
-	if (action == GLFW_RELEASE)
-	{
-		return; // ignore held keys
-	}
-
 	switch (key)
 	{
 		case GLFW_KEY_ESCAPE:
-			shutdown();
+			if (action == GLFW_PRESS)
+				shutdown();
 			break;
 
 		case GLFW_KEY_LEFT:
@@ -65,6 +61,8 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 
 		case GLFW_KEY_S:
 		{
+			if (action == GLFW_RELEASE)
+				break;
 			if (mode == GLFW_MOD_SHIFT)
 			{
 				auto& obj = spawn_object<Object>(ShapeFactory::cube());
@@ -77,11 +75,15 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 		}
 		case GLFW_KEY_X: // experimental
 		{
+			if (action == GLFW_RELEASE)
+				break;
 			experimental->process();
 			break;
 		}
 		case GLFW_KEY_C: // toggle camera focus visibility
 		{
+			if (action == GLFW_RELEASE)
+				break;
 			if (mode == GLFW_MOD_SHIFT)
 			{
 				camera->toggle_mode();
@@ -91,7 +93,8 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 			break;
 		}
 		case GLFW_KEY_R:
-		{
+			if (action == GLFW_RELEASE)
+				break;
 			switch (mode) {
 			case GLFW_MOD_SHIFT:
 				HotReload::get().reload();break;
@@ -100,13 +103,21 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 			default:
 				break;
 			}
-		}
 		case GLFW_KEY_BACKSPACE:
 		case GLFW_KEY_DELETE:
-		{
+			if (action == GLFW_RELEASE)
+				break;
 			gizmo->delete_object();
 			break;
-		}
+		case GLFW_KEY_LEFT_SHIFT:
+			if (action == GLFW_PRESS)
+			{
+				window.set_shift_down(true);
+			} else if (action == GLFW_RELEASE)
+			{
+				window.set_shift_down(false);
+			}
+			break;
 		default:
 			break;
 	}
