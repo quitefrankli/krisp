@@ -4,6 +4,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/ext/matrix_relational.hpp>
 
 #include <iostream>
 #include <fmt/core.h>
@@ -31,6 +32,19 @@ inline constexpr bool glm_equal(const T& t1, const T& t2, const float epsilon = 
 		{
 			return true;
 		}
+	}
+
+	fmt::print("glm_equal error: {} != {}\n", glm::to_string(t1), glm::to_string(t2));
+	
+	return false;
+}
+
+template<>
+inline constexpr bool glm_equal<glm::mat4>(const glm::mat4& t1, const glm::mat4& t2, const float epsilon)
+{
+	if (glm::all(glm::equal(t1, t2, epsilon)))
+	{
+		return true;
 	}
 
 	fmt::print("glm_equal error: {} != {}\n", glm::to_string(t1), glm::to_string(t2));

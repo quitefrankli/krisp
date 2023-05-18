@@ -36,6 +36,7 @@ public:
 	{
 		std::vector<std::unique_ptr<Shape>> shapes;
 		std::vector<Bone> bones;
+		std::unordered_map<std::string, std::vector<BoneAnimation>> animations;
 		// add other custom parameters here, that we want to return from the resource loader i.e.
 		// PipelineType
 		// AnimationSequence
