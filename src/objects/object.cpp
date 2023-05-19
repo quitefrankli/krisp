@@ -73,6 +73,13 @@ void Object::sync_world_from_relative() const
 	world_transform.set_mat4(parent->get_transform() * relative_transform.get_mat4());
 }
 
+Maths::Transform Object::get_maths_transform() const
+{
+	sync_world_from_relative();
+
+	return world_transform;
+}
+
 glm::mat4 Object::get_transform() const
 {
 	sync_world_from_relative();

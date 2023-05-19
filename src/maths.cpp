@@ -229,6 +229,12 @@ namespace Maths
 
 	std::optional<glm::vec3> ray_sphere_collision(const Sphere& sphere, const Ray& ray)
 	{
+		// special case when ray origin is inside sphere
+		if (glm::distance2(sphere.origin, ray.origin) < sphere.radius * sphere.radius)
+		{
+			return ray.origin;
+		}
+
 		const float x_t = glm::dot(sphere.origin - ray.origin, ray.direction);
 		// x is the closest point on the ray to sphere's center
 		const glm::vec3 x = ray.origin + ray.direction * x_t;

@@ -7,7 +7,6 @@
 #include "resource_loader.hpp"
 #include "utility.hpp"
 #include "shapes/shape_factory.hpp"
-#include "objects/generic_objects.hpp"
 
 #include <iostream>
 
@@ -28,12 +27,13 @@ public:
 		const std::string model_name = "skellyjack.gltf";
 		// const std::string model_name = "donut.gltf";
 		auto res = ResourceLoader::get().load_model((Utility::get().get_model_path()/model_name).string());
-		auto obj = std::make_shared<GenericClickableObject>(std::move(res.shapes));
+		auto obj = std::make_shared<Object>(std::move(res.shapes));
 		auto entity_id = obj->get_id();
 		underlying_entity_id = obj->get_id().get_underlying();
-		engine.add_clickable(obj->get_id(), obj.get());
 		engine.spawn_skinned_object(std::move(obj), std::move(res.bones));
 		ECS& ecs = engine.get_ecs();
+		ecs.add_collider(entity_id, std::make_unique<SphereCollider>());
+		ecs.add_clickable_entity(entity_id);
 		for (auto& [name, animation] : res.animations)
 		{
 			ecs.add_skeletal_animation(entity_id, name, std::move(animation));

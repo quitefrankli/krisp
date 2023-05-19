@@ -41,29 +41,3 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 	engine.delete_object(id);
 	ASSERT_FALSE(engine.get_object(id));
 }
-
-TEST_F(GameEngineTests, clickable_objects)
-{
-	auto& obj = engine.spawn_object<GenericClickableObject>(ShapeFactory::circle());
-	auto& clickable = dynamic_cast<IClickable&>(obj);
-	const auto id = obj.get_id();
-	engine.add_clickable(id, &clickable);
-
-	bool contains_clckable = false;
-	const std::function<bool(IClickable*)> callback = [&clickable, &contains_clckable](IClickable* c)
-	{
-		if (&clickable == c)
-		{
-			contains_clckable = true;
-		}
-		return true;
-	};
-	engine.execute_on_clickables(callback);
-	ASSERT_TRUE(contains_clckable);
-
-	engine.delete_object(id);
-	ASSERT_FALSE(engine.get_object(id));
-	contains_clckable = false;
-	engine.execute_on_clickables(callback);
-	ASSERT_FALSE(contains_clckable);
-}

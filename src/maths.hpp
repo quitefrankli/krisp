@@ -40,6 +40,7 @@ namespace Maths
 
 	struct Ray
 	{
+		Ray() = default;
 		Ray(glm::vec3 origin_, glm::vec3 direction_) : origin(origin_), direction(direction_) {};
 		Ray(float&& oX, float&& oY, float&& oZ, float&& dX, float&& dY, float&& dZ) :
 			origin(oX, oY, oZ), direction(dX, dY, dZ)
@@ -62,8 +63,8 @@ namespace Maths
 	{
 		Sphere() = default;
 		Sphere(glm::vec3 origin_, float radius_) : origin(origin_), radius(radius_) {}
-		glm::vec3 origin;
-		float radius;
+		glm::vec3 origin = glm::vec3(0.0f);
+		float radius = 0.5f;
 	};
 
 	struct Transform

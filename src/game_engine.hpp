@@ -5,7 +5,6 @@
 #include "objects/objects.hpp"
 #include "objects/object_interfaces/clickable.hpp"
 #include "resource_loader.hpp"
-#include "game_engine/object_interfaces_menagerie.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
@@ -31,7 +30,7 @@ class Analytics;
 
 
 template<template<typename> typename GraphicsEngineTemplate>
-class GameEngine : public IWindowCallbacks, public ObjectInterfacesMenagerie
+class GameEngine : public IWindowCallbacks
 {
 public:
 	using GraphicsEngineT = GraphicsEngineTemplate<GameEngine>;

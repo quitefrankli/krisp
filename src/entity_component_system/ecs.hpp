@@ -3,6 +3,8 @@
 #include "animation.hpp"
 #include "skeletal.hpp"
 #include "light_source.hpp"
+#include "collider_ecs.hpp"
+#include "clickable.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
@@ -18,7 +20,9 @@ enum class ECSComponentType
 class ECS : 
 	public SkeletalSystem, 
 	public AnimationSystem,
-	public LightSystem
+	public LightSystem,
+	public ColliderSystem,
+	public ClickableSystem
 {
 public:
 	ECS();
@@ -27,6 +31,7 @@ public:
 	void process(const float delta_secs);
 
 	virtual ECS& get_ecs() override { return *this; }
+	virtual const ECS& get_ecs() const override { return *this; }
 
 	// ECSComponent& get_component(const ECSComponentType type) { return *components[type]; }
 
@@ -39,7 +44,8 @@ public:
 	void remove_object(const ObjectID id);
 
 	// Used by ECSComponents
-	Object& get_object(const ObjectID id) { return *objects[id]; }
+	Object& get_object(const ObjectID id);
+	const Object& get_object(const ObjectID id) const;
 
 private:
 	// std::unordered_map<ECSComponentType, std::unique_ptr<ECSComponent>> components;

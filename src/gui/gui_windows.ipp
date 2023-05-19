@@ -3,7 +3,6 @@
 #include "gui/gui_manager.hpp"
 #include "game_engine.hpp"
 #include "objects/objects.hpp"
-#include "objects/generic_objects.hpp"
 #include "shapes/shape_factory.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "audio_engine/audio_source.hpp"
@@ -76,20 +75,23 @@ GuiObjectSpawner<GameEngineT>::GuiObjectSpawner()
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngineT& engine, bool textured)
 			{
-				auto obj = std::make_shared<GenericClickableObject>(ShapeFactory::cube(
+				auto obj = std::make_shared<Object>(ShapeFactory::cube(
 					textured ? ShapeFactory::EVertexType::TEXTURE : ShapeFactory::EVertexType::COLOR));
 				if (textured)
 				{
 					ResourceLoader::get().assign_object_texture(*obj, Utility::get_texture("texture.jpg").data());
 				}
-				engine.add_clickable(obj->get_id(), obj.get());
+				engine.get_ecs().add_object(*obj);
+				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_clickable_entity(obj->get_id());
 				engine.spawn_object(std::move(obj));
 			})},
 		{"sphere", spawning_function_type([this](GameEngineT& engine, bool textured)
 			{
-				auto& obj = engine.template spawn_object<GenericClickableObject>(ShapeFactory::sphere(
+				auto& obj = engine.template spawn_object<Object>(ShapeFactory::sphere(
 					ShapeFactory::EVertexType::COLOR, ShapeFactory::GenerationMethod::ICO_SPHERE, 100));
-				engine.add_clickable(obj.get_id(), &obj);
+				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})}
 	};
 }

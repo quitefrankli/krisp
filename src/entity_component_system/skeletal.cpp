@@ -139,6 +139,11 @@ std::vector<std::string> SkeletalComponent::get_animations() const
 	return animation_names;
 }
 
+void SkeletalSystem::remove_bones(Entity id)
+{
+	skeletons.erase(id);
+}
+
 std::vector<Entity> SkeletalSystem::get_all_skinned_entities() const
 {
 	std::vector<Entity> skinned_entities;

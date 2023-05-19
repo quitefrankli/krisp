@@ -77,6 +77,8 @@ public:
 
 public:
 	// world
+	virtual Maths::Transform get_maths_transform() const;
+
 	virtual glm::mat4 get_transform() const;
 	virtual glm::vec3 get_position() const;
 	virtual glm::vec3 get_scale() const;

@@ -22,4 +22,18 @@ void ECS::remove_object(const ObjectID id)
 	SkeletalSystem::remove_entity(id);
 	AnimationSystem::remove_entity(id);
 	LightSystem::remove_entity(id);
+	ColliderSystem::remove_entity(id);
+	ClickableSystem::remove_entity(id);
+}
+
+Object& ECS::get_object(const ObjectID id)
+{
+	assert(objects.find(id) != objects.end());
+	return *objects.at(id);
+}
+
+const Object& ECS::get_object(const ObjectID id) const
+{
+	assert(objects.find(id) != objects.end());
+	return *objects.at(id);
 }

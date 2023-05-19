@@ -145,30 +145,17 @@ void GameEngine<GraphicsEngineTemplate>::mouse_button_callback(int button, int a
 			{
 				// gizmo mode, TODO: make else case also a IBaseDispatcher
 				OnClickDispatchers::IBaseDispatcher& on_click_dispatcher = *gizmo;
-				IClickable* closest_clickable = nullptr;
-				float closest_clickable_distance = std::numeric_limits<float>::infinity();
-				execute_on_clickables([&closest_clickable, &closest_clickable_distance, &ray](IClickable* clickable)
+				auto clicked_entity = ecs.check_any_entity_clicked(ray);
+				
+				if (clicked_entity.bCollided)
 				{
-					glm::vec3 intersection;
-					if (clickable->check_click(ray, intersection))
-					{
-						const float new_distance = glm::distance2(ray.origin, intersection);
-						if (new_distance < closest_clickable_distance)
-						{
-							closest_clickable_distance = new_distance;
-							closest_clickable = clickable;
-						}
-					}
-					
-					return true;
-				});
-
-				// no objects detected deselect everything
-				if (closest_clickable)
-				{
-					closest_clickable->on_click(on_click_dispatcher, ray, intersection);
+					on_click_dispatcher.dispatch_on_click(
+						ecs.get_object(clicked_entity.id), 
+						ray, 
+						clicked_entity.intersection);
 				} else
 				{
+					// no objects detected deselect everything
 					gizmo->deselect();
 				}
 			} else {

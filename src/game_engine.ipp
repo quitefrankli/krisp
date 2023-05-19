@@ -47,7 +47,8 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	auto& light_source = spawn_object<Object>(ShapeFactory::sphere());
 	light_source.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
 	ecs.add_light_source(light_source.get_id(), LightComponent());
-	// add_clickable(light_source->get_id(), light_source);
+	ecs.add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
+	ecs.add_clickable_entity(light_source.get_id());
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
@@ -209,9 +210,17 @@ Object& GameEngine<GraphicsEngineTemplate>::spawn_skinned_object(std::shared_ptr
 template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::delete_object(ObjectID id)
 {
+	if (ecs.has_skeletal_component(id))
+	{
+		const auto& bone_visualisers = ecs.get_skeletal_component(id).get_visualisers();
+		for (const auto bone_visualiser : bone_visualisers)
+		{
+			delete_object(bone_visualiser);
+		}
+	}
+	ecs.remove_object(id);
 	objects.erase(id);
 	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
-	erase_from_menagerie(id);
 }
 
 template<template<typename> typename GraphicsEngineTemplate>

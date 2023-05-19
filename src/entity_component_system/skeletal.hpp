@@ -77,8 +77,9 @@ class SkeletalSystem
 public:
 	virtual ECS& get_ecs() = 0;
 
+	bool has_skeletal_component(Entity id) const { return skeletons.find(id) != skeletons.end(); }
 	void add_bones(Entity id, const std::vector<Bone>& bones) { skeletons.emplace(id, bones); }
-	void remove_bones(Entity id) { skeletons.erase(id); }
+	void remove_bones(Entity id);
 	std::vector<SDS::Bone> get_bones(Entity id) const { return skeletons.at(id).get_bones_data(); }
 	std::vector<Entity> get_all_skinned_entities() const;
 	SkeletalComponent& get_skeletal_component(Entity id) { return skeletons.at(id); }
