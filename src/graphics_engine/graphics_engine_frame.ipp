@@ -419,5 +419,6 @@ void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 		}
 		get_graphics_engine().get_objects().erase(id);
 		objs_to_delete.pop();
+		get_graphics_engine().increment_num_objs_deleted();
 	}
 }

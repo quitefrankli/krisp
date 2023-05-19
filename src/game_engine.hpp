@@ -11,11 +11,13 @@
 #include "audio_engine/audio_engine_pimpl.hpp"
 #include "window.hpp"
 #include "entity_component_system/ecs.hpp"
+#include "entity_deletion_queue.hpp"
 
 #include <chrono>
 #include <atomic>
 #include <thread>
 #include <unordered_map>
+#include <queue>
 
 
 class Camera;
@@ -122,10 +124,12 @@ private:
 	IApplication* application = nullptr;
 
 	std::unique_ptr<Experimental<GameEngine>> experimental;
+	EntityDeletionQueue entity_deletion_queue;	
 
 private:
 	void create_camera();
 	void shutdown_impl();
+	void process_objs_to_delete();
 	const std::function<void()> restart_signaller;
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;

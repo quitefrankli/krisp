@@ -106,6 +106,8 @@ void GameEngine<GraphicsEngineTemplate>::main_loop(const float time_delta)
 {
 	window.poll_events();
 
+	process_objs_to_delete();
+
 	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
 	get_gui_manager().process(*this);
 
@@ -170,6 +172,34 @@ void GameEngine<GraphicsEngineTemplate>::shutdown_impl()
 }
 
 template<template<typename> typename GraphicsEngineTemplate>
+void GameEngine<GraphicsEngineTemplate>::process_objs_to_delete()
+{
+	const auto curr_deleted_objs_count_in_graphics_engine = graphics_engine->get_num_objs_deleted();
+	while (!entity_deletion_queue.empty())
+	{
+		const auto& obj = entity_deletion_queue.front();
+
+		if (obj.second >= curr_deleted_objs_count_in_graphics_engine)
+		{
+			break;
+		}
+		
+		if (ecs.has_skeletal_component(obj.first))
+		{
+			const auto& bone_visualisers = ecs.get_skeletal_component(obj.first).get_visualisers();
+			for (const auto bone_visualiser : bone_visualisers)
+			{
+				delete_object(bone_visualiser);
+			}
+		}
+
+		objects.erase(obj.first);
+		ecs.remove_object(obj.first);
+		entity_deletion_queue.pop();
+	}
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
 GameEngine<GraphicsEngineTemplate>::~GameEngine() = default;
 
 template<template<typename> typename GraphicsEngineTemplate>
@@ -210,16 +240,12 @@ Object& GameEngine<GraphicsEngineTemplate>::spawn_skinned_object(std::shared_ptr
 template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::delete_object(ObjectID id)
 {
-	if (ecs.has_skeletal_component(id))
+	if (!entity_deletion_queue.push(id))
 	{
-		const auto& bone_visualisers = ecs.get_skeletal_component(id).get_visualisers();
-		for (const auto bone_visualiser : bone_visualisers)
-		{
-			delete_object(bone_visualiser);
-		}
+		return;
 	}
-	ecs.remove_object(id);
-	objects.erase(id);
+
+	ecs.remove_clickable_entity(id);
 	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
 }
 

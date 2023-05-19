@@ -86,6 +86,8 @@ public: // getters and setters
 	static constexpr VkSampleCountFlagBits get_msaa_samples() { return VK_SAMPLE_COUNT_4_BIT; }
 	ECS& get_ecs();
 	const ECS& get_ecs() const;
+	uint64_t get_num_objs_deleted() const { return num_objs_deleted; }
+	void increment_num_objs_deleted() { ++num_objs_deleted; }
 
 private:
 	bool should_shutdown = false;
@@ -101,6 +103,7 @@ private:
 	std::unique_ptr<Analytics> FPS_tracker;
 	std::optional<VkFormat> depth_format;
 	float fps = 0.0f;
+	uint64_t num_objs_deleted = 0; // used for synchronisation, and knowing when an obj is safe to delete in game engine
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
