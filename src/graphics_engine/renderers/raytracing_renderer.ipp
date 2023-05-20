@@ -99,7 +99,8 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 	vkCmdBindPipeline(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).graphics_pipeline);
+		get_graphics_engine().get_pipeline_mgr().fetch_pipeline({
+			EPipelineType::RAYTRACING, EPipelineModifier::NONE })->graphics_pipeline);
 
 	std::vector<VkDescriptorSet> dsets = {
 		get_rsrc_mgr().get_global_dset(),
@@ -109,7 +110,8 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 	vkCmdBindDescriptorSets(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
-		get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).pipeline_layout,
+		get_graphics_engine().get_pipeline_mgr().fetch_pipeline({
+			EPipelineType::RAYTRACING, EPipelineModifier::NONE })->pipeline_layout,
 		SDS::RAYTRACING_LOW_FREQ_SET_OFFSET,
 		dsets.size(),
 		dsets.data(),

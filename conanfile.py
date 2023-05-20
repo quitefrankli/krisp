@@ -34,7 +34,8 @@ class vulkan_conan(ConanFile):
 		# "fmt/8.1.1", # already included by quill
 		"imgui/1.87", # also update backend under third_party
 		"gtest/1.8.1",
-		"yaml-cpp/0.7.0"
+		"yaml-cpp/0.7.0",
+		"magic_enum/0.8.2"
 	) 
 
 	generators = (

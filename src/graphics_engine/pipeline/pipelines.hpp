@@ -10,6 +10,9 @@ class TexturePipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 public:
 	TexturePipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
+	static uint32_t get_vertex_stride() { return sizeof(SDS::TexVertex); }
+	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::TexVertex, pos); }
+
 protected:
 	virtual std::string_view get_shader_name() const override { return "texture"; }
 	virtual VkVertexInputBindingDescription get_binding_description() const override;
@@ -21,6 +24,9 @@ class ColorPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
 	ColorPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+	static uint32_t get_vertex_stride() { return sizeof(SDS::ColorVertex); }
+	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::ColorVertex, pos); }
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "color"; }
@@ -40,14 +46,37 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
+template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
+class StencilPipelineV2 : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	StencilPipelineV2(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "stencil"; }
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
+class WireframePipelineV2 : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	WireframePipelineV2(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "wireframe"; }
+	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
+	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
 template<typename GraphicsEngineT>
 class StencilPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
-	StencilPipeline(GraphicsEngineT& engine) : 
-		GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
-	// StencilPipeline(GraphicsEngineT& engine, uint32_t vertex_stride, uint32_t vertex_pos_offset) : 
-	// 	GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	StencilPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
@@ -176,6 +205,9 @@ class SkinnedPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
 	SkinnedPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+	static uint32_t get_vertex_stride() { return sizeof(SDS::SkinnedVertex); }
+	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::SkinnedVertex, pos); }
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "skinned"; }

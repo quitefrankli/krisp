@@ -98,6 +98,90 @@ VkPipelineDepthStencilStateCreateInfo CubemapPipeline<GraphicsEngineT>::get_dept
 	return info;
 }
 
+template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
+VkPipelineDepthStencilStateCreateInfo StencilPipelineV2<GraphicsEngineT, PrimaryPipelineType>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	// render all objects twice
+	// on first render always succeed and write 1 to stencil buffer
+	// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
+	info.front.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
+	info.front.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+
+	info.front = [&]() {
+		VkStencilOpState stencil_op_state{};
+		stencil_op_state.compareMask = UINT32_MAX;
+		stencil_op_state.writeMask = UINT32_MAX;
+		stencil_op_state.reference = UINT32_MAX;
+
+		// render all objects twice
+		// on first render always succeed and write 1 to stencil buffer
+		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
+		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
+		stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
+		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
+		stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+
+		return stencil_op_state;
+	}();
+
+	return info;
+}
+
+template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
+VkVertexInputBindingDescription
+StencilPipelineV2<GraphicsEngineT, PrimaryPipelineType>::get_binding_description() const
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = PrimaryPipelineType::get_vertex_stride();
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;	
+}
+
+template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
+std::vector<VkVertexInputAttributeDescription>
+StencilPipelineV2<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descriptions() const
+{
+	VkVertexInputAttributeDescription position_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = PrimaryPipelineType::get_vertex_pos_offset();
+
+	return {position_attr};
+}
+
+template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
+VkVertexInputBindingDescription
+WireframePipelineV2<GraphicsEngineT, PrimaryPipelineType>::get_binding_description() const
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = PrimaryPipelineType::get_vertex_stride();
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return binding_description;	
+}
+
+template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
+std::vector<VkVertexInputAttributeDescription>
+WireframePipelineV2<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descriptions() const
+{
+	VkVertexInputAttributeDescription position_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = PrimaryPipelineType::get_vertex_pos_offset();
+
+	return {position_attr};
+}
+
 template<typename GraphicsEngineT>
 inline VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
 {

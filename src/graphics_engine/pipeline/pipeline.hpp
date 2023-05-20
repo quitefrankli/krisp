@@ -2,6 +2,7 @@
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "pipeline_types.hpp"
+#include "pipeline_id.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -9,10 +10,12 @@
 
 
 template<typename GraphicsEngineT>
+class GraphicsEnginePipelineManager;
+
+template<typename GraphicsEngineT>
 class GraphicsEnginePipeline : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
-	static std::unique_ptr<GraphicsEnginePipeline> create_pipeline(GraphicsEngineT& engine, EPipelineType type);
 	~GraphicsEnginePipeline();
 
 	VkPipeline graphics_pipeline = VK_NULL_HANDLE;
@@ -20,7 +23,6 @@ public:
 
 protected:
 	GraphicsEnginePipeline(GraphicsEngineT& engine);
-
 	virtual void initialise(); // should be called after construction
 	
 	virtual std::string_view get_shader_name() const = 0;
@@ -41,4 +43,7 @@ protected:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
+
+private:
+	friend GraphicsEnginePipelineManager<GraphicsEngineT>;
 };

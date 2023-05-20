@@ -101,56 +101,6 @@ VkRenderPass GraphicsEnginePipeline<GraphicsEngineT>::get_render_pass()
 }
 
 template<typename GraphicsEngineT>
-std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipeline<GraphicsEngineT>::create_pipeline(
-	GraphicsEngineT& engine,
-	EPipelineType type)
-{
-	std::unique_ptr<GraphicsEnginePipeline> new_pipeline;
-
-	switch (type)
-	{
-	case EPipelineType::COLOR:
-		new_pipeline = std::make_unique<ColorPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::STANDARD:
-		new_pipeline = std::make_unique<TexturePipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::CUBEMAP:
-		new_pipeline = std::make_unique<CubemapPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::RAYTRACING:
-		new_pipeline = std::make_unique<RaytracingPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
-		new_pipeline = std::make_unique<LightWeightOffscreenPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::SKINNED:
-		new_pipeline = std::make_unique<SkinnedPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::_STENCIL_COLOR_VERTICES:
-		new_pipeline = std::make_unique<StencilColorVerticesPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::_STENCIL_TEXTURE_VERTICES:
-		new_pipeline = std::make_unique<StencilTextureVerticesPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::_WIREFRAME_COLOR_VERTICES:
-		new_pipeline = std::make_unique<WireframeColorVerticesPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::_WIREFRAME_TEXTURE_VERTICES:
-		new_pipeline = std::make_unique<WireframeTextureVerticesPipeline<GraphicsEngineT>>(engine);
-		break;
-	case EPipelineType::STENCIL:
-	case EPipelineType::WIREFRAME:
-	default:
-		throw std::runtime_error("GraphicsEnginePipeline::create_pipeline: invalid pipeline type");
-	}
-
-	new_pipeline->initialise();
-
-	return new_pipeline;
-}
-
-template<typename GraphicsEngineT>
 GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT& engine) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {

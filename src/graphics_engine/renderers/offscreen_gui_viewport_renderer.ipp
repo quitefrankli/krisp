@@ -93,10 +93,10 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 																		 uint32_t frame_index)
 {
 	const auto& graphics_objects = get_graphics_engine().get_offscreen_rendering_objects();
-	// if (graphics_objects.empty())
-	// {
-	// 	return; // nothing to draw, but maybe we should still keep this so it gets refreshed?
-	// }
+	if (graphics_objects.empty())
+	{
+		return; // nothing to draw, but maybe we should still keep this so it gets refreshed?
+	}
 
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -115,8 +115,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 	// global descriptor object, for per frame updates
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
-							// lets assume that global descriptor objects only use the STANDARD pipeline
-							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
+							get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
 							1,
 							&get_rsrc_mgr().get_global_dset(),
@@ -202,8 +201,8 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 			graphics_object.get_render_type() != EPipelineType::STANDARD)
 			continue;
 
-		GraphicsEnginePipeline<GraphicsEngineT>& pipeline = get_graphics_engine().get_pipeline_mgr().get_pipeline(
-				EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
+		GraphicsEnginePipeline<GraphicsEngineT>& pipeline = *get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
+			{ EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE, EPipelineModifier::NONE });
 		vkCmdBindPipeline(
 			command_buffer, 
 			VK_PIPELINE_BIND_POINT_GRAPHICS, 

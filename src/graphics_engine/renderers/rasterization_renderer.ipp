@@ -1,6 +1,7 @@
 #include "renderers.hpp"
 #include "graphics_engine/pipeline/pipeline_types.hpp"
 #include "shared_data_structures.hpp"
+#include "graphics_engine/pipeline/pipeline_id.hpp"
 
 
 template<typename GraphicsEngineT>
@@ -115,7 +116,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							// lets assume that global descriptor objects only use the STANDARD pipeline
 							// this is a little dodgy but it seems to be working?
-							get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::STANDARD).pipeline_layout,
+							get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
 							1,
 							&get_rsrc_mgr().get_global_dset(),
@@ -186,24 +187,6 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		}
 	};
 
-	const auto pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> const GraphicsEnginePipeline<GraphicsEngineT>*
-	{
-		if (!get_graphics_engine().is_wireframe_mode)
-		{
-			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(obj.get_render_type());
-		}
-
-		switch (obj.get_render_type())
-		{
-		case EPipelineType::CUBEMAP:
-			return nullptr;
-		case EPipelineType::STANDARD:
-			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_WIREFRAME_TEXTURE_VERTICES);
-		case EPipelineType::COLOR:
-		default:
-			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_WIREFRAME_COLOR_VERTICES);
-		}
-	};
 	const auto& graphics_objects = get_graphics_engine().get_objects();
 	for (const auto& it_pair : graphics_objects)
 	{
@@ -214,7 +197,9 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = pipeline_getter(graphics_object);
+		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
+			graphics_object.get_render_type(), get_graphics_engine().is_wireframe_mode ? EPipelineModifier::WIREFRAME : EPipelineModifier::NONE });
+
 		if (!pipeline)
 			continue;
 			
@@ -226,20 +211,6 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	}
 	
 	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	const auto stenciled_pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> const GraphicsEnginePipeline<GraphicsEngineT>*
-	{
-		switch (obj.get_render_type())
-		{
-		case EPipelineType::CUBEMAP:
-			return nullptr;
-		case EPipelineType::STANDARD:
-			// Maybe this logic should be abstracted within pipeline_mgr
-			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_STENCIL_TEXTURE_VERTICES);
-		case EPipelineType::COLOR:
-		default:
-			return &get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::_STENCIL_COLOR_VERTICES);
-		}
-	};
 	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
 	{
 		const auto it_obj = graphics_objects.find(id);
@@ -253,7 +224,8 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = stenciled_pipeline_getter(graphics_object);
+		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = 
+			get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ graphics_object.get_render_type(), EPipelineModifier::STENCIL });
 		if (!pipeline)
 			continue;
 		

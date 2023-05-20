@@ -631,7 +631,8 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 		std::vector<std::byte> handles_data(data_size);
 		if (LOAD_VK_FUNCTION(vkGetRayTracingShaderGroupHandlesKHR)(
 			get_logical_device(), 
-			get_graphics_engine().get_pipeline_mgr().get_pipeline(EPipelineType::RAYTRACING).graphics_pipeline, 
+			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
+				{ EPipelineType::RAYTRACING, EPipelineModifier::NONE })->graphics_pipeline, 
 			0, 
 			handle_count, 
 			data_size, 
