@@ -62,7 +62,7 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& 
 template<typename GraphicsEngineT>
 GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
 {
-	if (!should_destroy)
+	if (!this->should_destroy)
 	{
 		return;
 	}
@@ -348,7 +348,7 @@ template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 {
 	// update global uniform buffer
-	auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().graphic_settings;
+	const auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().get_graphic_settings();
 	SDS::GlobalData gubo;
 	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
 	gubo.proj = get_graphics_engine().get_camera()->get_projection(); // we can move this to push constant

@@ -22,11 +22,11 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 		switch (get_render_type())
 		{
 			case EPipelineType::STANDARD:
-				meshes.emplace_back(*shape, &get_graphics_engine().get_texture_mgr().fetch_texture(
+				meshes.emplace_back(*shape, &this->get_graphics_engine().get_texture_mgr().fetch_texture(
 					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_REPEAT));
 				break;
 			case EPipelineType::CUBEMAP:
-				meshes.emplace_back(*shape, &get_graphics_engine().get_texture_mgr().fetch_texture(
+				meshes.emplace_back(*shape, &this->get_graphics_engine().get_texture_mgr().fetch_texture(
 					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
 				break;
 			default:
@@ -43,11 +43,11 @@ GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 	// them available for reuse in the same descriptor set pool
 	for (auto& mesh : meshes)
 	{
-		get_rsrc_mgr().free_dsets(mesh.get_dsets());
+		this->get_rsrc_mgr().free_dsets(mesh.get_dsets());
 		mesh.get_dsets().clear();
 	}
 
-	get_rsrc_mgr().free_dsets(dsets);
+	this->get_rsrc_mgr().free_dsets(dsets);
 	dsets.clear();
 }
 

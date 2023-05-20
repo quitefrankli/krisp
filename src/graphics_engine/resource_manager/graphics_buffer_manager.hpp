@@ -140,4 +140,8 @@ private:
 	// maps object id to starting offset in the vertex, index and uniform buffers
 	// unlike the other buffers, entries in this buffer never gets removed
 	AppendOnlyGraphicsBuffer mapping_buffer;
+
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 };

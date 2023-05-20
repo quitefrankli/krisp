@@ -39,5 +39,7 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 	ASSERT_TRUE(engine.get_object(id));
 
 	engine.delete_object(id);
+	++engine.get_graphics_engine().num_objs_deleted;
+	engine.main_loop(1.0f);
 	ASSERT_FALSE(engine.get_object(id));
 }

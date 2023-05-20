@@ -16,6 +16,10 @@ public:
 	virtual VkImageView get_output_image_view() override { return nullptr; };
 
 private:
+	using Renderer<GraphicsEngineT>::get_graphics_engine;
+	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
+	using Renderer<GraphicsEngineT>::get_logical_device;
+
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	void create_render_pass();
 
@@ -39,6 +43,10 @@ public:
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	void create_render_pass();
+
+	using Renderer<GraphicsEngineT>::get_graphics_engine;
+	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
+	using Renderer<GraphicsEngineT>::get_logical_device;
 };
 
 template<typename GraphicsEngineT>
@@ -64,6 +72,10 @@ private:
 	std::vector<RenderingAttachment> depth_attachments;
 	std::vector<VkDescriptorSet> rt_dsets;
 	std::vector<VkImage> presentation_images; // owned by the swapchain
+
+	using Renderer<GraphicsEngineT>::get_graphics_engine;
+	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
+	using Renderer<GraphicsEngineT>::get_logical_device;
 };
 
 // for things such as minimaps, object previews e.t.c.
@@ -87,4 +99,8 @@ private:
 
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
+
+	using Renderer<GraphicsEngineT>::get_graphics_engine;
+	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
+	using Renderer<GraphicsEngineT>::get_logical_device;
 };

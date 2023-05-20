@@ -161,9 +161,9 @@ template<typename GraphicsEngineT>
 void RaytracingPipeline<GraphicsEngineT>::initialise()
 {
 	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
-	VkShaderModule raygen_shader = create_shader_module(shader_path.string() + "/raygen_shader.spv");
-	VkShaderModule rayhit_shader = create_shader_module(shader_path.string() + "/rayhit_shader.spv");
-	VkShaderModule raymiss_shader = create_shader_module(shader_path.string() + "/raymiss_shader.spv");
+	VkShaderModule raygen_shader = this->create_shader_module(shader_path.string() + "/raygen_shader.spv");
+	VkShaderModule rayhit_shader = this->create_shader_module(shader_path.string() + "/rayhit_shader.spv");
+	VkShaderModule raymiss_shader = this->create_shader_module(shader_path.string() + "/raymiss_shader.spv");
 
 	VkPipelineShaderStageCreateInfo raygen_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	raygen_info.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
@@ -208,13 +208,13 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	shader_groups.push_back(rt_shader_group_info);
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	const auto descriptor_set_layouts = get_rsrc_mgr().get_raytracing_descriptor_set_layouts();
+	const auto descriptor_set_layouts = this->get_rsrc_mgr().get_raytracing_descriptor_set_layouts();
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 
-	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(this->get_logical_device(), &pipeline_layout_create_info, nullptr, &this->pipeline_layout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
@@ -227,36 +227,36 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	// max recursion depth for raytracing
 	// note that this can be quite expensive, it's ideal to keep it to 1 and instead use an iterative approach
 	raytracing_pipeline_create_info.maxPipelineRayRecursionDepth = 1;
-	raytracing_pipeline_create_info.layout = pipeline_layout;
+	raytracing_pipeline_create_info.layout = this->pipeline_layout;
 
 	if (LOAD_VK_FUNCTION(vkCreateRayTracingPipelinesKHR)(
-		get_logical_device(), 
+		this->get_logical_device(), 
 		VK_NULL_HANDLE, 
 		VK_NULL_HANDLE, 
 		1, 
 		&raytracing_pipeline_create_info, 
 		nullptr, 
-		&graphics_pipeline) != VK_SUCCESS)
+		&this->graphics_pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create raytracing pipeline!");
 	}
 
-	vkDestroyShaderModule(get_logical_device(), raygen_shader, nullptr);
-	vkDestroyShaderModule(get_logical_device(), rayhit_shader, nullptr);
-	vkDestroyShaderModule(get_logical_device(), raymiss_shader, nullptr);
+	vkDestroyShaderModule(this->get_logical_device(), raygen_shader, nullptr);
+	vkDestroyShaderModule(this->get_logical_device(), rayhit_shader, nullptr);
+	vkDestroyShaderModule(this->get_logical_device(), raymiss_shader, nullptr);
 }
 
 template<typename GraphicsEngineT>
 VkRenderPass LightWeightOffscreenPipeline<GraphicsEngineT>::get_render_pass()
 {
-	return get_graphics_engine().get_renderer_mgr().
+	return this->get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_render_pass();
 }
 
 template<typename GraphicsEngineT>
 VkExtent2D LightWeightOffscreenPipeline<GraphicsEngineT>::get_extent()
 {
-	return get_graphics_engine().get_renderer_mgr().
+	return this->get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_extent();	
 }
 

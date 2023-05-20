@@ -27,7 +27,10 @@ public:
 	}
 
 	void handle_command(SpawnObjectCmd& cmd) final {}
-	void handle_command(DeleteObjectCmd& cmd) final {}
+	void handle_command(DeleteObjectCmd& cmd) final 
+	{
+		++num_objs_deleted;
+	}
 	void handle_command(StencilObjectCmd& cmd) final {}
 	void handle_command(UnStencilObjectCmd& cmd) final {}
 	void handle_command(ShutdownCmd& cmd) final {}
@@ -35,6 +38,10 @@ public:
 	void handle_command(UpdateCommandBufferCmd& cmd) final {}
 
 	float get_fps() const { return 1.0f; }
+
+	uint32_t get_num_objs_deleted() const { return num_objs_deleted; }
+
+	uint32_t num_objs_deleted = 0;
 
 private:
 	GuiManager<GameEngineT> gui_manager;

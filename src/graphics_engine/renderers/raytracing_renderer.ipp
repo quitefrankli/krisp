@@ -34,7 +34,7 @@ void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(
 	VkImageView presentation_image_view)
 {
 	const auto depth_format = get_graphics_engine().find_depth_format();
-	const auto extent = get_extent();
+	const auto extent = this->get_extent();
 
 	// create color attachment
 	RenderingAttachment color_attachment;
@@ -115,15 +115,15 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		dsets.data(),
 		0,
 		nullptr);
-	GraphicsEngineRayTracing<GraphicsEngineT>& raytracing_comp = get_graphics_engine().get_raytracing_module();
+	auto& raytracing_comp = get_graphics_engine().get_raytracing_module();
 	LOAD_VK_FUNCTION(vkCmdTraceRaysKHR)(
 		command_buffer,
 		&raytracing_comp.raygen_sbt_region,
 		&raytracing_comp.raymiss_sbt_region,
 		&raytracing_comp.rayhit_sbt_region,
 		&raytracing_comp.callable_sbt_region,
-		static_cast<uint32_t>(get_extent().width),
-		static_cast<uint32_t>(get_extent().height),
+		static_cast<uint32_t>(this->get_extent().width),
+		static_cast<uint32_t>(this->get_extent().height),
 		1);
 	
 	//
@@ -145,7 +145,7 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		command_buffer);
 
 	// copy raytraced image to swapchain image
-	const VkExtent2D extent = get_extent();
+	const VkExtent2D extent = this->get_extent();
 	VkImageBlit region{};
 	region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
 	region.srcOffsets[0] = { 0, 0, 0 };
@@ -268,7 +268,7 @@ void RaytracingRenderer<GraphicsEngineT>::create_render_pass()
 	renderPassInfo.dependencyCount = 1;
 	renderPassInfo.pDependencies = &dependency;
 
-	if (vkCreateRenderPass(get_logical_device(), &renderPassInfo, nullptr, &render_pass) != VK_SUCCESS)
+	if (vkCreateRenderPass(get_logical_device(), &renderPassInfo, nullptr, &this->render_pass) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create render pass!");
 	}

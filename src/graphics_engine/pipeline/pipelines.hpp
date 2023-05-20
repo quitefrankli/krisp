@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pipeline.hpp"
+#include "pipeline_modifiers.hpp"
 
 
 template<typename GraphicsEngineT>
@@ -43,7 +44,10 @@ template<typename GraphicsEngineT>
 class StencilPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
-	StencilPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	StencilPipeline(GraphicsEngineT& engine) : 
+		GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	// StencilPipeline(GraphicsEngineT& engine, uint32_t vertex_stride, uint32_t vertex_pos_offset) : 
+	// 	GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
@@ -63,11 +67,11 @@ public:
 protected:
 	virtual VkVertexInputBindingDescription get_binding_description() const override
 	{
-		return _get_binding_description<SDS::ColorVertex>();
+		return this->_get_binding_description<SDS::ColorVertex>();
 	}
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override
 	{
-		return _get_attribute_descriptions<SDS::ColorVertex>();
+		return this->_get_attribute_descriptions<SDS::ColorVertex>();
 	}
 };
 
@@ -80,11 +84,11 @@ public:
 protected:
 	virtual VkVertexInputBindingDescription get_binding_description() const override
 	{
-		return _get_binding_description<SDS::TexVertex>();
+		return this->_get_binding_description<SDS::TexVertex>();
 	}
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override
 	{
-		return _get_attribute_descriptions<SDS::TexVertex>();
+		return this->_get_attribute_descriptions<SDS::TexVertex>();
 	}
 };
 
@@ -112,11 +116,11 @@ public:
 protected:
 	virtual VkVertexInputBindingDescription get_binding_description() const override 
 	{ 
-		return _get_binding_description<SDS::ColorVertex>(); 
+		return this->_get_binding_description<SDS::ColorVertex>(); 
 	}
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override 
 	{ 
-		return _get_attribute_descriptions<SDS::ColorVertex>(); 
+		return this->_get_attribute_descriptions<SDS::ColorVertex>(); 
 	};
 };
 
@@ -129,11 +133,11 @@ public:
 protected:
 	virtual VkVertexInputBindingDescription get_binding_description() const override 
 	{ 
-		return _get_binding_description<SDS::TexVertex>(); 
+		return this->_get_binding_description<SDS::TexVertex>(); 
 	};
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override 
 	{
-		return _get_attribute_descriptions<SDS::TexVertex>(); 
+		return this->_get_attribute_descriptions<SDS::TexVertex>(); 
 	};
 };
 

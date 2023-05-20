@@ -5,7 +5,7 @@
 #include "resource_manager/graphics_buffer.hpp"
 
 
-#define LOAD_VK_FUNCTION(name) reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(get_logical_device(), #name))
+#define LOAD_VK_FUNCTION(name) reinterpret_cast<PFN_##name>(vkGetDeviceProcAddr(this->get_logical_device(), #name))
 
 template<typename GraphicsEngineT>
 class GraphicsResourceManager;

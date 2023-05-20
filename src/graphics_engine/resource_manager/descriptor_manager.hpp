@@ -74,4 +74,9 @@ private:
 
 	VkDescriptorSet global_dset;
 	VkDescriptorSet mesh_data_dset;
+
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 };

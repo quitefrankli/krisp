@@ -1,4 +1,5 @@
 #include "renderers.hpp"
+#include "graphics_engine/pipeline/pipeline_types.hpp"
 #include "shared_data_structures.hpp"
 
 
@@ -25,7 +26,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 	// Generate attachments
 	//
 	RenderingAttachment color_attachment;
-	const auto extent = get_extent();
+	const auto extent = this->get_extent();
 	get_graphics_engine().create_image(
 		extent.width, 
 		extent.height,
@@ -35,7 +36,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		color_attachment.image,
 		color_attachment.image_memory,
-		get_msaa_sample_count());
+		this->get_msaa_sample_count());
 	color_attachment.image_view = get_graphics_engine().create_image_view(
 		color_attachment.image, 
 		get_image_format(),
@@ -52,7 +53,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		depth_attachment.image,
 		depth_attachment.image_memory,
-		get_msaa_sample_count());
+		this->get_msaa_sample_count());
 	depth_attachment.image_view = get_graphics_engine().create_image_view(
 		depth_attachment.image, 
 		depth_format, 
@@ -71,7 +72,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 	};
 
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-	frame_buffer_create_info.renderPass = render_pass;
+	frame_buffer_create_info.renderPass = this->render_pass;
 	frame_buffer_create_info.attachmentCount = attachments.size();
 	frame_buffer_create_info.pAttachments = attachments.data();
 	frame_buffer_create_info.width = extent.width;
@@ -83,7 +84,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 	{
 		throw std::runtime_error("failed to create framebuffer!");
 	}
-	frame_buffers.push_back(new_frame_buffer);
+	this->frame_buffers.push_back(new_frame_buffer);
 }
 
 template<typename GraphicsEngineT>
@@ -95,10 +96,10 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{};
 	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = render_pass;
-	render_pass_begin_info.framebuffer = frame_buffers[frame_index];
+	render_pass_begin_info.renderPass = this->render_pass;
+	render_pass_begin_info.framebuffer = this->frame_buffers[frame_index];
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
-	render_pass_begin_info.renderArea.extent = get_extent();
+	render_pass_begin_info.renderArea.extent = this->get_extent();
 	
 	std::vector<VkClearValue> clear_values(2);
 	clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -185,7 +186,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		}
 	};
 
-	const auto pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
+	const auto pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> const GraphicsEnginePipeline<GraphicsEngineT>*
 	{
 		if (!get_graphics_engine().is_wireframe_mode)
 		{
@@ -225,7 +226,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	}
 	
 	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	const auto stenciled_pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> GraphicsEnginePipeline<GraphicsEngineT>*
+	const auto stenciled_pipeline_getter = [&](const GraphicsEngineObject<GraphicsEngineT>& obj) -> const GraphicsEnginePipeline<GraphicsEngineT>*
 	{
 		switch (obj.get_render_type())
 		{
@@ -274,7 +275,7 @@ void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
 	//
 	VkAttachmentDescription color_attachment{}; // main attachment that our shaders write to
 	color_attachment.format = get_image_format();
-	color_attachment.samples = get_msaa_sample_count(); // >1 if we are doing multisampling	
+	color_attachment.samples = this->get_msaa_sample_count(); // >1 if we are doing multisampling	
 	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
 	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
 	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -296,7 +297,7 @@ void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
 	//
 	VkAttachmentDescription depth_attachment{};
 	depth_attachment.format = get_graphics_engine().find_depth_format();
-	depth_attachment.samples = get_msaa_sample_count();
+	depth_attachment.samples = this->get_msaa_sample_count();
 	depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -356,7 +357,7 @@ void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
 	render_pass_create_info.dependencyCount = 1;
 	render_pass_create_info.pDependencies = &dependency;
 	
-	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
+	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &this->render_pass) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create render pass!");
 	}

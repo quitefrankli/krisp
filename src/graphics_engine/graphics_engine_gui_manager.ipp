@@ -114,9 +114,9 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_imgui()
 template<typename GraphicsEngineT, typename GameEngineT>
 void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_gui_windows()
 {
-	photo.init([&](const std::string_view picture)
+	this->photo.init([&](const std::string_view picture)
 	{
-		compose_texture_for_gui_window(picture, photo);
+		compose_texture_for_gui_window(picture, this->photo);
 	});
 }
 

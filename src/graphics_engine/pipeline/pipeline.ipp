@@ -84,19 +84,19 @@ std::vector<VkVertexInputAttributeDescription> GraphicsEnginePipeline<GraphicsEn
 template<typename GraphicsEngineT>
 VkExtent2D GraphicsEnginePipeline<GraphicsEngineT>::get_extent()
 {
-	return get_graphics_engine().get_extent();
+	return this->get_graphics_engine().get_extent();
 }
 
 template<typename GraphicsEngineT>
 VkSampleCountFlagBits GraphicsEnginePipeline<GraphicsEngineT>::get_msaa_sample_counts()
 {
-	return get_graphics_engine().get_msaa_samples();
+	return this->get_graphics_engine().get_msaa_samples();
 }
 
 template<typename GraphicsEngineT>
 VkRenderPass GraphicsEnginePipeline<GraphicsEngineT>::get_render_pass()
 {
-	return get_graphics_engine().get_renderer_mgr().
+	return this->get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::RASTERIZATION).get_render_pass();
 }
 

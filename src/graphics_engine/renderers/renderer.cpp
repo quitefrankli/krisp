@@ -19,7 +19,7 @@ Renderer<GraphicsEngineT>::Renderer(GraphicsEngineT& engine) :
 template<typename GraphicsEngineT>
 Renderer<GraphicsEngineT>::~Renderer()
 {
-	auto logical_device = get_graphics_engine().get_logical_device();
+	auto logical_device = this->get_graphics_engine().get_logical_device();
 	if (render_pass)
 	{
 		vkDestroyRenderPass(logical_device, render_pass, nullptr);
@@ -33,7 +33,7 @@ Renderer<GraphicsEngineT>::~Renderer()
 template<typename GraphicsEngineT>
 VkExtent2D Renderer<GraphicsEngineT>::get_extent()
 {
-	return get_graphics_engine().get_extent();
+	return this->get_graphics_engine().get_extent();
 }
 
 template<typename GraphicsEngineT>

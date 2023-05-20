@@ -35,4 +35,9 @@ private:
 	// note that this is not deleted even when an object referencing this texture gets destroyed
 	std::unordered_map<uint32_t, GraphicsEngineTexture> texture_units;
 	std::unordered_map<ETextureSamplerType, VkSampler> samplers;
+
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 };

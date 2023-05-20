@@ -17,10 +17,10 @@ GuiRenderer<GraphicsEngineT>::~GuiRenderer()
 template<typename GraphicsEngineT>
 void GuiRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
-	const auto extent = get_extent();
+	const auto extent = this->get_extent();
 	std::vector<VkImageView> attachments { presentation_image_view };
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-	frame_buffer_create_info.renderPass = render_pass;
+	frame_buffer_create_info.renderPass = this->render_pass;
 	frame_buffer_create_info.attachmentCount = attachments.size();
 	frame_buffer_create_info.pAttachments = attachments.data();
 	frame_buffer_create_info.width = extent.width;
@@ -32,7 +32,7 @@ void GuiRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presenta
 	{
 		throw std::runtime_error("failed to create framebuffer!");
 	}
-	frame_buffers.push_back(new_frame_buffer);
+	this->frame_buffers.push_back(new_frame_buffer);
 }
 
 template<typename GraphicsEngineT>
@@ -41,10 +41,10 @@ void GuiRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{};
 	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = render_pass;
-	render_pass_begin_info.framebuffer = frame_buffers[frame_index];
+	render_pass_begin_info.renderPass = this->render_pass;
+	render_pass_begin_info.framebuffer = this->frame_buffers[frame_index];
 	render_pass_begin_info.renderArea.offset = { 0, 0 };
-	render_pass_begin_info.renderArea.extent = get_extent();
+	render_pass_begin_info.renderArea.extent = this->get_extent();
 	
 	std::vector<VkClearValue> clear_values(2);
 	clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -108,7 +108,7 @@ void GuiRenderer<GraphicsEngineT>::create_render_pass()
 	render_pass_create_info.dependencyCount = 1;
 	render_pass_create_info.pDependencies = &dependency;
 	
-	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &render_pass) != VK_SUCCESS)
+	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &this->render_pass) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create render pass!");
 	}	

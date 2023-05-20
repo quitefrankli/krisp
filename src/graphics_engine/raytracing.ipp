@@ -239,7 +239,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 		maxScratchSize, 
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkDeviceAddress scratchAddress = get_buffer_device_address(scratch_buffer);
+	VkDeviceAddress scratchAddress = this->get_buffer_device_address(scratch_buffer);
 
 	// Allocate a query pool for storing the needed size for every BLAS compaction.
 	VkQueryPool queryPool{VK_NULL_HANDLE};
@@ -489,7 +489,7 @@ GraphicsBuffer GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
 		sizeInfo.buildScratchSize, 
 		VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
-	VkDeviceAddress scratch_address = get_buffer_device_address(scratch_buffer);
+	VkDeviceAddress scratch_address = this->get_buffer_device_address(scratch_buffer);
 
 	// Finally build the acceleration structure
 
@@ -568,7 +568,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
 	GraphicsBuffer scratch_buffer(cmd_create_tlas(
 		cmd_buf, 
 		instances.size(), 
-		get_buffer_device_address(instance_buffer),
+		this->get_buffer_device_address(instance_buffer),
 		flags, 
 		update));
 	get_graphics_engine().end_single_time_commands(cmd_buf);
@@ -656,7 +656,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT));
 
 	// find the SBT addresses of each group
-	VkDeviceAddress sbt_address = get_buffer_device_address(*sbt_buffer);
+	VkDeviceAddress sbt_address = this->get_buffer_device_address(*sbt_buffer);
 	raygen_sbt_region.deviceAddress = sbt_address;
 	raymiss_sbt_region.deviceAddress = sbt_address + raygen_sbt_region.size;
 	rayhit_sbt_region.deviceAddress = sbt_address + raygen_sbt_region.size + raymiss_sbt_region.size;
