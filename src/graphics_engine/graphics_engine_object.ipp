@@ -21,13 +21,14 @@ GraphicsEngineObject<GraphicsEngineT>::GraphicsEngineObject(GraphicsEngineT& eng
 	{
 		switch (get_render_type())
 		{
-			case EPipelineType::STANDARD:
-				meshes.emplace_back(*shape, &this->get_graphics_engine().get_texture_mgr().fetch_texture(
-					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_REPEAT));
-				break;
 			case EPipelineType::CUBEMAP:
 				meshes.emplace_back(*shape, &this->get_graphics_engine().get_texture_mgr().fetch_texture(
 					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE));
+				break;
+			case EPipelineType::SKINNED:
+			case EPipelineType::STANDARD:
+				meshes.emplace_back(*shape, &this->get_graphics_engine().get_texture_mgr().fetch_texture(
+					shape->get_material().texture, ETextureSamplerType::ADDR_MODE_REPEAT));
 				break;
 			default:
 				meshes.emplace_back(*shape);

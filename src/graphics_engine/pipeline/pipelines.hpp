@@ -47,10 +47,10 @@ protected:
 };
 
 template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
-class StencilPipelineV2 : public GraphicsEnginePipeline<GraphicsEngineT>
+class StencilPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
-	StencilPipelineV2(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	StencilPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
@@ -60,68 +60,6 @@ protected:
 };
 
 template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
-class WireframePipelineV2 : public GraphicsEnginePipeline<GraphicsEngineT>
-{
-public:
-	WireframePipelineV2(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "wireframe"; }
-	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
-	virtual VkVertexInputBindingDescription get_binding_description() const override;
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
-};
-
-template<typename GraphicsEngineT>
-class StencilPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
-{
-public:
-	StencilPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "stencil"; }
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-	template<typename VertexType>
-	static VkVertexInputBindingDescription _get_binding_description();
-	template<typename VertexType>
-	static std::vector<VkVertexInputAttributeDescription> _get_attribute_descriptions();
-};
-
-template<typename GraphicsEngineT>
-class StencilColorVerticesPipeline : public StencilPipeline<GraphicsEngineT>
-{
-public:
-	StencilColorVerticesPipeline(GraphicsEngineT& engine) : StencilPipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual VkVertexInputBindingDescription get_binding_description() const override
-	{
-		return this->_get_binding_description<SDS::ColorVertex>();
-	}
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override
-	{
-		return this->_get_attribute_descriptions<SDS::ColorVertex>();
-	}
-};
-
-template<typename GraphicsEngineT>
-class StencilTextureVerticesPipeline : public StencilPipeline<GraphicsEngineT>
-{
-public:
-	StencilTextureVerticesPipeline(GraphicsEngineT& engine) : StencilPipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual VkVertexInputBindingDescription get_binding_description() const override
-	{
-		return this->_get_binding_description<SDS::TexVertex>();
-	}
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override
-	{
-		return this->_get_attribute_descriptions<SDS::TexVertex>();
-	}
-};
-
-template<typename GraphicsEngineT>
 class WireframePipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {
 public:
@@ -130,44 +68,8 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "wireframe"; }
 	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
-	template<typename VertexType>
-	static VkVertexInputBindingDescription _get_binding_description();
-	template<typename VertexType>
-	static std::vector<VkVertexInputAttributeDescription> _get_attribute_descriptions();
-};
-
-template<typename GraphicsEngineT>
-class WireframeColorVerticesPipeline : public WireframePipeline<GraphicsEngineT>
-{
-public:
-	WireframeColorVerticesPipeline(GraphicsEngineT& engine) : WireframePipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual VkVertexInputBindingDescription get_binding_description() const override 
-	{ 
-		return this->_get_binding_description<SDS::ColorVertex>(); 
-	}
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override 
-	{ 
-		return this->_get_attribute_descriptions<SDS::ColorVertex>(); 
-	};
-};
-
-template<typename GraphicsEngineT>
-class WireframeTextureVerticesPipeline : public WireframePipeline<GraphicsEngineT>
-{
-public:
-	WireframeTextureVerticesPipeline(GraphicsEngineT& engine) : WireframePipeline<GraphicsEngineT>(engine) {}
-
-protected:
-	virtual VkVertexInputBindingDescription get_binding_description() const override 
-	{ 
-		return this->_get_binding_description<SDS::TexVertex>(); 
-	};
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override 
-	{
-		return this->_get_attribute_descriptions<SDS::TexVertex>(); 
-	};
+	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
 template<typename GraphicsEngineT>

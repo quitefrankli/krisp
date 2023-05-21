@@ -12,18 +12,18 @@ layout(location = 0) out vec4 out_color;
 
 const vec3 light_color = vec3(1.0, 1.0, 1.0);
 
+layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, 
+	binding=RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING) uniform sampler2D tex_sampler;
 
-// layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING) uniform sampler2D tex_sampler;
-
-layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
+layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, 
+	binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
 {
 	GlobalData data;
 } global_data;
 
 void main()
 {
-	// vec3 color = texture(tex_sampler, frag_tex_coord).rgb; // note that we lose alpha channel here
-	vec3 color = vec3(1.0, 1.0, 1.0);
+	vec3 color = texture(tex_sampler, frag_tex_coord).rgb; // note that we lose alpha channel here
 
 	// ambient
 	vec3 ambient = color * 0.03;

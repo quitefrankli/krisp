@@ -104,13 +104,13 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 	case EPipelineModifier::STENCIL:
 		if constexpr (Stencileable<PrimaryPipelineType>)
 		{
-			return std::make_unique<StencilPipelineV2<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
+			return std::make_unique<StencilPipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	case EPipelineModifier::WIREFRAME:
 		if constexpr (Wireframeable<PrimaryPipelineType>)
 		{
-			return std::make_unique<WireframePipelineV2<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
+			return std::make_unique<WireframePipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	default:

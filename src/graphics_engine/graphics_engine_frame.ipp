@@ -159,6 +159,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngine
 		{
 			case EPipelineType::STANDARD:
 			case EPipelineType::CUBEMAP:
+			case EPipelineType::SKINNED:
 			{
 				VkDescriptorImageInfo image_info{};
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

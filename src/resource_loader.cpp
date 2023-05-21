@@ -211,7 +211,8 @@ ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, 
 	if (primitive.attributes.find("POSITION") == primitive.attributes.end() ||
 		primitive.attributes.find("NORMAL") == primitive.attributes.end() ||
 		primitive.attributes.find("JOINTS_0") == primitive.attributes.end() ||
-		primitive.attributes.find("WEIGHTS_0") == primitive.attributes.end())
+		primitive.attributes.find("WEIGHTS_0") == primitive.attributes.end() ||
+		primitive.attributes.find("TEXCOORD_0") == primitive.attributes.end())
 	{
 		throw std::runtime_error("ResourceLoader: missing attributes");
 	}
@@ -225,6 +226,7 @@ ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, 
 	const auto& norm_accessor = model.accessors[primitive.attributes["NORMAL"]];
 	const auto& joint_accessor = model.accessors[primitive.attributes["JOINTS_0"]];
 	const auto& weight_accessor = model.accessors[primitive.attributes["WEIGHTS_0"]];
+	const auto& tex_accessor = model.accessors[primitive.attributes["TEXCOORD_0"]];
 
 	if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || pos_accessor.type != TINYGLTF_TYPE_VEC3)
 	{
@@ -246,20 +248,28 @@ ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, 
 		throw std::runtime_error("ResourceLoader: only float vec4 weights are supported");
 	}
 
+	if (tex_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || tex_accessor.type != TINYGLTF_TYPE_VEC2)
+	{
+		throw std::runtime_error("ResourceLoader: only float vec2 texcoords are supported");
+	}
+
 	const auto& pos_buffer_view = model.bufferViews[pos_accessor.bufferView];
 	const auto& norm_buffer_view = model.bufferViews[norm_accessor.bufferView];
 	const auto& joint_buffer_view = model.bufferViews[joint_accessor.bufferView];
 	const auto& weight_buffer_view = model.bufferViews[weight_accessor.bufferView];
+	const auto& tex_buffer_view = model.bufferViews[tex_accessor.bufferView];
 
 	const auto& pos_buffer = model.buffers[pos_buffer_view.buffer];
 	const auto& norm_buffer = model.buffers[norm_buffer_view.buffer];
 	const auto& joint_buffer = model.buffers[joint_buffer_view.buffer];
 	const auto& weight_buffer = model.buffers[weight_buffer_view.buffer];
+	const auto& tex_buffer = model.buffers[tex_buffer_view.buffer];
 
 	const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
 	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
 	const auto* joint_data = reinterpret_cast<const uint8_t*>(&joint_buffer.data[joint_accessor.byteOffset + joint_buffer_view.byteOffset]);
 	const auto* weight_data = reinterpret_cast<const float*>(&weight_buffer.data[weight_accessor.byteOffset + weight_buffer_view.byteOffset]);
+	const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
 
 	std::vector<ShapeType::VertexType> vertices;
 	vertices.reserve(pos_accessor.count);
@@ -268,6 +278,7 @@ ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, 
 		ShapeType::VertexType vertex;
 		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
 		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
+		vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
 		vertex.bone_ids = glm::vec4(joint_data[4 * i], joint_data[4 * i + 1], joint_data[4 * i + 2], joint_data[4 * i + 3]);
 		vertex.bone_weights = glm::vec4(weight_data[4 * i], weight_data[4 * i + 1], weight_data[4 * i + 2], weight_data[4 * i + 3]);
 		vertices.push_back(vertex);
