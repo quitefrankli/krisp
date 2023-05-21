@@ -374,7 +374,12 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 		// if object contains skinned meshes update the bone matrices
 		if (graphics_object->get_render_type() == EPipelineType::SKINNED)
 		{
-			const std::vector<SDS::Bone>& bones = get_graphics_engine().get_ecs().get_bones(graphics_object->get_id());
+			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(graphics_object->get_id());
+			// apply object transform on the bones
+			for (auto& bone : bones)
+			{
+				bone.final_transform = object_data.model * bone.final_transform;
+			}
 			get_rsrc_mgr().write_to_bone_buffer(bones, graphics_object->get_id());
 		}
 	}
