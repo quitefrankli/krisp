@@ -3,6 +3,7 @@
 #include <string>
 #include <chrono>
 #include <functional>
+#include <optional>
 
 
 class Analytics
@@ -50,5 +51,5 @@ private:
 	State state = State::FRESH;
 
 	// additional side effects on LOG_PERIOD
-	std::function<void(double)> on_log_period = [](double){};
+	std::optional<std::function<void(double)>> on_log_period;
 };

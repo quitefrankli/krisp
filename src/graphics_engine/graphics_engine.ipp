@@ -92,8 +92,8 @@ QueueFamilyIndices GraphicsEngine<GameEngineT>::findQueueFamilies(VkPhysicalDevi
 template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::run() {
 	try {
-		Analytics analytics;
-		analytics.text = "GraphicsEngine: average cycle ms";
+		Analytics analytics(60);
+		analytics.text = "GraphicsEngine: avg loop processing period (excluding sleep)";
 		FPS_tracker->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
 		while (!should_shutdown)
@@ -103,6 +103,7 @@ void GraphicsEngine<GameEngineT>::run() {
 			FPS_tracker->start();
 
 			analytics.start();
+
 			ge_cmd_q_mutex.lock();
 			while (!ge_cmd_q.empty())
 			{
@@ -117,11 +118,12 @@ void GraphicsEngine<GameEngineT>::run() {
 
 			swap_chain.draw();
 
+			analytics.stop();
+
 #ifndef DISABLE_SLEEP
 			loop_sleeper();
 #endif
 
-			analytics.stop();
 		}
     } catch (const std::exception& e) {
 		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: {}\n", e.what());

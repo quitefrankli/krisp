@@ -71,8 +71,8 @@ void GameEngine<GraphicsEngineTemplate>::run()
 	application->on_begin();
 	gizmo->init();
 
-	Analytics analytics;
-	analytics.text = "GameEngine: average cycle ms";
+	Analytics analytics(60);
+	analytics.text = "GameEngine: avg loop processing period (excluding sleep)";
 
 	std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
 

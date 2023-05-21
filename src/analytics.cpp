@@ -38,11 +38,16 @@ void Analytics::stop()
 	if (now - log_cycle_start > LOG_PERIOD)
 	{
 		const double avg_float = (double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 1e3;
-		LOG_INFO(Utility::get().get_logger(), "{} {:.2f} microseconds", text, avg_float);
+		if (on_log_period)
+		{
+			on_log_period.value()(avg_float);
+		} else
+		{
+			LOG_INFO(Utility::get().get_logger(), "{} {:.2f} microseconds", text, avg_float);
+		}
 		log_cycle_start = now;
 		num_elapsed_cycles = 0;
 		elapsed_log_cycle = nanoseconds(0);
-		on_log_period(avg_float);
 	}
 }
 

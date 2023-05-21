@@ -25,7 +25,8 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
 	VkImage presentation_image) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
 	swap_chain(parent_swapchain),
-	image_index(global_image_index++)
+	image_index(global_image_index++),
+	analytics(60)
 {
 	presentation_image_view = get_graphics_engine().create_image_view(
 		presentation_image, 
