@@ -17,6 +17,10 @@ struct MaterialData
 	ALIGN(16) VEC3 specular;
 	ALIGN(16) VEC3 emissive;
 	ALIGN(4) float shininess;
+
+	// TODO: branching in glsl is expensive especially with storage buffers
+	// we should convert MaterialData to a uniform buffer in the future
+	ALIGN(4) int texture_flags; // uses boolean packing
 };
 
 // be vary of alignment issues
