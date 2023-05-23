@@ -73,26 +73,43 @@ template<typename GameEngineT>
 GuiObjectSpawner<GameEngineT>::GuiObjectSpawner()
 {
 	mapping = {
-		{"cube", spawning_function_type([this](GameEngineT& engine, bool textured)
+		{"cube", spawning_function_type([this](GameEngineT& engine)
 			{
-				auto obj = std::make_shared<Object>(ShapeFactory::cube(
-					textured ? ShapeFactory::EVertexType::TEXTURE : ShapeFactory::EVertexType::COLOR));
-				if (textured)
-				{
-					ResourceLoader::get().assign_object_texture(*obj, Utility::get_texture("texture.jpg").data());
-				}
+				auto& obj = engine.template spawn_object<Object>(ShapeFactory::cube(ShapeFactory::EVertexType::COLOR));
+				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_clickable_entity(obj.get_id());
+			})
+		},
+		{"textured_cube", spawning_function_type([this](GameEngineT& engine)
+			{
+				auto obj = std::make_shared<Object>(ShapeFactory::cube(ShapeFactory::EVertexType::TEXTURE));
+				ResourceLoader::get().assign_object_texture(*obj, Utility::get_texture("texture.jpg").data());
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
 				engine.spawn_object(std::move(obj));
-			})},
-		{"sphere", spawning_function_type([this](GameEngineT& engine, bool textured)
+			})
+		},
+		{"diffuse_cube", spawning_function_type([this](GameEngineT& engine)
+			{
+				auto obj = std::make_shared<Object>(ShapeFactory::cube(ShapeFactory::EVertexType::COLOR));
+				Material material;
+				material.material_data.shininess = 1.0f;
+				obj->get_shapes()[0]->set_material(material);
+				engine.get_ecs().add_object(*obj);
+				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_clickable_entity(obj->get_id());
+				engine.spawn_object(std::move(obj));
+			})
+		},
+		{"sphere", spawning_function_type([this](GameEngineT& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>(ShapeFactory::sphere(
 					ShapeFactory::EVertexType::COLOR, ShapeFactory::GenerationMethod::ICO_SPHERE, 100));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
-			})}
+			})
+		}
 	};
 }
 
@@ -101,7 +118,6 @@ void GuiObjectSpawner<GameEngineT>::draw()
 {
 	ImGui::Begin("Object Spawner");
 	
-	ImGui::Checkbox("textured", &use_texture);
 
 	ImVec2 button_dim(button_width, button_height);
 	if (spawning_function)
@@ -125,7 +141,7 @@ void GuiObjectSpawner<GameEngineT>::process(GameEngineT& engine)
 {
 	if (spawning_function)
 	{
-		(*spawning_function)(engine, use_texture);
+		(*spawning_function)(engine);
 		spawning_function = nullptr;
 	}	
 }

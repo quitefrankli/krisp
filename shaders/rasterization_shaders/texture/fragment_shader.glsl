@@ -5,10 +5,8 @@
 
 // note that the fragment shader receives the input as interpolated values
 layout(location=0) in vec2 frag_tex_coord;
-layout(location=1) in vec3 light_normal;
-layout(location=2) in vec3 surface_normal;
-layout(location=3) in vec3 view_dir;
-layout(location=4) in vec3 frag_pos;
+layout(location=1) in vec3 surface_normal;
+layout(location=2) in vec3 frag_pos;
 
 layout(location = 0) out vec4 out_color;
 
@@ -36,11 +34,10 @@ void main()
     vec3 diffuse = diff * color * global_data.data.lighting_scalar;
     
     // specular
-    float specularStrength = 0.5;
     vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
-    vec3 reflectDir = reflect(-lightDir, norm);  
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * light_color * global_data.data.lighting_scalar;
+	const float default_specular_factor = 16.0;
+	const float spec = get_bling_phong_spec(lightDir, norm, viewDir, default_specular_factor);
+    const vec3 specular = SPECULAR_STRENGTH * spec * light_color * global_data.data.lighting_scalar;
 
 	out_color = vec4(ambient + diffuse + specular, 1.0);
 }

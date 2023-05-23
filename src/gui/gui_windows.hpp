@@ -78,11 +78,8 @@ public:
 	virtual void process(GameEngineT& engine) override;
 	virtual void draw() override;
 
-public:
-	bool use_texture = false;
-
 private:
-	using spawning_function_type = std::function<void(GameEngineT&, bool)>;
+	using spawning_function_type = std::function<void(GameEngineT&)>;
 	std::map<std::string, spawning_function_type> mapping;
 	spawning_function_type* spawning_function = nullptr;
 
