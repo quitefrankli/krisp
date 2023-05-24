@@ -33,7 +33,9 @@ void main()
     
     // specular
     const vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
-	const float spec = get_bling_phong_spec(lightDir, norm, viewDir, mat_data.data.shininess);
+	// in phong model, specular can have value on the opposite face
+	// this is not good so we only emit specular is diffuse > 0
+	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, mat_data.data.shininess) : 0.0;
     const vec3 specular = mat_data.data.specular * (SPECULAR_STRENGTH * spec * global_data.data.lighting_scalar);
 
 	// emissive

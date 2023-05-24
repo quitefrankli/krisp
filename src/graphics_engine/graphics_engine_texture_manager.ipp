@@ -63,7 +63,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_text
 	const auto dim = create_texture_image(material_texture, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
-		VK_FORMAT_R8G8B8A8_SRGB, 
+		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
 		VK_IMAGE_ASPECT_COLOR_BIT);
 	VkSampler texture_sampler = fetch_sampler(sampler_type);
 
@@ -87,7 +87,7 @@ glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
 	get_graphics_engine().create_image(
 		material_texture.width, 
 		material_texture.height, 
-		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB
+		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB, for other maps such as normal and specular maps they should be linear
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,

@@ -37,8 +37,10 @@ void main()
     // specular
     vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
 	const float default_specular_factor = 16.0;
-	const float spec = get_bling_phong_spec(lightDir, norm, viewDir, default_specular_factor);
-    const vec3 specular = SPECULAR_STRENGTH * spec * light_color * global_data.data.lighting_scalar;
+	// in phong model, specular can have value on the opposite face
+	// this is not good so we only emit specular is diffuse > 0
+	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, default_specular_factor) : 0.0;
+    const vec3 specular = light_color * (SPECULAR_STRENGTH * global_data.data.lighting_scalar * spec);
 
 	out_color = vec4(ambient + diffuse + specular, 1.0);
 }
