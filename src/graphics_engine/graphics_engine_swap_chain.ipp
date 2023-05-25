@@ -181,22 +181,6 @@ VkPresentModeKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_present_m
 // }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineSwapChain<GraphicsEngineT>::spawn_object(GraphicsEngineObject<GraphicsEngineT>& object)
-{
-	// dset vectors are pre allocated to the size of the swap chain
-	object.get_dsets().resize(frames.size());
-	for (auto& shape : object.get_shapes())
-	{
-		shape.get_dsets().resize(frames.size());
-	}
-
-	for (auto& frame : frames)
-	{
-		frame.spawn_object(object);
-	}
-}
-
-template<typename GraphicsEngineT>
 void GraphicsEngineSwapChain<GraphicsEngineT>::draw()
 {
 	get_curr_frame().draw();

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
+#include <compare>
 
 
 struct ObjectID
@@ -10,10 +11,7 @@ struct ObjectID
 public:
 	explicit ObjectID(uint64_t id) : id(id) {}
 
-	bool operator==(const ObjectID& other) const { return id == other.id; }
-	bool operator!=(const ObjectID& other) const { return id != other.id; }
-	bool operator<(const ObjectID& other) const { return id < other.id; }
-	bool operator>(const ObjectID& other) const { return id > other.id; }
+	constexpr auto operator<=>(const ObjectID&) const = default;
 
 	ObjectID operator++() { return ObjectID(++id); }
 	ObjectID operator++(int) { return ObjectID(id++); }

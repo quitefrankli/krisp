@@ -29,7 +29,6 @@ public:
 
 	static constexpr int EXPECTED_NUM_SWAPCHAIN_IMAGES = 3;
 	void update_command_buffer();
-	void spawn_object(GraphicsEngineObject<GraphicsEngineT>& object);
 	void draw();
 
 	// TODO: deprecate this infavor of something more useful, i.e. recreating the entire swapchain

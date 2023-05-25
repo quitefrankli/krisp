@@ -26,12 +26,10 @@ public:
 	~GraphicsEngineFrame();
 
 public:
-	void spawn_object(GraphicsEngineObject<GraphicsEngineT>& object);
 	void update_command_buffer();
 	void draw();
 
 private:
-	void create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object);
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
 	

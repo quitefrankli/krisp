@@ -162,7 +162,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		for (const auto& shape : object.get_shapes())
 		{
 			// descriptor binding, we need to bind the descriptor set for each swap chain image and for each vertex_set with different descriptor set
-			std::vector<VkDescriptorSet> shape_dsets = { shape.get_dset(frame_index) };
+			std::vector<VkDescriptorSet> shape_dsets = { shape.get_dset() };
 			vkCmdBindDescriptorSets(command_buffer, 
 									VK_PIPELINE_BIND_POINT_GRAPHICS, // unlike vertex buffer, descriptor sets are not unique to the graphics pipeline, compute pipeline is also possible
 									pipeline.pipeline_layout, 

@@ -88,6 +88,7 @@ public: // getters and setters
 	const ECS& get_ecs() const;
 	uint64_t get_num_objs_deleted() const { return num_objs_deleted; }
 	void increment_num_objs_deleted() { ++num_objs_deleted; }
+	void cleanup_entity(const ObjectID id);
 
 private:
 	bool should_shutdown = false;
@@ -177,5 +178,7 @@ public: // commands
 	void handle_command(PreviewObjectsCmd& cmd) final;
 
 private:
+	void spawn_object_create_buffers(GraphicsEngineObject<GraphicsEngine>& obj);
+	void spawn_object_create_dsets(GraphicsEngineObject<GraphicsEngine>& obj);
 	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions();
 };

@@ -10,43 +10,10 @@
 template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 {
-	auto spawn_object = [&](GraphicsEngineObject<GraphicsEngine>& graphics_object)
+	const auto spawn_object = [&](GraphicsEngineObject<GraphicsEngine>& graphics_object)
 	{
-		// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
-		// per frame resource and therefore we only need 1 copy
-		const auto id = graphics_object.get_id();
-		get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_game_object().get_vertices_data_size());
-		get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_game_object().get_indices_data_size());
-		get_rsrc_mgr().write_shapes_to_buffers(graphics_object.get_shapes(), id);
-
-		for (const auto& shape : graphics_object.get_shapes())
-		{
-			// upload materials
-			const SDS::MaterialData& material = shape.get_material().get_data();
-			get_rsrc_mgr().reserve_materials_buffer(shape.get_id(), sizeof(material));
-			get_rsrc_mgr().write_to_materials_buffer(material, shape.get_id());
-		}
-
-		// TODO: we need swapchain image uniform buffers, when this is done the dset needs to be updated
-		// as well in frame.ipp
-		get_rsrc_mgr().reserve_uniform_buffer(id, sizeof(SDS::ObjectData));
-
-		// allocate space for bone matrices if needed
-		if (graphics_object.get_render_type() == EPipelineType::SKINNED)
-		{
-			// TODO: like the uniform buffer, this should also really be duplicated per swapchain image,
-			// when this is done the dset needs to be updated as well in frame.ipp
-			const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
-			get_rsrc_mgr().reserve_bone_buffer(id, bone_data_size);
-		}
-
-		SDS::BufferMapEntry buffer_map;
-		buffer_map.vertex_offset = get_rsrc_mgr().get_vertex_buffer_offset(id);
-		buffer_map.index_offset = get_rsrc_mgr().get_index_buffer_offset(id);
-		buffer_map.uniform_offset = get_rsrc_mgr().get_uniform_buffer_offset(id);
-		get_rsrc_mgr().write_to_mapping_buffer(buffer_map, id);
-
-		swap_chain.spawn_object(graphics_object);
+		spawn_object_create_buffers(graphics_object);
+		spawn_object_create_dsets(graphics_object);
 	};
 
 	if (cmd.object_ref)

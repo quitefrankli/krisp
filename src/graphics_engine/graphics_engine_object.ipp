@@ -44,8 +44,8 @@ GraphicsEngineObject<GraphicsEngineT>::~GraphicsEngineObject()
 	// them available for reuse in the same descriptor set pool
 	for (auto& mesh : meshes)
 	{
-		this->get_rsrc_mgr().free_dsets(mesh.get_dsets());
-		mesh.get_dsets().clear();
+		this->get_rsrc_mgr().free_dset(mesh.get_dset());
+		mesh.set_dset(VK_NULL_HANDLE);
 	}
 
 	this->get_rsrc_mgr().free_dsets(dsets);

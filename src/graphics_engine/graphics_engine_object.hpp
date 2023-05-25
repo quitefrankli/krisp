@@ -18,9 +18,9 @@ public:
 
 	~GraphicsMesh()
 	{
-		if (!dsets.empty())
+		if (dset != VK_NULL_HANDLE)
 		{
-			throw std::runtime_error("GraphicsMesh::~GraphicsMesh: dsets not empty");
+			throw std::runtime_error("GraphicsMesh: warning dset may not have been properly cleared");
 		}
 	}
 
@@ -29,9 +29,8 @@ public:
 
 	ShapeID get_id() const { return shape.get_id(); }
 
-	std::vector<VkDescriptorSet>& get_dsets() { return dsets; }
-	VkDescriptorSet get_dset(uint32_t frame_idx) const { return dsets[frame_idx]; }
-	void set_dset(VkDescriptorSet dset, uint32_t frame_idx) { dsets[frame_idx] = dset; }
+	VkDescriptorSet get_dset() const { return dset; }
+	void set_dset(VkDescriptorSet dset) { this->dset = dset; }
 
 	uint32_t get_num_vertex_indices() const { return shape.get_num_vertex_indices(); }
 	uint32_t get_num_unique_vertices() const { return shape.get_num_unique_vertices(); }
@@ -45,7 +44,7 @@ public:
 
 private:
 	const Shape& shape;
-	std::vector<VkDescriptorSet> dsets;
+	VkDescriptorSet dset = VK_NULL_HANDLE;
 	GraphicsMaterial material;
 };
 

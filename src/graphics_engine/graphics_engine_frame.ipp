@@ -80,121 +80,6 @@ GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
 }
 
 template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::spawn_object(GraphicsEngineObject<GraphicsEngineT>& object)
-{
-	create_descriptor_sets(object);
-	// update_command_buffer();
-}
-
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::create_descriptor_sets(GraphicsEngineObject<GraphicsEngineT>& object)
-{
-	// per object descriptor set
-	{
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());
-		std::vector<VkWriteDescriptorSet> descriptor_writes;
-
-		VkDescriptorBufferInfo buffer_info{};
-		const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_uniform_buffer_slot(object.get_id());
-		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
-		buffer_info.offset = buffer_slot.offset;
-		buffer_info.range = buffer_slot.size;
-		VkWriteDescriptorSet uniform_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		uniform_buffer_dset_write.dstSet = new_descriptor_set;
-		uniform_buffer_dset_write.dstBinding = SDS::RASTERIZATION_OBJECT_DATA_BINDING;
-		uniform_buffer_dset_write.dstArrayElement = 0; // offset
-		uniform_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		uniform_buffer_dset_write.descriptorCount = 1;
-		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
-		descriptor_writes.push_back(uniform_buffer_dset_write);
-
-		if (object.get_render_type() == EPipelineType::SKINNED)
-		{
-			const GraphicsBuffer::Slot bone_slot = 
-				get_rsrc_mgr().get_bone_buffer_slot(object.get_id());
-			VkDescriptorBufferInfo bone_buffer_info{};
-			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
-			bone_buffer_info.offset = bone_slot.offset;
-			bone_buffer_info.range = bone_slot.size;
-			VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-			bone_buffer_dset_write.dstSet = new_descriptor_set;
-			bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
-			bone_buffer_dset_write.dstArrayElement = 0;
-			bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			bone_buffer_dset_write.descriptorCount = 1;
-			bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
-			descriptor_writes.push_back(bone_buffer_dset_write);
-		}
-
-		vkUpdateDescriptorSets(get_logical_device(), 
-							   descriptor_writes.size(), 
-							   descriptor_writes.data(), 
-							   0, 
-							   nullptr);
-		object.set_dset(new_descriptor_set, image_index);
-	}
-
-	// per shape descriptor set
-	for (auto& shape : object.get_shapes())
-	{
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_shape_dset_layout());
-		std::vector<VkWriteDescriptorSet> descriptor_writes;
-
-		const GraphicsBuffer::Slot mat_slot = 
-			get_rsrc_mgr().get_materials_buffer_slot(shape.get_id());
-		VkDescriptorBufferInfo material_buffer_info{};
-		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
-		material_buffer_info.offset = mat_slot.offset;
-		material_buffer_info.range = mat_slot.size;
-		VkWriteDescriptorSet material_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		material_buffer_dset.dstSet = new_descriptor_set;
-		material_buffer_dset.dstBinding = SDS::RASTERIZATION_MATERIAL_DATA_BINDING;
-		material_buffer_dset.dstArrayElement = 0;
-		material_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		material_buffer_dset.descriptorCount = 1;
-		material_buffer_dset.pBufferInfo = &material_buffer_info;
-		descriptor_writes.push_back(material_buffer_dset);
-
-		switch (object.get_render_type())
-		{
-			case EPipelineType::STANDARD:
-			case EPipelineType::CUBEMAP:
-			case EPipelineType::SKINNED:
-			{
-				VkDescriptorImageInfo image_info{};
-				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				// some useful links when we get up to this part
-				// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
-				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
-				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
-				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-				image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
-				image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
-
-				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
-				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
-				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				combined_image_sampler_descriptor_set.descriptorCount = 1;
-				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-				break;
-			}
-			default:
-				break;
-		}
-
-		vkUpdateDescriptorSets(get_logical_device(),
-							   static_cast<uint32_t>(descriptor_writes.size()), 
-							   descriptor_writes.data(), 
-							   0, 
-							   nullptr);
-		shape.set_dset(new_descriptor_set, image_index);
-	}
-}
-
-template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 {
 	// wait until command buffer is not used anymore i.e. when frame is no longer inflight
@@ -368,21 +253,22 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	SDS::ObjectData object_data{};
 	for (const auto& [id, graphics_object] : get_graphics_engine().get_objects())
 	{
+		EntityFrameID efid{graphics_object->get_id(), image_index};
 		object_data.model = graphics_object->get_game_object().get_transform();
 		object_data.mvp = gubo.proj * gubo.view * object_data.model;
 		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
-		get_rsrc_mgr().write_to_uniform_buffer(object_data, graphics_object->get_id());
+		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
 
 		// if object contains skinned meshes update the bone matrices
 		if (graphics_object->get_render_type() == EPipelineType::SKINNED)
 		{
-			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(graphics_object->get_id());
+			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(id);
 			// apply object transform on the bones
 			for (auto& bone : bones)
 			{
 				bone.final_transform = object_data.model * bone.final_transform;
 			}
-			get_rsrc_mgr().write_to_bone_buffer(bones, graphics_object->get_id());
+			get_rsrc_mgr().write_to_bone_buffer(efid, bones);
 		}
 	}
 }
@@ -414,18 +300,12 @@ void GraphicsEngineFrame<GraphicsEngineT>::mark_obj_for_delete(ObjectID id)
 template<typename GraphicsEngineT>
 void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
 {
+	// Note: this code works since when we mark an object for deletion we only do so on the currently in flight frame.
+	// So therefore this function only gets called once the inflight frame finishes
+	// and all the frames gets cycled once. That means no frame would be using the affected resources.
 	while (!objs_to_delete.empty())
 	{
-		const auto id = objs_to_delete.front();
-		get_rsrc_mgr().free_vertex_buffer(id);
-		get_rsrc_mgr().free_index_buffer(id);
-		get_rsrc_mgr().free_uniform_buffer(id);
-		for (const auto& shape : get_graphics_engine().get_object(id).get_shapes())
-		{
-			get_rsrc_mgr().free_materials_buffer(shape.get_id());
-		}
-		get_graphics_engine().get_objects().erase(id);
+		get_graphics_engine().cleanup_entity(objs_to_delete.front());
 		objs_to_delete.pop();
-		get_graphics_engine().increment_num_objs_deleted();
 	}
 }
