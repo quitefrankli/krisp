@@ -103,7 +103,7 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 			EPipelineType::RAYTRACING, EPipelineModifier::NONE })->graphics_pipeline);
 
 	std::vector<VkDescriptorSet> dsets = {
-		get_rsrc_mgr().get_global_dset(),
+		get_rsrc_mgr().get_global_dset(frame_index),
 		rt_dsets[frame_index],
 		get_rsrc_mgr().get_mesh_data_dset()
 	};

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "graphics_engine/constants.hpp"
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_buffer_manager.hpp"
 #include "id_systems.hpp"
@@ -37,15 +38,15 @@ public: // accessors for specific descriptors/layouts
 	std::vector<VkDescriptorSetLayout> get_rasterization_descriptor_set_layouts() const;
 	std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
 
-	const VkDescriptorSet& get_global_dset() const { return global_dset; }
-	const VkDescriptorSet& get_mesh_data_dset() const { return mesh_data_dset; }
+	VkDescriptorSet get_global_dset(uint32_t frame_idx) const { return global_dsets[frame_idx]; }
+	VkDescriptorSet get_mesh_data_dset() const { return mesh_data_dset; }
 
 private:
 	void setup_descriptor_set_layouts();
-	void allocate_global_dset(VkBuffer global_buffer);
+	void allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets);
 	void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
 
-	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = 1; // for GUBO i.e. camera & lighting
+	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = NUM_EXPECTED_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
 	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
 	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000; // for ray tracing
 	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
@@ -73,7 +74,8 @@ private:
 	VkDescriptorSetLayout mesh_data_dset_layout;
 	VkDescriptorSetLayout raytracing_tlas_dset_layout;
 
-	VkDescriptorSet global_dset;
+	// 1 dset per swapchain frame, currently only used for camera and global lighting
+	std::vector<VkDescriptorSet> global_dsets;
 	VkDescriptorSet mesh_data_dset;
 
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

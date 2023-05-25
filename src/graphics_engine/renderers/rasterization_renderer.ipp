@@ -109,17 +109,18 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	render_pass_begin_info.pClearValues = clear_values.data();
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-	// vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, get_graphics_engine().get_graphics_pipeline().graphics_pipeline); // bind the graphics pipeline
-
-	// global descriptor object, for per frame updates
+	std::vector<VkDescriptorSet> per_frame_dsets = { 
+		get_rsrc_mgr().get_global_dset(frame_index)
+		// shadow map
+	};
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							// lets assume that global descriptor objects only use the STANDARD pipeline
 							// this is a little dodgy but it seems to be working?
 							get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
-							1,
-							&get_rsrc_mgr().get_global_dset(),
+							per_frame_dsets.size(),
+							per_frame_dsets.data(),
 							0,
 							nullptr);
 

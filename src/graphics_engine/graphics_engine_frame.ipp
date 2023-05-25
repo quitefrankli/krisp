@@ -247,7 +247,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	gubo.light_pos = light_source.get_game_object().get_position();
 	gubo.lighting_scalar = graphic_settings.light_strength;
 
-	get_rsrc_mgr().write_to_global_uniform_buffer(gubo);
+	get_rsrc_mgr().write_to_global_uniform_buffer(image_index, gubo);
 
 	// update per object uniforms
 	SDS::ObjectData object_data{};

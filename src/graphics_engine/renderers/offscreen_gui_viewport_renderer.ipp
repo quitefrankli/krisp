@@ -112,13 +112,15 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 	render_pass_begin_info.pClearValues = clear_values.data();
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
 
-	// global descriptor object, for per frame updates
+	std::vector<VkDescriptorSet> per_frame_dsets = { 
+		get_rsrc_mgr().get_global_dset(frame_index)
+	};
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
-							1,
-							&get_rsrc_mgr().get_global_dset(),
+							per_frame_dsets.size(),
+							per_frame_dsets.data(),
 							0,
 							nullptr);
 

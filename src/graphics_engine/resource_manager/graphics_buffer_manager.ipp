@@ -19,7 +19,10 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 		MATERIALS_BUFFER_MEMORY_FLAGS, 
 		engine.get_device_module().get_physical_device_properties().properties.limits.minStorageBufferOffsetAlignment)),
 	global_uniform_buffer(create_buffer(
-		GLOBAL_UNIFORM_BUFFER_CAPACITY, GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS)),
+		GLOBAL_UNIFORM_BUFFER_CAPACITY, 
+		GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, 
+		GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS,
+		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment)),
 	mapping_buffer(create_buffer(
 		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(SDS::BufferMapEntry)),
 	bone_buffer(create_buffer(
@@ -27,7 +30,10 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
-	global_uniform_buffer.reserve_slot(0, global_uniform_buffer.get_capacity());
+	for (uint32_t frame_idx = 0; frame_idx < GraphicsEngineT::get_num_swapchain_images(); ++frame_idx)
+	{
+		global_uniform_buffer.reserve_slot(frame_idx, sizeof(SDS::GlobalData));
+	}
 }
 
 template<typename GraphicsEngineT>
@@ -52,9 +58,9 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_uniform_buffer(EntityFrame
 }
 
 template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(const SDS::GlobalData& ubo)
+void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(uint32_t id, const SDS::GlobalData& ubo)
 {
-	std::byte* mapped_memory = global_uniform_buffer.map_slot(0, get_logical_device());
+	std::byte* mapped_memory = global_uniform_buffer.map_slot(id, get_logical_device());
 	*reinterpret_cast<SDS::GlobalData*>(mapped_memory) = ubo;
 	global_uniform_buffer.unmap_slot(get_logical_device());
 }

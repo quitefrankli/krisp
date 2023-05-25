@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine_base.hpp"
+#include "constants.hpp"
 #include "graphics_engine_validation_layer.hpp"
 #include "graphics_engine_swap_chain.hpp"
 #include "graphics_engine_instance.hpp"
@@ -68,10 +69,7 @@ public: // getters and setters
 	VkQueue& get_graphics_queue() { return graphics_queue; }
 	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	GraphicsEngineSwapChain<GraphicsEngine>& get_swap_chain() { return swap_chain; }
-	static constexpr uint32_t get_num_swapchain_images()
-	{ 
-		return GraphicsEngineSwapChain<GraphicsEngine>::EXPECTED_NUM_SWAPCHAIN_IMAGES; 
-	}
+	static constexpr uint32_t get_num_swapchain_images() { return NUM_EXPECTED_SWAPCHAIN_IMAGES; }
 	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }

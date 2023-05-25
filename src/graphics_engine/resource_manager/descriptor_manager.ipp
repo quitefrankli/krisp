@@ -134,7 +134,15 @@ GraphicsDescriptorManager<GraphicsEngineT>::GraphicsDescriptorManager(
 {
 	create_descriptor_pool();
 	setup_descriptor_set_layouts();
-	allocate_global_dset(buffer_manager.get_global_uniform_buffer());
+	const auto get_gubo_offsets = [&buffer_manager] {
+		std::vector<uint32_t> offsets;
+		for (uint32_t frame_idx = 0; frame_idx < GraphicsEngineT::get_num_swapchain_images(); ++frame_idx)
+		{
+			offsets.push_back(buffer_manager.get_global_uniform_buffer_offset(frame_idx));
+		}
+		return offsets;
+	};
+	allocate_global_dset(buffer_manager.get_global_uniform_buffer(), get_gubo_offsets());
 	allocate_mesh_data_dset(
 		buffer_manager.get_mapping_buffer(), 
 		buffer_manager.get_vertex_buffer(),
@@ -311,42 +319,49 @@ void GraphicsDescriptorManager<GraphicsEngineT>::setup_descriptor_set_layouts()
 }
 
 template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::allocate_global_dset(VkBuffer global_buffer)
+void GraphicsDescriptorManager<GraphicsEngineT>::allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets)
 {
+	assert(global_buffer_offsets.size() == MAX_LOW_FREQ_DESCRIPTOR_SETS);
+
+	std::vector<VkDescriptorSetLayout> dset_layouts(MAX_LOW_FREQ_DESCRIPTOR_SETS, low_freq_dset_layout);
 	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	alloc_info.descriptorPool = descriptor_pool;
-	alloc_info.descriptorSetCount = MAX_LOW_FREQ_DESCRIPTOR_SETS;
-	alloc_info.pSetLayouts = &low_freq_dset_layout;
+	alloc_info.descriptorSetCount = dset_layouts.size();
+	alloc_info.pSetLayouts = dset_layouts.data();
 
+	global_dsets.resize(MAX_LOW_FREQ_DESCRIPTOR_SETS);
 	if (vkAllocateDescriptorSets(
 		get_logical_device(), 
 		&alloc_info, 
-		&global_dset) != VK_SUCCESS)
+		global_dsets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsResourceManager: failed to allocate low freq descriptor sets!");
 	}
 
-	VkDescriptorBufferInfo buffer_info{};
-	buffer_info.buffer = global_buffer;
-	buffer_info.offset = 0;
-	buffer_info.range = sizeof(SDS::GlobalData);
+	for (int i = 0; i < global_dsets.size(); ++i)
+	{
+		VkDescriptorBufferInfo buffer_info{};
+		buffer_info.buffer = global_buffer;
+		buffer_info.offset = global_buffer_offsets[i];
+		buffer_info.range = sizeof(SDS::GlobalData);
 
-	VkWriteDescriptorSet dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-	dset_write.dstSet = global_dset;
-	dset_write.dstBinding = SDS::GLOBAL_DATA_BINDING;
-	dset_write.dstArrayElement = 0;
-	dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	dset_write.descriptorCount = 1;
-	dset_write.pBufferInfo = &buffer_info;
-	dset_write.pImageInfo = nullptr;
-	dset_write.pTexelBufferView = nullptr;
+		VkWriteDescriptorSet dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		dset_write.dstSet = global_dsets[i];
+		dset_write.dstBinding = SDS::GLOBAL_DATA_BINDING;
+		dset_write.dstArrayElement = 0;
+		dset_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		dset_write.descriptorCount = 1;
+		dset_write.pBufferInfo = &buffer_info;
+		dset_write.pImageInfo = nullptr;
+		dset_write.pTexelBufferView = nullptr;
 
-	vkUpdateDescriptorSets(
-		get_logical_device(), 
-		1, 
-		&dset_write, 
-		0, 
-		nullptr);
+		vkUpdateDescriptorSets(
+			get_logical_device(), 
+			1, 
+			&dset_write, 
+			0, 
+			nullptr);
+	}
 }
 
 template<typename GraphicsEngineT>
@@ -356,7 +371,7 @@ void GraphicsDescriptorManager<GraphicsEngineT>::allocate_mesh_data_dset(
 	std::vector<VkDescriptorSetLayout> layouts(MAX_MESH_DATA_DESCRIPTOR_SETS, mesh_data_dset_layout);
 	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	alloc_info.descriptorPool = descriptor_pool;
-	alloc_info.descriptorSetCount = MAX_MESH_DATA_DESCRIPTOR_SETS;
+	alloc_info.descriptorSetCount = 1;
 	alloc_info.pSetLayouts = layouts.data();
 	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &mesh_data_dset) != VK_SUCCESS)
 	{
