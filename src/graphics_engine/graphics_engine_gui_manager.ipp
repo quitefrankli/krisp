@@ -2,6 +2,7 @@
 
 #include "graphics_engine_gui_manager.hpp"
 #include "graphics_engine.hpp"
+#include "renderers/renderers.hpp"
 #include "utility.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
@@ -117,6 +118,24 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_gui_windows()
 	this->photo.init([&](const std::string_view picture)
 	{
 		compose_texture_for_gui_window(picture, this->photo);
+	});
+
+	// RenderSlicer will always read from output of QuadRenderer
+	auto& quad_renderer = get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD);
+	VkDescriptorSet dset = ImGui_ImplVulkan_AddTexture(
+		get_graphics_engine().get_texture_mgr().fetch_sampler(ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE), 
+		quad_renderer.get_output_image_view(0),
+		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	this->render_slicer.update(dset, { quad_renderer.get_extent().width, quad_renderer.get_extent().height });
+	this->render_slicer.init([&](const std::string& slice)
+	{
+		if (slice == "none")
+		{
+			get_graphics_engine().get_renderer_mgr().pipe_output_to_quad_renderer(ERendererType::NONE);
+		} else if (slice == "shadow_map")
+		{
+			get_graphics_engine().get_renderer_mgr().pipe_output_to_quad_renderer(ERendererType::SHADOW_MAP);
+		}
 	});
 }
 

@@ -34,6 +34,12 @@ GraphicsResourceManager<GraphicsEngineT>& GraphicsEngineBaseModule<GraphicsEngin
 }
 
 template<typename GraphicsEngineT>
+const GraphicsResourceManager<GraphicsEngineT>& GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr() const
+{
+	return graphics_engine.get_rsrc_mgr();
+}
+
+template<typename GraphicsEngineT>
 GraphicsBuffer GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer(
 	size_t size, 
 	VkBufferUsageFlags usage_flags, 

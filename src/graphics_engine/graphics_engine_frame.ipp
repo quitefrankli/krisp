@@ -105,11 +105,15 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 	pre_cmdbuffer_recording();
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
-	Renderer<GraphicsEngineT>& main_renderer = renderer_mgr.get_renderer(
-		get_graphics_engine().get_gui_manager().graphic_settings.rtx_on() ?
-		ERendererType::RAYTRACING : ERendererType::RASTERIZATION);
-
-	main_renderer.submit_draw_commands(command_buffer, presentation_image_view, image_index);
+	if (get_graphics_engine().get_gui_manager().graphic_settings.rtx_on)
+	{
+		renderer_mgr.get_renderer(ERendererType::RAYTRACING).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+	} else
+	{
+		renderer_mgr.get_renderer(ERendererType::SHADOW_MAP).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		renderer_mgr.get_renderer(ERendererType::QUAD).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		renderer_mgr.get_renderer(ERendererType::RASTERIZATION).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+	}
 
 	// Offscreen
 	renderer_mgr.get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).submit_draw_commands(

@@ -126,6 +126,18 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_mesh_data_indices_bind
 	return indices_binding;
 }
 
+static constexpr VkDescriptorSetLayoutBinding get_generic_shadow_map_binding()
+{
+	VkDescriptorSetLayoutBinding shadow_map_binding{};
+	shadow_map_binding.binding = SDS::RASTERIZATION_SHADOW_MAP_DATA_BINDING;
+	shadow_map_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	shadow_map_binding.descriptorCount = 1;
+	shadow_map_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shadow_map_binding.pImmutableSamplers = nullptr; // Optional
+
+	return shadow_map_binding;
+}
+
 template<typename GraphicsEngineT>
 GraphicsDescriptorManager<GraphicsEngineT>::GraphicsDescriptorManager(
 	GraphicsEngineT& engine,
@@ -285,6 +297,7 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager<GraphicsEngineT>::
 {
 	return { 
 		low_freq_dset_layout,
+		// shadow_map_dset_layout,
 		per_obj_dset_layout,
 		per_shape_dset_layout 
 	};
@@ -305,6 +318,7 @@ template<typename GraphicsEngineT>
 void GraphicsDescriptorManager<GraphicsEngineT>::setup_descriptor_set_layouts()
 {
 	low_freq_dset_layout = request_dset_layout({ get_generic_global_binding() });
+	shadow_map_dset_layout = request_dset_layout({ get_generic_shadow_map_binding() });
 	per_obj_dset_layout = request_dset_layout({ get_generic_obj_ubo_binding(), get_generic_bone_binding() });
 	per_shape_dset_layout = request_dset_layout({ 
 		get_generic_material_binding(), 

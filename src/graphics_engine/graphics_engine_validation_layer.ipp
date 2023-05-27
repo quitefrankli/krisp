@@ -108,6 +108,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData) 
 {
+	constexpr uint32_t MAX_NUM_ERRORS_BEFORE_THROW = 10;
+	static uint32_t num_errors = 0;
+
 	const std::string_view error(pCallbackData->pMessage);
 	const std::vector<std::string_view> blacklist_filter = {
 		"Epic Games"
@@ -119,6 +122,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	{
 		LOG_ERROR(Utility::get().get_logger(), "ValidationLayerMessage: {}", error);
 		fmt::print("ValidationLayerMessage: {}\n", error);
+
+		if (num_errors++ > MAX_NUM_ERRORS_BEFORE_THROW)
+		{
+			throw std::runtime_error("ValidationLayer: too many errors!");
+		}
 	} else
 	{
 		++filtered_errors_count;

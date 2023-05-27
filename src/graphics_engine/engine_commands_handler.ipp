@@ -99,6 +99,6 @@ void GraphicsEngine<GameEngineT>::handle_command(PreviewObjectsCmd& cmd)
 	get_graphics_gui_manager().update_preview_window(
 		cmd.gui, 
 		get_texture_mgr().fetch_sampler(ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE),
-		renderer.get_output_image_view(),
+		renderer.get_output_image_view(get_swap_chain().get_curr_frame().image_index),
 		glm::uvec2(extent.width, extent.height));
 }

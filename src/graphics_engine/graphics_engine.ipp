@@ -481,6 +481,8 @@ VkFormat GraphicsEngine<GameEngineT>::find_depth_format()
 		};
 
 		depth_format = find_supported_format(
+			// As opposed to something like VK_FORMAT_D32_SFLOAT
+			// we want the S8_UINT bit for stencil buffer
 			{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT},
 			VK_IMAGE_TILING_OPTIMAL,
 			VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);

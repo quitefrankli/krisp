@@ -30,14 +30,18 @@ protected:
 	virtual VkFrontFace get_front_face() const { return VkFrontFace::VK_FRONT_FACE_CLOCKWISE; }
 	virtual VkPolygonMode get_polygon_mode() const { return VkPolygonMode::VK_POLYGON_MODE_FILL; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const;
+	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts();
 
 	VkShaderModule create_shader_module(const std::string_view filename);
-	virtual VkVertexInputBindingDescription get_binding_description() const;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const;
 
 	virtual VkExtent2D get_extent();
-	virtual VkSampleCountFlagBits get_msaa_sample_counts();
+	virtual VkSampleCountFlagBits get_msaa_sample_count();
 	virtual VkRenderPass get_render_pass();
+
+	virtual VkCullModeFlags get_cull_mode() const { return VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT; }
+	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const { return {}; }
 
 protected:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;

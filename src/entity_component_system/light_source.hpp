@@ -22,6 +22,18 @@ public:
 	// TODO: this is a quick hack and relies on at least 1 light source in the container, delete this when we can support multiple light sources
 	ObjectID get_global_light_source() const { return lights.begin()->first; }
 
+	LightComponent* get_light_component(const ObjectID id)
+	{ 
+		auto comp = lights.find(id);
+		return comp == lights.end() ? nullptr : &comp->second;
+	}
+
+	const LightComponent* get_light_component(const ObjectID id) const
+	{ 
+		auto comp = lights.find(id);
+		return comp == lights.end() ? nullptr : &comp->second;
+	}
+
 protected:
 	void remove_entity(const ObjectID id) { lights.erase(id); }
 

@@ -75,6 +75,9 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 	case EPipelineType::SKINNED:
 		new_pipeline = create_pipeline<SkinnedPipeline<GraphicsEngineT>>(id);
 		break;
+	case EPipelineType::QUAD:
+		new_pipeline = create_pipeline<QuadPipeline<GraphicsEngineT>>(id);
+		break;
 	default:
 		throw std::runtime_error(
 			std::string("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type: ") +
@@ -111,6 +114,12 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 		if constexpr (Wireframeable<PrimaryPipelineType>)
 		{
 			return std::make_unique<WireframePipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
+		}
+		break;
+	case EPipelineModifier::SHADOW_MAP:
+		if constexpr (ShadowMappable<PrimaryPipelineType>)
+		{
+			return std::make_unique<ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	default:

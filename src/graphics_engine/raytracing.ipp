@@ -107,7 +107,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::process()
 template<typename GraphicsEngineT>
 bool GraphicsEngineRayTracing<GraphicsEngineT>::is_enabled()
 {
-	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on();
+	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on;
 }
 
 template<typename GraphicsEngineT>

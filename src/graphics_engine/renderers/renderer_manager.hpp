@@ -8,7 +8,7 @@
 
 
 template<typename GraphicsEngineT>
-class RendererManager
+class RendererManager : public GraphicsEngineBaseModule<GraphicsEngineT>
 {
 public:
 	RendererManager(GraphicsEngineT& engine);
@@ -34,6 +34,10 @@ public:
 		return vec;
 	}
 
+	void pipe_output_to_quad_renderer(ERendererType src_renderer);
+
 private:
 	std::map<ERendererType, std::unique_ptr<Renderer<GraphicsEngineT>>> renderers;
+
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 };

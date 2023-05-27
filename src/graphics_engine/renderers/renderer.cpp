@@ -3,6 +3,8 @@
 #include "gui_renderer.ipp"
 #include "raytracing_renderer.ipp"
 #include "offscreen_gui_viewport_renderer.ipp"
+#include "shadowmap_renderer.ipp"
+#include "quad_renderer.ipp"
 #include "renderer_manager.ipp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "game_engine.hpp"
@@ -48,3 +50,5 @@ template class RaytracingRenderer<GraphicsEngineT>;
 template class GuiRenderer<GraphicsEngineT>;
 template class RendererManager<GraphicsEngineT>;
 template class OffscreenGuiViewportRenderer<GraphicsEngineT>;
+template class ShadowMapRenderer<GraphicsEngineT>;
+template class QuadRenderer<GraphicsEngineT>;

@@ -29,6 +29,7 @@ public:
 	virtual VkPhysicalDevice& get_physical_device();
 	virtual VkInstance& get_instance();
 	GraphicsResourceManager<GraphicsEngineT>& get_rsrc_mgr();
+	const GraphicsResourceManager<GraphicsEngineT>& get_rsrc_mgr() const;
 	virtual GraphicsBuffer create_buffer(
 		size_t size, 
 		VkBufferUsageFlags usage_flags, 

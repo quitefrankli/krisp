@@ -10,4 +10,5 @@ enum class EPipelineType
 	RAYTRACING,
 	LIGHTWEIGHT_OFFSCREEN_PIPELINE,
 	SKINNED, // for skinned meshes
+	QUAD,
 };

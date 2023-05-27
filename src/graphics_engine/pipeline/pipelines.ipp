@@ -4,14 +4,14 @@
 
 
 template<typename GraphicsEngineT>
-VkVertexInputBindingDescription TexturePipeline<GraphicsEngineT>::get_binding_description() const
+std::vector<VkVertexInputBindingDescription> TexturePipeline<GraphicsEngineT>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
 	binding_description.stride = sizeof(SDS::TexVertex);
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	return binding_description;
+	return { binding_description };
 }
 
 template<typename GraphicsEngineT>
@@ -37,14 +37,14 @@ std::vector<VkVertexInputAttributeDescription> TexturePipeline<GraphicsEngineT>:
 }
 
 template<typename GraphicsEngineT>
-VkVertexInputBindingDescription CubemapPipeline<GraphicsEngineT>::get_binding_description() const
+std::vector<VkVertexInputBindingDescription> CubemapPipeline<GraphicsEngineT>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
 	binding_description.stride = sizeof(SDS::TexVertex);
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	return binding_description;
+	return { binding_description };
 }
 
 template<typename GraphicsEngineT>
@@ -108,15 +108,14 @@ VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT, PrimaryPi
 }
 
 template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
-VkVertexInputBindingDescription
-StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_description() const
+std::vector<VkVertexInputBindingDescription> StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
 	binding_description.stride = PrimaryPipelineType::get_vertex_stride();
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	return binding_description;	
+	return { binding_description };
 }
 
 template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
@@ -133,15 +132,14 @@ StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_description
 }
 
 template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
-VkVertexInputBindingDescription
-WireframePipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_description() const
+std::vector<VkVertexInputBindingDescription> WireframePipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
 	binding_description.stride = PrimaryPipelineType::get_vertex_stride();
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	return binding_description;	
+	return { binding_description };
 }
 
 template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
@@ -261,14 +259,14 @@ VkExtent2D LightWeightOffscreenPipeline<GraphicsEngineT>::get_extent()
 }
 
 template<typename GraphicsEngineT>
-VkVertexInputBindingDescription SkinnedPipeline<GraphicsEngineT>::get_binding_description() const
+std::vector<VkVertexInputBindingDescription> SkinnedPipeline<GraphicsEngineT>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
 	binding_description.stride = sizeof(SDS::SkinnedVertex);
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-	return binding_description;
+	return { binding_description };
 }
 
 template<typename GraphicsEngineT>
@@ -305,4 +303,87 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline<GraphicsEngineT>:
 	bone_weights_attr.offset = offsetof(SDS::SkinnedVertex, bone_weights);
 
 	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr};
+}
+
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_descriptions() const
+{
+	VkVertexInputBindingDescription binding_description{};
+	binding_description.binding = 0;
+	binding_description.stride = PrimaryPipelineType::get_vertex_stride();
+	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	return { binding_description };
+}
+
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descriptions() const
+{
+	VkVertexInputAttributeDescription position_attr;
+	position_attr.binding = 0;
+	position_attr.location = 0; // specify in shader
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = PrimaryPipelineType::get_vertex_pos_offset();
+
+	return {position_attr};
+}
+
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+VkRenderPass ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_render_pass()
+{
+	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
+}
+
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+VkExtent2D ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_extent()
+{
+	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
+}
+
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+VkSampleCountFlagBits ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_msaa_sample_count()
+{
+	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_msaa_sample_count();
+}
+
+template<typename GraphicsEngineT>
+VkRenderPass QuadPipeline<GraphicsEngineT>::get_render_pass()
+{
+	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_render_pass();
+}
+
+template<typename GraphicsEngineT>
+VkExtent2D QuadPipeline<GraphicsEngineT>::get_extent()
+{
+	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_extent();
+}
+
+template<typename GraphicsEngineT>
+VkSampleCountFlagBits QuadPipeline<GraphicsEngineT>::get_msaa_sample_count()
+{
+	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_msaa_sample_count();
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkDescriptorSetLayout> QuadPipeline<GraphicsEngineT>::get_expected_dset_layouts()
+{
+	VkDescriptorSetLayoutBinding binding{};
+	binding.binding = 0;
+	binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	binding.descriptorCount = 1;
+	binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	binding.pImmutableSamplers = nullptr; // Optional
+
+	return { this->get_rsrc_mgr().request_dset_layout({binding}) };
+}
+
+template<typename GraphicsEngineT>
+std::vector<VkPushConstantRange> QuadPipeline<GraphicsEngineT>::get_push_constant_ranges() const
+{
+	VkPushConstantRange push_constant_range{};
+	push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	push_constant_range.offset = 0;
+	push_constant_range.size = sizeof(SDS::QuadRendererPushConstant);
+
+	return { push_constant_range };
 }

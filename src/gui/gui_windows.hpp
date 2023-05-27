@@ -28,7 +28,7 @@ struct GuiVar
 		return *this;
 	}
 
-	T operator()() const
+	operator T() const
 	{
 		return value;
 	}
@@ -197,9 +197,31 @@ public:
 
 private:
 	std::vector<std::string> photos;
-	std::vector<const char*> photos_cstr; // imgui only accepts const char* for combo boxes
 	std::vector<std::filesystem::path> photo_paths;
 	bool should_show = false;
 	GuiVar<int> selected_image = 0;
 	std::function<void(const std::string_view)> texture_requester;
+};
+
+// Shows mid-render slices for visualisation/debug purposes
+// i.e. shadow map
+// Currently the output of this window can feel laggy, but that's because we are (for simplicity) only using a single frame in the swapchain
+// can easily be improved by using all frames, however unnecessary for now since it's only used for debugging
+template<typename GameEngineT>
+class GuiRenderSlicer : public GuiWindow<GameEngineT>, public GuiPhotoBase
+{
+public:
+	using requester_t = std::function<void(const std::string&)>;
+
+	virtual void draw() override;
+
+	void init(const requester_t& slice_requester) { this->slice_requester = slice_requester; }
+
+private:
+	std::vector<std::string> render_slices = { "none", "shadow_map" };
+
+	GuiVar<int> selected_slice = 0;
+	// it can take the quad renderer some time to catchup after a transition is requested
+	int cycles_before_draw = 0;
+	requester_t slice_requester;
 };

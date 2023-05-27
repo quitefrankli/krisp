@@ -711,6 +711,11 @@ void ResourceLoader::assign_object_texture(Object& object, const std::vector<std
 
 void ResourceLoader::load_texture(const std::string_view file) 
 {
+	if (!std::filesystem::exists(file))
+	{
+		throw std::runtime_error(fmt::format("ResourceLoader::load_texture: file does not exist! {}", file));
+	}
+
 	TextureData new_texture;
 	new_texture.data = std::make_unique<RawTextureDataSTB>(stbi_load(
 		file.data(), 

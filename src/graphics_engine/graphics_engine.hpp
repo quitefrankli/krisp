@@ -69,7 +69,7 @@ public: // getters and setters
 	VkQueue& get_graphics_queue() { return graphics_queue; }
 	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	GraphicsEngineSwapChain<GraphicsEngine>& get_swap_chain() { return swap_chain; }
-	static constexpr uint32_t get_num_swapchain_images() { return NUM_EXPECTED_SWAPCHAIN_IMAGES; }
+	static constexpr uint32_t get_num_swapchain_images() { return CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; }
 	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager<GraphicsEngine>& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager<GraphicsEngine>& get_texture_mgr() { return texture_mgr; }
@@ -78,6 +78,7 @@ public: // getters and setters
 	GuiManager<GameEngineT>& get_gui_manager() { return static_cast<GuiManager<GameEngineT>&>(gui_manager); }
 	RendererManager<GraphicsEngine>& get_renderer_mgr() { return renderer_mgr; }
 	GraphicsResourceManager<GraphicsEngine>& get_rsrc_mgr() { return rsrc_mgr; }
+	const GraphicsResourceManager<GraphicsEngine>& get_rsrc_mgr() const { return rsrc_mgr; }
 	GraphicsEngineDevice<GraphicsEngine>& get_device_module() { return device; }
 	void set_fps(const float fps) { this->fps = fps; }
 	float get_fps() const { return fps; }

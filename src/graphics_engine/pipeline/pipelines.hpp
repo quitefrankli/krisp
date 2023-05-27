@@ -15,7 +15,7 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "texture"; }
-	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
@@ -39,7 +39,7 @@ public:
 	CubemapPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
 
 protected:
-	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 	virtual std::string_view get_shader_name() const override { return "cubemap"; }
 	virtual VkFrontFace get_front_face() const override { return VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE; }
@@ -55,7 +55,7 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
@@ -68,7 +68,7 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "wireframe"; }
 	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
-	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
@@ -94,7 +94,7 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "color"; }
-	virtual VkSampleCountFlagBits get_msaa_sample_counts() override
+	virtual VkSampleCountFlagBits get_msaa_sample_count() override
 	{ 
 		return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; 
 	}
@@ -113,6 +113,39 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "skinned"; }
-	virtual VkVertexInputBindingDescription get_binding_description() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+class ShadowMapPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	ShadowMapPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "shadow_map"; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+	// virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual VkRenderPass get_render_pass() override;
+	virtual VkExtent2D get_extent() override;
+	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
+};
+
+template<typename GraphicsEngineT>
+class QuadPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+{
+public:
+	QuadPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "quad"; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override { return {}; }
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override { return {}; }
+	virtual VkRenderPass get_render_pass() override;
+	virtual VkExtent2D get_extent() override;
+	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
+	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
+	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const override;
 };

@@ -30,6 +30,7 @@ public:
 
 public: // accessors for specific descriptors/layouts
 	const VkDescriptorSetLayout& get_low_freq_dset_layout() const { return low_freq_dset_layout; }
+	const VkDescriptorSetLayout& get_shadow_map_dset_layout() const { return shadow_map_dset_layout; }
 	const VkDescriptorSetLayout& get_per_obj_dset_layout() const { return per_obj_dset_layout; }
 	const VkDescriptorSetLayout& get_per_shape_dset_layout() const { return per_shape_dset_layout; }
 	const VkDescriptorSetLayout& get_mesh_data_dset_layout() const { return mesh_data_dset_layout; }
@@ -46,7 +47,7 @@ private:
 	void allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets);
 	void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
 
-	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = NUM_EXPECTED_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
+	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
 	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
 	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000; // for ray tracing
 	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
@@ -69,6 +70,7 @@ private:
 	VkDescriptorPool descriptor_pool;
 	std::vector<VkDescriptorSetLayout> all_dset_layouts;
 	VkDescriptorSetLayout low_freq_dset_layout;
+	VkDescriptorSetLayout shadow_map_dset_layout;
 	VkDescriptorSetLayout per_obj_dset_layout;
 	VkDescriptorSetLayout per_shape_dset_layout;
 	VkDescriptorSetLayout mesh_data_dset_layout;

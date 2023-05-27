@@ -46,7 +46,7 @@ VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(con
 }
 
 template<typename GraphicsEngineT>
-VkVertexInputBindingDescription GraphicsEnginePipeline<GraphicsEngineT>::get_binding_description() const
+std::vector<VkVertexInputBindingDescription> GraphicsEnginePipeline<GraphicsEngineT>::get_binding_descriptions() const
 {
 	// describes at which rate to load data from memory thoughout the vertices
 	// it specifies the number of bytes between data entries and whether to 
@@ -60,7 +60,7 @@ VkVertexInputBindingDescription GraphicsEnginePipeline<GraphicsEngineT>::get_bin
 	// move to the next data entry after each instance
 	// binding_description.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
 
-	return binding_description;
+	return { binding_description };
 }
 
 template<typename GraphicsEngineT>
@@ -88,7 +88,7 @@ VkExtent2D GraphicsEnginePipeline<GraphicsEngineT>::get_extent()
 }
 
 template<typename GraphicsEngineT>
-VkSampleCountFlagBits GraphicsEnginePipeline<GraphicsEngineT>::get_msaa_sample_counts()
+VkSampleCountFlagBits GraphicsEnginePipeline<GraphicsEngineT>::get_msaa_sample_count()
 {
 	return this->get_graphics_engine().get_msaa_samples();
 }
@@ -143,6 +143,12 @@ VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline<GraphicsEngineT>::g
 }
 
 template<typename GraphicsEngineT>
+std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline<GraphicsEngineT>::get_expected_dset_layouts()
+{
+	return get_rsrc_mgr().get_rasterization_descriptor_set_layouts();
+}
+
+template<typename GraphicsEngineT>
 void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 {
 	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
@@ -168,11 +174,12 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_shader_create_info, fragment_shader_create_info };
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	const auto descriptor_set_layouts = get_rsrc_mgr().get_rasterization_descriptor_set_layouts();
+	const auto descriptor_set_layouts = get_expected_dset_layouts();
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
-	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
-	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
+	std::vector<VkPushConstantRange> push_constant_ranges = get_push_constant_ranges();
+	pipeline_layout_create_info.pPushConstantRanges = push_constant_ranges.empty() ? nullptr : push_constant_ranges.data();
+	pipeline_layout_create_info.pushConstantRangeCount = push_constant_ranges.size();
 
 	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS)
 	{
@@ -183,13 +190,15 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	// fixed functions
 	//
 
-	const auto binding_description = get_binding_description();
+	const auto binding_descriptions = get_binding_descriptions();
 	const auto attribute_descriptions = get_attribute_descriptions();
 	VkPipelineVertexInputStateCreateInfo vertex_input_create_info{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-	vertex_input_create_info.vertexBindingDescriptionCount = 1;
-	vertex_input_create_info.pVertexBindingDescriptions = &binding_description;
+	vertex_input_create_info.vertexBindingDescriptionCount = static_cast<uint32_t>(binding_descriptions.size());
+	vertex_input_create_info.pVertexBindingDescriptions =
+		binding_descriptions.empty() ? nullptr : binding_descriptions.data();
 	vertex_input_create_info.vertexAttributeDescriptionCount = static_cast<uint32_t>(attribute_descriptions.size());
-	vertex_input_create_info.pVertexAttributeDescriptions = attribute_descriptions.data();
+	vertex_input_create_info.pVertexAttributeDescriptions = 
+		attribute_descriptions.empty() ? nullptr : attribute_descriptions.data();
 
 	// describes what kind of geomertry will be drawn from the vertices and if primitive restart should be enabled
 	VkPipelineInputAssemblyStateCreateInfo input_assembly{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
@@ -224,8 +233,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	rasterizer_create_info.rasterizerDiscardEnable = VK_FALSE; // if true then geometry never passes through rasterizer stage
 	rasterizer_create_info.polygonMode = polygon_mode;
 	rasterizer_create_info.lineWidth = 1.0f;
-	// rasterizer_create_info.cullMode = VK_CULL_MODE_NONE;
-	rasterizer_create_info.cullMode = VK_CULL_MODE_BACK_BIT; 
+	rasterizer_create_info.cullMode = get_cull_mode(); 
 	rasterizer_create_info.frontFace = front_face; // this is the convention
 	// rasterizer can alter depth by adding bias (either constant or sloped), can be useful for shadow mapping
 	rasterizer_create_info.depthBiasEnable = VK_FALSE;
@@ -236,7 +244,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	// multisampling is one way of performing anti-aliasing, by combining fragments that lie ontop of the same pixel
 	VkPipelineMultisampleStateCreateInfo multisampling_create_info{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 	multisampling_create_info.sampleShadingEnable = VK_FALSE;
-	multisampling_create_info.rasterizationSamples = get_msaa_sample_counts();
+	multisampling_create_info.rasterizationSamples = get_msaa_sample_count();
 	multisampling_create_info.minSampleShading = 1.0f;
 	multisampling_create_info.pSampleMask = nullptr;
 	multisampling_create_info.alphaToCoverageEnable = VK_FALSE;

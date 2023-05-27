@@ -10,7 +10,8 @@ enum class EPipelineModifier
 {
 	NONE,
 	STENCIL,
-	WIREFRAME
+	WIREFRAME,
+	SHADOW_MAP
 };
 
 struct PipelineID

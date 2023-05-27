@@ -36,7 +36,11 @@ int main()
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			GameEngine<GraphicsEngine> engine([&restart_signal](){restart_signal=true;}, window);
-			auto& floor = engine.spawn_object<Object>(ShapeFactory::cube());
+			auto floor_shape =ShapeFactory::cube();
+			Material floor_material{};
+			floor_material.material_data.shininess = 1.0f;
+			floor_shape->set_material(floor_material);
+			auto& floor = engine.spawn_object<Object>(std::move(floor_shape));
 			floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 			floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
 			engine.run();

@@ -19,7 +19,8 @@ public:
 		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>()),
 		statistics(spawn_gui<GuiStatistics<GameEngineT>>()),
 		debug(spawn_gui<GuiDebug<GameEngineT>>()),
-		photo(spawn_gui<GuiPhoto<GameEngineT>>())
+		photo(spawn_gui<GuiPhoto<GameEngineT>>()),
+		render_slicer(spawn_gui<GuiRenderSlicer<GameEngineT>>())
 	{
 	}
 
@@ -43,6 +44,7 @@ public:
 	GuiStatistics<GameEngineT>& statistics;
 	GuiDebug<GameEngineT>& debug;
 	GuiPhoto<GameEngineT>& photo;
+	GuiRenderSlicer<GameEngineT>& render_slicer;
 
 public: // for GameEngine
 	void process(GameEngineT& engine)

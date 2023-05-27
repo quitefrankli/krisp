@@ -2,6 +2,8 @@
 
 #include "renderer.hpp"
 
+#include <optional>
+
 
 template<typename GraphicsEngineT>
 class RasterizationRenderer : public Renderer<GraphicsEngineT>
@@ -13,7 +15,7 @@ public:
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
-	virtual VkImageView get_output_image_view() override { return nullptr; };
+	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
 
 private:
 	using Renderer<GraphicsEngineT>::get_graphics_engine;
@@ -38,7 +40,7 @@ public:
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::GUI; }
-	virtual VkImageView get_output_image_view() override { return nullptr; };
+	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
 
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
@@ -59,7 +61,7 @@ public:
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RAYTRACING; }
-	virtual VkImageView get_output_image_view() override { return nullptr; };
+	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
 
 	void update_rt_dsets();
 
@@ -89,7 +91,7 @@ public:
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::OFFSCREEN_GUI_VIEWPORT; }
-	virtual VkImageView get_output_image_view() override { return color_attachments[0].image_view; };
+	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return color_attachments[frame_idx].image_view; };
 	virtual VkExtent2D get_extent() override;
 
 private:
@@ -99,6 +101,78 @@ private:
 
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
+
+	using Renderer<GraphicsEngineT>::get_graphics_engine;
+	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
+	using Renderer<GraphicsEngineT>::get_logical_device;
+};
+
+template<typename GraphicsEngineT>
+class ShadowMapRenderer : public Renderer<GraphicsEngineT>
+{
+public:
+	ShadowMapRenderer(GraphicsEngineT& engine);
+	~ShadowMapRenderer();
+
+	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
+	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::OFFSCREEN_GUI_VIEWPORT; }
+	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return shadow_map_attachments[frame_idx].image_view; };
+	virtual VkExtent2D get_extent() override { return { 1024, 1024 }; }
+
+	VkDescriptorSet get_shadow_map_dset(uint32_t frame_idx) { return shadow_map_dsets[frame_idx]; }
+
+private:
+	static constexpr VkFormat get_image_format() { return VK_FORMAT_D32_SFLOAT; }
+	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
+	void create_render_pass();
+	void create_sampler();
+	void create_shadow_map_dset(VkImageView shadow_map_view);
+
+	std::vector<RenderingAttachment> shadow_map_attachments;
+	std::vector<VkDescriptorSet> shadow_map_dsets;
+	VkSampler shadow_map_sampler;
+
+	using Renderer<GraphicsEngineT>::get_graphics_engine;
+	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
+	using Renderer<GraphicsEngineT>::get_logical_device;
+};
+
+template<typename GraphicsEngineT>
+class QuadRenderer : public Renderer<GraphicsEngineT>
+{
+public:
+	QuadRenderer(GraphicsEngineT& engine);
+	~QuadRenderer();
+
+	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
+	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::QUAD; }
+	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return color_attachments[frame_idx].image_view; };
+	virtual VkExtent2D get_extent() override { return { 512, 512 }; }
+
+	void set_texture(VkImageView texture_view, VkSampler texture_sampler);
+	void set_texture_sampling_flags(int flags) { sampling_flags = flags; }
+
+private:
+	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
+	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
+	void create_render_pass();
+
+	VkDescriptorSet texture;
+	struct TextureToRender
+	{
+		VkImageView texture_view;
+		VkSampler texture_sampler;
+		int num_frames_to_render = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; // avoids the issue of updating a dset while it's being used
+	};
+
+	std::optional<TextureToRender> texture_to_render;
+	bool should_render = false;
+
+	int sampling_flags = 0;
+
+	std::vector<RenderingAttachment> color_attachments;
 
 	using Renderer<GraphicsEngineT>::get_graphics_engine;
 	using Renderer<GraphicsEngineT>::get_rsrc_mgr;

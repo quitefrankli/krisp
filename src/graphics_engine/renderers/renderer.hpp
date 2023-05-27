@@ -2,16 +2,20 @@
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_engine/vulkan_wrappers.hpp"
+#include "graphics_engine/constants.hpp"
 
 #include <vulkan/vulkan.hpp>
 
 
 enum class ERendererType
 {
+	NONE,
 	RASTERIZATION,
 	RAYTRACING,
 	GUI,
-	OFFSCREEN_GUI_VIEWPORT
+	OFFSCREEN_GUI_VIEWPORT,
+	SHADOW_MAP,
+	QUAD,
 };
 
 // A renderer is simply anything that submits draw commands and fills up a command buffer
@@ -27,14 +31,15 @@ public:
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) = 0;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) = 0;
 	virtual constexpr ERendererType get_renderer_type() const = 0;
-	virtual VkImageView get_output_image_view() = 0;
+	virtual VkImageView get_output_image_view(uint32_t frame_idx) = 0;
 
-	VkRenderPass get_render_pass() { return render_pass; }
+	virtual VkSampleCountFlagBits get_msaa_sample_count() const { return CSTS::MSAA_SAMPLE_COUNT; }
 	virtual VkExtent2D get_extent();
+	
+	VkRenderPass get_render_pass() { return render_pass; }
 
 protected:
 	static constexpr uint32_t get_num_inflight_frames();
-	virtual VkSampleCountFlagBits get_msaa_sample_count() const { return VK_SAMPLE_COUNT_4_BIT; }
 
 protected:
 	// A render pass is a general description of steps to draw something on the screen

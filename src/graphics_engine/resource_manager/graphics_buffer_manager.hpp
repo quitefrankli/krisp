@@ -98,7 +98,7 @@ public:
 	static constexpr size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e5;
 	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_SHAPES;
-	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData) * NUM_EXPECTED_SWAPCHAIN_IMAGES * 100; // 100 is here to get around the min uniform buffer alignment requirement
+	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData) * CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES * 100; // 100 is here to get around the min uniform buffer alignment requirement
 	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(SDS::BufferMapEntry) * NUM_EXPECTED_OBJECTS * 10;
 	static constexpr size_t BONE_BUFFER_CAPACITY = sizeof(SDS::Bone) * 500;
 	static constexpr size_t INITIAL_STAGING_BUFFER_CAPACITY = 1e4; // staging buffer capacity dynamically grows

@@ -8,6 +8,7 @@
 #include "audio_engine/audio_source.hpp"
 #include "utility.hpp"
 #include "camera.hpp"
+#include "graphics_engine/constants.hpp"
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -305,10 +306,10 @@ void GuiDebug<GameEngineT>::process(GameEngineT& engine)
 	{
 		for (const auto entity : engine.get_ecs().get_all_skinned_entities())
 		{
-			engine.get_object(entity)->set_visibility(!show_bone_visualisers());
+			engine.get_object(entity)->set_visibility(!show_bone_visualisers);
 			for (const auto visualiser : engine.get_ecs().get_skeletal_component(entity).get_visualisers())
 			{
-				engine.get_object(visualiser)->set_visibility(show_bone_visualisers());
+				engine.get_object(visualiser)->set_visibility(show_bone_visualisers);
 			}
 		}
 
@@ -317,7 +318,7 @@ void GuiDebug<GameEngineT>::process(GameEngineT& engine)
 
 	if (selected_object.changed)
 	{
-		const auto pos = engine.get_object(selected_object())->get_position();
+		const auto pos = engine.get_object(selected_object)->get_position();
 		engine.get_camera().look_at(pos);
 		selected_object.changed = false;
 	}
@@ -356,7 +357,7 @@ void GuiDebug<GameEngineT>::draw()
 		for (int i = 0; i < object_ids.size(); i++)
 		{
 			// bool is_selected = (current_item == items[n]); // You can store your selection however you want, outside or inside your objects
-			if (ImGui::Selectable(object_ids_strs[i].data(), selected_object() == object_ids[i]))
+			if (ImGui::Selectable(object_ids_strs[i].data(), selected_object == object_ids[i]))
 			{
 				selected_object = object_ids[i];
 				selected_object.changed = true;
@@ -413,11 +414,6 @@ GuiPhoto<GameEngineT>::GuiPhoto()
 		}
 	}
 
-	for (const std::string& photo : photos)
-	{
-		photos_cstr.push_back(photo.c_str());
-	}
-
 	selected_image = 0;
 	selected_image.changed = true;
 }
@@ -438,9 +434,17 @@ void GuiPhoto<GameEngineT>::draw()
 {
 	ImGui::Begin("Texture Viewer");
 
-	if (ImGui::Combo("Texture", &selected_image.value, photos_cstr.data(), photos_cstr.size()))
+	if (ImGui::BeginCombo("Texture", photos[selected_image].c_str()))
 	{
-		selected_image.changed = true;
+		for (int i = 0; i < photos.size(); i++)
+		{
+			if (ImGui::Selectable(photos[i].c_str(), i == selected_image))
+			{
+				selected_image = i;
+				selected_image.changed = true;
+			}
+		}
+		ImGui::EndCombo();
 	}
 
 	ImGui::InputInt("width", &requested_width);
@@ -449,7 +453,7 @@ void GuiPhoto<GameEngineT>::draw()
 	{
 		if (selected_image.changed)
 		{
-			texture_requester(photo_paths[selected_image()].string().c_str());
+			texture_requester(photo_paths[selected_image].string().c_str());
 			selected_image.changed = false;
 		}
 		should_show = true;
@@ -467,4 +471,37 @@ void GuiPhoto<GameEngineT>::draw()
 	}
 
 	ImGui::End();
+}
+
+template<typename GameEngineT>
+void GuiRenderSlicer<GameEngineT>::draw()
+{
+	ImGui::Begin("RenderSlicer");
+
+	if (ImGui::BeginCombo("Slices", render_slices[selected_slice].c_str()))
+	{
+		for (int i = 0; i < render_slices.size(); i++)
+		{
+			if (ImGui::Selectable(render_slices[i].c_str(), i == selected_slice))
+			{
+				selected_slice = i;
+				selected_slice.changed = true;
+				slice_requester(render_slices[i]);
+				cycles_before_draw = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES * 2; // 2 here is extra delay for safety
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	if (selected_slice != 0 && cycles_before_draw == 0)
+	{
+		GuiPhotoBase::draw();
+	}
+
+	ImGui::End();
+
+	if (cycles_before_draw > 0)
+	{
+		--cycles_before_draw;
+	}
 }
