@@ -14,6 +14,20 @@ RendererManager<GraphicsEngineT>::RendererManager(GraphicsEngineT& engine) :
 }
 
 template<typename GraphicsEngineT>
+void RendererManager<GraphicsEngineT>::linkup_renderers()
+{
+	// link output of shadowmap renderer to input of rasterization renderer
+	auto& shadow_map_renderer = get_renderer(ERendererType::SHADOW_MAP);
+	std::vector<VkImageView> shadow_map_inputs;
+	for (int frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
+	{
+		shadow_map_inputs.push_back(get_renderer(ERendererType::SHADOW_MAP).get_output_image_view(frame_idx));
+	}	
+	auto& rasterization_renderer = static_cast<RasterizationRenderer<GraphicsEngineT>&>(get_renderer(ERendererType::RASTERIZATION));
+	rasterization_renderer.set_shadow_map_inputs(shadow_map_inputs);
+}
+
+template<typename GraphicsEngineT>
 void RendererManager<GraphicsEngineT>::pipe_output_to_quad_renderer(ERendererType src_renderer)
 {
 	if (src_renderer == ERendererType::QUAD)

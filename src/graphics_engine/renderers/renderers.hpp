@@ -16,6 +16,7 @@ public:
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
 	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
+	void set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs);
 
 private:
 	using Renderer<GraphicsEngineT>::get_graphics_engine;
@@ -28,6 +29,10 @@ private:
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
 	// presentation attachment which is also responsible for msaa resolve, is owned by the swapchain
+
+	std::vector<VkDescriptorSet> shadow_map_dsets;
+
+	VkSampler shadow_map_sampler;
 };
 
 template<typename GraphicsEngineT>

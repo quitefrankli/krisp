@@ -241,8 +241,8 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	// update global uniform buffer
 	const auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().get_graphic_settings();
 	SDS::GlobalData gubo;
-	gubo.view = get_graphics_engine().get_camera()->get_view(); // we can move this to push constant
-	gubo.proj = get_graphics_engine().get_camera()->get_projection(); // we can move this to push constant
+	gubo.view = get_graphics_engine().get_camera()->get_view();
+	gubo.proj = get_graphics_engine().get_camera()->get_projection();
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
 
 	// light controlled by light source, only supports single light source and white lighting currently
@@ -253,6 +253,26 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(image_index, gubo);
 
+	// TODO: this is a hacky approach, this will not work with multiple light sources
+	// we will need to eventually fix this up properly
+	const glm::mat4 shadow_view_proj_matrix = [&]
+	{
+		const glm::mat4 view = glm::lookAtLH(
+			glm::vec3(0.0f, 10.0f, 0.0f), 
+			glm::vec3(0.0f, 9.0f, 0.0f), 
+			Maths::forward_vec);
+		// const glm::vec2 horizontal_span = { -10.0f, 10.0f };
+		// const glm::mat4 proj = glm::orthoLH(
+		// 	horizontal_span.x, 
+		// 	horizontal_span.y, 
+		// 	horizontal_span.x, 
+		// 	horizontal_span.y, 
+		// 	0.1f, 
+		// 	250.0f);
+		const glm::mat4 proj = glm::perspectiveLH(Maths::deg2rad(45.0f), 1.0f, 0.1f, 250.0f);
+		return proj * view;
+	}();
+
 	// update per object uniforms
 	SDS::ObjectData object_data{};
 	for (const auto& [id, graphics_object] : get_graphics_engine().get_objects())
@@ -261,6 +281,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 		object_data.model = graphics_object->get_game_object().get_transform();
 		object_data.mvp = gubo.proj * gubo.view * object_data.model;
 		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
+		object_data.shadow_mvp = shadow_view_proj_matrix * object_data.model;
 		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
 
 		// if object contains skinned meshes update the bone matrices

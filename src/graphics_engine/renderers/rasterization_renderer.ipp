@@ -15,9 +15,15 @@ template<typename GraphicsEngineT>
 RasterizationRenderer<GraphicsEngineT>::~RasterizationRenderer()
 {
 	for (auto& color_attachment : color_attachments)
+	{
 		color_attachment.destroy(get_graphics_engine().get_logical_device());
+	}
 	for (auto& depth_attachment : depth_attachments)
+	{
 		depth_attachment.destroy(get_graphics_engine().get_logical_device());
+	}
+	get_rsrc_mgr().free_dsets(shadow_map_dsets);
+	vkDestroySampler(this->get_logical_device(), shadow_map_sampler, nullptr);
 }
 
 template<typename GraphicsEngineT>
@@ -111,7 +117,6 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 
 	std::vector<VkDescriptorSet> per_frame_dsets = { 
 		get_rsrc_mgr().get_global_dset(frame_index)
-		// shadow map
 	};
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -121,6 +126,16 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
 							per_frame_dsets.size(),
 							per_frame_dsets.data(),
+							0,
+							nullptr);
+	vkCmdBindDescriptorSets(command_buffer,
+							VK_PIPELINE_BIND_POINT_GRAPHICS,
+							// lets assume that global descriptor objects only use the STANDARD pipeline
+							// this is a little dodgy but it seems to be working?
+							get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
+							SDS::RASTERIZATION_SHADOW_MAP_SET_OFFSET,
+							1,
+							&shadow_map_dsets[frame_index],
 							0,
 							nullptr);
 
@@ -238,6 +253,60 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	}
 
 	vkCmdEndRenderPass(command_buffer);
+}
+
+template<typename GraphicsEngineT>
+void RasterizationRenderer<GraphicsEngineT>::set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs)
+{
+	assert(shadow_map_inputs.size() == CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES);
+	
+	// create a custom sampler for shadow map, we want to clamp to a white border
+	VkSamplerCreateInfo sampler_info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
+	sampler_info.minFilter = VK_FILTER_LINEAR; // how to interpolate texels that are minimised, solves undersampling
+	// U,V,W is convention for texture space dimensions
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	sampler_info.anisotropyEnable = false;
+	sampler_info.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
+												  // so that you can use textures of varying resolutions with same coordinates
+	sampler_info.compareEnable = false; // if enabled, texels will first be compared to a value and the result of comparison is used in filtering
+	sampler_info.mipLodBias = 0.0f;
+	sampler_info.minLod = 0.0f;
+	sampler_info.maxLod = 0.0f;
+
+	if (vkCreateSampler(get_logical_device(), &sampler_info, nullptr, &shadow_map_sampler) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create texture sampler!");
+	}	
+
+	for (auto input : shadow_map_inputs)
+	{
+		auto& new_dset = shadow_map_dsets.emplace_back(
+			this->get_rsrc_mgr().reserve_dset(this->get_rsrc_mgr().get_shadow_map_dset_layout()));
+
+		VkDescriptorImageInfo image_info{};
+		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		image_info.imageView = input;
+		image_info.sampler = shadow_map_sampler;
+
+		VkWriteDescriptorSet combined_sampler_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		combined_sampler_dset.dstSet = new_dset;
+		combined_sampler_dset.dstBinding = 0;
+		combined_sampler_dset.dstArrayElement = 0; // offset
+		combined_sampler_dset.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		combined_sampler_dset.descriptorCount = 1;
+		combined_sampler_dset.pImageInfo = &image_info;
+
+		vkUpdateDescriptorSets(
+			get_logical_device(),
+			1,
+			&combined_sampler_dset,
+			0,
+			nullptr);
+	}	
 }
 
 template<typename GraphicsEngineT>

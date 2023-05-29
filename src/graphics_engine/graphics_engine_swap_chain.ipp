@@ -89,6 +89,8 @@ GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngine
 	}
 
 	destroy_and_recreate_frames();
+
+	get_graphics_engine().get_renderer_mgr().linkup_renderers();
 }
 
 template<typename GraphicsEngineT>

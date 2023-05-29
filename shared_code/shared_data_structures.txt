@@ -28,6 +28,8 @@ struct ObjectData
 {
 	MAT4 model;
     MAT4 mvp; // precomputed model-view-proj matrix
+	// precomputed shadow map model-view-proj matrix, this is a quick hack, TODO: do this properly
+	MAT4 shadow_mvp; 
     CPP_MAT4_GLSL_MAT3 rot_mat; // glsl matrix specific alignment issue workaround
 };
 
@@ -35,6 +37,7 @@ struct GlobalData
 {
     MAT4 view; // camera
     MAT4 proj;
+	MAT4 shadow_view_proj_mat; // TODO: do this properly
     ALIGN(16) VEC3 view_pos; // camera eye
     ALIGN(16) VEC3 light_pos;
     ALIGN(4) float lighting_scalar;

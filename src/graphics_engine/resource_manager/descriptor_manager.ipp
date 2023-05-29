@@ -297,9 +297,9 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager<GraphicsEngineT>::
 {
 	return { 
 		low_freq_dset_layout,
-		// shadow_map_dset_layout,
 		per_obj_dset_layout,
-		per_shape_dset_layout 
+		per_shape_dset_layout, 
+		shadow_map_dset_layout
 	};
 }
 
@@ -318,11 +318,11 @@ template<typename GraphicsEngineT>
 void GraphicsDescriptorManager<GraphicsEngineT>::setup_descriptor_set_layouts()
 {
 	low_freq_dset_layout = request_dset_layout({ get_generic_global_binding() });
-	shadow_map_dset_layout = request_dset_layout({ get_generic_shadow_map_binding() });
 	per_obj_dset_layout = request_dset_layout({ get_generic_obj_ubo_binding(), get_generic_bone_binding() });
 	per_shape_dset_layout = request_dset_layout({ 
 		get_generic_material_binding(), 
 		get_generic_texture_binding() });
+	shadow_map_dset_layout = request_dset_layout({ get_generic_shadow_map_binding() });
 	mesh_data_dset_layout = request_dset_layout({ 
 		get_generic_mesh_data_buffer_map_binding(),
 		get_generic_mesh_data_vertices_binding(),

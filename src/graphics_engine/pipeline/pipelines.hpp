@@ -94,12 +94,10 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "color"; }
-	virtual VkSampleCountFlagBits get_msaa_sample_count() override
-	{ 
-		return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; 
-	}
+	virtual VkSampleCountFlagBits get_msaa_sample_count() override { return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; }
 	virtual VkRenderPass get_render_pass() override;
 	virtual VkExtent2D get_extent() override;
+	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
 };
 
 template<typename GraphicsEngineT>
@@ -131,6 +129,7 @@ protected:
 	virtual VkRenderPass get_render_pass() override;
 	virtual VkExtent2D get_extent() override;
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
+	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
 };
 
 template<typename GraphicsEngineT>

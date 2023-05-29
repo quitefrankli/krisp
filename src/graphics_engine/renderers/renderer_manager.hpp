@@ -34,10 +34,14 @@ public:
 		return vec;
 	}
 
+	// links the inputs and outputs of specific renderers
+	void linkup_renderers();
 	void pipe_output_to_quad_renderer(ERendererType src_renderer);
 
 private:
 	std::map<ERendererType, std::unique_ptr<Renderer<GraphicsEngineT>>> renderers;
 
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
+	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
 };

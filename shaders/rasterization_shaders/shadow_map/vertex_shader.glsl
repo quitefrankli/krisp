@@ -14,5 +14,5 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJ
 
 void main()
 {
-    gl_Position = object_data.data.mvp * vec4(in_position, 1.0);
+    gl_Position = object_data.data.shadow_mvp * vec4(in_position, 1.0);
 }
