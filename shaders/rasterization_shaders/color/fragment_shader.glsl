@@ -40,8 +40,10 @@ float compute_shadow_factor(vec4 shadow_coords)
 
 	float closest_depth = texture(shadow_map, shadow_coords.xy).r; 
 
+	const float bias = 0.001;
+
 	// check whether current frag pos is in shadow
-	return shadow_coords.z > closest_depth ? 0.05 : 1.0;
+	return shadow_coords.z - bias > closest_depth ? 0.05 : 1.0;
 }
 
 void main()
@@ -57,7 +59,7 @@ void main()
     
     // specular
     const vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
-	// in phong model, specular can have value on the opposite face
+	// in phong model, specular can have value on the opposite face 
 	// this is not good so we only emit specular is diffuse > 0
 	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, mat_data.data.shininess) : 0.0;
     const vec3 specular = mat_data.data.specular * (SPECULAR_STRENGTH * spec * global_data.data.lighting_scalar);
