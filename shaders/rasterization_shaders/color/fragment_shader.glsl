@@ -38,12 +38,19 @@ float compute_shadow_factor(vec4 shadow_coords)
 
 	shadow_coords.y = 1.0 - shadow_coords.y; // I'm not sure why it appears the y-axis is flipped, adding here
 
-	float closest_depth = texture(shadow_map, shadow_coords.xy).r; 
+	// percentage closer filtering
+	const vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
+	float shadow_factor = 0.0;
+	for (int x = -1; x <= 1; ++x)
+	{
+		for (int y = -1; y <= 1; ++y)
+		{
+			const float closest_depth = texture(shadow_map, shadow_coords.xy + vec2(x, y) * texel_size).r; 
+			shadow_factor += shadow_coords.z > closest_depth ? 0.05 : 1.0;
+		}
+	}
 
-	const float bias = 0.001;
-
-	// check whether current frag pos is in shadow
-	return shadow_coords.z - bias > closest_depth ? 0.05 : 1.0;
+	return shadow_factor / 9.0;
 }
 
 void main()

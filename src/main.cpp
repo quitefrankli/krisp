@@ -43,6 +43,11 @@ int main()
 			auto& floor = engine.spawn_object<Object>(std::move(floor_shape));
 			floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 			floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
+			auto& floating_obj1 = engine.spawn_object<Object>(ShapeFactory::cube());
+			floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
+			floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+			engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
+			engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
 			engine.run();
 		} while (restart_signal);
     } catch (const std::exception& e) {

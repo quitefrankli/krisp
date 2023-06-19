@@ -130,6 +130,7 @@ protected:
 	virtual VkExtent2D get_extent() override;
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
 	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
+	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const override;
 };
 
 template<typename GraphicsEngineT>

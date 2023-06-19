@@ -240,6 +240,7 @@ void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
 	rasterizer_create_info.depthBiasConstantFactor = 0.0f;
 	rasterizer_create_info.depthBiasClamp = 0.0f;
 	rasterizer_create_info.depthBiasSlopeFactor = 0.0f;
+	mod_rasterization_state_info(rasterizer_create_info);
 
 	// multisampling is one way of performing anti-aliasing, by combining fragments that lie ontop of the same pixel
 	VkPipelineMultisampleStateCreateInfo multisampling_create_info{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};

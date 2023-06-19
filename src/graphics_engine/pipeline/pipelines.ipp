@@ -366,6 +366,18 @@ std::vector<VkDescriptorSetLayout> ShadowMapPipeline<GraphicsEngineT, PrimaryPip
 	};
 }
 
+template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
+void ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::mod_rasterization_state_info(
+	VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const
+{
+	rasterization_state_info.depthBiasEnable = VK_TRUE;
+	// constant factor that is automatically added to all depth values produced
+	rasterization_state_info.depthBiasConstantFactor = 40.0f;
+	// factor that is used to compute depth offsets also based on the angle
+	rasterization_state_info.depthBiasSlopeFactor = 10.0f;
+	rasterization_state_info.depthBiasClamp = 0.0f;
+}
+
 template<typename GraphicsEngineT>
 VkRenderPass QuadPipeline<GraphicsEngineT>::get_render_pass()
 {

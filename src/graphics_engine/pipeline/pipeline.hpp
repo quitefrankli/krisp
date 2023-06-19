@@ -43,6 +43,8 @@ protected:
 	virtual VkCullModeFlags get_cull_mode() const { return VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT; }
 	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const { return {}; }
 
+	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const {}
+
 protected:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
