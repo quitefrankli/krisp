@@ -142,6 +142,7 @@ private:
 	// unlike the other buffers, entries in this buffer never gets removed
 	AppendOnlyGraphicsBuffer mapping_buffer;
 
+protected:
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
 	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;

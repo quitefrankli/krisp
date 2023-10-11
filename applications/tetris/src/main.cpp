@@ -566,7 +566,7 @@ private:
 	std::unique_ptr<AudioSource> clear_line_fx;
 };
 
-int main()
+int main(int argc, char* argv[])
 {
 	try {
 		bool restart_signal = false;
@@ -574,14 +574,14 @@ int main()
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			restart_signal = false;
-			Config config(Utility::get().get_top_level_path().string() + "/configs/default.yaml");
-			if (config.enable_logging())
+			Config::initialise_global_config(Utility::get().get_top_level_path().string() + "/configs/default.yaml");
+			if (Config::enable_logging())
 			{
 				Utility::get().enable_logging();
 			}
 			
 			App::Window window;
-			window.open(config.get_window_pos().first, config.get_window_pos().second);
+			window.open(Config::get_window_pos().first, Config::get_window_pos().second);
 
 			GameEngineT engine([&restart_signal](){restart_signal=true;}, window);
 

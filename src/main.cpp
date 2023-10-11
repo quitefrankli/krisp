@@ -13,7 +13,7 @@
 #include <iomanip>
 
 
-int main()
+int main(int argc, char* argv[])
 {
 #ifdef NDEBUG
 	fmt::print(fg(fmt::color::blue), "Release Mode\n");
@@ -25,14 +25,22 @@ int main()
 		do {
 			restart_signal = false;
 			
-			Config config(Utility::get().get_top_level_path().string() + "/configs/default.yaml");
-			if (config.enable_logging())
+			// TODO: use configparser library for this
+			if (argc == 2)
+			{
+				Config::initialise_global_config(Utility::get().get_config_path().string() + "/" + argv[1]);
+			} else
+			{
+				Config::initialise_global_config(Utility::get().get_config_path().string() + "/default.yaml");
+			}
+
+			if (Config::enable_logging())
 			{
 				Utility::get().enable_logging();
 			}
 			
 			App::Window window;
-			window.open(config.get_window_pos().first, config.get_window_pos().second);
+			window.open(Config::get_window_pos().first, Config::get_window_pos().second);
 			// seems like glfw window must be on main thread otherwise it wont work, 
 			// therefore engine should always be on its own thread
 			GameEngine<GraphicsEngine> engine([&restart_signal](){restart_signal=true;}, window);

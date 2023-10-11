@@ -4,6 +4,7 @@
 #include "shared_data_structures.hpp"
 #include "utility.hpp"
 #include "graphics_engine/renderers/renderers.hpp"
+#include "config.hpp"
 
 #include <quill/Quill.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -25,6 +26,11 @@ GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 	GraphicsEngineT& engine) :
 	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
 {
+	if (!Config::is_raytracing_enabled())
+	{
+		return;
+	}
+
 	// command_buffer = get_graphics_engine().get_graphics_resource_manager().create_command_buffer();
 
 	create_shader_binding_table();
@@ -35,6 +41,11 @@ GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 template<typename GraphicsEngineT>
 GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
 {
+	if (!Config::is_raytracing_enabled())
+	{
+		return;
+	}
+
 	sbt_buffer->destroy(get_logical_device());
 
 	for (auto& as : bottom_as)

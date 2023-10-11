@@ -123,7 +123,7 @@ std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::
 struct Utility::LoopSleeper::Pimpl
 {
 public:
-	Pimpl(int milliseconds)
+	Pimpl(LoopSleeper& loop_sleeper)
 	{
 		// Request high resolution timer
 		static MMRESULT result = timeBeginPeriod(timer_period);
@@ -134,8 +134,8 @@ public:
 		assert(timer);
 
 		/* Set timer properties */
-		li.QuadPart = -milliseconds;
-		auto res = SetWaitableTimer(timer, &li, milliseconds, NULL, NULL, FALSE);
+		li.QuadPart = -loop_sleeper.loop_period.count();
+		auto res = SetWaitableTimer(timer, &li, loop_sleeper.loop_period.count(), NULL, NULL, FALSE);
 		assert(res);
 	}
 
@@ -162,19 +162,46 @@ public:
 #elif defined(__unix__) || defined(__APPLE__)
 #include <time.h>   /* nanosleep */
 
-/* Unix sleep in 100ns units */
-int nanosleep(const struct timespec *req, struct timespec *rem){
-	struct timespec temp_rem;
-	if(nanosleep(req, rem) == -1)
-		nanosleep(rem, &temp_rem);
-	else
-		return 1;
+// /* Unix sleep in 100ns units */
+// int nanosleep(const struct timespec *req, struct timespec *rem){
+// 	struct timespec temp_rem;
+// 	if(nanosleep(req, rem) == -1)
+// 		nanosleep(rem, &temp_rem);
+// 	else
+// 		return 1;
+// }
+
+struct Utility::LoopSleeper::Pimpl
+{
+public:
+	Pimpl(LoopSleeper& loop_sleeper) : loop_sleeper(loop_sleeper)
+	{
+	}
+
+	void sleep()
+	{
+		const auto start = std::chrono::system_clock::now();
+		const auto margin_of_error = std::chrono::milliseconds(1); // system can only sleep longer than requested
+
+		while (true)
+		{
+			const auto elapsed = std::chrono::system_clock::now() - start;
+			if (elapsed > (loop_sleeper.loop_period - margin_of_error))
+			{
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
 }
+
+	LoopSleeper& loop_sleeper;
+};
+
 #endif
 
 Utility::LoopSleeper::LoopSleeper(std::chrono::milliseconds loop_period) :
 	loop_period(loop_period),
-	pimpl(std::make_unique<Pimpl>(loop_period.count()))
+	pimpl(std::make_unique<Pimpl>(*this))
 {
 }
 
@@ -184,27 +211,5 @@ Utility::LoopSleeper::~LoopSleeper()
 
 void Utility::LoopSleeper::operator()()
 {
-#ifdef _WIN32
 	pimpl->sleep();
-#elif defined(__unix__) || defined(__APPLE__)
-	// nanosleep(loop_period.count() * 1e6);
-#endif
-
-	// const auto now = std::chrono::system_clock::now();
-	// const auto margin_of_error = std::chrono::milliseconds(1); // system can only sleep longer than requested
-	// auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start);
-	// std::chrono::nanoseconds sleep_ns = loop_period - elapsed;
-	// // nanosleep(sleep_ns.count()/1000);
-	// // nanosleep(3e6);
-	// // Sleep(10);
-	// // std::this_thread::sleep_for(std::chrono::milliseconds(17));
-	// // nanosleep(17e6);
-
-	// // while (elapsed < loop_period - margin_of_error)
-	// // {
-	// // 	std::this_thread::sleep_for(std::chrono::milliseconds(1));
-	// // 	elapsed = std::chrono::system_clock::now() - start;
-	// // }
-
-	// start = std::chrono::system_clock::now();
 }

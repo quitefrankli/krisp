@@ -8,13 +8,8 @@
 class Config
 {
 public:
-	Config(std::string_view config_file_path);
-	~Config();
-
-	bool enable_logging() const;
-	std::pair<int, int> get_window_pos() const;
-
-private:
-	struct Pimpl;
-	std::unique_ptr<Pimpl> pimpl;
+	static void initialise_global_config(std::string_view config_file_path);
+	static bool enable_logging();
+	static std::pair<int, int> get_window_pos();
+	static bool is_raytracing_enabled();
 };

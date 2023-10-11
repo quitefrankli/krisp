@@ -21,19 +21,19 @@ GraphicsResourceManager<GraphicsEngineT>::GraphicsResourceManager(GraphicsEngine
 template<typename GraphicsEngineT>
 GraphicsResourceManager<GraphicsEngineT>::~GraphicsResourceManager()
 {
-	vkDestroyCommandPool(get_logical_device(), command_pool, nullptr);
+	vkDestroyCommandPool(GraphicsBufferManager<GraphicsEngineT>::get_logical_device(), command_pool, nullptr);
 }
 
 template<typename GraphicsEngineT>
 void GraphicsResourceManager<GraphicsEngineT>::create_command_pool()
 {
-	QueueFamilyIndices queue_family_indices = get_graphics_engine().findQueueFamilies(get_graphics_engine().get_physical_device());
+	QueueFamilyIndices queue_family_indices = GraphicsBufferManager<GraphicsEngineT>::get_graphics_engine().findQueueFamilies(GraphicsBufferManager<GraphicsEngineT>::get_graphics_engine().get_physical_device());
 	VkCommandPoolCreateInfo command_pool_create_info{};
 	command_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 	command_pool_create_info.queueFamilyIndex = queue_family_indices.graphicsFamily.value();
 	command_pool_create_info.flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-	if (vkCreateCommandPool(get_logical_device(), &command_pool_create_info, nullptr, &command_pool) != VK_SUCCESS)
+	if (vkCreateCommandPool(GraphicsBufferManager<GraphicsEngineT>::get_logical_device(), &command_pool_create_info, nullptr, &command_pool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create command pool!");
 	}
@@ -49,7 +49,7 @@ VkCommandBuffer GraphicsResourceManager<GraphicsEngineT>::create_command_buffer(
 	allocation_info.commandBufferCount = 1;
 
 	VkCommandBuffer command_buffer;
-	if (vkAllocateCommandBuffers(get_logical_device(), &allocation_info, &command_buffer) != VK_SUCCESS)
+	if (vkAllocateCommandBuffers(GraphicsBufferManager<GraphicsEngineT>::get_logical_device(), &allocation_info, &command_buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("GraphicsResourceManager: failed to allocate command buffers!");
 	}
