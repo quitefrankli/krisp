@@ -4,6 +4,7 @@
 #include "pipeline/pipeline.hpp"
 #include "graphics_materials.hpp"
 #include "shapes/shape.hpp"
+#include "objects/object_id.hpp"
 
 #include <vulkan/vulkan.hpp>
 

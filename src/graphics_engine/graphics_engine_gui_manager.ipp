@@ -4,6 +4,7 @@
 #include "graphics_engine.hpp"
 #include "renderers/renderers.hpp"
 #include "utility.hpp"
+#include "resource_loader.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
 #include <ImGui/imgui_impl_vulkan.h>

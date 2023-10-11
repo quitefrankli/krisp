@@ -33,7 +33,7 @@ ShapeID Shape::global_id = ShapeID(0);
 // }
 
 template<typename VertexType>
-static void Shape::transform_vertices(std::vector<VertexType>& vertices, const glm::mat4& transform)
+void Shape::transform_vertices(std::vector<VertexType>& vertices, const glm::mat4& transform)
 {
 	for (auto& vertex : vertices)
 	{
@@ -43,7 +43,7 @@ static void Shape::transform_vertices(std::vector<VertexType>& vertices, const g
 }
 
 template<typename VertexType>
-static void Shape::transform_vertices(std::vector<VertexType>& vertices, const glm::quat& quat)
+void Shape::transform_vertices(std::vector<VertexType>& vertices, const glm::quat& quat)
 {
 	for (auto& vertex : vertices)
 	{
@@ -53,7 +53,7 @@ static void Shape::transform_vertices(std::vector<VertexType>& vertices, const g
 }
 
 template<typename VertexType>
-static void Shape::translate_vertices(std::vector<VertexType>& vertices, const glm::vec3& vec)
+void Shape::translate_vertices(std::vector<VertexType>& vertices, const glm::vec3& vec)
 {
 	for (auto& vertex : vertices)
 	{
@@ -62,7 +62,7 @@ static void Shape::translate_vertices(std::vector<VertexType>& vertices, const g
 }
 
 template<typename VertexType>
-static void Shape::generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& indices)
+void Shape::generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& indices)
 {
 	// zero all normals
 	std::for_each(vertices.begin(), vertices.end(), [](VertexType& vertex){vertex.normal = glm::vec3(0.0f);});

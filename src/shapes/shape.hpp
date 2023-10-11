@@ -27,6 +27,7 @@ public:
 	}
 
 	Shape() : id(global_id++) {}
+	virtual ~Shape() = default;
 
 	std::vector<uint32_t>& get_indices() { return indices; }
 	void set_indices(std::vector<uint32_t>&& indices) { this->indices = std::move(indices); }

@@ -5,6 +5,7 @@
 #include "pipeline_modifiers.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "utility.hpp"
+#include "pipelines.hpp"
 
 #include <magic_enum.hpp>
 #include <quill/Quill.h>

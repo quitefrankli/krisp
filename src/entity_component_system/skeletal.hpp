@@ -4,8 +4,12 @@
 #include "shared_data_structures.hpp"
 #include "maths.hpp"
 
+#include <string>
+#include <vector>
+
 
 using Entity = ObjectID;
+
 class ECS;
 
 struct Bone
