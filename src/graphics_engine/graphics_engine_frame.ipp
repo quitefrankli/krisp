@@ -111,8 +111,8 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 	} else
 	{
 		renderer_mgr.get_renderer(ERendererType::SHADOW_MAP).submit_draw_commands(command_buffer, presentation_image_view, image_index);
-		renderer_mgr.get_renderer(ERendererType::QUAD).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 		renderer_mgr.get_renderer(ERendererType::RASTERIZATION).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		renderer_mgr.get_renderer(ERendererType::QUAD).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 	}
 
 	// Offscreen
