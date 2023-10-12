@@ -118,6 +118,18 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 				window.set_shift_down(false);
 			}
 			break;
+		case GLFW_KEY_LEFT_SUPER: // for macbook dragging
+			if (action == GLFW_PRESS)
+			{
+				mouse->mmb_down = true;
+				mouse->update_pos();
+				mouse->orig_pos = mouse->curr_pos;
+				camera->update_tracker();
+			} else if (action == GLFW_RELEASE)
+			{
+				mouse->mmb_down = false;
+			}
+			break;
 		default:
 			break;
 	}
