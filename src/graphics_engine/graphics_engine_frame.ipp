@@ -274,7 +274,10 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 		// 	horizontal_span.y, 
 		// 	0.1f, 
 		// 	250.0f);
-		const glm::mat4 proj = glm::perspectiveLH(Maths::deg2rad(45.0f), 1.0f, 0.1f, 250.0f);
+
+		// const auto resolution = Maths::deg2rad(45.0f); // higher is lower
+		const auto resolution = Maths::deg2rad(135.0f); // higher is lower
+		const glm::mat4 proj = glm::perspectiveLH(resolution, 1.0f, 0.1f, 250.0f);
 		return proj * view;
 	};
 
