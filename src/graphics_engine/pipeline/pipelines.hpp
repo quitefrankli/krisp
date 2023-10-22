@@ -97,7 +97,6 @@ protected:
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override { return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; }
 	virtual VkRenderPass get_render_pass() override;
 	virtual VkExtent2D get_extent() override;
-	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
 };
 
 template<typename GraphicsEngineT>

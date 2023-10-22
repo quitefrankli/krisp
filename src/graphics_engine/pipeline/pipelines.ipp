@@ -259,16 +259,6 @@ VkExtent2D LightWeightOffscreenPipeline<GraphicsEngineT>::get_extent()
 }
 
 template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> LightWeightOffscreenPipeline<GraphicsEngineT>::get_expected_dset_layouts()
-{
-	return { 
-		this->get_rsrc_mgr().get_low_freq_dset_layout(),
-		this->get_rsrc_mgr().get_per_obj_dset_layout(),
-		this->get_rsrc_mgr().get_per_shape_dset_layout() 
-	};
-}
-
-template<typename GraphicsEngineT>
 std::vector<VkVertexInputBindingDescription> SkinnedPipeline<GraphicsEngineT>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
