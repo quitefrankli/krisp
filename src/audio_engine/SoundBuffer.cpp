@@ -17,7 +17,6 @@ SoundBuffer::SoundBuffer(const std::string_view filename)
 	short* membuf;
 	sf_count_t num_frames;
 	ALsizei num_bytes;
-
 	/* Open the audio file and check that it's usable. */
 	sndfile = sf_open(filename.data(), SFM_READ, &sfinfo);
 	if (!sndfile)

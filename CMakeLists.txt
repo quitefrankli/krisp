@@ -67,8 +67,8 @@ add_executable(Vulkan ${CMAKE_SOURCE_DIR}/src/main.cpp) # bit annoying but seems
 # set_target_properties(Vulkan PROPERTIES BUILD_RPATH ${CMAKE_BINARY_DIR}/bin)
 target_link_libraries(Vulkan VulkanLibs ${CONAN_LIBS})
 
+add_subdirectory(applications)
 if(MSVC)
-	add_subdirectory(applications)
 	add_subdirectory(shared_lib)
 endif()
 enable_testing()

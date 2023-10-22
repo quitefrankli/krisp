@@ -1,5 +1,7 @@
 from conans import ConanFile, CMake
 
+import os
+
 class CustomWrapper:
 	def __init__(self, conanfile: ConanFile):
 		self.conanfile = conanfile
@@ -51,6 +53,8 @@ class vulkan_conan(ConanFile):
 
 	def build(self):
 		cmake = CMake(self)
+		target = os.environ['TARGET'] if 'TARGET' in os.environ else 'Vulkan'
+
 		if self.should_configure:
 			print('Vulkan-conan: configuring...')
 			for key, val in self.options.items():
@@ -62,11 +66,11 @@ class vulkan_conan(ConanFile):
 
 		if self.should_build:
 			print('Vulkan-conan: building...')
-			cmake.build(target='Vulkan')
+			cmake.build(target=target)
 
 		if self.should_test:
 			with CustomWrapper(self):
-				cmake.build(target='Vulkan')
+				cmake.build(target='VulkanLibs')
 				cmake.build(target='unittests')
 				
 			print('Vulkan-conan: testing...')

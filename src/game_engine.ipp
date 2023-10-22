@@ -18,6 +18,8 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <quill/Quill.h>
+#include <fmt/core.h>
+#include <fmt/color.h>
 
 #include <iostream>
 #include <vector>
@@ -70,33 +72,40 @@ void GameEngine<GraphicsEngineTemplate>::run()
 		application = &dummy_app;
 	}
 
-	application->on_begin();
-	gizmo->init();
-
-	Analytics analytics(60);
-	analytics.text = "GameEngine: avg loop processing period (excluding sleep)";
-
-	std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
-
-	TPS_counter->start();
-	Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
-	while (!should_shutdown && !window.should_close())
+	try 
 	{
-#ifndef DISABLE_SLEEP
-		loop_sleeper();
-#endif
-		const std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
-		std::chrono::duration<float, std::milli> chrono_time_delta = new_time - time;
-		const float time_delta = chrono_time_delta.count() * 0.001; // in seconds
-		time = new_time;
-		analytics.start();
+		application->on_begin();
+		gizmo->init();
 
-		// for ticks per second
-		TPS_counter->stop();
+		Analytics analytics(60);
+		analytics.text = "GameEngine: avg loop processing period (excluding sleep)";
+
+		std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
+
 		TPS_counter->start();
-		main_loop(time_delta);
+		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
+		while (!should_shutdown && !window.should_close())
+		{
+	#ifndef DISABLE_SLEEP
+			loop_sleeper();
+	#endif
+			const std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
+			std::chrono::duration<float, std::milli> chrono_time_delta = new_time - time;
+			const float time_delta = chrono_time_delta.count() * 0.001; // in seconds
+			time = new_time;
+			analytics.start();
 
-		analytics.stop();
+			// for ticks per second
+			TPS_counter->stop();
+			TPS_counter->start();
+			main_loop(time_delta);
+
+			analytics.stop();
+		}
+    } catch (const std::exception& e) { // if an exception occurs in the game engine we need to cleanly shutdown graphics_engine first
+		fmt::print(fg(fmt::color::red), "Exception Thrown!: {}\n", e.what());
+	} catch (...) {
+		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
 	}
 
 	shutdown();
@@ -202,7 +211,9 @@ void GameEngine<GraphicsEngineTemplate>::process_objs_to_delete()
 }
 
 template<template<typename> typename GraphicsEngineTemplate>
-GameEngine<GraphicsEngineTemplate>::~GameEngine() = default;
+GameEngine<GraphicsEngineTemplate>::~GameEngine()
+{
+}
 
 template<template<typename> typename GraphicsEngineTemplate>
 inline Object& GameEngine<GraphicsEngineTemplate>::spawn_object(std::shared_ptr<Object>&& object)

@@ -98,3 +98,13 @@ It should print out something like
 ```
 Avg FPS=1317.3583, Avg TPS=151418.84
 ```
+
+## Common Issues
+
+1. Raytracing not supported on some hardware
+
+```
+Validation Error: [ UNASSIGNED-CoreValidation-Shader-InconsistentSpirv ] Object 0: handle = 0x1580b3018, type = VK_OBJECT_TYPE_DEVICE; | MessageID = 0x6bbb14 | SPIR-V module not valid: Invalid SPIR-V binary version 1.5 for target environment SPIR-V 1.3 (under Vulkan 1.1 semantics).
+```
+
+Disable raytracing module via configs, see `configs/apple_m1.yaml` and run again with argument - `apple_m1.yaml`

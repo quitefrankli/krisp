@@ -4,8 +4,6 @@
 #include <resource_loader.hpp>
 #include <utility.hpp>
 #include <camera.hpp>
-#include <objects/light_source.hpp>
-#include <shapes/shapes.hpp>
 #include <config.hpp>
 #include <shapes/shape_factory.hpp>
 
@@ -13,6 +11,8 @@
 #include <fmt/color.h>
 #include <glm/gtx/string_cast.hpp>
 #include <imgui.h>
+
+#include <GLFW/glfw3.h> // for key macros
 
 #include <iostream>
 
@@ -32,32 +32,32 @@ public:
 		Material material;
 		material.material_data.specular = glm::vec3(0.0f, 0.0f, 0.0f);
 
-		Shape floor = Shapes::Cube();
+		auto floor = ShapeFactory::cube();
 		transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -10.75f, 0.0f));
 		transform = glm::scale(transform, glm::vec3(width*2, 1.5f, 3.0f));
 		material.material_data.diffuse = glm::vec3(0.5f, 0.3f, 0.2f);
-		floor.set_material(material);
-		floor.transform_vertices(transform);
+		floor->set_material(material);
+		floor->transform_vertices(transform);
 
-		Shape left_wall = Shapes::Cube();
+		auto left_wall = ShapeFactory::cube();
 		transform = glm::translate(glm::mat4(1.0f), glm::vec3(-width/2-0.5f, 0.0f, 0.0f));
 		transform = glm::scale(transform, glm::vec3(1.0f, height, 3.0f));
 		material.material_data.diffuse = glm::vec3(0.2f, 0.3f, 0.2f);
-		left_wall.set_material(material);
-		left_wall.transform_vertices(transform);
+		left_wall->set_material(material);
+		left_wall->transform_vertices(transform);
 
-		Shape right_wall = Shapes::Cube();
+		auto right_wall = ShapeFactory::cube();
 		transform = glm::translate(glm::mat4(1.0f), glm::vec3(width/2+0.5f, 0.0f, 0.0f));
 		transform = glm::scale(transform, glm::vec3(1.0f, height, 3.0f));
-		right_wall.set_material(material);
-		right_wall.transform_vertices(transform);
+		right_wall->set_material(material);
+		right_wall->transform_vertices(transform);
 
-		Shape back_wall = Shapes::Cube();
+		auto back_wall = ShapeFactory::cube();
 		transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.0f));
 		transform = glm::scale(transform, glm::vec3(width+2, height, 1.0f));
 		material.material_data.diffuse = glm::vec3(0.2f, 0.3f, 0.2f);
-		back_wall.set_material(material);
-		back_wall.transform_vertices(transform);
+		back_wall->set_material(material);
+		back_wall->transform_vertices(transform);
 
 		shapes.push_back(std::move(floor));
 		shapes.push_back(std::move(left_wall));
@@ -77,7 +77,7 @@ enum class TetrisPieceType
 	Z
 };
 
-std::vector<Shape> generate_shapes(const std::vector<int>& locations)
+std::vector<std::unique_ptr<Shape>> generate_shapes(const std::vector<int>& locations)
 {
 	// given a 4x4 grid, the locations are:
 	// 0  1  2  3
@@ -87,14 +87,14 @@ std::vector<Shape> generate_shapes(const std::vector<int>& locations)
 	// for every location a cube will be inserted there
 	// the origin of the grid is at the bottom left
 
-	std::vector<Shape> shapes;
+	std::vector<std::unique_ptr<Shape>> shapes;
 	for (auto location : locations)
 	{
 		auto x = location % 4;
 		auto y = 3 - location / 4;
 
-		auto shape = Shapes::Cube();
-		shape.translate_vertices(glm::vec3(x, y, 0.0f));
+		auto shape = ShapeFactory::cube();
+		shape->translate_vertices(glm::vec3(x, y, 0.0f));
 		shapes.push_back(std::move(shape));
 	}
 
@@ -123,9 +123,9 @@ public:
 			Material material;
 			material.material_data.specular = Maths::zero_vec;
 			material.material_data.diffuse = color;
-			std::for_each(shapes.begin(), shapes.end(), [&material, &translation](Shape& shape) { 
-				shape.translate_vertices(translation); 
-				shape.set_material(material);
+			std::for_each(shapes.begin(), shapes.end(), [&material, &translation](std::unique_ptr<Shape>& shape) { 
+				shape->translate_vertices(translation); 
+				shape->set_material(material);
 			});
 		};
 
@@ -287,7 +287,8 @@ public:
 	{
 		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
-		engine.get_light_source()->set_position(glm::vec3(0.0f, 0.0f, -100.0f));
+		auto light_source_id = engine.get_ecs().get_global_light_source();
+		engine.get_ecs().get_object(light_source_id).set_position(glm::vec3(0.0f, 0.0f, -100.0f));
 		environment.set_position(glm::vec3(-0.5f, 0.5f, 0.0f));
 		engine.draw_object(environment);
 		generate_next_piece();
@@ -296,14 +297,14 @@ public:
 
 		Utility::get().set_appname_for_path("tetris");
 		main_theme = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
-		main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
-		main_theme->set_gain(0.2f);
-		main_theme->set_loop(true);
-		main_theme->play();
+		// main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
+		// main_theme->set_gain(0.2f);
+		// main_theme->set_loop(true);
+		// main_theme->play();
 
 		clear_line_fx = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
-		clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
-		clear_line_fx->set_gain(0.5f);
+		// clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
+		// clear_line_fx->set_gain(0.5f);
 	}
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
@@ -455,8 +456,8 @@ private:
 
 		// prepare for next game
 		generate_next_piece();
-		main_theme->stop();
-		main_theme->play();
+		// main_theme->stop();
+		// main_theme->play();
 		gui->score = 0;
 		gui->game_over = false;
 		gui->paused = false;
@@ -475,8 +476,8 @@ private:
 		// we really should have all cells be objects NOT shapes
 		for (auto cell : get_latest_piece().get_cell_locations())
 		{
-			Shape new_cell = ShapeFactory::generate_cube();
-			new_cell.set_material(get_latest_piece().get_shapes().back().get_material());
+			auto new_cell = ShapeFactory::cube();
+			new_cell->set_material(get_latest_piece().get_shapes().back()->get_material());
 			auto& obj = engine.spawn_object<Object>(std::move(new_cell));
 			obj.set_position(glm::vec3(cell, 0.0f));
 			entrenched_cells[cell.y+height/2].push_back(&obj);
@@ -514,7 +515,7 @@ private:
 
 		if (rows_cleared)
 		{
-			clear_line_fx->play();
+			// clear_line_fx->play();
 			gui->score += rows_cleared * rows_cleared * 100;
 		}
 
@@ -545,7 +546,7 @@ private:
 
 	void game_over()
 	{
-		main_theme->stop();
+		// main_theme->stop();
 		gui->game_over = true;
 		// can simulate game over with a paused game that can only be resumed on new game
 		gui->paused = true;
@@ -568,34 +569,34 @@ private:
 
 int main(int argc, char* argv[])
 {
-	try {
-		bool restart_signal = false;
-		do {
-			// seems like glfw window must be on main thread otherwise it wont work, 
-			// therefore engine should always be on its own thread
-			restart_signal = false;
-			Config::initialise_global_config(Utility::get().get_top_level_path().string() + "/configs/default.yaml");
-			if (Config::enable_logging())
-			{
-				Utility::get().enable_logging();
-			}
-			
-			App::Window window;
-			window.open(Config::get_window_pos().first, Config::get_window_pos().second);
+	bool restart_signal = false;
+	do {
+		// seems like glfw window must be on main thread otherwise it wont work, 
+		// therefore engine should always be on its own thread
+		restart_signal = false;
+		// TODO: use configparser library for this
+		if (argc == 2)
+		{
+			Config::initialise_global_config(Utility::get().get_config_path().string() + "/" + argv[1]);
+		} else
+		{
+			Config::initialise_global_config(Utility::get().get_config_path().string() + "/default.yaml");
+		}
 
-			GameEngineT engine([&restart_signal](){restart_signal=true;}, window);
+		if (Config::enable_logging())
+		{
+			Utility::get().enable_logging();
+		}
+		
+		App::Window window;
+		window.open(Config::get_window_pos().first, Config::get_window_pos().second);
 
-			Application app(engine);
-			engine.set_application(&app);
-			engine.run();
-		} while (restart_signal);
-    } catch (const std::exception& e) {
-		fmt::print(fg(fmt::color::red), "Exception Thrown!: {}\n", e.what());
-        return EXIT_FAILURE;
-	} catch (...) {
-		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
-        return EXIT_FAILURE;
-	}
+		GameEngineT engine([&restart_signal](){restart_signal=true;}, window);
+
+		Application app(engine);
+		engine.set_application(&app);
+		engine.run();
+	} while (restart_signal);
 
 	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
 }
