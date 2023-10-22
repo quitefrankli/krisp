@@ -330,7 +330,8 @@ void GuiDebug<GameEngineT>::process(GameEngineT& engine)
 		for (auto& [id, object] : engine.get_objects())
 		{
 			object_ids.push_back(id);
-			object_ids_strs.push_back(std::to_string(id.get_underlying()));
+			const auto& name = object->get_name();
+			object_ids_strs.push_back(name.empty() ? std::to_string(id.get_underlying()) : name);
 		}
 
 		should_refresh_objects_list = false;

@@ -47,6 +47,7 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 	spawn_object<CubeMap>(); // background/horizon
 
 	auto light_source = std::make_shared<Object>(ShapeFactory::sphere());
+	light_source->set_name("light source");
 	light_source->get_shapes()[0]->set_material(Material::create_material(EMaterialType::LIGHT_SOURCE));
 	auto& light_source_obj = spawn_object(std::move(light_source));
 	light_source_obj.set_position(glm::vec3(0.0f, 5.0f, 0.0f));

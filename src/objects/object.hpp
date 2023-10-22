@@ -76,6 +76,9 @@ public:
 	// detach all children
 	virtual void detach_all_children();
 
+	const std::string& get_name() const { return name; }
+	void set_name(const std::string_view name) { this->name = name; }
+
 public:
 	// world
 	virtual Maths::Transform get_maths_transform() const;
@@ -131,6 +134,7 @@ private:
 	// when relative_transform updates then world transform will be outdated
 	// mutable bool bIsWorldTransformOld = false;
 	void sync_world_from_relative() const;
+	std::string name;
 
 	AABB aabb;
 	Maths::Sphere bounding_sphere;
