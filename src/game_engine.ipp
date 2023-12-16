@@ -63,6 +63,38 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 }
 
 template<template<typename> typename GraphicsEngineTemplate>
+GameEngine<GraphicsEngineTemplate>::GameEngine(App::Window& window)  :
+	window(window),
+	mouse(std::make_unique<Mouse<GameEngine>>(window)),
+	gizmo(std::make_unique<Gizmo<GameEngine>>(*this)),
+	graphics_engine(std::make_unique<GraphicsEngineT>(*this)),
+	camera(std::make_unique<Camera>(Listener(), 
+		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height())))
+{
+	window.setup_callbacks(*this);
+	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
+	draw_object(camera->focus_obj);
+	draw_object(camera->upvector_obj);
+	experimental = std::make_unique<Experimental<GameEngine>>(*this);
+	spawn_object<CubeMap>(); // background/horizon
+
+	auto light_source = std::make_shared<Object>(ShapeFactory::sphere());
+	light_source->set_name("light source");
+	light_source->get_shapes()[0]->set_material(Material::create_material(EMaterialType::LIGHT_SOURCE));
+	auto& light_source_obj = spawn_object(std::move(light_source));
+	light_source_obj.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
+	ecs.add_light_source(light_source_obj.get_id(), LightComponent());
+	ecs.add_collider(light_source_obj.get_id(), std::make_unique<SphereCollider>());
+	ecs.add_clickable_entity(light_source_obj.get_id());
+
+	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
+	TPS_counter = std::make_unique<Analytics>([this](float tps) {
+		set_tps(1e6 / tps);
+	}, 1);
+	TPS_counter->text = "TPS Counter";
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::run()
 {
 	graphics_engine_thread = std::thread(&GraphicsEngineT::run, graphics_engine.get());

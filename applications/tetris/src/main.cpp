@@ -297,14 +297,14 @@ public:
 
 		Utility::get().set_appname_for_path("tetris");
 		main_theme = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
-		// main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
-		// main_theme->set_gain(0.2f);
-		// main_theme->set_loop(true);
-		// main_theme->play();
+		main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
+		main_theme->set_gain(0.2f);
+		main_theme->set_loop(true);
+		main_theme->play();
 
 		clear_line_fx = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
-		// clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
-		// clear_line_fx->set_gain(0.5f);
+		clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
+		clear_line_fx->set_gain(0.5f);
 	}
 
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override
@@ -456,8 +456,8 @@ private:
 
 		// prepare for next game
 		generate_next_piece();
-		// main_theme->stop();
-		// main_theme->play();
+		main_theme->stop();
+		main_theme->play();
 		gui->score = 0;
 		gui->game_over = false;
 		gui->paused = false;
@@ -515,7 +515,7 @@ private:
 
 		if (rows_cleared)
 		{
-			// clear_line_fx->play();
+			clear_line_fx->play();
 			gui->score += rows_cleared * rows_cleared * 100;
 		}
 
@@ -546,7 +546,7 @@ private:
 
 	void game_over()
 	{
-		// main_theme->stop();
+		main_theme->stop();
 		gui->game_over = true;
 		// can simulate game over with a paused game that can only be resumed on new game
 		gui->paused = true;

@@ -46,6 +46,7 @@ public: // getters and setters
 
 public:
 	GameEngine(std::function<void()>&& restart_signaller, App::Window& window);
+	GameEngine(App::Window& window);
 	~GameEngine();
 
 	void run();

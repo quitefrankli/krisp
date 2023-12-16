@@ -26,9 +26,18 @@ git clone $THIS_PROJECT
 ```
 conan install . -if build/ --build=missing -s build_type=Debug
 conan build . -bf build/ --configure
-sh shader_compiler.sh
 conan build . -bf build/ --build
 build/bin/Vulkan.exe
+```
+
+For other targets, set the $TARGET environment variable
+```
+TARGET=$FOO conan build . -bf build/ --build
+```
+
+Where "$FOO" refers to the target, i.e.
+```
+TARGET=tetris conan build . bf build/ --build && build/bin/tetris
 ```
 
 ### Additional notes for MacOS
@@ -73,8 +82,7 @@ Run this after build step
 ```
 conan install . -if build/ --build=missing -s build_type=Debug
 conan build . -bf build/ --configure
-sh shader_compiler.sh
-conan build . -bf build/ --testing
+conan build . -bf build/ --test
 ```
 
 alternatively
