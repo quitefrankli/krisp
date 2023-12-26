@@ -723,6 +723,11 @@ void ResourceLoader::load_texture(const std::string_view file)
 		&new_texture.height, 
 		&new_texture.channels, 
 		STBI_rgb_alpha));
+	
+	// Since we are using STBI_rgb_alpha, to keep things simple we assume everything uses RGBA
+	// Even if the actual image doesn't have an alpha channel
+	assert(new_texture.channels == 4 || new_texture.channels == 3);
+	new_texture.channels = 4;
 
 	if (!new_texture.data.get())
 	{

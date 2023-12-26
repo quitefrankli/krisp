@@ -3,6 +3,7 @@
 
 enum class EPipelineType
 {
+	UNASSIGNED,
 	STANDARD, // texture + color
 	COLOR, // no texture
 	// TEXTURE, // texture only, not supported yet

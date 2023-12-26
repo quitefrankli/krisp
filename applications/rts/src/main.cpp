@@ -67,11 +67,22 @@ int main(int argc, char* argv[])
 		auto& floor = engine.spawn_object<Object>(std::move(floor_shape));
 		floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 		floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
-		auto& floating_obj1 = engine.spawn_object<Object>(ShapeFactory::cube());
-		floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
-		floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-		engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
-		engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
+		// auto model_data = ResourceLoader::get().load_model(Utility::get_model("skellyjack.gltf"));
+		auto model_data = ResourceLoader::get().load_model(Utility::get_model("donut.gltf"));
+		// auto& model = engine.spawn_skinned_object(
+			// std::make_shared<Object>(std::move(model_data.shapes)), std::move(model_data.bones));
+		auto object = std::make_shared<Object>(std::move(model_data.shapes));
+		object->set_render_type(EPipelineType::STANDARD);
+		auto& model = engine.spawn_object(std::move(object));
+		model.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
+		engine.get_ecs().add_clickable_entity(model.get_id());
+		engine.get_ecs().add_collider(model.get_id(), std::make_unique<SphereCollider>());
+		
+		// auto& floating_obj1 = engine.spawn_object<Object>(ShapeFactory::cube());
+		// floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
+		// floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+		// engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
+		// engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
 		engine.run();
 	} while (restart_signal);
 

@@ -247,7 +247,8 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_image(
 	const uint32_t width,
 	const uint32_t height,
 	const size_t size,
-	const std::function<void(std::byte*)>& write_function)
+	const std::function<void(std::byte*)>& write_function,
+	const uint32_t layer_count)
 {
 	// TODO: this can be optimised:
 	// 1. something about using different queues https://www.reddit.com/r/vulkan/comments/pnweh0/vkcmdcopybuffer_performance_worse_on_nvidia_than/
@@ -275,7 +276,7 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_image(
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.mipLevel = 0;
 	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = 1;
+	region.imageSubresource.layerCount = layer_count;
 
 	region.imageOffset = {0, 0, 0};
 	region.imageExtent = {

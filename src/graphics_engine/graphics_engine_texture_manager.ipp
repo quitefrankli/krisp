@@ -32,6 +32,11 @@ GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_text
 	const MaterialTexture& material_texture,
 	ETextureSamplerType sampler_type)
 {
+	if (material_texture.texture_id >= CUBE_MAP_OFFSET)
+	{
+		throw std::invalid_argument("GraphicsEngineTextureManager: normal textures dont support id>=CUBE_MAP_OFFSET");
+	}
+
 	auto it = texture_units.find(material_texture.texture_id);
 	if (it != texture_units.end())
 	{
@@ -51,6 +56,53 @@ VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::fetch_sampler(ETextureS
 	}
 
 	return samplers.emplace(sampler_type, create_texture_sampler(sampler_type)).first->second;
+}
+
+template<typename GraphicsEngineT>
+GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_cubemap_texture(
+	const std::vector<MaterialTexture>& material_textures)
+{
+	const uint32_t cubemap_texture_id = CUBE_MAP_OFFSET + material_textures[0].texture_id;
+	if (texture_units.find(cubemap_texture_id) != texture_units.end())
+	{
+		return texture_units.at(cubemap_texture_id);
+	}
+
+	const uint32_t width = material_textures[0].width;
+	const uint32_t height = material_textures[0].height;
+	const uint32_t channels = material_textures[0].channels;
+	// only RGBA is currently supported
+	assert(channels == 4);
+	if (!std::all_of(
+		material_textures.begin(), 
+		material_textures.end(), 
+		[&width, &height](const MaterialTexture& material_texture) 
+		{ 
+			return width == material_texture.width && height == material_texture.height; 
+		}))
+	{
+		throw std::runtime_error("GraphicsEngineTextureManager::create_volume_texture: supplied material textures are not all the same size!");
+	}
+
+	VkImage texture_image;
+	VkDeviceMemory texture_image_memory;
+	create_cubemap_texture_image(material_textures, texture_image, texture_image_memory);
+
+	VkImageView texture_image_view = get_graphics_engine().create_image_view(
+		texture_image, 
+		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_VIEW_TYPE_CUBE,
+		material_textures.size());
+	VkSampler texture_sampler = fetch_sampler(ETextureSamplerType::ADDR_MODE_REPEAT);
+
+	GraphicsEngineTexture texture_object(
+		texture_image, 
+		texture_image_memory, 
+		texture_image_view, 
+		texture_sampler, 
+		glm::uvec3(width, height, channels));
+	return texture_units.emplace(cubemap_texture_id, std::move(texture_object)).first->second;
 }
 
 template<typename GraphicsEngineT>
@@ -76,8 +128,8 @@ glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
 {
-	// VkDeviceSize size = material_texture.width * material_texture.height * channels; // for some reason channels = 3?
-	VkDeviceSize size = material_texture.width * material_texture.height * 4;
+	assert(material_texture.channels == 4); // only RGBA is currently supported atm
+	VkDeviceSize size = material_texture.width * material_texture.height * material_texture.channels;
 
 	if (size == 0)
 	{
@@ -114,6 +166,68 @@ glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
 		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	return glm::uvec3(material_texture.width, material_texture.height, material_texture.channels);
+}
+
+template<typename GraphicsEngineT>
+void GraphicsEngineTextureManager<GraphicsEngineT>::create_cubemap_texture_image(
+	const std::vector<MaterialTexture>& material_textures,
+	VkImage& texture_image,
+	VkDeviceMemory& texture_image_memory)
+{
+	const uint32_t width = material_textures[0].width;
+	const uint32_t height = material_textures[0].height;
+	const uint32_t channels = material_textures[0].channels;
+
+	VkDeviceSize layer_size = width * height * channels;
+	VkDeviceSize image_size = layer_size * material_textures.size();
+	if (layer_size == 0)
+	{
+		throw std::runtime_error("GraphicsEngineTextureManager::create_volume_texture: supplied material texture is invalid, size=0!");
+	}
+
+	get_graphics_engine().create_image(
+		width, 
+		height, 
+		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB, for other maps such as normal and specular maps they should be linear
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		texture_image,
+		texture_image_memory,
+		VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
+		material_textures.size(),
+		VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+
+	// copy the staging buffer to the texture image,
+	// undefined image layout works because we don't care about the contents before performing copy
+	get_graphics_engine().transition_image_layout(
+		texture_image, 
+		VK_IMAGE_LAYOUT_UNDEFINED, 
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullptr,
+		material_textures.size());
+
+	get_rsrc_mgr().stage_data_to_image(
+		texture_image, 
+		width, 
+		height,
+		static_cast<size_t>(image_size),
+		[&material_textures, &layer_size](std::byte* destination)
+		{
+			for (auto i = 0; i < material_textures.size(); i++)
+			{
+				std::memcpy(destination+(layer_size*i), material_textures[i].data, static_cast<size_t>(layer_size));
+			}
+		},
+		material_textures.size());
+
+	// transition one more time for shader access
+	get_graphics_engine().transition_image_layout(
+		texture_image, 
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		nullptr,
+		material_textures.size());
 }
 
 template<typename GraphicsEngineT>
@@ -159,42 +273,4 @@ VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_sampler(
 	}	
 
 	return texture_sampler;
-}
-
-template<typename GraphicsEngineT>
-void GraphicsEngineTextureManager<GraphicsEngineT>::copy_buffer_to_image(
-	VkBuffer buffer,
-	VkImage image,
-	uint32_t width,
-	uint32_t height)
-{
-	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
-
-	VkBufferImageCopy region{};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
-
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = 1;
-
-	region.imageOffset = {0, 0, 0};
-	region.imageExtent = {
-		width,
-		height,
-		1
-	};
-
-	vkCmdCopyBufferToImage(
-		command_buffer,
-		buffer,
-		image,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1,
-		&region
-	);
-
-	get_graphics_engine().end_single_time_commands(command_buffer);
 }

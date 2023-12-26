@@ -4,9 +4,9 @@
 
 // keep in mind that some types such as dvec3 uses 2 slots therefore we need the next layout location to be 2 indices after
 layout(location = 0) in vec3 in_position;
-layout(location = 2) in vec2 in_tex_coord;
+layout(location = 2) in vec2 in_tex_coord; // unused
 
-layout(location=0) out vec2 frag_tex_coord;
+layout(location=0) out vec3 frag_tex_coord;
 
 layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
 {
@@ -21,5 +21,7 @@ void main()
 	gl_Position = global_data.data.proj * untranslated_view * vec4(in_position, 1.0);
 	gl_Position = gl_Position.xyzz;
 
-	frag_tex_coord = in_tex_coord;
+	frag_tex_coord = in_position;
+	// Convert cubemap coordinates into Vulkan coordinate space
+	// frag_tex_coord.xy *= -1.0;
 }

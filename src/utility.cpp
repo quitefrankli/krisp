@@ -71,6 +71,11 @@ std::string Utility::get_texture(const std::string_view texture)
 	return get().get_textures_path().string() + '/' + texture.data();
 }
 
+std::string Utility::get_model(const std::string_view model)
+{
+	return get().get_model_path().string() + '/' + model.data();
+}
+
 std::filesystem::path Utility::get_child(const std::filesystem::path& parent, const std::string_view child)
 {
 	return std::filesystem::path(parent.string() + '/' + child.data());

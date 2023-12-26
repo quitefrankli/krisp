@@ -126,20 +126,24 @@ public: // swap chain
 					  VkMemoryPropertyFlags properties,
 					  VkImage& image,
 					  VkDeviceMemory& image_memory,
-					  VkSampleCountFlagBits num_samples=VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT);
+					  VkSampleCountFlagBits num_samples=VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
+					  const uint32_t layer_count = 1, // for creating a cube map
+					  const VkImageCreateFlags flags = 0); // for creating a cube map
 
 	// an image view is just a view of an image, it does not mutate the image
 	// i.e. string_view vs string
 	VkImageView create_image_view(VkImage& image,
 								  VkFormat format,
 						   		  VkImageAspectFlags aspect_flags,
-								  VkImageViewType view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D);
+								  VkImageViewType view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
+								  const uint32_t layer_count = 1); // for cube map
 
 	void transition_image_layout(
 		VkImage image, 
 		VkImageLayout old_layout, 
 		VkImageLayout new_layout, 
-		VkCommandBuffer command_buffer = nullptr);
+		VkCommandBuffer command_buffer = nullptr,
+		const uint32_t layer_count = 1); // for cubemaps
 								  
 	VkFormat find_depth_format();
 

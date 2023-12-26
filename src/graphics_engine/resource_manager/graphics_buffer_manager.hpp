@@ -86,7 +86,8 @@ public:
 		const uint32_t width,
 		const uint32_t height,
 		const size_t size,
-		const std::function<void(std::byte*)>& write_function);
+		const std::function<void(std::byte*)>& write_function,
+		const uint32_t layer_count = 1); // for cubemaps
 
 public:
 	static constexpr size_t NUM_EXPECTED_OBJECTS = 1e3;

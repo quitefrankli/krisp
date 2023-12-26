@@ -48,6 +48,7 @@ public:
 	std::filesystem::path get_app_audio_path() const;
 
 	static std::string get_texture(const std::string_view texture);
+	static std::string get_model(const std::string_view model);
 	static float get_rand(float min, float max);
 
 	quill::Logger* get_logger() { return logger; }

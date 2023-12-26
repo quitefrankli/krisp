@@ -256,23 +256,24 @@ void GraphicsEngine<GameEngineT>::update_command_buffer()
 
 template<typename GameEngineT>
 void GraphicsEngine<GameEngineT>::create_image(uint32_t width,
-								uint32_t height,
-								VkFormat format,
-								VkImageTiling tiling,
-								VkImageUsageFlags usage,
-								VkMemoryPropertyFlags properties,
-								VkImage &image,
-								VkDeviceMemory &image_memory,
-								VkSampleCountFlagBits sample_count_flag)
+											   uint32_t height,
+											   VkFormat format,
+											   VkImageTiling tiling,
+											   VkImageUsageFlags usage,
+											   VkMemoryPropertyFlags properties,
+											   VkImage &image,
+											   VkDeviceMemory &image_memory,
+											   VkSampleCountFlagBits sample_count_flag,
+											   const uint32_t layer_count,
+											   const VkImageCreateFlags flags)
 {
-	VkImageCreateInfo image_info{};
-	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	VkImageCreateInfo image_info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	image_info.imageType = VK_IMAGE_TYPE_2D; // 1D for array of data or gradient, 3D for voxels
 	image_info.extent.width = static_cast<uint32_t>(width);
 	image_info.extent.height = static_cast<uint32_t>(height);
 	image_info.extent.depth = 1;
 	image_info.mipLevels = 1; // mip mapping
-	image_info.arrayLayers = 1;
+	image_info.arrayLayers = layer_count; // for cube mapping
 	image_info.format = format;
 	image_info.tiling = tiling;							  // types include:
 														  // LINEAR - texels are laid out in row major order
@@ -282,7 +283,13 @@ void GraphicsEngine<GameEngineT>::create_image(uint32_t width,
 	image_info.usage = usage;
 	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used by one queue family
 	image_info.samples = sample_count_flag;			// for multisampling
-	image_info.flags = 0;
+	image_info.flags = flags;
+
+	if (image_info.arrayLayers > 1)
+	{
+		// for the moment the only reason we would want arrayLayers>1 is when we want a cubemap
+		assert(image_info.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+	}
 
 	if (vkCreateImage(get_logical_device(), &image_info, nullptr, &image) != VK_SUCCESS)
 	{
@@ -308,10 +315,12 @@ void GraphicsEngine<GameEngineT>::create_image(uint32_t width,
 }
 
 template<typename GameEngineT>
-VkImageView GraphicsEngine<GameEngineT>::create_image_view(VkImage& image,
-															VkFormat format,
-															VkImageAspectFlags aspect_flags,
-															VkImageViewType view_type)
+VkImageView GraphicsEngine<GameEngineT>::create_image_view(
+	VkImage& image,
+	VkFormat format,
+	VkImageAspectFlags aspect_flags,
+	VkImageViewType view_type,
+	const uint32_t layer_count)
 {
 	VkImageViewCreateInfo create_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	create_info.image = image;
@@ -322,7 +331,7 @@ VkImageView GraphicsEngine<GameEngineT>::create_image_view(VkImage& image,
 	create_info.subresourceRange.baseMipLevel = 0;
 	create_info.subresourceRange.levelCount = 1;
 	create_info.subresourceRange.baseArrayLayer = 0;
-	create_info.subresourceRange.layerCount = 1;
+	create_info.subresourceRange.layerCount = layer_count;
 
 	VkImageView image_view;
 	if (vkCreateImageView(get_logical_device(), &create_info, nullptr, &image_view) != VK_SUCCESS)
@@ -338,7 +347,8 @@ void GraphicsEngine<GameEngineT>::transition_image_layout(
 	VkImage image,
 	VkImageLayout old_layout,
 	VkImageLayout new_layout,
-	VkCommandBuffer command_buffer)
+	VkCommandBuffer command_buffer,
+	const uint32_t layer_count)
 {
 	const bool is_external_command_buffer = command_buffer != nullptr;
 	if (!command_buffer)
@@ -358,7 +368,7 @@ void GraphicsEngine<GameEngineT>::transition_image_layout(
 	barrier.subresourceRange.baseMipLevel = 0; // image is an array with no mip mapping
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.layerCount = layer_count;
 	barrier.srcAccessMask = 0;
 	barrier.dstAccessMask = 0;
 
@@ -615,8 +625,21 @@ void GraphicsEngine<GameEngineT>::spawn_object_create_dsets(GraphicsEngineObject
 
 		switch (object.get_render_type())
 		{
-			case EPipelineType::STANDARD:
 			case EPipelineType::CUBEMAP:
+			// {
+			// 	VkDescriptorImageInfo image_info{};
+			// 	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			// 	image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
+			// 	image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
+
+			// 	VkWriteDescriptorSet cube_sampler_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			// 	cube_sampler_dset.dstSet = new_descriptor_set;
+			// 	cube_sampler_dset.dstBinding = SDS::CUBEMAP_SAMPLER_BINDING;
+			// 	cube_sampler_dset.dstArrayElement = 0;
+			// 	cube_sampler_dset.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+
+			// }
+			case EPipelineType::STANDARD:
 			case EPipelineType::SKINNED:
 			{
 				VkDescriptorImageInfo image_info{};

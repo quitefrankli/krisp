@@ -142,6 +142,8 @@ private:
 	bool bVisible = true;
 
 	EPipelineType render_type = EPipelineType::COLOR;
+	// TODO: In the future this render_type should be move on a per shape level
+	// EPipelineType render_type = EPipelineType::UNASSIGNED;
 
 //
 // collision
