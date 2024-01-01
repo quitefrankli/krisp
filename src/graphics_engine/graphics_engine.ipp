@@ -626,19 +626,6 @@ void GraphicsEngine<GameEngineT>::spawn_object_create_dsets(GraphicsEngineObject
 		switch (object.get_render_type())
 		{
 			case EPipelineType::CUBEMAP:
-			// {
-			// 	VkDescriptorImageInfo image_info{};
-			// 	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			// 	image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
-			// 	image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
-
-			// 	VkWriteDescriptorSet cube_sampler_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-			// 	cube_sampler_dset.dstSet = new_descriptor_set;
-			// 	cube_sampler_dset.dstBinding = SDS::CUBEMAP_SAMPLER_BINDING;
-			// 	cube_sampler_dset.dstArrayElement = 0;
-			// 	cube_sampler_dset.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-
-			// }
 			case EPipelineType::STANDARD:
 			case EPipelineType::SKINNED:
 			{

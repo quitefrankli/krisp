@@ -41,7 +41,7 @@ std::vector<VkVertexInputBindingDescription> CubemapPipeline<GraphicsEngineT>::g
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
-	binding_description.stride = sizeof(SDS::TexVertex);
+	binding_description.stride = sizeof(SDS::ColorVertex);
 	binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 	return { binding_description };
@@ -61,7 +61,7 @@ std::vector<VkVertexInputAttributeDescription> CubemapPipeline<GraphicsEngineT>:
 	texCoord_attr.format = VK_FORMAT_R32G32_SFLOAT;
 	texCoord_attr.offset = offsetof(SDS::TexVertex, texCoord);
 
-	return {position_attr, texCoord_attr};
+	return {position_attr};
 }
 
 template<typename GraphicsEngineT>

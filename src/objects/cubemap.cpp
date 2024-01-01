@@ -30,7 +30,7 @@ CubeMap::CubeMap()
 		// current system only supports 1 material per shape, so in order to pass multiple textures
 		// as in the case of cubemaps, we need to have 5 other dummy shapes
 		shapes.emplace_back(
-			i == 0 ? ShapeFactory::cube(ShapeFactory::EVertexType::TEXTURE) : 
-			std::make_unique<TexShape>())->set_material(material);
+			i == 0 ? ShapeFactory::cube(ShapeFactory::EVertexType::COLOR) : 
+			std::make_unique<ColorShape>())->set_material(material);
 	}
 }
