@@ -1,3 +1,5 @@
+#include "tile_system.hpp"
+
 #include <game_engine.hpp>
 #include <graphics_engine/graphics_engine.hpp>
 #include <iapplication.hpp>
@@ -34,57 +36,23 @@ public:
 
 int main(int argc, char* argv[])
 {
-	bool restart_signal = false;
-	do {
-		// seems like glfw window must be on main thread otherwise it wont work, 
-		// therefore engine should always be on its own thread
-		restart_signal = false;
-		// TODO: use configparser library for this
-		if (argc == 2)
-		{
-			Config::initialise_global_config(Utility::get().get_config_path().string() + "/" + argv[1]);
-		} else
-		{
-			Config::initialise_global_config(Utility::get().get_config_path().string() + "/default.yaml");
-		}
+	Config::initialise_global_config(Utility::get().get_config_path().string() + "/default.yaml");
+	App::Window window;
+	window.open(Config::get_window_pos().first, Config::get_window_pos().second);
+	GameEngineT engine(window);
+	Utility::get().enable_logging();
 
-		if (Config::enable_logging())
-		{
-			Utility::get().enable_logging();
-		}
-		
-		App::Window window;
-		window.open(Config::get_window_pos().first, Config::get_window_pos().second);
+	Application app;
+	engine.set_application(&app);
 
-		GameEngineT engine([&restart_signal](){restart_signal=true;}, window);
+	Tile::tile_object_spawner = [&engine](const TileCoord& coord)
+	{
+		Object& obj = engine.spawn_object<Object>(ShapeFactory::cube());
+		obj.set_position(glm::vec3(coord.x, 0.5f, coord.y));
+		obj.set_scale(glm::vec3(0.95f, 0.95f, 0.95f));
+	};
+	TileSystem tile_system;
 
-		Application app;
-		engine.set_application(&app);
-		auto floor_shape =ShapeFactory::cube();
-		Material floor_material{};
-		floor_material.material_data.shininess = 1.0f;
-		floor_shape->set_material(floor_material);
-		auto& floor = engine.spawn_object<Object>(std::move(floor_shape));
-		floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
-		floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
-		// auto model_data = ResourceLoader::get().load_model(Utility::get_model("skellyjack.gltf"));
-		auto model_data = ResourceLoader::get().load_model(Utility::get_model("donut.gltf"));
-		// auto& model = engine.spawn_skinned_object(
-			// std::make_shared<Object>(std::move(model_data.shapes)), std::move(model_data.bones));
-		auto object = std::make_shared<Object>(std::move(model_data.shapes));
-		object->set_render_type(EPipelineType::STANDARD);
-		auto& model = engine.spawn_object(std::move(object));
-		model.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
-		engine.get_ecs().add_clickable_entity(model.get_id());
-		engine.get_ecs().add_collider(model.get_id(), std::make_unique<SphereCollider>());
-		
-		// auto& floating_obj1 = engine.spawn_object<Object>(ShapeFactory::cube());
-		// floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
-		// floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-		// engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
-		// engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
-		engine.run();
-	} while (restart_signal);
-
+	engine.run();
 	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
 }
