@@ -59,6 +59,26 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
+template<typename GraphicsEngineT>
+class PostStencilColorPipeline : public ColorPipeline<GraphicsEngineT>
+{
+public:
+	PostStencilColorPipeline(GraphicsEngineT& engine) : ColorPipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+};
+
+template<typename GraphicsEngineT>
+class PostStencilTexturePipeline : public TexturePipeline<GraphicsEngineT>
+{
+public:
+	PostStencilTexturePipeline(GraphicsEngineT& engine) : TexturePipeline<GraphicsEngineT>(engine) {}
+
+protected:
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+};
+
 template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
 class WireframePipeline : public GraphicsEnginePipeline<GraphicsEngineT>
 {

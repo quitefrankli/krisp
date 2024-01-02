@@ -111,6 +111,20 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 			return std::make_unique<StencilPipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
+	case EPipelineModifier::POST_STENCIL:
+		if constexpr (Stencileable<PrimaryPipelineType>)
+		{
+			if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline<GraphicsEngineT>>)
+			{
+				return std::make_unique<PostStencilColorPipeline<GraphicsEngineT>>(get_graphics_engine());
+			} else if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline<GraphicsEngineT>>)
+			{
+				return std::make_unique<PostStencilTexturePipeline<GraphicsEngineT>>(get_graphics_engine());
+			} else {
+				throw std::runtime_error("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type for POST_STENCIL");
+			}
+		}
+		break;
 	case EPipelineModifier::WIREFRAME:
 		if constexpr (Wireframeable<PrimaryPipelineType>)
 		{

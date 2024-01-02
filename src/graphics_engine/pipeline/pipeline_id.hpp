@@ -10,6 +10,7 @@ enum class EPipelineModifier
 {
 	NONE,
 	STENCIL,
+	POST_STENCIL,
 	WIREFRAME,
 	SHADOW_MAP
 };

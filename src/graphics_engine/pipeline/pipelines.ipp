@@ -68,7 +68,6 @@ template<typename GraphicsEngineT>
 VkPipelineDepthStencilStateCreateInfo CubemapPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
-	info.stencilTestEnable = VK_FALSE;
 
 	return info;
 }
@@ -84,6 +83,7 @@ VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT, PrimaryPi
 	info.front.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
 	info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
 	info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	info.depthTestEnable = VK_FALSE;
 
 	info.front = [&]() {
 		VkStencilOpState stencil_op_state{};
@@ -129,6 +129,24 @@ StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_description
 	position_attr.offset = PrimaryPipelineType::get_vertex_pos_offset();
 
 	return {position_attr};
+}
+
+template<typename GraphicsEngineT>
+VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	info.depthTestEnable = VK_TRUE;
+
+	return info;
+}
+
+template<typename GraphicsEngineT>
+VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	info.depthTestEnable = VK_TRUE;
+
+	return info;
 }
 
 template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>

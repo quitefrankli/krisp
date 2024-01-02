@@ -129,7 +129,7 @@ VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline<GraphicsEngineT>::g
 	depth_stencil_info.depthBoundsTestEnable = VK_FALSE; // optional bound test so instead of min/max depths we have both
 	depth_stencil_info.minDepthBounds = 0.0f;
 	depth_stencil_info.maxDepthBounds = 0.0f;
-	depth_stencil_info.stencilTestEnable = VK_TRUE; // stencil buffer operationhs
+	depth_stencil_info.stencilTestEnable = VK_FALSE; // stencil buffer operationhs
 
 	depth_stencil_info.front.compareMask = UINT32_MAX;
 	depth_stencil_info.front.writeMask = UINT32_MAX;

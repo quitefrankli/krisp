@@ -205,17 +205,24 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	};
 
 	const auto& graphics_objects = get_graphics_engine().get_objects();
-	for (const auto& it_pair : graphics_objects)
+	const auto& stenciled_ids = get_graphics_engine().get_stenciled_object_ids();
+	for (const auto& [id, obj_ptr] : graphics_objects)
 	{
-		const auto& graphics_object = *(it_pair.second);
+		const auto& graphics_object = *obj_ptr;
 		if (graphics_object.is_marked_for_delete())
 			continue;
 
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
-			graphics_object.get_render_type(), get_graphics_engine().is_wireframe_mode ? EPipelineModifier::WIREFRAME : EPipelineModifier::NONE });
+		if (stenciled_ids.find(id) != stenciled_ids.end())
+			continue; // skip stenciled objects, we will render them later
+
+		EPipelineModifier modifier = EPipelineModifier::NONE;
+		if (get_graphics_engine().is_wireframe_mode)
+			modifier = EPipelineModifier::WIREFRAME;
+		const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
+			graphics_object.get_render_type(), modifier });
 
 		if (!pipeline)
 			continue;
@@ -227,8 +234,8 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		per_obj_draw_fn(graphics_object, *pipeline);
 	}
 	
-	// render every object again, for stencil effect. It's a little costly but at least it uses simpler shader
-	for (const auto& id : get_graphics_engine().get_stenciled_object_ids())
+	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader
+	for (const auto& id : stenciled_ids)
 	{
 		const auto it_obj = graphics_objects.find(id);
 		if (it_obj == graphics_objects.end())
@@ -242,7 +249,34 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 			continue;
 		
 		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = 
-			get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ graphics_object.get_render_type(), EPipelineModifier::STENCIL });
+			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
+				{ graphics_object.get_render_type(), EPipelineModifier::STENCIL });
+		if (!pipeline)
+			continue;
+		
+		vkCmdBindPipeline(
+			command_buffer, 
+			VK_PIPELINE_BIND_POINT_GRAPHICS, 
+			pipeline->graphics_pipeline); // bind the graphics pipeline
+		per_obj_draw_fn(graphics_object, *pipeline);
+	}
+
+	for (const auto& id : stenciled_ids)
+	{
+		const auto it_obj = graphics_objects.find(id);
+		if (it_obj == graphics_objects.end())
+			continue;
+
+		const auto& graphics_object = *it_obj->second;
+		if (graphics_object.is_marked_for_delete())
+			continue;
+
+		if (!graphics_object.get_visibility())
+			continue;
+		
+		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = 
+			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
+				{ graphics_object.get_render_type(), EPipelineModifier::POST_STENCIL });
 		if (!pipeline)
 			continue;
 		
