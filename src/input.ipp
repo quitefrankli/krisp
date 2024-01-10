@@ -29,6 +29,12 @@ glm::vec2 Mouse<GameEngineT>::get_orig_offset()
 }
 
 template<typename GameEngineT>
+glm::vec2 Mouse<GameEngineT>::get_curr_pos() const
+{
+	return window.get_cursor_pos();
+}
+
+template<typename GameEngineT>
 glm::vec2 Mouse<GameEngineT>::get_prev_offset()
 {
 	return curr_pos - prev_pos;

@@ -1,25 +1,14 @@
 #pragma once
 
 #include "objects/object_id.hpp"
-#include "maths.hpp"
 #include "collision/collider.hpp"
+#include "common.hpp"
+#include "maths.hpp"
 
 #include <glm/vec3.hpp>
 
 #include <unordered_set>
 
-
-using EntityID = ObjectID;;
-
-
-struct DetectedEntityCollision
-{
-	bool bCollided = false;
-	EntityID id = EntityID(0);
-	glm::vec3 intersection;
-};
-
-class ECS;
 
 class ClickableSystem
 {

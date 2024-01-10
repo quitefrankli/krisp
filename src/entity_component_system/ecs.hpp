@@ -5,6 +5,7 @@
 #include "light_source.hpp"
 #include "collider_ecs.hpp"
 #include "clickable.hpp"
+#include "hoverable.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
@@ -22,7 +23,8 @@ class ECS :
 	public AnimationSystem,
 	public LightSystem,
 	public ColliderSystem,
-	public ClickableSystem
+	public ClickableSystem,
+	public HoverableSystem
 {
 public:
 	ECS();

@@ -98,6 +98,7 @@ public:
 	void set_tps(const float tps) { this->tps = tps; }
 	uint32_t get_window_width();
 	uint32_t get_window_height();
+	Maths::Ray get_mouse_ray() const;
 
 	Object* get_object(ObjectID id)
 	{

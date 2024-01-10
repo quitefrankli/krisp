@@ -339,6 +339,12 @@ uint32_t GameEngine<GraphicsEngineTemplate>::get_window_height()
 }
 
 template<template<typename> typename GraphicsEngineTemplate>
+Maths::Ray GameEngine<GraphicsEngineTemplate>::get_mouse_ray() const
+{
+	return camera->get_ray(mouse->get_curr_pos());
+}
+
+template<template<typename> typename GraphicsEngineTemplate>
 void GameEngine<GraphicsEngineTemplate>::preview_objs_in_gui(
 	const std::vector<Object*>& objs, 
 	GuiPhotoBase& gui_window) 

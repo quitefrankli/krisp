@@ -27,6 +27,7 @@ public:
 	glm::vec2 update_pos();
 	glm::vec2 get_prev_offset();
 	glm::vec2 get_orig_offset();
+	glm::vec2 get_curr_pos() const;
 	
 private:
 	App::Window& window;
