@@ -7,10 +7,9 @@
 #include "entity_component_system/ecs.hpp"
 
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
+void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
 {
-	const auto spawn_object = [&](GraphicsEngineObject<GraphicsEngine>& graphics_object)
+	const auto spawn_object = [&](GraphicsEngineObject& graphics_object)
 	{
 		spawn_object_create_buffers(graphics_object);
 		spawn_object_create_dsets(graphics_object);
@@ -20,65 +19,57 @@ void GraphicsEngine<GameEngineT>::handle_command(SpawnObjectCmd& cmd)
 	{
 		auto graphics_object = objects.emplace(
 			cmd.object_ref->get_id(),
-			std::make_unique<GraphicsEngineObjectRef<GraphicsEngine>>(*this, *cmd.object_ref));
+			std::make_unique<GraphicsEngineObjectRef>(*this, *cmd.object_ref));
 		spawn_object(*graphics_object.first->second);
 	} else {
 		auto id = cmd.object->get_id();
 		auto graphics_object = objects.emplace(
 			id,
-			std::make_unique<GraphicsEngineObjectPtr<GraphicsEngine>>(*this, std::move(cmd.object)));
+			std::make_unique<GraphicsEngineObjectPtr>(*this, std::move(cmd.object)));
 		spawn_object(*graphics_object.first->second);
 	}
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(DeleteObjectCmd& cmd)
+void GraphicsEngine::handle_command(DeleteObjectCmd& cmd)
 {
 	get_swap_chain().get_prev_frame().mark_obj_for_delete(cmd.object_id);
 	get_objects()[cmd.object_id]->mark_for_delete();
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(StencilObjectCmd& cmd)
+void GraphicsEngine::handle_command(StencilObjectCmd& cmd)
 {
 	stenciled_objects.insert(cmd.object_id);
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(UnStencilObjectCmd& cmd)
+void GraphicsEngine::handle_command(UnStencilObjectCmd& cmd)
 {
 	stenciled_objects.erase(cmd.object_id);
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(ShutdownCmd& cmd)
+void GraphicsEngine::handle_command(ShutdownCmd& cmd)
 {
 	shutdown();
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(ToggleWireFrameModeCmd& cmd)
+void GraphicsEngine::handle_command(ToggleWireFrameModeCmd& cmd)
 {
     is_wireframe_mode = !is_wireframe_mode;
 	update_command_buffer();
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(UpdateCommandBufferCmd& cmd)
+void GraphicsEngine::handle_command(UpdateCommandBufferCmd& cmd)
 {
 	update_command_buffer();
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(UpdateRayTracingCmd& cmd)
+void GraphicsEngine::handle_command(UpdateRayTracingCmd& cmd)
 {
 	raytracing_component.update_acceleration_structures();
-	static_cast<RaytracingRenderer<GraphicsEngine>&>(
+	static_cast<RaytracingRenderer&>(
 		renderer_mgr.get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
 }
 
-template<typename GameEngineT>
-void GraphicsEngine<GameEngineT>::handle_command(PreviewObjectsCmd& cmd)
+void GraphicsEngine::handle_command(PreviewObjectsCmd& cmd)
 {
 	offscreen_rendering_objects.clear();
 	for (Object* object : cmd.objects)
@@ -94,7 +85,7 @@ void GraphicsEngine<GameEngineT>::handle_command(PreviewObjectsCmd& cmd)
 		offscreen_rendering_objects.emplace(id, it->second.get());
 	}
 
-	Renderer<GraphicsEngine>& renderer = get_renderer_mgr().get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT);
+	Renderer& renderer = get_renderer_mgr().get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT);
 	const auto extent = renderer.get_extent();
 	get_graphics_gui_manager().update_preview_window(
 		cmd.gui, 

@@ -10,6 +10,7 @@
 #include "hot_reload.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
+#include "interface/gizmo.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -23,8 +24,7 @@
 #include <chrono>
 
 
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, int action, int mode)
+void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 {
 	static int inc = 0;
 	auto pressed_key = glfwGetKeyName(key, scan_code);
@@ -135,8 +135,7 @@ void GameEngine<GraphicsEngineTemplate>::key_callback(int key, int scan_code, in
 	}
 }
 
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::mouse_button_callback(int button, int action, int mode)
+void GameEngine::mouse_button_callback(int button, int action, int mode)
 {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		if (action == GLFW_PRESS) {
@@ -224,8 +223,7 @@ void GameEngine<GraphicsEngineTemplate>::mouse_button_callback(int button, int a
 	}
 }
 
-template<template<typename> typename GraphicsEngineTemplate>
-void GameEngine<GraphicsEngineTemplate>::scroll_callback(double yoffset)
+void GameEngine::scroll_callback(double yoffset)
 {
 	camera->zoom_in(yoffset);
 }

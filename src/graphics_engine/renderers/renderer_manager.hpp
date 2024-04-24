@@ -7,12 +7,11 @@
 #include <memory>
 
 
-template<typename GraphicsEngineT>
-class RendererManager : public GraphicsEngineBaseModule<GraphicsEngineT>
+class RendererManager : public GraphicsEngineBaseModule
 {
 public:
-	RendererManager(GraphicsEngineT& engine);
-	Renderer<GraphicsEngineT>& get_renderer(ERendererType type)
+	RendererManager(GraphicsEngine& engine);
+	Renderer& get_renderer(ERendererType type)
 	{
 		auto it = renderers.find(type);
 		if (it == renderers.end())
@@ -23,9 +22,9 @@ public:
 		return *it->second;
 	}
 
-	std::vector<Renderer<GraphicsEngineT>*> get_renderers()
+	std::vector<Renderer*> get_renderers()
 	{
-		std::vector<Renderer<GraphicsEngineT>*> vec;
+		std::vector<Renderer*> vec;
 		for (auto& [type, renderer] : renderers)
 		{
 			vec.push_back(renderer.get());
@@ -39,9 +38,6 @@ public:
 	void pipe_output_to_quad_renderer(ERendererType src_renderer);
 
 private:
-	std::map<ERendererType, std::unique_ptr<Renderer<GraphicsEngineT>>> renderers;
+	std::map<ERendererType, std::unique_ptr<Renderer>> renderers;
 
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-};
+	};

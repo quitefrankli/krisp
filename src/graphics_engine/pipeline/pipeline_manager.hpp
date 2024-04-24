@@ -9,13 +9,12 @@
 #include <memory>
 
 
-template<typename GraphicsEngineT>
-class GraphicsEnginePipelineManager : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEnginePipelineManager : public GraphicsEngineBaseModule
 {
 public:
-	using PipelineType = GraphicsEnginePipeline<GraphicsEngineT>;
+	using PipelineType = GraphicsEnginePipeline;
 
-	GraphicsEnginePipelineManager(GraphicsEngineT& engine);
+	GraphicsEnginePipelineManager(GraphicsEngine& engine);
 	~GraphicsEnginePipelineManager();
 
 	PipelineType* fetch_pipeline(PipelineID id);
@@ -23,14 +22,6 @@ public:
 	VkPipelineLayout get_generic_pipeline_layout() const { return generic_pipeline_layout; }
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 
 	std::unique_ptr<PipelineType> create_pipeline(PipelineID id);
 	template<typename PrimaryPipelineType>

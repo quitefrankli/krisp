@@ -13,14 +13,13 @@
 #include <string>
 
 
-template<typename GraphicsEngineT>
-class GraphicsEngineValidationLayer : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEngineValidationLayer : public GraphicsEngineBaseModule
 {
 private:
 	const static std::vector<const char*> REQUIRED_VALIDATION_LAYERS;
 
 public:
-	GraphicsEngineValidationLayer(GraphicsEngineT& engine);
+	GraphicsEngineValidationLayer(GraphicsEngine& engine);
 	~GraphicsEngineValidationLayer();
 
 	static constexpr bool is_enabled()
@@ -37,12 +36,6 @@ public:
 	static VkDebugUtilsMessengerCreateInfoEXT get_messenger_create_info();
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 		
 	VkDebugUtilsMessengerEXT debug_messenger;
 };

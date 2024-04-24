@@ -1,17 +1,16 @@
 #include "renderers.hpp"
+#include "entity_component_system/ecs.hpp"
 #include "shared_data_structures.hpp"
 
 
-template<typename GraphicsEngineT>
-ShadowMapRenderer<GraphicsEngineT>::ShadowMapRenderer(GraphicsEngineT& engine) :
-	Renderer<GraphicsEngineT>(engine)
+ShadowMapRenderer::ShadowMapRenderer(GraphicsEngine& engine) :
+	Renderer(engine)
 {
 	create_render_pass();
 	create_sampler();
 }
 
-template<typename GraphicsEngineT>
-ShadowMapRenderer<GraphicsEngineT>::~ShadowMapRenderer()
+ShadowMapRenderer::~ShadowMapRenderer()
 {
 	vkDestroySampler(get_logical_device(), shadow_map_sampler, nullptr);
 	for (auto& attachment : shadow_map_attachments)
@@ -21,8 +20,7 @@ ShadowMapRenderer<GraphicsEngineT>::~ShadowMapRenderer()
 	get_rsrc_mgr().free_dsets(shadow_map_dsets);
 }
 
-template<typename GraphicsEngineT>
-void ShadowMapRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage, VkImageView)
+void ShadowMapRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
 	//
 	// Generate attachments
@@ -71,8 +69,7 @@ void ShadowMapRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage, V
 	this->frame_buffers.push_back(new_frame_buffer);
 }
 
-template<typename GraphicsEngineT>
-void ShadowMapRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_buffer,
+void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
                                                                      VkImageView,
                                                                      uint32_t frame_index)
 {
@@ -109,8 +106,8 @@ void ShadowMapRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer co
 							nullptr);
 
 	const auto per_obj_draw_fn = [&](
-		const GraphicsEngineObject<GraphicsEngineT>& object, 
-		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
+		const GraphicsEngineObject& object, 
+		const GraphicsEnginePipeline& pipeline)
 	{
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		
@@ -185,7 +182,7 @@ void ShadowMapRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer co
 		if (get_graphics_engine().get_ecs().get_light_component(graphics_object.get_id()) != nullptr)
 			continue;
 			
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
+		const GraphicsEnginePipeline* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
 			graphics_object.get_render_type(), EPipelineModifier::SHADOW_MAP });
 		if (!pipeline)
 			continue;
@@ -200,8 +197,7 @@ void ShadowMapRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer co
 	vkCmdEndRenderPass(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void ShadowMapRenderer<GraphicsEngineT>::create_render_pass()
+void ShadowMapRenderer::create_render_pass()
 {
 	//
 	// Attachment
@@ -266,8 +262,7 @@ void ShadowMapRenderer<GraphicsEngineT>::create_render_pass()
 	}
 }
 
-template<typename GraphicsEngineT>
-void ShadowMapRenderer<GraphicsEngineT>::create_sampler()
+void ShadowMapRenderer::create_sampler()
 {
 	VkSamplerCreateInfo sampler_info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
@@ -294,8 +289,7 @@ void ShadowMapRenderer<GraphicsEngineT>::create_sampler()
 	}	
 }
 
-template<typename GraphicsEngineT>
-void ShadowMapRenderer<GraphicsEngineT>::create_shadow_map_dset(VkImageView shadow_map_view)
+void ShadowMapRenderer::create_shadow_map_dset(VkImageView shadow_map_view)
 {
 	shadow_map_dsets.push_back(get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_shadow_map_dset_layout()));
 

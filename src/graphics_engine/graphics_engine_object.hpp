@@ -46,11 +46,10 @@ private:
 	GraphicsMaterial material;
 };
 
-template<typename GraphicsEngineT>
-class GraphicsEngineObject : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEngineObject : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineObject(GraphicsEngineT& engine, const Object& object);
+	GraphicsEngineObject(GraphicsEngine& engine, const Object& object);
 	virtual ~GraphicsEngineObject();
 
 	GraphicsEngineObject() = delete;
@@ -70,8 +69,8 @@ public:
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
 	uint32_t get_num_primitives() const;
-	ObjectID get_id() const { return get_game_object().get_id(); }
-	bool get_visibility() const { return get_game_object().get_visibility(); }
+	ObjectID get_id() const;
+	bool get_visibility() const;
 
 	std::vector<GraphicsMesh>& get_shapes() { return meshes; }
 	const std::vector<GraphicsMesh>& get_shapes() const { return meshes; }
@@ -97,11 +96,10 @@ private:
 };
 
 // this object derivation CAN be destroyed while graphics engine is running
-template<typename GraphicsEngineT>
-class GraphicsEngineObjectPtr : public GraphicsEngineObject<GraphicsEngineT>
+class GraphicsEngineObjectPtr : public GraphicsEngineObject
 {
 public:
-	GraphicsEngineObjectPtr(GraphicsEngineT& engine, std::shared_ptr<Object>&& game_engine_object);
+	GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
 
 	const Object& get_game_object() const override;
 
@@ -110,11 +108,10 @@ private:
 };
 
 // this object derivation CANNOT be destroyed while graphics engine is running
-template<typename GraphicsEngineT>
-class GraphicsEngineObjectRef : public GraphicsEngineObject<GraphicsEngineT>
+class GraphicsEngineObjectRef : public GraphicsEngineObject
 {
 public:
-	GraphicsEngineObjectRef(GraphicsEngineT& engine, Object& game_engine_object);
+	GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object);
 	
 	const Object& get_game_object() const override;
 

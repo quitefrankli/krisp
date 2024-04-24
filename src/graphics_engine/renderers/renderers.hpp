@@ -5,11 +5,10 @@
 #include <optional>
 
 
-template<typename GraphicsEngineT>
-class RasterizationRenderer : public Renderer<GraphicsEngineT>
+class RasterizationRenderer : public Renderer
 {
 public:
-	RasterizationRenderer(GraphicsEngineT& engine);
+	RasterizationRenderer(GraphicsEngine& engine);
 	~RasterizationRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
@@ -19,9 +18,9 @@ public:
 	void set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs);
 
 private:
-	using Renderer<GraphicsEngineT>::get_graphics_engine;
-	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
-	using Renderer<GraphicsEngineT>::get_logical_device;
+	using Renderer::get_graphics_engine;
+	using Renderer::get_rsrc_mgr;
+	using Renderer::get_logical_device;
 
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	void create_render_pass();
@@ -35,11 +34,10 @@ private:
 	VkSampler shadow_map_sampler;
 };
 
-template<typename GraphicsEngineT>
-class GuiRenderer : public Renderer<GraphicsEngineT>
+class GuiRenderer : public Renderer
 {
 public:
-	GuiRenderer(GraphicsEngineT& engine);
+	GuiRenderer(GraphicsEngine& engine);
 	~GuiRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
@@ -51,16 +49,15 @@ private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	void create_render_pass();
 
-	using Renderer<GraphicsEngineT>::get_graphics_engine;
-	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
-	using Renderer<GraphicsEngineT>::get_logical_device;
+	using Renderer::get_graphics_engine;
+	using Renderer::get_rsrc_mgr;
+	using Renderer::get_logical_device;
 };
 
-template<typename GraphicsEngineT>
-class RaytracingRenderer : public Renderer<GraphicsEngineT>
+class RaytracingRenderer : public Renderer
 {
 public:
-	RaytracingRenderer(GraphicsEngineT& engine);
+	RaytracingRenderer(GraphicsEngine& engine);
 	~RaytracingRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
@@ -80,17 +77,16 @@ private:
 	std::vector<VkDescriptorSet> rt_dsets;
 	std::vector<VkImage> presentation_images; // owned by the swapchain
 
-	using Renderer<GraphicsEngineT>::get_graphics_engine;
-	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
-	using Renderer<GraphicsEngineT>::get_logical_device;
+	using Renderer::get_graphics_engine;
+	using Renderer::get_rsrc_mgr;
+	using Renderer::get_logical_device;
 };
 
 // for things such as minimaps, object previews e.t.c.
-template<typename GraphicsEngineT>
-class OffscreenGuiViewportRenderer : public Renderer<GraphicsEngineT>
+class OffscreenGuiViewportRenderer : public Renderer
 {
 public:
-	OffscreenGuiViewportRenderer(GraphicsEngineT& engine);
+	OffscreenGuiViewportRenderer(GraphicsEngine& engine);
 	~OffscreenGuiViewportRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
@@ -107,16 +103,15 @@ private:
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
 
-	using Renderer<GraphicsEngineT>::get_graphics_engine;
-	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
-	using Renderer<GraphicsEngineT>::get_logical_device;
+	using Renderer::get_graphics_engine;
+	using Renderer::get_rsrc_mgr;
+	using Renderer::get_logical_device;
 };
 
-template<typename GraphicsEngineT>
-class ShadowMapRenderer : public Renderer<GraphicsEngineT>
+class ShadowMapRenderer : public Renderer
 {
 public:
-	ShadowMapRenderer(GraphicsEngineT& engine);
+	ShadowMapRenderer(GraphicsEngine& engine);
 	~ShadowMapRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
@@ -138,16 +133,15 @@ private:
 	std::vector<VkDescriptorSet> shadow_map_dsets;
 	VkSampler shadow_map_sampler;
 
-	using Renderer<GraphicsEngineT>::get_graphics_engine;
-	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
-	using Renderer<GraphicsEngineT>::get_logical_device;
+	using Renderer::get_graphics_engine;
+	using Renderer::get_rsrc_mgr;
+	using Renderer::get_logical_device;
 };
 
-template<typename GraphicsEngineT>
-class QuadRenderer : public Renderer<GraphicsEngineT>
+class QuadRenderer : public Renderer
 {
 public:
-	QuadRenderer(GraphicsEngineT& engine);
+	QuadRenderer(GraphicsEngine& engine);
 	~QuadRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
@@ -179,7 +173,7 @@ private:
 
 	std::vector<RenderingAttachment> color_attachments;
 
-	using Renderer<GraphicsEngineT>::get_graphics_engine;
-	using Renderer<GraphicsEngineT>::get_rsrc_mgr;
-	using Renderer<GraphicsEngineT>::get_logical_device;
+	using Renderer::get_graphics_engine;
+	using Renderer::get_rsrc_mgr;
+	using Renderer::get_logical_device;
 };

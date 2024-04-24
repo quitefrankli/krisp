@@ -11,6 +11,8 @@
 #include <optional>
 
 
+class GameEngine;
+
 template<typename T>
 struct GuiVar
 {
@@ -34,7 +36,6 @@ struct GuiVar
 	}
 };
 
-template<typename GameEngineT>
 class GuiWindow
 {
 public:
@@ -43,21 +44,20 @@ public:
 	virtual ~GuiWindow() = default;
 
 	// used in game engine
-	virtual void process(GameEngineT&) {}
+	virtual void process(GameEngine&) {}
 
 	GuiWindow() = default;
 	GuiWindow(GuiWindow&&) noexcept = default;
 	GuiWindow(const GuiWindow&) = delete;
 };
 
-template<typename GameEngineT>
-class GuiGraphicsSettings : public GuiWindow<GameEngineT>
+class GuiGraphicsSettings : public GuiWindow
 {
 public:
 	GuiGraphicsSettings();
 
 	virtual void draw() override;
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 
 public:
 	float light_strength = 1.0f;
@@ -69,17 +69,16 @@ private:
 	const std::vector<const char*> camera_projections = { "perspective", "orthographic" };
 };
 
-template<typename GameEngineT>
-class GuiObjectSpawner : public GuiWindow<GameEngineT>
+class GuiObjectSpawner : public GuiWindow
 {
 public:
 	GuiObjectSpawner();
 
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
 private:
-	using spawning_function_type = std::function<void(GameEngineT&)>;
+	using spawning_function_type = std::function<void(GameEngine&)>;
 	std::map<std::string, spawning_function_type> mapping;
 	spawning_function_type* spawning_function = nullptr;
 
@@ -88,11 +87,10 @@ private:
 };
 
 class ImFont;
-template<typename GameEngineT>
-class GuiFPSCounter : public GuiWindow<GameEngineT>
+class GuiFPSCounter : public GuiWindow
 {
 public:
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
 private:
@@ -104,13 +102,12 @@ private:
 
 class AudioSource;
 
-template<typename GameEngineT>
-class GuiMusic : public GuiWindow<GameEngineT>
+class GuiMusic : public GuiWindow
 {
 public:
 	GuiMusic(AudioSource&& audio_source);
 	virtual ~GuiMusic() override;
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
 private:
@@ -125,11 +122,10 @@ private:
 	std::vector<std::filesystem::path> songs_paths;
 };
 
-template<typename GameEngineT>
-class GuiStatistics : public GuiWindow<GameEngineT>
+class GuiStatistics : public GuiWindow
 {
 public:
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
 	void update_buffer_capacities(const std::vector<std::pair<size_t, size_t>>& buffer_capacities);
@@ -150,11 +146,10 @@ private:
 };
 
 class Object;
-template<typename GameEngineT>
-class GuiDebug : public GuiWindow<GameEngineT>
+class GuiDebug : public GuiWindow
 {
 public:
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
 private:
@@ -184,15 +179,14 @@ protected:
 	int requested_width = 300;
 };
 
-template<typename GameEngineT>
-class GuiPhoto : public GuiWindow<GameEngineT>, public GuiPhotoBase
+class GuiPhoto : public GuiWindow, public GuiPhotoBase
 {
 public:
 	GuiPhoto();
 
 	void init(std::function<void(const std::string_view)>&& texture_requester);
 
-	virtual void process(GameEngineT& engine) override;
+	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
 private:
@@ -207,8 +201,7 @@ private:
 // i.e. shadow map
 // Currently the output of this window can feel laggy, but that's because we are (for simplicity) only using a single frame in the swapchain
 // can easily be improved by using all frames, however unnecessary for now since it's only used for debugging
-template<typename GameEngineT>
-class GuiRenderSlicer : public GuiWindow<GameEngineT>, public GuiPhotoBase
+class GuiRenderSlicer : public GuiWindow, public GuiPhotoBase
 {
 public:
 	using requester_t = std::function<void(const std::string&)>;

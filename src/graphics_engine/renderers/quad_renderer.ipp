@@ -1,9 +1,8 @@
 #include "renderers.hpp"
 
 
-template<typename GraphicsEngineT>
-QuadRenderer<GraphicsEngineT>::QuadRenderer(GraphicsEngineT& engine) :
-	Renderer<GraphicsEngineT>(engine)
+QuadRenderer::QuadRenderer(GraphicsEngine& engine) :
+	Renderer(engine)
 {
 	create_render_pass();
 
@@ -19,8 +18,7 @@ QuadRenderer<GraphicsEngineT>::QuadRenderer(GraphicsEngineT& engine) :
 	texture = this->get_rsrc_mgr().reserve_dset(layout);
 }
 
-template<typename GraphicsEngineT>
-QuadRenderer<GraphicsEngineT>::~QuadRenderer()
+QuadRenderer::~QuadRenderer()
 {
 	this->get_rsrc_mgr().free_dset(texture);
 	for (auto& attachment : color_attachments)
@@ -29,8 +27,7 @@ QuadRenderer<GraphicsEngineT>::~QuadRenderer()
 	}
 }
 
-template<typename GraphicsEngineT>
-void QuadRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage, VkImageView)
+void QuadRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {	
 	//
 	// Generate attachments
@@ -77,8 +74,7 @@ void QuadRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage, VkImag
 	this->frame_buffers.push_back(new_frame_buffer);
 }
 
-template<typename GraphicsEngineT>
-void QuadRenderer<GraphicsEngineT>::submit_draw_commands(
+void QuadRenderer::submit_draw_commands(
 	VkCommandBuffer command_buffer,
 	VkImageView,
 	uint32_t frame_index)
@@ -165,8 +161,7 @@ void QuadRenderer<GraphicsEngineT>::submit_draw_commands(
 	vkCmdEndRenderPass(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void QuadRenderer<GraphicsEngineT>::set_texture(VkImageView texture_view, VkSampler texture_sampler)
+void QuadRenderer::set_texture(VkImageView texture_view, VkSampler texture_sampler)
 {
 	should_render = texture_view && texture_sampler;
 	if (!should_render)
@@ -177,8 +172,7 @@ void QuadRenderer<GraphicsEngineT>::set_texture(VkImageView texture_view, VkSamp
 	texture_to_render = { texture_view, texture_sampler };
 }
 
-template<typename GraphicsEngineT>
-void QuadRenderer<GraphicsEngineT>::create_render_pass()
+void QuadRenderer::create_render_pass()
 {
 	//
 	// Color Attachment

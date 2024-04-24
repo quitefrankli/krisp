@@ -10,16 +10,12 @@
 #include "game_engine.hpp"
 
 
-using GraphicsEngineT = GameEngine<GraphicsEngine>::GraphicsEngineT;
-
-template<typename GraphicsEngineT>
-Renderer<GraphicsEngineT>::Renderer(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+Renderer::Renderer(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 }
 
-template<typename GraphicsEngineT>
-Renderer<GraphicsEngineT>::~Renderer()
+Renderer::~Renderer()
 {
 	auto logical_device = this->get_graphics_engine().get_logical_device();
 	if (render_pass)
@@ -32,23 +28,12 @@ Renderer<GraphicsEngineT>::~Renderer()
 	}
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D Renderer<GraphicsEngineT>::get_extent()
+VkExtent2D Renderer::get_extent()
 {
 	return this->get_graphics_engine().get_extent();
 }
 
-template<typename GraphicsEngineT>
-constexpr uint32_t Renderer<GraphicsEngineT>::get_num_inflight_frames()
+constexpr uint32_t Renderer::get_num_inflight_frames()
 {
-	return GraphicsEngineT::get_num_swapchain_images();	
+	return GraphicsEngine::get_num_swapchain_images();	
 }
-
-template class Renderer<GraphicsEngineT>;
-template class RasterizationRenderer<GraphicsEngineT>;
-template class RaytracingRenderer<GraphicsEngineT>;
-template class GuiRenderer<GraphicsEngineT>;
-template class RendererManager<GraphicsEngineT>;
-template class OffscreenGuiViewportRenderer<GraphicsEngineT>;
-template class ShadowMapRenderer<GraphicsEngineT>;
-template class QuadRenderer<GraphicsEngineT>;

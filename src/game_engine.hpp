@@ -12,6 +12,7 @@
 #include "window.hpp"
 #include "entity_component_system/ecs.hpp"
 #include "entity_deletion_queue.hpp"
+#include "graphics_engine/engine_base.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -21,32 +22,28 @@
 
 
 class Camera;
-template<typename GameEngineT>
 class GuiManager;
-template<typename GameEngineT>
 class Experimental;
-template<typename GameEngineT>
 class Gizmo;
 class IApplication;
 class Analytics;
 
 
-template<template<typename> typename GraphicsEngineTemplate>
 class GameEngine : public IWindowCallbacks
 {
-public:
-	using GraphicsEngineT = GraphicsEngineTemplate<GameEngine>;
-
 public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	App::Window& get_window() { return window; }
-	GraphicsEngineT& get_graphics_engine() { return *graphics_engine; }
-	GuiManager<GameEngine>& get_gui_manager();
+	GraphicsEngineBase& get_graphics_engine() { return *graphics_engine; }
+	GuiManager& get_gui_manager();
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
+
+	using GraphicsEngineFactory = std::function<std::unique_ptr<GraphicsEngineBase>(GameEngine&)>;
 
 public:
 	GameEngine(std::function<void()>&& restart_signaller, App::Window& window);
 	GameEngine(App::Window& window);
+	GameEngine(App::Window& window, GraphicsEngineFactory factory);
 	~GameEngine();
 
 	void run();
@@ -112,11 +109,11 @@ public:
 private:
 	App::Window& window;
 	AudioEnginePimpl audio_engine;
-    std::unique_ptr<GraphicsEngineT> graphics_engine;
+    std::unique_ptr<GraphicsEngineBase> graphics_engine;
 	std::unique_ptr<Camera> camera;
-	std::unique_ptr<Gizmo<GameEngine>> gizmo;
+	std::unique_ptr<Gizmo> gizmo;
 	Keyboard keyboard;
-	std::unique_ptr<Mouse<GameEngine>> mouse;
+	std::unique_ptr<Mouse> mouse;
 	ResourceLoader resource_loader;
 	ECS ecs;
 
@@ -125,7 +122,7 @@ private:
 	std::thread graphics_engine_thread;
 	IApplication* application = nullptr;
 
-	std::unique_ptr<Experimental<GameEngine>> experimental;
+	std::unique_ptr<Experimental> experimental;
 	EntityDeletionQueue entity_deletion_queue;	
 
 private:
@@ -142,5 +139,5 @@ public: // callbacks
 	// void pause();
 	
 private: // friends
-	friend Experimental<GameEngine>;
+	friend Experimental;
 };

@@ -1,7 +1,5 @@
-#include <game_engine.ipp>
-#include <game_engine_callbacks.ipp>
-#include <interface/gizmo.ipp>
-#include <input.ipp>
+#include <game_engine.hpp>
+#include <iapplication.hpp>
 
 #include "mock_graphics_engine.hpp"
 #include "mock_window.hpp"
@@ -13,14 +11,14 @@ class GameEngineTests : public testing::Test
 {
 public:
     GameEngineTests() : 
-		engine([](){}, mock_window)
-    {
-        engine.set_application(&application);
-    }
+		engine(mock_window, [](GameEngine& engine) { return std::make_unique<MockGraphicsEngine>(engine); })
+	{
+		engine.set_application(&application);
+	}
 
 	MockWindow mock_window;
     DummyApplication application;
-    GameEngine<MockGraphicsEngine> engine;
+    GameEngine engine;
 };
 
 TEST_F(GameEngineTests, Constructor)
@@ -39,7 +37,7 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 	ASSERT_TRUE(engine.get_object(id));
 
 	engine.delete_object(id);
-	++engine.get_graphics_engine().num_objs_deleted;
+	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 	ASSERT_FALSE(engine.get_object(id));
 }

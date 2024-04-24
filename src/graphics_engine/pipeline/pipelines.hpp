@@ -4,11 +4,10 @@
 #include "pipeline_modifiers.hpp"
 
 
-template<typename GraphicsEngineT>
-class TexturePipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class TexturePipeline : public GraphicsEnginePipeline
 {
 public:
-	TexturePipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	TexturePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::TexVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::TexVertex, pos); }
@@ -19,11 +18,10 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
-template<typename GraphicsEngineT>
-class ColorPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class ColorPipeline : public GraphicsEnginePipeline
 {
 public:
-	ColorPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	ColorPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::ColorVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::ColorVertex, pos); }
@@ -32,11 +30,10 @@ protected:
 	virtual std::string_view get_shader_name() const override { return "color"; }
 };
 
-template<typename GraphicsEngineT>
-class CubemapPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class CubemapPipeline : public GraphicsEnginePipeline
 {
 public:
-	CubemapPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	CubemapPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
@@ -46,11 +43,11 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
-template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
-class StencilPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+template<Stencileable PrimaryPipelineType>
+class StencilPipeline : public GraphicsEnginePipeline
 {
 public:
-	StencilPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
@@ -59,31 +56,29 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
-template<typename GraphicsEngineT>
-class PostStencilColorPipeline : public ColorPipeline<GraphicsEngineT>
+class PostStencilColorPipeline : public ColorPipeline
 {
 public:
-	PostStencilColorPipeline(GraphicsEngineT& engine) : ColorPipeline<GraphicsEngineT>(engine) {}
+	PostStencilColorPipeline(GraphicsEngine& engine) : ColorPipeline(engine) {}
 
 protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
-template<typename GraphicsEngineT>
-class PostStencilTexturePipeline : public TexturePipeline<GraphicsEngineT>
+class PostStencilTexturePipeline : public TexturePipeline
 {
 public:
-	PostStencilTexturePipeline(GraphicsEngineT& engine) : TexturePipeline<GraphicsEngineT>(engine) {}
+	PostStencilTexturePipeline(GraphicsEngine& engine) : TexturePipeline(engine) {}
 
 protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
-template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
-class WireframePipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+template<Wireframeable PrimaryPipelineType>
+class WireframePipeline : public GraphicsEnginePipeline
 {
 public:
-	WireframePipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	WireframePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "wireframe"; }
@@ -92,11 +87,10 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
-template<typename GraphicsEngineT>
-class RaytracingPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class RaytracingPipeline : public GraphicsEnginePipeline
 {
 public:
-	RaytracingPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	RaytracingPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "simple_raytracer"; }
@@ -106,11 +100,10 @@ private:
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 };
 
-template<typename GraphicsEngineT>
-class LightWeightOffscreenPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class LightWeightOffscreenPipeline : public GraphicsEnginePipeline
 {
 public:
-	LightWeightOffscreenPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	LightWeightOffscreenPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "color"; }
@@ -119,11 +112,10 @@ protected:
 	virtual VkExtent2D get_extent() override;
 };
 
-template<typename GraphicsEngineT>
-class SkinnedPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class SkinnedPipeline : public GraphicsEnginePipeline
 {
 public:
-	SkinnedPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	SkinnedPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::SkinnedVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::SkinnedVertex, pos); }
@@ -134,11 +126,11 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-class ShadowMapPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+template<ShadowMappable PrimaryPipelineType>
+class ShadowMapPipeline : public GraphicsEnginePipeline
 {
 public:
-	ShadowMapPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	ShadowMapPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "shadow_map"; }
@@ -152,11 +144,10 @@ protected:
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const override;
 };
 
-template<typename GraphicsEngineT>
-class QuadPipeline : public GraphicsEnginePipeline<GraphicsEngineT>
+class QuadPipeline : public GraphicsEnginePipeline
 {
 public:
-	QuadPipeline(GraphicsEngineT& engine) : GraphicsEnginePipeline<GraphicsEngineT>(engine) {}
+	QuadPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "quad"; }

@@ -15,11 +15,9 @@
 #include <iostream>
 
 
-template<typename GraphicsEngineT>
-std::optional<VkExtent2D> GraphicsEngineSwapChain<GraphicsEngineT>::swap_chain_extent;
+std::optional<VkExtent2D> GraphicsEngineSwapChain::swap_chain_extent;
 
-template<typename GraphicsEngineT>
-GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngineT& engine) : GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : GraphicsEngineBaseModule(engine)
 {
 	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), get_graphics_engine().get_window_surface());
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
@@ -93,8 +91,7 @@ GraphicsEngineSwapChain<GraphicsEngineT>::GraphicsEngineSwapChain(GraphicsEngine
 	get_graphics_engine().get_renderer_mgr().linkup_renderers();
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineSwapChain<GraphicsEngineT>::~GraphicsEngineSwapChain()
+GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 {
 	// for (auto& frame_buffer : swap_chain_frame_buffers)
 	// {
@@ -130,16 +127,14 @@ GraphicsEngineSwapChain<GraphicsEngineT>::~GraphicsEngineSwapChain()
 	vkFreeMemory(get_logical_device(), presentation_image_memory, nullptr);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineSwapChain<GraphicsEngineT>::reset()
+void GraphicsEngineSwapChain::reset()
 {
 	auto &engine = get_graphics_engine();
 	this->~GraphicsEngineSwapChain();
 	new (this) GraphicsEngineSwapChain(engine);
 }
 
-template<typename GraphicsEngineT>
-VkSurfaceFormatKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR> &available_formats)
+VkSurfaceFormatKHR GraphicsEngineSwapChain::choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR> &available_formats)
 {
 	for (const auto &format : available_formats)
 	{
@@ -152,8 +147,7 @@ VkSurfaceFormatKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_surface
 	return available_formats[0]; // the first format is usually good enough
 }
 
-template<typename GraphicsEngineT>
-VkPresentModeKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_present_mode(const std::vector<VkPresentModeKHR> &available_present_modes)
+VkPresentModeKHR GraphicsEngineSwapChain::choose_swap_present_mode(const std::vector<VkPresentModeKHR> &available_present_modes)
 {
 	for (const auto &mode : available_present_modes)
 	{
@@ -166,8 +160,7 @@ VkPresentModeKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_present_m
 	return VK_PRESENT_MODE_FIFO_KHR; // guranteed
 }
 
-// template<typename GraphicsEngineT>
-// void GraphicsEngineSwapChain<GraphicsEngineT>::recreate_swap_chain()
+// // void GraphicsEngineSwapChain::recreate_swap_chain()
 // {
 // 	// clean_up_swap_chain(); // moved to destructor
 
@@ -182,16 +175,14 @@ VkPresentModeKHR GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_present_m
 // 	// create_command_buffers(); // moved to on object spawn basis
 // }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineSwapChain<GraphicsEngineT>::draw()
+void GraphicsEngineSwapChain::draw()
 {
 	get_curr_frame().draw();
 
 	current_frame = (current_frame + 1) % frames.size();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineSwapChain<GraphicsEngineT>::destroy_and_recreate_frames()
+void GraphicsEngineSwapChain::destroy_and_recreate_frames()
 {
 	uint32_t image_count;
 	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, nullptr); // get num images
@@ -213,8 +204,7 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::destroy_and_recreate_frames()
 	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineSwapChain: created {} frames", frames.size());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineSwapChain<GraphicsEngineT>::update_command_buffer()
+void GraphicsEngineSwapChain::update_command_buffer()
 {
 	for (auto& frame : frames)
 	{
@@ -222,14 +212,12 @@ void GraphicsEngineSwapChain<GraphicsEngineT>::update_command_buffer()
 	}
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::get_extent()
+VkExtent2D GraphicsEngineSwapChain::get_extent()
 {
 	return get_extent(get_physical_device(), get_graphics_engine().get_window_surface());
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::get_extent(VkPhysicalDevice physical_device, VkSurfaceKHR window_surface)
+VkExtent2D GraphicsEngineSwapChain::get_extent(VkPhysicalDevice physical_device, VkSurfaceKHR window_surface)
 {
 	if (!swap_chain_extent.has_value())
 	{
@@ -240,8 +228,7 @@ VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::get_extent(VkPhysicalDevice
 	return *swap_chain_extent;
 }
 
-template<typename GraphicsEngineT>
-SwapChainSupportDetails GraphicsEngineSwapChain<GraphicsEngineT>::query_swap_chain_support(VkPhysicalDevice physical_device, VkSurfaceKHR window_surface)
+SwapChainSupportDetails GraphicsEngineSwapChain::query_swap_chain_support(VkPhysicalDevice physical_device, VkSurfaceKHR window_surface)
 {
 	SwapChainSupportDetails details;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, window_surface, &details.capabilities);
@@ -268,8 +255,7 @@ SwapChainSupportDetails GraphicsEngineSwapChain<GraphicsEngineT>::query_swap_cha
 }
 
 // extent = resolution of the swap chain images and ~ resolution of window we are drawing to
-template<typename GraphicsEngineT>
-VkExtent2D GraphicsEngineSwapChain<GraphicsEngineT>::choose_swap_extent(VkSurfaceKHR window_surface, const VkSurfaceCapabilitiesKHR& capabilities)
+VkExtent2D GraphicsEngineSwapChain::choose_swap_extent(VkSurfaceKHR window_surface, const VkSurfaceCapabilitiesKHR& capabilities)
 {
 	// the reason the logic to get the extent is a bit convoluted is because sometimes there might
 	// be a difference between "extent" and "resolution". With most displays extent == resolution,

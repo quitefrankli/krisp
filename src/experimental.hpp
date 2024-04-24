@@ -11,11 +11,10 @@
 #include <iostream>
 
 
-template<typename GameEngineT>
 class Experimental
 {
 public:
-	Experimental(GameEngineT& engine) : 
+	Experimental(GameEngine& engine) : 
 		engine(engine)
 	{
 	}
@@ -65,7 +64,7 @@ public:
 	}
 
 private:
-	GameEngineT& engine;
+	GameEngine& engine;
 	float time_elapsed = 0;
 	int underlying_entity_id = -1;
 };

@@ -1,10 +1,12 @@
 #pragma once
 
 #include "raytracing.hpp"
+#include "graphics_engine.hpp"
 #include "shared_data_structures.hpp"
 #include "utility.hpp"
 #include "graphics_engine/renderers/renderers.hpp"
 #include "config.hpp"
+#include "objects/object.hpp"
 
 #include <quill/Quill.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -21,10 +23,9 @@ VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix)
 	return vk_matrix;
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
-	GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineRayTracing::GraphicsEngineRayTracing(
+	GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 	if (!Config::is_raytracing_enabled())
 	{
@@ -38,8 +39,7 @@ GraphicsEngineRayTracing<GraphicsEngineT>::GraphicsEngineRayTracing(
 	// update_tlas();
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
+GraphicsEngineRayTracing::~GraphicsEngineRayTracing()
 {
 	if (!Config::is_raytracing_enabled())
 	{
@@ -56,8 +56,7 @@ GraphicsEngineRayTracing<GraphicsEngineT>::~GraphicsEngineRayTracing()
 	destroy_as(top_as);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::update_acceleration_structures()
+void GraphicsEngineRayTracing::update_acceleration_structures()
 {
 	// important distinction regarding performance
 	// this is technically not an "update" but a "rebuild"
@@ -75,8 +74,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_acceleration_structures()
 	update_tlas();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas2()
+void GraphicsEngineRayTracing::update_tlas2()
 {
 	auto& objects = get_graphics_engine().get_objects();
 	
@@ -99,8 +97,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas2()
 		true);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::process()
+void GraphicsEngineRayTracing::process()
 {
 	if (!is_enabled())
 	{
@@ -110,20 +107,18 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::process()
 	if (get_graphics_engine().get_gui_manager().graphic_settings.rtx_on.changed)
 	{
 		update_acceleration_structures();
-		static_cast<RaytracingRenderer<GraphicsEngineT>&>(get_graphics_engine().get_renderer_mgr().
+		static_cast<RaytracingRenderer&>(get_graphics_engine().get_renderer_mgr().
 			get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
 	}
 }
 
-template<typename GraphicsEngineT>
-bool GraphicsEngineRayTracing<GraphicsEngineT>::is_enabled()
+bool GraphicsEngineRayTracing::is_enabled()
 {
 	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on;
 }
 
-template<typename GraphicsEngineT>
-typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayTracing<GraphicsEngineT>::object_to_blas(
-	const GraphicsEngineObject<GraphicsEngineT>& object,
+typename GraphicsEngineRayTracing::BlasInput GraphicsEngineRayTracing::object_to_blas(
+	const GraphicsEngineObject& object,
 	VkBuildAccelerationStructureFlagsKHR flags)
 {
 	// BLAS builder requires raw device addresses.
@@ -174,8 +169,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::BlasInput GraphicsEngineRayT
 	return input;
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
+void GraphicsEngineRayTracing::update_blas()
 {
 	std::vector<BlasInput> blas_inputs;
 	auto& objects = get_graphics_engine().get_objects();
@@ -317,8 +311,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_blas()
 	scratch_buffer.destroy(get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
+void GraphicsEngineRayTracing::update_tlas()
 {
 	auto& objects = get_graphics_engine().get_objects();
 	tlas_instances.clear();
@@ -353,8 +346,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::update_tlas()
 		false);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_blas(VkCommandBuffer cmd_buf,
+void GraphicsEngineRayTracing::cmd_create_blas(VkCommandBuffer cmd_buf,
                                                                 std::vector<uint32_t> indices,
                                                                 std::vector<BuildAccelerationStructure>& build_as,
                                                                 VkDeviceAddress scratch_address,
@@ -413,8 +405,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_blas(VkCommandBuffer 
 	}
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_compact_blas(VkCommandBuffer cmd_buf,
+void GraphicsEngineRayTracing::cmd_compact_blas(VkCommandBuffer cmd_buf,
                                                                  std::vector<uint32_t> indices,
                                                                  std::vector<BuildAccelerationStructure>& build_as,
                                                                  VkQueryPool query_pool)
@@ -452,8 +443,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::cmd_compact_blas(VkCommandBuffer
 	}	
 }
 
-template<typename GraphicsEngineT>
-GraphicsBuffer GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
+GraphicsBuffer GraphicsEngineRayTracing::cmd_create_tlas(
 	VkCommandBuffer cmd_buf,
 	uint32_t nInstances,
 	VkDeviceAddress inst_buffer_addr,
@@ -519,15 +509,14 @@ GraphicsBuffer GraphicsEngineRayTracing<GraphicsEngineT>::cmd_create_tlas(
 	return scratch_buffer;
 }
 
-template<typename GraphicsEngineT>
-typename GraphicsEngineRayTracing<GraphicsEngineT>::AccelerationStructure 
-	GraphicsEngineRayTracing<GraphicsEngineT>::create_acceleration_structure(
+typename GraphicsEngineRayTracing::AccelerationStructure 
+	GraphicsEngineRayTracing::create_acceleration_structure(
 	VkAccelerationStructureCreateInfoKHR& create_info)
 {
 	// Allocating the buffer to hold the acceleration structure
 	// TODO: might need to clean the buffer and device memory up
 	AccelerationStructure resultAccel;
-	get_rsrc_mgr().create_buffer(
+	get_rsrc_mgr().create_buffer_deprecated(
 		create_info.size, 
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
@@ -540,8 +529,7 @@ typename GraphicsEngineRayTracing<GraphicsEngineT>::AccelerationStructure
 	return resultAccel;
 }
 
-template<typename GraphicsEngineT>
-VkDeviceAddress GraphicsEngineRayTracing<GraphicsEngineT>::getBlasDeviceAddress(uint32_t blasId)
+VkDeviceAddress GraphicsEngineRayTracing::getBlasDeviceAddress(uint32_t blasId)
 {
 	assert(size_t(blasId) < bottom_as.size());
 	VkAccelerationStructureDeviceAddressInfoKHR addressInfo{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR};
@@ -550,8 +538,7 @@ VkDeviceAddress GraphicsEngineRayTracing<GraphicsEngineT>::getBlasDeviceAddress(
 	return LOAD_VK_FUNCTION(vkGetAccelerationStructureDeviceAddressKHR)(get_logical_device(), &addressInfo);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
+void GraphicsEngineRayTracing::build_tlas(
 	const std::vector<VkAccelerationStructureInstanceKHR>& instances,
 	VkBuildAccelerationStructureFlagsKHR flags,
 	bool update)
@@ -564,7 +551,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
     // Create a buffer holding the actual instance data (matrices++) for use by the AS builder
 	const auto instance_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
 		VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
-	GraphicsBuffer instance_buffer(get_rsrc_mgr().create_buffer(
+	GraphicsBuffer instance_buffer(create_buffer(
 		instances.size() * sizeof(VkAccelerationStructureInstanceKHR),
 		instance_buffer_usage_flags,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
@@ -588,8 +575,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::build_tlas(
 	instance_buffer.destroy(get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
+void GraphicsEngineRayTracing::create_shader_binding_table()
 {
 	/*
 		SBT is a collection of up to four arrays containing the handles of the shader groups used
@@ -689,8 +675,7 @@ void GraphicsEngineRayTracing<GraphicsEngineT>::create_shader_binding_table()
 	vkUnmapMemory(get_logical_device(), sbt_buffer->get_memory());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineRayTracing<GraphicsEngineT>::destroy_as(AccelerationStructure& as)
+void GraphicsEngineRayTracing::destroy_as(AccelerationStructure& as)
 {
 	VkDevice device = get_logical_device();
 	if (as.accel != VK_NULL_HANDLE)

@@ -9,18 +9,15 @@
 #include <queue>
 
 
-template<typename GraphicsEngineT>
 class GraphicsEngineSwapChain;
 
-template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 
 // Note that frame refers to swap_chain frame and not actual frames
-template<typename GraphicsEngineT>
-class GraphicsEngineFrame : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEngineFrame : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineFrame(GraphicsEngineT& engine, GraphicsEngineSwapChain<GraphicsEngineT>& parent_swapchain, VkImage image);
+	GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image);
 	GraphicsEngineFrame(const GraphicsEngineFrame&) = delete;
 	GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept;
 	~GraphicsEngineFrame();
@@ -48,15 +45,8 @@ public:
 	void mark_obj_for_delete(ObjectID id);
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 	
-	GraphicsEngineSwapChain<GraphicsEngineT>& swap_chain;
+	GraphicsEngineSwapChain& swap_chain;
 
 	//
 	// Image refers to an image in a swap chain

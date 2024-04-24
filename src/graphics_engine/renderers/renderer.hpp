@@ -20,11 +20,10 @@ enum class ERendererType
 
 // A renderer is simply anything that submits draw commands and fills up a command buffer
 // Each renderer can only have ONE renderpass and each renderpass must be unique to the renderer
-template<typename GraphicsEngineT>
-class Renderer : public GraphicsEngineBaseModule<GraphicsEngineT>
+class Renderer : public GraphicsEngineBaseModule
 {
 public:
-	Renderer(GraphicsEngineT& engine);
+	Renderer(GraphicsEngine& engine);
 	~Renderer();
 
 	// generates framebuffers

@@ -3,9 +3,8 @@
 #include "graphics_engine_texture_manager.hpp"
 
 
-template<typename GraphicsEngineT>
-GraphicsEngineTextureManager<GraphicsEngineT>::GraphicsEngineTextureManager(GraphicsEngineT& engine) : 
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) : 
+	GraphicsEngineBaseModule(engine)
 {
 	LOG_INFO(
 		Utility::get().get_logger(),
@@ -13,8 +12,7 @@ GraphicsEngineTextureManager<GraphicsEngineT>::GraphicsEngineTextureManager(Grap
 		engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineTextureManager<GraphicsEngineT>::~GraphicsEngineTextureManager()
+GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 {
 	for (auto& [texture_id, texture_unit] : texture_units)
 	{
@@ -27,8 +25,7 @@ GraphicsEngineTextureManager<GraphicsEngineT>::~GraphicsEngineTextureManager()
 	}
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_texture(
+GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 	const MaterialTexture& material_texture,
 	ETextureSamplerType sampler_type)
 {
@@ -46,8 +43,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_text
 	return texture_units.emplace(material_texture.texture_id, create_texture(material_texture, sampler_type)).first->second;
 }
 
-template<typename GraphicsEngineT>
-VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::fetch_sampler(ETextureSamplerType sampler_type)
+VkSampler GraphicsEngineTextureManager::fetch_sampler(ETextureSamplerType sampler_type)
 {
 	auto it = samplers.find(sampler_type);
 	if (it != samplers.end())
@@ -58,8 +54,7 @@ VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::fetch_sampler(ETextureS
 	return samplers.emplace(sampler_type, create_texture_sampler(sampler_type)).first->second;
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_cubemap_texture(
+GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 	const std::vector<MaterialTexture>& material_textures)
 {
 	const uint32_t cubemap_texture_id = CUBE_MAP_OFFSET + material_textures[0].texture_id;
@@ -105,8 +100,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager<GraphicsEngineT>::fetch_cube
 	return texture_units.emplace(cubemap_texture_id, std::move(texture_object)).first->second;
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_texture(
+GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	const MaterialTexture& material_texture,
 	ETextureSamplerType sampler_type)
 {
@@ -122,8 +116,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager<GraphicsEngineT>::create_text
 	return GraphicsEngineTexture(texture_image, texture_image_memory, texture_image_view, texture_sampler, dim);
 }
 
-template<typename GraphicsEngineT>
-glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
+glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	const MaterialTexture& material_texture,
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
@@ -168,8 +161,7 @@ glm::uvec3 GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_image(
 	return glm::uvec3(material_texture.width, material_texture.height, material_texture.channels);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineTextureManager<GraphicsEngineT>::create_cubemap_texture_image(
+void GraphicsEngineTextureManager::create_cubemap_texture_image(
 	const std::vector<MaterialTexture>& material_textures,
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
@@ -230,8 +222,7 @@ void GraphicsEngineTextureManager<GraphicsEngineT>::create_cubemap_texture_image
 		material_textures.size());
 }
 
-template<typename GraphicsEngineT>
-VkSampler GraphicsEngineTextureManager<GraphicsEngineT>::create_texture_sampler(ETextureSamplerType sampler_type)
+VkSampler GraphicsEngineTextureManager::create_texture_sampler(ETextureSamplerType sampler_type)
 {
 	VkSamplerAddressMode address_mode;
 	switch (sampler_type)

@@ -10,20 +10,20 @@
 #include "pipeline/pipeline.hpp"
 #include "pipeline/pipeline_types.hpp"
 
+#include "entity_component_system/ecs.hpp"
+
 #include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
 
 
-template<typename GraphicsEngineT>
-int GraphicsEngineFrame<GraphicsEngineT>::global_image_index = 0;
+int GraphicsEngineFrame::global_image_index = 0;
 
-template<typename GraphicsEngineT>
-GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
-	GraphicsEngineT& engine, 
-	GraphicsEngineSwapChain<GraphicsEngineT>& parent_swapchain, 
+GraphicsEngineFrame::GraphicsEngineFrame(
+	GraphicsEngine& engine, 
+	GraphicsEngineSwapChain& parent_swapchain, 
 	VkImage presentation_image) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
+	GraphicsEngineBaseModule(engine),
 	swap_chain(parent_swapchain),
 	image_index(global_image_index++),
 	analytics(60)
@@ -32,7 +32,7 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
 		presentation_image, 
 		swap_chain.get_image_format(), 
 		VK_IMAGE_ASPECT_COLOR_BIT);
-	for (Renderer<GraphicsEngineT>* renderer : get_graphics_engine().get_renderer_mgr().get_renderers())
+	for (Renderer* renderer : get_graphics_engine().get_renderer_mgr().get_renderers())
 	{
 		renderer->allocate_per_frame_resources(presentation_image, presentation_image_view);
 	}
@@ -43,9 +43,8 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(
 	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
-	GraphicsEngineBaseModule<GraphicsEngineT>(frame.get_graphics_engine()),
+GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
+	GraphicsEngineBaseModule(frame.get_graphics_engine()),
 	presentation_image_view(std::move(frame.presentation_image_view)),
 	command_buffer(std::move(frame.command_buffer)),
 	image_index(std::move(frame.image_index)),
@@ -60,8 +59,7 @@ GraphicsEngineFrame<GraphicsEngineT>::GraphicsEngineFrame(GraphicsEngineFrame&& 
 	frame.should_destroy = false;
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
+GraphicsEngineFrame::~GraphicsEngineFrame()
 {
 	if (!this->should_destroy)
 	{
@@ -79,8 +77,7 @@ GraphicsEngineFrame<GraphicsEngineT>::~GraphicsEngineFrame()
 	vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
+void GraphicsEngineFrame::update_command_buffer()
 {
 	// wait until command buffer is not used anymore i.e. when frame is no longer inflight
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
@@ -129,8 +126,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_command_buffer()
 	}
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::draw()
+void GraphicsEngineFrame::draw()
 {
 	// 1. acquire image from swap chain
 	// 2. execute command buffer with image as attachment in the frame buffer
@@ -235,8 +231,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::draw()
 	// }
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
+void GraphicsEngineFrame::update_uniform_buffer()
 {
 	// update global uniform buffer
 	const auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().get_graphic_settings();
@@ -306,8 +301,7 @@ void GraphicsEngineFrame<GraphicsEngineT>::update_uniform_buffer()
 	}
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::create_synchronisation_objects()
+void GraphicsEngineFrame::create_synchronisation_objects()
 {
 	VkSemaphoreCreateInfo semaphore_create_info{};
 	semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -324,14 +318,12 @@ void GraphicsEngineFrame<GraphicsEngineT>::create_synchronisation_objects()
 	}
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::mark_obj_for_delete(ObjectID id)
+void GraphicsEngineFrame::mark_obj_for_delete(ObjectID id)
 {
 	objs_to_delete.push(id);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineFrame<GraphicsEngineT>::pre_cmdbuffer_recording()
+void GraphicsEngineFrame::pre_cmdbuffer_recording()
 {
 	// Note: this code works since when we mark an object for deletion we only do so on the currently in flight frame.
 	// So therefore this function only gets called once the inflight frame finishes

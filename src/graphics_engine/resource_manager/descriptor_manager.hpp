@@ -5,11 +5,10 @@
 #include "graphics_buffer_manager.hpp"
 
 
-template<typename GraphicsEngineT>
-class GraphicsDescriptorManager : virtual public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsDescriptorManager : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsDescriptorManager(GraphicsEngineT& engine, const GraphicsBufferManager<GraphicsEngineT>& buffer_manager);
+	GraphicsDescriptorManager(GraphicsEngine& engine, const GraphicsBufferManager& buffer_manager);
 	virtual ~GraphicsDescriptorManager() override;
 
 	// returned layout is owned by this class, therefore it's not necessary to free the return value
@@ -79,8 +78,4 @@ private:
 	std::vector<VkDescriptorSet> global_dsets;
 	VkDescriptorSet mesh_data_dset;
 
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
 };

@@ -2,20 +2,17 @@
 #include "renderers.hpp"
 
 
-template<typename GraphicsEngineT>
-GuiRenderer<GraphicsEngineT>::GuiRenderer(GraphicsEngineT& engine) :
-	Renderer<GraphicsEngineT>(engine)
+GuiRenderer::GuiRenderer(GraphicsEngine& engine) :
+	Renderer(engine)
 {
 	create_render_pass();
 }
 
-template<typename GraphicsEngineT>
-GuiRenderer<GraphicsEngineT>::~GuiRenderer()
+GuiRenderer::~GuiRenderer()
 {
 }
 
-template<typename GraphicsEngineT>
-void GuiRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
+void GuiRenderer::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
 	const auto extent = this->get_extent();
 	std::vector<VkImageView> attachments { presentation_image_view };
@@ -35,8 +32,7 @@ void GuiRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presenta
 	this->frame_buffers.push_back(new_frame_buffer);
 }
 
-template<typename GraphicsEngineT>
-void GuiRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index)
+void GuiRenderer::submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index)
 {
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{};
@@ -56,8 +52,7 @@ void GuiRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_
 	vkCmdEndRenderPass(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void GuiRenderer<GraphicsEngineT>::create_render_pass()
+void GuiRenderer::create_render_pass()
 {
 	//
 	// Color Attachment

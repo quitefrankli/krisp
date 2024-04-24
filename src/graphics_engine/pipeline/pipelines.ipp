@@ -3,8 +3,7 @@
 #include "pipelines.hpp"
 
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputBindingDescription> TexturePipeline<GraphicsEngineT>::get_binding_descriptions() const
+std::vector<VkVertexInputBindingDescription> TexturePipeline::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -14,8 +13,7 @@ std::vector<VkVertexInputBindingDescription> TexturePipeline<GraphicsEngineT>::g
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputAttributeDescription> TexturePipeline<GraphicsEngineT>::get_attribute_descriptions() const
+std::vector<VkVertexInputAttributeDescription> TexturePipeline::get_attribute_descriptions() const
 {
 	VkVertexInputAttributeDescription position_attr, texCoord_attr, normal_attr;
 	position_attr.binding = 0;
@@ -36,8 +34,7 @@ std::vector<VkVertexInputAttributeDescription> TexturePipeline<GraphicsEngineT>:
 	return {position_attr, texCoord_attr, normal_attr};
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputBindingDescription> CubemapPipeline<GraphicsEngineT>::get_binding_descriptions() const
+std::vector<VkVertexInputBindingDescription> CubemapPipeline::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -47,8 +44,7 @@ std::vector<VkVertexInputBindingDescription> CubemapPipeline<GraphicsEngineT>::g
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputAttributeDescription> CubemapPipeline<GraphicsEngineT>::get_attribute_descriptions() const
+std::vector<VkVertexInputAttributeDescription> CubemapPipeline::get_attribute_descriptions() const
 {
 	VkVertexInputAttributeDescription position_attr, texCoord_attr, normal_attr;
 	position_attr.binding = 0;
@@ -64,18 +60,17 @@ std::vector<VkVertexInputAttributeDescription> CubemapPipeline<GraphicsEngineT>:
 	return {position_attr};
 }
 
-template<typename GraphicsEngineT>
-VkPipelineDepthStencilStateCreateInfo CubemapPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+VkPipelineDepthStencilStateCreateInfo CubemapPipeline::get_depth_stencil_create_info() const
 {
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
 
 	return info;
 }
 
-template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
-VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_depth_stencil_create_info() const
+template<Stencileable PrimaryPipelineType>
+VkPipelineDepthStencilStateCreateInfo StencilPipeline<PrimaryPipelineType>::get_depth_stencil_create_info() const
 {
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
 	// render all objects twice
 	// on first render always succeed and write 1 to stencil buffer
 	// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
@@ -107,8 +102,8 @@ VkPipelineDepthStencilStateCreateInfo StencilPipeline<GraphicsEngineT, PrimaryPi
 	return info;
 }
 
-template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
-std::vector<VkVertexInputBindingDescription> StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_descriptions() const
+template<Stencileable PrimaryPipelineType>
+std::vector<VkVertexInputBindingDescription> StencilPipeline<PrimaryPipelineType>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -118,9 +113,9 @@ std::vector<VkVertexInputBindingDescription> StencilPipeline<GraphicsEngineT, Pr
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT, Stencileable PrimaryPipelineType>
+template<Stencileable PrimaryPipelineType>
 std::vector<VkVertexInputAttributeDescription>
-StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descriptions() const
+StencilPipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 {
 	VkVertexInputAttributeDescription position_attr;
 	position_attr.binding = 0;
@@ -131,26 +126,24 @@ StencilPipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_description
 	return {position_attr};
 }
 
-template<typename GraphicsEngineT>
-VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline::get_depth_stencil_create_info() const
 {
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
 	info.depthTestEnable = VK_TRUE;
 
 	return info;
 }
 
-template<typename GraphicsEngineT>
-VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline::get_depth_stencil_create_info() const
 {
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info();
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
 	info.depthTestEnable = VK_TRUE;
 
 	return info;
 }
 
-template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
-std::vector<VkVertexInputBindingDescription> WireframePipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_descriptions() const
+template<Wireframeable PrimaryPipelineType>
+std::vector<VkVertexInputBindingDescription> WireframePipeline<PrimaryPipelineType>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -160,9 +153,9 @@ std::vector<VkVertexInputBindingDescription> WireframePipeline<GraphicsEngineT, 
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT, Wireframeable PrimaryPipelineType>
+template<Wireframeable PrimaryPipelineType>
 std::vector<VkVertexInputAttributeDescription>
-WireframePipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descriptions() const
+WireframePipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 {
 	VkVertexInputAttributeDescription position_attr;
 	position_attr.binding = 0;
@@ -173,8 +166,7 @@ WireframePipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descripti
 	return {position_attr};
 }
 
-template<typename GraphicsEngineT>
-void RaytracingPipeline<GraphicsEngineT>::initialise()
+void RaytracingPipeline::initialise()
 {
 	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
 	VkShaderModule raygen_shader = this->create_shader_module(shader_path.string() + "/raygen_shader.spv");
@@ -262,22 +254,19 @@ void RaytracingPipeline<GraphicsEngineT>::initialise()
 	vkDestroyShaderModule(this->get_logical_device(), raymiss_shader, nullptr);
 }
 
-template<typename GraphicsEngineT>
-VkRenderPass LightWeightOffscreenPipeline<GraphicsEngineT>::get_render_pass()
+VkRenderPass LightWeightOffscreenPipeline::get_render_pass()
 {
 	return this->get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_render_pass();
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D LightWeightOffscreenPipeline<GraphicsEngineT>::get_extent()
+VkExtent2D LightWeightOffscreenPipeline::get_extent()
 {
 	return this->get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_extent();	
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputBindingDescription> SkinnedPipeline<GraphicsEngineT>::get_binding_descriptions() const
+std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -287,8 +276,7 @@ std::vector<VkVertexInputBindingDescription> SkinnedPipeline<GraphicsEngineT>::g
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputAttributeDescription> SkinnedPipeline<GraphicsEngineT>::get_attribute_descriptions() const
+std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_descriptions() const
 {	
 	VkVertexInputAttributeDescription position_attr{};
 	position_attr.binding = 0;
@@ -323,8 +311,8 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline<GraphicsEngineT>:
 	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr};
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_binding_descriptions() const
+template<ShadowMappable PrimaryPipelineType>
+std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<PrimaryPipelineType>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -334,8 +322,8 @@ std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<GraphicsEngineT, 
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_attribute_descriptions() const
+template<ShadowMappable PrimaryPipelineType>
+std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 {
 	VkVertexInputAttributeDescription position_attr;
 	position_attr.binding = 0;
@@ -346,26 +334,26 @@ std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<GraphicsEngineT
 	return {position_attr};
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-VkRenderPass ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_render_pass()
+template<ShadowMappable PrimaryPipelineType>
+VkRenderPass ShadowMapPipeline<PrimaryPipelineType>::get_render_pass()
 {
 	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-VkExtent2D ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_extent()
+template<ShadowMappable PrimaryPipelineType>
+VkExtent2D ShadowMapPipeline<PrimaryPipelineType>::get_extent()
 {
 	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-VkSampleCountFlagBits ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_msaa_sample_count()
+template<ShadowMappable PrimaryPipelineType>
+VkSampleCountFlagBits ShadowMapPipeline<PrimaryPipelineType>::get_msaa_sample_count()
 {
 	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_msaa_sample_count();
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-std::vector<VkDescriptorSetLayout> ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::get_expected_dset_layouts()
+template<ShadowMappable PrimaryPipelineType>
+std::vector<VkDescriptorSetLayout> ShadowMapPipeline<PrimaryPipelineType>::get_expected_dset_layouts()
 {
 	return { 
 		this->get_rsrc_mgr().get_low_freq_dset_layout(),
@@ -374,8 +362,8 @@ std::vector<VkDescriptorSetLayout> ShadowMapPipeline<GraphicsEngineT, PrimaryPip
 	};
 }
 
-template<typename GraphicsEngineT, ShadowMappable PrimaryPipelineType>
-void ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::mod_rasterization_state_info(
+template<ShadowMappable PrimaryPipelineType>
+void ShadowMapPipeline<PrimaryPipelineType>::mod_rasterization_state_info(
 	VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const
 {
 	rasterization_state_info.depthBiasEnable = VK_TRUE;
@@ -386,26 +374,22 @@ void ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>::mod_rasterization_
 	rasterization_state_info.depthBiasClamp = 0.0f;
 }
 
-template<typename GraphicsEngineT>
-VkRenderPass QuadPipeline<GraphicsEngineT>::get_render_pass()
+VkRenderPass QuadPipeline::get_render_pass()
 {
 	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_render_pass();
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D QuadPipeline<GraphicsEngineT>::get_extent()
+VkExtent2D QuadPipeline::get_extent()
 {
 	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_extent();
 }
 
-template<typename GraphicsEngineT>
-VkSampleCountFlagBits QuadPipeline<GraphicsEngineT>::get_msaa_sample_count()
+VkSampleCountFlagBits QuadPipeline::get_msaa_sample_count()
 {
 	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_msaa_sample_count();
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> QuadPipeline<GraphicsEngineT>::get_expected_dset_layouts()
+std::vector<VkDescriptorSetLayout> QuadPipeline::get_expected_dset_layouts()
 {
 	VkDescriptorSetLayoutBinding binding{};
 	binding.binding = 0;
@@ -417,8 +401,7 @@ std::vector<VkDescriptorSetLayout> QuadPipeline<GraphicsEngineT>::get_expected_d
 	return { this->get_rsrc_mgr().request_dset_layout({binding}) };
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkPushConstantRange> QuadPipeline<GraphicsEngineT>::get_push_constant_ranges() const
+std::vector<VkPushConstantRange> QuadPipeline::get_push_constant_ranges() const
 {
 	VkPushConstantRange push_constant_range{};
 	push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;

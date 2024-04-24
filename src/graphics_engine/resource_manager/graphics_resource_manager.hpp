@@ -7,27 +7,19 @@
 #include <queue>
 
 
-template<typename GraphicsEngineT>
 class GraphicsResourceManager : 
-	virtual public GraphicsBufferManager<GraphicsEngineT>,
-	virtual public GraphicsDescriptorManager<GraphicsEngineT>
+	public GraphicsBufferManager,
+	public GraphicsDescriptorManager
 {
 public:
-	GraphicsResourceManager(GraphicsEngineT& engine);
+	GraphicsResourceManager(GraphicsEngine& engine);
 	virtual ~GraphicsResourceManager() override;
 	VkCommandPool& get_command_pool() { return command_pool; }
 
 	VkCommandBuffer create_command_buffer();
-	
-	using GraphicsBufferManager<GraphicsEngineT>::create_buffer;
 
 private:
 	void create_command_pool();
 
 	VkCommandPool command_pool;
-
-	// TODO: figure out why the below doesn't work even with virtual inheritance!
-	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	// using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 };

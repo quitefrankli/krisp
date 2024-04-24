@@ -3,17 +3,16 @@
 #include "shared_data_structures.hpp"
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "graphics_engine/graphics_engine_object.hpp"
+#include "graphics_engine/graphics_engine.hpp"
 
 
-template<typename GraphicsEngineT>
-RasterizationRenderer<GraphicsEngineT>::RasterizationRenderer(GraphicsEngineT& engine) :
-	Renderer<GraphicsEngineT>(engine)
+RasterizationRenderer::RasterizationRenderer(GraphicsEngine& engine) :
+	Renderer(engine)
 {
 	create_render_pass();
 }
 
-template<typename GraphicsEngineT>
-RasterizationRenderer<GraphicsEngineT>::~RasterizationRenderer()
+RasterizationRenderer::~RasterizationRenderer()
 {
 	for (auto& color_attachment : color_attachments)
 	{
@@ -27,8 +26,7 @@ RasterizationRenderer<GraphicsEngineT>::~RasterizationRenderer()
 	vkDestroySampler(this->get_logical_device(), shadow_map_sampler, nullptr);
 }
 
-template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
+void RasterizationRenderer::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
 {
 	//
 	// Generate attachments
@@ -95,8 +93,7 @@ void RasterizationRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImag
 	this->frame_buffers.push_back(new_frame_buffer);
 }
 
-template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
+void RasterizationRenderer::submit_draw_commands(
 	VkCommandBuffer command_buffer,
 	VkImageView presentation_image_view,
 	uint32_t frame_index)
@@ -141,8 +138,8 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 							nullptr);
 
 	const auto per_obj_draw_fn = [&](
-		const GraphicsEngineObject<GraphicsEngineT>& object, 
-		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
+		const GraphicsEngineObject& object, 
+		const GraphicsEnginePipeline& pipeline)
 	{
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		
@@ -248,7 +245,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = 
+		const GraphicsEnginePipeline* pipeline = 
 			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
 				{ graphics_object.get_render_type(), EPipelineModifier::STENCIL });
 		if (!pipeline)
@@ -274,7 +271,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline<GraphicsEngineT>* pipeline = 
+		const GraphicsEnginePipeline* pipeline = 
 			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
 				{ graphics_object.get_render_type(), EPipelineModifier::POST_STENCIL });
 		if (!pipeline)
@@ -290,8 +287,7 @@ void RasterizationRenderer<GraphicsEngineT>::submit_draw_commands(
 	vkCmdEndRenderPass(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs)
+void RasterizationRenderer::set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs)
 {
 	assert(shadow_map_inputs.size() == CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES);
 	
@@ -344,8 +340,7 @@ void RasterizationRenderer<GraphicsEngineT>::set_shadow_map_inputs(const std::ve
 	}	
 }
 
-template<typename GraphicsEngineT>
-void RasterizationRenderer<GraphicsEngineT>::create_render_pass()
+void RasterizationRenderer::create_render_pass()
 {
 	//
 	// Color Attachment

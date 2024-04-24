@@ -14,9 +14,8 @@
 #include <iostream>
 
 
-template<typename GraphicsEngineT, typename GameEngineT>
-GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 	setup_imgui();
 
@@ -24,16 +23,14 @@ GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::GraphicsEngineGuiManager
 	setup_gui_windows();
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::~GraphicsEngineGuiManager()
+GraphicsEngineGuiManager::~GraphicsEngineGuiManager()
 {
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::add_render_cmd(VkCommandBuffer& cmd_buffer)
+void GraphicsEngineGuiManager::add_render_cmd(VkCommandBuffer& cmd_buffer)
 {
 	if (!ImGui::GetDrawData())
 	{
@@ -42,8 +39,7 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::add_render_cmd(VkCo
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd_buffer);
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::draw()
+void GraphicsEngineGuiManager::draw()
 {
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -58,8 +54,7 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::draw()
 	ImGui::Render();
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::update_preview_window(
+void GraphicsEngineGuiManager::update_preview_window(
 	GuiPhotoBase& gui,
 	VkSampler sampler,
 	VkImageView image_view,
@@ -82,8 +77,7 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::update_preview_wind
 	gui.update(dset, dimensions);
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_imgui()
+void GraphicsEngineGuiManager::setup_imgui()
 {
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
@@ -113,8 +107,7 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_imgui()
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_gui_windows()
+void GraphicsEngineGuiManager::setup_gui_windows()
 {
 	this->photo.init([&](const std::string_view picture)
 	{
@@ -140,8 +133,7 @@ void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::setup_gui_windows()
 	});
 }
 
-template<typename GraphicsEngineT, typename GameEngineT>
-void GraphicsEngineGuiManager<GraphicsEngineT, GameEngineT>::compose_texture_for_gui_window(
+void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	const std::string_view texture_path,
 	GuiPhotoBase& gui_photo)
 {

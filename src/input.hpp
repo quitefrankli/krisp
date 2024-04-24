@@ -10,7 +10,6 @@ class Keyboard
 
 };
 
-template<typename GameEngineT>
 class Mouse
 {
 public:

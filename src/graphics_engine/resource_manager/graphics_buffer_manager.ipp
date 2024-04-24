@@ -3,9 +3,8 @@
 #include <numeric>
 
 
-template<typename GraphicsEngineT>
-GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine),
+GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine),
 	vertex_buffer(create_buffer(VERTEX_BUFFER_CAPACITY, VERTEX_BUFFER_USAGE_FLAGS, VERTEX_BUFFER_MEMORY_FLAGS, 4)),
 	index_buffer(create_buffer(INDEX_BUFFER_CAPACITY, INDEX_BUFFER_USAGE_FLAGS, INDEX_BUFFER_MEMORY_FLAGS, 4)),
 	uniform_buffer(create_buffer(
@@ -30,14 +29,13 @@ GraphicsBufferManager<GraphicsEngineT>::GraphicsBufferManager(GraphicsEngineT& e
 	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
-	for (uint32_t frame_idx = 0; frame_idx < GraphicsEngineT::get_num_swapchain_images(); ++frame_idx)
+	for (uint32_t frame_idx = 0; frame_idx < GraphicsEngine::get_num_swapchain_images(); ++frame_idx)
 	{
 		global_uniform_buffer.reserve_slot(frame_idx, sizeof(SDS::GlobalData));
 	}
 }
 
-template<typename GraphicsEngineT>
-GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager() 
+GraphicsBufferManager::~GraphicsBufferManager() 
 {
 	vertex_buffer.destroy(get_logical_device());
 	index_buffer.destroy(get_logical_device());
@@ -49,24 +47,21 @@ GraphicsBufferManager<GraphicsEngineT>::~GraphicsBufferManager()
 	staging_buffer.destroy(get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_uniform_buffer(EntityFrameID id, const SDS::ObjectData& ubos)
+void GraphicsBufferManager::write_to_uniform_buffer(EntityFrameID id, const SDS::ObjectData& ubos)
 {
 	std::byte* mapped_memory = uniform_buffer.map_slot(id.get_underlying(), get_logical_device());
 	*reinterpret_cast<SDS::ObjectData*>(mapped_memory) = ubos;
 	uniform_buffer.unmap_slot(get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_global_uniform_buffer(uint32_t id, const SDS::GlobalData& ubo)
+void GraphicsBufferManager::write_to_global_uniform_buffer(uint32_t id, const SDS::GlobalData& ubo)
 {
 	std::byte* mapped_memory = global_uniform_buffer.map_slot(id, get_logical_device());
 	*reinterpret_cast<SDS::GlobalData*>(mapped_memory) = ubo;
 	global_uniform_buffer.unmap_slot(get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(ObjectID id, const std::vector<GraphicsMesh>& shapes)
+void GraphicsBufferManager::write_shapes_to_buffers(ObjectID id, const std::vector<GraphicsMesh>& shapes)
 {
 	// assume that the size of the data in shapes is equal to the size of the buffer slot
 	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
@@ -93,8 +88,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_shapes_to_buffers(ObjectID id
 	});
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_materials_buffer(ShapeID id, const SDS::MaterialData& material)
+void GraphicsBufferManager::write_to_materials_buffer(ShapeID id, const SDS::MaterialData& material)
 {
 	// TODO: lots of objects will share the same material, need to come up with way to hash materials and only write unique ones
 	const auto slot = materials_buffer.get_slot(id.get_underlying());
@@ -105,8 +99,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_materials_buffer(ShapeID i
 	});
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry)
+void GraphicsBufferManager::write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry)
 {
 	mapping_buffer.decrease_free_capacity(sizeof(entry));
 	stage_data_to_buffer(mapping_buffer.get_buffer(), mapping_buffer.get_slot_offset(id.get_underlying()), sizeof(entry), 
@@ -117,8 +110,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_mapping_buffer(ObjectID id
 	update_buffer_stats();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::write_to_bone_buffer(EntityFrameID id, const std::vector<SDS::Bone>& bones)
+void GraphicsBufferManager::write_to_bone_buffer(EntityFrameID id, const std::vector<SDS::Bone>& bones)
 {
 	assert(!bones.empty());
 	std::byte* mapped_memory = bone_buffer.map_slot(id.get_underlying(), get_logical_device());
@@ -126,8 +118,7 @@ void GraphicsBufferManager<GraphicsEngineT>::write_to_bone_buffer(EntityFrameID 
 	bone_buffer.unmap_slot(get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-GraphicsBuffer GraphicsBufferManager<GraphicsEngineT>::create_buffer(
+GraphicsBuffer GraphicsBufferManager::create_buffer(
 	size_t size,
 	VkBufferUsageFlags usage_flags,
 	VkMemoryPropertyFlags memory_flags,
@@ -169,12 +160,11 @@ GraphicsBuffer GraphicsBufferManager<GraphicsEngineT>::create_buffer(
 	return GraphicsBuffer(buffer, memory, size, alignment);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::create_buffer(size_t size,
-														   VkBufferUsageFlags usage_flags,
-														   VkMemoryPropertyFlags memory_flags,
-														   VkBuffer& buffer,
-														   VkDeviceMemory& buffer_memory)
+void GraphicsBufferManager::create_buffer_deprecated(size_t size,
+													 VkBufferUsageFlags usage_flags,
+													 VkMemoryPropertyFlags memory_flags,
+													 VkBuffer& buffer,
+													 VkDeviceMemory& buffer_memory)
 {
 	VkBufferCreateInfo buffer_create_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	buffer_create_info.size = size;
@@ -207,8 +197,7 @@ void GraphicsBufferManager<GraphicsEngineT>::create_buffer(size_t size,
 	vkBindBufferMemory(get_logical_device(), buffer, buffer_memory, 0);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(VkBuffer destination_buffer,
+void GraphicsBufferManager::stage_data_to_buffer(VkBuffer destination_buffer,
                                                                   const uint32_t destination_buffer_offset,
                                                                   const uint32_t size,
                                                                   const std::function<void(std::byte*)>& write_function)
@@ -241,8 +230,7 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_buffer(VkBuffer desti
 	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_image(
+void GraphicsBufferManager::stage_data_to_image(
 	VkImage destination_image,
 	const uint32_t width,
 	const uint32_t height,
@@ -297,22 +285,19 @@ void GraphicsBufferManager<GraphicsEngineT>::stage_data_to_image(
 	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::reserve_buffer(GraphicsBuffer& buffer, uint64_t id, size_t size)
+void GraphicsBufferManager::reserve_buffer(GraphicsBuffer& buffer, uint64_t id, size_t size)
 {
 	buffer.reserve_slot(id, size);
 	update_buffer_stats();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::free_buffer(GraphicsBuffer& buffer, uint64_t id)
+void GraphicsBufferManager::free_buffer(GraphicsBuffer& buffer, uint64_t id)
 {
 	buffer.free_slot(id);
 	update_buffer_stats();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsBufferManager<GraphicsEngineT>::update_buffer_stats()
+void GraphicsBufferManager::update_buffer_stats()
 {
 	const std::vector<std::pair<size_t, size_t>> buffer_capacities =
 	{

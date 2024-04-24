@@ -6,21 +6,20 @@
 #include <memory>
 
 
-template<typename GameEngineT>
 class GuiManager
 {
 protected:
-	std::vector<std::unique_ptr<GuiWindow<GameEngineT>>> gui_windows; 
+	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
 
 public:
 	GuiManager() :
-		graphic_settings(spawn_gui<GuiGraphicsSettings<GameEngineT>>()),
-		object_spawner(spawn_gui<GuiObjectSpawner<GameEngineT>>()),
-		fps_counter(spawn_gui<GuiFPSCounter<GameEngineT>>()),
-		statistics(spawn_gui<GuiStatistics<GameEngineT>>()),
-		debug(spawn_gui<GuiDebug<GameEngineT>>()),
-		photo(spawn_gui<GuiPhoto<GameEngineT>>()),
-		render_slicer(spawn_gui<GuiRenderSlicer<GameEngineT>>())
+		graphic_settings(spawn_gui<GuiGraphicsSettings>()),
+		object_spawner(spawn_gui<GuiObjectSpawner>()),
+		fps_counter(spawn_gui<GuiFPSCounter>()),
+		statistics(spawn_gui<GuiStatistics>()),
+		debug(spawn_gui<GuiDebug>()),
+		photo(spawn_gui<GuiPhoto>()),
+		render_slicer(spawn_gui<GuiRenderSlicer>())
 	{
 	}
 
@@ -38,16 +37,16 @@ public:
 	}
 
 	// references the GuiManager::gui_windows
-	GuiGraphicsSettings<GameEngineT>& graphic_settings;
-	GuiObjectSpawner<GameEngineT>& object_spawner;
-	GuiFPSCounter<GameEngineT>& fps_counter;
-	GuiStatistics<GameEngineT>& statistics;
-	GuiDebug<GameEngineT>& debug;
-	GuiPhoto<GameEngineT>& photo;
-	GuiRenderSlicer<GameEngineT>& render_slicer;
+	GuiGraphicsSettings& graphic_settings;
+	GuiObjectSpawner& object_spawner;
+	GuiFPSCounter& fps_counter;
+	GuiStatistics& statistics;
+	GuiDebug& debug;
+	GuiPhoto& photo;
+	GuiRenderSlicer& render_slicer;
 
 public: // for GameEngine
-	void process(GameEngineT& engine)
+	void process(GameEngine& engine)
 	{
 		for (auto& gui : gui_windows)
 		{

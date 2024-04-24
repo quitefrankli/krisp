@@ -8,7 +8,6 @@
 #include <optional>
 
 
-template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 
 struct SwapChainSupportDetails
@@ -18,11 +17,10 @@ struct SwapChainSupportDetails
 	std::vector<VkPresentModeKHR> presentModes;
 };
 
-template<typename GraphicsEngineT>
-class GraphicsEngineSwapChain : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEngineSwapChain : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineSwapChain(GraphicsEngineT& engine);
+	GraphicsEngineSwapChain(GraphicsEngine& engine);
 	~GraphicsEngineSwapChain();
 
 	void reset();
@@ -47,20 +45,14 @@ public: // getters
 	VkSwapchainKHR& get_swap_chain() { return swap_chain; }
 	// assuming swapchain draw call is last in the main graphics execution loop
 	// this will reflect the frame TO BE drawn
-	GraphicsEngineFrame<GraphicsEngineT>& get_curr_frame() { return frames[current_frame]; }
-	GraphicsEngineFrame<GraphicsEngineT>& get_prev_frame() { return frames[(current_frame + frames.size() - 1) % frames.size()]; }
+	GraphicsEngineFrame& get_curr_frame() { return frames[current_frame]; }
+	GraphicsEngineFrame& get_prev_frame() { return frames[(current_frame + frames.size() - 1) % frames.size()]; }
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 		
 	VkSwapchainKHR swap_chain;
 	static std::optional<VkExtent2D> swap_chain_extent;
-	std::vector<GraphicsEngineFrame<GraphicsEngineT>> frames;
+	std::vector<GraphicsEngineFrame> frames;
 
 	VkSurfaceFormatKHR choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR>& available_formats);
 	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);

@@ -4,15 +4,13 @@
 #include <mutex>
 
 
-template<typename GraphicsEngineT>
-inline RaytracingRenderer<GraphicsEngineT>::RaytracingRenderer(GraphicsEngineT& engine) :
-	Renderer<GraphicsEngineT>(engine)
+inline RaytracingRenderer::RaytracingRenderer(GraphicsEngine& engine) :
+	Renderer(engine)
 {
 	// create_render_pass();
 }
 
-template<typename GraphicsEngineT>
-inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
+inline RaytracingRenderer::~RaytracingRenderer()
 {
 	for (auto& color_attachment : color_attachments)
 	{
@@ -28,8 +26,7 @@ inline RaytracingRenderer<GraphicsEngineT>::~RaytracingRenderer()
 	}
 }
 
-template<typename GraphicsEngineT>
-void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(
+void RaytracingRenderer::allocate_per_frame_resources(
 	VkImage presentation_image, 
 	VkImageView presentation_image_view)
 {
@@ -80,8 +77,7 @@ void RaytracingRenderer<GraphicsEngineT>::allocate_per_frame_resources(
 	presentation_images.push_back(presentation_image);
 }
 
-template<typename GraphicsEngineT>
-void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
+void RaytracingRenderer::submit_draw_commands(
 	VkCommandBuffer command_buffer,
 	VkImageView presentation_image_view,
 	uint32_t frame_index)
@@ -181,8 +177,7 @@ void RaytracingRenderer<GraphicsEngineT>::submit_draw_commands(
 		command_buffer);
 }
 
-template<typename GraphicsEngineT>
-void RaytracingRenderer<GraphicsEngineT>::update_rt_dsets()
+void RaytracingRenderer::update_rt_dsets()
 {
 	// technically we don't really need to "free" up the descriptor sets
 	// but it's a little less code to just do it this way
@@ -194,8 +189,7 @@ void RaytracingRenderer<GraphicsEngineT>::update_rt_dsets()
 	}
 }
 
-template<typename GraphicsEngineT>
-void RaytracingRenderer<GraphicsEngineT>::create_render_pass()
+void RaytracingRenderer::create_render_pass()
 {
 	const auto depth_format = get_graphics_engine().find_depth_format();
 	const std::vector<VkFormat> color_attachment_formats = { get_image_format() };
@@ -276,8 +270,7 @@ void RaytracingRenderer<GraphicsEngineT>::create_render_pass()
 	}
 }
 
-template<typename GraphicsEngineT>
-VkDescriptorSet RaytracingRenderer<GraphicsEngineT>::create_rt_dset(VkImageView rt_image_view)
+VkDescriptorSet RaytracingRenderer::create_rt_dset(VkImageView rt_image_view)
 {
 	auto rt_dset = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_raytracing_tlas_dset_layout());
 	

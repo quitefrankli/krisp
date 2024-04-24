@@ -8,11 +8,10 @@
 #include <optional>
 
 
-template<typename GraphicsEngineT>
-class GraphicsEngineDevice : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEngineDevice : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineDevice(GraphicsEngineT& engine);
+	GraphicsEngineDevice(GraphicsEngine& engine);
 	~GraphicsEngineDevice();
 	
 	VkDevice& get_logical_device() override { return logical_device; }
@@ -31,11 +30,6 @@ public:
 	}
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
 	
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
@@ -43,7 +37,7 @@ private:
 	static std::vector<const char*> get_required_extensions();
 
 	// returns vulkan style linked list of features
-	static constexpr VkPhysicalDeviceFeatures2* get_required_features();
+	static VkPhysicalDeviceFeatures2* get_required_features();
 
 	void pick_physical_device();
 	void create_logical_device();

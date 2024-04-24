@@ -138,17 +138,16 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_shadow_map_binding()
 	return shadow_map_binding;
 }
 
-template<typename GraphicsEngineT>
-GraphicsDescriptorManager<GraphicsEngineT>::GraphicsDescriptorManager(
-	GraphicsEngineT& engine,
-	const GraphicsBufferManager<GraphicsEngineT>& buffer_manager) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsDescriptorManager::GraphicsDescriptorManager(
+	GraphicsEngine& engine,
+	const GraphicsBufferManager& buffer_manager) :
+	GraphicsEngineBaseModule(engine)
 {
 	create_descriptor_pool();
 	setup_descriptor_set_layouts();
 	const auto get_gubo_offsets = [&buffer_manager] {
 		std::vector<uint32_t> offsets;
-		for (uint32_t frame_idx = 0; frame_idx < GraphicsEngineT::get_num_swapchain_images(); ++frame_idx)
+		for (uint32_t frame_idx = 0; frame_idx < GraphicsEngine::get_num_swapchain_images(); ++frame_idx)
 		{
 			offsets.push_back(buffer_manager.get_global_uniform_buffer_offset(frame_idx));
 		}
@@ -161,8 +160,7 @@ GraphicsDescriptorManager<GraphicsEngineT>::GraphicsDescriptorManager(
 		buffer_manager.get_index_buffer());
 }
 
-template<typename GraphicsEngineT>
-GraphicsDescriptorManager<GraphicsEngineT>::~GraphicsDescriptorManager()
+GraphicsDescriptorManager::~GraphicsDescriptorManager()
 {
 	vkDestroyDescriptorPool(get_logical_device(), descriptor_pool, nullptr);
 	for (auto layout : all_dset_layouts)
@@ -171,8 +169,7 @@ GraphicsDescriptorManager<GraphicsEngineT>::~GraphicsDescriptorManager()
 	}
 }
 
-template<typename GraphicsEngineT>
-VkDescriptorSetLayout GraphicsDescriptorManager<GraphicsEngineT>::request_dset_layout(const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+VkDescriptorSetLayout GraphicsDescriptorManager::request_dset_layout(const std::vector<VkDescriptorSetLayoutBinding>& bindings)
 {
 	VkDescriptorSetLayoutCreateInfo layout_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	layout_info.bindingCount = bindings.size();
@@ -189,14 +186,12 @@ VkDescriptorSetLayout GraphicsDescriptorManager<GraphicsEngineT>::request_dset_l
 	return layout;
 }
 
-template<typename GraphicsEngineT>
-VkDescriptorSet GraphicsDescriptorManager<GraphicsEngineT>::reserve_dset(const VkDescriptorSetLayout layout)
+VkDescriptorSet GraphicsDescriptorManager::reserve_dset(const VkDescriptorSetLayout layout)
 {
 	return reserve_dsets({ layout })[0];
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSet> GraphicsDescriptorManager<GraphicsEngineT>::reserve_dsets(const std::vector<VkDescriptorSetLayout>& layouts)
+std::vector<VkDescriptorSet> GraphicsDescriptorManager::reserve_dsets(const std::vector<VkDescriptorSetLayout>& layouts)
 {
 	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	alloc_info.descriptorPool = descriptor_pool;
@@ -211,15 +206,13 @@ std::vector<VkDescriptorSet> GraphicsDescriptorManager<GraphicsEngineT>::reserve
 	return descriptor_sets;
 }
 
-template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::free_dset(VkDescriptorSet set)
+void GraphicsDescriptorManager::free_dset(VkDescriptorSet set)
 {
 	std::vector<VkDescriptorSet> dsets{ set };
 	free_dsets(dsets);
 }
 
-template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::free_dsets(std::vector<VkDescriptorSet>& dsets)
+void GraphicsDescriptorManager::free_dsets(std::vector<VkDescriptorSet>& dsets)
 {
 	if (dsets.empty())
 	{
@@ -236,8 +229,7 @@ void GraphicsDescriptorManager<GraphicsEngineT>::free_dsets(std::vector<VkDescri
 	}
 }
 
-template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::create_descriptor_pool()
+void GraphicsDescriptorManager::create_descriptor_pool()
 {
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -291,8 +283,7 @@ void GraphicsDescriptorManager<GraphicsEngineT>::create_descriptor_pool()
 	}
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager<GraphicsEngineT>::
+std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 	get_rasterization_descriptor_set_layouts() const
 {
 	return { 
@@ -303,8 +294,7 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager<GraphicsEngineT>::
 	};
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager<GraphicsEngineT>::
+std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 	get_raytracing_descriptor_set_layouts() const
 {
 	return { 
@@ -314,8 +304,7 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager<GraphicsEngineT>::
 	};
 }
 
-template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::setup_descriptor_set_layouts()
+void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 {
 	low_freq_dset_layout = request_dset_layout({ get_generic_global_binding() });
 	per_obj_dset_layout = request_dset_layout({ get_generic_obj_ubo_binding(), get_generic_bone_binding() });
@@ -332,8 +321,7 @@ void GraphicsDescriptorManager<GraphicsEngineT>::setup_descriptor_set_layouts()
 		get_generic_raytracing_output_image_binding() });
 }
 
-template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets)
+void GraphicsDescriptorManager::allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets)
 {
 	assert(global_buffer_offsets.size() == MAX_LOW_FREQ_DESCRIPTOR_SETS);
 
@@ -378,8 +366,7 @@ void GraphicsDescriptorManager<GraphicsEngineT>::allocate_global_dset(VkBuffer g
 	}
 }
 
-template<typename GraphicsEngineT>
-void GraphicsDescriptorManager<GraphicsEngineT>::allocate_mesh_data_dset(
+void GraphicsDescriptorManager::allocate_mesh_data_dset(
 	VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer)
 {
 	std::vector<VkDescriptorSetLayout> layouts(MAX_MESH_DATA_DESCRIPTOR_SETS, mesh_data_dset_layout);
@@ -393,7 +380,7 @@ void GraphicsDescriptorManager<GraphicsEngineT>::allocate_mesh_data_dset(
 	}
 
 	// create descriptor set for object's mesh and material (not implemented yet) data
-	using buffer_mgr_t = GraphicsBufferManager<GraphicsEngineT>;
+	using buffer_mgr_t = GraphicsBufferManager;
 	VkDescriptorBufferInfo buffer_mapper_info{};
 	buffer_mapper_info.buffer = mapping_buffer;
 	buffer_mapper_info.offset = 0;

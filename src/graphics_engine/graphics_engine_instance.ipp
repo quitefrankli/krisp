@@ -7,9 +7,8 @@
 #include <GLFW/glfw3.h>
 
 
-template<typename GraphicsEngineT>
-GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 	VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
 	app_info.pApplicationName = APPLICATION_NAME.c_str();
@@ -22,12 +21,12 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	create_info.pApplicationInfo = &app_info;
 
-	const std::vector<const char*> required_layers = GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers();
+	const std::vector<const char*> required_layers = GraphicsEngineValidationLayer::get_layers();
 	create_info.enabledLayerCount = static_cast<uint32_t>(required_layers.size());
 	create_info.ppEnabledLayerNames = required_layers.data();
 
 	// validation layer stuff
-	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = GraphicsEngineValidationLayer<GraphicsEngineT>::get_messenger_create_info();
+	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = GraphicsEngineValidationLayer::get_messenger_create_info();
 	create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 
 #ifndef NDEBUG
@@ -89,16 +88,14 @@ GraphicsEngineInstance<GraphicsEngineT>::GraphicsEngineInstance(GraphicsEngineT&
 	}
 }
 	
-template<typename GraphicsEngineT>
-GraphicsEngineInstance<GraphicsEngineT>::~GraphicsEngineInstance()
+GraphicsEngineInstance::~GraphicsEngineInstance()
 {
 	vkDestroySurfaceKHR(get_instance(), window_surface, nullptr);
 
 	vkDestroyInstance(instance, nullptr);
 }
 
-template<typename GraphicsEngineT>
-std::vector<std::string> GraphicsEngineInstance<GraphicsEngineT>::get_required_extensions() const
+std::vector<std::string> GraphicsEngineInstance::get_required_extensions() const
 {
 	uint32_t glfwExtensionCount;
 	const char** glfwExtensions;
@@ -114,7 +111,7 @@ std::vector<std::string> GraphicsEngineInstance<GraphicsEngineT>::get_required_e
 		required_extensions.push_back(glfwExtensions[i]);
 	}
 
-	if (GraphicsEngineValidationLayer<GraphicsEngineT>::is_enabled())
+	if (GraphicsEngineValidationLayer::is_enabled())
 	{
 		required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		required_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);

@@ -28,8 +28,7 @@ static std::vector<char> readFile(const std::string_view filename)
 	return buffer;
 }
 
-template<typename GraphicsEngineT>
-VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(const std::string_view filename) 
+VkShaderModule GraphicsEnginePipeline::create_shader_module(const std::string_view filename) 
 {
 	const auto code = readFile(filename);
 	VkShaderModuleCreateInfo create_info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
@@ -45,8 +44,7 @@ VkShaderModule GraphicsEnginePipeline<GraphicsEngineT>::create_shader_module(con
 	return shader_module;
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputBindingDescription> GraphicsEnginePipeline<GraphicsEngineT>::get_binding_descriptions() const
+std::vector<VkVertexInputBindingDescription> GraphicsEnginePipeline::get_binding_descriptions() const
 {
 	// describes at which rate to load data from memory thoughout the vertices
 	// it specifies the number of bytes between data entries and whether to 
@@ -63,8 +61,7 @@ std::vector<VkVertexInputBindingDescription> GraphicsEnginePipeline<GraphicsEngi
 	return { binding_description };
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkVertexInputAttributeDescription> GraphicsEnginePipeline<GraphicsEngineT>::get_attribute_descriptions() const
+std::vector<VkVertexInputAttributeDescription> GraphicsEnginePipeline::get_attribute_descriptions() const
 {
 	// how to handle the vertex input
 	VkVertexInputAttributeDescription position_attr, normal_attr;
@@ -81,33 +78,28 @@ std::vector<VkVertexInputAttributeDescription> GraphicsEnginePipeline<GraphicsEn
 	return {position_attr, normal_attr};
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D GraphicsEnginePipeline<GraphicsEngineT>::get_extent()
+VkExtent2D GraphicsEnginePipeline::get_extent()
 {
 	return this->get_graphics_engine().get_extent();
 }
 
-template<typename GraphicsEngineT>
-VkSampleCountFlagBits GraphicsEnginePipeline<GraphicsEngineT>::get_msaa_sample_count()
+VkSampleCountFlagBits GraphicsEnginePipeline::get_msaa_sample_count()
 {
 	return this->get_graphics_engine().get_msaa_samples();
 }
 
-template<typename GraphicsEngineT>
-VkRenderPass GraphicsEnginePipeline<GraphicsEngineT>::get_render_pass()
+VkRenderPass GraphicsEnginePipeline::get_render_pass()
 {
 	return this->get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::RASTERIZATION).get_render_pass();
 }
 
-template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>::GraphicsEnginePipeline(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 }
 
-template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>::~GraphicsEnginePipeline()
+GraphicsEnginePipeline::~GraphicsEnginePipeline()
 {
 	if (graphics_pipeline != VK_NULL_HANDLE)
 	{
@@ -119,8 +111,7 @@ GraphicsEnginePipeline<GraphicsEngineT>::~GraphicsEnginePipeline()
 	}
 }
 
-template<typename GraphicsEngineT>
-VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline<GraphicsEngineT>::get_depth_stencil_create_info() const
+VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo depth_stencil_info{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 	depth_stencil_info.depthTestEnable = VK_TRUE; // whether or not new fragments should be compared to depth buffer for incineration
@@ -142,14 +133,12 @@ VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline<GraphicsEngineT>::g
 	return depth_stencil_info;
 }
 
-template<typename GraphicsEngineT>
-std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline<GraphicsEngineT>::get_expected_dset_layouts()
+std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline::get_expected_dset_layouts()
 {
 	return get_rsrc_mgr().get_rasterization_descriptor_set_layouts();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEnginePipeline<GraphicsEngineT>::initialise()
+void GraphicsEnginePipeline::initialise()
 {
 	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
 	VkPolygonMode polygon_mode = get_polygon_mode();

@@ -4,22 +4,20 @@
 #include "vulkan_wrappers.hpp"
 
 #include <vulkan/vulkan.hpp>
+#include <glm/mat4x4.hpp>
 
 
 VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix);
 
-template<typename GraphicsEngineT>
 class GraphicsEngineSwapChain;
 
-template<typename GraphicsEngineT>
 class GraphicsEngineObject;
 
 // Note that frame refers to swap_chain frame and not actual frames
-template<typename GraphicsEngineT>
-class GraphicsEngineRayTracing : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEngineRayTracing : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineRayTracing(GraphicsEngineT& engine);
+	GraphicsEngineRayTracing(GraphicsEngine& engine);
 	GraphicsEngineRayTracing(const GraphicsEngineRayTracing&) = delete;
 	~GraphicsEngineRayTracing();
 
@@ -40,7 +38,6 @@ public:
 	};
 
 	// TODO: make this RAII
-	// void cleanup_acceleration_structure(AccelerationStructure& as);
 
 	struct BuildAccelerationStructure
 	{
@@ -68,7 +65,7 @@ public:
 	VkStridedDeviceAddressRegionKHR callable_sbt_region{};
 
 private:
-	BlasInput object_to_blas(const GraphicsEngineObject<GraphicsEngineT>& object, VkBuildAccelerationStructureFlagsKHR flags);
+	BlasInput object_to_blas(const GraphicsEngineObject& object, VkBuildAccelerationStructureFlagsKHR flags);
 	// blas = bottom level acceleration struction
 	// tlas = top level acceleration structure
 	void update_blas();
@@ -124,14 +121,4 @@ private:
 	std::vector<AccelerationStructure> bottom_as;
 	AccelerationStructure top_as;
 	std::vector<VkAccelerationStructureInstanceKHR> tlas_instances;
-
-private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_physical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_instance;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_num_swapchain_frames;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::should_destroy;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 };

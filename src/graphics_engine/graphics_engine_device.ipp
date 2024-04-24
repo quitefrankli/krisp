@@ -12,24 +12,21 @@
 #include "graphics_engine_device.hpp"
 
 
-template<typename GraphicsEngineT>
-GraphicsEngineDevice<GraphicsEngineT>::GraphicsEngineDevice(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineDevice::GraphicsEngineDevice(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 	pick_physical_device();
 	print_physical_device_settings();
 	create_logical_device();
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineDevice<GraphicsEngineT>::~GraphicsEngineDevice()
+GraphicsEngineDevice::~GraphicsEngineDevice()
 {
 	vkDestroyDevice(get_logical_device(), nullptr);
 	// note that physical device does not need to be destroyed
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
+void GraphicsEngineDevice::pick_physical_device()
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(get_instance(), &deviceCount, nullptr);
@@ -60,7 +57,7 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 			return false;
 		}
 
-		SwapChainSupportDetails swap_chain_support = GraphicsEngineSwapChain<GraphicsEngineT>::query_swap_chain_support(device, get_graphics_engine().get_window_surface());
+		SwapChainSupportDetails swap_chain_support = GraphicsEngineSwapChain::query_swap_chain_support(device, get_graphics_engine().get_window_surface());
 		if (swap_chain_support.formats.empty() || swap_chain_support.presentModes.empty())
 		{
 			return false;
@@ -87,8 +84,7 @@ void GraphicsEngineDevice<GraphicsEngineT>::pick_physical_device()
 	}
 }
 
-template<typename GraphicsEngineT>
-bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhysicalDevice device)
+bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice device)
 {
 	const auto available_extensions = [&]()
 	{
@@ -126,8 +122,7 @@ bool GraphicsEngineDevice<GraphicsEngineT>::check_device_extension_support(VkPhy
 	return required_extensions_set.empty();
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
+void GraphicsEngineDevice::create_logical_device()
 {
 	QueueFamilyIndices indices = get_graphics_engine().findQueueFamilies(physicalDevice);
 
@@ -166,8 +161,7 @@ void GraphicsEngineDevice<GraphicsEngineT>::create_logical_device()
 	vkGetDeviceQueue(logical_device, indices.graphicsFamily.value(), 0, &get_graphics_engine().get_graphics_queue());
 }
 
-template<typename GraphicsEngineT>
-void GraphicsEngineDevice<GraphicsEngineT>::print_physical_device_settings()
+void GraphicsEngineDevice::print_physical_device_settings()
 {
 	const auto& properties = get_physical_device_properties();
 
@@ -180,8 +174,7 @@ void GraphicsEngineDevice<GraphicsEngineT>::print_physical_device_settings()
 			 properties.properties.limits.minStorageBufferOffsetAlignment);
 }
 
-template<typename GraphicsEngineT>
-const VkPhysicalDeviceProperties2& GraphicsEngineDevice<GraphicsEngineT>::get_physical_device_properties()
+const VkPhysicalDeviceProperties2& GraphicsEngineDevice::get_physical_device_properties()
 {
 	if (!physical_device_properties)
 	{
@@ -194,16 +187,14 @@ const VkPhysicalDeviceProperties2& GraphicsEngineDevice<GraphicsEngineT>::get_ph
 	return physical_device_properties.value();
 }
 
-template<typename GraphicsEngineT>
-inline VkDeviceAddress GraphicsEngineDevice<GraphicsEngineT>::get_buffer_device_address(VkBuffer buffer)
+inline VkDeviceAddress GraphicsEngineDevice::get_buffer_device_address(VkBuffer buffer)
 {
 	VkBufferDeviceAddressInfo info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
 	info.buffer = buffer;
 	return vkGetBufferDeviceAddress(get_logical_device(), &info);
 }
 
-template<typename GraphicsEngineT>
-std::vector<const char*> GraphicsEngineDevice<GraphicsEngineT>::get_required_extensions()
+std::vector<const char*> GraphicsEngineDevice::get_required_extensions()
 {
 	std::vector<const char*> required_device_extensions;
 
@@ -225,10 +216,8 @@ std::vector<const char*> GraphicsEngineDevice<GraphicsEngineT>::get_required_ext
 	return required_device_extensions;
 }
 
-template<typename GraphicsEngineT>
-constexpr VkPhysicalDeviceFeatures2* GraphicsEngineDevice<GraphicsEngineT>::get_required_features()
+VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 {
-
 	static VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
 		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
 	acceleration_structure_features.accelerationStructure = true;
@@ -254,8 +243,7 @@ constexpr VkPhysicalDeviceFeatures2* GraphicsEngineDevice<GraphicsEngineT>::get_
 	return &device_features2;
 }
 
-template<typename GraphicsEngineT>
-VkSampleCountFlagBits GraphicsEngineDevice<GraphicsEngineT>::get_max_usable_msaa()
+VkSampleCountFlagBits GraphicsEngineDevice::get_max_usable_msaa()
 {
 	const auto& properties = get_physical_device_properties();
 

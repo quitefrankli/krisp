@@ -14,9 +14,8 @@
 #include <iostream>
 
 
-template<typename GraphicsEngineT>
-GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEnginePipelineManager::GraphicsEnginePipelineManager(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
 	// TODO: this doesn't accouht for raytracing layout, however for now we are just manually keeping the two in
@@ -33,14 +32,12 @@ GraphicsEnginePipelineManager<GraphicsEngineT>::GraphicsEnginePipelineManager(Gr
 	}
 }
 
-template<typename GraphicsEngineT>
-GraphicsEnginePipelineManager<GraphicsEngineT>::~GraphicsEnginePipelineManager()
+GraphicsEnginePipelineManager::~GraphicsEnginePipelineManager()
 {
 	vkDestroyPipelineLayout(get_logical_device(), generic_pipeline_layout, nullptr);
 }
 
-template<typename GraphicsEngineT>
-GraphicsEnginePipeline<GraphicsEngineT>* GraphicsEnginePipelineManager<GraphicsEngineT>::fetch_pipeline(PipelineID id)
+GraphicsEnginePipeline* GraphicsEnginePipelineManager::fetch_pipeline(PipelineID id)
 {
 	auto it = pipelines_by_id.find(id);
 	if (it == pipelines_by_id.end())
@@ -51,33 +48,32 @@ GraphicsEnginePipeline<GraphicsEngineT>* GraphicsEnginePipelineManager<GraphicsE
 	return it->second.get();
 }
 
-template<typename GraphicsEngineT>
-std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineManager<GraphicsEngineT>::create_pipeline(PipelineID id)
+std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pipeline(PipelineID id)
 {
 	std::unique_ptr<PipelineType> new_pipeline;
 
 	switch (id.primary_pipeline_type)
 	{
 	case EPipelineType::COLOR:
-		new_pipeline = create_pipeline<ColorPipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<ColorPipeline>(id);
 		break;
 	case EPipelineType::STANDARD:
-		new_pipeline = create_pipeline<TexturePipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<TexturePipeline>(id);
 		break;
 	case EPipelineType::CUBEMAP:
-		new_pipeline = create_pipeline<CubemapPipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<CubemapPipeline>(id);
 		break;
 	case EPipelineType::RAYTRACING:
-		new_pipeline = create_pipeline<RaytracingPipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<RaytracingPipeline>(id);
 		break;
 	case EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
-		new_pipeline = create_pipeline<LightWeightOffscreenPipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<LightWeightOffscreenPipeline>(id);
 		break;
 	case EPipelineType::SKINNED:
-		new_pipeline = create_pipeline<SkinnedPipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<SkinnedPipeline>(id);
 		break;
 	case EPipelineType::QUAD:
-		new_pipeline = create_pipeline<QuadPipeline<GraphicsEngineT>>(id);
+		new_pipeline = create_pipeline<QuadPipeline>(id);
 		break;
 	default:
 		throw std::runtime_error(
@@ -97,9 +93,8 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 	return new_pipeline;
 }
 
-template<typename GraphicsEngineT>
 template<typename PrimaryPipelineType>
-std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineManager<GraphicsEngineT>::create_pipeline(PipelineID id)
+std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pipeline(PipelineID id)
 {
 	switch (id.pipeline_modifier)
 	{
@@ -108,18 +103,18 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 	case EPipelineModifier::STENCIL:
 		if constexpr (Stencileable<PrimaryPipelineType>)
 		{
-			return std::make_unique<StencilPipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
+			return std::make_unique<StencilPipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	case EPipelineModifier::POST_STENCIL:
 		if constexpr (Stencileable<PrimaryPipelineType>)
 		{
-			if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline<GraphicsEngineT>>)
+			if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
 			{
-				return std::make_unique<PostStencilColorPipeline<GraphicsEngineT>>(get_graphics_engine());
-			} else if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline<GraphicsEngineT>>)
+				return std::make_unique<PostStencilColorPipeline>(get_graphics_engine());
+			} else if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
 			{
-				return std::make_unique<PostStencilTexturePipeline<GraphicsEngineT>>(get_graphics_engine());
+				return std::make_unique<PostStencilTexturePipeline>(get_graphics_engine());
 			} else {
 				throw std::runtime_error("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type for POST_STENCIL");
 			}
@@ -128,13 +123,13 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 	case EPipelineModifier::WIREFRAME:
 		if constexpr (Wireframeable<PrimaryPipelineType>)
 		{
-			return std::make_unique<WireframePipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
+			return std::make_unique<WireframePipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	case EPipelineModifier::SHADOW_MAP:
 		if constexpr (ShadowMappable<PrimaryPipelineType>)
 		{
-			return std::make_unique<ShadowMapPipeline<GraphicsEngineT, PrimaryPipelineType>>(get_graphics_engine());
+			return std::make_unique<ShadowMapPipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	default:
@@ -144,5 +139,5 @@ std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>> GraphicsEnginePipelineM
 	LOG_WARNING(Utility::get().get_logger(), "create_pipeline failed with invalid pipeline id: {} {}",
 		magic_enum::enum_name(id.primary_pipeline_type),
 		magic_enum::enum_name(id.pipeline_modifier));
-	return std::unique_ptr<GraphicsEnginePipeline<GraphicsEngineT>>{nullptr};
+	return std::unique_ptr<GraphicsEnginePipeline>{nullptr};
 }

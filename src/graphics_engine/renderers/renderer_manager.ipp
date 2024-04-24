@@ -1,20 +1,18 @@
 #include "renderer_manager.hpp"
 
 
-template<typename GraphicsEngineT>
-RendererManager<GraphicsEngineT>::RendererManager(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+RendererManager::RendererManager(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
-	renderers[ERendererType::RASTERIZATION] = std::make_unique<RasterizationRenderer<GraphicsEngineT>>(engine);
-	renderers[ERendererType::RAYTRACING] = std::make_unique<RaytracingRenderer<GraphicsEngineT>>(engine);
-	renderers[ERendererType::GUI] = std::make_unique<GuiRenderer<GraphicsEngineT>>(engine);
-	renderers[ERendererType::OFFSCREEN_GUI_VIEWPORT] = std::make_unique<OffscreenGuiViewportRenderer<GraphicsEngineT>>(engine);
-	renderers[ERendererType::SHADOW_MAP] = std::make_unique<ShadowMapRenderer<GraphicsEngineT>>(engine);
-	renderers[ERendererType::QUAD] = std::make_unique<QuadRenderer<GraphicsEngineT>>(engine);
+	renderers[ERendererType::RASTERIZATION] = std::make_unique<RasterizationRenderer>(engine);
+	renderers[ERendererType::RAYTRACING] = std::make_unique<RaytracingRenderer>(engine);
+	renderers[ERendererType::GUI] = std::make_unique<GuiRenderer>(engine);
+	renderers[ERendererType::OFFSCREEN_GUI_VIEWPORT] = std::make_unique<OffscreenGuiViewportRenderer>(engine);
+	renderers[ERendererType::SHADOW_MAP] = std::make_unique<ShadowMapRenderer>(engine);
+	renderers[ERendererType::QUAD] = std::make_unique<QuadRenderer>(engine);
 }
 
-template<typename GraphicsEngineT>
-void RendererManager<GraphicsEngineT>::linkup_renderers()
+void RendererManager::linkup_renderers()
 {
 	// link output of shadowmap renderer to input of rasterization renderer
 	auto& shadow_map_renderer = get_renderer(ERendererType::SHADOW_MAP);
@@ -23,19 +21,18 @@ void RendererManager<GraphicsEngineT>::linkup_renderers()
 	{
 		shadow_map_inputs.push_back(get_renderer(ERendererType::SHADOW_MAP).get_output_image_view(frame_idx));
 	}	
-	auto& rasterization_renderer = static_cast<RasterizationRenderer<GraphicsEngineT>&>(get_renderer(ERendererType::RASTERIZATION));
+	auto& rasterization_renderer = static_cast<RasterizationRenderer&>(get_renderer(ERendererType::RASTERIZATION));
 	rasterization_renderer.set_shadow_map_inputs(shadow_map_inputs);
 }
 
-template<typename GraphicsEngineT>
-void RendererManager<GraphicsEngineT>::pipe_output_to_quad_renderer(ERendererType src_renderer)
+void RendererManager::pipe_output_to_quad_renderer(ERendererType src_renderer)
 {
 	if (src_renderer == ERendererType::QUAD)
 	{
 		throw std::runtime_error("Cannot pipe output to quad renderer from quad renderer");
 	}
 
-	auto& quad_renderer = static_cast<QuadRenderer<GraphicsEngineT>&>(get_renderer(ERendererType::QUAD));
+	auto& quad_renderer = static_cast<QuadRenderer&>(get_renderer(ERendererType::QUAD));
 
 	if (src_renderer == ERendererType::NONE)
 	{

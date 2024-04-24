@@ -4,7 +4,6 @@
 #include <glm/ext/vector_uint3.hpp>
 
 
-template<typename GraphicsEngineT>
 class GraphicsEngineTextureManager;
 
 enum class ETextureSamplerType

@@ -30,10 +30,7 @@ GraphicsBuffer::GraphicsBuffer(GraphicsBuffer&& other) noexcept :
 
 GraphicsBuffer::~GraphicsBuffer()
 {
-	if (buffer || memory)
-	{
-		throw std::runtime_error("Buffer not destroyed!");
-	}
+	assert(!buffer && !memory);
 }
 
 void GraphicsBuffer::destroy(VkDevice device)

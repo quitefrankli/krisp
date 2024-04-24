@@ -11,11 +11,10 @@
 
 // Manages buffers associated with objects such as vertex buffer
 // Memory is virtualised so that the GPU sees a continuous memory space
-template<typename GraphicsEngineT>
-class GraphicsBufferManager : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsBufferManager : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsBufferManager(GraphicsEngineT& engine);
+	GraphicsBufferManager(GraphicsEngine& engine);
 	virtual ~GraphicsBufferManager() override;
 
 	void reserve_vertex_buffer(ObjectID id, size_t size) { reserve_buffer(vertex_buffer, id.get_underlying(), size); }
@@ -61,14 +60,14 @@ public:
 	GraphicsBuffer::Slot get_materials_buffer_slot(ShapeID id) const { return materials_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_bone_buffer_slot(EntityFrameID id) const { return bone_buffer.get_slot(id.get_underlying()); }
 
-	GraphicsBuffer create_buffer(
+	virtual GraphicsBuffer create_buffer(
 		size_t size, 
 		VkBufferUsageFlags usage_flags, 
 		VkMemoryPropertyFlags memory_flags,
-		uint32_t alignment = 1);
+		uint32_t alignment = 1) override;
 
 	// Deprecated dont use this
-	void create_buffer(
+	void create_buffer_deprecated(
 		size_t size,
 		VkBufferUsageFlags usage_flags,
 		VkMemoryPropertyFlags memory_flags,
@@ -143,9 +142,4 @@ private:
 	// maps object id to starting offset in the vertex, index and uniform buffers
 	// unlike the other buffers, entries in this buffer never gets removed
 	AppendOnlyGraphicsBuffer mapping_buffer;
-
-protected:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 };

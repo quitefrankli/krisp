@@ -4,15 +4,13 @@
 #include <ImGui/imgui_impl_vulkan.h>
 
 
-template<typename GraphicsEngineT>
-OffscreenGuiViewportRenderer<GraphicsEngineT>::OffscreenGuiViewportRenderer(GraphicsEngineT& engine) :
-	Renderer<GraphicsEngineT>(engine)
+OffscreenGuiViewportRenderer::OffscreenGuiViewportRenderer(GraphicsEngine& engine) :
+	Renderer(engine)
 {
 	create_render_pass();
 }
 
-template<typename GraphicsEngineT>
-OffscreenGuiViewportRenderer<GraphicsEngineT>::~OffscreenGuiViewportRenderer()
+OffscreenGuiViewportRenderer::~OffscreenGuiViewportRenderer()
 {
 	for (auto& color_attachment : color_attachments)
 		color_attachment.destroy(get_graphics_engine().get_logical_device());
@@ -20,8 +18,7 @@ OffscreenGuiViewportRenderer<GraphicsEngineT>::~OffscreenGuiViewportRenderer()
 		depth_attachment.destroy(get_graphics_engine().get_logical_device());
 }
 
-template<typename GraphicsEngineT>
-void OffscreenGuiViewportRenderer<GraphicsEngineT>::allocate_per_frame_resources(VkImage, VkImageView)
+void OffscreenGuiViewportRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
 	//
 	// Generate attachments
@@ -87,8 +84,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::allocate_per_frame_resources
 	this->frame_buffers.push_back(new_frame_buffer);
 }
 
-template<typename GraphicsEngineT>
-void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkCommandBuffer command_buffer,
+void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 																		 VkImageView,
 																		 uint32_t frame_index)
 {
@@ -125,8 +121,8 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 							nullptr);
 
 	const auto per_obj_draw_fn = [&](
-		const GraphicsEngineObject<GraphicsEngineT>& object, 
-		const GraphicsEnginePipeline<GraphicsEngineT>& pipeline)
+		const GraphicsEngineObject& object, 
+		const GraphicsEnginePipeline& pipeline)
 	{
 		// NOTE:A the vertex and index buffers contain the data for all the 'vertex_sets/shapes' concatenated together
 		
@@ -203,7 +199,7 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 			graphics_object.get_render_type() != EPipelineType::STANDARD)
 			continue;
 
-		GraphicsEnginePipeline<GraphicsEngineT>& pipeline = *get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
+		GraphicsEnginePipeline& pipeline = *get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
 			{ EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE, EPipelineModifier::NONE });
 		vkCmdBindPipeline(
 			command_buffer, 
@@ -216,11 +212,10 @@ void OffscreenGuiViewportRenderer<GraphicsEngineT>::submit_draw_commands(VkComma
 	vkCmdEndRenderPass(command_buffer);
 }
 
-template<typename GraphicsEngineT>
-VkExtent2D OffscreenGuiViewportRenderer<GraphicsEngineT>::get_extent()
+VkExtent2D OffscreenGuiViewportRenderer::get_extent()
 {
 	// remember to keep aspect ratio the same as default window
-	const VkExtent2D main_extent = Renderer<GraphicsEngineT>::get_extent();
+	const VkExtent2D main_extent = Renderer::get_extent();
 	return VkExtent2D
 	{ 
 		static_cast<uint32_t>(main_extent.width * 0.33f), 
@@ -228,8 +223,7 @@ VkExtent2D OffscreenGuiViewportRenderer<GraphicsEngineT>::get_extent()
 	};
 }
 
-template<typename GraphicsEngineT>
-void OffscreenGuiViewportRenderer<GraphicsEngineT>::create_render_pass()
+void OffscreenGuiViewportRenderer::create_render_pass()
 {
 	//
 	// Color Attachment

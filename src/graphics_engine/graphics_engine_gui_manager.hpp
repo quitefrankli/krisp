@@ -9,11 +9,10 @@
 #include <memory>
 
 
-template<typename GraphicsEngineT, typename GameEngineT>
-class GraphicsEngineGuiManager : public GraphicsEngineBaseModule<GraphicsEngineT>, public GuiManager<GameEngineT>
+class GraphicsEngineGuiManager : public GraphicsEngineBaseModule, public GuiManager
 {
 public:
-	GraphicsEngineGuiManager(GraphicsEngineT& engine);
+	GraphicsEngineGuiManager(GraphicsEngine& engine);
 	~GraphicsEngineGuiManager();
 
 	void add_render_cmd(VkCommandBuffer& cmd_buffer);
@@ -30,15 +29,11 @@ public:
 	
 	void compose_texture_for_gui_window(const std::string_view texture_path, GuiPhotoBase& gui_photo);
 
-	const GuiGraphicsSettings<GameEngineT>& get_graphic_settings() const { return this->graphic_settings; }
+	const GuiGraphicsSettings& get_graphic_settings() const { return this->graphic_settings; }
 
 private:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::create_buffer;
-	using GuiManager<GameEngineT>::gui_windows;
-	using GuiManager<GameEngineT>::graphic_settings;
-	using GuiManager<GameEngineT>::object_spawner;
-	using GuiManager<GameEngineT>::fps_counter;
+	using GuiManager::gui_windows;
+	using GuiManager::graphic_settings;
+	using GuiManager::object_spawner;
+	using GuiManager::fps_counter;
 };

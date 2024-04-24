@@ -152,7 +152,7 @@ void App::Window::open(int x0, int y0)
 
 	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
 	glfwSetWindowPos(window, x0 == -1 ? (monitor->width - INITIAL_WINDOW_WIDTH)/2 : x0, y0 == -1 ? 50 : y0);
-	// glfwSetFramebufferSizeCallback(window, GameEngineT::handle_window_resize_callback);
+	// glfwSetFramebufferSizeCallback(window, GameEngine::handle_window_resize_callback);
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
 }
 

@@ -9,11 +9,9 @@
 #include <string_view>
 
 
-template<typename GraphicsEngineT>
 class GraphicsEnginePipelineManager;
 
-template<typename GraphicsEngineT>
-class GraphicsEnginePipeline : public GraphicsEngineBaseModule<GraphicsEngineT>
+class GraphicsEnginePipeline : public GraphicsEngineBaseModule
 {
 public:
 	~GraphicsEnginePipeline();
@@ -22,7 +20,7 @@ public:
 	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
 
 protected:
-	GraphicsEnginePipeline(GraphicsEngineT& engine);
+	GraphicsEnginePipeline(GraphicsEngine& engine);
 	virtual void initialise(); // should be called after construction
 	
 	virtual std::string_view get_shader_name() const = 0;
@@ -46,10 +44,7 @@ protected:
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const {}
 
 protected:
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_graphics_engine;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_logical_device;
-	using GraphicsEngineBaseModule<GraphicsEngineT>::get_rsrc_mgr;
 
 private:
-	friend GraphicsEnginePipelineManager<GraphicsEngineT>;
+	friend GraphicsEnginePipelineManager;
 };

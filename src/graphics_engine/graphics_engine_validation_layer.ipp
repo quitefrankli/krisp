@@ -13,14 +13,12 @@
 
 static uint32_t filtered_errors_count = 0;
 
-template<typename GraphicsEngineT>
-const std::vector<const char*> GraphicsEngineValidationLayer<GraphicsEngineT>::REQUIRED_VALIDATION_LAYERS = {
+const std::vector<const char*> GraphicsEngineValidationLayer::REQUIRED_VALIDATION_LAYERS = {
 	"VK_LAYER_KHRONOS_validation"
 };
 
-template<typename GraphicsEngineT>
-GraphicsEngineValidationLayer<GraphicsEngineT>::GraphicsEngineValidationLayer(GraphicsEngineT& engine) :
-	GraphicsEngineBaseModule<GraphicsEngineT>(engine)
+GraphicsEngineValidationLayer::GraphicsEngineValidationLayer(GraphicsEngine& engine) :
+	GraphicsEngineBaseModule(engine)
 {
 	if (!is_enabled())
 	{
@@ -39,8 +37,7 @@ GraphicsEngineValidationLayer<GraphicsEngineT>::GraphicsEngineValidationLayer(Gr
 	}
 }
 
-template<typename GraphicsEngineT>
-GraphicsEngineValidationLayer<GraphicsEngineT>::~GraphicsEngineValidationLayer()
+GraphicsEngineValidationLayer::~GraphicsEngineValidationLayer()
 {
 	// loads up function from dynamic library
 	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(get_instance(), "vkDestroyDebugUtilsMessengerEXT");
@@ -55,8 +52,7 @@ GraphicsEngineValidationLayer<GraphicsEngineT>::~GraphicsEngineValidationLayer()
 	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: num validation errors omitted:={}", filtered_errors_count);
 }
 
-template<typename GraphicsEngineT>
-std::vector<const char*> GraphicsEngineValidationLayer<GraphicsEngineT>::get_layers()
+std::vector<const char*> GraphicsEngineValidationLayer::get_layers()
 {
 	if (!is_enabled())
 	{
@@ -70,8 +66,7 @@ std::vector<const char*> GraphicsEngineValidationLayer<GraphicsEngineT>::get_lay
 	return REQUIRED_VALIDATION_LAYERS;
 }
 
-template<typename GraphicsEngineT>
-bool GraphicsEngineValidationLayer<GraphicsEngineT>::check_validation_layer_support(bool print_support)
+bool GraphicsEngineValidationLayer::check_validation_layer_support(bool print_support)
 {
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -135,8 +130,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	return VK_FALSE;
 }
 
-template<typename GraphicsEngineT>
-VkDebugUtilsMessengerCreateInfoEXT GraphicsEngineValidationLayer<GraphicsEngineT>::get_messenger_create_info()
+VkDebugUtilsMessengerCreateInfoEXT GraphicsEngineValidationLayer::get_messenger_create_info()
 {
 	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
 

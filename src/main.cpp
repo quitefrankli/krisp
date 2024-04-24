@@ -42,8 +42,8 @@ int main(int argc, char* argv[])
 		window.open(Config::get_window_pos().first, Config::get_window_pos().second);
 		// seems like glfw window must be on main thread otherwise it wont work, 
 		// therefore engine should always be on its own thread
-		GameEngine<GraphicsEngine> engine([&restart_signal](){restart_signal=true;}, window);
-		auto floor_shape =ShapeFactory::cube();
+		GameEngine engine([&restart_signal](){restart_signal=true;}, window);
+		auto floor_shape = ShapeFactory::cube();
 		Material floor_material{};
 		floor_material.material_data.shininess = 1.0f;
 		floor_shape->set_material(floor_material);
