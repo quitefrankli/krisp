@@ -37,7 +37,7 @@ GraphicsEngine<GameEngineT>::GraphicsEngine(GameEngineT& game_engine) :
 {
 	FPS_tracker = std::make_unique<Analytics>(
 		[this](float fps) {
-			set_fps(fps = 1e6 / fps);
+			set_fps(fps = float(1e6) / fps);
 		}, 1);
 	FPS_tracker->text = "FPS Tracker";
 }

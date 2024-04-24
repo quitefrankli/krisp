@@ -3,6 +3,8 @@
 #include "maths.hpp"
 #include "identifications.hpp"
 
+#include <unordered_map>
+
 
 class AnimationSystem;
 class ECS;

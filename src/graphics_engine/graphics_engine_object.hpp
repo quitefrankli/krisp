@@ -19,10 +19,7 @@ public:
 
 	~GraphicsMesh()
 	{
-		if (dset != VK_NULL_HANDLE)
-		{
-			throw std::runtime_error("GraphicsMesh: warning dset may not have been properly cleared");
-		}
+		assert(dset == VK_NULL_HANDLE);
 	}
 
 	// const GraphicsMaterial& get_material() const { return material; }

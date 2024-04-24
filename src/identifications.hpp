@@ -10,6 +10,7 @@ template<typename Tag>
 struct GenericID
 {
 public:
+	explicit GenericID() : id(0) {}
 	explicit GenericID(uint64_t id) : id(id) {}
 
     auto operator<=>(const GenericID& rhs) const = default;
@@ -18,8 +19,14 @@ public:
 
 	uint64_t get_underlying() const { return id; }
 
+	static uint64_t generate_new_id()
+	{
+		return global_id++;
+	}
+
 private:
 	uint64_t id;
+	static inline uint64_t global_id = 0;
 };
 
 template<typename Tag>

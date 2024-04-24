@@ -26,7 +26,7 @@ public:
 		return dynamic_cast<DerivedT&>(*this);
 	}
 
-	Shape() : id(global_id++) {}
+	Shape() : id(decltype(id)::generate_new_id()) {}
 	virtual ~Shape() = default;
 
 	std::vector<uint32_t>& get_indices() { return indices; }
@@ -73,7 +73,6 @@ protected:
 	
 private:
 	const ShapeID id;
-	static ShapeID global_id;
 };
 
 using ShapePtr = std::unique_ptr<Shape>;

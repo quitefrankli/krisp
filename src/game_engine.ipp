@@ -57,7 +57,7 @@ GameEngine<GraphicsEngineTemplate>::GameEngine(std::function<void()>&& restart_s
 
 	get_gui_manager().template spawn_gui<GuiMusic<GameEngine>>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
-		set_tps(1e6 / tps);
+		set_tps(float(1e6) / tps);
 	}, 1);
 	TPS_counter->text = "TPS Counter";
 }

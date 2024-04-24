@@ -51,7 +51,6 @@ public: // getters and setters
 	VkExtent2D get_extent();
 	App::Window& get_window();
 	Camera* get_camera();
-	void insert_object(Object* object);
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject<GraphicsEngine>>>& get_objects() 
 	{ 
 		return objects; 
@@ -183,5 +182,4 @@ public: // commands
 private:
 	void spawn_object_create_buffers(GraphicsEngineObject<GraphicsEngine>& obj);
 	void spawn_object_create_dsets(GraphicsEngineObject<GraphicsEngine>& obj);
-	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions();
 };

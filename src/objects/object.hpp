@@ -34,8 +34,7 @@ public: // getters and setters
 
 private:
 	std::string name;
-	static ObjectID global_id;
-	ObjectID id;
+	const ObjectID id;
 };
 
 class Object : public ObjectAbstract

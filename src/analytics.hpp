@@ -12,7 +12,7 @@ public:
 	// period in seconds for logging to occur
 	Analytics(const int period = 5);
 
-	Analytics(std::function<void(double)>&& on_log, const int period = 5);
+	Analytics(std::function<void(float)>&& on_log, const int period = 5);
 
 	//
 	// Start and Stop

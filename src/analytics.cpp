@@ -12,7 +12,7 @@ Analytics::Analytics(const int period) : LOG_PERIOD(period)
 {
 }
 
-Analytics::Analytics(std::function<void(double)>&& on_log, const int period) :
+Analytics::Analytics(std::function<void(float)>&& on_log, const int period) :
 	on_log_period(std::move(on_log)), LOG_PERIOD(period)
 {
 }

@@ -24,7 +24,7 @@ const Collider* ColliderSystem::get_collider(EntityID id) const
 		return nullptr;
 	}
 
-	Collider* collider =  it->second.collider.get();
+	Collider* collider = it->second.collider.get();
 	collider->set_temporary_transform(get_ecs().get_object(id).get_maths_transform());
 
 	return collider;

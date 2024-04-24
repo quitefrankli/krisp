@@ -6,8 +6,6 @@
 #include <algorithm>
 
 
-ShapeID Shape::global_id = ShapeID(0);
-
 // // this doesn't actually seem to work :/
 // void Shape::deduplicate_vertices()
 // {

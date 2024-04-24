@@ -40,7 +40,7 @@ public:
 	};
 
 	// TODO: make this RAII
-	void cleanup_acceleration_structure(AccelerationStructure& as);
+	// void cleanup_acceleration_structure(AccelerationStructure& as);
 
 	struct BuildAccelerationStructure
 	{

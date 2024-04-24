@@ -11,9 +11,7 @@
 #include <limits>
 
 
-ObjectID ObjectAbstract::global_id = ObjectID(0);
-
-ObjectAbstract::ObjectAbstract() : id(global_id++)
+ObjectAbstract::ObjectAbstract() : id(decltype(id)::generate_new_id())
 {
 }
 

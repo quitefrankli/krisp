@@ -39,7 +39,7 @@ GraphicsEngineTexture::~GraphicsEngineTexture()
 	if (texture_image_view || texture_image || texture_image_memory)
 	{
 		LOG_ERROR(Utility::get().get_logger(), "GraphicsEngineTexture: texture was not destroyed!");
-		throw std::runtime_error("GraphicsEngineTexture: texture was not destroyed!");
+		assert(false);
 	}
 }
 

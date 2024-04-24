@@ -129,7 +129,6 @@ private:
 	EntityDeletionQueue entity_deletion_queue;	
 
 private:
-	void create_camera();
 	void shutdown_impl();
 	void process_objs_to_delete();
 	const std::function<void()> restart_signaller;
