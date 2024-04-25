@@ -37,7 +37,7 @@ class GraphicsEngine : public GraphicsEngineBase
 public:
 	GraphicsEngine() = delete;
 	GraphicsEngine(GameEngine& game_engine);
-	~GraphicsEngine();
+	virtual ~GraphicsEngine() override;
 
 	void run() final;
 	void shutdown() { should_shutdown = true; }

@@ -1,0 +1,44 @@
+#include "test_helper.hpp"
+
+#include <renderable/mesh_factory.hpp>
+#include <entity_component_system/mesh_system.hpp>
+
+#include <gtest/gtest.h>
+
+
+TEST(MeshFactory, circle)
+{
+	auto circle = MeshFactory::circle(MeshFactory::EVertexType::COLOR, 8);
+	ASSERT_EQ(circle->get_num_unique_vertices(), 8+1); // 1 is center
+	ASSERT_EQ(circle->get_num_vertex_indices(), 24);
+}
+
+TEST(MeshFactory, cube)
+{
+	auto cube = MeshFactory::cube();
+	ASSERT_EQ(cube->get_num_unique_vertices(), 28); // TODO: this should be 24 and even better 8
+	ASSERT_EQ(cube->get_num_vertex_indices(), 42);
+}
+
+TEST(MeshFactory, check_no_duplicate_generation)
+{
+	const auto cube1_id = MeshFactory::cube_id();
+	const auto cube2_id = MeshFactory::cube_id();
+
+	ASSERT_EQ(cube1_id, cube2_id);
+
+	const auto* cube1 = &MeshSystem::get(cube1_id);
+	const auto* cube2 = &MeshSystem::get(cube2_id);
+
+	ASSERT_EQ(cube1, cube2);
+}
+
+TEST(MeshFactory, check_different_id_when_different_params)
+{
+	const auto arrow1_id = MeshFactory::arrow_id(0.05, 8);
+	const auto arrow2_id = MeshFactory::arrow_id(0.05, 16);
+	const auto arrow3_id = MeshFactory::arrow_id(0.05, 16);
+
+	ASSERT_NE(arrow1_id, arrow2_id);
+	ASSERT_EQ(arrow2_id, arrow3_id);
+}

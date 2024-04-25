@@ -11,6 +11,8 @@ public:
     {
     }
 
+	virtual ~MockGraphicsEngine() override = default;
+
     template<class T = int> 
 	constexpr T get_window_width() const { return T(1980); }
 	template<class T = int>
