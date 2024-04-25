@@ -5,6 +5,7 @@
 #include <glm/vec3.hpp>
 
 #include <unordered_map>
+#include <stdexcept>
 
 
 using EntityID = ObjectID;;
@@ -35,12 +36,12 @@ public:
 		return get_global()._get_num_owners(id);
 	}
 
-	static void increment_owners(IDType id)
+	static void register_owner(IDType id)
 	{
 		get_global()._increment_owners(id);
 	}
 
-	static void decrement_owners(IDType id)
+	static void unregister_owner(IDType id)
 	{
 		get_global()._decrement_owners(id);
 	}
@@ -76,8 +77,11 @@ private:
 	void _decrement_owners(IDType id)
 	{
 		assert(owners.find(id) != owners.end());
-		owners[id]--;
-		if (owners[id] == 0)
+		const auto count = owners[id]--;
+		if (count < 0)
+		{
+			throw std::runtime_error("CountableSystem::_decrement_owners: count < 0");
+		} else if (owners[id] == 0)
 		{
 			contents.erase(id);
 			owners.erase(id);

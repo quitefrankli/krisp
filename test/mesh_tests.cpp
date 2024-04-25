@@ -42,3 +42,21 @@ TEST(MeshFactory, check_different_id_when_different_params)
 	ASSERT_NE(arrow1_id, arrow2_id);
 	ASSERT_EQ(arrow2_id, arrow3_id);
 }
+
+TEST(MeshSystem, check_num_owners)
+{
+	const auto id1 = MeshSystem::add(MeshFactory::circle());
+	ASSERT_EQ(MeshSystem::get_num_owners(id1), 0);
+	MeshSystem::register_owner(id1);
+	ASSERT_EQ(MeshSystem::get_num_owners(id1), 1);
+
+	const auto id2 = MeshSystem::add(MeshFactory::circle());
+	MeshSystem::register_owner(id2);
+	ASSERT_EQ(MeshSystem::get_num_owners(id1), 1);
+	ASSERT_EQ(MeshSystem::get_num_owners(id2), 1);
+
+	MeshSystem::unregister_owner(id1);
+	MeshSystem::register_owner(id2);
+	ASSERT_EQ(MeshSystem::get_num_owners(id1), 0);
+	ASSERT_EQ(MeshSystem::get_num_owners(id2), 2);
+}
