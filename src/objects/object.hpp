@@ -5,6 +5,7 @@
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
 #include "identifications.hpp"
+#include "renderable/renderable.hpp"
 #include <glm/gtc/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -77,6 +78,8 @@ public:
 
 	const std::string& get_name() const { return name; }
 	void set_name(const std::string_view name) { this->name = name; }
+
+	std::vector<Renderable> renderables;
 
 public:
 	// world

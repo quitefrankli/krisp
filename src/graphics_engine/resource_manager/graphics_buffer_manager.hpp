@@ -9,6 +9,8 @@
 #include "graphics_engine/graphics_materials.hpp"
 
 
+class Mesh;
+
 // Manages buffers associated with objects such as vertex buffer
 // Memory is virtualised so that the GPU sees a continuous memory space
 class GraphicsBufferManager : public GraphicsEngineBaseModule
@@ -19,6 +21,8 @@ public:
 
 	void reserve_vertex_buffer(ObjectID id, size_t size) { reserve_buffer(vertex_buffer, id.get_underlying(), size); }
 	void reserve_index_buffer(ObjectID id, size_t size) { reserve_buffer(index_buffer, id.get_underlying(), size); }
+	void reserve_vertex_buffer(MeshID id, size_t size) { reserve_buffer(vertex_buffer, 300+id.get_underlying(), size); }
+	void reserve_index_buffer(MeshID id, size_t size) { reserve_buffer(index_buffer, 300+id.get_underlying(), size); }
 	void reserve_uniform_buffer(EntityFrameID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
 	void reserve_materials_buffer(ShapeID id, size_t size) { reserve_buffer(materials_buffer, id.get_underlying(), size); }
 	void reserve_bone_buffer(EntityFrameID id, size_t size) { reserve_buffer(bone_buffer, id.get_underlying(), size); }
@@ -31,6 +35,8 @@ public:
 
 	size_t get_vertex_buffer_offset(ObjectID id) const { return vertex_buffer.get_offset(id.get_underlying()); }
 	size_t get_index_buffer_offset(ObjectID id) const { return index_buffer.get_offset(id.get_underlying()); }
+	size_t get_vertex_buffer_offset(MeshID id) const { return vertex_buffer.get_offset(300+id.get_underlying()); }
+	size_t get_index_buffer_offset(MeshID id) const { return index_buffer.get_offset(300+id.get_underlying()); }
 	size_t get_uniform_buffer_offset(EntityFrameID id) const { return uniform_buffer.get_offset(id.get_underlying()); }
 	size_t get_materials_buffer_offset(ShapeID id) const { return materials_buffer.get_offset(id.get_underlying()); }
 	size_t get_bone_buffer_offset(EntityFrameID id) const { return bone_buffer.get_offset(id.get_underlying()); }
@@ -53,9 +59,12 @@ public:
 	void write_to_materials_buffer(ShapeID id, const SDS::MaterialData& material);
 	void write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry);
 	void write_to_bone_buffer(EntityFrameID id, const std::vector<SDS::Bone>& bones);
+	void write_to_buffer(MeshID id, const Mesh& mesh);
 
 	GraphicsBuffer::Slot get_vertex_buffer_slot(ObjectID id) const { return vertex_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_index_buffer_slot(ObjectID id) const { return index_buffer.get_slot(id.get_underlying()); }
+	GraphicsBuffer::Slot get_vertex_buffer_slot(MeshID id) const { return vertex_buffer.get_slot(300+id.get_underlying()); }
+	GraphicsBuffer::Slot get_index_buffer_slot(MeshID id) const { return index_buffer.get_slot(300+id.get_underlying()); }
 	GraphicsBuffer::Slot get_uniform_buffer_slot(EntityFrameID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_materials_buffer_slot(ShapeID id) const { return materials_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_bone_buffer_slot(EntityFrameID id) const { return bone_buffer.get_slot(id.get_underlying()); }

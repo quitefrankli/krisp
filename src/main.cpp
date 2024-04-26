@@ -4,6 +4,7 @@
 #include "config.hpp"
 #include "utility.hpp"
 #include "shapes/shape_factory.hpp"
+#include "renderable/mesh_factory.hpp"
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -50,7 +51,14 @@ int main(int argc, char* argv[])
 		auto& floor = engine.spawn_object<Object>(std::move(floor_shape));
 		floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 		floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
-		auto& floating_obj1 = engine.spawn_object<Object>(ShapeFactory::cube());
+
+		const auto cube_id = MeshFactory::cube_id();
+		Renderable renderable;
+		renderable.mesh = cube_id;
+		auto floating_obj_ptr = std::make_shared<Object>(ShapeFactory::cube());
+		floating_obj_ptr->renderables.push_back(renderable);
+		auto& floating_obj1 = engine.spawn_object(std::move(floating_obj_ptr));
+
 		floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
 		floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 		engine.get_ecs().add_clickable_entity(floating_obj1.get_id());

@@ -1,4 +1,5 @@
 #include "graphics_buffer_manager.hpp"
+#include "renderable/mesh.hpp"
 
 #include <numeric>
 
@@ -116,6 +117,34 @@ void GraphicsBufferManager::write_to_bone_buffer(EntityFrameID id, const std::ve
 	std::byte* mapped_memory = bone_buffer.map_slot(id.get_underlying(), get_logical_device());
 	std::memcpy(mapped_memory, bones.data(), bones.size() * sizeof(bones[0]));
 	bone_buffer.unmap_slot(get_logical_device());
+}
+
+void GraphicsBufferManager::write_to_buffer(MeshID id, const Mesh& mesh) 
+{
+	static std::unordered_set<MeshID> written_meshes;
+	if (written_meshes.emplace(id).second == false)
+	{
+		return;
+	}
+
+	reserve_vertex_buffer(id, mesh.get_vertices_data_size());
+	reserve_index_buffer(id, mesh.get_indices_data_size());
+
+	const uint64_t TEMPORARY_OFFSET = 300; // TODO: remove this
+	const auto vertex_slot = vertex_buffer.get_slot(TEMPORARY_OFFSET+id.get_underlying());
+	const auto index_slot = index_buffer.get_slot(TEMPORARY_OFFSET+id.get_underlying());
+
+	stage_data_to_buffer(vertex_buffer.get_buffer(), vertex_slot.offset, vertex_slot.size,
+	[&mesh](std::byte* destination)
+	{
+		std::memcpy(destination, mesh.get_vertices_data(), mesh.get_vertices_data_size());
+	});
+
+	stage_data_to_buffer(index_buffer.get_buffer(), index_slot.offset, index_slot.size,
+	[&mesh](std::byte* destination)
+	{
+		std::memcpy(destination, mesh.get_indices_data(), mesh.get_indices_data_size());
+	});
 }
 
 GraphicsBuffer GraphicsBufferManager::create_buffer(

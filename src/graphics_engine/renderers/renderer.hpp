@@ -18,6 +18,9 @@ enum class ERendererType
 	QUAD,
 };
 
+class GraphicsEngineObject;
+class GraphicsEnginePipeline;
+
 // A renderer is simply anything that submits draw commands and fills up a command buffer
 // Each renderer can only have ONE renderpass and each renderpass must be unique to the renderer
 class Renderer : public GraphicsEngineBaseModule
@@ -36,6 +39,11 @@ public:
 	virtual VkExtent2D get_extent();
 	
 	VkRenderPass get_render_pass() { return render_pass; }
+	
+	virtual void draw_object(VkCommandBuffer command_buffer,
+							 uint32_t frame_index,
+							 const GraphicsEngineObject& object, 
+							 const GraphicsEnginePipeline& pipeline);
 
 protected:
 	static constexpr uint32_t get_num_inflight_frames();

@@ -8,6 +8,7 @@
 #include "shared_data_structures.hpp"
 #include "analytics.hpp"
 #include "entity_component_system/ecs.hpp"
+#include "entity_component_system/mesh_system.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -486,16 +487,30 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
 	// per frame resource and therefore we only need 1 copy
 	const auto id = graphics_object.get_id();
-	get_rsrc_mgr().reserve_vertex_buffer(id, graphics_object.get_game_object().get_vertices_data_size());
-	get_rsrc_mgr().reserve_index_buffer(id, graphics_object.get_game_object().get_indices_data_size());
-	get_rsrc_mgr().write_shapes_to_buffers(id, graphics_object.get_shapes());
+	auto& rsrc_mgr = get_rsrc_mgr();
+
+	// TODO: fix this properly
+	auto& renderables = graphics_object.get_game_object().renderables;
+	if (renderables.empty())
+	{
+		rsrc_mgr.reserve_vertex_buffer(id, graphics_object.get_game_object().get_vertices_data_size());
+		rsrc_mgr.reserve_index_buffer(id, graphics_object.get_game_object().get_indices_data_size());
+		rsrc_mgr.write_shapes_to_buffers(id, graphics_object.get_shapes());
+	} else 
+	{
+		for (const auto& renderable : renderables)
+		{
+			const auto& mesh = MeshSystem::get(renderable.mesh);
+			rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
+		}
+	}
 
 	for (const auto& shape : graphics_object.get_shapes())
 	{
 		// upload materials
 		const SDS::MaterialData& material = shape.get_material().get_data();
-		get_rsrc_mgr().reserve_materials_buffer(shape.get_id(), sizeof(material));
-		get_rsrc_mgr().write_to_materials_buffer(shape.get_id(), material);
+		rsrc_mgr.reserve_materials_buffer(shape.get_id(), sizeof(material));
+		rsrc_mgr.write_to_materials_buffer(shape.get_id(), material);
 	}
 
 	// these buffers are dynamic (changing between frames) and therefore requires duplicate buffers per swapchain image
@@ -503,25 +518,26 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	for (uint32_t frame_idx = 0; frame_idx < nFrames; ++frame_idx)
 	{
 		// allocate space for object uniform buffer
-		get_rsrc_mgr().reserve_uniform_buffer(EntityFrameID{id, frame_idx}, sizeof(SDS::ObjectData));
+		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{id, frame_idx}, sizeof(SDS::ObjectData));
 
 		// allocate space for bone matrices if needed
 		if (graphics_object.get_render_type() == EPipelineType::SKINNED)
 		{
 			const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
-			get_rsrc_mgr().reserve_bone_buffer(EntityFrameID{id, frame_idx}, bone_data_size);
+			rsrc_mgr.reserve_bone_buffer(EntityFrameID{id, frame_idx}, bone_data_size);
 		}
 	}
 
-	SDS::BufferMapEntry buffer_map;
-	buffer_map.vertex_offset = get_rsrc_mgr().get_vertex_buffer_offset(id);
-	buffer_map.index_offset = get_rsrc_mgr().get_index_buffer_offset(id);
-	// this is currently hardcoded to always use the first frame's uniform buffer
-	// since the buffer map is only used for raytracing it's ignored for now
-	// TODO: fix this
-	buffer_map.uniform_offset = get_rsrc_mgr().get_uniform_buffer_offset(EntityFrameID{id, 0});
+	// TODO: needs to be fixed for raytracing
+	// SDS::BufferMapEntry buffer_map;
+	// buffer_map.vertex_offset = rsrc_mgr.get_vertex_buffer_offset(id);
+	// buffer_map.index_offset = rsrc_mgr.get_index_buffer_offset(id);
+	// // this is currently hardcoded to always use the first frame's uniform buffer
+	// // since the buffer map is only used for raytracing it's ignored for now
+	// // TODO: fix this
+	// buffer_map.uniform_offset = rsrc_mgr.get_uniform_buffer_offset(EntityFrameID{id, 0});
 
-	get_rsrc_mgr().write_to_mapping_buffer(id, buffer_map);
+	// rsrc_mgr.write_to_mapping_buffer(id, buffer_map);
 }
 
 void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
