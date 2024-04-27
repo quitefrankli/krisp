@@ -62,44 +62,6 @@ void GraphicsBufferManager::write_to_global_uniform_buffer(uint32_t id, const SD
 	global_uniform_buffer.unmap_slot(get_logical_device());
 }
 
-void GraphicsBufferManager::write_shapes_to_buffers(ObjectID id, const std::vector<GraphicsMesh>& shapes)
-{
-	// assume that the size of the data in shapes is equal to the size of the buffer slot
-	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
-	const auto index_slot = index_buffer.get_slot(id.get_underlying());
- 
-	stage_data_to_buffer(vertex_buffer.get_buffer(), vertex_slot.offset, vertex_slot.size,
-	[&shapes](std::byte* destination)
-	{
-		for (auto& shape : shapes)
-		{
-			std::memcpy(destination, shape.get_vertices_data(), shape.get_vertices_data_size());
-			destination += shape.get_vertices_data_size();
-		}
-	});
-
-	stage_data_to_buffer(index_buffer.get_buffer(), index_slot.offset, index_slot.size,
-	[&shapes](std::byte* destination)
-	{
-		for (auto& shape : shapes)
-		{
-			std::memcpy(destination, shape.get_indices_data(), shape.get_indices_data_size());
-			destination += shape.get_indices_data_size();
-		}
-	});
-}
-
-void GraphicsBufferManager::write_to_materials_buffer(ShapeID id, const SDS::MaterialData& material)
-{
-	// TODO: lots of objects will share the same material, need to come up with way to hash materials and only write unique ones
-	const auto slot = materials_buffer.get_slot(id.get_underlying());
-	stage_data_to_buffer(materials_buffer.get_buffer(), slot.offset, slot.size,
-	[&material](std::byte* destination)
-	{
-		std::memcpy(destination, &material, sizeof(material));
-	});
-}
-
 void GraphicsBufferManager::write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry)
 {
 	mapping_buffer.decrease_free_capacity(sizeof(entry));
@@ -119,10 +81,28 @@ void GraphicsBufferManager::write_to_bone_buffer(EntityFrameID id, const std::ve
 	bone_buffer.unmap_slot(get_logical_device());
 }
 
+void GraphicsBufferManager::write_to_buffer(MaterialID id, const SDS::MaterialData& material)
+{
+	static std::unordered_set<MaterialID> cache;
+	if (cache.emplace(id).second == false)
+	{
+		return;
+	}
+
+	reserve_buffer(id, sizeof(material));
+
+	const auto slot = materials_buffer.get_slot(id.get_underlying());
+	stage_data_to_buffer(materials_buffer.get_buffer(), slot.offset, slot.size,
+	[&material](std::byte* destination)
+	{
+		std::memcpy(destination, &material, sizeof(material));
+	});
+}
+
 void GraphicsBufferManager::write_to_buffer(MeshID id, const Mesh& mesh) 
 {
-	static std::unordered_set<MeshID> written_meshes;
-	if (written_meshes.emplace(id).second == false)
+	static std::unordered_set<MeshID> cache;
+	if (cache.emplace(id).second == false)
 	{
 		return;
 	}
@@ -130,9 +110,8 @@ void GraphicsBufferManager::write_to_buffer(MeshID id, const Mesh& mesh)
 	reserve_vertex_buffer(id, mesh.get_vertices_data_size());
 	reserve_index_buffer(id, mesh.get_indices_data_size());
 
-	const uint64_t TEMPORARY_OFFSET = 300; // TODO: remove this
-	const auto vertex_slot = vertex_buffer.get_slot(TEMPORARY_OFFSET+id.get_underlying());
-	const auto index_slot = index_buffer.get_slot(TEMPORARY_OFFSET+id.get_underlying());
+	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
+	const auto index_slot = index_buffer.get_slot(id.get_underlying());
 
 	stage_data_to_buffer(vertex_buffer.get_buffer(), vertex_slot.offset, vertex_slot.size,
 	[&mesh](std::byte* destination)

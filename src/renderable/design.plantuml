@@ -1,0 +1,67 @@
+@startuml renderable
+
+package GlobalSystems
+{
+	class GraphicsTextureManager
+	class MaterialSystem
+	class MeshSystem
+}
+
+package GameEngine
+{
+	class Material
+
+	ColorMat--|>Material
+	TexMat--|>Material
+
+	class ColorGroup
+	{
+		MatID color
+	}
+
+	class SimpleTextureGroup
+	{
+		MatID texture
+	}
+
+	class MetalGroup
+	{
+		MatID texture
+		MatID specular
+	}
+
+	MaterialGroup<|--ColorGroup
+	MaterialGroup<|--SimpleTextureGroup
+	MaterialGroup<|--MetalGroup
+
+	class Renderable
+	{
+		EPipelineType render_type
+	}
+
+	Renderable*--MaterialGroup
+	Renderable*--MeshID
+
+	Mesh<|--ColorMesh
+	Mesh<|--TexMesh
+	Mesh<|--SkinnedMesh
+
+	MeshSystem *-- Mesh: MeshId mapping
+	MaterialSystem *-- Material: MaterialID mapping
+}
+
+package GraphicsEngine
+{
+	GraphicsTexture*--VkImage
+	GraphicsTexture*--VkSampler
+	GraphicsTexture*--VkImageView
+	GraphicsTexture*--VkDeviceMemory
+
+	GraphicsObject *-- Renderable: many
+	GraphicsObject *-- PerFrameObjectDsets: many
+	GraphicsObject *-- MaterialGroupDsets: many
+
+	GraphicsTextureManager *-- GraphicsTexture: mat_id mapping
+}
+
+@enduml

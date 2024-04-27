@@ -119,16 +119,7 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 		if (get_graphics_engine().get_ecs().get_light_component(graphics_object.get_id()) != nullptr)
 			continue;
 			
-		const GraphicsEnginePipeline* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
-			graphics_object.get_render_type(), EPipelineModifier::SHADOW_MAP });
-		if (!pipeline)
-			continue;
-			
-		vkCmdBindPipeline(command_buffer, 
-							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							pipeline->graphics_pipeline); // bind the graphics pipeline
-
-		draw_object(command_buffer, frame_index, graphics_object, *pipeline);
+		draw_object(command_buffer, frame_index, graphics_object, EPipelineModifier::SHADOW_MAP);
 	}
 	
 	vkCmdEndRenderPass(command_buffer);

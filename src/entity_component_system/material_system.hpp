@@ -4,4 +4,4 @@
 #include "materials/materials.hpp"
 
 
-using MaterialsSystem = CountableSystem<MeshID, Material>;
+using MaterialSystem = CountableSystem<MaterialID, Material>;

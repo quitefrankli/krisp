@@ -49,18 +49,6 @@ uint32_t Object::get_num_vertex_indices() const
 		return total + shape->get_num_vertex_indices(); });
 }
 
-size_t Object::get_vertices_data_size() const
-{
-	return std::accumulate(shapes.begin(), shapes.end(), 0, [](size_t total, const auto& shape){ 
-		return total + shape->get_vertices_data_size(); });
-}
-
-size_t Object::get_indices_data_size() const
-{
-	return std::accumulate(shapes.begin(), shapes.end(), 0, [](size_t total, const auto& shape){ 
-		return total + shape->get_indices_data_size(); });
-}
-
 void Object::sync_world_from_relative() const
 {
 	if (!parent)

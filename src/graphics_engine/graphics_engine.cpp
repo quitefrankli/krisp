@@ -9,6 +9,8 @@
 #include "analytics.hpp"
 #include "entity_component_system/ecs.hpp"
 #include "entity_component_system/mesh_system.hpp"
+#include "entity_component_system/material_system.hpp"
+#include "constants.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -161,19 +163,23 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 	get_rsrc_mgr().free_vertex_buffer(id);
 	get_rsrc_mgr().free_index_buffer(id);
 	auto& obj = get_object(id);
-	for (const auto& shape : obj.get_shapes())
-	{
-		get_rsrc_mgr().free_materials_buffer(shape.get_id());
-	}
-	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
-	{
-		EntityFrameID efid{id, frame_idx};
-		get_rsrc_mgr().free_uniform_buffer(efid);
-		if (obj.get_render_type() == EPipelineType::SKINNED)
-		{
-			get_rsrc_mgr().free_bone_buffer(efid);
-		}
-	}
+
+	// we will need to cleanup from game engine side as well, clean up from ECS system and if
+	// material/meshes become empty on ecs, then clean it up on graphics engine side too
+	std::cout<<"WARNING: TODO: DONT FORGET TO PROPERLY CLEANUP\n";
+	// for (const auto& shape : obj.get_shapes())
+	// {
+	// 	get_rsrc_mgr().free_materials_buffer(shape.get_id());
+	// }
+	// for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
+	// {
+	// 	EntityFrameID efid{id, frame_idx};
+	// 	get_rsrc_mgr().free_uniform_buffer(efid);
+	// 	if (obj.get_render_type() == EPipelineType::SKINNED)
+	// 	{
+	// 		get_rsrc_mgr().free_bone_buffer(efid);
+	// 	}
+	// }
 	objects.erase(id);
 	++num_objs_deleted;
 }
@@ -489,43 +495,35 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	const auto id = graphics_object.get_id();
 	auto& rsrc_mgr = get_rsrc_mgr();
 
-	// TODO: fix this properly
 	auto& renderables = graphics_object.get_game_object().renderables;
-	if (renderables.empty())
+	for (const auto& renderable : renderables)
 	{
-		rsrc_mgr.reserve_vertex_buffer(id, graphics_object.get_game_object().get_vertices_data_size());
-		rsrc_mgr.reserve_index_buffer(id, graphics_object.get_game_object().get_indices_data_size());
-		rsrc_mgr.write_shapes_to_buffers(id, graphics_object.get_shapes());
-	} else 
+		const auto& mesh = MeshSystem::get(renderable.mesh);
+		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
+	}
+
+	for (const auto& renderable : graphics_object.get_renderables())
 	{
-		for (const auto& renderable : renderables)
+		for (const MaterialID mat_id : renderable.materials)
 		{
-			const auto& mesh = MeshSystem::get(renderable.mesh);
-			rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
+			const Material& material = MaterialSystem::get(mat_id);
+			rsrc_mgr.write_to_buffer(mat_id, material.material_data);
 		}
 	}
 
-	for (const auto& shape : graphics_object.get_shapes())
-	{
-		// upload materials
-		const SDS::MaterialData& material = shape.get_material().get_data();
-		rsrc_mgr.reserve_materials_buffer(shape.get_id(), sizeof(material));
-		rsrc_mgr.write_to_materials_buffer(shape.get_id(), material);
-	}
-
 	// these buffers are dynamic (changing between frames) and therefore requires duplicate buffers per swapchain image
-	const uint32_t nFrames = get_num_swapchain_images();
-	for (uint32_t frame_idx = 0; frame_idx < nFrames; ++frame_idx)
+	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
 	{
 		// allocate space for object uniform buffer
 		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{id, frame_idx}, sizeof(SDS::ObjectData));
 
-		// allocate space for bone matrices if needed
-		if (graphics_object.get_render_type() == EPipelineType::SKINNED)
-		{
-			const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
-			rsrc_mgr.reserve_bone_buffer(EntityFrameID{id, frame_idx}, bone_data_size);
-		}
+		// TODO: this needs to be fixed
+		// // allocate space for bone matrices if needed
+		// if (graphics_object.get_render_type() == EPipelineType::SKINNED)
+		// {
+		// 	const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
+		// 	rsrc_mgr.reserve_bone_buffer(EntityFrameID{id, frame_idx}, bone_data_size);
+		// }
 	}
 
 	// TODO: needs to be fixed for raytracing
@@ -542,14 +540,11 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 
 void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 {
-	// dset vectors are pre allocated to the size of the swap chain
-	const uint32_t nFrames = get_num_swapchain_images();
-	object.get_dsets().resize(nFrames);
-
 	// per object descriptor set
 	// currently the resources that are per obj just happen to be purely dynamic and so all of them need a separate
 	// buffer + dset for each frame
-	for (uint32_t frame_idx = 0; frame_idx < nFrames; ++frame_idx)
+	std::vector<VkDescriptorSet> object_dsets;
+	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
 	{
 		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
@@ -568,41 +563,46 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
 		descriptor_writes.push_back(uniform_buffer_dset_write);
 
-		if (object.get_render_type() == EPipelineType::SKINNED)
-		{
-			const GraphicsBuffer::Slot bone_slot = 
-				get_rsrc_mgr().get_bone_buffer_slot(EntityFrameID{object.get_id(), frame_idx});
-			VkDescriptorBufferInfo bone_buffer_info{};
-			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
-			bone_buffer_info.offset = bone_slot.offset;
-			bone_buffer_info.range = bone_slot.size;
-			VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-			bone_buffer_dset_write.dstSet = new_descriptor_set;
-			bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
-			bone_buffer_dset_write.dstArrayElement = 0;
-			bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			bone_buffer_dset_write.descriptorCount = 1;
-			bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
-			descriptor_writes.push_back(bone_buffer_dset_write);
-		}
+		// TODO: fix this
+		// if (object.get_render_type() == EPipelineType::SKINNED)
+		// {
+		// 	const GraphicsBuffer::Slot bone_slot = 
+		// 		get_rsrc_mgr().get_bone_buffer_slot(EntityFrameID{object.get_id(), frame_idx});
+		// 	VkDescriptorBufferInfo bone_buffer_info{};
+		// 	bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
+		// 	bone_buffer_info.offset = bone_slot.offset;
+		// 	bone_buffer_info.range = bone_slot.size;
+		// 	VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		// 	bone_buffer_dset_write.dstSet = new_descriptor_set;
+		// 	bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
+		// 	bone_buffer_dset_write.dstArrayElement = 0;
+		// 	bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		// 	bone_buffer_dset_write.descriptorCount = 1;
+		// 	bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
+		// 	descriptor_writes.push_back(bone_buffer_dset_write);
+		// }
 
 		vkUpdateDescriptorSets(get_logical_device(), 
 							descriptor_writes.size(), 
 							descriptor_writes.data(), 
 							0, 
 							nullptr);
-		object.set_dset(new_descriptor_set, frame_idx);
+		object_dsets.push_back(new_descriptor_set);
 	}
+	object.set_obj_dsets(object_dsets);
 
-	// per shape descriptor set
+	// per renderable descriptor set
 	// currently the resources that are per shape just happen to be purely static and so we only need 1 dset and buffer
-	for (auto& shape : object.get_shapes())
+	std::vector<VkDescriptorSet> renderable_dsets;
+	for (const Renderable& renderable : object.get_renderables())
 	{
 		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_shape_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
-		const GraphicsBuffer::Slot mat_slot = 
-			get_rsrc_mgr().get_materials_buffer_slot(shape.get_id());
+		// TODO: this will need to be fixed to use MaterialGroup
+		// For now it's hardcoded to assume only 1 material per renderable and no textures
+		const MaterialID mat_id = renderable.materials[0];
+		const GraphicsBuffer::Slot mat_slot = get_rsrc_mgr().get_materials_buffer_slot(mat_id);
 		VkDescriptorBufferInfo material_buffer_info{};
 		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
 		material_buffer_info.offset = mat_slot.offset;
@@ -616,41 +616,43 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		material_buffer_dset.pBufferInfo = &material_buffer_info;
 		descriptor_writes.push_back(material_buffer_dset);
 
-		switch (object.get_render_type())
-		{
-			case EPipelineType::CUBEMAP:
-			case EPipelineType::STANDARD:
-			case EPipelineType::SKINNED:
-			{
-				VkDescriptorImageInfo image_info{};
-				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				// some useful links when we get up to this part
-				// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
-				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
-				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
-				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-				image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
-				image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
+		// TODO: fix this up properly
+		// switch (object.get_render_type())
+		// {
+		// 	case EPipelineType::CUBEMAP:
+		// 	case EPipelineType::STANDARD:
+		// 	case EPipelineType::SKINNED:
+		// 	{
+		// 		VkDescriptorImageInfo image_info{};
+		// 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		// 		// some useful links when we get up to this part
+		// 		// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
+		// 		// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
+		// 		// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
+		// 		// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
+		// 		image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
+		// 		image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
 
-				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
-				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
-				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				combined_image_sampler_descriptor_set.descriptorCount = 1;
-				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-				break;
-			}
-			default:
-				break;
-		}
+		// 		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		// 		combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
+		// 		combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+		// 		combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+		// 		combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		// 		combined_image_sampler_descriptor_set.descriptorCount = 1;
+		// 		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+		// 		descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+		// 		break;
+		// 	}
+		// 	default:
+		// 		break;
+		// }
 
 		vkUpdateDescriptorSets(get_logical_device(),
-							static_cast<uint32_t>(descriptor_writes.size()), 
-							descriptor_writes.data(), 
-							0, 
-							nullptr);
-		shape.set_dset(new_descriptor_set);
+							   static_cast<uint32_t>(descriptor_writes.size()), 
+							   descriptor_writes.data(), 
+							   0, 
+							   nullptr);
+		renderable_dsets.push_back(new_descriptor_set);
 	}
+	object.set_renderable_dsets(renderable_dsets);
 }

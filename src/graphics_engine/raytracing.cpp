@@ -81,8 +81,13 @@ void GraphicsEngineRayTracing::update_tlas2()
 	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
 	for (auto& [id, object] : objects)
 	{
-		if (object->get_render_type() == EPipelineType::CUBEMAP ||
-			!object->get_visibility())
+		if (!object->get_visibility())
+			continue;
+
+		if (std::ranges::any_of(object->get_renderables(), [](const Renderable& renderable)
+			{
+				return renderable.pipeline_render_type == EPipelineType::CUBEMAP;
+			}))
 		{
 			continue;
 		}
@@ -121,6 +126,9 @@ typename GraphicsEngineRayTracing::BlasInput GraphicsEngineRayTracing::object_to
 	const GraphicsEngineObject& object,
 	VkBuildAccelerationStructureFlagsKHR flags)
 {
+	// TODO: this needs to be fixed, change to use per renderable mesh
+	return BlasInput{};
+/*
 	// BLAS builder requires raw device addresses.
 	VkDeviceAddress vertex_address = get_graphics_engine().get_device_module().
 		get_buffer_device_address(get_rsrc_mgr().get_vertex_buffer());
@@ -145,7 +153,8 @@ typename GraphicsEngineRayTracing::BlasInput GraphicsEngineRayTracing::object_to
 	// However i'm not sure on this
 	// https://www.reddit.com/r/vulkan/comments/s79m2a/updating_the_top_level_acceleration_structure/
 	triangles.transformData = {};
-	triangles.maxVertex = object.get_num_unique_vertices();
+	assert(false); // TODO: below line is completely wrong need to be fixed
+	// triangles.maxVertex = //
 
 	// Identify the above data as containing opaque triangles.
 	VkAccelerationStructureGeometryKHR asGeom{VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR};
@@ -167,6 +176,7 @@ typename GraphicsEngineRayTracing::BlasInput GraphicsEngineRayTracing::object_to
 	input.flags = flags;
 
 	return input;
+*/
 }
 
 void GraphicsEngineRayTracing::update_blas()
@@ -177,11 +187,17 @@ void GraphicsEngineRayTracing::update_blas()
 	VkBuildAccelerationStructureFlagsKHR flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 	for (auto& [id, object] : objects)
 	{
-		if (object->get_render_type() == EPipelineType::CUBEMAP ||
-			!object->get_visibility())
+		if (!object->get_visibility())
+			continue;
+
+		if (std::ranges::any_of(object->get_renderables(), [](const Renderable& renderable)
+			{
+				return renderable.pipeline_render_type == EPipelineType::CUBEMAP;
+			}))
 		{
 			continue;
 		}
+
 		blas_inputs.emplace_back(object_to_blas(*object, flags));
 	}
 
@@ -320,11 +336,17 @@ void GraphicsEngineRayTracing::update_tlas()
 	uint32_t instance_id = 0; // TODO: this is not correct, need to fix this up properly
 	for (auto& [id, object] : objects)
 	{
-		if (object->get_render_type() == EPipelineType::CUBEMAP ||
-			!object->get_visibility())
+		if (!object->get_visibility())
+			continue;
+			
+		if (std::ranges::any_of(object->get_renderables(), [](const Renderable& renderable)
+			{
+				return renderable.pipeline_render_type == EPipelineType::CUBEMAP;
+			}))
 		{
 			continue;
 		}
+		
 		VkAccelerationStructureInstanceKHR ray_inst{};
 		ray_inst.transform = glm_to_vk(object->get_game_object().get_transform());
 

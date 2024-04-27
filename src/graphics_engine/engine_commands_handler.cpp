@@ -17,11 +17,21 @@ void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
 
 	if (cmd.object_ref)
 	{
+		if (cmd.object_ref->get_render_type() != EPipelineType::COLOR)
+		{
+			// TODO: delete me
+			return;
+		}
 		auto graphics_object = objects.emplace(
 			cmd.object_ref->get_id(),
 			std::make_unique<GraphicsEngineObjectRef>(*this, *cmd.object_ref));
 		spawn_object(*graphics_object.first->second);
 	} else {
+		if (cmd.object->get_render_type() != EPipelineType::COLOR)
+		{
+			// TODO: delete me
+			return;
+		}
 		auto id = cmd.object->get_id();
 		auto graphics_object = objects.emplace(
 			id,

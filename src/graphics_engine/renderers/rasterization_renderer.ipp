@@ -152,20 +152,10 @@ void RasterizationRenderer::submit_draw_commands(
 		if (stenciled_ids.find(id) != stenciled_ids.end())
 			continue; // skip stenciled objects, we will render them later
 
-		EPipelineModifier modifier = EPipelineModifier::NONE;
-		if (get_graphics_engine().is_wireframe_mode)
-			modifier = EPipelineModifier::WIREFRAME;
-		const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
-			graphics_object.get_render_type(), modifier });
+		const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ? 
+			EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
 
-		if (!pipeline)
-			continue;
-			
-		vkCmdBindPipeline(command_buffer, 
-							VK_PIPELINE_BIND_POINT_GRAPHICS, 
-							pipeline->graphics_pipeline); // bind the graphics pipeline
-
-		draw_object(command_buffer, frame_index, graphics_object, *pipeline);
+		draw_object(command_buffer, frame_index, graphics_object, modifier);
 	}
 	
 	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader
@@ -182,17 +172,7 @@ void RasterizationRenderer::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline* pipeline = 
-			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
-				{ graphics_object.get_render_type(), EPipelineModifier::STENCIL });
-		if (!pipeline)
-			continue;
-		
-		vkCmdBindPipeline(
-			command_buffer, 
-			VK_PIPELINE_BIND_POINT_GRAPHICS, 
-			pipeline->graphics_pipeline); // bind the graphics pipeline
-		draw_object(command_buffer, frame_index, graphics_object, *pipeline);
+		draw_object(command_buffer, frame_index, graphics_object, EPipelineModifier::STENCIL);
 	}
 
 	for (const auto& id : stenciled_ids)
@@ -208,17 +188,7 @@ void RasterizationRenderer::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		const GraphicsEnginePipeline* pipeline = 
-			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
-				{ graphics_object.get_render_type(), EPipelineModifier::POST_STENCIL });
-		if (!pipeline)
-			continue;
-		
-		vkCmdBindPipeline(
-			command_buffer, 
-			VK_PIPELINE_BIND_POINT_GRAPHICS, 
-			pipeline->graphics_pipeline); // bind the graphics pipeline
-		draw_object(command_buffer, frame_index, graphics_object, *pipeline);
+		draw_object(command_buffer, frame_index, graphics_object, EPipelineModifier::POST_STENCIL);
 	}
 
 	vkCmdEndRenderPass(command_buffer);

@@ -3,6 +3,8 @@
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_engine/vulkan_wrappers.hpp"
 #include "graphics_engine/constants.hpp"
+#include "graphics_engine/pipeline/pipeline_id.hpp"
+#include "graphics_engine/pipeline/pipeline_types.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -43,7 +45,8 @@ public:
 	virtual void draw_object(VkCommandBuffer command_buffer,
 							 uint32_t frame_index,
 							 const GraphicsEngineObject& object, 
-							 const GraphicsEnginePipeline& pipeline);
+							 EPipelineModifier pipeline_modifier,
+							 EPipelineType primary_pipeline_override = EPipelineType::UNASSIGNED);
 
 protected:
 	static constexpr uint32_t get_num_inflight_frames();

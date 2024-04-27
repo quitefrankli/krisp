@@ -3,48 +3,14 @@
 #include "graphics_engine_base_module.hpp"
 #include "pipeline/pipeline.hpp"
 #include "graphics_materials.hpp"
-#include "shapes/shape.hpp"
 #include "identifications.hpp"
+#include "renderable/renderable.hpp"
 
 #include <vulkan/vulkan.hpp>
 
 
 class Object;
 class GraphicsEngineTexture;
-
-class GraphicsMesh // aka GraphicsEngineShape
-{
-public:
-	GraphicsMesh(Shape& shape, GraphicsEngineTexture* texture = nullptr);
-
-	~GraphicsMesh()
-	{
-		assert(dset == VK_NULL_HANDLE);
-	}
-
-	// const GraphicsMaterial& get_material() const { return material; }
-	// const GraphicsEngineTexture* get_texture() const { return texture; }
-
-	ShapeID get_id() const { return shape.get_id(); }
-
-	VkDescriptorSet get_dset() const { return dset; }
-	void set_dset(VkDescriptorSet dset) { this->dset = dset; }
-
-	uint32_t get_num_vertex_indices() const { return shape.get_num_vertex_indices(); }
-	uint32_t get_num_unique_vertices() const { return shape.get_num_unique_vertices(); }
-	const std::byte* get_vertices_data() const { return shape.get_vertices_data(); }
-	size_t get_vertices_data_size() const { return shape.get_vertices_data_size(); }
-	const std::byte* get_indices_data() const { return shape.get_indices_data(); }
-	size_t get_indices_data_size() const { return shape.get_indices_data_size(); }
-
-	GraphicsMaterial& get_material() { return material; }
-	const GraphicsMaterial& get_material() const { return material; }
-
-private:
-	const Shape& shape;
-	VkDescriptorSet dset = VK_NULL_HANDLE;
-	GraphicsMaterial material;
-};
 
 class GraphicsEngineObject : public GraphicsEngineBaseModule
 {
@@ -58,41 +24,26 @@ public:
 	GraphicsEngineObject& operator=(const GraphicsEngineObject&) = delete;
 	GraphicsEngineObject& operator=(GraphicsEngineObject&&) = delete;
 
-	//
-	// I realised i messed up big time, these resources should be per swapchain image per object
-	// (perhaps vertex can be just per object unless we decide to add dynamic meshes)
-	// however uniform buffer should definently be per swapchain image per object
-	//
-
 	const virtual Object& get_game_object() const = 0;
 
-	uint32_t get_num_unique_vertices() const;
-	uint32_t get_num_vertex_indices() const;
-	uint32_t get_num_primitives() const;
 	ObjectID get_id() const;
 	bool get_visibility() const;
 
-	std::vector<GraphicsMesh>& get_shapes() { return meshes; }
-	const std::vector<GraphicsMesh>& get_shapes() const { return meshes; }
+	const std::vector<Renderable>& get_renderables() const;
 
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }
 
-	// TODO: come up with a different enum class (not pipeline or renderer type) that expresses an object's
-	// rendering 'style'. This is because an object can be rendered with different pipeline/renderer than
-	// the associated 'style'.
-	EPipelineType get_render_type() const { return type; }
+	VkDescriptorSet get_obj_dset(uint8_t frame_idx) const { return per_frame_object_dsets[frame_idx]; }
+	void set_obj_dsets(const std::vector<VkDescriptorSet>& dsets) { per_frame_object_dsets = dsets; }
 
-	const EPipelineType type;
-
-	std::vector<VkDescriptorSet>& get_dsets() { return dsets; }
-	VkDescriptorSet get_dset(uint32_t frame_idx) const { return dsets[frame_idx]; }
-	void set_dset(VkDescriptorSet dset, uint32_t frame_idx) { dsets[frame_idx] = dset; }
+	const std::vector<VkDescriptorSet>& get_renderable_dsets() const { return renderable_dsets; }
+	void set_renderable_dsets(const std::vector<VkDescriptorSet>& dsets) { renderable_dsets = dsets; }
 
 private:
 	bool marked_for_delete = false;
-	std::vector<VkDescriptorSet> dsets;
-	std::vector<GraphicsMesh> meshes;
+	std::vector<VkDescriptorSet> renderable_dsets; // i.e. mesh data
+	std::vector<VkDescriptorSet> per_frame_object_dsets; // i.e. uniform buffer
 };
 
 // this object derivation CAN be destroyed while graphics engine is running

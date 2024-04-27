@@ -3,7 +3,6 @@
 #include "window.hpp"
 #include "game_engine.hpp"
 #include "camera.hpp"
-#include "graphics_engine/graphics_engine.hpp"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>

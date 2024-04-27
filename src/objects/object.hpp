@@ -59,9 +59,6 @@ public:
 	uint32_t get_num_unique_vertices() const;
 	uint32_t get_num_vertex_indices() const;
 
-	size_t get_vertices_data_size() const;
-	size_t get_indices_data_size() const;
-
 	virtual EPipelineType get_render_type() const { return render_type; }
 	void set_render_type(EPipelineType type) { render_type = type; }
 
