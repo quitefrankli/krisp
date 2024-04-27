@@ -2,6 +2,7 @@
 
 #include "graphics_engine/pipeline/pipeline_types.hpp"
 #include "shared_data_structures.hpp"
+#include "identifications.hpp"
 
 #include <glm/vec3.hpp>
 
@@ -33,12 +34,18 @@ struct Material
 {
 public:
 	Material();
+	Material(Material&&) noexcept = default;
 	
 	static Material create_material(EMaterialType type);
+
+	MaterialID get_id() const { return id; }
 
 public:
 	MaterialTexture texture;
 	EPipelineType pipeline_type = EPipelineType::COLOR;
 
 	SDS::MaterialData material_data;
+
+private:
+	const MaterialID id = MaterialID::generate_new_id();
 };

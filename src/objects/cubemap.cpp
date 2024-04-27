@@ -2,7 +2,8 @@
 #include "objects.hpp"
 #include "maths.hpp"
 #include "utility.hpp"
-#include "shapes/shape_factory.hpp"
+#include "renderable/mesh_factory.hpp"
+#include "entity_component_system/material_system.hpp"
 #include "resource_loader.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -21,16 +22,18 @@ CubeMap::CubeMap()
 		"back"
 	};
 
-	Material material;
 	const auto texture_path = Utility::get().get_textures_path().string();
 	ResourceLoader& resource_loader = ResourceLoader::get();
-	for (int i = 0; i < texture_order.size(); i++)
+	Renderable renderable;
+	renderable.pipeline_render_type = EPipelineType::CUBEMAP;
+	renderable.mesh = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
+	for (auto i = 0; i < texture_order.size(); i++)
 	{
+		Material material;
 		material.texture = resource_loader.fetch_texture(fmt::format("{}/skybox/{}.bmp", texture_path, texture_order[i]));
-		// current system only supports 1 material per shape, so in order to pass multiple textures
-		// as in the case of cubemaps, we need to have 5 other dummy shapes
-		shapes.emplace_back(
-			i == 0 ? ShapeFactory::cube(ShapeFactory::EVertexType::COLOR) : 
-			std::make_unique<ColorShape>())->set_material(material);
+		const auto material_id = MaterialSystem::add(std::make_unique<Material>(std::move(material)));
+		renderable.materials.push_back(material_id);
 	}
+
+	renderables = { renderable };
 }

@@ -3,7 +3,6 @@
 #include "window.hpp"
 #include "config.hpp"
 #include "utility.hpp"
-#include "shapes/shape_factory.hpp"
 #include "renderable/mesh_factory.hpp"
 
 #include <fmt/core.h>
@@ -44,21 +43,11 @@ int main(int argc, char* argv[])
 		// seems like glfw window must be on main thread otherwise it wont work, 
 		// therefore engine should always be on its own thread
 		GameEngine engine([&restart_signal](){restart_signal=true;}, window);
-		auto floor_shape = ShapeFactory::cube();
-		Material floor_material{};
-		floor_material.material_data.shininess = 1.0f;
-		floor_shape->set_material(floor_material);
-		auto& floor = engine.spawn_object<Object>(std::move(floor_shape));
+		auto& floor = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
 		floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 		floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
 
-		const auto cube_id = MeshFactory::cube_id();
-		Renderable renderable;
-		renderable.mesh = cube_id;
-		auto floating_obj_ptr = std::make_shared<Object>(ShapeFactory::cube());
-		floating_obj_ptr->renderables.push_back(renderable);
-		auto& floating_obj1 = engine.spawn_object(std::move(floating_obj_ptr));
-
+		auto& floating_obj1 = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
 		floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
 		floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 		engine.get_ecs().add_clickable_entity(floating_obj1.get_id());

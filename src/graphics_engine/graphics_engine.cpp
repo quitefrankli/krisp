@@ -592,11 +592,11 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	object.set_obj_dsets(object_dsets);
 
 	// per renderable descriptor set
-	// currently the resources that are per shape just happen to be purely static and so we only need 1 dset and buffer
+	// currently the resources that are per renderable just happen to be purely static and so we only need 1 dset and buffer
 	std::vector<VkDescriptorSet> renderable_dsets;
 	for (const Renderable& renderable : object.get_renderables())
 	{
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_shape_dset_layout());
+		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_renderable_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		// TODO: this will need to be fixed to use MaterialGroup

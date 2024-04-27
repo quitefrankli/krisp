@@ -2,6 +2,7 @@
 
 #include "materials/materials.hpp"
 #include "entity_component_system/skeletal.hpp"
+#include "renderable/renderable.hpp"
 
 #include <glm/mat4x4.hpp>
 
@@ -15,9 +16,14 @@
 
 
 class Object;
-class Shape;
 struct RawTextureData; // internal use only
 struct SkeletalComponent;
+
+namespace tinygltf
+{
+	class Model;
+	class Primitive;
+}
 
 class ResourceLoader
 {
@@ -27,14 +33,14 @@ public:
 	enum class Setting
 	{
 		DEFAULT,
-		ZERO_MESH, // per shape center moved to (0,0,0)
-		ZERO_XZ,   // per shape center moved to (0,y,0) and bottom of mesh is at y=0
+		ZERO_MESH, // per mesh center moved to (0,0,0)
+		ZERO_XZ,   // per mesh center moved to (0,y,0) and bottom of mesh is at y=0
 	};
 
 	// used as a return value when loading models
 	struct LoadedModel
 	{
-		std::vector<std::unique_ptr<Shape>> shapes;
+		std::vector<Renderable> renderables;
 		std::vector<Bone> bones;
 		std::unordered_map<std::string, std::vector<BoneAnimation>> animations;
 		// add other custom parameters here, that we want to return from the resource loader i.e.
@@ -49,23 +55,12 @@ public:
 
 	LoadedModel load_model(const std::string_view file);
 
-	// // for when there are many objects within a single mesh
-	// // each shape within the mesh will be associated with a single object
-	// // there is an expectation of a single texture per mesh
-	// std::vector<Object> load_objects(const std::string_view mesh,
-	//                                  const std::vector<std::string_view>& textures,
-	//                                  const Setting setting = Setting::DEFAULT);
-
-	// assigns a single texture to each shape
-	void assign_object_texture(Object& object, const std::string_view texture);
-	// assigns a texture to every shape
-	void assign_object_texture(Object& object, const std::vector<std::string_view> textures);
-
 private:
 	void load_texture(const std::string_view file);
 	TextureID get_next_texture_id() { return global_texture_id_counter++; }
 	struct TextureData;
 	MaterialTexture create_material_texture(TextureData& texture_data);
+	MaterialID load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model);
 
 private:
 	struct TextureData

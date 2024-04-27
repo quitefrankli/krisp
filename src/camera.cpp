@@ -3,7 +3,7 @@
 #include "maths.hpp"
 #include "objects/objects.hpp"
 #include "audio_engine/listener.hpp"
-#include "shapes/shape_factory.hpp"
+#include "renderable/mesh_factory.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -18,7 +18,7 @@ Camera::Camera(Listener&& listener, float aspect_ratio) :
 {
 	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
 	orthographic_matrix = glm::orthoLH(-aspect_ratio, aspect_ratio, -1.0f, 1.0f, near_clipping, far_clipping);
-	focus_obj = std::make_shared<Object>(ShapeFactory::sphere());
+	focus_obj = std::make_shared<Object>(Renderable::make_default(MeshFactory::sphere_id()));
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	focus_obj->set_visibility(false);
 

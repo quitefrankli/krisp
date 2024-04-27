@@ -3,12 +3,13 @@
 #include "gui/gui_manager.hpp"
 #include "game_engine.hpp"
 #include "objects/objects.hpp"
-#include "shapes/shape_factory.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "audio_engine/audio_source.hpp"
 #include "utility.hpp"
 #include "camera.hpp"
 #include "graphics_engine/constants.hpp"
+#include "entity_component_system/material_system.hpp"
+#include "renderable/mesh_factory.hpp"
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -72,15 +73,25 @@ GuiObjectSpawner::GuiObjectSpawner()
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngine& engine)
 			{
-				auto& obj = engine.template spawn_object<Object>(ShapeFactory::cube(ShapeFactory::EVertexType::COLOR));
+				auto& obj = engine.template spawn_object<Object>(
+					Renderable::make_default(MeshFactory::cube_id(MeshFactory::EVertexType::COLOR)));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
-				auto obj = std::make_shared<Object>(ShapeFactory::cube(ShapeFactory::EVertexType::TEXTURE));
-				ResourceLoader::get().assign_object_texture(*obj, Utility::get_texture("texture.jpg").data());
+				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
+				MaterialTexture texture = ResourceLoader::get().fetch_texture(Utility::get_texture("texture.jpg").data());
+				Material material;
+				material.texture = texture;
+				const auto mat_id = MaterialSystem::add(std::make_unique<Material>(std::move(material)));
+				Renderable renderable;
+				renderable.mesh = mesh_id;
+				renderable.materials.push_back(mat_id);
+				renderable.pipeline_render_type = EPipelineType::STANDARD;
+
+				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
@@ -89,10 +100,12 @@ GuiObjectSpawner::GuiObjectSpawner()
 		},
 		{"diffuse_cube", spawning_function_type([this](GameEngine& engine)
 			{
-				auto obj = std::make_shared<Object>(ShapeFactory::cube(ShapeFactory::EVertexType::COLOR));
 				Material material;
 				material.material_data.shininess = 1.0f;
-				obj->get_shapes()[0]->set_material(material);
+				Renderable renderable;
+				renderable.mesh = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
+				renderable.materials = { MaterialSystem::add(std::make_unique<Material>(std::move(material))) };
+				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
@@ -101,8 +114,11 @@ GuiObjectSpawner::GuiObjectSpawner()
 		},
 		{"sphere", spawning_function_type([this](GameEngine& engine)
 			{
-				auto& obj = engine.template spawn_object<Object>(ShapeFactory::sphere(
-					ShapeFactory::EVertexType::COLOR, ShapeFactory::GenerationMethod::ICO_SPHERE, 100));
+				auto& obj = engine.template spawn_object<Object>(
+					Renderable::make_default(MeshFactory::sphere_id(
+						MeshFactory::EVertexType::COLOR, 
+						MeshFactory::GenerationMethod::ICO_SPHERE, 
+						100)));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})

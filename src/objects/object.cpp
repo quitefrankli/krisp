@@ -11,17 +11,8 @@
 #include <limits>
 
 
-ObjectAbstract::ObjectAbstract() : id(decltype(id)::generate_new_id())
-{
-}
-
-ObjectAbstract::ObjectAbstract(ObjectID id) : id(id)
-{
-}
-
 Object::Object(Object&& other) noexcept :
-	ObjectAbstract(std::move(other)),
-	shapes(std::move(other.shapes)),
+	renderables(std::move(other.renderables)),
 	children(std::move(other.children)),
 	parent(other.parent),
 	world_transform(std::move(other.world_transform)),
@@ -31,22 +22,6 @@ Object::Object(Object&& other) noexcept :
 	aabb(std::move(other.aabb)),
 	bounding_sphere(std::move(other.bounding_sphere))
 {
-}
-
-Object::~Object()
-{
-}
-
-uint32_t Object::get_num_unique_vertices() const
-{
-	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
-		return total + shape->get_num_unique_vertices(); });
-}
-
-uint32_t Object::get_num_vertex_indices() const
-{
-	return std::accumulate(shapes.begin(), shapes.end(), 0, [](uint32_t total, const auto& shape){ 
-		return total + shape->get_num_vertex_indices(); });
 }
 
 void Object::sync_world_from_relative() const
@@ -260,10 +235,12 @@ void Object::calculate_bounding_primitive<Maths::Sphere>()
 		-std::numeric_limits<float>::max()
 	});
 
-	for (auto& shape : shapes)
-	{
-		aabb.min_max(shape->calculate_bounding_box());
-	}
+	// TODO: implement this properly
+	// for (const auto& renderable : renderables)
+	// {
+	// 	const auto bounding_box = MeshMaths::calculate_bounding_box(renderable.mesh);
+	// 	aabb.min_max(bounding_box);
+	// }
 
 	bounding_primitive_sphere.origin = (aabb.min_bound + aabb.max_bound) / 2.0f;
 	bounding_primitive_sphere.radius = glm::compMax(glm::abs(aabb.max_bound - aabb.min_bound))/2.0f;
@@ -278,35 +255,6 @@ bool Object::check_collision(const Maths::Ray& ray)
 
 	const float radius = 0.5f; // this doesn't really work for non-unit objects, but will leave for now
 	return Maths::check_spherical_collision(ray, Maths::Sphere(get_position(), radius));
-
-	// assert(is_bounding_primitive_cached);
-
-	// // check fast spherical collision
-	// float world_radius = bounding_primitive_sphere.radius * glm::compMax(get_scale());
-	// glm::vec3 world_origin = get_rotation() * bounding_primitive_sphere.origin * get_scale() + get_position();
-
-	// glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
-	// 	ray.origin + glm::dot(ray.direction, world_origin) * ray.direction;
-	// if (glm::distance(projP, world_origin) > world_radius)
-	// {
-	// 	return false;
-	// }
-
-	// // check proper collision
-	// if (shapes.size() > 10)
-	// {
-	// 	std::cout << "WARNING, too many shapes for collision detection, defaulting to true\n";
-	// 	return true;
-	// }
-	// for (auto& shape : shapes)
-	// {
-	// 	if (shape.check_collision(ray))
-	// 	{
-	// 		return true;
-	// 	}
-	// }
-	
-	// return false;
 }
 
 bool Object::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const

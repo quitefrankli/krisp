@@ -1,6 +1,5 @@
 #include "bounding_box.hpp"
 
-#include "shapes/shape.hpp"
 #include "objects/object.hpp"
 
 #include <glm/gtx/component_wise.hpp>

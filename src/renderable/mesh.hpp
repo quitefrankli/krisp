@@ -12,7 +12,6 @@
 struct Mesh 
 {
 public:
-	Mesh() : id(decltype(id)::generate_new_id()) {}
 	MeshID get_id() const { return id; }
 
 	const std::vector<uint32_t>& get_indices() const { return indices; }
@@ -30,20 +29,22 @@ protected:
 	std::vector<uint32_t> indices;
 
 private:
-	const MeshID id;
+	const MeshID id = MeshID::generate_new_id();
 };
 
-template<typename VertexType>
+template<typename VertexType_>
 struct DerivedMesh : public Mesh
 {
 public:
+	using VertexType = VertexType_;
+
 	// DerivedMesh() = default;
-	DerivedMesh(const std::vector<VertexType>& vertices, const std::vector<uint32_t>& indices) : 
+	DerivedMesh(const std::vector<VertexType_>& vertices, const std::vector<uint32_t>& indices) : 
 		vertices(vertices)
 	{
 		this->indices = indices;
 	}
-	DerivedMesh(std::vector<VertexType>&& vertices, std::vector<uint32_t>&& indices) : 
+	DerivedMesh(std::vector<VertexType_>&& vertices, std::vector<uint32_t>&& indices) : 
 		vertices(std::move(vertices))
 	{
 		this->indices = std::move(indices);
@@ -53,12 +54,12 @@ public:
 	DerivedMesh(DerivedMesh&& mesh) noexcept = default;
 
 	virtual uint32_t get_num_unique_vertices() const override { return static_cast<uint32_t>(vertices.size()); }
-	const std::vector<VertexType>& get_vertices() const { return vertices; }
+	const std::vector<VertexType_>& get_vertices() const { return vertices; }
 	virtual const std::byte* get_vertices_data() const override { return reinterpret_cast<const std::byte*>(vertices.data()); }
-	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(VertexType); }
+	virtual size_t get_vertices_data_size() const override { return vertices.size() * sizeof(VertexType_); }
 
 private:
-	std::vector<VertexType> vertices;
+	std::vector<VertexType_> vertices;
 };
 
 using ColorMesh = DerivedMesh<SDS::ColorVertex>;

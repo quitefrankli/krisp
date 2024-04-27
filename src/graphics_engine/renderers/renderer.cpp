@@ -32,7 +32,7 @@ Renderer::~Renderer()
 
 VkExtent2D Renderer::get_extent()
 {
-	return this->get_graphics_engine().get_extent();
+	return get_graphics_engine().get_extent();
 }
 
 void Renderer::draw_object(VkCommandBuffer command_buffer,
@@ -49,6 +49,9 @@ void Renderer::draw_object(VkCommandBuffer command_buffer,
 		const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
 			primary_pipeline_type, pipeline_modifier });
 		assert(pipeline);
+		vkCmdBindPipeline(command_buffer, 
+						  VK_PIPELINE_BIND_POINT_GRAPHICS, 
+						  pipeline->graphics_pipeline); // bind the graphics pipeline
 
 		// binds uniform buffer dset
 		const VkDescriptorSet object_dset = object.get_obj_dset(frame_index);

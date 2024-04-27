@@ -1,5 +1,7 @@
 #include "objects.hpp"
-#include "shapes/shape_factory.hpp"
+#include "renderable/mesh_factory.hpp"
+#include "renderable/material_factory.hpp"
+#include "materials/materials.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -10,28 +12,10 @@
 Arrow::Arrow()
 {
 	const int nVertices = 8;
-	const glm::vec3 COLOR{ 1.0f, 1.0f, 0.0f };
-	
-	shapes.emplace_back(ShapeFactory::cylinder(ShapeFactory::EVertexType::COLOR, nVertices));
-	shapes.emplace_back(ShapeFactory::cone(ShapeFactory::EVertexType::COLOR, nVertices));
-
-	Shape& cylinder = *shapes[0];
-	Shape& cone = *shapes[1];
-
-	glm::quat quat = glm::angleAxis(Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
-
-	glm::mat4 cylinder_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.4f, 0.0f));
-	cylinder_transform = cylinder_transform * glm::scale(glm::mat4(1.0f), glm::vec3(RADIUS*2.0f, 0.8f, RADIUS*2.0f));
-	cylinder_transform = glm::mat4_cast(quat) * cylinder_transform;
-	cylinder.transform_vertices(cylinder_transform);
-
-	glm::mat4 cone_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.9f, 0.0f));
-	cone_transform = cone_transform * glm::scale(glm::mat4(1.0f), glm::vec3(0.3f, 0.2f, 0.3f));
-	cone_transform = glm::mat4_cast(quat) * cone_transform;
-	cone.transform_vertices(cone_transform);
-
-	// warning this is expensive
-	calculate_bounding_primitive<Maths::Sphere>();
+	Renderable renderable;
+	renderable.mesh = MeshFactory::arrow_id(RADIUS, nVertices);
+	renderable.materials = { MaterialFactory::create_id(EMaterialType::GIZMO_ARROW) };
+	renderables = { std::move(renderable) };
 }
 
 void Arrow::point(const glm::vec3& start, const glm::vec3& end)
@@ -133,59 +117,12 @@ bool Arrow::check_collision(const Maths::Ray& ray, glm::vec3& intersection) cons
 
 Arc::Arc()
 {
-	// generated via 2 concentric circles
-	const float thickness = 0.02f; // 3d objects require a little thickness
-	const int N = 10; // num points
-	const float inc = Maths::PI/2.0f/(float)N;
-
-	// generate all vertices
-	ColorShape arc;
-	arc.get_vertices().reserve(N * 2);
-	auto gen_vertex = [&](const float radius, const float y, const int i)
-	{
-		arc.get_vertices().emplace_back(SDS::ColorVertex{
-			radius * glm::vec3(std::sinf(inc * i), y, std::cosf(inc * i)),
-			glm::vec3((float)i/(float)N, 1.0f, 1.0f)});
-	};
-	for (int i = 0; i <= N; i++)
-		gen_vertex(outer_radius, thickness*0.5f, i);
-	for (int i = 0; i <= N; i++)
-		gen_vertex(inner_radius, thickness*0.5f, i);
-	for (int i = 0; i <= N; i++)
-		gen_vertex(outer_radius, -thickness*0.5f, i);
-	for (int i = 0; i <= N; i++)
-		gen_vertex(inner_radius, -thickness*0.5f, i);
-
-	const int outer_top_offset = 0;
-	const int inner_top_offset = N+1;
-	const int outer_bot_offset = N+N+2;
-	const int inner_bot_offset = N+N+N+3;
-	for (int i = 0; i < N; i++)
-	{
-		// top
-		arc.get_indices().push_back(outer_top_offset + i);
-		arc.get_indices().push_back(inner_top_offset + i);
-		arc.get_indices().push_back(outer_top_offset + i + 1);
-		arc.get_indices().push_back(outer_top_offset + i + 1);
-		arc.get_indices().push_back(inner_top_offset + i);
-		arc.get_indices().push_back(inner_top_offset + i + 1);
-
-		// bottom
-		arc.get_indices().push_back(outer_bot_offset + i);
-		arc.get_indices().push_back(outer_bot_offset + i + 1);
-		arc.get_indices().push_back(inner_bot_offset + i);
-		arc.get_indices().push_back(inner_bot_offset + i);
-		arc.get_indices().push_back(outer_bot_offset + i + 1);
-		arc.get_indices().push_back(inner_bot_offset + i + 1);
-
-		// we don't actually need the sides given a thin enough thickness and single sided shading
-	}
-
-	// let default plane normal be the forward axis
-	arc.transform_vertices(glm::angleAxis(-Maths::deg2rad(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-	arc.generate_normals();
-
-	shapes.push_back(std::make_unique<ColorShape>(std::move(arc)));
+	const int nVertices = 8;
+	
+	Renderable renderable;
+	renderable.mesh = MeshFactory::arc_id(nVertices, outer_radius, inner_radius);
+	renderable.materials.push_back(MaterialFactory::create_id(EMaterialType::GIZMO_ARC));
+	renderables.push_back(std::move(renderable));
 }
 
 bool Arc::check_collision(const Maths::Ray& ray)

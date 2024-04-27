@@ -1,30 +1,43 @@
 #include "objects.hpp"
-#include "shapes/shape_factory.hpp"
+#include "renderable/mesh_factory.hpp"
+#include "renderable/mesh_maths.hpp"
+#include "entity_component_system/material_system.hpp"
+#include "entity_component_system/mesh_system.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <iostream>
+#include <ranges>
+#include <algorithm>
 
 
 ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 	original_axis(original_axis)
 {
-	shapes.reserve(2);
-	auto& rod = shapes.emplace_back(ShapeFactory::cube());
-	auto& block = shapes.emplace_back(ShapeFactory::cube());
+	MeshPtr rod_ptr = MeshFactory::cube();
+	MeshPtr block_ptr = MeshFactory::cube();
+	auto& rod = static_cast<ColorMesh&>(*rod_ptr);
+	auto& block = static_cast<ColorMesh&>(*block_ptr);
+	auto rod_vertices = rod.get_vertices();
+	auto block_vertices = block.get_vertices();
+	auto rod_indices = rod.get_indices();
+	auto block_indices = block.get_indices();
 
 	auto rod_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.5f));
 	rod_transform = glm::scale(rod_transform, glm::vec3(THICKNESS, THICKNESS, 1.0f));
-	rod->transform_vertices(rod_transform);
+	transform_vertices(rod_vertices, rod_transform);
 
 	// to prevent z-fighting
 	const float small_offset = 0.0001f;
 	auto block_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 1.0f - BLOCK_LENGTH * 0.5f + small_offset));
 	block_transform = glm::scale(block_transform, glm::vec3(BLOCK_LENGTH));
-	block->transform_vertices(block_transform);
+	transform_vertices(block_vertices, block_transform);
 
-	// warning this is expensive
-	calculate_bounding_primitive<Maths::Sphere>();
+	concatenate_vertices(rod_vertices, rod_indices, block_vertices, block_indices);
+
+	const auto mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(std::move(rod_vertices), std::move(rod_indices)));
+
+	renderables = { Renderable::make_default(mesh_id) };
 }
 
 void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)

@@ -16,6 +16,12 @@ template<typename VertexType>
 void scale_vertices(std::vector<VertexType>& vertices, const glm::vec3& vec);
 
 template<typename VertexType>
+void concatenate_vertices(std::vector<VertexType>& vertices, 
+						  std::vector<uint32_t>& indices,
+						  const std::vector<VertexType>& other_vertices,
+						  const std::vector<uint32_t>& other_indices);
+
+template<typename VertexType>
 void generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& indices);
 
 template<typename VertexType>

@@ -6,6 +6,7 @@
 #include "objects/objects.hpp"
 #include "game_engine.hpp"
 #include "camera.hpp"
+#include "renderable/material_factory.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 #include <fmt/core.h>
@@ -51,10 +52,7 @@ void TranslationGizmo::init()
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
-		for (auto& shape : axis->get_shapes())
-		{
-			shape->set_material(Material::create_material(EMaterialType::GIZMO_ARROW));
-		}
+		axis->renderables[0].materials[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARROW);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -114,10 +112,7 @@ void RotationGizmo::init()
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
-		for (auto& shape : axis->get_shapes())
-		{
-			shape->set_material(Material::create_material(EMaterialType::GIZMO_ARC));
-		}
+		axis->renderables[0].materials[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARC);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -185,10 +180,7 @@ void ScaleGizmo::init()
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
-		for (auto& shape : axis->get_shapes())
-		{
-			shape->set_material(Material::create_material(EMaterialType::GIZMO_ARROW));
-		}
+		axis->renderables[0].materials[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARROW);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});

@@ -358,7 +358,7 @@ std::vector<VkDescriptorSetLayout> ShadowMapPipeline<PrimaryPipelineType>::get_e
 	return { 
 		this->get_rsrc_mgr().get_low_freq_dset_layout(),
 		this->get_rsrc_mgr().get_per_obj_dset_layout(),
-		this->get_rsrc_mgr().get_per_shape_dset_layout() 
+		this->get_rsrc_mgr().get_renderable_dset_layout() 
 	};
 }
 

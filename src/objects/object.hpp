@@ -1,7 +1,6 @@
 #pragma once
 
 #include "graphics_engine/pipeline/pipeline_types.hpp" // TODO: come up with a to decouiple this, having graphics engine code here is bad
-#include "shapes/shape.hpp"
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
 #include "identifications.hpp"
@@ -15,50 +14,23 @@
 
 
 class ResourceLoader;
-class ObjectAbstract
-{
-public:
-	ObjectAbstract(const ObjectAbstract& object) = delete;
-	ObjectAbstract& operator=(const ObjectAbstract& object) = delete;
 
-	ObjectAbstract();
-	ObjectAbstract(ObjectID id);
-	ObjectAbstract(ObjectAbstract&& object) noexcept = default;
-	virtual ~ObjectAbstract() = default;
-
-	ObjectID get_id() const { return id; }
-
-public: // getters and setters
-	const std::string& get_name() const { return name; }
-	void set_name(const std::string& name) { this->name = name; }
-	void set_name(const std::string_view name) { this->name = name; }
-
-private:
-	std::string name;
-	const ObjectID id;
-};
-
-class Object : public ObjectAbstract
+class Object
 {
 public:
 	Object() = default;
-	Object(std::unique_ptr<Shape>&& shape)
+	Object(const Renderable& renderable) : renderables({ renderable })
 	{
-		shapes.push_back(std::move(shape));
 	}
-	Object(std::vector<std::unique_ptr<Shape>>&& shapes) : shapes(std::move(shapes))
+	Object(const std::vector<Renderable>& renderables) : renderables(renderables)
 	{
 	}
 	Object(const Object& object) = delete;
 	Object(Object&& object) noexcept;
-	virtual ~Object() override;
 
 	Object& operator=(const Object& object) = delete;
 
-	// when using indexed draws, the number of unique vertices < number of indices
-	uint32_t get_num_unique_vertices() const;
-	uint32_t get_num_vertex_indices() const;
-
+	ObjectID get_id() const { return id; }
 	virtual EPipelineType get_render_type() const { return render_type; }
 	void set_render_type(EPipelineType type) { render_type = type; }
 
@@ -103,15 +75,12 @@ public:
 	virtual void set_relative_scale(const glm::vec3& scale);
 	virtual void set_relative_rotation(const glm::quat& rotation);
 
-	std::vector<std::unique_ptr<Shape>>& get_shapes() { return shapes; }
-	const std::vector<std::unique_ptr<Shape>>& get_shapes() const { return shapes; }
 	AABB get_aabb() const { return aabb; }
 	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
 
 protected:
 	std::map<ObjectID, Object*> children;
 	Object* parent = nullptr;
-	std::vector<std::unique_ptr<Shape>> shapes;
 
 	// callback when a child gets attached
 	virtual void on_child_attached(Object* new_child) {}
@@ -123,10 +92,8 @@ protected:
 	virtual void on_parent_detached(Object* old_parent) {}
 
 private:
-	// void calculate_shape_extent();
-	void calculate_shape_extent_sphere();
+	const ObjectID id = ObjectID::generate_new_id();
 
-private:
 	// there's a lot of caching going on with the below 2 transforms hence the mutable
 	mutable Maths::Transform world_transform;
 	mutable Maths::Transform relative_transform; // as opposed to world, relative SHOULD ALWAYS be up to date
@@ -141,9 +108,7 @@ private:
 	bool bVisible = true;
 
 	EPipelineType render_type = EPipelineType::COLOR;
-	// TODO: In the future this render_type should be move on a per shape level
-	// EPipelineType render_type = EPipelineType::UNASSIGNED;
-
+	
 //
 // collision
 //

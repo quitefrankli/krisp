@@ -3,6 +3,9 @@
 #include "objects/object.hpp"
 #include "analytics.hpp"
 #include "entity_component_system/skeletal.hpp"
+#include "entity_component_system/mesh_system.hpp"
+#include "entity_component_system/material_system.hpp"
+#include "renderable/mesh.hpp"
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -87,14 +90,35 @@ MaterialTexture ResourceLoader::fetch_texture(const std::string_view file)
 	return create_material_texture(texture_data);
 }
 
-template<typename ShapeType>
-ShapePtr create_shape_with_vertices(const tinygltf::Model& model, tinygltf::Primitive& primitive);
+std::vector<uint32_t> load_indices(const tinygltf::Accessor& index_accessor, 
+								   const tinygltf::BufferView& index_buffer_view, 
+								   const tinygltf::Buffer& index_buffer)
+{
+	std::vector<uint32_t> indices(index_accessor.count);
+	if (index_accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
+	{
+		const auto* index_data = 
+			reinterpret_cast<const uint16_t*>(&index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
+		for (size_t i = 0; i < index_accessor.count; ++i)
+		{
+			indices[i] = index_data[i];
+		}
+	} else
+	{
+		const auto* index_data = 
+			reinterpret_cast<const uint32_t*>(&index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
+		std::memcpy(indices.data(), index_data, indices.size() * sizeof(indices[0]));
+	}
+
+	return indices;
+}
+
+template<typename VerticesType>
+VerticesType load_vertices(const tinygltf::Model& model, tinygltf::Primitive& primitive);
 
 template<>
-ShapePtr create_shape_with_vertices<ColorShape>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
+ColorVertices load_vertices<ColorVertices>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
 {
-	using ShapeType = ColorShape; 
-	
 	if (primitive.attributes.find("POSITION") == primitive.attributes.end() || 
 		primitive.attributes.find("NORMAL") == primitive.attributes.end())
 	{
@@ -123,29 +147,23 @@ ShapePtr create_shape_with_vertices<ColorShape>(const tinygltf::Model& model, ti
 	const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
 	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
 
-	// convert data to our Shape format
-	std::vector<ShapeType::VertexType> vertices;
+	// convert data to our mesh format
+	ColorVertices vertices;
 	vertices.reserve(pos_accessor.count);
-
 	for (size_t i = 0; i < pos_accessor.count; ++i)
 	{
-		ShapeType::VertexType vertex;
+		SDS::ColorVertex vertex;
 		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
 		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
 		vertices.push_back(vertex);
 	}
 
-	auto new_shape = std::make_unique<ShapeType>();
-	new_shape->set_vertices(std::move(vertices));
-
-	return new_shape;
+	return vertices;
 }
 
 template<>
-ShapePtr create_shape_with_vertices<TexShape>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
+TexVertices load_vertices<TexVertices>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
 {
-	using ShapeType = TexShape; 
-	
 	if (primitive.attributes.find("POSITION") == primitive.attributes.end() || 
 		primitive.attributes.find("NORMAL") == primitive.attributes.end() || 
 		primitive.attributes.find("TEXCOORD_0") == primitive.attributes.end())
@@ -184,30 +202,24 @@ ShapePtr create_shape_with_vertices<TexShape>(const tinygltf::Model& model, tiny
 	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
 	const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
 
-	// convert data to our Shape format
-	std::vector<ShapeType::VertexType> vertices;
+	// convert data to our mesh format
+	TexVertices vertices;
 	vertices.reserve(pos_accessor.count);
-
 	for (size_t i = 0; i < pos_accessor.count; ++i)
 	{
-		ShapeType::VertexType vertex;
+		SDS::TexVertex vertex;
 		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
 		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
 		vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
 		vertices.push_back(vertex);
 	}
 
-	auto new_shape = std::make_unique<ShapeType>();
-	new_shape->set_vertices(std::move(vertices));
-
-	return new_shape;
+	return vertices;
 }
 
 template<>
-ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
+SkinnedVertices load_vertices<SkinnedVertices>(const tinygltf::Model& model, tinygltf::Primitive& primitive)
 {
-	using ShapeType = SkinnedShape;
-
 	if (primitive.attributes.find("POSITION") == primitive.attributes.end() ||
 		primitive.attributes.find("NORMAL") == primitive.attributes.end() ||
 		primitive.attributes.find("JOINTS_0") == primitive.attributes.end() ||
@@ -271,11 +283,11 @@ ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, 
 	const auto* weight_data = reinterpret_cast<const float*>(&weight_buffer.data[weight_accessor.byteOffset + weight_buffer_view.byteOffset]);
 	const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
 
-	std::vector<ShapeType::VertexType> vertices;
+	SkinnedVertices vertices;
 	vertices.reserve(pos_accessor.count);
 	for (size_t i = 0; i < pos_accessor.count; ++i)
 	{
-		ShapeType::VertexType vertex;
+		SDS::SkinnedVertex vertex;
 		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
 		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
 		vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
@@ -284,10 +296,41 @@ ShapePtr create_shape_with_vertices<SkinnedShape>(const tinygltf::Model& model, 
 		vertices.push_back(vertex);
 	}
 
-	auto new_shape = std::make_unique<ShapeType>();
-	new_shape->set_vertices(std::move(vertices));
+	return vertices;
+}
 
-	return new_shape;
+MaterialID ResourceLoader::load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model)
+{
+	Material new_material;
+	if (primitive.material >= 0) // if it contains a material
+	{
+		const auto& mat = model.materials[primitive.material];
+		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
+		// has color texture
+		if (color_texture.index >= 0)
+		{
+			tinygltf::Image& image = model.images[color_texture.index];
+			TextureData new_texture_data;
+			new_texture_data.width = image.width;
+			new_texture_data.height = image.height;
+			new_texture_data.channels = image.component;
+			new_texture_data.data = std::make_unique<RawTextureDataGLFT>(std::move(image.image));
+			new_texture_data.texture_id = get_next_texture_id();
+
+			auto pair = cached_textures.emplace(new_texture_data.texture_id, std::move(new_texture_data));
+			new_material.texture = create_material_texture(pair.first->second);
+		}
+
+		new_material.material_data.diffuse = glm::vec3(
+			mat.pbrMetallicRoughness.baseColorFactor[0],
+			mat.pbrMetallicRoughness.baseColorFactor[1],
+			mat.pbrMetallicRoughness.baseColorFactor[2]);
+		new_material.material_data.ambient = new_material.material_data.diffuse;
+		new_material.material_data.specular = (new_material.material_data.specular + new_material.material_data.diffuse)/2.0f;
+		new_material.material_data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
+	}
+
+	return MaterialSystem::add(std::make_unique<Material>(std::move(new_material)));
 }
 
 static std::vector<Bone> load_bones(const tinygltf::Model& model)
@@ -612,101 +655,36 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		const auto& index_buffer_view = model.bufferViews[index_accessor.bufferView];
 		const auto& index_buffer = model.buffers[index_buffer_view.buffer];
 
+		std::vector<uint32_t> indices = load_indices(index_accessor, index_buffer_view, index_buffer);
+
 		const bool has_texture = [&primitive]() { return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
 
-		ShapePtr new_shape;
+		MeshPtr new_mesh;
 		if (has_bones)
 		{
-			new_shape = create_shape_with_vertices<SkinnedShape>(model, primitive);
+			new_mesh = std::make_unique<SkinnedMesh>(load_vertices<SkinnedVertices>(model, primitive), std::move(indices));
 			if (!model.animations.empty())
 			{
 				retval.animations = load_animations(model, retval.bones);
 			}
+		} else if (has_texture)
+		{
+			new_mesh = std::make_unique<TexMesh>(load_vertices<TexVertices>(model, primitive), std::move(indices));
 		} else 
 		{
-			new_shape = has_texture ? 
-				create_shape_with_vertices<TexShape>(model, primitive) : create_shape_with_vertices<ColorShape>(model, primitive);
+			new_mesh = std::make_unique<ColorMesh>(load_vertices<ColorVertices>(model, primitive), std::move(indices));
 		}
 
-		// load indices onto shape
-		std::vector<uint32_t> indices(index_accessor.count);
-		if (index_accessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
-		{
-			const auto* index_data = 
-				reinterpret_cast<const uint16_t*>(&index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
-			for (size_t i = 0; i < index_accessor.count; ++i)
-			{
-				indices[i] = index_data[i];
-			}
-		} else
-		{
-			const auto* index_data = 
-				reinterpret_cast<const uint32_t*>(&index_buffer.data[index_accessor.byteOffset + index_buffer_view.byteOffset]);
-			std::memcpy(indices.data(), index_data, indices.size() * sizeof(indices[0]));
-		}
-		new_shape->set_indices(std::move(indices));
+		const auto mesh_id = MeshSystem::add(std::move(new_mesh));
+		const auto mat_id = load_material(primitive, model);
 
-		// apply materials
-		Material new_material;
-		if (primitive.material >= 0) // if it contains a material
-		{
-			const auto& mat = model.materials[primitive.material];
-			const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
-			// has color texture
-			if (color_texture.index >= 0)
-			{
-				tinygltf::Image& image = model.images[color_texture.index];
-				TextureData new_texture_data;
-				new_texture_data.width = image.width;
-				new_texture_data.height = image.height;
-				new_texture_data.channels = image.component;
-				new_texture_data.data = std::make_unique<RawTextureDataGLFT>(std::move(image.image));
-				new_texture_data.texture_id = get_next_texture_id();
-
-				auto pair = cached_textures.emplace(new_texture_data.texture_id, std::move(new_texture_data));
-				new_material.texture = create_material_texture(pair.first->second);
-			}
-
-			new_material.material_data.diffuse = glm::vec3(
-				mat.pbrMetallicRoughness.baseColorFactor[0],
-				mat.pbrMetallicRoughness.baseColorFactor[1],
-				mat.pbrMetallicRoughness.baseColorFactor[2]);
-			new_material.material_data.ambient = new_material.material_data.diffuse;
-			new_material.material_data.specular = (new_material.material_data.specular + new_material.material_data.diffuse)/2.0f;
-			new_material.material_data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
-		}
-		new_shape->set_material(std::move(new_material));
-
-		retval.shapes.push_back(std::move(new_shape));
+		Renderable renderable;
+		renderable.mesh = mesh_id;
+		renderable.materials = { mat_id };
+		retval.renderables.push_back(renderable);
 	}
 
 	return retval;
-}
-
-void ResourceLoader::assign_object_texture(Object& object, const std::string_view texture)
-{
-	for (int i = 0; i < object.get_shapes().size(); i++)
-	{
-		Material mat = object.get_shapes()[i]->get_material();
-		mat.texture = fetch_texture(texture);
-		object.get_shapes()[i]->set_material(mat);
-	}
-	object.set_render_type(EPipelineType::STANDARD); // use textured render
-}
-
-void ResourceLoader::assign_object_texture(Object& object, const std::vector<std::string_view> textures)
-{
-	if (object.get_shapes().size() != textures.size())
-	{
-		throw std::runtime_error("ResourceLoader::assign_object_texture: num textures and num object shapes mismatch!");
-	}
-	for (int i = 0; i < object.get_shapes().size(); i++)
-	{
-		Material mat = object.get_shapes()[i]->get_material();
-		mat.texture = fetch_texture(textures[i]);
-		object.get_shapes()[i]->set_material(mat);
-	}
-	object.set_render_type(EPipelineType::STANDARD); // use textured render
 }
 
 void ResourceLoader::load_texture(const std::string_view file) 

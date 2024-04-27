@@ -14,4 +14,6 @@ struct Renderable
 	MeshID mesh;
 	std::vector<MaterialID> materials;
 	EPipelineType pipeline_render_type = EPipelineType::COLOR; // TODO: this default value is not good, it should be unassigned
+
+	static Renderable make_default(MeshID mesh_id);
 };

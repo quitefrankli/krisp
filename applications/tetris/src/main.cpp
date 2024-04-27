@@ -477,7 +477,8 @@ private:
 		for (auto cell : get_latest_piece().get_cell_locations())
 		{
 			auto new_cell = ShapeFactory::cube();
-			new_cell->set_material(get_latest_piece().get_shapes().back()->get_material());
+			// TODO: fix me
+			// new_cell->set_material(get_latest_piece().get_shapes().back()->get_material());
 			auto& obj = engine.spawn_object<Object>(std::move(new_cell));
 			obj.set_position(glm::vec3(cell, 0.0f));
 			entrenched_cells[cell.y+height/2].push_back(&obj);

@@ -30,7 +30,7 @@ public: // accessors for specific descriptors/layouts
 	const VkDescriptorSetLayout& get_low_freq_dset_layout() const { return low_freq_dset_layout; }
 	const VkDescriptorSetLayout& get_shadow_map_dset_layout() const { return shadow_map_dset_layout; }
 	const VkDescriptorSetLayout& get_per_obj_dset_layout() const { return per_obj_dset_layout; }
-	const VkDescriptorSetLayout& get_per_shape_dset_layout() const { return per_shape_dset_layout; }
+	const VkDescriptorSetLayout& get_renderable_dset_layout() const { return renderable_dset_layout; }
 	const VkDescriptorSetLayout& get_mesh_data_dset_layout() const { return mesh_data_dset_layout; }
 	const VkDescriptorSetLayout& get_raytracing_tlas_dset_layout() const { return raytracing_tlas_dset_layout; }
 
@@ -70,7 +70,7 @@ private:
 	VkDescriptorSetLayout low_freq_dset_layout;
 	VkDescriptorSetLayout shadow_map_dset_layout;
 	VkDescriptorSetLayout per_obj_dset_layout;
-	VkDescriptorSetLayout per_shape_dset_layout;
+	VkDescriptorSetLayout renderable_dset_layout;
 	VkDescriptorSetLayout mesh_data_dset_layout;
 	VkDescriptorSetLayout raytracing_tlas_dset_layout;
 

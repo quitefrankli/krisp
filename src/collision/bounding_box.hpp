@@ -7,7 +7,6 @@
 #include <vector>
 
 
-class Shape;
 class Object;
 
 struct AABB

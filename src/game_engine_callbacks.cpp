@@ -58,21 +58,6 @@ void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 		case GLFW_KEY_Z:
 			application->on_key_press(key, scan_code, action, mode);
 			break;
-
-		case GLFW_KEY_S:
-		{
-			if (action == GLFW_RELEASE)
-				break;
-			if (mode == GLFW_MOD_SHIFT)
-			{
-				auto& obj = spawn_object<Object>(ShapeFactory::cube());
-				obj.set_position(glm::vec3(1.0f, 0.3f, 0.0f));
-			} else {
-				auto& obj = spawn_object<Object>(ShapeFactory::sphere());
-				obj.set_position(glm::vec3(-1.0f, -0.3f, 0.0f));
-			}
-			break;
-		}
 		case GLFW_KEY_X: // experimental
 		{
 			if (action == GLFW_RELEASE)

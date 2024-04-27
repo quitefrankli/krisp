@@ -19,9 +19,9 @@ public:
 
 	uint64_t get_underlying() const { return id; }
 
-	static uint64_t generate_new_id()
+	static GenericID generate_new_id()
 	{
-		return global_id++;
+		return GenericID(global_id++);
 	}
 
 private:
@@ -39,7 +39,6 @@ struct std::hash<GenericID<Tag>>
 };
 
 using ObjectID = GenericID<class ObjectIDTag>;
-using ShapeID = GenericID<class ShapeIDTag>;
 using MeshID = GenericID<class MeshIDTag>;
 using MaterialID = GenericID<class MaterialIDTag>;
 

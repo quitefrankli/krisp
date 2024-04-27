@@ -14,6 +14,9 @@
 #include "gui/gui_manager.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
+#include "entity_component_system/material_system.hpp"
+#include "entity_component_system/mesh_system.hpp"
+#include "renderable/mesh_factory.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -45,9 +48,12 @@ GameEngine::GameEngine(std::function<void()>&& restart_signaller, App::Window& w
 	experimental = std::make_unique<Experimental>(*this);
 	spawn_object<CubeMap>(); // background/horizon
 
-	auto light_source = std::make_shared<Object>(ShapeFactory::sphere());
+	Renderable light_renderable;
+	const auto mat_id = MaterialSystem::add(std::make_unique<Material>(Material::create_material(EMaterialType::LIGHT_SOURCE)));
+	light_renderable.materials.push_back(mat_id);
+	light_renderable.mesh = MeshFactory::sphere_id();
+	auto light_source = std::make_shared<Object>(light_renderable);
 	light_source->set_name("light source");
-	light_source->get_shapes()[0]->set_material(Material::create_material(EMaterialType::LIGHT_SOURCE));
 	auto& light_source_obj = spawn_object(std::move(light_source));
 	light_source_obj.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
 	ecs.add_light_source(light_source_obj.get_id(), LightComponent());
@@ -81,9 +87,12 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 	experimental = std::make_unique<Experimental>(*this);
 	spawn_object<CubeMap>(); // background/horizon
 
-	auto light_source = std::make_shared<Object>(ShapeFactory::sphere());
+	Renderable light_renderable;
+	const auto mat_id = MaterialSystem::add(std::make_unique<Material>(Material::create_material(EMaterialType::LIGHT_SOURCE)));
+	light_renderable.materials.push_back(mat_id);
+	light_renderable.mesh = MeshFactory::sphere_id();
+	auto light_source = std::make_shared<Object>(light_renderable);
 	light_source->set_name("light source");
-	light_source->get_shapes()[0]->set_material(Material::create_material(EMaterialType::LIGHT_SOURCE));
 	auto& light_source_obj = spawn_object(std::move(light_source));
 	light_source_obj.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
 	ecs.add_light_source(light_source_obj.get_id(), LightComponent());
@@ -92,7 +101,7 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 
 	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
-		set_tps(1e6 / tps);
+		set_tps(float(1e6) / tps);
 	}, 1);
 	TPS_counter->text = "TPS Counter";
 }
@@ -259,22 +268,24 @@ inline Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 Object& GameEngine::spawn_skinned_object(std::shared_ptr<Object>&& object,
                                                                  std::vector<Bone>&& bones)
 {
-	object->set_render_type(EPipelineType::SKINNED);
-	ecs.add_bones(object->get_id(), bones);
-	std::vector<ObjectID> visualisers;
-	const glm::quat bone_rotator = glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec);
-	for (const auto& bone : bones)
-	{
-		Object& obj = spawn_object<Object>(ShapeFactory::arrow());
-		for (auto& shape : obj.get_shapes())
-		{
-			// gltf models have bones pointing upwards by default
-			shape->transform_vertices(bone_rotator);
-		}
-		obj.set_visibility(false);
-		visualisers.push_back(obj.get_id());
-	}
-	ecs.add_bone_visualisers(object->get_id(), visualisers);
+	// TODO: fix me
+	
+	// object->set_render_type(EPipelineType::SKINNED);
+	// ecs.add_bones(object->get_id(), bones);
+	// std::vector<ObjectID> visualisers;
+	// const glm::quat bone_rotator = glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec);
+	// for (const auto& bone : bones)
+	// {
+	// 	Object& obj = spawn_object<Object>(ShapeFactory::arrow());
+	// 	for (auto& shape : obj.get_shapes())
+	// 	{
+	// 		// gltf models have bones pointing upwards by default
+	// 		shape->transform_vertices(bone_rotator);
+	// 	}
+	// 	obj.set_visibility(false);
+	// 	visualisers.push_back(obj.get_id());
+	// }
+	// ecs.add_bone_visualisers(object->get_id(), visualisers);
 	
 	return spawn_object(std::move(object));
 }

@@ -49,6 +49,20 @@ void scale_vertices(std::vector<VertexType>& vertices, const glm::vec3& vec)
 }
 
 template<typename VertexType>
+void concatenate_vertices(std::vector<VertexType>& vertices,
+                          std::vector<uint32_t>& indices,
+                          const std::vector<VertexType>& other_vertices,
+                          const std::vector<uint32_t>& other_indices)
+{
+	indices.insert(indices.end(), other_indices.begin(), other_indices.end());
+	for (int i = indices.size() - other_indices.size(); i < indices.size(); i++)
+	{
+		indices[i] += vertices.size();
+	}
+	vertices.insert(vertices.end(), other_vertices.begin(), other_vertices.end());
+}
+
+template<typename VertexType>
 void generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& indices)
 {
 	// zero all normals
@@ -134,13 +148,26 @@ template void transform_vertices<SDS::ColorVertex>(std::vector<SDS::ColorVertex>
 template void transform_vertices<SDS::ColorVertex>(std::vector<SDS::ColorVertex>& vertices, const glm::quat& quat);
 template void translate_vertices<SDS::ColorVertex>(std::vector<SDS::ColorVertex>& vertices, const glm::vec3& vec);
 template void generate_normals<SDS::ColorVertex>(std::vector<SDS::ColorVertex>& vertices, std::vector<uint32_t>& indices);
+template void concatenate_vertices<SDS::ColorVertex>(std::vector<SDS::ColorVertex>& vertices, 
+													 std::vector<uint32_t>& indices,
+													 const std::vector<SDS::ColorVertex>& other_vertices,
+													 const std::vector<uint32_t>& other_indices);
 
 template void transform_vertices<SDS::TexVertex>(std::vector<SDS::TexVertex>& vertices, const glm::mat4& transform);
 template void transform_vertices<SDS::TexVertex>(std::vector<SDS::TexVertex>& vertices, const glm::quat& quat);
 template void translate_vertices<SDS::TexVertex>(std::vector<SDS::TexVertex>& vertices, const glm::vec3& vec);
 template void generate_normals<SDS::TexVertex>(std::vector<SDS::TexVertex>& vertices, std::vector<uint32_t>& indices);
+template void concatenate_vertices<SDS::TexVertex>(std::vector<SDS::TexVertex>& vertices, 
+												   std::vector<uint32_t>& indices,
+												   const std::vector<SDS::TexVertex>& other_vertices,
+												   const std::vector<uint32_t>& other_indices);
 
 template void transform_vertices<SDS::SkinnedVertex>(std::vector<SDS::SkinnedVertex>& vertices, const glm::mat4& transform);
 template void transform_vertices<SDS::SkinnedVertex>(std::vector<SDS::SkinnedVertex>& vertices, const glm::quat& quat);
 template void translate_vertices<SDS::SkinnedVertex>(std::vector<SDS::SkinnedVertex>& vertices, const glm::vec3& vec);
 template void generate_normals<SDS::SkinnedVertex>(std::vector<SDS::SkinnedVertex>& vertices, std::vector<uint32_t>& indices);
+template void concatenate_vertices<SDS::SkinnedVertex>(std::vector<SDS::SkinnedVertex>& vertices, 
+													   std::vector<uint32_t>& indices,
+													   const std::vector<SDS::SkinnedVertex>& other_vertices,
+													   const std::vector<uint32_t>& other_indices);
+

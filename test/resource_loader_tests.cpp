@@ -2,7 +2,6 @@
 
 #include <resource_loader.hpp>
 #include <utility.hpp>
-#include <shapes/shape.hpp>
 
 #include <gtest/gtest.h>
 
@@ -37,7 +36,7 @@ public:
 // test loading .gltf file with bones into std::vector<Bone>
 TEST_F(ResourceLoaderECS, load_bones)
 {
-	ASSERT_EQ(model.shapes.size(), 1);
+	ASSERT_EQ(model.renderables.size(), 1);
 	ASSERT_EQ(model.bones.size(), 5);
 }
 
