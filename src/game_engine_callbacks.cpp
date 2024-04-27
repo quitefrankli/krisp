@@ -82,9 +82,8 @@ void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 				break;
 			switch (mode) {
 			case GLFW_MOD_SHIFT:
-				HotReload::get().reload();break;
-			case GLFW_MOD_SHIFT | GLFW_MOD_CONTROL:
-				restart();break;
+				HotReload::get().reload();
+				break;
 			default:
 				break;
 			}

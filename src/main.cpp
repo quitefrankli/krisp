@@ -20,29 +20,20 @@ int main(int argc, char* argv[])
 #else
 	fmt::print(fg(fmt::color::blue), "Debug Mode\n");
 #endif
-	bool restart_signal = false;
-	do {
-		restart_signal = false;
-		
-		// TODO: use configparser library for this
-		if (argc == 2)
-		{
-			Config::initialise_global_config(Utility::get().get_config_path().string() + "/" + argv[1]);
-		} else
-		{
-			Config::initialise_global_config(Utility::get().get_config_path().string() + "/default.yaml");
-		}
+	const std::string config_path = argc == 2 ? argv[1] : "default.yaml";
+	Config::initialise_global_config(Utility::get().get_config_path().string() + "/" + config_path);
 
-		if (Config::enable_logging())
-		{
-			Utility::get().enable_logging();
-		}
+	if (Config::enable_logging())
+	{
+		Utility::get().enable_logging();
+	}
 		
+	{
 		App::Window window;
 		window.open(Config::get_window_pos().first, Config::get_window_pos().second);
 		// seems like glfw window must be on main thread otherwise it wont work, 
 		// therefore engine should always be on its own thread
-		GameEngine engine([&restart_signal](){restart_signal=true;}, window);
+		GameEngine engine(window);
 		auto& floor = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
 		floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 		floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
@@ -53,8 +44,7 @@ int main(int argc, char* argv[])
 		engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
 		engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
 		engine.run();
-	} while (restart_signal);
-
+	}
 
 	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
 }

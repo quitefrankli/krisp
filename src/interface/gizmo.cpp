@@ -52,7 +52,7 @@ void TranslationGizmo::init()
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
-		axis->renderables[0].materials[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARROW);
+		axis->renderables[0].material_ids[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARROW);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -112,7 +112,7 @@ void RotationGizmo::init()
 	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
-		axis->renderables[0].materials[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARC);
+		axis->renderables[0].material_ids[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARC);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -180,7 +180,7 @@ void ScaleGizmo::init()
 	axes = {&xAxis, &yAxis, &zAxis};
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
-		axis->renderables[0].materials[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARROW);
+		axis->renderables[0].material_ids[0] = MaterialFactory::create_id(EMaterialType::GIZMO_ARROW);
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});

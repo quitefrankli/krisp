@@ -87,8 +87,8 @@ GuiObjectSpawner::GuiObjectSpawner()
 				material.texture = texture;
 				const auto mat_id = MaterialSystem::add(std::make_unique<Material>(std::move(material)));
 				Renderable renderable;
-				renderable.mesh = mesh_id;
-				renderable.materials.push_back(mat_id);
+				renderable.mesh_id = mesh_id;
+				renderable.material_ids.push_back(mat_id);
 				renderable.pipeline_render_type = EPipelineType::STANDARD;
 
 				auto obj = std::make_shared<Object>(renderable);
@@ -103,8 +103,8 @@ GuiObjectSpawner::GuiObjectSpawner()
 				Material material;
 				material.material_data.shininess = 1.0f;
 				Renderable renderable;
-				renderable.mesh = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
-				renderable.materials = { MaterialSystem::add(std::make_unique<Material>(std::move(material))) };
+				renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
+				renderable.material_ids = { MaterialSystem::add(std::make_unique<Material>(std::move(material))) };
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());

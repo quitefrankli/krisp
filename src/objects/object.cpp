@@ -238,7 +238,7 @@ void Object::calculate_bounding_primitive<Maths::Sphere>()
 	// TODO: implement this properly
 	// for (const auto& renderable : renderables)
 	// {
-	// 	const auto bounding_box = MeshMaths::calculate_bounding_box(renderable.mesh);
+	// 	const auto bounding_box = MeshMaths::calculate_bounding_box(renderable.mesh_id);
 	// 	aabb.min_max(bounding_box);
 	// }
 

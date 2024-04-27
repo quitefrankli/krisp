@@ -13,8 +13,8 @@ Arrow::Arrow()
 {
 	const int nVertices = 8;
 	Renderable renderable;
-	renderable.mesh = MeshFactory::arrow_id(RADIUS, nVertices);
-	renderable.materials = { MaterialFactory::create_id(EMaterialType::GIZMO_ARROW) };
+	renderable.mesh_id = MeshFactory::arrow_id(RADIUS, nVertices);
+	renderable.material_ids = { MaterialFactory::create_id(EMaterialType::GIZMO_ARROW) };
 	renderables = { std::move(renderable) };
 }
 
@@ -120,8 +120,8 @@ Arc::Arc()
 	const int nVertices = 8;
 	
 	Renderable renderable;
-	renderable.mesh = MeshFactory::arc_id(nVertices, outer_radius, inner_radius);
-	renderable.materials.push_back(MaterialFactory::create_id(EMaterialType::GIZMO_ARC));
+	renderable.mesh_id = MeshFactory::arc_id(nVertices, outer_radius, inner_radius);
+	renderable.material_ids.push_back(MaterialFactory::create_id(EMaterialType::GIZMO_ARC));
 	renderables.push_back(std::move(renderable));
 }
 

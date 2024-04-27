@@ -679,8 +679,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		const auto mat_id = load_material(primitive, model);
 
 		Renderable renderable;
-		renderable.mesh = mesh_id;
-		renderable.materials = { mat_id };
+		renderable.mesh_id = mesh_id;
+		renderable.material_ids = { mat_id };
 		retval.renderables.push_back(renderable);
 	}
 

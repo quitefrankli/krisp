@@ -41,7 +41,6 @@ public: // getters and setters
 	using GraphicsEngineFactory = std::function<std::unique_ptr<GraphicsEngineBase>(GameEngine&)>;
 
 public:
-	GameEngine(std::function<void()>&& restart_signaller, App::Window& window);
 	GameEngine(App::Window& window);
 	GameEngine(App::Window& window, GraphicsEngineFactory factory);
 	~GameEngine();
@@ -84,7 +83,6 @@ public:
 	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
-	void restart();
 
 	void set_application(IApplication* application) { this->application=application; }
 
@@ -128,7 +126,6 @@ private:
 private:
 	void shutdown_impl();
 	void process_objs_to_delete();
-	const std::function<void()> restart_signaller;
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 

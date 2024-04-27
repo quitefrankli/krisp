@@ -32,41 +32,6 @@
 
 static DummyApplication dummy_app;
 
-GameEngine::GameEngine(std::function<void()>&& restart_signaller, App::Window& window) :
-	restart_signaller(std::move(restart_signaller)),
-	window(window),
-	mouse(std::make_unique<Mouse>(window)),
-	gizmo(std::make_unique<Gizmo>(*this)),
-	graphics_engine(std::make_unique<GraphicsEngine>(*this)),
-	camera(std::make_unique<Camera>(Listener(), 
-		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height())))
-{
-	window.setup_callbacks(*this);
-	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
-	draw_object(camera->focus_obj);
-	draw_object(camera->upvector_obj);
-	experimental = std::make_unique<Experimental>(*this);
-	spawn_object<CubeMap>(); // background/horizon
-
-	Renderable light_renderable;
-	const auto mat_id = MaterialSystem::add(std::make_unique<Material>(Material::create_material(EMaterialType::LIGHT_SOURCE)));
-	light_renderable.materials.push_back(mat_id);
-	light_renderable.mesh = MeshFactory::sphere_id();
-	auto light_source = std::make_shared<Object>(light_renderable);
-	light_source->set_name("light source");
-	auto& light_source_obj = spawn_object(std::move(light_source));
-	light_source_obj.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
-	ecs.add_light_source(light_source_obj.get_id(), LightComponent());
-	ecs.add_collider(light_source_obj.get_id(), std::make_unique<SphereCollider>());
-	ecs.add_clickable_entity(light_source_obj.get_id());
-
-	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
-	TPS_counter = std::make_unique<Analytics>([this](float tps) {
-		set_tps(float(1e6) / tps);
-	}, 1);
-	TPS_counter->text = "TPS Counter";
-}
-
 GameEngine::GameEngine(App::Window& window) :
 	GameEngine(window, [](GameEngine& engine) { return std::make_unique<GraphicsEngine>(engine); })
 {
@@ -89,8 +54,8 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 
 	Renderable light_renderable;
 	const auto mat_id = MaterialSystem::add(std::make_unique<Material>(Material::create_material(EMaterialType::LIGHT_SOURCE)));
-	light_renderable.materials.push_back(mat_id);
-	light_renderable.mesh = MeshFactory::sphere_id();
+	light_renderable.material_ids.push_back(mat_id);
+	light_renderable.mesh_id = MeshFactory::sphere_id();
 	auto light_source = std::make_shared<Object>(light_renderable);
 	light_source->set_name("light source");
 	auto& light_source_obj = spawn_object(std::move(light_source));
@@ -314,12 +279,6 @@ void GameEngine::unhighlight_object(const Object& object)
 GuiManager& GameEngine::get_gui_manager()
 {
 	return graphics_engine->get_gui_manager();
-}
-
-void GameEngine::restart()
-{
-	restart_signaller();
-	shutdown();
 }
 
 void GameEngine::send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)

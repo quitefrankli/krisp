@@ -64,7 +64,7 @@ void Renderer::draw_object(VkCommandBuffer command_buffer,
 								0,
 								nullptr);
 
-		const Mesh& mesh = MeshSystem::get(renderable.mesh);
+		const Mesh& mesh = MeshSystem::get(renderable.mesh_id);
 		const VkDeviceSize buffer_offset = get_rsrc_mgr().get_vertex_buffer_offset(mesh.get_id());
 		const VkBuffer buffer = get_rsrc_mgr().get_vertex_buffer();
 		vkCmdBindVertexBuffers(command_buffer, 

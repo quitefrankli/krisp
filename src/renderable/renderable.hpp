@@ -11,8 +11,8 @@
 // There are multiple materials because we may need multiple maps i.e. texture, normal, uv maps
 struct Renderable
 {
-	MeshID mesh;
-	std::vector<MaterialID> materials;
+	MeshID mesh_id;
+	std::vector<MaterialID> material_ids;
 	EPipelineType pipeline_render_type = EPipelineType::COLOR; // TODO: this default value is not good, it should be unassigned
 
 	static Renderable make_default(MeshID mesh_id);

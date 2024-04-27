@@ -498,13 +498,13 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	auto& renderables = graphics_object.get_game_object().renderables;
 	for (const auto& renderable : renderables)
 	{
-		const auto& mesh = MeshSystem::get(renderable.mesh);
+		const auto& mesh = MeshSystem::get(renderable.mesh_id);
 		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
 	}
 
 	for (const auto& renderable : graphics_object.get_renderables())
 	{
-		for (const MaterialID mat_id : renderable.materials)
+		for (const MaterialID mat_id : renderable.material_ids)
 		{
 			const Material& material = MaterialSystem::get(mat_id);
 			rsrc_mgr.write_to_buffer(mat_id, material.material_data);
@@ -601,7 +601,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 
 		// TODO: this will need to be fixed to use MaterialGroup
 		// For now it's hardcoded to assume only 1 material per renderable and no textures
-		const MaterialID mat_id = renderable.materials[0];
+		const MaterialID mat_id = renderable.material_ids[0];
 		const GraphicsBuffer::Slot mat_slot = get_rsrc_mgr().get_materials_buffer_slot(mat_id);
 		VkDescriptorBufferInfo material_buffer_info{};
 		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
