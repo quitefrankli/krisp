@@ -1,6 +1,6 @@
 #pragma once
 
-#include "materials/materials.hpp"
+#include "renderable/material.hpp"
 #include "entity_component_system/skeletal.hpp"
 #include "renderable/renderable.hpp"
 

@@ -9,17 +9,6 @@
 #include <string_view>
 
 
-enum class EMaterialType
-{
-	ALWAYS_LIT,
-	LIGHT_SOURCE,
-	RUBBER,
-	PLASTIC,
-	METAL,
-	GIZMO_ARROW,
-	GIZMO_ARC
-};
-
 struct MaterialTexture
 {
 	std::byte* data = nullptr; // not owned by this struct
@@ -33,11 +22,18 @@ struct MaterialTexture
 struct Material
 {
 public:
-	Material();
+	Material()
+	{
+		const glm::vec3 white = glm::vec3(1.0f);
+		const glm::vec3 black = glm::vec3(0.0f);
+		material_data.ambient = white;
+		material_data.diffuse = white;
+		material_data.specular = white;
+		material_data.emissive = black;
+		material_data.shininess = 32.0f;
+	}
 	Material(Material&&) noexcept = default;
 	
-	static Material create_material(EMaterialType type);
-
 	MaterialID get_id() const { return id; }
 
 public:

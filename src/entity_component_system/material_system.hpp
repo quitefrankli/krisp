@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.hpp"
-#include "materials/materials.hpp"
+#include "renderable/material.hpp"
 
 
 using MaterialSystem = CountableSystem<MaterialID, Material>;

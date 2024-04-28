@@ -15,6 +15,7 @@
 #include "experimental.hpp"
 #include "iapplication.hpp"
 #include "entity_component_system/material_system.hpp"
+#include "renderable/material_factory.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
 
@@ -53,7 +54,7 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 	spawn_object<CubeMap>(); // background/horizon
 
 	Renderable light_renderable;
-	const auto mat_id = MaterialSystem::add(std::make_unique<Material>(Material::create_material(EMaterialType::LIGHT_SOURCE)));
+	const auto mat_id = MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE);
 	light_renderable.material_ids.push_back(mat_id);
 	light_renderable.mesh_id = MeshFactory::sphere_id();
 	auto light_source = std::make_shared<Object>(light_renderable);

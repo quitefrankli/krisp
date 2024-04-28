@@ -1,7 +1,7 @@
 #include "objects.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "renderable/material_factory.hpp"
-#include "materials/materials.hpp"
+#include "renderable/material.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -14,7 +14,7 @@ Arrow::Arrow()
 	const int nVertices = 8;
 	Renderable renderable;
 	renderable.mesh_id = MeshFactory::arrow_id(RADIUS, nVertices);
-	renderable.material_ids = { MaterialFactory::create_id(EMaterialType::GIZMO_ARROW) };
+	renderable.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW) };
 	renderables = { std::move(renderable) };
 }
 
@@ -121,7 +121,7 @@ Arc::Arc()
 	
 	Renderable renderable;
 	renderable.mesh_id = MeshFactory::arc_id(nVertices, outer_radius, inner_radius);
-	renderable.material_ids.push_back(MaterialFactory::create_id(EMaterialType::GIZMO_ARC));
+	renderable.material_ids.push_back(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC));
 	renderables.push_back(std::move(renderable));
 }
 
