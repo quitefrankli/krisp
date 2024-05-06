@@ -16,11 +16,11 @@ void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
 	};
 
 	// TODO: delete me
-	const std::unordered_set<EPipelineType> supported_render_types = 
+	const std::unordered_set<ERenderType> supported_render_types = 
 	{
-		EPipelineType::COLOR,
-		EPipelineType::CUBEMAP,
-		EPipelineType::STANDARD
+		ERenderType::COLOR,
+		ERenderType::CUBEMAP,
+		ERenderType::STANDARD
 	};
 
 	if (cmd.object_ref)

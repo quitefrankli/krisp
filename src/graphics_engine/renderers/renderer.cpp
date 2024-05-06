@@ -39,12 +39,12 @@ void Renderer::draw_object(VkCommandBuffer command_buffer,
 						   uint32_t frame_index,
 						   const GraphicsEngineObject& object, 
 						   EPipelineModifier pipeline_modifier,
-						   EPipelineType primary_pipeline_override)
+						   ERenderType primary_pipeline_override)
 {
 	for (auto renderable_idx = 0; renderable_idx < object.get_renderables().size(); renderable_idx++)
 	{
 		const Renderable& renderable = object.get_renderables()[renderable_idx];
-		const EPipelineType primary_pipeline_type = primary_pipeline_override == EPipelineType::UNASSIGNED ?
+		const ERenderType primary_pipeline_type = primary_pipeline_override == ERenderType::UNASSIGNED ?
 			renderable.pipeline_render_type : primary_pipeline_override;
 		const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
 			primary_pipeline_type, pipeline_modifier });

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
-#include "pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 #include "pipeline_id.hpp"
 
 #include <vulkan/vulkan.hpp>

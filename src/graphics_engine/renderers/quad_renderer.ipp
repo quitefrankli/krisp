@@ -133,7 +133,7 @@ void QuadRenderer::submit_draw_commands(
 	vkCmdPushConstants(
 		command_buffer,
 		get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
-			{ EPipelineType::QUAD, EPipelineModifier::NONE })->pipeline_layout,
+			{ ERenderType::QUAD, EPipelineModifier::NONE })->pipeline_layout,
 		VK_SHADER_STAGE_FRAGMENT_BIT,
 		0,
 		sizeof(push_constant),
@@ -143,7 +143,7 @@ void QuadRenderer::submit_draw_commands(
 		command_buffer,
 		VK_PIPELINE_BIND_POINT_GRAPHICS,
 		get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
-			{ EPipelineType::QUAD, EPipelineModifier::NONE })->pipeline_layout,
+			{ ERenderType::QUAD, EPipelineModifier::NONE })->pipeline_layout,
 		0,
 		1,
 		&texture,
@@ -154,7 +154,7 @@ void QuadRenderer::submit_draw_commands(
 		command_buffer, 
 		VK_PIPELINE_BIND_POINT_GRAPHICS, 
 		get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
-			{ EPipelineType::QUAD, EPipelineModifier::NONE })->graphics_pipeline);
+			{ ERenderType::QUAD, EPipelineModifier::NONE })->graphics_pipeline);
 			
 	vkCmdDraw(command_buffer, 3, 1, 0, 0);
 

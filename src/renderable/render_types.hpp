@@ -1,7 +1,7 @@
 #pragma once
 
 
-enum class EPipelineType
+enum class ERenderType
 {
 	UNASSIGNED,
 	STANDARD, // texture + color

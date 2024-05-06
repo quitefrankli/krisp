@@ -1,5 +1,5 @@
 #include "renderers.hpp"
-#include "graphics_engine/pipeline/pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 #include "shared_data_structures.hpp"
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "graphics_engine/graphics_engine_object.hpp"

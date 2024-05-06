@@ -176,7 +176,7 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 	// {
 	// 	EntityFrameID efid{id, frame_idx};
 	// 	get_rsrc_mgr().free_uniform_buffer(efid);
-	// 	if (obj.get_render_type() == EPipelineType::SKINNED)
+	// 	if (obj.get_render_type() == ERenderType::SKINNED)
 	// 	{
 	// 		get_rsrc_mgr().free_bone_buffer(efid);
 	// 	}
@@ -505,7 +505,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 		// reserve and write to materials buffer
 		switch (renderable.pipeline_render_type)
 		{
-			case EPipelineType::COLOR:
+			case ERenderType::COLOR:
 			{
 				const FlatMatGroup flat_mat_group(renderable.material_ids);
 				const auto& material = static_cast<ColorMaterial&>(MaterialSystem::get(flat_mat_group.color_mat));
@@ -525,7 +525,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 
 		// TODO: this needs to be fixed
 		// // allocate space for bone matrices if needed
-		// if (graphics_object.get_render_type() == EPipelineType::SKINNED)
+		// if (graphics_object.get_render_type() == ERenderType::SKINNED)
 		// {
 		// 	const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
 		// 	rsrc_mgr.reserve_bone_buffer(EntityFrameID{id, frame_idx}, bone_data_size);
@@ -570,7 +570,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		descriptor_writes.push_back(uniform_buffer_dset_write);
 
 		// TODO: fix this
-		// if (object.get_render_type() == EPipelineType::SKINNED)
+		// if (object.get_render_type() == ERenderType::SKINNED)
 		// {
 		// 	const GraphicsBuffer::Slot bone_slot = 
 		// 		get_rsrc_mgr().get_bone_buffer_slot(EntityFrameID{object.get_id(), frame_idx});
@@ -610,7 +610,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		// TODO: after resolving above todo, need to move this within the below switch statement
 		const GraphicsBuffer::Slot mat_slot = [&]()
 		{
-			if (renderable.pipeline_render_type != EPipelineType::COLOR)
+			if (renderable.pipeline_render_type != ERenderType::COLOR)
 			{
 				// TODO: this needs to be properly fixed
 				GraphicsBuffer::Slot slot;
@@ -637,7 +637,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 
 		switch (renderable.pipeline_render_type)
 		{
-			case EPipelineType::CUBEMAP:
+			case ERenderType::CUBEMAP:
 			{
 				VkDescriptorImageInfo image_info{};
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -667,7 +667,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 						nullptr);
 				break;
 			}
-			case EPipelineType::STANDARD:
+			case ERenderType::STANDARD:
 			{
 				VkDescriptorImageInfo image_info{};
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -692,7 +692,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 						nullptr);
 				break;
 			}
-			// case EPipelineType::SKINNED:
+			// case ERenderType::SKINNED:
 			default:
 				vkUpdateDescriptorSets(get_logical_device(),
 						static_cast<uint32_t>(descriptor_writes.size()), 

@@ -289,7 +289,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 
 		// TODO fix me
 		// // if object contains skinned meshes update the bone matrices
-		// if (graphics_object->get_render_type() == EPipelineType::SKINNED)
+		// if (graphics_object->get_render_type() == ERenderType::SKINNED)
 		// {
 		// 	std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(id);
 		// 	// apply object transform on the bones

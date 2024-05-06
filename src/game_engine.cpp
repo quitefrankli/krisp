@@ -236,7 +236,7 @@ Object& GameEngine::spawn_skinned_object(std::shared_ptr<Object>&& object,
 {
 	// TODO: fix me
 	
-	// object->set_render_type(EPipelineType::SKINNED);
+	// object->set_render_type(ERenderType::SKINNED);
 	// ecs.add_bones(object->get_id(), bones);
 	// std::vector<ObjectID> visualisers;
 	// const glm::quat bone_rotator = glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec);

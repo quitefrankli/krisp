@@ -1,8 +1,7 @@
 #pragma once
 
 #include "identifications.hpp"
-// TODO: come up with a to decouiple this, having graphics engine code here is bad
-#include "graphics_engine/pipeline/pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 #include "renderable/material_group.hpp"
 
 #include <vector>
@@ -14,7 +13,7 @@ struct Renderable
 {
 	MeshID mesh_id;
 	MatVec material_ids;
-	EPipelineType pipeline_render_type = EPipelineType::COLOR; // TODO: this default value is not good, it should be unassigned
+	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 
 	static Renderable make_default(MeshID mesh_id);
 };

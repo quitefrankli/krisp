@@ -86,7 +86,7 @@ void GraphicsEngineRayTracing::update_tlas2()
 
 		if (std::ranges::any_of(object->get_renderables(), [](const Renderable& renderable)
 			{
-				return renderable.pipeline_render_type == EPipelineType::CUBEMAP;
+				return renderable.pipeline_render_type == ERenderType::CUBEMAP;
 			}))
 		{
 			continue;
@@ -192,7 +192,7 @@ void GraphicsEngineRayTracing::update_blas()
 
 		if (std::ranges::any_of(object->get_renderables(), [](const Renderable& renderable)
 			{
-				return renderable.pipeline_render_type == EPipelineType::CUBEMAP;
+				return renderable.pipeline_render_type == ERenderType::CUBEMAP;
 			}))
 		{
 			continue;
@@ -341,7 +341,7 @@ void GraphicsEngineRayTracing::update_tlas()
 			
 		if (std::ranges::any_of(object->get_renderables(), [](const Renderable& renderable)
 			{
-				return renderable.pipeline_render_type == EPipelineType::CUBEMAP;
+				return renderable.pipeline_render_type == ERenderType::CUBEMAP;
 			}))
 		{
 			continue;
@@ -651,7 +651,7 @@ void GraphicsEngineRayTracing::create_shader_binding_table()
 		if (LOAD_VK_FUNCTION(vkGetRayTracingShaderGroupHandlesKHR)(
 			get_logical_device(), 
 			get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
-				{ EPipelineType::RAYTRACING, EPipelineModifier::NONE })->graphics_pipeline, 
+				{ ERenderType::RAYTRACING, EPipelineModifier::NONE })->graphics_pipeline, 
 			0, 
 			handle_count, 
 			data_size, 

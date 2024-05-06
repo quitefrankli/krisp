@@ -2,7 +2,7 @@
 
 #include "gizmo.hpp"
 
-#include "graphics_engine/pipeline/pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 #include "objects/objects.hpp"
 #include "game_engine.hpp"
 #include "camera.hpp"

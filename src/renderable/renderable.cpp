@@ -9,7 +9,7 @@ Renderable Renderable::make_default(MeshID mesh_id)
 	Renderable renderable;
 	renderable.mesh_id = mesh_id;
 	renderable.material_ids = { default_mat };
-	renderable.pipeline_render_type = EPipelineType::COLOR;
+	renderable.pipeline_render_type = ERenderType::COLOR;
 
 	return renderable;
 }

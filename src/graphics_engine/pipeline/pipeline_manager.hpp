@@ -2,7 +2,7 @@
 
 #include "pipeline.hpp"
 #include "graphics_engine/graphics_engine_base_module.hpp"
-#include "pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 #include "pipeline_id.hpp"
 
 #include <unordered_map>
@@ -27,7 +27,7 @@ private:
 	template<typename PrimaryPipelineType>
 	std::unique_ptr<PipelineType> create_pipeline(PipelineID id);
 
-	std::unordered_map<EPipelineType, std::unique_ptr<PipelineType>> pipelines;
+	std::unordered_map<ERenderType, std::unique_ptr<PipelineType>> pipelines;
 	std::unordered_map<PipelineID, std::unique_ptr<PipelineType>> pipelines_by_id;
 
 	VkPipelineLayout generic_pipeline_layout = nullptr;

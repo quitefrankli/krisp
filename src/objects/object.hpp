@@ -1,6 +1,6 @@
 #pragma once
 
-#include "graphics_engine/pipeline/pipeline_types.hpp" // TODO: come up with a to decouiple this, having graphics engine code here is bad
+#include "renderable/render_types.hpp" // TODO: come up with a to decouiple this, having graphics engine code here is bad
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
 #include "identifications.hpp"

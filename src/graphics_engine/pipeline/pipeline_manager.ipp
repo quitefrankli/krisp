@@ -54,25 +54,25 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 
 	switch (id.primary_pipeline_type)
 	{
-	case EPipelineType::COLOR:
+	case ERenderType::COLOR:
 		new_pipeline = create_pipeline<ColorPipeline>(id);
 		break;
-	case EPipelineType::STANDARD:
+	case ERenderType::STANDARD:
 		new_pipeline = create_pipeline<TexturePipeline>(id);
 		break;
-	case EPipelineType::CUBEMAP:
+	case ERenderType::CUBEMAP:
 		new_pipeline = create_pipeline<CubemapPipeline>(id);
 		break;
-	case EPipelineType::RAYTRACING:
+	case ERenderType::RAYTRACING:
 		new_pipeline = create_pipeline<RaytracingPipeline>(id);
 		break;
-	case EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
+	case ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
 		new_pipeline = create_pipeline<LightWeightOffscreenPipeline>(id);
 		break;
-	case EPipelineType::SKINNED:
+	case ERenderType::SKINNED:
 		new_pipeline = create_pipeline<SkinnedPipeline>(id);
 		break;
-	case EPipelineType::QUAD:
+	case ERenderType::QUAD:
 		new_pipeline = create_pipeline<QuadPipeline>(id);
 		break;
 	default:

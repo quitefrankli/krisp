@@ -1,6 +1,6 @@
 #pragma once
 
-#include "graphics_engine/pipeline/pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 #include "shared_data_structures.hpp"
 #include "identifications.hpp"
 

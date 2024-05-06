@@ -132,8 +132,8 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 		// only support color and texture render types for now
 		if (std::ranges::any_of(graphics_object.get_renderables(), [](const Renderable& renderable)
 			{ 
-				return renderable.pipeline_render_type != EPipelineType::COLOR &&
-					renderable.pipeline_render_type != EPipelineType::STANDARD;
+				return renderable.pipeline_render_type != ERenderType::COLOR &&
+					renderable.pipeline_render_type != ERenderType::STANDARD;
 			}))
 		{
 			continue;
@@ -143,7 +143,7 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 					frame_index, 
 					graphics_object, 
 					EPipelineModifier::NONE, 
-					EPipelineType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
+					ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
 	}
 	
 	vkCmdEndRenderPass(command_buffer);

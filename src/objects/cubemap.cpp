@@ -24,7 +24,7 @@ CubeMap::CubeMap()
 
 	const auto texture_path = Utility::get().get_textures_path().string();
 	Renderable renderable;
-	renderable.pipeline_render_type = EPipelineType::CUBEMAP;
+	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
 	CubeMapMatGroup material_group;
 	for (const auto& texture_name : texture_order)

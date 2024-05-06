@@ -36,7 +36,7 @@ package GameEngine
 
 	class Renderable
 	{
-		EPipelineType render_type
+		ERenderType render_type
 	}
 
 	Renderable*--MaterialGroup

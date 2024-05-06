@@ -86,7 +86,7 @@ GuiObjectSpawner::GuiObjectSpawner()
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
 				renderable.material_ids = { mat_id };
-				renderable.pipeline_render_type = EPipelineType::STANDARD;
+				renderable.pipeline_render_type = ERenderType::STANDARD;
 
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);

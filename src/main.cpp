@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 		// therefore engine should always be on its own thread
 		GameEngine engine(window);
 		Renderable floor_renderable;
-		floor_renderable.pipeline_render_type = EPipelineType::COLOR;
+		floor_renderable.pipeline_render_type = ERenderType::COLOR;
 		floor_renderable.mesh_id = MeshFactory::cube_id();
 		floor_renderable.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE) };
 		auto& floor = engine.spawn_object<Object>(floor_renderable);

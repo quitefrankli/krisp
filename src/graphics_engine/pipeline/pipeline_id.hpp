@@ -1,6 +1,6 @@
 #pragma once
 
-#include "pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 
 #include <set>
 #include <functional>
@@ -17,7 +17,7 @@ enum class EPipelineModifier
 
 struct PipelineID
 {
-	EPipelineType primary_pipeline_type;
+	ERenderType primary_pipeline_type;
 	EPipelineModifier pipeline_modifier = EPipelineModifier::NONE;
 
 	bool operator==(const PipelineID& other) const

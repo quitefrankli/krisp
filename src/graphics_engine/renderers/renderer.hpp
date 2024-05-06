@@ -4,7 +4,7 @@
 #include "graphics_engine/vulkan_wrappers.hpp"
 #include "graphics_engine/constants.hpp"
 #include "graphics_engine/pipeline/pipeline_id.hpp"
-#include "graphics_engine/pipeline/pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -46,7 +46,7 @@ public:
 							 uint32_t frame_index,
 							 const GraphicsEngineObject& object, 
 							 EPipelineModifier pipeline_modifier,
-							 EPipelineType primary_pipeline_override = EPipelineType::UNASSIGNED);
+							 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
 
 protected:
 	static constexpr uint32_t get_num_inflight_frames();
