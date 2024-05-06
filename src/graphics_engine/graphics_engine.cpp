@@ -667,7 +667,31 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 						nullptr);
 				break;
 			}
-			// case EPipelineType::STANDARD:
+			case EPipelineType::STANDARD:
+			{
+				VkDescriptorImageInfo image_info{};
+				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				const TextureOnlyMatGroup texture_only_mat_group(renderable.material_ids);
+				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(texture_only_mat_group.texture_mat, ETextureSamplerType::ADDR_MODE_REPEAT);
+				image_info.imageView = texture.get_texture_image_view();
+				image_info.sampler = texture.get_texture_sampler();
+
+				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
+				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				combined_image_sampler_descriptor_set.descriptorCount = 1;
+				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+
+				vkUpdateDescriptorSets(get_logical_device(),
+						static_cast<uint32_t>(descriptor_writes.size()), 
+						descriptor_writes.data(), 
+						0, 
+						nullptr);
+				break;
+			}
 			// case EPipelineType::SKINNED:
 			default:
 				vkUpdateDescriptorSets(get_logical_device(),

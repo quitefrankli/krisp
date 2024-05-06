@@ -82,7 +82,7 @@ GuiObjectSpawner::GuiObjectSpawner()
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
 				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
-				const auto mat_id = ResourceLoader::get().fetch_texture(Utility::get_texture("texture.jpg").data());
+				const auto mat_id = ResourceLoader::fetch_texture(Utility::get_texture("texture.jpg").data());
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
 				renderable.material_ids = { mat_id };

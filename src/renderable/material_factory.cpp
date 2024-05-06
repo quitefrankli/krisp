@@ -45,6 +45,13 @@ MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
 			material.data.emissive = glm::vec3(0.0f);
 			material.data.shininess = 0.78125f;
 			break;
+		case EMaterialPreset::DIFFUSE:
+			material.data.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
+			material.data.diffuse = glm::vec3(1.0f, 1.0f, 1.0f);
+			material.data.specular = glm::vec3(0.0f);
+			material.data.emissive = glm::vec3(0.0f);
+			material.data.shininess = 1.0f;
+			break;
 		case EMaterialPreset::GIZMO_ARROW:
 			material.data.ambient = Maths::zero_vec;
 			material.data.diffuse = Maths::zero_vec;

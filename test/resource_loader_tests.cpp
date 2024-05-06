@@ -11,7 +11,7 @@ class ResourceLoaderECS : public testing::Test
 public:
 	ResourceLoaderECS()
 	{
-		model = ResourceLoader::get().load_model(model_path.string());
+		model = ResourceLoader::load_model(model_path.string());
 	}
 
 	glm::vec3 apply_transform(const glm::mat4& transform, const glm::vec3& v)

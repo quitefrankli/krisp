@@ -23,14 +23,13 @@ CubeMap::CubeMap()
 	};
 
 	const auto texture_path = Utility::get().get_textures_path().string();
-	ResourceLoader& resource_loader = ResourceLoader::get();
 	Renderable renderable;
 	renderable.pipeline_render_type = EPipelineType::CUBEMAP;
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
 	CubeMapMatGroup material_group;
 	for (const auto& texture_name : texture_order)
 	{
-		material_group.cube_map_mats.push_back(resource_loader.fetch_texture(fmt::format("{}/skybox/{}.bmp", 
+		material_group.cube_map_mats.push_back(ResourceLoader::fetch_texture(fmt::format("{}/skybox/{}.bmp", 
 																			 texture_path, 
 																			 texture_name)));
 	}

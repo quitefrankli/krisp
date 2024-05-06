@@ -19,7 +19,8 @@ void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
 	const std::unordered_set<EPipelineType> supported_render_types = 
 	{
 		EPipelineType::COLOR,
-		EPipelineType::CUBEMAP
+		EPipelineType::CUBEMAP,
+		EPipelineType::STANDARD
 	};
 
 	if (cmd.object_ref)

@@ -28,8 +28,6 @@ namespace tinygltf
 class ResourceLoader
 {
 public:
-	using TextureID = uint32_t;
-
 	enum class Setting
 	{
 		DEFAULT,
@@ -47,11 +45,8 @@ public:
 		// PipelineType
 	};
 
-	static ResourceLoader& get() { return global_resource_loader; }
-
-	MaterialID fetch_texture(const std::string_view file);
-
-	LoadedModel load_model(const std::string_view file);
+	static MaterialID fetch_texture(const std::string_view file);
+	static LoadedModel load_model(const std::string_view file);
 
 private:
 	MaterialID load_texture(const std::string_view file);

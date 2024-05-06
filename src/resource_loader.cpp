@@ -59,12 +59,12 @@ private:
 
 MaterialID ResourceLoader::fetch_texture(const std::string_view file)
 {
-	if (texture_name_to_mat_id.find(file.data()) != texture_name_to_mat_id.end())
+	if (global_resource_loader.texture_name_to_mat_id.contains(file.data()))
 	{
-		return texture_name_to_mat_id[file.data()];
+		return global_resource_loader.texture_name_to_mat_id[file.data()];
 	}
 
-	return load_texture(file);
+	return global_resource_loader.load_texture(file);
 }
 
 std::vector<uint32_t> load_indices(const tinygltf::Accessor& index_accessor, 
@@ -654,7 +654,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		}
 
 		const auto mesh_id = MeshSystem::add(std::move(new_mesh));
-		const auto mat_id = load_material(primitive, model);
+		const auto mat_id = global_resource_loader.load_material(primitive, model);
 
 		Renderable renderable;
 		renderable.mesh_id = mesh_id;

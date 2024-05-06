@@ -150,7 +150,7 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 		static_cast<size_t>(size),
 		[&material, &size](std::byte* destination)
 		{
-			std::memcpy(destination, material.data.get(), static_cast<size_t>(size));
+			std::memcpy(destination, material.data->get(), static_cast<size_t>(size));
 		});
 
 	// transition one more time for shader access

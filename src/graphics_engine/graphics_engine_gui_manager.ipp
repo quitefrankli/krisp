@@ -138,7 +138,7 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	GuiPhotoBase& gui_photo)
 {
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
-		ResourceLoader::get().fetch_texture(texture_path), 
+		ResourceLoader::fetch_texture(texture_path), 
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
 	
 	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);

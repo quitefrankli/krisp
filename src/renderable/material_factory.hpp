@@ -11,6 +11,7 @@ enum class EMaterialPreset
 	RUBBER,
 	PLASTIC,
 	METAL,
+	DIFFUSE,
 	GIZMO_ARROW,
 	GIZMO_ARC
 };

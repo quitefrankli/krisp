@@ -4,6 +4,7 @@
 #include "config.hpp"
 #include "utility.hpp"
 #include "renderable/mesh_factory.hpp"
+#include "renderable/material_factory.hpp"
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -34,7 +35,11 @@ int main(int argc, char* argv[])
 		// seems like glfw window must be on main thread otherwise it wont work, 
 		// therefore engine should always be on its own thread
 		GameEngine engine(window);
-		auto& floor = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
+		Renderable floor_renderable;
+		floor_renderable.pipeline_render_type = EPipelineType::COLOR;
+		floor_renderable.mesh_id = MeshFactory::cube_id();
+		floor_renderable.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE) };
+		auto& floor = engine.spawn_object<Object>(floor_renderable);
 		floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 		floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
 
