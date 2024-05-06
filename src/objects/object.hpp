@@ -31,8 +31,6 @@ public:
 	Object& operator=(const Object& object) = delete;
 
 	ObjectID get_id() const { return id; }
-	virtual EPipelineType get_render_type() const { return render_type; }
-	void set_render_type(EPipelineType type) { render_type = type; }
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }
 	virtual void set_visibility(bool isVisible) { bVisible = isVisible; }
@@ -49,7 +47,6 @@ public:
 	void set_name(const std::string_view name) { this->name = name; }
 
 	std::vector<Renderable> renderables;
-
 public:
 	// world
 	virtual Maths::Transform get_maths_transform() const;
@@ -106,14 +103,10 @@ private:
 	Maths::Sphere bounding_sphere;
 
 	bool bVisible = true;
-
-	EPipelineType render_type = EPipelineType::COLOR;
-	
-//
-// collision
-//
-
 protected:
+	//
+	// collision
+	//
 	template<typename geometry>
 	void calculate_bounding_primitive();
 	Maths::Sphere bounding_primitive_sphere;

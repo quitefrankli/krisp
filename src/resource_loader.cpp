@@ -6,6 +6,7 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "renderable/mesh.hpp"
+#include "renderable/material_factory.hpp"
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -21,25 +22,12 @@
 
 
 ResourceLoader ResourceLoader::global_resource_loader;
-ResourceLoader::TextureID ResourceLoader::global_texture_id_counter = 0;
 
-struct RawTextureData
+struct RawTextureDataSTB : public TextureData
 {
-	virtual ~RawTextureData()
-	{
-	}
+	RawTextureDataSTB(stbi_uc* data) : data(reinterpret_cast<std::byte*>(data)) {}
 
-	virtual std::byte* get() = 0;
-};
-
-struct RawTextureDataSTB : public RawTextureData
-{
-	RawTextureDataSTB(stbi_uc* data)
-	{
-		this->data = reinterpret_cast<std::byte*>(data);
-	}
-
-	~RawTextureDataSTB() 
+	virtual ~RawTextureDataSTB() override
 	{
 		stbi_image_free(data); 
 	}
@@ -53,9 +41,9 @@ private:
 	std::byte* data;
 };
 
-struct RawTextureDataGLFT : public RawTextureData
+struct RawTextureDataGLTF : public TextureData
 {
-	RawTextureDataGLFT(std::vector<unsigned char>&& data) :
+	RawTextureDataGLTF(std::vector<unsigned char>&& data) :
 		data(std::move(data))
 	{
 	}
@@ -69,25 +57,14 @@ private:
 	std::vector<unsigned char> data;
 };
 
-ResourceLoader::TextureData::~TextureData() 
+MaterialID ResourceLoader::fetch_texture(const std::string_view file)
 {
-}
-
-ResourceLoader::~ResourceLoader() 
-{
-}
-
-MaterialTexture ResourceLoader::fetch_texture(const std::string_view file)
-{
-	if (texture_name_to_id.find(file.data()) == texture_name_to_id.end())
+	if (texture_name_to_mat_id.find(file.data()) != texture_name_to_mat_id.end())
 	{
-		load_texture(file);
+		return texture_name_to_mat_id[file.data()];
 	}
 
-	const auto texture_id = texture_name_to_id[file.data()];
-	TextureData& texture_data = cached_textures[texture_id];
-
-	return create_material_texture(texture_data);
+	return load_texture(file);
 }
 
 std::vector<uint32_t> load_indices(const tinygltf::Accessor& index_accessor, 
@@ -301,36 +278,37 @@ SkinnedVertices load_vertices<SkinnedVertices>(const tinygltf::Model& model, tin
 
 MaterialID ResourceLoader::load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model)
 {
-	Material new_material;
 	if (primitive.material >= 0) // if it contains a material
 	{
 		const auto& mat = model.materials[primitive.material];
 		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
-		// has color texture
 		if (color_texture.index >= 0)
 		{
+			// has color texture
 			tinygltf::Image& image = model.images[color_texture.index];
-			TextureData new_texture_data;
-			new_texture_data.width = image.width;
-			new_texture_data.height = image.height;
-			new_texture_data.channels = image.component;
-			new_texture_data.data = std::make_unique<RawTextureDataGLFT>(std::move(image.image));
-			new_texture_data.texture_id = get_next_texture_id();
+			TextureMaterial new_material;
+			new_material.width = image.width;
+			new_material.height = image.height;
+			new_material.channels = image.component;
+			new_material.data = std::make_unique<RawTextureDataGLTF>(std::move(image.image));
 
-			auto pair = cached_textures.emplace(new_texture_data.texture_id, std::move(new_texture_data));
-			new_material.texture = create_material_texture(pair.first->second);
+			return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(new_material)));
+		} else
+		{
+			ColorMaterial new_material;
+			new_material.data.diffuse = glm::vec3(
+				mat.pbrMetallicRoughness.baseColorFactor[0],
+				mat.pbrMetallicRoughness.baseColorFactor[1],
+				mat.pbrMetallicRoughness.baseColorFactor[2]);
+			new_material.data.ambient = new_material.data.diffuse;
+			new_material.data.specular = (new_material.data.specular + new_material.data.diffuse)/2.0f;
+			new_material.data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
+
+			return MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(new_material)));
 		}
-
-		new_material.material_data.diffuse = glm::vec3(
-			mat.pbrMetallicRoughness.baseColorFactor[0],
-			mat.pbrMetallicRoughness.baseColorFactor[1],
-			mat.pbrMetallicRoughness.baseColorFactor[2]);
-		new_material.material_data.ambient = new_material.material_data.diffuse;
-		new_material.material_data.specular = (new_material.material_data.specular + new_material.material_data.diffuse)/2.0f;
-		new_material.material_data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
 	}
 
-	return MaterialSystem::add(std::make_unique<Material>(std::move(new_material)));
+	return MaterialFactory::fetch_preset(EMaterialPreset::PLASTIC);
 }
 
 static std::vector<Bone> load_bones(const tinygltf::Model& model)
@@ -687,45 +665,30 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 	return retval;
 }
 
-void ResourceLoader::load_texture(const std::string_view file) 
+MaterialID ResourceLoader::load_texture(const std::string_view filename) 
 {
-	if (!std::filesystem::exists(file))
+	if (!std::filesystem::exists(filename))
 	{
-		throw std::runtime_error(fmt::format("ResourceLoader::load_texture: file does not exist! {}", file));
+		throw std::runtime_error(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", filename));
 	}
 
-	TextureData new_texture;
-	new_texture.data = std::make_unique<RawTextureDataSTB>(stbi_load(
-		file.data(), 
-		&new_texture.width, 
-		&new_texture.height, 
-		&new_texture.channels, 
+	TextureMaterial material;
+	material.data = std::make_unique<RawTextureDataSTB>(stbi_load(
+		filename.data(), 
+		(int*)(&material.width), 
+		(int*)(&material.height), 
+		(int*)(&material.channels), 
 		STBI_rgb_alpha));
 	
 	// Since we are using STBI_rgb_alpha, to keep things simple we assume everything uses RGBA
 	// Even if the actual image doesn't have an alpha channel
-	assert(new_texture.channels == 4 || new_texture.channels == 3);
-	new_texture.channels = 4;
+	assert(material.channels == 4 || material.channels == 3);
+	material.channels = 4;
 
-	if (!new_texture.data.get())
+	if (!material.data.get())
 	{
-		throw std::runtime_error(fmt::format("failed to load texture image! {}", file));
+		throw std::runtime_error(fmt::format("failed to load texture image! {}", filename));
 	}
 
-	const auto new_texture_id = get_next_texture_id();
-	new_texture.texture_id = new_texture_id;
-	texture_name_to_id.emplace(file.data(), new_texture_id);
-	cached_textures.emplace(new_texture_id, std::move(new_texture));
-}
-
-MaterialTexture ResourceLoader::create_material_texture(TextureData& texture_data)
-{
-	MaterialTexture texture;
-	texture.data = texture_data.data->get();
-	texture.width = texture_data.width;
-	texture.height = texture_data.height;
-	texture.channels = texture_data.channels;
-	texture.texture_id = texture_data.texture_id;
-
-	return texture;
+	return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
 }

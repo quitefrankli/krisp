@@ -15,22 +15,35 @@ void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
 		spawn_object_create_dsets(graphics_object);
 	};
 
+	// TODO: delete me
+	const std::unordered_set<EPipelineType> supported_render_types = 
+	{
+		EPipelineType::COLOR,
+		EPipelineType::CUBEMAP
+	};
+
 	if (cmd.object_ref)
 	{
-		if (cmd.object_ref->get_render_type() != EPipelineType::COLOR)
+		// TODO: delete me
+		for (const auto& renderable : cmd.object_ref->renderables)
 		{
-			// TODO: delete me
-			return;
+			if (!supported_render_types.contains(renderable.pipeline_render_type))
+			{
+				return;
+			}
 		}
 		auto graphics_object = objects.emplace(
 			cmd.object_ref->get_id(),
 			std::make_unique<GraphicsEngineObjectRef>(*this, *cmd.object_ref));
 		spawn_object(*graphics_object.first->second);
 	} else {
-		if (cmd.object->get_render_type() != EPipelineType::COLOR)
+		// TODO: delete me
+		for (const auto& renderable : cmd.object->renderables)
 		{
-			// TODO: delete me
-			return;
+			if (!supported_render_types.contains(renderable.pipeline_render_type))
+			{
+				return;
+			}
 		}
 		auto id = cmd.object->get_id();
 		auto graphics_object = objects.emplace(

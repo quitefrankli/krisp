@@ -16,8 +16,8 @@
 
 
 class Object;
-struct RawTextureData; // internal use only
 struct SkeletalComponent;
+struct TextureData;
 
 namespace tinygltf
 {
@@ -47,37 +47,19 @@ public:
 		// PipelineType
 	};
 
-	~ResourceLoader();
-
 	static ResourceLoader& get() { return global_resource_loader; }
 
-	MaterialTexture fetch_texture(const std::string_view file);
+	MaterialID fetch_texture(const std::string_view file);
 
 	LoadedModel load_model(const std::string_view file);
 
 private:
-	void load_texture(const std::string_view file);
-	TextureID get_next_texture_id() { return global_texture_id_counter++; }
-	struct TextureData;
-	MaterialTexture create_material_texture(TextureData& texture_data);
+	MaterialID load_texture(const std::string_view file);
+	TextureMaterial create_material_texture(TextureData& texture_data);
 	MaterialID load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model);
 
 private:
-	struct TextureData
-	{
-		TextureData() = default;
-		TextureData(const TextureData& other) = default;
-		TextureData(TextureData&& other) noexcept = default;
-		~TextureData();
-		std::unique_ptr<RawTextureData> data;
-		int width = 0;
-		int height = 0;
-		int channels = 0;
-		uint32_t texture_id = 0;
-	};
-	std::unordered_map<std::string, TextureID> texture_name_to_id;
-	std::unordered_map<TextureID, TextureData> cached_textures;
-	static TextureID global_texture_id_counter;
+	std::unordered_map<std::string, MaterialID> texture_name_to_mat_id;
 
 	static ResourceLoader global_resource_loader;
 };

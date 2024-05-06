@@ -13,57 +13,57 @@ MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
 		return material_map[preset];
 	}
 
-	Material material;
+	ColorMaterial material;
 	switch (preset)
 	{
 		case EMaterialPreset::ALWAYS_LIT:
 		case EMaterialPreset::LIGHT_SOURCE:
-			material.material_data.ambient = glm::vec3(0.0f);
-			material.material_data.diffuse = glm::vec3(0.0f);
-			material.material_data.specular = glm::vec3(0.0f);
-			material.material_data.emissive = glm::vec3(1.0f, 1.0f, 0.0f);
-			material.material_data.shininess = 1.0f;
+			material.data.ambient = glm::vec3(0.0f);
+			material.data.diffuse = glm::vec3(0.0f);
+			material.data.specular = glm::vec3(0.0f);
+			material.data.emissive = glm::vec3(1.0f, 1.0f, 0.0f);
+			material.data.shininess = 1.0f;
 			break;
 		case EMaterialPreset::RUBBER:
-			material.material_data.ambient = glm::vec3(0.05f, 0.05f, 0.0f);
-			material.material_data.diffuse = glm::vec3(0.5f, 0.5f, 0.4f);
-			material.material_data.specular = glm::vec3(0.7f, 0.7f, 0.04f);
-			material.material_data.emissive = glm::vec3(0.0f);
-			material.material_data.shininess = 0.078125f;
+			material.data.ambient = glm::vec3(0.05f, 0.05f, 0.0f);
+			material.data.diffuse = glm::vec3(0.5f, 0.5f, 0.4f);
+			material.data.specular = glm::vec3(0.7f, 0.7f, 0.04f);
+			material.data.emissive = glm::vec3(0.0f);
+			material.data.shininess = 0.078125f;
 			break;
 		case EMaterialPreset::PLASTIC:
-			material.material_data.ambient = glm::vec3(0.0f, 0.0f, 0.0f);
-			material.material_data.diffuse = glm::vec3(0.55f, 0.55f, 0.55f);
-			material.material_data.specular = glm::vec3(0.7f, 0.7f, 0.7f);
-			material.material_data.emissive = glm::vec3(0.0f);
-			material.material_data.shininess = 0.25f;
+			material.data.ambient = glm::vec3(0.0f, 0.0f, 0.0f);
+			material.data.diffuse = glm::vec3(0.55f, 0.55f, 0.55f);
+			material.data.specular = glm::vec3(0.7f, 0.7f, 0.7f);
+			material.data.emissive = glm::vec3(0.0f);
+			material.data.shininess = 0.25f;
 			break;
 		case EMaterialPreset::METAL:
-			material.material_data.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
-			material.material_data.diffuse = glm::vec3(0.5f, 0.5f, 0.5f);
-			material.material_data.specular = glm::vec3(0.7f, 0.7f, 0.7f);
-			material.material_data.emissive = glm::vec3(0.0f);
-			material.material_data.shininess = 0.78125f;
+			material.data.ambient = glm::vec3(0.05f, 0.05f, 0.05f);
+			material.data.diffuse = glm::vec3(0.5f, 0.5f, 0.5f);
+			material.data.specular = glm::vec3(0.7f, 0.7f, 0.7f);
+			material.data.emissive = glm::vec3(0.0f);
+			material.data.shininess = 0.78125f;
 			break;
 		case EMaterialPreset::GIZMO_ARROW:
-			material.material_data.ambient = Maths::zero_vec;
-			material.material_data.diffuse = Maths::zero_vec;
-			material.material_data.specular = Maths::zero_vec;
-			material.material_data.emissive = glm::vec3(1.0f, 0.0f, 0.0f);
-			material.material_data.shininess = 1.0f;
+			material.data.ambient = Maths::zero_vec;
+			material.data.diffuse = Maths::zero_vec;
+			material.data.specular = Maths::zero_vec;
+			material.data.emissive = glm::vec3(1.0f, 0.0f, 0.0f);
+			material.data.shininess = 1.0f;
 			break;
 		case EMaterialPreset::GIZMO_ARC:
-			material.material_data.ambient = Maths::zero_vec;
-			material.material_data.diffuse = Maths::zero_vec;
-			material.material_data.specular = Maths::zero_vec;
-			material.material_data.emissive = glm::vec3(0.0f, 1.0f, 1.0f);
-			material.material_data.shininess = 1.0f;
+			material.data.ambient = Maths::zero_vec;
+			material.data.diffuse = Maths::zero_vec;
+			material.data.specular = Maths::zero_vec;
+			material.data.emissive = glm::vec3(0.0f, 1.0f, 1.0f);
+			material.data.shininess = 1.0f;
 			break;
 		default:
 			break;
 	}
 
-	auto material_ptr = std::make_unique<Material>(std::move(material));
+	auto material_ptr = std::make_unique<ColorMaterial>(std::move(material));
 	const auto material_id = MaterialSystem::add(std::move(material_ptr));
 	material_map[preset] = material_id;
 

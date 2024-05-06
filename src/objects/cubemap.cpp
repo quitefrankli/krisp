@@ -27,13 +27,14 @@ CubeMap::CubeMap()
 	Renderable renderable;
 	renderable.pipeline_render_type = EPipelineType::CUBEMAP;
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
-	for (auto i = 0; i < texture_order.size(); i++)
+	CubeMapMatGroup material_group;
+	for (const auto& texture_name : texture_order)
 	{
-		Material material;
-		material.texture = resource_loader.fetch_texture(fmt::format("{}/skybox/{}.bmp", texture_path, texture_order[i]));
-		const auto material_id = MaterialSystem::add(std::make_unique<Material>(std::move(material)));
-		renderable.material_ids.push_back(material_id);
+		material_group.cube_map_mats.push_back(resource_loader.fetch_texture(fmt::format("{}/skybox/{}.bmp", 
+																			 texture_path, 
+																			 texture_name)));
 	}
+	renderable.material_ids = material_group.get_materials();
 
 	renderables = { renderable };
 }

@@ -82,13 +82,10 @@ GuiObjectSpawner::GuiObjectSpawner()
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
 				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
-				MaterialTexture texture = ResourceLoader::get().fetch_texture(Utility::get_texture("texture.jpg").data());
-				Material material;
-				material.texture = texture;
-				const auto mat_id = MaterialSystem::add(std::make_unique<Material>(std::move(material)));
+				const auto mat_id = ResourceLoader::get().fetch_texture(Utility::get_texture("texture.jpg").data());
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
-				renderable.material_ids.push_back(mat_id);
+				renderable.material_ids = { mat_id };
 				renderable.pipeline_render_type = EPipelineType::STANDARD;
 
 				auto obj = std::make_shared<Object>(renderable);
@@ -100,11 +97,11 @@ GuiObjectSpawner::GuiObjectSpawner()
 		},
 		{"diffuse_cube", spawning_function_type([this](GameEngine& engine)
 			{
-				Material material;
-				material.material_data.shininess = 1.0f;
+				ColorMaterial material;
+				material.data.shininess = 1.0f;
 				Renderable renderable;
 				renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
-				renderable.material_ids = { MaterialSystem::add(std::make_unique<Material>(std::move(material))) };
+				renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());

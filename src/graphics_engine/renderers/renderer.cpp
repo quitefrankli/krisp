@@ -48,7 +48,10 @@ void Renderer::draw_object(VkCommandBuffer command_buffer,
 			renderable.pipeline_render_type : primary_pipeline_override;
 		const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
 			primary_pipeline_type, pipeline_modifier });
-		assert(pipeline);
+		if (!pipeline)
+		{
+			return;
+		}
 		vkCmdBindPipeline(command_buffer, 
 						  VK_PIPELINE_BIND_POINT_GRAPHICS, 
 						  pipeline->graphics_pipeline); // bind the graphics pipeline

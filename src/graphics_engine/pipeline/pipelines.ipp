@@ -169,9 +169,9 @@ WireframePipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 void RaytracingPipeline::initialise()
 {
 	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
-	VkShaderModule raygen_shader = this->create_shader_module(shader_path.string() + "/raygen_shader.spv");
-	VkShaderModule rayhit_shader = this->create_shader_module(shader_path.string() + "/rayhit_shader.spv");
-	VkShaderModule raymiss_shader = this->create_shader_module(shader_path.string() + "/raymiss_shader.spv");
+	VkShaderModule raygen_shader = create_shader_module(shader_path.string() + "/raygen_shader.spv");
+	VkShaderModule rayhit_shader = create_shader_module(shader_path.string() + "/rayhit_shader.spv");
+	VkShaderModule raymiss_shader = create_shader_module(shader_path.string() + "/raymiss_shader.spv");
 
 	VkPipelineShaderStageCreateInfo raygen_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	raygen_info.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
@@ -216,13 +216,13 @@ void RaytracingPipeline::initialise()
 	shader_groups.push_back(rt_shader_group_info);
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-	const auto descriptor_set_layouts = this->get_rsrc_mgr().get_raytracing_descriptor_set_layouts();
+	const auto descriptor_set_layouts = get_rsrc_mgr().get_raytracing_descriptor_set_layouts();
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 	pipeline_layout_create_info.pushConstantRangeCount = 0; // Optional
 	pipeline_layout_create_info.pPushConstantRanges = nullptr; // Optional
 
-	if (vkCreatePipelineLayout(this->get_logical_device(), &pipeline_layout_create_info, nullptr, &this->pipeline_layout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &pipeline_layout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create pipeline layout!");
 	}
@@ -235,34 +235,34 @@ void RaytracingPipeline::initialise()
 	// max recursion depth for raytracing
 	// note that this can be quite expensive, it's ideal to keep it to 1 and instead use an iterative approach
 	raytracing_pipeline_create_info.maxPipelineRayRecursionDepth = 1;
-	raytracing_pipeline_create_info.layout = this->pipeline_layout;
+	raytracing_pipeline_create_info.layout = pipeline_layout;
 
 	if (LOAD_VK_FUNCTION(vkCreateRayTracingPipelinesKHR)(
-		this->get_logical_device(), 
+		get_logical_device(), 
 		VK_NULL_HANDLE, 
 		VK_NULL_HANDLE, 
 		1, 
 		&raytracing_pipeline_create_info, 
 		nullptr, 
-		&this->graphics_pipeline) != VK_SUCCESS)
+		&graphics_pipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create raytracing pipeline!");
 	}
 
-	vkDestroyShaderModule(this->get_logical_device(), raygen_shader, nullptr);
-	vkDestroyShaderModule(this->get_logical_device(), rayhit_shader, nullptr);
-	vkDestroyShaderModule(this->get_logical_device(), raymiss_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), raygen_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), rayhit_shader, nullptr);
+	vkDestroyShaderModule(get_logical_device(), raymiss_shader, nullptr);
 }
 
 VkRenderPass LightWeightOffscreenPipeline::get_render_pass()
 {
-	return this->get_graphics_engine().get_renderer_mgr().
+	return get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_render_pass();
 }
 
 VkExtent2D LightWeightOffscreenPipeline::get_extent()
 {
-	return this->get_graphics_engine().get_renderer_mgr().
+	return get_graphics_engine().get_renderer_mgr().
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_extent();	
 }
 
@@ -337,28 +337,28 @@ std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<PrimaryPipeline
 template<ShadowMappable PrimaryPipelineType>
 VkRenderPass ShadowMapPipeline<PrimaryPipelineType>::get_render_pass()
 {
-	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
 }
 
 template<ShadowMappable PrimaryPipelineType>
 VkExtent2D ShadowMapPipeline<PrimaryPipelineType>::get_extent()
 {
-	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
 }
 
 template<ShadowMappable PrimaryPipelineType>
 VkSampleCountFlagBits ShadowMapPipeline<PrimaryPipelineType>::get_msaa_sample_count()
 {
-	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_msaa_sample_count();
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_msaa_sample_count();
 }
 
 template<ShadowMappable PrimaryPipelineType>
 std::vector<VkDescriptorSetLayout> ShadowMapPipeline<PrimaryPipelineType>::get_expected_dset_layouts()
 {
 	return { 
-		this->get_rsrc_mgr().get_low_freq_dset_layout(),
-		this->get_rsrc_mgr().get_per_obj_dset_layout(),
-		this->get_rsrc_mgr().get_renderable_dset_layout() 
+		get_rsrc_mgr().get_low_freq_dset_layout(),
+		get_rsrc_mgr().get_per_obj_dset_layout(),
+		get_rsrc_mgr().get_renderable_dset_layout() 
 	};
 }
 
@@ -376,17 +376,17 @@ void ShadowMapPipeline<PrimaryPipelineType>::mod_rasterization_state_info(
 
 VkRenderPass QuadPipeline::get_render_pass()
 {
-	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_render_pass();
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_render_pass();
 }
 
 VkExtent2D QuadPipeline::get_extent()
 {
-	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_extent();
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_extent();
 }
 
 VkSampleCountFlagBits QuadPipeline::get_msaa_sample_count()
 {
-	return this->get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_msaa_sample_count();
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_msaa_sample_count();
 }
 
 std::vector<VkDescriptorSetLayout> QuadPipeline::get_expected_dset_layouts()
@@ -398,7 +398,7 @@ std::vector<VkDescriptorSetLayout> QuadPipeline::get_expected_dset_layouts()
 	binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	binding.pImmutableSamplers = nullptr; // Optional
 
-	return { this->get_rsrc_mgr().request_dset_layout({binding}) };
+	return { get_rsrc_mgr().request_dset_layout({binding}) };
 }
 
 std::vector<VkPushConstantRange> QuadPipeline::get_push_constant_ranges() const

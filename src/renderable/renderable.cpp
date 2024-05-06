@@ -5,7 +5,7 @@
 
 Renderable Renderable::make_default(MeshID mesh_id)
 {
-	static MaterialID default_mat = MaterialSystem::add(std::make_unique<Material>());
+	static MaterialID default_mat = MaterialSystem::add(std::make_unique<ColorMaterial>());
 	Renderable renderable;
 	renderable.mesh_id = mesh_id;
 	renderable.material_ids = { default_mat };

@@ -12,13 +12,13 @@
 
 
 Object::Object(Object&& other) noexcept :
+	id(other.id),
 	renderables(std::move(other.renderables)),
 	children(std::move(other.children)),
 	parent(other.parent),
 	world_transform(std::move(other.world_transform)),
 	relative_transform(std::move(other.relative_transform)),
 	bVisible(other.bVisible),
-	render_type(other.render_type),
 	aabb(std::move(other.aabb)),
 	bounding_sphere(std::move(other.bounding_sphere))
 {

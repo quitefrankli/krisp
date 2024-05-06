@@ -1,15 +1,15 @@
 #pragma once
 
 #include "graphics_engine_texture_manager.hpp"
+#include "entity_component_system/material_system.hpp"
 
 
 GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) : 
 	GraphicsEngineBaseModule(engine)
 {
-	LOG_INFO(
-		Utility::get().get_logger(),
-		"GraphicsEngineTextureManager: chosen max anisotropy:={}",
-		engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
+	LOG_INFO(Utility::get().get_logger(),
+			 "GraphicsEngineTextureManager: chosen max anisotropy:={}",
+			 engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
 }
 
 GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
@@ -26,21 +26,16 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
-	const MaterialTexture& material_texture,
+	MaterialID id,
 	ETextureSamplerType sampler_type)
 {
-	if (material_texture.texture_id >= CUBE_MAP_OFFSET)
+	if (texture_units.contains(id))
 	{
-		throw std::invalid_argument("GraphicsEngineTextureManager: normal textures dont support id>=CUBE_MAP_OFFSET");
+		return texture_units.at(id);
 	}
 
-	auto it = texture_units.find(material_texture.texture_id);
-	if (it != texture_units.end())
-	{
-		return it->second;
-	}
-
-	return texture_units.emplace(material_texture.texture_id, create_texture(material_texture, sampler_type)).first->second;
+	const auto& material = static_cast<TextureMaterial&>(MaterialSystem::get(id));
+	return texture_units.emplace(id, create_texture(material, sampler_type)).first->second;
 }
 
 VkSampler GraphicsEngineTextureManager::fetch_sampler(ETextureSamplerType sampler_type)
@@ -55,25 +50,29 @@ VkSampler GraphicsEngineTextureManager::fetch_sampler(ETextureSamplerType sample
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
-	const std::vector<MaterialTexture>& material_textures)
+	const CubeMapMatGroup& material_group)
 {
-	const uint32_t cubemap_texture_id = CUBE_MAP_OFFSET + material_textures[0].texture_id;
-	if (texture_units.find(cubemap_texture_id) != texture_units.end())
+	// We assume the first image is representative of the entire cubemap
+	// However we should also note that there is an edge case where there exists another cubemap
+	// such that it contains the same first image but the rest of the images are different
+	// I really don't ever see this ever happening but it's a possibility
+	const auto representative_id = material_group.get_materials()[0];
+	if (texture_units.contains(representative_id))
 	{
-		return texture_units.at(cubemap_texture_id);
+		return texture_units.at(representative_id);
 	}
 
-	const uint32_t width = material_textures[0].width;
-	const uint32_t height = material_textures[0].height;
-	const uint32_t channels = material_textures[0].channels;
+	const auto& representative_material = static_cast<TextureMaterial&>(MaterialSystem::get(representative_id));
+	const uint32_t width = representative_material.width;
+	const uint32_t height = representative_material.height;
+	const uint32_t channels = representative_material.channels;
 	// only RGBA is currently supported
 	assert(channels == 4);
-	if (!std::all_of(
-		material_textures.begin(), 
-		material_textures.end(), 
-		[&width, &height](const MaterialTexture& material_texture) 
+	if (!std::ranges::all_of(material_group.get_materials(), 
+		[width, height](const auto material_id) 
 		{ 
-			return width == material_texture.width && height == material_texture.height; 
+			const auto& material = static_cast<TextureMaterial&>(MaterialSystem::get(material_id));
+			return width == material.width && height == material.height; 
 		}))
 	{
 		throw std::runtime_error("GraphicsEngineTextureManager::create_volume_texture: supplied material textures are not all the same size!");
@@ -81,14 +80,14 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 
 	VkImage texture_image;
 	VkDeviceMemory texture_image_memory;
-	create_cubemap_texture_image(material_textures, texture_image, texture_image_memory);
+	create_cubemap_texture_image(material_group, texture_image, texture_image_memory);
 
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
 		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_VIEW_TYPE_CUBE,
-		material_textures.size());
+		material_group.cube_map_mats.size());
 	VkSampler texture_sampler = fetch_sampler(ETextureSamplerType::ADDR_MODE_REPEAT);
 
 	GraphicsEngineTexture texture_object(
@@ -97,16 +96,16 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 		texture_image_view, 
 		texture_sampler, 
 		glm::uvec3(width, height, channels));
-	return texture_units.emplace(cubemap_texture_id, std::move(texture_object)).first->second;
+	return texture_units.emplace(representative_id, std::move(texture_object)).first->second;
 }
 
 GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
-	const MaterialTexture& material_texture,
+	const TextureMaterial& material,
 	ETextureSamplerType sampler_type)
 {
 	VkImage texture_image;
 	VkDeviceMemory texture_image_memory;
-	const auto dim = create_texture_image(material_texture, texture_image, texture_image_memory);
+	const auto dim = create_texture_image(material, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
 		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
@@ -117,12 +116,12 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 }
 
 glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
-	const MaterialTexture& material_texture,
+	const TextureMaterial& material,
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
 {
-	assert(material_texture.channels == 4); // only RGBA is currently supported atm
-	VkDeviceSize size = material_texture.width * material_texture.height * material_texture.channels;
+	assert(material.channels == 4); // only RGBA is currently supported atm
+	VkDeviceSize size = material.width * material.height * material.channels;
 
 	if (size == 0)
 	{
@@ -130,8 +129,8 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	}
 
 	get_graphics_engine().create_image(
-		material_texture.width, 
-		material_texture.height, 
+		material.width, 
+		material.height, 
 		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB, for other maps such as normal and specular maps they should be linear
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
@@ -146,32 +145,36 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 
 	get_rsrc_mgr().stage_data_to_image(
 		texture_image, 
-		material_texture.width, 
-		material_texture.height,
+		material.width, 
+		material.height,
 		static_cast<size_t>(size),
-		[&material_texture, &size](std::byte* destination)
+		[&material, &size](std::byte* destination)
 		{
-			std::memcpy(destination, material_texture.data, static_cast<size_t>(size));
+			std::memcpy(destination, material.data.get(), static_cast<size_t>(size));
 		});
 
 	// transition one more time for shader access
 	get_graphics_engine().transition_image_layout(
 		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-	return glm::uvec3(material_texture.width, material_texture.height, material_texture.channels);
+	return glm::uvec3(material.width, material.height, material.channels);
 }
 
 void GraphicsEngineTextureManager::create_cubemap_texture_image(
-	const std::vector<MaterialTexture>& material_textures,
+	const CubeMapMatGroup& material_group,
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
 {
-	const uint32_t width = material_textures[0].width;
-	const uint32_t height = material_textures[0].height;
-	const uint32_t channels = material_textures[0].channels;
+	const auto representative_id = material_group.get_materials()[0];
+	const auto& representative_material = static_cast<TextureMaterial&>(MaterialSystem::get(representative_id));
+	const unsigned num_textures = material_group.cube_map_mats.size();
+
+	const uint32_t width = representative_material.width;
+	const uint32_t height = representative_material.height;
+	const uint32_t channels = representative_material.channels;
 
 	VkDeviceSize layer_size = width * height * channels;
-	VkDeviceSize image_size = layer_size * material_textures.size();
+	VkDeviceSize image_size = layer_size * material_group.cube_map_mats.size();
 	if (layer_size == 0)
 	{
 		throw std::runtime_error("GraphicsEngineTextureManager::create_volume_texture: supplied material texture is invalid, size=0!");
@@ -187,7 +190,7 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		texture_image,
 		texture_image_memory,
 		VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
-		material_textures.size(),
+		num_textures,
 		VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 
 	// copy the staging buffer to the texture image,
@@ -197,21 +200,22 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		VK_IMAGE_LAYOUT_UNDEFINED, 
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		nullptr,
-		material_textures.size());
+		num_textures);
 
 	get_rsrc_mgr().stage_data_to_image(
 		texture_image, 
 		width, 
 		height,
 		static_cast<size_t>(image_size),
-		[&material_textures, &layer_size](std::byte* destination)
+		[num_textures, &material_group, &layer_size](std::byte* destination)
 		{
-			for (auto i = 0; i < material_textures.size(); i++)
+			for (auto i = 0; i < num_textures; i++)
 			{
-				std::memcpy(destination+(layer_size*i), material_textures[i].data, static_cast<size_t>(layer_size));
+				const auto& material = static_cast<TextureMaterial&>(MaterialSystem::get(material_group.cube_map_mats[i]));
+				std::memcpy(destination+(layer_size*i), material.data->get(), static_cast<size_t>(layer_size));
 			}
 		},
-		material_textures.size());
+		num_textures);
 
 	// transition one more time for shader access
 	get_graphics_engine().transition_image_layout(
@@ -219,7 +223,7 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		nullptr,
-		material_textures.size());
+		num_textures);
 }
 
 VkSampler GraphicsEngineTextureManager::create_texture_sampler(ETextureSamplerType sampler_type)

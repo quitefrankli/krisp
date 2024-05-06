@@ -11,6 +11,7 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "constants.hpp"
+#include "renderable/material_group.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -495,19 +496,24 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	const auto id = graphics_object.get_id();
 	auto& rsrc_mgr = get_rsrc_mgr();
 
-	auto& renderables = graphics_object.get_game_object().renderables;
-	for (const auto& renderable : renderables)
-	{
-		const auto& mesh = MeshSystem::get(renderable.mesh_id);
-		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
-	}
-
 	for (const auto& renderable : graphics_object.get_renderables())
 	{
-		for (const MaterialID mat_id : renderable.material_ids)
+		// reserve and write to mesh buffer (actually vertex and index buffers)
+		const auto& mesh = MeshSystem::get(renderable.mesh_id);
+		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
+
+		// reserve and write to materials buffer
+		switch (renderable.pipeline_render_type)
 		{
-			const Material& material = MaterialSystem::get(mat_id);
-			rsrc_mgr.write_to_buffer(mat_id, material.material_data);
+			case EPipelineType::COLOR:
+			{
+				const FlatMatGroup flat_mat_group(renderable.material_ids);
+				const auto& material = static_cast<ColorMaterial&>(MaterialSystem::get(flat_mat_group.color_mat));
+				rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material.data);
+				break;
+			}
+			default:
+				break;
 		}
 	}
 
@@ -592,17 +598,30 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	object.set_obj_dsets(object_dsets);
 
 	// per renderable descriptor set
-	// currently the resources that are per renderable just happen to be purely static and so we only need 1 dset and buffer
+	// TODO: we need to cache the dsets for each material/texture
 	std::vector<VkDescriptorSet> renderable_dsets;
 	for (const Renderable& renderable : object.get_renderables())
 	{
+		// TODO: we need to split the renderable dset layout to a material only one and a texture only one
+		// however this is a lot of work and will involve creating a new pipeline
 		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_renderable_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
-		// TODO: this will need to be fixed to use MaterialGroup
-		// For now it's hardcoded to assume only 1 material per renderable and no textures
-		const MaterialID mat_id = renderable.material_ids[0];
-		const GraphicsBuffer::Slot mat_slot = get_rsrc_mgr().get_materials_buffer_slot(mat_id);
+		// TODO: after resolving above todo, need to move this within the below switch statement
+		const GraphicsBuffer::Slot mat_slot = [&]()
+		{
+			if (renderable.pipeline_render_type != EPipelineType::COLOR)
+			{
+				// TODO: this needs to be properly fixed
+				GraphicsBuffer::Slot slot;
+				slot.offset = 0;
+				slot.size = 4; // this is just a dummy value
+				return slot;
+			}
+
+			const FlatMatGroup flat_material_group(renderable.material_ids);
+			return get_rsrc_mgr().get_buffer_slot(flat_material_group.color_mat);
+		}();
 		VkDescriptorBufferInfo material_buffer_info{};
 		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
 		material_buffer_info.offset = mat_slot.offset;
@@ -616,42 +635,48 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		material_buffer_dset.pBufferInfo = &material_buffer_info;
 		descriptor_writes.push_back(material_buffer_dset);
 
-		// TODO: fix this up properly
-		// switch (object.get_render_type())
-		// {
-		// 	case EPipelineType::CUBEMAP:
-		// 	case EPipelineType::STANDARD:
-		// 	case EPipelineType::SKINNED:
-		// 	{
-		// 		VkDescriptorImageInfo image_info{};
-		// 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		// 		// some useful links when we get up to this part
-		// 		// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
-		// 		// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
-		// 		// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
-		// 		// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-		// 		image_info.imageView = shape.get_material().get_texture().get_texture_image_view();
-		// 		image_info.sampler = shape.get_material().get_texture().get_texture_sampler();
+		switch (renderable.pipeline_render_type)
+		{
+			case EPipelineType::CUBEMAP:
+			{
+				VkDescriptorImageInfo image_info{};
+				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				// some useful links when we get up to this part
+				// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
+				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
+				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
+				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
+				const CubeMapMatGroup cube_map_mat_group(renderable.material_ids);
+				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_cubemap_texture(cube_map_mat_group);
+				image_info.imageView = texture.get_texture_image_view();
+				image_info.sampler = texture.get_texture_sampler();
 
-		// 		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		// 		combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
-		// 		combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
-		// 		combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-		// 		combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		// 		combined_image_sampler_descriptor_set.descriptorCount = 1;
-		// 		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-		// 		descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-		// 		break;
-		// 	}
-		// 	default:
-		// 		break;
-		// }
+				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
+				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				combined_image_sampler_descriptor_set.descriptorCount = 1;
+				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
 
-		vkUpdateDescriptorSets(get_logical_device(),
-							   static_cast<uint32_t>(descriptor_writes.size()), 
-							   descriptor_writes.data(), 
-							   0, 
-							   nullptr);
+				vkUpdateDescriptorSets(get_logical_device(),
+						static_cast<uint32_t>(descriptor_writes.size()), 
+						descriptor_writes.data(), 
+						0, 
+						nullptr);
+				break;
+			}
+			// case EPipelineType::STANDARD:
+			// case EPipelineType::SKINNED:
+			default:
+				vkUpdateDescriptorSets(get_logical_device(),
+						static_cast<uint32_t>(descriptor_writes.size()), 
+						descriptor_writes.data(), 
+						0, 
+						nullptr);
+		}
+
 		renderable_dsets.push_back(new_descriptor_set);
 	}
 	object.set_renderable_dsets(renderable_dsets);

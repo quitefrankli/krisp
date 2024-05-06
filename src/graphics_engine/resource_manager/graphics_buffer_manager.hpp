@@ -6,7 +6,6 @@
 #include "shared_data_structures.hpp"
 #include "identifications.hpp"
 #include "graphics_engine/graphics_engine_object.hpp"
-#include "graphics_engine/graphics_materials.hpp"
 
 
 class Mesh;
@@ -59,7 +58,7 @@ public:
 	GraphicsBuffer::Slot get_vertex_buffer_slot(MeshID id) const { return vertex_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_index_buffer_slot(MeshID id) const { return index_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_uniform_buffer_slot(EntityFrameID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
-	GraphicsBuffer::Slot get_materials_buffer_slot(MaterialID id) const { return materials_buffer.get_slot(id.get_underlying()); }
+	GraphicsBuffer::Slot get_buffer_slot(MaterialID id) const { return materials_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_bone_buffer_slot(EntityFrameID id) const { return bone_buffer.get_slot(id.get_underlying()); }
 
 	virtual GraphicsBuffer create_buffer(

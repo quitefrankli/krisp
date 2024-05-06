@@ -2,7 +2,6 @@
 
 #include "graphics_engine_base_module.hpp"
 #include "pipeline/pipeline.hpp"
-#include "graphics_materials.hpp"
 #include "identifications.hpp"
 #include "renderable/renderable.hpp"
 
