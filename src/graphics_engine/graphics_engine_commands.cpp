@@ -66,3 +66,8 @@ void PreviewObjectsCmd::process(GraphicsEngineBase* engine)
 {
 	engine->handle_command(*this);
 }
+
+void DestroyResourcesCmd::process(GraphicsEngineBase* engine) 
+{
+	engine->handle_command(*this);
+}

@@ -161,26 +161,18 @@ const ECS& GraphicsEngine::get_ecs() const
 
 void GraphicsEngine::cleanup_entity(const ObjectID id)
 {
-	get_rsrc_mgr().free_vertex_buffer(id);
-	get_rsrc_mgr().free_index_buffer(id);
 	auto& obj = get_object(id);
 
-	// we will need to cleanup from game engine side as well, clean up from ECS system and if
-	// material/meshes become empty on ecs, then clean it up on graphics engine side too
-	std::cout<<"WARNING: TODO: DONT FORGET TO PROPERLY CLEANUP\n";
-	// for (const auto& shape : obj.get_shapes())
-	// {
-	// 	get_rsrc_mgr().free_materials_buffer(shape.get_id());
-	// }
-	// for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
-	// {
-	// 	EntityFrameID efid{id, frame_idx};
-	// 	get_rsrc_mgr().free_uniform_buffer(efid);
-	// 	if (obj.get_render_type() == ERenderType::SKINNED)
-	// 	{
-	// 		get_rsrc_mgr().free_bone_buffer(efid);
-	// 	}
-	// }
+	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
+	{
+		EntityFrameID efid{id, frame_idx};
+		get_rsrc_mgr().free_uniform_buffer(efid);
+		// TODO: clean up skinned
+		// if (obj.get_render_type() == ERenderType::SKINNED)
+		// {
+		// 	get_rsrc_mgr().free_bone_buffer(efid);
+		// }
+	}
 	objects.erase(id);
 	++num_objs_deleted;
 }

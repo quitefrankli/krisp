@@ -89,7 +89,7 @@ void GraphicsBufferManager::write_to_buffer(MaterialID id, const SDS::MaterialDa
 		return;
 	}
 
-	reserve_buffer(id, sizeof(material));
+	reserve_buffer(materials_buffer, id.get_underlying(), sizeof(material));
 
 	const auto slot = materials_buffer.get_slot(id.get_underlying());
 	stage_data_to_buffer(materials_buffer.get_buffer(), slot.offset, slot.size,
@@ -107,8 +107,8 @@ void GraphicsBufferManager::write_to_buffer(MeshID id, const Mesh& mesh)
 		return;
 	}
 
-	reserve_vertex_buffer(id, mesh.get_vertices_data_size());
-	reserve_index_buffer(id, mesh.get_indices_data_size());
+	reserve_buffer(vertex_buffer, id.get_underlying(), mesh.get_vertices_data_size());
+	reserve_buffer(index_buffer, id.get_underlying(), mesh.get_indices_data_size());
 
 	const auto vertex_slot = vertex_buffer.get_slot(id.get_underlying());
 	const auto index_slot = index_buffer.get_slot(id.get_underlying());
@@ -301,6 +301,11 @@ void GraphicsBufferManager::reserve_buffer(GraphicsBuffer& buffer, uint64_t id, 
 
 void GraphicsBufferManager::free_buffer(GraphicsBuffer& buffer, uint64_t id)
 {
+	if (!buffer.has_slot(id))
+	{
+		return;
+	}
+	
 	buffer.free_slot(id);
 	update_buffer_stats();
 }

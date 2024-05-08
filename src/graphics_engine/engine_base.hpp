@@ -19,6 +19,7 @@ public:
 	virtual void handle_command(UpdateCommandBufferCmd& cmd) {}
 	virtual void handle_command(UpdateRayTracingCmd& cmd) {}
 	virtual void handle_command(PreviewObjectsCmd& cmd) {}
+	virtual void handle_command(DestroyResourcesCmd& cmd) {}
 
 	virtual void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd) = 0;
 	virtual float get_fps() const = 0;

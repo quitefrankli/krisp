@@ -117,3 +117,16 @@ void GraphicsEngine::handle_command(PreviewObjectsCmd& cmd)
 		renderer.get_output_image_view(get_swap_chain().get_curr_frame().image_index),
 		glm::uvec2(extent.width, extent.height));
 }
+
+void GraphicsEngine::handle_command(DestroyResourcesCmd& cmd)
+{
+	for (const auto mat_id : cmd.material_ids)
+	{
+		get_rsrc_mgr().free_buffer(mat_id);
+	}
+
+	for (const auto mesh_id : cmd.mesh_ids)
+	{
+		get_rsrc_mgr().free_buffer(mesh_id);
+	}
+}

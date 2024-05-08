@@ -14,6 +14,9 @@ if(MSVC)
 	message("Detected Windows OS")
 	# for MSVC this will set the limit of max simultaneous TU compiles
 	add_definitions(/MP12)
+	add_definitions(/W4)
+	add_definitions(/WX)
+	# add_definitions(/we4062) # for checking all possible switch cases are covered
 elseif(APPLE)
 	message("Detected APPLE")
 	# add_definitions(-DVK_USE_PLATFORM_METAL_EXT)

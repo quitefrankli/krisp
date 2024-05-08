@@ -37,6 +37,7 @@ public:
 	VkBuffer get_buffer() const { return buffer; }
 	VkDeviceMemory get_memory() const { return memory; }
 	Slot get_slot(uint32_t id) const;
+	bool has_slot(uint32_t id) const { return filled_slots.contains(id); }
 
 private:
 	// map of id to slot, id is typically object-id

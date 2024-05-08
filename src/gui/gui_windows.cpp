@@ -20,9 +20,7 @@
 #include "gui_windows.hpp"
 
 
-GuiGraphicsSettings::GuiGraphicsSettings()
-{
-}
+GuiGraphicsSettings::GuiGraphicsSettings() = default;
 
 void GuiGraphicsSettings::draw()
 {
@@ -83,6 +81,7 @@ GuiObjectSpawner::GuiObjectSpawner()
 			{
 				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
 				const auto mat_id = ResourceLoader::fetch_texture(Utility::get_texture("texture.jpg").data());
+				MaterialSystem::register_owner(mat_id);
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
 				renderable.material_ids = { mat_id };
@@ -102,6 +101,7 @@ GuiObjectSpawner::GuiObjectSpawner()
 				Renderable renderable;
 				renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
 				renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
+				MaterialSystem::register_owner(renderable.material_ids[0]);
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());

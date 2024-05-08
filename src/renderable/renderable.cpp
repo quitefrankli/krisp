@@ -1,11 +1,10 @@
-#include "renderable.hpp"
-
-#include "entity_component_system/material_system.hpp"
+#include "renderable/renderable.hpp"
+#include "renderable/material_factory.hpp"
 
 
 Renderable Renderable::make_default(MeshID mesh_id)
 {
-	static MaterialID default_mat = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	static MaterialID default_mat = MaterialFactory::fetch_preset(EMaterialPreset::DEFAULT);
 	Renderable renderable;
 	renderable.mesh_id = mesh_id;
 	renderable.material_ids = { default_mat };

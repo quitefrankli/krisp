@@ -60,3 +60,9 @@ TEST(MeshSystem, check_num_owners)
 	ASSERT_EQ(MeshSystem::get_num_owners(id1), 0);
 	ASSERT_EQ(MeshSystem::get_num_owners(id2), 2);
 }
+
+TEST(MeshSystem, permanently_owned)
+{
+	const auto id1 = MeshFactory::circle_id();
+	ASSERT_EQ(MeshSystem::get_num_owners(id1), std::numeric_limits<uint32_t>::max());
+}

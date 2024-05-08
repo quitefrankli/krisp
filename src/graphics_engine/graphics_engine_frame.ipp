@@ -8,7 +8,7 @@
 #include "shared_data_structures.hpp"
 #include "camera.hpp"
 #include "pipeline/pipeline.hpp"
-#include "pipeline/pipeline_types.hpp"
+#include "renderable/render_types.hpp"
 
 #include "entity_component_system/ecs.hpp"
 

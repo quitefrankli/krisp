@@ -13,7 +13,8 @@ enum class EMaterialPreset
 	METAL,
 	DIFFUSE,
 	GIZMO_ARROW,
-	GIZMO_ARC
+	GIZMO_ARC,
+	DEFAULT
 };
 
 class MaterialFactory

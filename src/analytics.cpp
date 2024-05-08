@@ -37,7 +37,7 @@ void Analytics::stop()
 	num_elapsed_cycles++;
 	if (now - log_cycle_start > LOG_PERIOD)
 	{
-		const double avg_float = (double)elapsed_log_cycle.count() / (double)num_elapsed_cycles / 1e3;
+		const float avg_float = (float)elapsed_log_cycle.count() / (float)num_elapsed_cycles / 1e3;
 		if (on_log_period)
 		{
 			on_log_period.value()(avg_float);

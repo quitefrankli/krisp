@@ -190,36 +190,7 @@ void GameEngine::shutdown_impl()
 	graphics_engine->enqueue_cmd(std::make_unique<ShutdownCmd>());
 }
 
-void GameEngine::process_objs_to_delete()
-{
-	const auto curr_deleted_objs_count_in_graphics_engine = graphics_engine->get_num_objs_deleted();
-	while (!entity_deletion_queue.empty())
-	{
-		const auto& obj = entity_deletion_queue.front();
-
-		if (obj.second >= curr_deleted_objs_count_in_graphics_engine)
-		{
-			break;
-		}
-		
-		if (ecs.has_skeletal_component(obj.first))
-		{
-			const auto& bone_visualisers = ecs.get_skeletal_component(obj.first).get_visualisers();
-			for (const auto bone_visualiser : bone_visualisers)
-			{
-				delete_object(bone_visualiser);
-			}
-		}
-
-		objects.erase(obj.first);
-		ecs.remove_object(obj.first);
-		entity_deletion_queue.pop();
-	}
-}
-
-GameEngine::~GameEngine()
-{
-}
+GameEngine::~GameEngine() = default;
 
 inline Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 {
@@ -263,8 +234,56 @@ void GameEngine::delete_object(ObjectID id)
 		return;
 	}
 
-	ecs.remove_clickable_entity(id);
 	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
+}
+
+void GameEngine::process_objs_to_delete()
+{
+	const auto curr_deleted_objs_count_in_graphics_engine = graphics_engine->get_num_objs_deleted();
+	DestroyResourcesCmd destroy_resources_cmd;
+	while (!entity_deletion_queue.empty())
+	{
+		const auto& obj = entity_deletion_queue.front();
+		const ObjectID id = obj.first;
+
+		if (obj.second >= curr_deleted_objs_count_in_graphics_engine)
+		{
+			break;
+		}
+		
+		if (ecs.has_skeletal_component(id))
+		{
+			const auto& bone_visualisers = ecs.get_skeletal_component(id).get_visualisers();
+			for (const auto bone_visualiser : bone_visualisers)
+			{
+				delete_object(bone_visualiser);
+			}
+		}
+		
+		ecs.remove_clickable_entity(id);
+		const Object& object = *get_object(id);
+		for (const auto& renderable : object.renderables)
+		{
+			for (const auto& mat_id : renderable.material_ids)
+			{
+				if (MaterialSystem::unregister_owner(mat_id) == 0)
+				{
+					destroy_resources_cmd.material_ids.push_back(mat_id);
+				}
+			}
+			
+			if (MeshSystem::unregister_owner(renderable.mesh_id) == 0)
+			{
+				destroy_resources_cmd.mesh_ids.push_back(renderable.mesh_id);
+			}
+		}
+
+		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(destroy_resources_cmd));
+
+		objects.erase(id);
+		ecs.remove_object(id);
+		entity_deletion_queue.pop();
+	}
 }
 
 void GameEngine::highlight_object(const Object& object)

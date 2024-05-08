@@ -3,22 +3,47 @@
 
 #include "mock_graphics_engine.hpp"
 #include "mock_window.hpp"
+#include "renderable/mesh_factory.hpp"
+#include "renderable/material_factory.hpp"
+#include "entity_component_system/mesh_system.hpp"
+#include "entity_component_system/material_system.hpp"
 
 #include <gtest/gtest.h>
 
+
+class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
+{
+public:
+	virtual void handle_command(DestroyResourcesCmd& cmd) override 
+	{
+		for (const auto& mesh_id : cmd.mesh_ids)
+		{
+			meshes_to_destroy.push_back(mesh_id);
+		}
+		for (const auto& material_id : cmd.material_ids)
+		{
+			materials_to_destroy.push_back(material_id);
+		}
+	}
+
+	std::vector<MeshID> meshes_to_destroy;
+	std::vector<MaterialID> materials_to_destroy;
+};
 
 class GameEngineTests : public testing::Test
 {
 public:
     GameEngineTests() : 
-		engine(mock_window, [](GameEngine& engine) { return std::make_unique<MockGraphicsEngine>(engine); })
+		engine(mock_window, [](GameEngine& engine) { return std::make_unique<GameEngineTestsMockGraphicsEngine>(); })
 	{
 		engine.set_application(&application);
+		graphics_engine = static_cast<GameEngineTestsMockGraphicsEngine*>(&engine.get_graphics_engine());
 	}
 
 	MockWindow mock_window;
     DummyApplication application;
     GameEngine engine;
+	GameEngineTestsMockGraphicsEngine* graphics_engine = nullptr;
 };
 
 TEST_F(GameEngineTests, Constructor)
@@ -40,4 +65,50 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 	ASSERT_FALSE(engine.get_object(id));
+}
+
+TEST_F(GameEngineTests, resource_cleanup)
+{
+	const auto mesh_id = MeshSystem::add(MeshFactory::icosahedron());
+	const auto material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	MeshSystem::register_owner(mesh_id);
+	MaterialSystem::register_owner(material_id);
+	Renderable renderable;
+	renderable.mesh_id = mesh_id;
+	renderable.material_ids = { material_id };
+	auto& obj = engine.spawn_object(std::make_shared<Object>(renderable));
+	const auto obj_id = obj.get_id();
+
+	engine.delete_object(obj_id);
+	engine.get_graphics_engine().increment_num_objs_deleted();
+	engine.main_loop(1.0f);
+
+	ASSERT_EQ(graphics_engine->meshes_to_destroy.size(), 1);
+	ASSERT_EQ(graphics_engine->materials_to_destroy.size(), 1);
+
+	ASSERT_EQ(graphics_engine->meshes_to_destroy[0], mesh_id);
+	ASSERT_EQ(graphics_engine->materials_to_destroy[0], material_id);
+}
+
+TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
+{
+	const auto mesh_id = MeshSystem::add(MeshFactory::icosahedron());
+	const auto material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	MeshSystem::register_owner(mesh_id);
+	MaterialSystem::register_owner(material_id);
+	MaterialSystem::register_owner(material_id); // multiple owners of this material
+	Renderable renderable;
+	renderable.mesh_id = mesh_id;
+	renderable.material_ids = { material_id };
+	auto& obj = engine.spawn_object(std::make_shared<Object>(renderable));
+	const auto obj_id = obj.get_id();
+
+	engine.delete_object(obj_id);
+	engine.get_graphics_engine().increment_num_objs_deleted();
+	engine.main_loop(1.0f);
+
+	ASSERT_EQ(graphics_engine->meshes_to_destroy.size(), 1);
+	ASSERT_EQ(graphics_engine->materials_to_destroy.size(), 0);
+
+	ASSERT_EQ(graphics_engine->meshes_to_destroy[0], mesh_id);
 }

@@ -66,12 +66,13 @@ MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
 			material.data.emissive = glm::vec3(0.0f, 1.0f, 1.0f);
 			material.data.shininess = 1.0f;
 			break;
+		case EMaterialPreset::DEFAULT:
 		default:
 			break;
 	}
 
 	auto material_ptr = std::make_unique<ColorMaterial>(std::move(material));
-	const auto material_id = MaterialSystem::add(std::move(material_ptr));
+	const auto material_id = MaterialSystem::add(std::move(material_ptr), true);
 	material_map[preset] = material_id;
 
 	return material_id;

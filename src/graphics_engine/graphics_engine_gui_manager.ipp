@@ -5,6 +5,7 @@
 #include "renderers/renderers.hpp"
 #include "utility.hpp"
 #include "resource_loader.hpp"
+#include "entity_component_system/material_system.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
 #include <ImGui/imgui_impl_vulkan.h>
@@ -137,9 +138,11 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	const std::string_view texture_path,
 	GuiPhotoBase& gui_photo)
 {
+	const auto texture_mat_id = ResourceLoader::fetch_texture(texture_path);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
-		ResourceLoader::fetch_texture(texture_path), 
+		texture_mat_id, 
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
+	MaterialSystem::register_owner(texture_mat_id); // there's a memory leak here, we need to unregister the owner
 	
 	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
 	// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples

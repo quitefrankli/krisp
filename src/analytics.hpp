@@ -51,5 +51,5 @@ private:
 	State state = State::FRESH;
 
 	// additional side effects on LOG_PERIOD
-	std::optional<std::function<void(double)>> on_log_period;
+	std::optional<std::function<void(float)>> on_log_period;
 };

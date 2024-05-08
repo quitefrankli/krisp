@@ -82,3 +82,12 @@ struct PreviewObjectsCmd : public GraphicsEngineCommand
 	const std::vector<Object*> objects;
 	GuiPhotoBase& gui;
 };
+
+struct DestroyResourcesCmd : public GraphicsEngineCommand
+{
+	virtual void process(GraphicsEngineBase* engine) override;
+
+	// std::vector<ObjectID> object_ids; // not needed for now
+	std::vector<MaterialID> material_ids;
+	std::vector<MeshID> mesh_ids;
+};

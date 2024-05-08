@@ -18,15 +18,11 @@ public:
 	GraphicsBufferManager(GraphicsEngine& engine);
 	virtual ~GraphicsBufferManager() override;
 
-	void reserve_vertex_buffer(MeshID id, size_t size) { reserve_buffer(vertex_buffer, id.get_underlying(), size); }
-	void reserve_index_buffer(MeshID id, size_t size) { reserve_buffer(index_buffer, id.get_underlying(), size); }
 	void reserve_uniform_buffer(EntityFrameID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
-	void reserve_buffer(MaterialID id, size_t size) { reserve_buffer(materials_buffer, id.get_underlying(), size); }
 	void reserve_bone_buffer(EntityFrameID id, size_t size) { reserve_buffer(bone_buffer, id.get_underlying(), size); }
 
-	void free_vertex_buffer(ObjectID id) { free_buffer(vertex_buffer, id.get_underlying()); }
-	void free_index_buffer(ObjectID id) { free_buffer(index_buffer, id.get_underlying()); }
 	void free_uniform_buffer(EntityFrameID id) { free_buffer(uniform_buffer, id.get_underlying()); }
+	void free_buffer(MeshID id) { free_buffer(vertex_buffer, id.get_underlying()); free_buffer(index_buffer, id.get_underlying()); }
 	void free_buffer(MaterialID id) { free_buffer(materials_buffer, id.get_underlying()); }
 	void free_bone_buffer(EntityFrameID id) { free_buffer(bone_buffer, id.get_underlying()); }
 
