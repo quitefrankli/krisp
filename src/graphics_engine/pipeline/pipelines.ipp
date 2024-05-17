@@ -168,7 +168,7 @@ WireframePipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 
 void RaytracingPipeline::initialise()
 {
-	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
+	std::filesystem::path shader_path = Utility::get_shaders_path() / get_shader_name();
 	VkShaderModule raygen_shader = create_shader_module(shader_path.string() + "/raygen_shader.spv");
 	VkShaderModule rayhit_shader = create_shader_module(shader_path.string() + "/rayhit_shader.spv");
 	VkShaderModule raymiss_shader = create_shader_module(shader_path.string() + "/raymiss_shader.spv");

@@ -11,7 +11,7 @@ void HoverableSystem::add_hoverable_entity(EntityID id)
 {
 	if (!get_ecs().get_collider(id))
 	{
-		LOG_WARNING(Utility::get().get_logger(), "HoverableSystem: Added Entity {} with no collider", id.get_underlying());
+		LOG_WARNING(Utility::get_logger(), "HoverableSystem: Added Entity {} with no collider", id.get_underlying());
 		fmt::print("HoverableSystem: Warning added Entity {} with no collider\n", id.get_underlying());		
 	}
 	hoverable_entities.insert(id);

@@ -140,7 +140,7 @@ std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline::get_expected_dset_lay
 
 void GraphicsEnginePipeline::initialise()
 {
-	std::filesystem::path shader_path = Utility::get().get_shaders_path() / get_shader_name();
+	std::filesystem::path shader_path = Utility::get_shaders_path() / get_shader_name();
 	VkPolygonMode polygon_mode = get_polygon_mode();
 	// culling is determined by either clockerwise or counter clockwise vertex order
 	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise

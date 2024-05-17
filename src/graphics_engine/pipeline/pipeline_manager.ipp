@@ -86,7 +86,7 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		new_pipeline->initialise();
 	}
 
-	LOG_INFO(Utility::get().get_logger(), "created pipeline with id: {} {}", 
+	LOG_INFO(Utility::get_logger(), "created pipeline with id: {} {}", 
 		magic_enum::enum_name(id.primary_pipeline_type),
 		magic_enum::enum_name(id.pipeline_modifier));
 
@@ -136,7 +136,7 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		break;
 	}
 	
-	LOG_WARNING(Utility::get().get_logger(), "create_pipeline failed with invalid pipeline id: {} {}",
+	LOG_WARNING(Utility::get_logger(), "create_pipeline failed with invalid pipeline id: {} {}",
 		magic_enum::enum_name(id.primary_pipeline_type),
 		magic_enum::enum_name(id.pipeline_modifier));
 	return std::unique_ptr<GraphicsEnginePipeline>{nullptr};

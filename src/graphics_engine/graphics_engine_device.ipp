@@ -45,7 +45,7 @@ void GraphicsEngineDevice::pick_physical_device()
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-		LOG_INFO(Utility::get().get_logger(), "GraphicsEngineDevice: checking device:={}", deviceProperties.deviceName);
+		LOG_INFO(Utility::get_logger(), "GraphicsEngineDevice: checking device:={}", deviceProperties.deviceName);
 
 		if (!check_device_extension_support(device))
 		{
@@ -115,7 +115,7 @@ bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice devic
 		required_extensions_set.erase(extension.data());
 	});
 
-	LOG_INFO(Utility::get().get_logger(), 
+	LOG_INFO(Utility::get_logger(), 
 			 "GraphicsEngineDevice: found physical device extensions: {}", 
 			 fmt::format("{}", fmt::join(available_extensions, ", ")));
 	
@@ -165,7 +165,7 @@ void GraphicsEngineDevice::print_physical_device_settings()
 {
 	const auto& properties = get_physical_device_properties();
 
-	LOG_INFO(Utility::get().get_logger(),
+	LOG_INFO(Utility::get_logger(),
 			 "Physical Device Properties: maxBoundDescriptorSets: {}, maxMSAA_Samples: {}, "
 			 "maxRayRecursionDepth: {}, minStorageBufferOffsetAlignment: {}",
 			 properties.properties.limits.maxBoundDescriptorSets,

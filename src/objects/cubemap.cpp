@@ -22,7 +22,7 @@ CubeMap::CubeMap()
 		"back"
 	};
 
-	const auto texture_path = Utility::get().get_textures_path().string();
+	const auto texture_path = Utility::get_textures_path().string();
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR); // I'm not sure why COLOR seems to work, TEXTURE seems to break

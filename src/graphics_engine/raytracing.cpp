@@ -313,7 +313,7 @@ void GraphicsEngineRayTracing::update_blas()
 		VkDeviceSize compactSize = std::accumulate(buildAs.begin(), buildAs.end(), 0ULL, [](const auto& a, const auto& b) {
 			return a + b.sizeInfo.accelerationStructureSize;
 		});
-		LOG_INFO(Utility::get().get_logger(), "RayTracing: reducing BLAS from: {} to: {}\n", asTotalSize, compactSize);
+		LOG_INFO(Utility::get_logger(), "RayTracing: reducing BLAS from: {} to: {}\n", asTotalSize, compactSize);
 	}
 
 	// Keeping all the created acceleration structures

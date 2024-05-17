@@ -7,7 +7,7 @@
 GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) : 
 	GraphicsEngineBaseModule(engine)
 {
-	LOG_INFO(Utility::get().get_logger(),
+	LOG_INFO(Utility::get_logger(),
 			 "GraphicsEngineTextureManager: chosen max anisotropy:={}",
 			 engine.get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy);
 }

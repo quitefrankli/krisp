@@ -30,14 +30,14 @@ public:
 		if (!name || alcGetError(p_ALCDevice) != AL_NO_ERROR)
 			name = alcGetString(p_ALCDevice, ALC_DEVICE_SPECIFIER);
 
-		LOG_INFO(Utility::get().get_logger(), "SoundDevice::SoundDevice: Opened {}", name);
+		LOG_INFO(Utility::get_logger(), "SoundDevice::SoundDevice: Opened {}", name);
 	}
 
 	~SoundDevice()
 	{
 		if (!alcMakeContextCurrent(nullptr))
 		{
-			LOG_ERROR(Utility::get().get_logger(), "SoundDevice: failed to set context to nullptr");
+			LOG_ERROR(Utility::get_logger(), "SoundDevice: failed to set context to nullptr");
 			return;
 		}
 
@@ -45,13 +45,13 @@ public:
 		ALenum err = alcGetError(p_ALCDevice);
     	if (err != AL_NO_ERROR)
 		{
-			LOG_ERROR(Utility::get().get_logger(), "SoundDevice: ERROR with alcDestroyContext: {}", alcGetString(p_ALCDevice, err));
+			LOG_ERROR(Utility::get_logger(), "SoundDevice: ERROR with alcDestroyContext: {}", alcGetString(p_ALCDevice, err));
 			return;
 		}
 
 		if (!alcCloseDevice(p_ALCDevice))
 		{
-			LOG_ERROR(Utility::get().get_logger(), "SoundDevice: failed close");
+			LOG_ERROR(Utility::get_logger(), "SoundDevice: failed close");
 			return;
 		}
 	}

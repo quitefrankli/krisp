@@ -38,7 +38,7 @@ void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 	{
 		// return; // ignore held keys
 	} else {
-		LOG_INFO(Utility::get().get_logger(), 
+		LOG_INFO(Utility::get_logger(), 
 				 "input detected [{}], key:={}, scan_code:={}, action:={}, mode={}, translated_key:={}", 
 				 inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
 	}

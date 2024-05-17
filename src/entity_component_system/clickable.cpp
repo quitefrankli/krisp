@@ -11,7 +11,7 @@ void ClickableSystem::add_clickable_entity(EntityID id)
 {
 	if (!get_ecs().get_collider(id))
 	{
-		LOG_WARNING(Utility::get().get_logger(), "ClickableSystem: Added Entity {} with no collider", id.get_underlying());
+		LOG_WARNING(Utility::get_logger(), "ClickableSystem: Added Entity {} with no collider", id.get_underlying());
 		fmt::print("ClickableSystem: Warning added Entity {} with no collider\n", id.get_underlying());		
 	}
 	clickable_entities.insert(id);

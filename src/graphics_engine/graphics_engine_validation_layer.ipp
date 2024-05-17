@@ -49,7 +49,7 @@ GraphicsEngineValidationLayer::~GraphicsEngineValidationLayer()
 		// I think there might be a bug here, the library seems to get unloaded as soon as this thread ends
 	}
 
-	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: num validation errors omitted:={}", filtered_errors_count);
+	LOG_INFO(Utility::get_logger(), "GraphicsEngineValidationLayer: num validation errors omitted:={}", filtered_errors_count);
 }
 
 std::vector<const char*> GraphicsEngineValidationLayer::get_layers()
@@ -80,13 +80,13 @@ bool GraphicsEngineValidationLayer::check_validation_layer_support(bool print_su
 	{
 		std::for_each(availableLayers.begin(), availableLayers.end(), [&available_layers_set](const auto& layer)
 			{
-				LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: available layer: {} - {}", layer.layerName, layer.description);
+				LOG_INFO(Utility::get_logger(), "GraphicsEngineValidationLayer: available layer: {} - {}", layer.layerName, layer.description);
 				available_layers_set.emplace(layer.layerName);
 			});
 
 		for (const char* layer : REQUIRED_VALIDATION_LAYERS)
 		{
-			LOG_INFO(Utility::get().get_logger(), "GraphicsEngineValidationLayer: required layer: {}", layer);
+			LOG_INFO(Utility::get_logger(), "GraphicsEngineValidationLayer: required layer: {}", layer);
 			if (available_layers_set.find(std::string(layer)) == available_layers_set.end())
 			{
 				return false;
@@ -115,7 +115,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 			return error.find(filter) == std::string::npos;
 		}))
 	{
-		LOG_ERROR(Utility::get().get_logger(), "ValidationLayerMessage: {}", error);
+		LOG_ERROR(Utility::get_logger(), "ValidationLayerMessage: {}", error);
 		fmt::print("ValidationLayerMessage: {}\n", error);
 
 		if (num_errors++ > MAX_NUM_ERRORS_BEFORE_THROW)

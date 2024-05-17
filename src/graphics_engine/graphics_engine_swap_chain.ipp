@@ -201,7 +201,7 @@ void GraphicsEngineSwapChain::destroy_and_recreate_frames()
 		frames.emplace_back(get_graphics_engine(), *this, handle);
 	}
 
-	LOG_INFO(Utility::get().get_logger(), "GraphicsEngineSwapChain: created {} frames", frames.size());
+	LOG_INFO(Utility::get_logger(), "GraphicsEngineSwapChain: created {} frames", frames.size());
 }
 
 void GraphicsEngineSwapChain::update_command_buffer()

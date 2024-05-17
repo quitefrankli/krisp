@@ -273,7 +273,7 @@ void GraphicsDescriptorManager::create_descriptor_pool()
 	//	enabled means descriptor set allocations from the pool are very cheap
 	poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
 
-	LOG_INFO(Utility::get().get_logger(), 
+	LOG_INFO(Utility::get_logger(), 
 			 "GraphicsDescriptorManager::create_descriptor_pool: max_sets:={}\n",
 		   	 poolInfo.maxSets);
 

@@ -22,11 +22,11 @@ int main(int argc, char* argv[])
 	fmt::print(fg(fmt::color::blue), "Debug Mode\n");
 #endif
 	const std::string config_path = argc == 2 ? argv[1] : "default.yaml";
-	Config::initialise_global_config(Utility::get().get_config_path().string() + "/" + config_path);
+	Config::initialise_global_config(Utility::get_config_path().string() + "/" + config_path);
 
 	if (Config::enable_logging())
 	{
-		Utility::get().enable_logging();
+		Utility::enable_logging();
 	}
 		
 	{

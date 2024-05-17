@@ -15,6 +15,7 @@ public:
 	GuiManager() :
 		graphic_settings(spawn_gui<GuiGraphicsSettings>()),
 		object_spawner(spawn_gui<GuiObjectSpawner>()),
+		model_spawner(spawn_gui<GuiModelSpawner>()),
 		fps_counter(spawn_gui<GuiFPSCounter>()),
 		statistics(spawn_gui<GuiStatistics>()),
 		debug(spawn_gui<GuiDebug>()),
@@ -39,6 +40,7 @@ public:
 	// references the GuiManager::gui_windows
 	GuiGraphicsSettings& graphic_settings;
 	GuiObjectSpawner& object_spawner;
+	GuiModelSpawner& model_spawner;
 	GuiFPSCounter& fps_counter;
 	GuiStatistics& statistics;
 	GuiDebug& debug;

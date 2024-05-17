@@ -36,7 +36,12 @@ Utility::Utility()
 void Utility::enable_logging()
 {
 	quill::start(); // this will consume CPU cycles
-	LOG_INFO(logger, "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", models, textures, build, binary);
+	LOG_INFO(get_logger(), 
+			 "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", 
+			 get_model_path(), 
+			 get_textures_path(), 
+			 get_build_path(), 
+			 get_binary_path());
 }
 
 Utility& Utility::get()
@@ -48,22 +53,22 @@ Utility& Utility::get()
 
 void Utility::set_appname_for_path(const std::string_view app)
 {
-	app_rsrc_path = get_top_level_path() / "resources/applications" / app.data();
+	get().app_rsrc_path = get_top_level_path() / "resources/applications" / app.data();
 }
 
-std::filesystem::path Utility::get_app_model_path() const
+std::filesystem::path Utility::get_app_model_path()
 {
-	return app_rsrc_path ? app_rsrc_path.value() / "models" : models;
+	return get().app_rsrc_path ? get().app_rsrc_path.value() / "models" : get().models;
 }
 
-std::filesystem::path Utility::get_app_textures_path() const
+std::filesystem::path Utility::get_app_textures_path()
 {
-	return app_rsrc_path ? app_rsrc_path.value() / "textures" : textures;
+	return get().app_rsrc_path ? get().app_rsrc_path.value() / "textures" : get().textures;
 }
 
-std::filesystem::path Utility::get_app_audio_path() const
+std::filesystem::path Utility::get_app_audio_path()
 {
-	return app_rsrc_path ? app_rsrc_path.value() / "sound" : audio;
+	return get().app_rsrc_path ? get().app_rsrc_path.value() / "sound" : get().audio;
 }
 
 std::string Utility::get_texture(const std::string_view texture)
@@ -117,6 +122,21 @@ struct Utility::UtilityImpl
 float Utility::get_rand(float min, float max)
 {
 	return std::uniform_real_distribution(min, max)(impl->rng);
+}
+
+std::vector<std::filesystem::path> Utility::get_all_files(const std::filesystem::path& path,
+                                                		  const std::unordered_set<std::string_view>& extensions)
+{
+	std::vector<std::filesystem::path> files;
+	for (const auto& entry : std::filesystem::directory_iterator(path))
+	{
+		if (entry.is_regular_file() && extensions.contains(entry.path().extension().string()))
+		{
+			files.push_back(entry);
+		}
+	}
+
+	return files;
 }
 
 std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::UtilityImpl>();

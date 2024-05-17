@@ -26,7 +26,7 @@ public:
 		_|_
 		 |
 	*/
-	const std::filesystem::path model_path = Utility::get().get_top_level_path()/"test/data/simple_test_model.gltf";
+	const std::filesystem::path model_path = Utility::get_top_level_path()/"test/data/simple_test_model.gltf";
 	ResourceLoader::LoadedModel model;
 	glm::vec3 v1 = {0.0f, 0.0f, 0.0f};
 	glm::vec3 v2 = {1.0f, 1.0f, 0.0f};

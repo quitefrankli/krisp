@@ -50,13 +50,13 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 		return extensions_str;
 	}();
 
-	LOG_INFO(Utility::get().get_logger(), 
+	LOG_INFO(Utility::get_logger(), 
 			 "GraphicsEngineInstance: available extensions:={}", 
 			 fmt::format("{}", fmt::join(available_instance_extensions, ", ")));
 
 	// vulkan is platform agnostic and therefore an extension is necessary 
 	std::vector<std::string> required_extensions = get_required_extensions();
-	LOG_INFO(Utility::get().get_logger(), 
+	LOG_INFO(Utility::get_logger(), 
 			 "GraphicsEngineInstance: required extensions:={}", 
 			 fmt::format("{}", fmt::join(required_extensions, ", ")));
 

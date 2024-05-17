@@ -43,7 +43,7 @@ void Analytics::stop()
 			on_log_period.value()(avg_float);
 		} else
 		{
-			LOG_INFO(Utility::get().get_logger(), "{} {:.2f} microseconds", text, avg_float);
+			LOG_INFO(Utility::get_logger(), "{} {:.2f} microseconds", text, avg_float);
 		}
 		log_cycle_start = now;
 		num_elapsed_cycles = 0;
@@ -65,5 +65,5 @@ void Analytics::quick_timer_stop(const std::string& mesg)
 {
 	auto elapsed = duration_cast<nanoseconds>(system_clock::now() - quick_timer_start_time);
 	double elapsed_float =  round((double)elapsed.count() / 10.0) / 100.0;
-	LOG_INFO(Utility::get().get_logger(), "{}, quick timer {} microseconds", mesg, elapsed_float);
+	LOG_INFO(Utility::get_logger(), "{}, quick timer {} microseconds", mesg, elapsed_float);
 }

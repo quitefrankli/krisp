@@ -86,6 +86,20 @@ private:
 	const float button_height = 20.0f;
 };
 
+class GuiModelSpawner : public GuiWindow
+{
+public:
+	GuiModelSpawner();
+
+	virtual void process(GameEngine& engine) override;
+	virtual void draw() override;
+
+private:
+	std::vector<std::string> models;
+	std::vector<std::filesystem::path> model_paths;
+	GuiVar<int> selected_model = 0;
+};
+
 class ImFont;
 class GuiFPSCounter : public GuiWindow
 {
@@ -115,10 +129,8 @@ private:
 	float gain = 1.0f;
 	float pitch = 1.0f;
 	glm::vec3 position{};
-	int selected_song = 0;
-	std::vector<const char*> songs;
-	// this is just for memory management for the above
-	std::vector<std::string> songs_;
+	GuiVar<int> selected_song = 0;
+	std::vector<std::string> songs;
 	std::vector<std::filesystem::path> songs_paths;
 };
 

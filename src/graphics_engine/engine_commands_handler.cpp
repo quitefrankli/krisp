@@ -102,7 +102,7 @@ void GraphicsEngine::handle_command(PreviewObjectsCmd& cmd)
 		auto it = objects.find(id);
 		if (it == objects.end())
 		{
-			LOG_WARNING(Utility::get().get_logger(), "PreviewObjectsCmd: ignoring obj with id:={}", id.get_underlying());
+			LOG_WARNING(Utility::get_logger(), "PreviewObjectsCmd: ignoring obj with id:={}", id.get_underlying());
 			continue;
 		}
 

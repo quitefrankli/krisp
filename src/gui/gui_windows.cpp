@@ -152,6 +152,37 @@ void GuiObjectSpawner::process(GameEngine& engine)
 	}	
 }
 
+GuiModelSpawner::GuiModelSpawner()
+{
+	model_paths = Utility::get_all_files(Utility::get_model_path(), { ".gltf" });
+	std::ranges::transform(model_paths, std::back_inserter(models), [](const auto& path) { return path.filename().string(); });
+}
+
+void GuiModelSpawner::process(GameEngine& engine)
+{
+}
+
+void GuiModelSpawner::draw() 
+{
+	ImGui::Begin("Model Spawner");
+
+	if (ImGui::BeginCombo("Model", models[selected_model].c_str()))
+	{
+		for (int i = 0; i < models.size(); i++)
+		{
+			if (ImGui::Selectable(models[i].c_str(), i == selected_model))
+			{
+				selected_model = i;
+				selected_model.changed = true;
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	ImGui::End();
+}
+
+
 void GuiFPSCounter::process(GameEngine& engine)
 {
 	tps = engine.get_tps();
@@ -192,20 +223,8 @@ void GuiFPSCounter::draw()
 GuiMusic::GuiMusic(AudioSource&& audio_source) : 
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
-	for (const auto& entry : std::filesystem::directory_iterator(Utility::get().get_audio_path()))
-	{
-		if (!entry.is_directory() && entry.path().extension() == ".wav")
-		{
-			LOG_INFO(Utility::get().get_logger(), "GuiMusic::GuiMusic: adding {}", entry.path());
-			songs_paths.push_back(entry.path());
-			songs_.push_back(entry.path().filename().string());
-		}
-	}
-
-	for (const auto& song : songs_)
-	{
-		songs.push_back(song.c_str());
-	}
+	songs_paths = Utility::get_all_files(Utility::get_audio_path(), { ".wav" });
+	std::ranges::transform(songs_paths, std::back_inserter(songs), [](const auto& path) { return path.filename().string(); });
 }
 
 GuiMusic::~GuiMusic() = default;
@@ -224,7 +243,18 @@ void GuiMusic::draw()
 	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
-	ImGui::Combo("Song", &selected_song, songs.data(), songs.size());
+	if (ImGui::BeginCombo("Model", songs[selected_song].c_str()))
+	{
+		for (int i = 0; i < songs.size(); i++)
+		{
+			if (ImGui::Selectable(songs[i].c_str(), i == selected_song))
+			{
+				selected_song = i;
+				selected_song.changed = true;
+			}
+		}
+		ImGui::EndCombo();
+	}
 	if (ImGui::Button("Play"))
 	{
 		std::cout<<"Playing\n";
@@ -386,27 +416,8 @@ void GuiPhotoBase::draw()
 
 GuiPhoto::GuiPhoto()
 {
-	static const std::vector<std::string_view> recognised_extensions =
-	{
-		".jpg", ".JPG", ".PNG", ".png"
-	};
-	for (const auto& entry : std::filesystem::directory_iterator(Utility::get().get_textures_path()))
-	{
-		if (!entry.is_directory() && 
-			std::find_if(
-				recognised_extensions.begin(), 
-				recognised_extensions.end(), 
-				[&entry](const std::string_view ext)
-				{
-					return entry.path().extension() == ext;
-				}
-			) != recognised_extensions.end())
-		{
-			LOG_INFO(Utility::get().get_logger(), "GuiPhoto::GuiPhoto: adding {}", entry.path());
-			photo_paths.push_back(entry.path());
-			photos.push_back(entry.path().filename().string());
-		}
-	}
+	photo_paths = Utility::get_all_files(Utility::get_textures_path(), { ".jpg", ".png", ".JPG", ".PNG" });
+	std::ranges::transform(photo_paths, std::back_inserter(photos), [](const auto& path) { return path.filename().string(); });
 
 	selected_image = 0;
 	selected_image.changed = true;
