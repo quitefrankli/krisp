@@ -33,10 +33,6 @@ CubeMap::CubeMap()
 																			 texture_path, 
 																			 texture_name)));
 	}
-	for (const auto mat_id : material_group.get_materials())
-	{
-		MaterialSystem::register_owner(mat_id);
-	}
 	renderable.material_ids = material_group.get_materials();
 
 	renderables = { renderable };

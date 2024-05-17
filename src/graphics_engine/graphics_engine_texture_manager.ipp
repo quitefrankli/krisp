@@ -99,6 +99,17 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 	return texture_units.emplace(representative_id, std::move(texture_object)).first->second;
 }
 
+void GraphicsEngineTextureManager::free_texture(MaterialID id) 
+{
+	if (!texture_units.contains(id))
+	{
+		return;
+	}
+	
+	texture_units.at(id).destroy(get_logical_device());
+	texture_units.erase(id);
+}
+
 GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	const TextureMaterial& material,
 	ETextureSamplerType sampler_type)

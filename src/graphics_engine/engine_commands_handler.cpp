@@ -123,6 +123,7 @@ void GraphicsEngine::handle_command(DestroyResourcesCmd& cmd)
 	for (const auto mat_id : cmd.material_ids)
 	{
 		get_rsrc_mgr().free_buffer(mat_id);
+		get_texture_mgr().free_texture(mat_id);
 	}
 
 	for (const auto mesh_id : cmd.mesh_ids)

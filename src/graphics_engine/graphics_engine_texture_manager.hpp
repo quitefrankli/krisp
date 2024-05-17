@@ -26,6 +26,8 @@ public:
 	// in the future when we want proper 3D textures this should get renamed
 	GraphicsEngineTexture& fetch_cubemap_texture(const CubeMapMatGroup& material_group);
 
+	void free_texture(MaterialID id);
+
 private:
 	VkSampler create_texture_sampler(ETextureSamplerType sampler_type);
 	GraphicsEngineTexture create_texture(const TextureMaterial& material, ETextureSamplerType sampler_type);

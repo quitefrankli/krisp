@@ -81,7 +81,6 @@ GuiObjectSpawner::GuiObjectSpawner()
 			{
 				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
 				const auto mat_id = ResourceLoader::fetch_texture(Utility::get_texture("texture.jpg").data());
-				MaterialSystem::register_owner(mat_id);
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
 				renderable.material_ids = { mat_id };
