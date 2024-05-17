@@ -21,9 +21,23 @@ template<typename IDType, typename ContentType>
 class CountableSystem
 {
 public:
-	static IDType add(std::unique_ptr<ContentType>&& content, bool is_permanant = false)
+	static IDType add_permanent(std::unique_ptr<ContentType>&& content)
 	{
-		return get_global()._add(std::move(content), is_permanant);
+		const auto id = get_global()._add(std::move(content));
+		get_global().owners[id] = PERMANENTLY_OWNED;
+
+		return id;
+	}
+
+	static IDType add(std::unique_ptr<ContentType>&& content, bool increment = true)
+	{
+		const auto id = get_global()._add(std::move(content));
+		if (increment)
+		{
+			get_global()._increment_owners(id);
+		}
+
+		return id;
 	}
 
 	static ContentType& get(IDType id)
@@ -51,12 +65,12 @@ public:
 private:
 	static constexpr uint32_t PERMANENTLY_OWNED = std::numeric_limits<uint32_t>::max();
 
-	IDType _add(std::unique_ptr<ContentType>&& content, bool is_permanent)
+	IDType _add(std::unique_ptr<ContentType>&& content)
 	{
 		const IDType id = content->get_id();
 		assert(!contents.contains(id));
 		contents.emplace(id, std::move(content));
-		owners[id] = is_permanent ? PERMANENTLY_OWNED : 0;
+		owners[id] = 0;
 
 		return id;
 	}

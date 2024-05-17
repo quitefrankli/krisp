@@ -45,12 +45,12 @@ TEST(MeshFactory, check_different_id_when_different_params)
 
 TEST(MeshSystem, check_num_owners)
 {
-	const auto id1 = MeshSystem::add(MeshFactory::circle());
+	const auto id1 = MeshSystem::add(MeshFactory::circle(), false);
 	ASSERT_EQ(MeshSystem::get_num_owners(id1), 0);
 	MeshSystem::register_owner(id1);
 	ASSERT_EQ(MeshSystem::get_num_owners(id1), 1);
 
-	const auto id2 = MeshSystem::add(MeshFactory::circle());
+	const auto id2 = MeshSystem::add(MeshFactory::circle(), false);
 	MeshSystem::register_owner(id2);
 	ASSERT_EQ(MeshSystem::get_num_owners(id1), 1);
 	ASSERT_EQ(MeshSystem::get_num_owners(id2), 1);

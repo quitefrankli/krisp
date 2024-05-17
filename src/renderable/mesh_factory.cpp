@@ -22,7 +22,7 @@ MeshID MeshFactory::quad_id(EVertexType vertex_type)
 	auto& cache = vertex_type == EVertexType::COLOR ? cached_color_quad : cached_tex_quad;
 	if (!cache.has_value())
 	{
-		cache = MeshSystem::add(quad(vertex_type), true);
+		cache = MeshSystem::add_permanent(quad(vertex_type));
 	}
 
 	return *cache;
@@ -36,7 +36,7 @@ MeshID MeshFactory::cube_id(EVertexType vertex_type)
 	auto& cache = vertex_type == EVertexType::COLOR ? cached_color_cube : cached_tex_cube;
 	if (!cache.has_value())
 	{
-		cache = MeshSystem::add(cube(vertex_type), true);
+		cache = MeshSystem::add_permanent(cube(vertex_type));
 	}
 
 	return *cache;
@@ -48,7 +48,7 @@ MeshID MeshFactory::circle_id(EVertexType vertex_type, uint32_t nVertices)
 	const auto pair = std::make_pair(vertex_type, nVertices);
 	if (!cached_circles.contains(pair))
 	{
-		cached_circles[pair] = MeshSystem::add(circle(vertex_type, nVertices), true);
+		cached_circles[pair] = MeshSystem::add_permanent(circle(vertex_type, nVertices));
 	}
 
 	return cached_circles[pair];
@@ -62,7 +62,7 @@ MeshID MeshFactory::icosahedron_id(EVertexType vertex_type)
 	auto& cache = vertex_type == EVertexType::COLOR ? cached_color_icosahedron : cached_tex_icosahedron;
 	if (!cache.has_value())
 	{
-		cache = MeshSystem::add(icosahedron(vertex_type), true);
+		cache = MeshSystem::add_permanent(icosahedron(vertex_type));
 	}
 
 	return *cache;
@@ -74,7 +74,7 @@ MeshID MeshFactory::sphere_id(EVertexType vertex_type, GenerationMethod method, 
 	const auto pair = std::make_pair(method, nVertices);
 	if (!cached_color_sphere.contains(pair))
 	{
-		cached_color_sphere[pair] = MeshSystem::add(sphere(vertex_type, method, nVertices), true);
+		cached_color_sphere[pair] = MeshSystem::add_permanent(sphere(vertex_type, method, nVertices));
 	}
 
 	return cached_color_sphere[pair];
@@ -86,7 +86,7 @@ MeshID MeshFactory::cone_id(EVertexType vertex_type, uint32_t nVertices)
 	const auto pair = std::make_pair(vertex_type, nVertices);
 	if (!cached_cones.contains(pair))
 	{
-		cached_cones[pair] = MeshSystem::add(cone(vertex_type, nVertices), true);
+		cached_cones[pair] = MeshSystem::add_permanent(cone(vertex_type, nVertices));
 	}
 
 	return cached_cones[pair];
@@ -98,7 +98,7 @@ MeshID MeshFactory::cylinder_id(EVertexType vertex_type, uint32_t nVertices)
 	const auto pair = std::make_pair(vertex_type, nVertices);
 	if (!cached_cylinders.contains(pair))
 	{
-		cached_cylinders[pair] = MeshSystem::add(cylinder(vertex_type, nVertices), true);
+		cached_cylinders[pair] = MeshSystem::add_permanent(cylinder(vertex_type, nVertices));
 	}
 
 	return cached_cylinders[pair];
@@ -110,7 +110,7 @@ MeshID MeshFactory::arrow_id(float radius, uint32_t nVertices)
 	const auto pair = std::make_pair(radius, nVertices);
 	if (!cached_arrows.contains(pair))
 	{
-		cached_arrows[pair] = MeshSystem::add(arrow(radius, nVertices), true);
+		cached_arrows[pair] = MeshSystem::add_permanent(arrow(radius, nVertices));
 	}
 
 	return cached_arrows[pair];
@@ -122,7 +122,7 @@ MeshID MeshFactory::arc_id(uint32_t nSegments, float outer_radius, float inner_r
 	const auto tuple = std::make_tuple(nSegments, outer_radius, inner_radius);
 	if (!cached_arcs.contains(tuple))
 	{
-		cached_arcs[tuple] = MeshSystem::add(arc(nSegments, outer_radius, inner_radius), true);
+		cached_arcs[tuple] = MeshSystem::add_permanent(arc(nSegments, outer_radius, inner_radius));
 	}
 
 	return cached_arcs[tuple];

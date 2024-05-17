@@ -101,7 +101,6 @@ GuiObjectSpawner::GuiObjectSpawner()
 				Renderable renderable;
 				renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
 				renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
-				MaterialSystem::register_owner(renderable.material_ids[0]);
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());

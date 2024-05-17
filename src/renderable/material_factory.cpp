@@ -72,7 +72,7 @@ MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
 	}
 
 	auto material_ptr = std::make_unique<ColorMaterial>(std::move(material));
-	const auto material_id = MaterialSystem::add(std::move(material_ptr), true);
+	const auto material_id = MaterialSystem::add_permanent(std::move(material_ptr));
 	material_map[preset] = material_id;
 
 	return material_id;

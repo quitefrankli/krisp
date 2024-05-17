@@ -71,8 +71,6 @@ TEST_F(GameEngineTests, resource_cleanup)
 {
 	const auto mesh_id = MeshSystem::add(MeshFactory::icosahedron());
 	const auto material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
-	MeshSystem::register_owner(mesh_id);
-	MaterialSystem::register_owner(material_id);
 	Renderable renderable;
 	renderable.mesh_id = mesh_id;
 	renderable.material_ids = { material_id };
@@ -94,8 +92,6 @@ TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 {
 	const auto mesh_id = MeshSystem::add(MeshFactory::icosahedron());
 	const auto material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
-	MeshSystem::register_owner(mesh_id);
-	MaterialSystem::register_owner(material_id);
 	MaterialSystem::register_owner(material_id); // multiple owners of this material
 	Renderable renderable;
 	renderable.mesh_id = mesh_id;
