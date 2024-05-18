@@ -24,12 +24,12 @@ ECS& ECS::get()
 
 void ECS::remove_object(const ObjectID id) 
 {
-	objects.erase(id);
 	SkeletalSystem::remove_entity(id);
 	AnimationSystem::remove_entity(id);
 	LightSystem::remove_entity(id);
 	ColliderSystem::remove_entity(id);
 	ClickableSystem::remove_entity(id);
+	objects.erase(id);
 }
 
 Object& ECS::get_object(const ObjectID id)
