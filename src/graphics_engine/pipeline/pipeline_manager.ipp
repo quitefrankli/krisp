@@ -115,6 +115,9 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 			} else if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
 			{
 				return std::make_unique<PostStencilTexturePipeline>(get_graphics_engine());
+			} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
+			{
+				return std::make_unique<PostStencilSkinnedPipeline>(get_graphics_engine());
 			} else {
 				throw std::runtime_error("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type for POST_STENCIL");
 			}

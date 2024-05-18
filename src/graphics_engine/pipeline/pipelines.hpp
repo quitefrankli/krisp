@@ -43,37 +43,6 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
-template<Stencileable PrimaryPipelineType>
-class StencilPipeline : public GraphicsEnginePipeline
-{
-public:
-	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "stencil"; }
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
-};
-
-class PostStencilColorPipeline : public ColorPipeline
-{
-public:
-	PostStencilColorPipeline(GraphicsEngine& engine) : ColorPipeline(engine) {}
-
-protected:
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-};
-
-class PostStencilTexturePipeline : public TexturePipeline
-{
-public:
-	PostStencilTexturePipeline(GraphicsEngine& engine) : TexturePipeline(engine) {}
-
-protected:
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-};
-
 template<Wireframeable PrimaryPipelineType>
 class WireframePipeline : public GraphicsEnginePipeline
 {
@@ -158,4 +127,44 @@ protected:
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
 	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
 	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const override;
+};
+
+template<Stencileable PrimaryPipelineType>
+class StencilPipeline : public GraphicsEnginePipeline
+{
+public:
+	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "stencil"; }
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+class PostStencilColorPipeline : public ColorPipeline
+{
+public:
+	PostStencilColorPipeline(GraphicsEngine& engine) : ColorPipeline(engine) {}
+
+protected:
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+};
+
+class PostStencilTexturePipeline : public TexturePipeline
+{
+public:
+	PostStencilTexturePipeline(GraphicsEngine& engine) : TexturePipeline(engine) {}
+
+protected:
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+};
+
+class PostStencilSkinnedPipeline : public SkinnedPipeline
+{
+public:
+	PostStencilSkinnedPipeline(GraphicsEngine& engine) : SkinnedPipeline(engine) {}
+
+protected:
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };

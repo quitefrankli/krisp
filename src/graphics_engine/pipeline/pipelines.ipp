@@ -142,6 +142,14 @@ VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline::get_depth_sten
 	return info;
 }
 
+VkPipelineDepthStencilStateCreateInfo PostStencilSkinnedPipeline::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
+	info.depthTestEnable = VK_TRUE;
+
+	return info;
+}
+
 template<Wireframeable PrimaryPipelineType>
 std::vector<VkVertexInputBindingDescription> WireframePipeline<PrimaryPipelineType>::get_binding_descriptions() const
 {
