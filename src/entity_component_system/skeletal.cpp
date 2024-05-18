@@ -2,6 +2,8 @@
 #include "ecs.hpp"
 
 #include <stdexcept>
+#include <ranges>
+#include <algorithm>
 
 
 std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
@@ -105,6 +107,7 @@ void SkeletalSystem::remove_entity(Entity id)
 
 void SkeletalAnimationSystem::process(const float delta_secs)
 {
+	std::vector<SkeletonID> skeletons_to_remove;
 	for (const auto& [skeleton_id, animation_id] : active_animations)
 	{
 		AnimationState& state = animation_states[skeleton_id];
@@ -132,11 +135,16 @@ void SkeletalAnimationSystem::process(const float delta_secs)
 				{
 					bone.relative_transform = bone.original_transform;
 				}
-				active_animations.erase(skeleton_id);
-				animation_states.erase(skeleton_id);
+				skeletons_to_remove.push_back(skeleton_id);
 			}
 		}
 	}
+
+	std::ranges::for_each(skeletons_to_remove, [this](SkeletonID id) 
+	{ 
+		active_animations.erase(id);
+		animation_states.erase(id);
+	});
 }
 
 AnimationID SkeletalAnimationSystem::add_skeletal_animation(const std::string& name,

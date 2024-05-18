@@ -10,6 +10,7 @@
 #include "graphics_engine/constants.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "renderable/mesh_factory.hpp"
+#include "interface/gizmo.hpp"
 
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -161,19 +162,12 @@ void GuiModelSpawner::process(GameEngine& engine)
 {
 	if (should_spawn)
 	{
+		should_spawn = false;
 		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model].string());
 		auto mesh = std::make_shared<Object>(loaded_model.renderables);
 		Object& object = engine.spawn_object(std::move(mesh));
 		engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
 		engine.get_ecs().add_clickable_entity(object.get_id());
-
-		// TODO: add a animation gui window
-		if (!loaded_model.animations.empty())
-		{
-			engine.get_ecs().play_animation(object.renderables[0].skeleton_id.value(), loaded_model.animations[0], true);
-		}
-
-		should_spawn = false;
 	}
 }
 
@@ -525,4 +519,59 @@ void GuiRenderSlicer::draw()
 	{
 		--cycles_before_draw;
 	}
+}
+
+void GuiAnimationSelector::process(GameEngine& engine) 
+{
+	if (should_play)
+	{
+		should_play = false;
+
+		auto* selected_object = engine.get_gizmo().get_selected_object();
+		if (!selected_object)
+		{
+			return;
+		}
+
+		const auto& renderables = selected_object->renderables;
+		if (renderables.size() != 1 || renderables[0].pipeline_render_type != ERenderType::SKINNED)
+		{
+			return;
+		}
+
+		engine.get_ecs().play_animation(renderables[0].skeleton_id.value(), selected_animation.value(), loop);
+	}
+}
+
+void GuiAnimationSelector::draw() 
+{
+	ImGui::Begin("Animation Selector");
+
+	if (ImGui::BeginCombo("Animations", selected_animation_name.c_str()))
+	{
+		const auto& animations = ECS::get().get_skeletal_animations();
+		for (const auto& [id, animation] : animations)
+		{
+			if (ImGui::Selectable(animation.name.c_str(), selected_animation == id))
+			{
+				selected_animation_name = animation.name;
+				selected_animation = id;
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	ImGui::Checkbox("Loop", &loop);
+
+	ImGui::SameLine();
+
+	if (ImGui::Button("Play"))
+	{
+		if (selected_animation)
+		{
+			should_play = true;
+		}
+	}
+
+	ImGui::End();
 }

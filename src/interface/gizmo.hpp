@@ -97,6 +97,7 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	virtual void dispatch_on_click(Object& object, const Maths::Ray& ray, const glm::vec3& intersection) override;
 	void delete_object();
+	Object* get_selected_object() { return selected_object; }
 
 private:
 	bool scale_mode = false;

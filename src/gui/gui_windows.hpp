@@ -231,3 +231,16 @@ private:
 	int cycles_before_draw = 0;
 	requester_t slice_requester;
 };
+
+class GuiAnimationSelector : public GuiWindow
+{
+public:
+	virtual void process(GameEngine& engine) override;
+	virtual void draw() override;
+
+private:
+	std::optional<AnimationID> selected_animation;
+	std::string selected_animation_name = "";
+	bool loop = false;
+	bool should_play = false;
+};

@@ -321,3 +321,5 @@ void GameEngine::preview_objs_in_gui(
 {
 	send_graphics_cmd(std::make_unique<PreviewObjectsCmd>(objs, gui_window));
 }
+
+Gizmo& GameEngine::get_gizmo() { return *gizmo; }

@@ -83,6 +83,7 @@ public:
 
 	AnimationID add_skeletal_animation(const std::string& name, std::vector<BoneAnimation>&& bone_animations);
 	void play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
+	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
 
 protected:
 	void remove_entity(Entity id);

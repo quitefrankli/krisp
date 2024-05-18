@@ -37,6 +37,7 @@ public: // getters and setters
 	GraphicsEngineBase& get_graphics_engine() { return *graphics_engine; }
 	GuiManager& get_gui_manager();
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
+	Gizmo& get_gizmo();
 
 	using GraphicsEngineFactory = std::function<std::unique_ptr<GraphicsEngineBase>(GameEngine&)>;
 
