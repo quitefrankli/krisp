@@ -2,6 +2,7 @@
 #include "maths.hpp"
 #include "objects/object.hpp"
 #include "analytics.hpp"
+#include "entity_component_system/ecs.hpp"
 #include "entity_component_system/skeletal.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
@@ -445,14 +446,14 @@ std::vector<std::pair<glm::vec4, float>> get_sampler_data(
 	return retval;
 }
 
-static std::unordered_map<std::string, std::vector<BoneAnimation>> load_animations(const tinygltf::Model& model, const std::vector<Bone>& initial_bones)
+static std::vector<AnimationID> load_animations(const tinygltf::Model& model, const std::vector<Bone>& initial_bones)
 {
 	if (model.skins.size() != 1)
 	{
 		throw std::runtime_error("ResourceLoader::load_animations: only one skin is supported");
 	}
 	
-	std::unordered_map<std::string, std::vector<BoneAnimation>> final_animations;
+	std::vector<AnimationID> final_animations;
 
 	const std::map<int, int> node_to_joint = [&model] {
 
@@ -562,7 +563,7 @@ static std::unordered_map<std::string, std::vector<BoneAnimation>> load_animatio
 			}
 		}
 
-		final_animations[animation.name] = std::move(new_bone_animations);
+		final_animations.push_back(ECS::get().add_skeletal_animation(animation.name, std::move(new_bone_animations)));
 	}
 
 	return final_animations;
@@ -604,11 +605,12 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 	}
 
 	LoadedModel retval;
+	std::vector<Bone> bones;
 
 	const bool has_bones = [&model](){ return !model.skins.empty(); }();
 	if (has_bones)
 	{
-		retval.bones = load_bones(model);
+		bones = load_bones(model);
 	}
 
 	for (auto& mesh : model.meshes)
@@ -635,28 +637,32 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 
 		std::vector<uint32_t> indices = load_indices(index_accessor, index_buffer_view, index_buffer);
 
-		const bool has_texture = [&primitive]() { return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
+		const bool has_texture = [&primitive](){ return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
 
+		Renderable renderable;
 		MeshPtr new_mesh;
 		if (has_bones)
 		{
 			new_mesh = std::make_unique<SkinnedMesh>(load_vertices<SkinnedVertices>(model, primitive), std::move(indices));
 			if (!model.animations.empty())
 			{
-				retval.animations = load_animations(model, retval.bones);
+				retval.animations = load_animations(model, bones);
 			}
+			renderable.skeleton_id = ECS::get().add_skeleton(bones);
+			renderable.pipeline_render_type = ERenderType::SKINNED;
 		} else if (has_texture)
 		{
 			new_mesh = std::make_unique<TexMesh>(load_vertices<TexVertices>(model, primitive), std::move(indices));
+			renderable.pipeline_render_type = ERenderType::STANDARD;
 		} else 
 		{
 			new_mesh = std::make_unique<ColorMesh>(load_vertices<ColorVertices>(model, primitive), std::move(indices));
+			renderable.pipeline_render_type = ERenderType::COLOR;
 		}
 
 		const auto mesh_id = MeshSystem::add(std::move(new_mesh));
 		const auto mat_id = global_resource_loader.load_material(primitive, model);
 
-		Renderable renderable;
 		renderable.mesh_id = mesh_id;
 		renderable.material_ids = { mat_id };
 		retval.renderables.push_back(renderable);

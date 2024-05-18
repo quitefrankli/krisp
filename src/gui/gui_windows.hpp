@@ -98,6 +98,7 @@ private:
 	std::vector<std::string> models;
 	std::vector<std::filesystem::path> model_paths;
 	GuiVar<int> selected_model = 0;
+	bool should_spawn = false;
 };
 
 class ImFont;

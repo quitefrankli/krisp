@@ -41,36 +41,67 @@ struct std::hash<GenericID<Tag>>
 using ObjectID = GenericID<class ObjectIDTag>;
 using MeshID = GenericID<class MeshIDTag>;
 using MaterialID = GenericID<class MaterialIDTag>;
+using SkeletonID = GenericID<class SkeletonIDTag>;
+using AnimationID = GenericID<class AnimationIDTag>;
 
-// This ID is unique for each object in each frame
-struct EntityFrameID
+template<uint64_t... Capacities>
+struct ComplexIDCapacities
 {
-	EntityFrameID(ObjectID object_id, uint32_t frame_idx) :
-		object_id(object_id),
-		frame_idx(frame_idx)
-	{
-		assert(frame_idx < MAX_FRAMES);
-	}
-
-	auto operator<=>(const EntityFrameID&) const = default;
-
-	uint64_t get_underlying() const
-	{
-		return MAX_FRAMES * object_id.get_underlying() + frame_idx;
-	}
-
-private:
-	ObjectID object_id;
-	uint8_t frame_idx;
-
-	static constexpr int MAX_FRAMES = 3;
+	static constexpr int cap_size = sizeof...(Capacities);
+	static constexpr std::array<uint64_t, cap_size> capacities = { Capacities... };
 };
 
-template<>
-struct std::hash<EntityFrameID>
+template<typename Capacities, typename... IDTypes>
+struct ComplexID
 {
-	std::size_t operator()(const EntityFrameID& id) const
+	// An ID that is composed of multiple IDs
+	using IDTypesTuple = std::tuple<IDTypes...>;
+    static_assert(std::tuple_size_v<IDTypesTuple> == Capacities::cap_size + 1);
+
+    ComplexID(IDTypes... ids) : ids(ids...) {}
+    IDTypesTuple ids;
+
+	auto operator<=>(const ComplexID&) const = default;
+
+    template<int idx = 0, std::enable_if_t<!std::is_arithmetic_v<std::tuple_element_t<idx, IDTypesTuple>>, int> = 0>
+    uint64_t get_underlying() const
+	{
+		if constexpr (idx == Capacities::cap_size)
+		{
+			return std::get<idx>(ids).get_underlying();
+		} else
+		{
+			return std::get<idx>(ids).get_underlying() * Capacities::capacities[idx] + get_underlying<idx+1>();
+		}
+	}
+
+	template<int idx = 0, std::enable_if_t<std::is_arithmetic_v<std::tuple_element_t<idx, IDTypesTuple>>, int> = 0>
+	uint64_t get_underlying() const
+    {
+        if constexpr (idx == Capacities::cap_size)
+        {
+            return std::get<idx>(ids);
+        } else
+        {
+            return std::get<idx>(ids) * Capacities::capacities[idx] + get_underlying<idx+1>();
+        }
+    }
+};
+
+template<typename... T>
+struct std::hash<ComplexID<T...>>
+{
+	std::size_t operator()(const ComplexID<T...>& id) const
 	{
 		return std::hash<uint64_t>()(id.get_underlying());
 	}
 };
+
+// 3 is with reference to the number of in flight frames
+using EntityFrameID = ComplexID<ComplexIDCapacities<3>, 
+								ObjectID, 
+								uint32_t>;
+// 3 is with reference to the number of in flight frames
+using SkeletonFrameID = ComplexID<ComplexIDCapacities<3>,
+								  SkeletonID, 
+								  uint32_t>;

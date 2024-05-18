@@ -65,7 +65,6 @@ public:
 	}
 
 	Object& spawn_object(std::shared_ptr<Object>&& object);
-	Object& spawn_skinned_object(std::shared_ptr<Object>&& object, std::vector<Bone>&& bones);
 
 	// this function assumes something else manages the lifetime of object
 	template<typename object_t>
@@ -113,7 +112,7 @@ private:
 	Keyboard keyboard;
 	std::unique_ptr<Mouse> mouse;
 	ResourceLoader resource_loader;
-	ECS ecs;
+	ECS& ecs;
 
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;

@@ -124,7 +124,6 @@ GuiObjectSpawner::GuiObjectSpawner()
 void GuiObjectSpawner::draw()
 {
 	ImGui::Begin("Object Spawner");
-	
 
 	ImVec2 button_dim(button_width, button_height);
 	if (spawning_function)
@@ -160,6 +159,22 @@ GuiModelSpawner::GuiModelSpawner()
 
 void GuiModelSpawner::process(GameEngine& engine)
 {
+	if (should_spawn)
+	{
+		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model].string());
+		auto mesh = std::make_shared<Object>(loaded_model.renderables);
+		Object& object = engine.spawn_object(std::move(mesh));
+		engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
+		engine.get_ecs().add_clickable_entity(object.get_id());
+
+		// TODO: add a animation gui window
+		if (!loaded_model.animations.empty())
+		{
+			engine.get_ecs().play_animation(object.renderables[0].skeleton_id.value(), loaded_model.animations[0], true);
+		}
+
+		should_spawn = false;
+	}
 }
 
 void GuiModelSpawner::draw() 
@@ -177,6 +192,11 @@ void GuiModelSpawner::draw()
 			}
 		}
 		ImGui::EndCombo();
+	}
+
+	if (ImGui::Button("Spawn"))
+	{
+		should_spawn = true;
 	}
 
 	ImGui::End();
@@ -257,7 +277,6 @@ void GuiMusic::draw()
 	}
 	if (ImGui::Button("Play"))
 	{
-		std::cout<<"Playing\n";
 		audio_source->set_audio(songs_paths[selected_song].string());
 		audio_source->play();
 	}
@@ -327,19 +346,20 @@ void GuiStatistics::update_buffer_capacities(
 
 void GuiDebug::process(GameEngine& engine)
 {
-	if (show_bone_visualisers.changed)
-	{
-		for (const auto entity : engine.get_ecs().get_all_skinned_entities())
-		{
-			engine.get_object(entity)->set_visibility(!show_bone_visualisers);
-			for (const auto visualiser : engine.get_ecs().get_skeletal_component(entity).get_visualisers())
-			{
-				engine.get_object(visualiser)->set_visibility(show_bone_visualisers);
-			}
-		}
+	// TODO: fix bone visualisers
+	// if (show_bone_visualisers.changed)
+	// {
+	// 	for (const auto entity : engine.get_ecs().get_all_skinned_entities())
+	// 	{
+	// 		engine.get_object(entity)->set_visibility(!show_bone_visualisers);
+	// 		for (const auto visualiser : engine.get_ecs().get_skeletal_component(entity).get_visualisers())
+	// 		{
+	// 			engine.get_object(visualiser)->set_visibility(show_bone_visualisers);
+	// 		}
+	// 	}
 
-		show_bone_visualisers.changed = false;
-	}
+	// 	show_bone_visualisers.changed = false;
+	// }
 
 	if (selected_object.changed)
 	{

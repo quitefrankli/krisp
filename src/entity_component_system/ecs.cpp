@@ -13,7 +13,13 @@ ECS::~ECS()
 void ECS::process(const float delta_secs)
 {
 	AnimationSystem::process(delta_secs);
-	SkeletalSystem::process(delta_secs);
+	SkeletalAnimationSystem::process(delta_secs);
+}
+
+ECS& ECS::get()
+{
+	static ECS ecs;
+	return ecs;
 }
 
 void ECS::remove_object(const ObjectID id) 

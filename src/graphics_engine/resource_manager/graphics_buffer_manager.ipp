@@ -73,7 +73,7 @@ void GraphicsBufferManager::write_to_mapping_buffer(ObjectID id, const SDS::Buff
 	update_buffer_stats();
 }
 
-void GraphicsBufferManager::write_to_bone_buffer(EntityFrameID id, const std::vector<SDS::Bone>& bones)
+void GraphicsBufferManager::write_to_buffer(SkeletonFrameID id, const std::vector<SDS::Bone>& bones)
 {
 	assert(!bones.empty());
 	std::byte* mapped_memory = bone_buffer.map_slot(id.get_underlying(), get_logical_device());

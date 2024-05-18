@@ -287,18 +287,20 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		object_data.shadow_mvp = get_shadow_view_proj_matrix(graphics_object->get_game_object().get_position()) * object_data.model;
 		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
 
-		// TODO fix me
-		// // if object contains skinned meshes update the bone matrices
-		// if (graphics_object->get_render_type() == ERenderType::SKINNED)
-		// {
-		// 	std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(id);
-		// 	// apply object transform on the bones
-		// 	for (auto& bone : bones)
-		// 	{
-		// 		bone.final_transform = object_data.model * bone.final_transform;
-		// 	}
-		// 	get_rsrc_mgr().write_to_bone_buffer(efid, bones);
-		// }
+		// if object contains skinned meshes update the bone matrices
+		for (const auto& renderable : graphics_object->get_renderables())
+		{
+			if (renderable.pipeline_render_type != ERenderType::SKINNED)
+			{
+				continue;
+			}
+
+			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*renderable.skeleton_id);
+			std::ranges::for_each(bones, [transform=object_data.model](auto& bone) {
+				bone.final_transform = transform * bone.final_transform;
+			});
+			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*renderable.skeleton_id, image_index), bones);
+		}
 	}
 }
 

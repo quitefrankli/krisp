@@ -29,6 +29,7 @@ private:
 	float elapsed_secs = 0;
 };
 
+// Only for simple object animations involving simple transforms
 class AnimationSystem
 {
 public:

@@ -20,6 +20,7 @@ enum class ECSComponentType
 
 class ECS : 
 	public SkeletalSystem, 
+	public SkeletalAnimationSystem,
 	public AnimationSystem,
 	public LightSystem,
 	public ColliderSystem,
@@ -34,6 +35,8 @@ public:
 
 	virtual ECS& get_ecs() override { return *this; }
 	virtual const ECS& get_ecs() const override { return *this; }
+
+	static ECS& get();
 
 	// ECSComponent& get_component(const ECSComponentType type) { return *components[type]; }
 

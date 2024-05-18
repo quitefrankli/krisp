@@ -15,37 +15,13 @@ void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
 		spawn_object_create_dsets(graphics_object);
 	};
 
-	// TODO: delete me
-	const std::unordered_set<ERenderType> supported_render_types = 
-	{
-		ERenderType::COLOR,
-		ERenderType::CUBEMAP,
-		ERenderType::STANDARD
-	};
-
 	if (cmd.object_ref)
 	{
-		// TODO: delete me
-		for (const auto& renderable : cmd.object_ref->renderables)
-		{
-			if (!supported_render_types.contains(renderable.pipeline_render_type))
-			{
-				return;
-			}
-		}
 		auto graphics_object = objects.emplace(
 			cmd.object_ref->get_id(),
 			std::make_unique<GraphicsEngineObjectRef>(*this, *cmd.object_ref));
 		spawn_object(*graphics_object.first->second);
 	} else {
-		// TODO: delete me
-		for (const auto& renderable : cmd.object->renderables)
-		{
-			if (!supported_render_types.contains(renderable.pipeline_render_type))
-			{
-				return;
-			}
-		}
 		auto id = cmd.object->get_id();
 		auto graphics_object = objects.emplace(
 			id,

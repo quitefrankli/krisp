@@ -44,7 +44,8 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 	gizmo(std::make_unique<Gizmo>(*this)),
 	graphics_engine(graphics_engine_factory(*this)),
 	camera(std::make_unique<Camera>(Listener(), 
-		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height())))
+		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height()))),
+	ecs(ECS::get())
 {
 	window.setup_callbacks(*this);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
@@ -197,18 +198,8 @@ inline Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	auto it = objects.emplace(object->get_id(), std::move(object));
 	Object& new_obj = *(it.first->second);
 	ecs.add_object(new_obj);
-	send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
 
-	return new_obj;
-}
-
-Object& GameEngine::spawn_skinned_object(std::shared_ptr<Object>&& object,
-                                                                 std::vector<Bone>&& bones)
-{
-	// TODO: fix me
-	
-	// object->set_render_type(ERenderType::SKINNED);
-	// ecs.add_bones(object->get_id(), bones);
+	// TODO: fix visualisers if skinned object
 	// std::vector<ObjectID> visualisers;
 	// const glm::quat bone_rotator = glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec);
 	// for (const auto& bone : bones)
@@ -223,8 +214,10 @@ Object& GameEngine::spawn_skinned_object(std::shared_ptr<Object>&& object,
 	// 	visualisers.push_back(obj.get_id());
 	// }
 	// ecs.add_bone_visualisers(object->get_id(), visualisers);
-	
-	return spawn_object(std::move(object));
+
+	send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
+
+	return new_obj;
 }
 
 void GameEngine::delete_object(ObjectID id)
@@ -250,15 +243,16 @@ void GameEngine::process_objs_to_delete()
 		{
 			break;
 		}
-		
-		if (ecs.has_skeletal_component(id))
-		{
-			const auto& bone_visualisers = ecs.get_skeletal_component(id).get_visualisers();
-			for (const auto bone_visualiser : bone_visualisers)
-			{
-				delete_object(bone_visualiser);
-			}
-		}
+
+		// TODO: fix visualisers		
+		// if (ecs.has_skeletal_component(id))
+		// {
+		// 	const auto& bone_visualisers = ecs.get_skeletal_component(id).get_visualisers();
+		// 	for (const auto bone_visualiser : bone_visualisers)
+		// 	{
+		// 		delete_object(bone_visualiser);
+		// 	}
+		// }
 		
 		ecs.remove_clickable_entity(id);
 		const Object& object = *get_object(id);

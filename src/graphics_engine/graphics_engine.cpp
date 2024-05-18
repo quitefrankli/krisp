@@ -485,7 +485,6 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 {
 	// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
 	// per frame resource and therefore we only need 1 copy
-	const auto id = graphics_object.get_id();
 	auto& rsrc_mgr = get_rsrc_mgr();
 
 	for (const auto& renderable : graphics_object.get_renderables())
@@ -513,15 +512,18 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
 	{
 		// allocate space for object uniform buffer
-		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{id, frame_idx}, sizeof(SDS::ObjectData));
+		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{graphics_object.get_id(), frame_idx}, sizeof(SDS::ObjectData));
 
-		// TODO: this needs to be fixed
-		// // allocate space for bone matrices if needed
-		// if (graphics_object.get_render_type() == ERenderType::SKINNED)
-		// {
-		// 	const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(id).size();
-		// 	rsrc_mgr.reserve_bone_buffer(EntityFrameID{id, frame_idx}, bone_data_size);
-		// }
+		// allocate space for bone matrices if needed
+		for (const auto& renderable : graphics_object.get_renderables())
+		{
+			if (renderable.pipeline_render_type == ERenderType::SKINNED)
+			{
+				const auto skeleton_id = *renderable.skeleton_id;
+				const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(skeleton_id).size();
+				rsrc_mgr.reserve_buffer(SkeletonFrameID{skeleton_id, frame_idx}, bone_data_size);
+			}
+		}
 	}
 
 	// TODO: needs to be fixed for raytracing
@@ -561,24 +563,30 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
 		descriptor_writes.push_back(uniform_buffer_dset_write);
 
-		// TODO: fix this
-		// if (object.get_render_type() == ERenderType::SKINNED)
-		// {
-		// 	const GraphicsBuffer::Slot bone_slot = 
-		// 		get_rsrc_mgr().get_bone_buffer_slot(EntityFrameID{object.get_id(), frame_idx});
-		// 	VkDescriptorBufferInfo bone_buffer_info{};
-		// 	bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
-		// 	bone_buffer_info.offset = bone_slot.offset;
-		// 	bone_buffer_info.range = bone_slot.size;
-		// 	VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		// 	bone_buffer_dset_write.dstSet = new_descriptor_set;
-		// 	bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
-		// 	bone_buffer_dset_write.dstArrayElement = 0;
-		// 	bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		// 	bone_buffer_dset_write.descriptorCount = 1;
-		// 	bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
-		// 	descriptor_writes.push_back(bone_buffer_dset_write);
-		// }
+		for (const auto& renderable : object.get_renderables())
+		{
+			if (renderable.pipeline_render_type != ERenderType::SKINNED)
+			{
+				continue;
+			}
+
+			// currently only supports single skinned renderable per object
+			assert(object.get_renderables().size() == 1);
+			const GraphicsBuffer::Slot bone_slot = 
+				get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*renderable.skeleton_id, frame_idx});
+			VkDescriptorBufferInfo bone_buffer_info{};
+			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
+			bone_buffer_info.offset = bone_slot.offset;
+			bone_buffer_info.range = bone_slot.size;
+			VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			bone_buffer_dset_write.dstSet = new_descriptor_set;
+			bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
+			bone_buffer_dset_write.dstArrayElement = 0;
+			bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bone_buffer_dset_write.descriptorCount = 1;
+			bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
+			descriptor_writes.push_back(bone_buffer_dset_write);
+		}
 
 		vkUpdateDescriptorSets(get_logical_device(), 
 							descriptor_writes.size(), 
@@ -660,6 +668,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				break;
 			}
 			case ERenderType::STANDARD:
+			case ERenderType::SKINNED:
 			{
 				VkDescriptorImageInfo image_info{};
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -684,7 +693,6 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 						nullptr);
 				break;
 			}
-			// case ERenderType::SKINNED:
 			default:
 				vkUpdateDescriptorSets(get_logical_device(),
 						static_cast<uint32_t>(descriptor_writes.size()), 

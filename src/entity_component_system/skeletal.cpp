@@ -7,6 +7,7 @@
 std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 {
 	// TODO: can potentially rely on SkeletalSystem::process to do this...
+	// This is kinda expensive
 
 	std::vector<SDS::Bone> final_bones_data(bones.size());
 	final_bones_data[0].final_transform = bones[0].relative_transform.get_mat4();
@@ -74,144 +75,101 @@ bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Trans
 	return true;
 }
 
-void SkeletalComponent::set_visualisers(const std::vector<Entity>& visualisers) 
+SkeletonID SkeletalSystem::add_skeleton(const std::vector<Bone>& bones)
 {
-	if (visualisers.size() != bones.size())
-	{
-		throw std::runtime_error("SkeletalComponent::set_visualisers: visualisers.size() != bones.size()");
-	}
-	this->visualisers = visualisers;
+	const auto id = SkeletonID::generate_new_id();
+	skeletons.emplace(id, bones);
+	return id;
 }
 
-void SkeletalComponent::set_animation(const std::string& animation_name) 
+void SkeletalSystem::remove_entity(Entity id)
 {
-	if (animations.find(animation_name) == animations.end())
+	for (const auto& renderable : get_ecs().get_object(id).renderables)
 	{
-		throw std::runtime_error("SkeletalComponent::set_animation: animation_name not found");
+		if (renderable.skeleton_id)
+		{
+			skeletons.erase(*renderable.skeleton_id);
+		}
 	}
-
-	current_animation = animation_name;
-	current_animation_elapsed_secs = 0.0f;
 }
 
-void SkeletalComponent::animate(const float delta_secs) 
+// void SkeletalSystem::add_bone_visualisers(Entity id, const std::vector<Entity>& bones)
+// {
+// 	if (skeletons.find(id) == skeletons.end())
+// 	{
+// 		throw std::runtime_error("SkeletalSystem::add_bone_visualisers: id not found");
+// 	}
+
+// 	skeletons[id].set_visualisers(bones);
+// }
+
+void SkeletalAnimationSystem::process(const float delta_secs)
 {
-	if (current_animation.empty())
+	for (const auto& [skeleton_id, animation_id] : active_animations)
 	{
-		return;
-	}
+		AnimationState& state = animation_states[skeleton_id];
+		SkeletalAnimation& animation = animations[animation_id];
+		auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
 
-	auto& animation = animations[current_animation];
-	current_animation_elapsed_secs += delta_secs;
+		state.current_animation_elapsed_secs += delta_secs;
 
-	bool still_animating = false;
-	for (int bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
-	{
-		still_animating |= animation[bone_idx].get_transform(
-			current_animation_elapsed_secs, 
-			bones[bone_idx].relative_transform);
-	}
-
-	if (!still_animating)
-	{
-		if (should_loop_animation)
+		bool still_animating = false;
+		for (int bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
 		{
-			current_animation_elapsed_secs = 0;
-		} else 
+			still_animating |= animation.bone_animations[bone_idx].get_transform(
+				state.current_animation_elapsed_secs, 
+				bones[bone_idx].relative_transform);
+		}
+
+		if (!still_animating)
 		{
-			current_animation.clear();
-			for (auto& bone : bones)
+			if (state.should_loop)
 			{
-				bone.relative_transform = bone.original_transform;
+				state.current_animation_elapsed_secs = 0;
+			} else 
+			{
+				for (auto& bone : bones)
+				{
+					bone.relative_transform = bone.original_transform;
+				}
+				active_animations.erase(skeleton_id);
+				animation_states.erase(skeleton_id);
 			}
 		}
 	}
 }
 
-std::vector<std::string> SkeletalComponent::get_animations() const
+AnimationID SkeletalAnimationSystem::add_skeletal_animation(const std::string& name,
+                                                     		std::vector<BoneAnimation>&& bone_animations)
 {
-	std::vector<std::string> animation_names;
-	for (const auto& [name, _] : animations)
-	{
-		animation_names.push_back(name);
-	}
+	SkeletalAnimation animation;
+	animation.name = name;
+	animation.bone_animations = std::move(bone_animations);
+	const auto id = AnimationID::generate_new_id();
+	animations.emplace(id, std::move(animation));
 
-	return animation_names;
+	return id;
 }
 
-void SkeletalSystem::remove_bones(Entity id)
+void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id, 
+											 AnimationID animation_id,
+											 bool loop) 
 {
-	skeletons.erase(id);
+	active_animations.emplace(skeleton_id, animation_id);
+	AnimationState state;
+	state.should_loop = loop;
+	state.current_animation_elapsed_secs = 0.0f;
+	animation_states[skeleton_id] = state;
 }
 
-std::vector<Entity> SkeletalSystem::get_all_skinned_entities() const
+void SkeletalAnimationSystem::remove_entity(Entity id) 
 {
-	std::vector<Entity> skinned_entities;
-	for (const auto& [entity, skeleton] : skeletons)
+	for (const auto& renderable : get_ecs().get_object(id).renderables)
 	{
-		skinned_entities.push_back(entity);
-	}
-
-	return skinned_entities;
-}
-
-void SkeletalSystem::add_bone_visualisers(Entity id, const std::vector<Entity>& bones)
-{
-	if (skeletons.find(id) == skeletons.end())
-	{
-		throw std::runtime_error("SkeletalSystem::add_bone_visualisers: id not found");
-	}
-
-	skeletons[id].set_visualisers(bones);
-}
-
-void SkeletalSystem::animate_skeleton(Entity id, const std::string& animation_name) 
-{
-	if (skeletons.find(id) == skeletons.end())
-	{
-		throw std::runtime_error("SkeletalSystem::animate_skeleton: id not found");
-	}
-
-	skeletons[id].set_animation(animation_name);
-}
-
-std::vector<std::string> SkeletalSystem::get_skeletal_animations(Entity id) const
-{
-	if (skeletons.find(id) == skeletons.end())
-	{
-		throw std::runtime_error("SkeletalSystem::get_skeletal_animations: id not found");
-	}
-
-	return skeletons.at(id).get_animations();
-}
-
-void SkeletalSystem::process(const float delta_secs)
-{
-	for (auto& [entity, skeleton] : skeletons)
-	{
-		// update all animations
-		skeleton.animate(delta_secs);
-
-		// update all the bone visualisers
-		if (skeleton.get_visualisers().empty())
+		if (renderable.skeleton_id)
 		{
-			continue;
-		}
-
-		const auto& bones = skeleton.get_bones();
-		std::vector<Object*> visualisers;
-		for (const auto visualiser : skeleton.get_visualisers())
-		{
-			visualisers.push_back(&get_ecs().get_object(visualiser));
-		}
-
-		visualisers[0]->set_transform(bones[0].relative_transform.get_mat4());
-		for (int i = 1; i < visualisers.size(); ++i)
-		{
-			const auto& bone = bones[i];
-			auto* visualiser = visualisers[i];
-
-			visualiser->set_transform(visualisers[bone.parent_node]->get_transform() * bone.relative_transform.get_mat4());
+			active_animations.erase(*renderable.skeleton_id);
+			animation_states.erase(*renderable.skeleton_id);
 		}
 	}
 }
