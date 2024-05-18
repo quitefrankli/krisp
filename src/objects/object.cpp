@@ -220,34 +220,6 @@ void Object::detach_all_children()
 	}
 }
 
-template<>
-void Object::calculate_bounding_primitive<Maths::Sphere>()
-{
-	AABB aabb(
-	{ 
-		std::numeric_limits<float>::max(),
-		std::numeric_limits<float>::max(),
-		std::numeric_limits<float>::max()
-	},
-	{
-		-std::numeric_limits<float>::max(),
-		-std::numeric_limits<float>::max(),
-		-std::numeric_limits<float>::max()
-	});
-
-	// TODO: implement this properly
-	// for (const auto& renderable : renderables)
-	// {
-	// 	const auto bounding_box = MeshMaths::calculate_bounding_box(renderable.mesh_id);
-	// 	aabb.min_max(bounding_box);
-	// }
-
-	bounding_primitive_sphere.origin = (aabb.min_bound + aabb.max_bound) / 2.0f;
-	bounding_primitive_sphere.radius = glm::compMax(glm::abs(aabb.max_bound - aabb.min_bound))/2.0f;
-
-	is_bounding_primitive_cached = true;
-}
-
 bool Object::check_collision(const Maths::Ray& ray)
 {
 	if (!get_visibility())

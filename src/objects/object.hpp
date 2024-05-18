@@ -107,8 +107,6 @@ protected:
 	//
 	// collision
 	//
-	template<typename geometry>
-	void calculate_bounding_primitive();
 	Maths::Sphere bounding_primitive_sphere;
 	bool is_bounding_primitive_cached = false;
 

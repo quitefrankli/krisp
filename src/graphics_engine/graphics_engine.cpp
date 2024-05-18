@@ -167,11 +167,12 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 	{
 		EntityFrameID efid{id, frame_idx};
 		get_rsrc_mgr().free_uniform_buffer(efid);
-		// TODO: clean up skinned
-		// if (obj.get_render_type() == ERenderType::SKINNED)
-		// {
-		// 	get_rsrc_mgr().free_bone_buffer(efid);
-		// }
+		std::ranges::for_each(obj.get_renderables(), [&](const Renderable& renderable) {
+			if (renderable.skeleton_id)
+			{
+				get_rsrc_mgr().free_buffer(SkeletonFrameID{*renderable.skeleton_id, frame_idx});
+			}
+		});
 	}
 	objects.erase(id);
 	++num_objs_deleted;
