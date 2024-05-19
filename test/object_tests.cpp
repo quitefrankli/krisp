@@ -118,6 +118,19 @@ TEST_F(ObjectTests, parenting_translation_and_rotation_triple_hierarchy)
 	ASSERT_TRUE(glm_equal(obj3.get_rotation(), quat*quat2));
 }
 
+TEST_F(ObjectTests, scale_does_not_affect_rotation)
+{
+	const auto quat = glm::angleAxis(Maths::PI/2.0f, Maths::up_vec);
+	const auto scale = glm::vec3(2.0f, 2.0f, 2.0f);
+	obj2.set_rotation(quat);
+	const auto orig_pos = obj2.get_position();
+	const auto orig_rot = obj2.get_rotation();
+	obj2.set_scale(scale);
+	ASSERT_TRUE(glm_equal(obj2.get_position(), orig_pos));
+	ASSERT_TRUE(glm_equal(obj2.get_rotation(), orig_rot));
+	ASSERT_TRUE(glm_equal(obj2.get_scale(), scale));
+}
+
 TEST(ObjectTestsMisc, attaching_preserves_original_transform)
 {
 	Object obj1;

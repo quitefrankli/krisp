@@ -338,3 +338,10 @@ void Gizmo::delete_object()
 	deselect();
 	engine.delete_object(obj->get_id());
 }
+
+void Gizmo::set_scale(const glm::vec3& new_scale) 
+{
+	translation.set_scale(new_scale);
+	rotation.set_scale(new_scale);
+	scale.set_scale(new_scale);
+}

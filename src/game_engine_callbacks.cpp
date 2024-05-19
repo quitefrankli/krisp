@@ -210,4 +210,6 @@ void GameEngine::mouse_button_callback(int button, int action, int mode)
 void GameEngine::scroll_callback(double yoffset)
 {
 	camera->zoom_in(yoffset);
+	static const glm::vec3 scale_factor(0.238f);
+	gizmo->set_scale(scale_factor * camera->get_focal_length());
 }

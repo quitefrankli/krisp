@@ -2,6 +2,7 @@
 
 #include <resource_loader.hpp>
 #include <utility.hpp>
+#include <entity_component_system/ecs.hpp>
 
 #include <gtest/gtest.h>
 
@@ -17,6 +18,14 @@ public:
 	glm::vec3 apply_transform(const glm::mat4& transform, const glm::vec3& v)
 	{
 		return glm::vec3(transform * glm::vec4(v, 1.0f));
+	}
+
+	const std::vector<Bone>& get_bones()
+	{
+		const auto& renderable = model.renderables[0];
+		const auto skeleton_id = renderable.skeleton_id.value();
+		const auto& skeleton = ECS::get().get_skeletal_component(skeleton_id);
+		return skeleton.get_bones();
 	}
 
 	// extremely simple skinned model, contains a 2x2x4 (width,depth,height) cube mesh with 5 bones
@@ -37,41 +46,45 @@ public:
 TEST_F(ResourceLoaderECS, load_bones)
 {
 	ASSERT_EQ(model.renderables.size(), 1);
-	ASSERT_EQ(model.bones.size(), 5);
+	const auto& renderable = model.renderables[0];
+	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
+	const auto skeleton_id = renderable.skeleton_id.value();
+	const auto& skeleton = ECS::get().get_skeletal_component(skeleton_id);
+	ASSERT_EQ(skeleton.get_bones().size(), 5);
 }
 
 TEST_F(ResourceLoaderECS, bone_relative_transforms)
 {
 	// root bone
-	ASSERT_TRUE(glm_equal(model.bones[0].relative_transform.get_mat4(), Maths::identity_mat));
+	ASSERT_TRUE(glm_equal(get_bones()[0].relative_transform.get_mat4(), Maths::identity_mat));
 
 	// mid bone
 	ASSERT_TRUE(glm_equal(
-		model.bones[1].relative_transform.get_mat4(), 
+		get_bones()[1].relative_transform.get_mat4(), 
 		glm::translate(Maths::identity_mat, Maths::up_vec)));
 		
 	// tip bone
 	ASSERT_TRUE(glm_equal(
-		model.bones[2].relative_transform.get_mat4(), 
+		get_bones()[2].relative_transform.get_mat4(), 
 		glm::translate(Maths::identity_mat, Maths::up_vec)));
 
 	// right bone
-	ASSERT_TRUE(glm_equal(model.bones[3].relative_transform.get_pos(), Maths::up_vec));
-	ASSERT_TRUE(glm_equal(model.bones[3].relative_transform.get_scale(), Maths::identity_vec));
-	ASSERT_TRUE(glm_equal(model.bones[3].relative_transform.get_orient(), Maths::zRot90));
+	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_pos(), Maths::up_vec));
+	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_scale(), Maths::identity_vec));
+	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_orient(), Maths::zRot90));
 	
 	// left bone
-	ASSERT_TRUE(glm_equal(model.bones[4].relative_transform.get_pos(), Maths::up_vec));
-	ASSERT_TRUE(glm_equal(model.bones[4].relative_transform.get_scale(), Maths::identity_vec));
+	ASSERT_TRUE(glm_equal(get_bones()[4].relative_transform.get_pos(), Maths::up_vec));
+	ASSERT_TRUE(glm_equal(get_bones()[4].relative_transform.get_scale(), Maths::identity_vec));
 	ASSERT_TRUE(glm_equal(
-		model.bones[4].relative_transform.get_orient(), 
+		get_bones()[4].relative_transform.get_orient(), 
 		glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
 }
 
 TEST_F(ResourceLoaderECS, animations)
 {
 	ASSERT_EQ(model.animations.size(), 1);
-	auto& bone_animations = model.animations.begin()->second;
+	std::vector<BoneAnimation> bone_animations = ECS::get().get_skeletal_animations().at(model.animations[0]).bone_animations;
 	ASSERT_EQ(bone_animations.size(), 5);
 	for (const auto& bone_animation : bone_animations)
 	{

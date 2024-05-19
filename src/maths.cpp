@@ -143,6 +143,7 @@ namespace Maths
 	{
 		if (is_old(0b1000))
 		{
+			assert(!is_old(0b0001));
 			position = transform[3];
 			set_not_old(0b1000);
 		}
@@ -153,6 +154,7 @@ namespace Maths
 	{
 		if (is_old(0b0100))
 		{
+			assert(!is_old(0b0001));
 			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
 			const auto get_vec3_len = [](const glm::vec4& vec4)
 			{
@@ -173,6 +175,7 @@ namespace Maths
 	{ 
 		if (is_old(0b0010))
 		{
+			assert(!is_old(0b0001));
 			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
 			const auto scale = get_scale();
 			const glm::mat3 rotMtx(
@@ -180,6 +183,7 @@ namespace Maths
 				glm::vec3(transform[1]) / scale[1],
 				glm::vec3(transform[2]) / scale[2]);
     		orientation = glm::quat_cast(rotMtx);
+			// orientation = glm::quat_cast(transform);
 			set_not_old(0b0010);
 		}
 		return orientation;
@@ -189,6 +193,7 @@ namespace Maths
 	{
 		if (is_old(0b0001))
 		{
+			assert(is_up_to_date_flags == 0b1110);
 			const auto tmp_orient = glm::normalize(get_orient());
 			const auto tmp_scale = get_scale();
 			const auto tmp_pos = get_pos();
@@ -225,6 +230,9 @@ namespace Maths
 	{
 		transform = new_transform;
 		is_up_to_date_flags = 0b0001;
+		get_pos();
+		get_orient();
+		get_scale();
 	}	
 
 	std::optional<glm::vec3> ray_sphere_collision(const Sphere& sphere, const Ray& ray)

@@ -101,7 +101,7 @@ namespace Maths
 		// flags whether the above vars are old
 		// if it's old then it should be either recalculated to/from the mat4
 		// 1 means it's up to date 0 means it's old
-		mutable uint8_t is_up_to_date_flags = 0b0000;
+		mutable uint8_t is_up_to_date_flags = 0b1111;
 
 		void set_not_old(uint8_t bitmask) const { is_up_to_date_flags |= bitmask; }
 		bool is_old(uint8_t bitmask) const { return !(is_up_to_date_flags & bitmask); }
