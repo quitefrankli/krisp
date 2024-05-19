@@ -16,7 +16,7 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 
 public:
-	const float RADIUS = 0.05f;
+	static constexpr float INITIAL_RADIUS = 0.05f;
 };
 
 class Arc : public Object
@@ -28,6 +28,6 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 
-	const float outer_radius = 1.0f;
-	const float inner_radius = 0.8f;
+	static constexpr float INITIAL_OUTER_RAIUS = 1.0f;
+	static constexpr float INITIAL_INNER_RADIUS = 0.8f;
 };

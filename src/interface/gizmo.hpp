@@ -22,6 +22,9 @@ public:
 	void clear_active_axis() { active_axis = nullptr; }
 	
 protected:
+	Object* get_closest_clicked_axis(const Maths::Ray& ray) const;
+
+protected:
 	GameEngine& engine;
 	Gizmo& gizmo;
 	virtual bool is_essential_child(Object* child);

@@ -14,7 +14,7 @@
 ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 	original_axis(original_axis)
 {
-	MeshPtr rod_ptr = MeshFactory::cube();
+	MeshPtr rod_ptr = MeshFactory::cylinder();
 	MeshPtr block_ptr = MeshFactory::cube();
 	auto& rod = static_cast<ColorMesh&>(*rod_ptr);
 	auto& block = static_cast<ColorMesh&>(*block_ptr);
@@ -24,7 +24,8 @@ ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 	auto block_indices = block.get_indices();
 
 	auto rod_transform = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.5f));
-	rod_transform = glm::scale(rod_transform, glm::vec3(THICKNESS, THICKNESS, 1.0f));
+	rod_transform = glm::scale(rod_transform, glm::vec3(INITIAL_RADIUS, INITIAL_RADIUS, 1.0f));
+	rod_transform = glm::rotate(rod_transform, glm::radians(90.0f), Maths::right_vec);
 	transform_vertices(rod_vertices, rod_transform);
 
 	// to prevent z-fighting
@@ -51,19 +52,25 @@ void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)
 
 bool ScaleGizmoObj::check_collision(const Maths::Ray& ray)
 {
-	glm::vec3 axis = get_rotation() * Maths::forward_vec;
+	assert(glm::epsilonEqual(get_scale().x, get_scale().y, 0.001f));
+	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
+	const float length = get_scale().z;
+	const float radius = INITIAL_RADIUS * get_scale().x;
+	return Maths::check_ray_rod_collision(ray, 
+										  get_position(), 
+										  get_position() + axis * length, 
+										  radius);
+}
 
-	const Maths::Sphere collision_sphere(
-		get_position() + get_scale().z * axis * 0.5f,
-		get_scale().z * 0.5f
-	);
-	if (!Maths::check_spherical_collision(ray, collision_sphere))
-	{
-		return false;
-	}
-
-	// use cylinder collision for now
-	auto normal = glm::normalize(glm::cross(ray.direction, axis));
-	float dist = glm::distance(glm::dot(get_position(), normal) * normal, glm::dot(ray.origin, normal) * normal);
-	return dist < THICKNESS;
+bool ScaleGizmoObj::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
+{
+	assert(glm::epsilonEqual(get_scale().x, get_scale().y, 0.001f));
+	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
+	const float length = get_scale().z;
+	const float radius = INITIAL_RADIUS * get_scale().x;
+	return Maths::check_ray_rod_collision(ray, 
+										  get_position(), 
+										  get_position() + axis * length, 
+										  radius,
+										  intersection);
 }

@@ -123,6 +123,14 @@ namespace Maths
 
 	bool check_spherical_collision(const Ray& ray, const Sphere& sphere);
 
+	bool check_ray_rod_collision(const Ray& ray, const glm::vec3& rod_start, const glm::vec3& rod_end, const float radius);
+	bool check_ray_rod_collision(const Ray& ray, 
+								 const glm::vec3& rod_start, 
+								 const glm::vec3& rod_end, 
+								 const float radius,
+								 glm::vec3& out_intersection);
+
+
 	std::optional<glm::vec3> ray_sphere_collision(const Sphere& sphere, const Ray& ray);
 
 	inline float signed_sum(const glm::vec3& v) { return v.x + v.y + v.z; }

@@ -39,6 +39,27 @@ void GizmoBase::set_visibility(bool visibility)
 	Object::set_visibility(visibility);
 }
 
+Object* GizmoBase::get_closest_clicked_axis(const Maths::Ray& ray) const
+{
+	float closest_distance = std::numeric_limits<float>::infinity();
+	Object* closest_axis = nullptr;
+	for (auto* axis : axes)
+	{	
+		glm::vec3 intersection;
+		if (axis->check_collision(ray, intersection))
+		{
+			const float distance = glm::distance(ray.origin, intersection);
+			if (distance < closest_distance)
+			{
+				closest_distance = distance;
+				closest_axis = axis;
+			}
+		}
+	}
+
+	return closest_axis;
+}
+
 //
 // TranslationGizmo
 //
@@ -68,20 +89,17 @@ bool TranslationGizmo::check_collision(const Maths::Ray& ray)
 
 	// assume active_axis has been cleared already
 	
-	for (auto axis : axes)
+	Object* closest_axis = get_closest_clicked_axis(ray);
+	if (closest_axis)
 	{
-		if (axis->check_collision(ray))
-		{
-			active_axis = axis;
-			reference_transform.set_pos(get_position());
-			reference_transform.set_orient(get_rotation());
+		active_axis = closest_axis;
+		reference_transform.set_pos(get_position());
+		reference_transform.set_orient(get_rotation());
 
-			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
-			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
-			plane.offset = get_position();
-			p1 = Maths::ray_plane_intersection(ray, plane);
-			break;
-		}
+		const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+		plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
+		plane.offset = get_position();
+		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
 
 	return active_axis;
@@ -128,19 +146,16 @@ bool RotationGizmo::check_collision(const Maths::Ray& ray)
 	
 	// assume active_axis has been cleared already
 	
-	for (auto axis : axes)
+	Object* closest_axis = get_closest_clicked_axis(ray);
+	if (closest_axis)
 	{
-		if (axis->check_collision(ray))
-		{
-			active_axis = axis;
-			reference_transform.set_pos(get_position());
-			reference_transform.set_orient(get_rotation());
+		active_axis = closest_axis;
+		reference_transform.set_pos(get_position());
+		reference_transform.set_orient(get_rotation());
 
-			plane.normal = glm::normalize(active_axis->get_rotation() * Maths::forward_vec);
-			plane.offset = get_position();
-			p1 = Maths::ray_plane_intersection(ray, plane);
-			break;
-		}
+		plane.normal = glm::normalize(active_axis->get_rotation() * Maths::forward_vec);
+		plane.offset = get_position();
+		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
 
 	return active_axis;
@@ -196,19 +211,16 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	
 	// assume active_axis has been cleared already
 	
-	for (auto axis : axes)
+	Object* closest_axis = get_closest_clicked_axis(ray);
+	if (closest_axis)
 	{
-		if (axis->check_collision(ray))
-		{
-			active_axis = axis;
-			reference_transform.set_scale(gizmo.selected_object->get_scale());
+		active_axis = closest_axis;
+		reference_transform.set_scale(gizmo.selected_object->get_scale());
 
-			const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
-			plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
-			plane.offset = get_position();
-			p1 = Maths::ray_plane_intersection(ray, plane);
-			break;
-		}
+		const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+		plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
+		plane.offset = get_position();
+		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
 
 	return active_axis;

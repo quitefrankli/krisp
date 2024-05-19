@@ -139,6 +139,94 @@ namespace Maths
 		return glm::distance(projP, sphere.origin) < sphere.radius;
 	}
 
+	bool check_ray_rod_collision(const Ray& ray, const glm::vec3& rod_start, const glm::vec3& rod_end, const float radius)
+	{
+		const glm::vec3 axis = glm::normalize(rod_end - rod_start);
+		const float length = glm::distance(rod_start, rod_end);
+		const Maths::Sphere collision_sphere(
+			(rod_start + rod_end) * 0.5f,
+			length * 0.5f
+		);
+		if (!Maths::check_spherical_collision(ray, collision_sphere))
+		{
+			return false;
+		}
+
+		// the cross product of Rd and Ad gives the normal that will contain the
+		// segment with the shortest distance assuming there is a collision
+		const glm::vec3 normal = glm::normalize(glm::cross(ray.direction, axis));
+		// projecting Ro and Ao onto said normal tells us given two infinite rays
+		// the shortest distance between any two points on the two.
+		float dist = std::fabsf(glm::dot(rod_start, normal) - glm::dot(ray.origin, normal));
+		// a cylinder is just a ray with a radius, so if the shortest possible distance
+		// is greater than the radius of the cylinder then there is no intersection
+
+		return dist < radius;
+	}
+
+	bool check_ray_rod_collision(const Ray& ray,
+                                 const glm::vec3& rod_start,
+                                 const glm::vec3& rod_end,
+								 const float radius,
+                                 glm::vec3& out_intersection)
+	{
+		const glm::vec3 axis = glm::normalize(rod_end - rod_start);
+		const float length = glm::distance(rod_start, rod_end);
+		const Maths::Sphere collision_sphere(
+			(rod_start + rod_end) * 0.5f,
+			length * 0.5f
+		);
+		if (!Maths::check_spherical_collision(ray, collision_sphere))
+		{
+			return false;
+		}
+
+		// the cross product of Rd and Ad gives the normal that will contain the
+		// segment with the shortest distance assuming there is a collision
+		const glm::vec3 normal = glm::normalize(glm::cross(ray.direction, axis));
+		// projecting Ro and Ao onto said normal tells us given two infinite rays
+		// the shortest distance between any two points on the two.
+		float dist = std::fabsf(glm::dot(rod_start, normal) - glm::dot(ray.origin, normal));
+		// a cylinder is just a ray with a radius, so if the shortest possible distance
+		// is greater than the radius of the cylinder then there is no intersection
+		if (dist > radius)
+		{
+			return false;
+		}
+
+		// TODO: clean this up
+
+		// Y = vector perpendicular to normal and arrow direction
+		const glm::vec3 Y = glm::normalize(glm::cross(axis, normal));
+		const float Ad_Y = glm::dot(axis, Y);				// Ad . Y
+		const float Ad_Ad = glm::dot(axis, axis);			// Ad . Ad
+		const glm::vec3 Ao_Ro = rod_start - ray.origin;	// Ao - Ro
+
+		const float numerator = Ad_Y * glm::dot(Ao_Ro, axis) + Ad_Ad * glm::dot(-Ao_Ro, Y);
+		const float denominator = Ad_Y * glm::dot(ray.direction, axis) - Ad_Ad * glm::dot(ray.direction, Y);
+		const float t = numerator / denominator; // P = Ro + tRd
+		out_intersection = ray.origin + t * ray.direction;
+
+		// idk why the above intersection is wrong although I have theory,
+		// anyways the below code is a quick hack to get it to work
+
+		const float rr = radius * radius;
+		const float xx = dist * dist;
+		if (rr < xx)
+		{
+			std::cerr << "Arrow::check_collision(Ray, Intersection): no quadratic solution!\n";
+			return false;
+		}
+		
+		const float y = std::sqrtf(rr - xx);
+		const glm::vec3 pA = out_intersection - y*Y;
+		const glm::vec3 pB = out_intersection + y*Y;
+
+		out_intersection = glm::dot(pA, ray.direction) < glm::dot(pB, ray.direction) ? pA : pB;
+
+		return true;
+	}
+
 	const glm::vec3& Transform::get_pos() const
 	{
 		if (is_old(0b1000))
