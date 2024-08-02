@@ -3,7 +3,7 @@
 #include "graphics_engine_instance.hpp"
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 #include <GLFW/glfw3.h>
 
 

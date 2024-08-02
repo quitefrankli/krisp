@@ -8,7 +8,7 @@
 #include "pipelines.hpp"
 
 #include <magic_enum.hpp>
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 
 #include <cassert>
 #include <iostream>

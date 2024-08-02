@@ -1,6 +1,10 @@
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
+#include <quill/Backend.h>
+#include <quill/Frontend.h>
+#include <quill/sinks/FileSink.h>
+#include <fmt/core.h>
 
 #include <iostream>
 #include <chrono>
@@ -20,28 +24,31 @@ Utility::Utility()
 	binary = PROJECT_BIN_DIR;
 	shaders = get_child(build, "shaders");
 
-	auto file_handler = quill::file_handler(fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), "a");
-	logger = quill::create_logger("MAIN", file_handler);
+	quill::FileSinkConfig file_sink_config{};
+	file_sink_config.set_open_mode('a');
+	auto file_sink = quill::Frontend::create_or_get_sink<quill::FileSink>(
+		fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), file_sink_config);
+	logger = quill::Frontend::create_or_get_logger(
+		"MAIN", 
+		std::move(file_sink),
+		"%(time): %(message)",
+		"%D %H:%M:%S.%Qns",
+		quill::Timezone::LocalTime);
 
 	// guarantees a blocking flush when a log level at or higher than this is logged
 	logger->init_backtrace(10, quill::LogLevel::Error);
-
-	file_handler->set_pattern(
-		QUILL_STRING("%(ascii_time): %(message)"),
-		"%D %H:%M:%S.%Qus",
-		quill::Timezone::LocalTime
-	);
 }
 
 void Utility::enable_logging()
 {
-	quill::start(); // this will consume CPU cycles
+	quill::BackendOptions backend_options;
+	quill::Backend::start(backend_options); // this will consume CPU cycles
 	LOG_INFO(get_logger(), 
 			 "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", 
-			 get_model_path(), 
-			 get_textures_path(), 
-			 get_build_path(), 
-			 get_binary_path());
+			 get_model_path().string(), 
+			 get_textures_path().string(), 
+			 get_build_path().string(), 
+			 get_binary_path().string());
 }
 
 Utility& Utility::get()
@@ -144,6 +151,7 @@ std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::
 
 #ifdef _WIN32
 #include <windows.h>    /* WinAPI */
+#include <mmsystem.h>   /* timeBeginPeriod, timeEndPeriod */
 
 struct Utility::LoopSleeper::Pimpl
 {

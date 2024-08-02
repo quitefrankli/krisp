@@ -63,9 +63,9 @@ private:
 	friend Gizmo;
 
 	// represents the normal of the arc
-	Arc xAxisNorm;
-	Arc yAxisNorm;
-	Arc zAxisNorm;
+	ArcObject xAxisNorm;
+	ArcObject yAxisNorm;
+	ArcObject zAxisNorm;
 };
 
 class ScaleGizmo : public GizmoBase

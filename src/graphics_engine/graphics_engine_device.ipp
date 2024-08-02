@@ -4,7 +4,9 @@
 #include "queues.hpp"
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
 
 #include <iostream>
 #include <set>
@@ -169,9 +171,9 @@ void GraphicsEngineDevice::print_physical_device_settings()
 			 "Physical Device Properties: maxBoundDescriptorSets: {}, maxMSAA_Samples: {}, "
 			 "maxRayRecursionDepth: {}, minStorageBufferOffsetAlignment: {}",
 			 properties.properties.limits.maxBoundDescriptorSets,
-			 get_max_usable_msaa(),
+			 int(get_max_usable_msaa()),
 			 ray_tracing_properties.maxRayRecursionDepth,
-			 properties.properties.limits.minStorageBufferOffsetAlignment);
+			 size_t(properties.properties.limits.minStorageBufferOffsetAlignment));
 }
 
 const VkPhysicalDeviceProperties2& GraphicsEngineDevice::get_physical_device_properties()

@@ -11,6 +11,7 @@
 #include <ImGui/imgui_impl_vulkan.h>
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <fmt/core.h>
 
 #include <iostream>
 

@@ -4,7 +4,7 @@
 #include "utility.hpp"
 
 #include <vulkan/vulkan.hpp>
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 
 #include <vector>
 #include <iostream>

@@ -56,7 +56,7 @@ bool Arrow::check_collision(const Maths::Ray& ray, glm::vec3& intersection) cons
 										  intersection);
 }
 
-Arc::Arc()
+ArcObject::ArcObject()
 {
 	const int nVertices = 8;
 	
@@ -66,13 +66,13 @@ Arc::Arc()
 	renderables.push_back(std::move(renderable));
 }
 
-bool Arc::check_collision(const Maths::Ray& ray)
+bool ArcObject::check_collision(const Maths::Ray& ray)
 {
 	glm::vec3 intersection;
 	return check_collision(ray, intersection);
 }
 
-bool Arc::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
+bool ArcObject::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
 {
 	// imagine an arc as a plane, the default has a normal = upvector
 	const Maths::Plane plane(get_position(), glm::normalize(get_rotation() * Maths::forward_vec));

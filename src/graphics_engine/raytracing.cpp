@@ -8,7 +8,7 @@
 #include "config.hpp"
 #include "objects/object.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 #include <glm/gtc/type_ptr.hpp>
 
 #include <numeric>

@@ -5,9 +5,10 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "utility.hpp"
 
+#include <fmt/core.h>
+
 #include <fstream>
 #include <iostream>
-#include "pipeline.hpp"
 
 
 static std::vector<char> readFile(const std::string_view filename)

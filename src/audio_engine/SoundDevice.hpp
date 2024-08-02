@@ -3,7 +3,7 @@
 #include "openal_include.hpp"
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 
 #include <iostream>
 

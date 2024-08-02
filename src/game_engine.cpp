@@ -21,7 +21,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 #include <fmt/core.h>
 #include <fmt/color.h>
 

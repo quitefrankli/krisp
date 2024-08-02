@@ -4,7 +4,8 @@
 #include "collision/collider.hpp"
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
+#include <fmt/core.h>
 
 
 void ClickableSystem::add_clickable_entity(EntityID id)

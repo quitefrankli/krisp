@@ -7,10 +7,8 @@
 #include <optional>
 #include <unordered_set>
 
+#include <quill/Logger.h>
 
-namespace quill {
-	class Logger;
-}
 
 // global singleton for convenience
 class Utility

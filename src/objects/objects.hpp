@@ -19,11 +19,11 @@ public:
 	static constexpr float INITIAL_RADIUS = 0.05f;
 };
 
-class Arc : public Object
+class ArcObject : public Object
 {
 public:
-	Arc();
-	Arc(Arc&&) = delete;
+	ArcObject();
+	ArcObject(ArcObject&&) = delete;
 
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;

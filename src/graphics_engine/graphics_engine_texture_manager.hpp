@@ -5,7 +5,7 @@
 #include "utility.hpp"
 #include "renderable/material_group.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 
 #include <unordered_map>
 #include <string>

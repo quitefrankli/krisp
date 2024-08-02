@@ -1,7 +1,7 @@
 #include "analytics.hpp"
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
 
 #include <chrono>
 

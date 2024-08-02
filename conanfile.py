@@ -30,10 +30,10 @@ class vulkan_conan(ConanFile):
 		"vulkan-validationlayers/1.3.211.0",
 		"stb/20190512@conan/stable",
 		"tinygltf/2.5.0",
-		"quill/1.6.3",
+		"quill/6.0.0",
 		"openal/1.21.1",
 		"libsndfile/1.0.31",
-		# "fmt/8.1.1", # already included by quill
+		"fmt/8.1.1",
 		"imgui/1.87", # also update backend under third_party
 		"gtest/1.8.1",
 		"yaml-cpp/0.7.0",

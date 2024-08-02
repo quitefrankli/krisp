@@ -4,7 +4,8 @@
 #include "collision/collider.hpp"
 #include "utility.hpp"
 
-#include <quill/Quill.h>
+#include <quill/LogMacros.h>
+#include <fmt/core.h>
 
 
 void HoverableSystem::add_hoverable_entity(EntityID id)
