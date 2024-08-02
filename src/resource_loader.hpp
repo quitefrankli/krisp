@@ -47,7 +47,6 @@ public:
 
 private:
 	MaterialID load_texture(const std::string_view file);
-	TextureMaterial create_material_texture(TextureData& texture_data);
 	MaterialID load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model);
 
 private:
