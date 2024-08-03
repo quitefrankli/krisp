@@ -371,6 +371,41 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_de
 	return get_attribute_descriptions_();
 }
 
+VkRenderPass ShadowMapBasePipeline::get_render_pass()
+{
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
+}
+
+VkExtent2D ShadowMapBasePipeline::get_extent()
+{
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
+}
+
+VkSampleCountFlagBits ShadowMapBasePipeline::get_msaa_sample_count()
+{
+	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_msaa_sample_count();
+}
+
+std::vector<VkDescriptorSetLayout> ShadowMapBasePipeline::get_expected_dset_layouts()
+{
+	return { 
+		get_rsrc_mgr().get_low_freq_dset_layout(),
+		get_rsrc_mgr().get_per_obj_dset_layout(),
+		get_rsrc_mgr().get_renderable_dset_layout() 
+	};
+}
+
+void ShadowMapBasePipeline::mod_rasterization_state_info(
+	VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const
+{
+	rasterization_state_info.depthBiasEnable = VK_TRUE;
+	// constant factor that is automatically added to all depth values produced
+	rasterization_state_info.depthBiasConstantFactor = 40.0f;
+	// factor that is used to compute depth offsets also based on the angle
+	rasterization_state_info.depthBiasSlopeFactor = 10.0f;
+	rasterization_state_info.depthBiasClamp = 0.0f;
+}
+
 template<ShadowMappable PrimaryPipelineType>
 std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<PrimaryPipelineType>::get_binding_descriptions() const
 {
@@ -394,44 +429,14 @@ std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<PrimaryPipeline
 	return {position_attr};
 }
 
-template<ShadowMappable PrimaryPipelineType>
-VkRenderPass ShadowMapPipeline<PrimaryPipelineType>::get_render_pass()
+std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<SkinnedPipeline>::get_binding_descriptions() const
 {
-	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
+	return SkinnedPipeline::get_binding_descriptions_();
 }
 
-template<ShadowMappable PrimaryPipelineType>
-VkExtent2D ShadowMapPipeline<PrimaryPipelineType>::get_extent()
+std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<SkinnedPipeline>::get_attribute_descriptions() const
 {
-	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
-}
-
-template<ShadowMappable PrimaryPipelineType>
-VkSampleCountFlagBits ShadowMapPipeline<PrimaryPipelineType>::get_msaa_sample_count()
-{
-	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_msaa_sample_count();
-}
-
-template<ShadowMappable PrimaryPipelineType>
-std::vector<VkDescriptorSetLayout> ShadowMapPipeline<PrimaryPipelineType>::get_expected_dset_layouts()
-{
-	return { 
-		get_rsrc_mgr().get_low_freq_dset_layout(),
-		get_rsrc_mgr().get_per_obj_dset_layout(),
-		get_rsrc_mgr().get_renderable_dset_layout() 
-	};
-}
-
-template<ShadowMappable PrimaryPipelineType>
-void ShadowMapPipeline<PrimaryPipelineType>::mod_rasterization_state_info(
-	VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const
-{
-	rasterization_state_info.depthBiasEnable = VK_TRUE;
-	// constant factor that is automatically added to all depth values produced
-	rasterization_state_info.depthBiasConstantFactor = 40.0f;
-	// factor that is used to compute depth offsets also based on the angle
-	rasterization_state_info.depthBiasSlopeFactor = 10.0f;
-	rasterization_state_info.depthBiasClamp = 0.0f;
+	return SkinnedPipeline::get_attribute_descriptions_();
 }
 
 VkRenderPass QuadPipeline::get_render_pass()

@@ -97,22 +97,41 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
-template<ShadowMappable PrimaryPipelineType>
-class ShadowMapPipeline : public GraphicsEnginePipeline
+class ShadowMapBasePipeline : public GraphicsEnginePipeline
 {
 public:
-	ShadowMapPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+	ShadowMapBasePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "shadow_map"; }
-	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
-	// virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 	virtual VkRenderPass get_render_pass() override;
 	virtual VkExtent2D get_extent() override;
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
 	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const override;
+};
+
+template<ShadowMappable PrimaryPipelineType>
+class ShadowMapPipeline : public ShadowMapBasePipeline
+{
+public:
+	ShadowMapPipeline(GraphicsEngine& engine) : ShadowMapBasePipeline(engine) {}
+
+protected:
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<>
+class ShadowMapPipeline<SkinnedPipeline> : public ShadowMapBasePipeline
+{
+public:
+	ShadowMapPipeline(GraphicsEngine& engine) : ShadowMapBasePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "shadow_map_skinned"; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
 class QuadPipeline : public GraphicsEnginePipeline

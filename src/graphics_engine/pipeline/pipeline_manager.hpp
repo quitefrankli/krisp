@@ -22,7 +22,6 @@ public:
 	VkPipelineLayout get_generic_pipeline_layout() const { return generic_pipeline_layout; }
 
 private:
-
 	std::unique_ptr<PipelineType> create_pipeline(PipelineID id);
 	template<typename PrimaryPipelineType>
 	std::unique_ptr<PipelineType> create_pipeline(PipelineID id);

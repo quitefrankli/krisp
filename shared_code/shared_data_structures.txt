@@ -127,6 +127,7 @@ struct Bone
 {
 	MAT4 inverse_transform; // inverse bind pose, used to transform vertices to bone space
 	MAT4 final_transform;
+	MAT4 shadow_transform;
 };
 
 struct QuadRendererPushConstant

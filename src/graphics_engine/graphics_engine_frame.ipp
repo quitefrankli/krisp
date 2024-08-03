@@ -296,8 +296,10 @@ void GraphicsEngineFrame::update_uniform_buffer()
 			}
 
 			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*renderable.skeleton_id);
-			std::ranges::for_each(bones, [transform=object_data.model](auto& bone) {
+			std::ranges::for_each(bones, [transform=object_data.model, &get_shadow_view_proj_matrix](SDS::Bone& bone) {
 				bone.final_transform = transform * bone.final_transform;
+				const glm::vec3 DUMMY_POS = {0.0f, 0.0f, 0.0f};
+				bone.shadow_transform = get_shadow_view_proj_matrix(DUMMY_POS);
 			});
 			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*renderable.skeleton_id, image_index), bones);
 		}
