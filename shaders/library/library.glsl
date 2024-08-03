@@ -4,6 +4,8 @@ const float AMBIENT_STRENGTH = 0.03;
 const float DIFFUSE_STRENGTH = 0.9;
 const float SPECULAR_STRENGTH = 0.5;
 const float EMISSIVE_STRENGTH = 1.0; // it's high because for now only light sources use this value
+const float STENCIL_OFFSET = 0.05;
+const vec4 STENCIL_COLOR = vec4(1.0, 0.5, 0.0, 1.0);
 
 float get_phong_spec(vec3 lightDir, vec3 norm, vec3 viewDir, float shininess)
 {

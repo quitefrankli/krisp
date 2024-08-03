@@ -30,7 +30,6 @@ mat4 get_bone_matrix(float index)
 	return bone_data.data[int(index)].final_transform;
 }
 
-const float stencil_offset = 0.05;
 
 void main()
 {
@@ -42,7 +41,7 @@ void main()
 		get_bone_matrix(bone_ids.y) * bone_weights.y + 
 		get_bone_matrix(bone_ids.z) * bone_weights.z + 
 		get_bone_matrix(bone_ids.w) * bone_weights.w;
-	const vec3 vertex_offset = normalize(in_position) * stencil_offset;
+	const vec3 vertex_offset = normalize(in_position) * STENCIL_OFFSET;
 	const vec3 frag_pos = (skin_matrix * vec4(in_position + vertex_offset, 1.0)).xyz;
 
     gl_Position = global_data.data.proj * global_data.data.view * vec4(frag_pos, 1.0);

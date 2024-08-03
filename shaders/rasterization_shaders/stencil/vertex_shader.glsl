@@ -9,10 +9,9 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJ
 	ObjectData data;
 } object_data;
 
-const float stencil_offset = 0.05;
 
 void main()
 {
-	vec3 vertex_offset = normalize(in_position) * stencil_offset;
+	vec3 vertex_offset = normalize(in_position) * STENCIL_OFFSET;
 	gl_Position = object_data.data.mvp * vec4(in_position + vertex_offset, 1.0);
 }
