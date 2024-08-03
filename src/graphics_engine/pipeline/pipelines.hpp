@@ -88,6 +88,8 @@ public:
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::SkinnedVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::SkinnedVertex, pos); }
+	static std::vector<VkVertexInputBindingDescription> get_binding_descriptions_();
+	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions_();
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "skinned"; }
@@ -137,6 +139,19 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<>
+class StencilPipeline<SkinnedPipeline> : public GraphicsEnginePipeline
+{
+public:
+	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "stencil_skinned"; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;

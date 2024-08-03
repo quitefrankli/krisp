@@ -62,9 +62,7 @@ std::vector<VkVertexInputAttributeDescription> CubemapPipeline::get_attribute_de
 
 VkPipelineDepthStencilStateCreateInfo CubemapPipeline::get_depth_stencil_create_info() const
 {
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-
-	return info;
+	return GraphicsEnginePipeline::get_depth_stencil_create_info();
 }
 
 template<Stencileable PrimaryPipelineType>
@@ -114,7 +112,7 @@ std::vector<VkVertexInputBindingDescription> StencilPipeline<PrimaryPipelineType
 }
 
 template<Stencileable PrimaryPipelineType>
-std::vector<VkVertexInputAttributeDescription>
+std::vector<VkVertexInputAttributeDescription> 
 StencilPipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 {
 	VkVertexInputAttributeDescription position_attr;
@@ -124,6 +122,50 @@ StencilPipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 	position_attr.offset = PrimaryPipelineType::get_vertex_pos_offset();
 
 	return {position_attr};
+}
+
+VkPipelineDepthStencilStateCreateInfo StencilPipeline<SkinnedPipeline>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
+	// render all objects twice
+	// on first render always succeed and write 1 to stencil buffer
+	// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
+	info.front.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
+	info.front.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+	info.depthTestEnable = VK_FALSE;
+
+	info.front = [&]() {
+		VkStencilOpState stencil_op_state{};
+		stencil_op_state.compareMask = UINT32_MAX;
+		stencil_op_state.writeMask = UINT32_MAX;
+		stencil_op_state.reference = UINT32_MAX;
+
+		// render all objects twice
+		// on first render always succeed and write 1 to stencil buffer
+		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
+		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
+		stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
+		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
+		stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+		stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
+
+		return stencil_op_state;
+	}();
+
+	return info;
+}
+
+std::vector<VkVertexInputBindingDescription> StencilPipeline<SkinnedPipeline>::get_binding_descriptions() const
+{
+	return SkinnedPipeline::get_binding_descriptions_();
+}
+
+std::vector<VkVertexInputAttributeDescription> StencilPipeline<SkinnedPipeline>::get_attribute_descriptions() const
+{
+	return SkinnedPipeline::get_attribute_descriptions_();
 }
 
 VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline::get_depth_stencil_create_info() const
@@ -274,7 +316,7 @@ VkExtent2D LightWeightOffscreenPipeline::get_extent()
 		get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).get_extent();	
 }
 
-std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const
+std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions_()
 {
 	VkVertexInputBindingDescription binding_description{};
 	binding_description.binding = 0;
@@ -284,8 +326,8 @@ std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descri
 	return { binding_description };
 }
 
-std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_descriptions() const
-{	
+std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_descriptions_()
+{
 	VkVertexInputAttributeDescription position_attr{};
 	position_attr.binding = 0;
 	position_attr.location = 0;
@@ -317,6 +359,16 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_de
 	bone_weights_attr.offset = offsetof(SDS::SkinnedVertex, bone_weights);
 
 	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr};
+}
+
+std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const
+{
+	return get_binding_descriptions_();
+}
+
+std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_descriptions() const
+{	
+	return get_attribute_descriptions_();
 }
 
 template<ShadowMappable PrimaryPipelineType>
