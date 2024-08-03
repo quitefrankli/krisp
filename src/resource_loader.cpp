@@ -351,11 +351,6 @@ static std::vector<Bone> load_bones(const tinygltf::Model& model)
 		bone.name = node.name;
 		bone.inverse_bind_pose.set_mat4(glm::make_mat4(&inverse_bind_matrices_data[i*sizeof(glm::mat4)/sizeof(float)]));
 
-		if (node.children.size() > 4)
-		{
-			throw std::runtime_error("ResourceLoader: only 4 children per bone are supported");
-		}
-
 		for (int child : node.children)
 		{
 			bones[node_to_joint.at(child)].parent_node = i;

@@ -16,7 +16,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <quill/LogMacros.h>
-#include <imgui.h>
 
 #include <iostream>
 #include <vector>
@@ -119,8 +118,21 @@ void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 	}
 }
 
-void GameEngine::mouse_button_callback(int button, int action, int mode)
+void GameEngine::mouse_button_callback(int button, int action, int mode, bool gui_wants_input)
 {
+	if (gui_wants_input)
+	{
+		if (action != GLFW_RELEASE)
+		{
+			return;
+		}
+
+		if (!(mouse->lmb_down || mouse->rmb_down || mouse->mmb_down))
+		{
+			return;
+		}
+	}
+
 	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 		if (action == GLFW_PRESS) {
 			mouse->rmb_down = true;

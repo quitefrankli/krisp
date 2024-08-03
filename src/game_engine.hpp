@@ -132,7 +132,7 @@ private:
 public: // callbacks
 	virtual void scroll_callback(double yoffset) override;
 	virtual void key_callback(int key, int scan_code, int action, int mode) override;
-	virtual void mouse_button_callback(int button, int action, int mode) override;
+	virtual void mouse_button_callback(int button, int action, int mode, bool gui_wants_input) override;
 	// void pause();
 	
 private: // friends

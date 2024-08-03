@@ -7,7 +7,7 @@
 #include <utility.hpp>
 #include <camera.hpp>
 #include <config.hpp>
-#include <shapes/shape_factory.hpp>
+#include <renderable/mesh_factory.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -21,13 +21,11 @@
 
 #include <iostream>
 
-using GameEngineT = GameEngine<GraphicsEngine>;
-
 
 class Application : public IApplication
 {
 public:
-	Application(GameEngineT& engine) :
+	Application(GameEngine& engine) :
 		engine(engine)
 	{
 	}
@@ -65,24 +63,28 @@ public:
 	virtual void on_key_press(int key, int scan_code, int action, int mode) override {};
 
 private:
-	GameEngineT& engine;
+	GameEngine& engine;
 	std::optional<ObjectID> prev_hovered;
 };
 
 int main(int argc, char* argv[])
 {
-	Config::initialise_global_config(Utility::get().get_config_path().string() + "/default.yaml");
+	Config::initialise_global_config(Utility::get_config_path().string() + "/default.yaml");
+	if (Config::enable_logging())
+	{
+		Utility::enable_logging();
+	}
+	
 	App::Window window;
 	window.open(Config::get_window_pos().first, Config::get_window_pos().second);
-	GameEngineT engine(window);
-	Utility::get().enable_logging();
+	GameEngine engine(window);
 
 	Application app(engine);
 	engine.set_application(&app);
 
 	Tile::tile_object_spawner = [&engine](const TileCoord& coord)
 	{
-		Object& obj = engine.spawn_object<Object>(ShapeFactory::cube());
+		Object& obj = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
 		obj.set_position(glm::vec3(coord.x, -0.5f, coord.y));
 		obj.set_scale(glm::vec3(0.95f, 0.95f, 0.95f));
 		

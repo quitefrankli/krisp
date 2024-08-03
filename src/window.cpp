@@ -55,13 +55,12 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 	if (ImGui::GetIO().WantCaptureMouse)
 	{
 		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mode);
-		return;
 	}
 
 	try
 	{
 		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->mouse_button_callback(button, action, mode);
+		window_callback->mouse_button_callback(button, action, mode, ImGui::GetIO().WantCaptureMouse);
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());
