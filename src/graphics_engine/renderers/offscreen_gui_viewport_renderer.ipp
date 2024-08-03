@@ -126,24 +126,24 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 		if (graphics_object.is_marked_for_delete())
 			continue;
 
-		// if (!graphics_object.get_visibility())
-			// continue;
-		
-		// only support color and texture render types for now
-		if (std::ranges::any_of(graphics_object.get_renderables(), [](const Renderable& renderable)
-			{ 
-				return renderable.pipeline_render_type != ERenderType::COLOR &&
-					renderable.pipeline_render_type != ERenderType::STANDARD;
-			}))
+		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 		{
-			continue;
-		}
+			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			
+			// only support color and texture render types for now
+			if (renderable.pipeline_render_type != ERenderType::COLOR &&
+				renderable.pipeline_render_type != ERenderType::STANDARD)
+			{
+				continue;
+			}
 
-		draw_object(command_buffer, 
-					frame_index, 
-					graphics_object, 
-					EPipelineModifier::NONE, 
-					ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
+			draw_renderable(command_buffer, 
+							renderable, 
+							graphics_object.get_obj_dset(frame_index), 
+							graphics_object.get_renderable_dsets()[renderable_idx], 
+							EPipelineModifier::NONE, 
+							ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
+		}
 	}
 	
 	vkCmdEndRenderPass(command_buffer);

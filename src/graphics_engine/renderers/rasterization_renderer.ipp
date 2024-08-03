@@ -155,7 +155,15 @@ void RasterizationRenderer::submit_draw_commands(
 		const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ? 
 			EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
 
-		draw_object(command_buffer, frame_index, graphics_object, modifier);
+		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+		{
+			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			draw_renderable(command_buffer,
+							renderable,
+							graphics_object.get_obj_dset(frame_index),
+							graphics_object.get_renderable_dsets()[renderable_idx],
+							modifier);
+		}
 	}
 	
 	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader
@@ -171,8 +179,16 @@ void RasterizationRenderer::submit_draw_commands(
 
 		if (!graphics_object.get_visibility())
 			continue;
-		
-		draw_object(command_buffer, frame_index, graphics_object, EPipelineModifier::STENCIL);
+
+		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+		{
+			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			draw_renderable(command_buffer,
+							renderable,
+							graphics_object.get_obj_dset(frame_index),
+							graphics_object.get_renderable_dsets()[renderable_idx],
+							EPipelineModifier::STENCIL);
+		}	
 	}
 
 	for (const auto& id : stenciled_ids)
@@ -188,7 +204,15 @@ void RasterizationRenderer::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		draw_object(command_buffer, frame_index, graphics_object, EPipelineModifier::POST_STENCIL);
+		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+		{
+			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			draw_renderable(command_buffer,
+							renderable,
+							graphics_object.get_obj_dset(frame_index),
+							graphics_object.get_renderable_dsets()[renderable_idx],
+							EPipelineModifier::POST_STENCIL);
+		}
 	}
 
 	vkCmdEndRenderPass(command_buffer);

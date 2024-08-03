@@ -22,6 +22,7 @@ enum class ERendererType
 
 class GraphicsEngineObject;
 class GraphicsEnginePipeline;
+class Renderable;
 
 // A renderer is simply anything that submits draw commands and fills up a command buffer
 // Each renderer can only have ONE renderpass and each renderpass must be unique to the renderer
@@ -33,7 +34,9 @@ public:
 
 	// generates framebuffers
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) = 0;
-	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) = 0;
+	virtual void submit_draw_commands(VkCommandBuffer command_buffer, 
+									  VkImageView presentation_image_view, 
+									  uint32_t frame_index) = 0;
 	virtual constexpr ERendererType get_renderer_type() const = 0;
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) = 0;
 
@@ -42,11 +45,12 @@ public:
 	
 	VkRenderPass get_render_pass() { return render_pass; }
 	
-	virtual void draw_object(VkCommandBuffer command_buffer,
-							 uint32_t frame_index,
-							 const GraphicsEngineObject& object, 
-							 EPipelineModifier pipeline_modifier,
-							 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
+	virtual void draw_renderable(VkCommandBuffer command_buffer,
+							 	 const Renderable& renderable,
+							 	 const VkDescriptorSet& object_dset,
+							 	 const VkDescriptorSet& renderable_dset,
+							 	 EPipelineModifier pipeline_modifier,
+							 	 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
 
 protected:
 	static constexpr uint32_t get_num_inflight_frames();

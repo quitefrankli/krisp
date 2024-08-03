@@ -119,7 +119,19 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 		if (get_graphics_engine().get_ecs().get_light_component(graphics_object.get_id()) != nullptr)
 			continue;
 			
-		draw_object(command_buffer, frame_index, graphics_object, EPipelineModifier::SHADOW_MAP);
+		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+		{
+			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			if (!renderable.casts_shadow)
+			{
+				continue;
+			}
+			draw_renderable(command_buffer,
+							renderable,
+							graphics_object.get_obj_dset(frame_index),
+							graphics_object.get_renderable_dsets()[renderable_idx],
+							EPipelineModifier::SHADOW_MAP);
+		}
 	}
 	
 	vkCmdEndRenderPass(command_buffer);
