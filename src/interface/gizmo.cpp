@@ -74,6 +74,7 @@ void TranslationGizmo::init()
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW);
+		axis->renderables[0].casts_shadow = false;
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -131,6 +132,7 @@ void RotationGizmo::init()
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC);
+		axis->renderables[0].casts_shadow = false;
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -196,6 +198,7 @@ void ScaleGizmo::init()
 	std::for_each(axes.begin(), axes.end(), [this](Object* axis)
 	{
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW);
+		axis->renderables[0].casts_shadow = false;
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});

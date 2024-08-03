@@ -51,6 +51,9 @@ void Renderer::draw_object(VkCommandBuffer command_buffer,
 		if (!pipeline)
 		{
 			return;
+		} else if (pipeline_modifier == EPipelineModifier::SHADOW_MAP && renderable.casts_shadow == false)
+		{
+			return;
 		}
 		vkCmdBindPipeline(command_buffer, 
 						  VK_PIPELINE_BIND_POINT_GRAPHICS, 
