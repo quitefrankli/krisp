@@ -43,8 +43,6 @@ protected:
 
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const {}
 
-protected:
-
 private:
 	friend GraphicsEnginePipelineManager;
 };
