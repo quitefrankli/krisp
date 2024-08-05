@@ -1,4 +1,6 @@
 build*/
+collection_log/
+
 resources/*
 
 .vscode

@@ -170,7 +170,8 @@ private:
 	std::vector<ObjectID> object_ids;
 	std::vector<std::string> object_ids_strs;
 	GuiVar<ObjectID> selected_object = ObjectID(0);
-	GuiVar<bool> show_bone_visualisers = false; 
+	GuiVar<bool> show_bone_visualisers = false;
+	std::string filter_text = std::string(1024, '\0');
 };
 
 class GuiPhotoBase

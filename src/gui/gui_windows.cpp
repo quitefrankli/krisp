@@ -166,6 +166,8 @@ void GuiModelSpawner::process(GameEngine& engine)
 		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model].string());
 		auto mesh = std::make_shared<Object>(loaded_model.renderables);
 		mesh->set_transform(loaded_model.onload_transform.get_mat4());
+		const auto name = model_paths[selected_model].stem().string();
+		mesh->set_name(name);
 		Object& object = engine.spawn_object(std::move(mesh));
 		engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
 		engine.get_ecs().add_clickable_entity(object.get_id());
@@ -360,6 +362,7 @@ void GuiDebug::process(GameEngine& engine)
 	{
 		const auto pos = engine.get_object(selected_object)->get_position();
 		engine.get_camera().look_at(pos);
+		engine.get_gizmo().select_object(engine.get_object(selected_object.value));
 		selected_object.changed = false;
 	}
 
@@ -392,10 +395,18 @@ void GuiDebug::draw()
 		should_refresh_objects_list = true;
 	}
 
+	ImGui::InputText("Filter", filter_text.data(), filter_text.size());
+
 	if (ImGui::BeginCombo("Objects", "Select Object"))
 	{
+		const std::string search_text = filter_text.data();
 		for (int i = 0; i < object_ids.size(); i++)
 		{
+			if (!search_text.empty() && object_ids_strs[i].find(search_text) == std::string::npos)
+			{
+				continue;
+			}
+
 			// bool is_selected = (current_item == items[n]); // You can store your selection however you want, outside or inside your objects
 			if (ImGui::Selectable(object_ids_strs[i].data(), selected_object == object_ids[i]))
 			{
