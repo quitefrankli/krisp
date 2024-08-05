@@ -40,6 +40,7 @@ public:
 	{
 		std::vector<Renderable> renderables;
 		std::vector<AnimationID> animations;
+		Maths::Transform onload_transform;
 	};
 
 	static MaterialID fetch_texture(const std::string_view file);

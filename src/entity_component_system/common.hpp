@@ -77,7 +77,10 @@ private:
 
 	ContentType& _get(IDType id)
 	{
-		assert(contents.contains(id));
+		if (!contents.contains(id))
+		{
+			throw std::runtime_error("CountableSystem::_get: id not found");
+		}
 		return *contents[id];
 	}
 

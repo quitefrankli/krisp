@@ -91,6 +91,31 @@ std::vector<uint32_t> load_indices(const tinygltf::Accessor& index_accessor,
 	return indices;
 }
 
+template<typename dst_t, typename src_t>
+void copy_data(const src_t* src, dst_t& dst, const uint32_t idx, const int component_type = TINYGLTF_COMPONENT_TYPE_FLOAT)
+{
+	const size_t start_offset = dst_t::length() * idx;
+	const size_t end_offset = start_offset + dst_t::length();
+	switch (component_type) // TODO: this might be expensive
+	{
+	case TINYGLTF_COMPONENT_TYPE_FLOAT:
+		{
+			const auto* src_ptr = reinterpret_cast<const float*>(src);
+			std::copy(src_ptr+start_offset, src_ptr+end_offset, glm::value_ptr(dst));
+			break;
+		}
+	case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+	case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+		{
+			const auto* src_ptr = reinterpret_cast<const uint8_t*>(src);
+			std::copy(src_ptr+start_offset, src_ptr+end_offset, glm::value_ptr(dst));
+			break;
+		}
+	default:
+		throw std::runtime_error("ResourceLoader: unsupported component type");
+	}
+}
+
 template<typename VerticesType>
 VerticesType load_vertices(const tinygltf::Model& model, tinygltf::Primitive& primitive);
 
@@ -126,14 +151,12 @@ ColorVertices load_vertices<ColorVertices>(const tinygltf::Model& model, tinyglt
 	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
 
 	// convert data to our mesh format
-	ColorVertices vertices;
-	vertices.reserve(pos_accessor.count);
+	ColorVertices vertices(pos_accessor.count);
 	for (size_t i = 0; i < pos_accessor.count; ++i)
 	{
-		SDS::ColorVertex vertex;
-		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
-		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
-		vertices.push_back(vertex);
+		auto& vertex = vertices[i];
+		copy_data(pos_data, vertex.pos, i);
+		copy_data(norm_data, vertex.normal, i);
 	}
 
 	return vertices;
@@ -181,15 +204,13 @@ TexVertices load_vertices<TexVertices>(const tinygltf::Model& model, tinygltf::P
 	const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
 
 	// convert data to our mesh format
-	TexVertices vertices;
-	vertices.reserve(pos_accessor.count);
+	TexVertices vertices(pos_accessor.count);
 	for (size_t i = 0; i < pos_accessor.count; ++i)
 	{
-		SDS::TexVertex vertex;
-		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
-		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
-		vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
-		vertices.push_back(vertex);
+		auto& vertex = vertices[i];
+		copy_data(pos_data, vertex.pos, i);
+		copy_data(norm_data, vertex.normal, i);
+		copy_data(tex_data, vertex.texCoord, i);
 	}
 
 	return vertices;
@@ -228,9 +249,13 @@ SkinnedVertices load_vertices<SkinnedVertices>(const tinygltf::Model& model, tin
 		throw std::runtime_error("ResourceLoader: only float vec3 normals are supported");
 	}
 
-	if (joint_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE || joint_accessor.type != TINYGLTF_TYPE_VEC4)
+	static const std::unordered_set<int> SUPPORTED_TYPES = { 
+		TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE, 
+		TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT 
+	};
+	if (!SUPPORTED_TYPES.contains(joint_accessor.componentType) || joint_accessor.type != TINYGLTF_TYPE_VEC4)
 	{
-		throw std::runtime_error("ResourceLoader: only unsigned byte vec4 joints are supported");
+		throw std::runtime_error("ResourceLoader: only unsigned byte/short vec4 joints are supported");
 	}
 
 	if (weight_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || weight_accessor.type != TINYGLTF_TYPE_VEC4)
@@ -255,23 +280,21 @@ SkinnedVertices load_vertices<SkinnedVertices>(const tinygltf::Model& model, tin
 	const auto& weight_buffer = model.buffers[weight_buffer_view.buffer];
 	const auto& tex_buffer = model.buffers[tex_buffer_view.buffer];
 
-	const auto* pos_data = reinterpret_cast<const float*>(&pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset]);
-	const auto* norm_data = reinterpret_cast<const float*>(&norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset]);
-	const auto* joint_data = reinterpret_cast<const uint8_t*>(&joint_buffer.data[joint_accessor.byteOffset + joint_buffer_view.byteOffset]);
-	const auto* weight_data = reinterpret_cast<const float*>(&weight_buffer.data[weight_accessor.byteOffset + weight_buffer_view.byteOffset]);
-	const auto* tex_data = reinterpret_cast<const float*>(&tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset]);
+	const auto* pos_data = &pos_buffer.data[pos_accessor.byteOffset + pos_buffer_view.byteOffset];
+	const auto* norm_data = &norm_buffer.data[norm_accessor.byteOffset + norm_buffer_view.byteOffset];
+	const auto* joint_data = &joint_buffer.data[joint_accessor.byteOffset + joint_buffer_view.byteOffset];
+	const auto* weight_data = &weight_buffer.data[weight_accessor.byteOffset + weight_buffer_view.byteOffset];
+	const auto* tex_data = &tex_buffer.data[tex_accessor.byteOffset + tex_buffer_view.byteOffset];
 
-	SkinnedVertices vertices;
-	vertices.reserve(pos_accessor.count);
+	SkinnedVertices vertices(pos_accessor.count);
 	for (size_t i = 0; i < pos_accessor.count; ++i)
 	{
-		SDS::SkinnedVertex vertex;
-		vertex.pos = glm::vec3(pos_data[3 * i], pos_data[3 * i + 1], pos_data[3 * i + 2]);
-		vertex.normal = glm::vec3(norm_data[3 * i], norm_data[3 * i + 1], norm_data[3 * i + 2]);
-		vertex.texCoord = glm::vec2(tex_data[2 * i], tex_data[2 * i + 1]);
-		vertex.bone_ids = glm::vec4(joint_data[4 * i], joint_data[4 * i + 1], joint_data[4 * i + 2], joint_data[4 * i + 3]);
-		vertex.bone_weights = glm::vec4(weight_data[4 * i], weight_data[4 * i + 1], weight_data[4 * i + 2], weight_data[4 * i + 3]);
-		vertices.push_back(vertex);
+		auto& vertex = vertices[i];
+		copy_data(pos_data, vertex.pos, i);
+		copy_data(norm_data, vertex.normal, i);
+		copy_data(tex_data, vertex.texCoord, i);
+		copy_data(joint_data, vertex.bone_ids, i, joint_accessor.componentType);
+		copy_data(weight_data, vertex.bone_weights, i);
 	}
 
 	return vertices;
@@ -571,6 +594,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 	std::string err;
 	std::string warn;
 	tinygltf::TinyGLTF loader;
+	LoadedModel retval;
 
 	if (file_path.extension().string() == ".gltf")
 	{
@@ -599,7 +623,34 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		throw std::runtime_error("ResourceLoader::load_model: no meshes found");
 	}
 
-	LoadedModel retval;
+	if (model.scenes.size() != 1 && model.scenes[0].nodes.size() != 1)
+	{
+		throw std::runtime_error("ResourceLoader::load_model: only one scene with one node is supported");
+	}
+
+	const auto& scene = model.scenes[0];
+	const auto& root_node = model.nodes[scene.nodes[0]];
+	if (!root_node.matrix.empty())
+	{
+		retval.onload_transform.set_mat4(glm::make_mat4(root_node.matrix.data()));
+	} else
+	{
+		if (!root_node.translation.empty())
+		{
+			retval.onload_transform.set_pos(glm::vec3(root_node.translation[0], root_node.translation[1], root_node.translation[2]));
+		}
+
+		if (!root_node.rotation.empty())
+		{
+			retval.onload_transform.set_orient(glm::quat(root_node.rotation[3], root_node.rotation[0], root_node.rotation[1], root_node.rotation[2]));
+		}
+
+		if (!root_node.scale.empty())
+		{
+			retval.onload_transform.set_scale(glm::vec3(root_node.scale[0], root_node.scale[1], root_node.scale[2]));
+		}
+	}
+
 	std::vector<Bone> bones;
 
 	const bool has_bones = [&model](){ return !model.skins.empty(); }();

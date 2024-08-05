@@ -165,6 +165,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 		should_spawn = false;
 		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model].string());
 		auto mesh = std::make_shared<Object>(loaded_model.renderables);
+		mesh->set_transform(loaded_model.onload_transform.get_mat4());
 		Object& object = engine.spawn_object(std::move(mesh));
 		engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
 		engine.get_ecs().add_clickable_entity(object.get_id());
