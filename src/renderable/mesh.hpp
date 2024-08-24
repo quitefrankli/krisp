@@ -12,6 +12,7 @@
 struct Mesh 
 {
 public:
+	virtual ~Mesh() = default;
 	MeshID get_id() const { return id; }
 
 	const std::vector<uint32_t>& get_indices() const { return indices; }
