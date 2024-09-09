@@ -178,7 +178,7 @@ void GuiModelSpawner::draw()
 {
 	ImGui::Begin("Model Spawner");
 
-	if (ImGui::BeginCombo("Model", models[selected_model].c_str()))
+	if (!models.empty() && ImGui::BeginCombo("Model", models[selected_model].c_str()))
 	{
 		for (int i = 0; i < models.size(); i++)
 		{
@@ -260,7 +260,7 @@ void GuiMusic::draw()
 	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
-	if (ImGui::BeginCombo("Model", songs[selected_song].c_str()))
+	if (!songs.empty() && ImGui::BeginCombo("Model", songs[selected_song].c_str()))
 	{
 		for (int i = 0; i < songs.size(); i++)
 		{
