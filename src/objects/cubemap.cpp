@@ -4,7 +4,7 @@
 #include "utility.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "entity_component_system/material_system.hpp"
-#include "resource_loader.hpp"
+#include "resource_loader/resource_loader.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>

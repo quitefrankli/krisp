@@ -4,7 +4,7 @@
 #include "graphics_engine.hpp"
 #include "renderers/renderers.hpp"
 #include "utility.hpp"
-#include "resource_loader.hpp"
+#include "resource_loader/resource_loader.hpp"
 #include "entity_component_system/material_system.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>

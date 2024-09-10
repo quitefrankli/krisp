@@ -1,7 +1,7 @@
 #include "object.hpp"
 
 #include "maths.hpp"
-#include "resource_loader.hpp"
+#include "resource_loader/resource_loader.hpp"
 
 #include <glm/ext.hpp>
 #include <glm/gtx/matrix_decompose.hpp>

@@ -1,6 +1,6 @@
 #include "test_helper.hpp"
 
-#include <resource_loader.hpp>
+#include <resource_loader/resource_loader.hpp>
 #include <utility.hpp>
 #include <entity_component_system/ecs.hpp>
 
