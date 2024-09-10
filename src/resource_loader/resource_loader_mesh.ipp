@@ -1,12 +1,12 @@
 #include "resource_loader.hpp"
 #include "renderable/mesh.hpp"
 
-#include <tiny_gltf.h>
+#include <fmt/core.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <fmt/core.h>
+#include <stdexcept>
+#include <tiny_gltf.h>
 
-#include <iostream>
 #include <unordered_set>
 
 
@@ -84,7 +84,7 @@ const GLTFVertexData get_joint_data(const tinygltf::Model& model, const tinygltf
 {
 	return _get_generic_vertex_data(
 		"JOINTS_0", 
-		{ TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE,TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT }, 
+		{ TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT }, 
 		{ TINYGLTF_TYPE_VEC4 }, 
 		model, 
 		primitive);
