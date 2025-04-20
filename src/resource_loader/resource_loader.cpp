@@ -10,6 +10,7 @@
 #include "entity_component_system/material_system.hpp"
 #include "renderable/mesh.hpp"
 #include "renderable/material_factory.hpp"
+#include "utility.hpp"
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -17,6 +18,7 @@
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <fmt/core.h>
+#include <quill/LogMacros.h>
 
 #include <iostream>
 #include <map>
@@ -268,7 +270,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 	{
 		if (mesh.primitives.size() != 1)
 		{
-			throw std::runtime_error("ResourceLoader::load_model: only one primitive per mesh is supported");
+			LOG_ERROR(Utility::get_logger(), "ResourceLoader::load_model: only one primitive per mesh is supported!");
 		}
 
 		auto& primitive = mesh.primitives[0];

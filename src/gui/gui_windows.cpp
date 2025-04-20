@@ -154,8 +154,16 @@ void GuiObjectSpawner::process(GameEngine& engine)
 
 GuiModelSpawner::GuiModelSpawner()
 {
-	model_paths = Utility::get_all_files(Utility::get_model_path(), { ".gltf" });
-	std::ranges::transform(model_paths, std::back_inserter(models), [](const auto& path) { return path.filename().string(); });
+	model_paths = Utility::get_all_files(
+		Utility::get_model_path(), 
+		{ 
+			".gltf",
+			".glb"
+		});
+	std::ranges::transform(
+		model_paths, 
+		std::back_inserter(models), 
+		[](const auto& path) { return path.filename().string(); });
 }
 
 void GuiModelSpawner::process(GameEngine& engine)

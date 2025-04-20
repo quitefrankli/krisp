@@ -116,7 +116,6 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 		}))
 	{
 		LOG_ERROR(Utility::get_logger(), "ValidationLayerMessage: {}", error);
-		fmt::print("ValidationLayerMessage: {}\n", error);
 
 		if (num_errors++ > MAX_NUM_ERRORS_BEFORE_THROW)
 		{

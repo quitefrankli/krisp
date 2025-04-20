@@ -1,9 +1,11 @@
 #include "SoundBuffer.hpp"
+#include "utility.hpp"
 
 #include <sndfile.h>
 #include <inttypes.h>
 #include <AL/alext.h>
 #include <fmt/core.h>
+#include <quill/LogMacros.h>
 
 #include <string_view>
 #include <stdexcept>
@@ -29,8 +31,9 @@ SoundBuffer::SoundBuffer(const std::string_view filename)
 	}
 	if (sfinfo.channels != 1)
 	{
-		fmt::print("SoundBuffer::SoundBuffer: warning {}, channels={}, is not mono and therefore "
-				   "3D sound will not be supported!\n", filename, sfinfo.channels);
+		LOG_ERROR(Utility::get_logger(), 
+		          "SoundBuffer::SoundBuffer: warning {}, channels={}, is not mono and therefore "
+				  "3D sound will not be supported!", filename, sfinfo.channels);
 	}
 
 	/* Get the sound format, and figure out the OpenAL format */

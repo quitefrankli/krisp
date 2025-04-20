@@ -4,6 +4,8 @@
 #include <quill/Backend.h>
 #include <quill/Frontend.h>
 #include <quill/sinks/FileSink.h>
+#include <quill/sinks/ConsoleSink.h>
+#include <quill/filters/Filter.h>
 #include <fmt/core.h>
 
 #include <iostream>
@@ -28,10 +30,15 @@ Utility::Utility()
 	file_sink_config.set_open_mode('a');
 	auto file_sink = quill::Frontend::create_or_get_sink<quill::FileSink>(
 		fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), file_sink_config);
+
+	quill::ConsoleColours console_colors{};
+	auto console_sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>("test", console_colors);
+	console_sink->set_log_level_filter(quill::LogLevel::Error);
+	
 	logger = quill::Frontend::create_or_get_logger(
 		"MAIN", 
-		std::move(file_sink),
-		"%(time): %(message)",
+		{ std::move(file_sink), std::move(console_sink) },
+		"[%(log_level)] %(time): %(message)",
 		"%D %H:%M:%S.%Qns",
 		quill::Timezone::LocalTime);
 
