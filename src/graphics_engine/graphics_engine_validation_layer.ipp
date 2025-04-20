@@ -108,7 +108,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 
 	const std::string_view error(pCallbackData->pMessage);
 	const std::vector<std::string_view> blacklist_filter = {
-		"Epic Games"
+		"Epic Games",
+		"nv_dispig" // ValidationLayerMessage: loader_add_layer_properties: 'layers' tag not supported until file version 1.0.1, but C:\WINDOWS\System32\DriverStore\FileRepository\nv_dispig.inf_amd64_0afec3f2050014a0\nv-vk64.json is reporting version \xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD\xDD8\xF3\xFF\x99
 	};
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT &&
 		std::all_of(blacklist_filter.begin(), blacklist_filter.end(), [&error](const auto& filter) {
