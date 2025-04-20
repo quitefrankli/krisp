@@ -203,7 +203,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 	tinygltf::TinyGLTF loader;
 	LoadedModel retval;
 
-	if (file_path.extension().string() == ".gltf")
+	const auto extension = file_path.extension().string();
+	if (extension == ".gltf")
 	{
 		if (!loader.LoadASCIIFromFile(&model, &err, &warn, file_path.string()))
 		{
@@ -213,7 +214,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 				err,
 				warn));
 		}
-	} else
+	} else if (extension == ".glb")
 	{
 		if (!loader.LoadBinaryFromFile(&model, &err, &warn, file_path.string()))
 		{
@@ -223,6 +224,11 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 				err,
 				warn));
 		}
+	} else
+	{
+		throw std::runtime_error(fmt::format(
+			"ResourceLoader::load_model: unsupported file format: {}",
+			file_path.string()));
 	}
 
 	if (model.meshes.empty())
@@ -266,59 +272,57 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		bones = load_bones(model);
 	}
 
+	// A primitive can be thought of as a part of a mesh with a different material essentially
 	for (auto& mesh : model.meshes)
 	{
-		if (mesh.primitives.size() != 1)
+		for (auto& primitive : mesh.primitives)
 		{
-			LOG_ERROR(Utility::get_logger(), "ResourceLoader::load_model: only one primitive per mesh is supported!");
-		}
-
-		auto& primitive = mesh.primitives[0];
-		if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
-		{
-			throw std::runtime_error("ResourceLoader::load_model: only triangles are supported");
-		}
-
-		if (primitive.indices < 0)
-		{
-			throw std::runtime_error("ResourceLoader::load_model: no indices found");
-		}
-
-		const auto& index_accessor = model.accessors[primitive.indices];
-		const auto& index_buffer_view = model.bufferViews[index_accessor.bufferView];
-		const auto& index_buffer = model.buffers[index_buffer_view.buffer];
-
-		std::vector<uint32_t> indices = load_indices(index_accessor, index_buffer_view, index_buffer);
-
-		const bool has_texture = [&primitive](){ return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
-
-		Renderable renderable;
-		MeshPtr new_mesh;
-		if (has_bones)
-		{
-			new_mesh = std::make_unique<SkinnedMesh>(load_vertices<SkinnedVertices>(model, primitive), std::move(indices));
-			if (!model.animations.empty())
+			if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
 			{
-				retval.animations = load_animations(model, bones);
+				throw std::runtime_error("ResourceLoader::load_model: only triangles are supported");
 			}
-			renderable.skeleton_id = ECS::get().add_skeleton(bones);
-			renderable.pipeline_render_type = ERenderType::SKINNED;
-		} else if (has_texture)
-		{
-			new_mesh = std::make_unique<TexMesh>(load_vertices<TexVertices>(model, primitive), std::move(indices));
-			renderable.pipeline_render_type = ERenderType::STANDARD;
-		} else 
-		{
-			new_mesh = std::make_unique<ColorMesh>(load_vertices<ColorVertices>(model, primitive), std::move(indices));
-			renderable.pipeline_render_type = ERenderType::COLOR;
+	
+			if (primitive.indices < 0)
+			{
+				throw std::runtime_error("ResourceLoader::load_model: no indices found");
+			}
+	
+			const auto& index_accessor = model.accessors[primitive.indices];
+			const auto& index_buffer_view = model.bufferViews[index_accessor.bufferView];
+			const auto& index_buffer = model.buffers[index_buffer_view.buffer];
+	
+			std::vector<uint32_t> indices = load_indices(index_accessor, index_buffer_view, index_buffer);
+	
+			const bool has_texture = [&primitive](){ return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
+	
+			Renderable renderable;
+			MeshPtr new_mesh;
+			if (has_bones)
+			{
+				new_mesh = std::make_unique<SkinnedMesh>(load_vertices<SkinnedVertices>(model, primitive), std::move(indices));
+				if (!model.animations.empty())
+				{
+					retval.animations = load_animations(model, bones);
+				}
+				renderable.skeleton_id = ECS::get().add_skeleton(bones);
+				renderable.pipeline_render_type = ERenderType::SKINNED;
+			} else if (has_texture)
+			{
+				new_mesh = std::make_unique<TexMesh>(load_vertices<TexVertices>(model, primitive), std::move(indices));
+				renderable.pipeline_render_type = ERenderType::STANDARD;
+			} else 
+			{
+				new_mesh = std::make_unique<ColorMesh>(load_vertices<ColorVertices>(model, primitive), std::move(indices));
+				renderable.pipeline_render_type = ERenderType::COLOR;
+			}
+	
+			const auto mesh_id = MeshSystem::add(std::move(new_mesh));
+			const auto mat_id = global_resource_loader.load_material(primitive, model);
+	
+			renderable.mesh_id = mesh_id;
+			renderable.material_ids = { mat_id };
+			retval.renderables.push_back(renderable);
 		}
-
-		const auto mesh_id = MeshSystem::add(std::move(new_mesh));
-		const auto mat_id = global_resource_loader.load_material(primitive, model);
-
-		renderable.mesh_id = mesh_id;
-		renderable.material_ids = { mat_id };
-		retval.renderables.push_back(renderable);
 	}
 
 	return retval;
