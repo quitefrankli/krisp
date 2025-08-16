@@ -15,7 +15,7 @@
 
 static std::vector<char> readFile(const std::string_view filename)
 {
-    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    std::ifstream file(filename.data(), std::ios::ate | std::ios::binary);
 
     if (!file.is_open())
 	{

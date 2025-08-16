@@ -5,6 +5,7 @@
 #include <glm/gtc/constants.hpp>
 
 #include <optional>
+#include <cmath>
 
 
 namespace Maths
@@ -22,21 +23,19 @@ namespace Maths
 	template<class T>
 	T RandomNormal(T mean, T stdDev);
 
-	inline float deg2rad(float deg)
-	{
-		return PI * deg / 180.0f;
-	}
+	constexpr float deg2rad(float deg) { return PI * deg / 180.0f; }
+	constexpr float rad2deg(float rad) { return rad * 180.0f / PI; }
 
-	inline float rad2deg(float rad)
-	{
-		return rad * 180.0f / PI;
-	}
-
-	inline bool is_vec3_equal(const glm::vec3& v1, const glm::vec3& v2)
+	constexpr bool is_vec3_equal(const glm::vec3& v1, const glm::vec3& v2)
 	{
 		const auto res = glm::epsilonEqual(v1, v2, ACCEPTABLE_FLOATING_PT_DIFF);
 		return res.x && res.y && res.z;
 	}
+
+	constexpr float absf(float x) { return std::abs(x); }
+	constexpr float sqrtf(float x) { return std::sqrt(x); }
+	constexpr float sinf(float x) { return std::sin(x); }
+	constexpr float cosf(float x) { return std::cos(x); }
 
 	struct Ray
 	{

@@ -29,7 +29,7 @@ CubeMap::CubeMap()
 	CubeMapMatGroup material_group;
 	for (const auto& texture_name : texture_order)
 	{
-		material_group.cube_map_mats.push_back(ResourceLoader::fetch_texture(fmt::format("{}/skybox/{}.bmp", 
+		material_group.cube_map_mats.push_back(ResourceLoader::fetch_texture(fmt::format("{}/skybox/{}.jpg", 
 																			 texture_path, 
 																			 texture_name)));
 	}

@@ -27,7 +27,7 @@ public:
 	virtual glm::quat get_old_rotation() const { return rotation; }
 	virtual glm::mat4 get_old_transform() const
 	{
-		glm::mat4 transform = glm::mat4_cast(glm::normalize(rotation)) * glm::scale(scale);
+		glm::mat4 transform = glm::scale(glm::mat4_cast(glm::normalize(rotation)), scale);
 		transform[3] = glm::vec4(position, 1.0f);
 		return transform;
 	}

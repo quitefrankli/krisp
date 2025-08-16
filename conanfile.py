@@ -1,16 +1,9 @@
-from conans import ConanFile, CMake
+from conan import ConanFile
+from conan.tools.layout import basic_layout
+from conan.tools.meson import MesonToolchain, Meson
+from conan.tools.gnu import PkgConfigDeps
 
-import os
-
-class CustomWrapper:
-    def __init__(self, conanfile: ConanFile):
-        self.conanfile = conanfile
-
-    def __enter__(self):
-        self.conanfile.should_build = True
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.conanfile.should_build = False
+VULKAN_VERSION = "1.3.243.0"
 
 class vulkan_conan(ConanFile):
     settings = (
@@ -25,63 +18,44 @@ class vulkan_conan(ConanFile):
         "glm/0.9.9.8",
         # updates to vulkan requires updates to version in code
         # checkout GraphicsEngineInstance
-        "vulkan-headers/1.3.211.0",
-        "vulkan-loader/1.3.211.0",
-        "vulkan-validationlayers/1.3.211.0",
-        "stb/20190512@conan/stable",
+        f"vulkan-headers/{VULKAN_VERSION}",
+        f"vulkan-loader/{VULKAN_VERSION}",
+        f"vulkan-validationlayers/{VULKAN_VERSION}",
         "tinygltf/2.5.0",
-        "quill/6.0.0",
-        "openal/1.21.1",
+        "quill/10.0.1",
+        # "openal/1.22.2",
         "libsndfile/1.0.31",
-        "fmt/8.1.1",
+        "fmt/11.2.0",
         "imgui/1.87", # also update backend under third_party
-        "gtest/1.8.1",
-        "yaml-cpp/0.7.0",
-        "magic_enum/0.8.2"
+        "gtest/1.15.0",
+        "yaml-cpp/0.8.0",
+        "magic_enum/0.8.2",
     ) 
 
-    generators = (
-        "cmake",
-        "cmake_find_package"
-    )
+    def requirements(self):
+        self.requires("libiconv/1.18", override=True)
+        self.requires("stb/cci.20240531", override=True)
 
-    def imports(self):
-        # copies all dll to bin folder (win)
-        self.copy("*.dll", dst="bin", src="bin")
-        # copies all dll to bin folder (macosx)
-        self.copy("*.dylib*", dst="bin", src="lib")
+    def layout(self):
+        # Place all build artifacts under the top-level 'build' directory
+        basic_layout(self, build_folder="build")
+
+    def build_requirements(self):
+        # Ensure Meson and Ninja are available
+        self.tool_requires("meson/1.3.2")
+        self.tool_requires("ninja/1.13.1")
+
+    def generate(self):
+        MesonToolchain(self).generate()
+        PkgConfigDeps(self).generate()
 
     def build(self):
-        cmake = CMake(self)
-        target = os.environ['TARGET'] if 'TARGET' in os.environ else 'Vulkan'
+        meson = Meson(self)
+        meson.configure()
+        meson.build()
+        # meson.install() installs it to wrong folder
+        self.run(f"meson install -C {self.build_folder}")
 
-        if self.should_configure:
-            print('Vulkan-conan: configuring...')
-            for key, val in self.options.items():
-                cmake.definitions[key.upper()] = self.process_option(val)
-
-            # some compilers (i.e. msvc) don't have specific build_type at configure stage
-            cmake.definitions['CMAKE_BUILD_TYPE'] = self.settings.build_type
-            cmake.configure()
-
-        if self.should_build:
-            print('Vulkan-conan: building...')
-            cmake.build(target=target)
-
-        if self.should_test:
-            with CustomWrapper(self):
-                cmake.build(target='VulkanLibs')
-                cmake.build(target='unittests')
-                
-            print('Vulkan-conan: testing...')
-            cmake.test(output_on_failure=True)
-
-    @staticmethod
-    def process_option(option) -> str:
-        if isinstance(option, bool):
-            return '1' if option else '0'
-        elif isinstance(option, str):
-            return option.upper()
-        else:
-            raise RuntimeError(f'unsupported option type! {option}')
-        
+    def test(self):
+        meson = Meson(self)
+        meson.test()

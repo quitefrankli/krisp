@@ -28,12 +28,12 @@ TEST_F(CameraTests, lookat)
 
 	camera.look_at(object, { 0.0f, 0.0f, -2.0f });
 	apparent_object_location = glm::vec3(camera.get_view() * glm::vec4(object, 1.0f));
-	ASSERT_TRUE(glm_equal(apparent_object_location, {0.0f, 0.0f, std::sqrtf(5.0f)}));
+	ASSERT_TRUE(glm_equal(apparent_object_location, {0.0f, 0.0f, Maths::sqrtf(5.0f)}));
 
 	object = { 1.0f, 1.0f, 0.0f };
 	camera.look_at({1.0f, 0.0f, -1.0f}, {-1.0f, 0.0f, 1.0f});
 	apparent_object_location = glm::vec3(camera.get_view() * glm::vec4(object, 1.0f));
-	ASSERT_TRUE(glm_equal(apparent_object_location, {-std::sqrtf(2.0f)/2.0f, 1.0f, 1.5f * std::sqrtf(2.0f)}));
+	ASSERT_TRUE(glm_equal(apparent_object_location, {-Maths::sqrtf(2.0f)/2.0f, 1.0f, 1.5f * Maths::sqrtf(2.0f)}));
 }
 
 TEST_F(CameraTests, camera_panning)

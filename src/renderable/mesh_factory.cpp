@@ -257,8 +257,9 @@ MeshPtr MeshFactory::circle(EVertexType vertex_type, uint32_t nVertices)
 
 	for (int i = 0; i < nVertices; i++)
 	{
-		float m = (float)i/nVertices * Maths::PI * 2.0f;
-		vertices.emplace_back(SDS::ColorVertex{glm::vec3(std::cosf(m) * 0.5f, 0.0f, std::sinf(m) * 0.5f)});
+		const float m = (float)i/nVertices * Maths::PI * 2.0f;
+		vertices.emplace_back(SDS::ColorVertex{
+			glm::vec3(Maths::cosf(m) * 0.5f, 0.0f, Maths::sinf(m) * 0.5f)});
 	}
 	vertices.emplace_back(SDS::ColorVertex{glm::vec3(0.0f)}); // center
 
@@ -461,7 +462,7 @@ MeshPtr MeshFactory::arc(uint32_t nSegments, float outer_radius, float inner_rad
 	auto gen_vertex = [&](const float radius, const float y, const int i)
 	{
 		vertices.emplace_back(SDS::ColorVertex{
-			radius * glm::vec3(std::sinf(inc * i), y, std::cosf(inc * i)),
+			radius * glm::vec3(Maths::sinf(inc * i), y, Maths::cosf(inc * i)),
 			glm::vec3((float)i/(float)nSegments, 1.0f, 1.0f)});
 	};
 	for (int i = 0; i <= nSegments; i++)
@@ -510,7 +511,7 @@ MeshPtr MeshFactory::generate_uv_sphere(int nVertices)
 	ColorVertices vertices;
 	VertexIndices indices;
 
-	const int M = std::sqrtf(nVertices);
+	const int M = Maths::sqrtf(nVertices);
 	const int N = M;
 	const auto calculate_vertex = [&M, &N](float m, float n)
 	{
@@ -518,9 +519,9 @@ MeshPtr MeshFactory::generate_uv_sphere(int nVertices)
 		n = n / (float)N * Maths::PI;
 		SDS::ColorVertex vertex;
 		vertex.pos = {
-			std::sinf(2.0f * n) * std::sinf(m),
-			std::cosf(m),
-			std::cosf(2.0f * n) * std::sinf(m)
+			Maths::sinf(2.0f * n) * Maths::sinf(m),
+			Maths::cosf(m),
+			Maths::cosf(2.0f * n) * Maths::sinf(m)
 		};
 		vertex.pos /= 2.0f;
 

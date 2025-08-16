@@ -7,6 +7,7 @@
 #include <quill/LogMacros.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 
 #include <iostream>
 #include <set>

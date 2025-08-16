@@ -1,6 +1,7 @@
 #pragma once
 
 #include "renderer.hpp"
+#include "constants.hpp"
 
 #include <optional>
 

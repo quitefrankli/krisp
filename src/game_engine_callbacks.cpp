@@ -7,7 +7,7 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "analytics.hpp"
-#include "hot_reload.hpp"
+// #include "hot_reload.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
 #include "interface/gizmo.hpp"
@@ -37,9 +37,10 @@ void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 	{
 		// return; // ignore held keys
 	} else {
-		LOG_INFO(Utility::get_logger(), 
-				 "input detected [{}], key:={}, scan_code:={}, action:={}, mode={}, translated_key:={}", 
-				 inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+		LOG_DEBUG(
+			Utility::get_logger(), 
+			"input detected [{}], key:={}, scan_code:={}, action:={}, mode={}, translated_key:={}", 
+			inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
 	}
 
 	switch (key)
@@ -81,7 +82,7 @@ void GameEngine::key_callback(int key, int scan_code, int action, int mode)
 				break;
 			switch (mode) {
 			case GLFW_MOD_SHIFT:
-				HotReload::get().reload();
+				// HotReload::get().reload();
 				break;
 			default:
 				break;

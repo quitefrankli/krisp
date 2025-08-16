@@ -39,11 +39,6 @@ public:
 	static const std::filesystem::path& get_textures_path() { return get().textures; }
 	static const std::filesystem::path& get_audio_path() { return get().audio; }
 
-	static void set_appname_for_path(const std::string_view app);
-	static std::filesystem::path get_app_model_path();
-	static std::filesystem::path get_app_textures_path();
-	static std::filesystem::path get_app_audio_path();
-
 	static std::string get_texture(const std::string_view texture);
 	static std::string get_model(const std::string_view model);
 	static float get_rand(float min, float max);
@@ -61,7 +56,7 @@ public:
 
 private:
 	static Utility& get();
-
+	
 	quill::Logger* logger;
 	std::filesystem::path top_level_dir;
 	std::filesystem::path shaders;

@@ -74,7 +74,7 @@ namespace Maths
 
 		rotationAxis = glm::cross(start, end);
 
-		const float s = std::sqrtf( (1+cosTheta)*2.0f );
+		const float s = Maths::sqrtf( (1+cosTheta)*2.0f );
 		const float invs = 1.0f / s;
 
 		return glm::quat(
@@ -157,7 +157,7 @@ namespace Maths
 		const glm::vec3 normal = glm::normalize(glm::cross(ray.direction, axis));
 		// projecting Ro and Ao onto said normal tells us given two infinite rays
 		// the shortest distance between any two points on the two.
-		float dist = std::fabsf(glm::dot(rod_start, normal) - glm::dot(ray.origin, normal));
+		float dist = Maths::absf(glm::dot(rod_start, normal) - glm::dot(ray.origin, normal));
 		// a cylinder is just a ray with a radius, so if the shortest possible distance
 		// is greater than the radius of the cylinder then there is no intersection
 
@@ -186,7 +186,7 @@ namespace Maths
 		const glm::vec3 normal = glm::normalize(glm::cross(ray.direction, axis));
 		// projecting Ro and Ao onto said normal tells us given two infinite rays
 		// the shortest distance between any two points on the two.
-		float dist = std::fabsf(glm::dot(rod_start, normal) - glm::dot(ray.origin, normal));
+		float dist = Maths::absf(glm::dot(rod_start, normal) - glm::dot(ray.origin, normal));
 		// a cylinder is just a ray with a radius, so if the shortest possible distance
 		// is greater than the radius of the cylinder then there is no intersection
 		if (dist > radius)
@@ -218,7 +218,7 @@ namespace Maths
 			return false;
 		}
 		
-		const float y = std::sqrtf(rr - xx);
+		const float y = Maths::sqrtf(rr - xx);
 		const glm::vec3 pA = out_intersection - y*Y;
 		const glm::vec3 pB = out_intersection + y*Y;
 
@@ -246,7 +246,7 @@ namespace Maths
 			// https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/417813
 			const auto get_vec3_len = [](const glm::vec4& vec4)
 			{
-				return std::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
+				return Maths::sqrtf(vec4[0] * vec4[0] + vec4[1] * vec4[1] + vec4[2] * vec4[2]);
 			};
 
 			scale[0] = get_vec3_len(transform[0]);
@@ -286,7 +286,7 @@ namespace Maths
 			const auto tmp_scale = get_scale();
 			const auto tmp_pos = get_pos();
 
-			transform = glm::mat4_cast(tmp_orient) * glm::scale(tmp_scale);
+			transform =  glm::scale(glm::mat4_cast(tmp_orient), tmp_scale);
 			transform[3] = glm::vec4(tmp_pos, 1.0f);
 			set_not_old(0b0001);
 		}
@@ -336,7 +336,7 @@ namespace Maths
 		const glm::vec3 x = ray.origin + ray.direction * x_t;
 		const float h = glm::distance(sphere.origin, x);
 		// l is the distance between x and the surface of the sphere
-		const float l = std::sqrtf(std::powf(sphere.radius, 2.0f) - std::powf(h, 2.0f));
+		const float l = Maths::sqrtf(std::pow(sphere.radius, 2.0f) - std::pow(h, 2.0f));
 		const float t = x_t - l;
 		if (t < 0)
 		{
