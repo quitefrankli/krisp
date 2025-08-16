@@ -3,6 +3,7 @@
 #include "window.hpp"
 #include "game_engine.hpp"
 #include "camera.hpp"
+#include "utility.hpp"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -145,7 +146,12 @@ void App::Window::open(int x0, int y0)
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	window = glfwCreateWindow(INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT, "Vulkan", nullptr, nullptr);
+	window = glfwCreateWindow(
+		INITIAL_WINDOW_WIDTH, 
+		INITIAL_WINDOW_HEIGHT, 
+		Utility::get_project_name().data(), 
+		nullptr, 
+		nullptr);
 	assert(window);
 
 	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
