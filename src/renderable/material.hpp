@@ -7,6 +7,7 @@
 #include <glm/vec3.hpp>
 
 #include <string_view>
+#include <memory>
 
 
 struct Material

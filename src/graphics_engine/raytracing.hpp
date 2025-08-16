@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.hpp>
 #include <glm/mat4x4.hpp>
 
+#include <memory>
+
 
 VkTransformMatrixKHR glm_to_vk(const glm::mat4& matrix);
 

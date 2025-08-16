@@ -183,7 +183,7 @@ void Camera::zoom_in(float length)
 
 	if (!projection_is_perspective)
 	{
-		length = std::fabsf(length);
+		length = Maths::absf(length);
 		orthographic_matrix = glm::orthoLH(
 			-aspect_ratio * length, aspect_ratio * length, -length, length, near_clipping, far_clipping);
 	}

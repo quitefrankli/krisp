@@ -4,6 +4,7 @@
 #include <quill/LogMacros.h>
 
 #include <chrono>
+#include <cmath>
 
 
 using namespace std::chrono;
@@ -63,7 +64,7 @@ void Analytics::quick_timer_stop()
 
 void Analytics::quick_timer_stop(const std::string& mesg)
 {
-	auto elapsed = duration_cast<nanoseconds>(system_clock::now() - quick_timer_start_time);
-	double elapsed_float =  round((double)elapsed.count() / 10.0) / 100.0;
+	const auto elapsed = duration_cast<nanoseconds>(system_clock::now() - quick_timer_start_time);
+	const double elapsed_float = std::round((double)elapsed.count() / 10.0) / 100.0;
 	LOG_INFO(Utility::get_logger(), "{}, quick timer {} microseconds", mesg, elapsed_float);
 }

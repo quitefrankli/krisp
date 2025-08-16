@@ -34,21 +34,32 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : Graph
 		presentation_image_memory,
 		get_graphics_engine().get_msaa_samples());
 
-	//+1 means that we won't have to wait for driver to complete internal operations before we can acquire another image to render
-	unsigned image_count = swap_chain_support.capabilities.minImageCount + 1;
-	if (swap_chain_support.capabilities.maxImageCount > 0) // 0 is a special number meaning there is unlimited number
-	{
-		image_count = std::min(image_count, swap_chain_support.capabilities.maxImageCount);
-	}
-	else
-	{
-		throw std::runtime_error("create_swap_chain: infinite swap chains!");
-	}
+	// TODO: fix this
+	// //+1 means that we won't have to wait for driver to complete internal operations before we can acquire another image to render
+	// unsigned image_count = swap_chain_support.capabilities.minImageCount + 1;
+	// if (swap_chain_support.capabilities.maxImageCount > 0) // 0 is a special number meaning there is unlimited number
+	// {
+	// 	image_count = std::min(image_count, swap_chain_support.capabilities.maxImageCount);
+	// }
+	// // else
+	// // {
+	// // 	throw std::runtime_error("create_swap_chain: infinite swap chains!");
+	// // }
+	
+	// if (image_count < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES)
+	// {
+	// 	throw std::runtime_error(
+	// 		fmt::format("create_swap_chain: image count {} is less than expected {}",
+	// 					image_count, CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES));
+	// }
+
+	// image_count = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES;
+	const uint32_t image_count = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES;
 
 	VkSwapchainCreateInfoKHR create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	create_info.surface = get_graphics_engine().get_window_surface();
-	create_info.minImageCount = image_count;
+	create_info.minImageCount = 1;
 	create_info.imageFormat = surface_format.format;
 	create_info.imageColorSpace = surface_format.colorSpace;
 	create_info.imageExtent = extent;
@@ -184,6 +195,7 @@ void GraphicsEngineSwapChain::draw()
 
 void GraphicsEngineSwapChain::destroy_and_recreate_frames()
 {
+	// TODO: this is the ACTUAL number of swapchain images
 	uint32_t image_count;
 	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, nullptr); // get num images
 	std::vector<VkImage> swap_chain_images(image_count);

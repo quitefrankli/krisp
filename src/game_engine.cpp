@@ -10,7 +10,6 @@
 #include "utility.hpp"
 #include "analytics.hpp"
 #include "interface/gizmo.hpp"
-#include "hot_reload.hpp"
 #include "gui/gui_manager.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"

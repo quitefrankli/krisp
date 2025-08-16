@@ -1,7 +1,7 @@
 #include "audio_engine.hpp"
 
-#include <AL/al.h>
-#include <AL/alc.h>
+// #include <AL/al.h>
+// #include <AL/alc.h>
 #include <sndfile.h>
 
 #include <stdexcept>

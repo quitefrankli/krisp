@@ -6,6 +6,7 @@
 
 #include <unordered_map>
 #include <stdexcept>
+#include <memory>
 
 
 using EntityID = ObjectID;;

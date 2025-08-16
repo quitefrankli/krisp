@@ -17,10 +17,11 @@
 Utility::Utility()
 {
 	top_level_dir = PROJECT_TOP_LEVEL_SRC_DIR;
+	config = get_child(top_level_dir, "configs");
+	
 	models = get_child(top_level_dir, "resources/models");
 	textures = get_child(top_level_dir, "resources/textures");
 	audio = get_child(top_level_dir, "resources/sound");
-	config = get_child(top_level_dir, "configs");
 	
 	build = PROJECT_BUILD_DIR;
 	binary = PROJECT_BIN_DIR;
@@ -31,19 +32,31 @@ Utility::Utility()
 	auto file_sink = quill::Frontend::create_or_get_sink<quill::FileSink>(
 		fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), file_sink_config);
 
-	quill::ConsoleColours console_colors{};
-	auto console_sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>("test", console_colors);
+	quill::ConsoleSinkConfig console_sink_config;
+	auto console_sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>(
+		"stdout",
+		console_sink_config);
 	console_sink->set_log_level_filter(quill::LogLevel::Error);
+
+	quill::PatternFormatterOptions pattern_formatter_options;
+	pattern_formatter_options.format_pattern = "[%(log_level)] %(time): %(message)";
+	pattern_formatter_options.timestamp_pattern = "%D %H:%M:%S.%Qns";
+	pattern_formatter_options.timestamp_timezone = quill::Timezone::LocalTime;
 	
+	std::vector<std::shared_ptr<quill::Sink>> sinks = { std::move(file_sink), std::move(console_sink) };
+
 	logger = quill::Frontend::create_or_get_logger(
 		"MAIN", 
-		{ std::move(file_sink), std::move(console_sink) },
-		"[%(log_level)] %(time): %(message)",
-		"%D %H:%M:%S.%Qns",
-		quill::Timezone::LocalTime);
+		sinks,
+		pattern_formatter_options);
 
 	// guarantees a blocking flush when a log level at or higher than this is logged
 	logger->init_backtrace(10, quill::LogLevel::Error);
+
+	// create all the directories if they do not exist
+	std::filesystem::create_directories(models);
+	std::filesystem::create_directories(textures);
+	std::filesystem::create_directories(audio);
 }
 
 void Utility::enable_logging()
@@ -63,26 +76,6 @@ Utility& Utility::get()
 	// inspired by meyer's singleton
 	static Utility singleton;
 	return singleton;
-}
-
-void Utility::set_appname_for_path(const std::string_view app)
-{
-	get().app_rsrc_path = get_top_level_path() / "resources/applications" / app.data();
-}
-
-std::filesystem::path Utility::get_app_model_path()
-{
-	return get().app_rsrc_path ? get().app_rsrc_path.value() / "models" : get().models;
-}
-
-std::filesystem::path Utility::get_app_textures_path()
-{
-	return get().app_rsrc_path ? get().app_rsrc_path.value() / "textures" : get().textures;
-}
-
-std::filesystem::path Utility::get_app_audio_path()
-{
-	return get().app_rsrc_path ? get().app_rsrc_path.value() / "sound" : get().audio;
 }
 
 std::string Utility::get_texture(const std::string_view texture)

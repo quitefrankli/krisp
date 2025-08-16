@@ -1,5 +1,7 @@
 #pragma once
 
+#include "constants.hpp"
+
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
@@ -97,11 +99,9 @@ struct std::hash<ComplexID<T...>>
 	}
 };
 
-// 3 is with reference to the number of in flight frames
-using EntityFrameID = ComplexID<ComplexIDCapacities<3>, 
+using EntityFrameID = ComplexID<ComplexIDCapacities<CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES>, 
 								ObjectID, 
 								uint32_t>;
-// 3 is with reference to the number of in flight frames
-using SkeletonFrameID = ComplexID<ComplexIDCapacities<3>,
+using SkeletonFrameID = ComplexID<ComplexIDCapacities<CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES>,
 								  SkeletonID, 
 								  uint32_t>;

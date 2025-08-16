@@ -72,6 +72,24 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 		return present_support;
 	};
 
+	if (queueFamilyCount == 0) 
+	{
+		throw std::runtime_error("failed to find any vulkan queue families!");
+	}
+
+	// if there is only one queue family, we can use it for both graphics and present
+	if (queueFamilyCount == 1) 
+	{
+		if (!(queueFamilies[0].queueFlags & VK_QUEUE_GRAPHICS_BIT) || !check_present_support(0)) 
+		{
+			throw std::runtime_error("single queue family does not support graphics or present operations!");
+		}
+
+		indices.graphicsFamily = 0;
+		indices.presentFamily = 0;
+		return indices;
+	}
+
 	for (uint32_t i = 0; i < queueFamilies.size(); i++)
 	{
 		if (!indices.graphicsFamily.has_value() && queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) // GRAPHICS_BIT also implicitly supports VK_QUEUE_TRANSFER_BIT
@@ -163,7 +181,7 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 {
 	auto& obj = get_object(id);
 
-	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
+	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
 		EntityFrameID efid{id, frame_idx};
 		get_rsrc_mgr().free_uniform_buffer(efid);
@@ -510,7 +528,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	}
 
 	// these buffers are dynamic (changing between frames) and therefore requires duplicate buffers per swapchain image
-	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
+	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
 		// allocate space for object uniform buffer
 		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{graphics_object.get_id(), frame_idx}, sizeof(SDS::ObjectData));
@@ -545,7 +563,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	// currently the resources that are per obj just happen to be purely dynamic and so all of them need a separate
 	// buffer + dset for each frame
 	std::vector<VkDescriptorSet> object_dsets;
-	for (uint32_t frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
+	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
 		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
