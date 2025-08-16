@@ -34,6 +34,7 @@ conan_dependencies = [
 subdir('third_party')
 subdir('src')
 subdir('shaders')
+subdir('test')
 
 executable(
 	'krisp', 

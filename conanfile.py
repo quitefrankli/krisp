@@ -55,7 +55,3 @@ class vulkan_conan(ConanFile):
         meson.build()
         # meson.install() installs it to wrong folder
         self.run(f"meson install -C {self.build_folder}")
-
-    def test(self):
-        meson = Meson(self)
-        meson.test()
