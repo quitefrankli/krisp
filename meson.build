@@ -3,15 +3,15 @@ project('krisp', 'cpp', version: '0.1.0')
 add_project_arguments('-w', language : 'cpp') # Disables all warnings for c++
 
 install_dir = meson.build_root()/'bin'
-add_global_arguments('-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.source_root()), language: 'cpp')
-add_global_arguments('-DPROJECT_BUILD_DIR="@0@"'.format(meson.build_root()), language: 'cpp')
-add_global_arguments('-DPROJECT_BIN_DIR="@0@"'.format(install_dir), language: 'cpp')
-
-# vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
-add_global_arguments('-DGLM_FORCE_DEPTH_ZERO_TO_ONE', language: 'cpp')
-
-add_global_arguments('-DQUILL_FMT_EXTERNAL=ON', language: 'cpp')
-add_global_arguments('-DGLM_ENABLE_EXPERIMENTAL', language: 'cpp')
+add_global_arguments(
+	'-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.source_root()), 
+	'-DPROJECT_NAME="@0@"'.format(meson.project_name()),
+	'-DPROJECT_BUILD_DIR="@0@"'.format(meson.build_root()),
+	'-DPROJECT_BIN_DIR="@0@"'.format(install_dir),
+	'-DGLM_FORCE_DEPTH_ZERO_TO_ONE', # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
+	'-DQUILL_FMT_EXTERNAL=ON',
+	'-DGLM_ENABLE_EXPERIMENTAL',
+	language: 'cpp')
 
 additional_include_directories = [
 	include_directories('shared_code')
@@ -37,7 +37,7 @@ subdir('shaders')
 subdir('test')
 
 executable(
-	'krisp', 
+	meson.project_name(), 
 	'src/main.cpp',
 	dependencies: krisp_core,
 	install: true,

@@ -30,6 +30,7 @@ public:
 		std::unique_ptr<Pimpl> pimpl;
 	};
 
+	static constexpr std::string_view get_project_name() { return PROJECT_NAME; }
 	static const std::filesystem::path& get_top_level_path() { return get().top_level_dir; }
 	static const std::filesystem::path& get_build_path() { return get().build; };
 	static const std::filesystem::path& get_shaders_path() { return get().shaders; }
