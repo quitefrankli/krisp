@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "ninja build",
+			"type": "shell",
+			"command": "ninja -C build install",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}

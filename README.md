@@ -1,11 +1,11 @@
 # Requirements
 
-* conan2: package manager
-* meson: build system
-* ninja: c++ build system
-* clang: c++ compiler
-* vulkan: graphics api + sdk
-* glslc: shader compiler
+* conan2: package manager `mamba: conan`
+* meson: build system `meson`
+* ninja: c++ build system `ninja`
+* clang: c++ compiler `clang` + `clang-tools`
+* vulkan: graphics api + sdk -> check fi it's available via `vulkaninfo`
+* glslc: shader compiler `mamba: shaderc`
 
 ## Building
 
@@ -16,7 +16,7 @@ build/bin/krisp
 
 For initial setup these flags might come in handy
 ```bash
--c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True --build=missing
+conan build . -bf build -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True --build=missing -pr:a=conan_clang_profile
 ```
 
 During development for debug build

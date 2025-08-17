@@ -3,7 +3,7 @@ resources/*
 resources/textures/*
 !resources/textures/skybox/
 
-.vscode/
+.vscode/*
 !.vscode/launch.json
 !.vscode/tasks.json
 
