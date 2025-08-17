@@ -470,7 +470,8 @@ void GuiPhoto::draw()
 {
 	ImGui::Begin("Texture Viewer");
 
-	if (ImGui::BeginCombo("Texture", photos[selected_image].c_str()))
+	const std::string_view current_texture = selected_image < photos.size() ? photos[selected_image] : "N/A";
+	if (ImGui::BeginCombo("Texture", current_texture.data()))
 	{
 		for (int i = 0; i < photos.size(); i++)
 		{
