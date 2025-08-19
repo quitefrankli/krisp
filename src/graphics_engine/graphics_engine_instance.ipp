@@ -30,7 +30,7 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = GraphicsEngineValidationLayer::get_messenger_create_info();
 	create_info.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
 
-#ifndef NDEBUG
+#ifdef _DEBUG
 	// TODO: enable if want shader debug printf
 	// std::vector<VkValidationFeatureEnableEXT> enables = {VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
 	// VkValidationFeaturesEXT features{VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT};
@@ -51,15 +51,15 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 		return extensions_str;
 	}();
 
-	LOG_INFO(Utility::get_logger(), 
-			 "GraphicsEngineInstance: available extensions:={}", 
-			 fmt::format("{}", fmt::join(available_instance_extensions, ", ")));
+	LOG_DEBUG(Utility::get_logger(), 
+			  "GraphicsEngineInstance: available extensions:={}", 
+			  fmt::format("{}", fmt::join(available_instance_extensions, ", ")));
 
 	// vulkan is platform agnostic and therefore an extension is necessary 
 	std::vector<std::string> required_extensions = get_required_extensions();
-	LOG_INFO(Utility::get_logger(), 
-			 "GraphicsEngineInstance: required extensions:={}", 
-			 fmt::format("{}", fmt::join(required_extensions, ", ")));
+	LOG_DEBUG(Utility::get_logger(), 
+			  "GraphicsEngineInstance: required extensions:={}", 
+			  fmt::format("{}", fmt::join(required_extensions, ", ")));
 
 	// convert vector of string to vector const char pointer
 	std::vector<const char*> required_extensions_old;
@@ -70,10 +70,6 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 
 	create_info.enabledExtensionCount = required_extensions_old.size();
 	create_info.ppEnabledExtensionNames = required_extensions_old.data();
-
-#ifdef __APPLE__
-	create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#endif
 
 	if (vkCreateInstance(&create_info, nullptr, &instance) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create instance!");
@@ -117,9 +113,6 @@ std::vector<std::string> GraphicsEngineInstance::get_required_extensions() const
 		required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 		required_extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
-#ifdef __APPLE__
-	required_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-#endif
 
 	return required_extensions;
 }

@@ -17,7 +17,7 @@ void RendererManager::linkup_renderers()
 	// link output of shadowmap renderer to input of rasterization renderer
 	auto& shadow_map_renderer = get_renderer(ERendererType::SHADOW_MAP);
 	std::vector<VkImageView> shadow_map_inputs;
-	for (int frame_idx = 0; frame_idx < CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; ++frame_idx)
+	for (int frame_idx = 0; frame_idx < get_graphics_engine().get_num_swapchain_images(); ++frame_idx)
 	{
 		shadow_map_inputs.push_back(get_renderer(ERendererType::SHADOW_MAP).get_output_image_view(frame_idx));
 	}	

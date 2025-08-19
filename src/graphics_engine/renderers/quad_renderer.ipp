@@ -86,7 +86,7 @@ void QuadRenderer::submit_draw_commands(
 
 	if (texture_to_render)
 	{
-		if (texture_to_render.value().num_frames_to_render-- > 0)
+		if (texture_to_render.value().render_frames_remaining-- > 0)
 		{
 			return;
 		}
@@ -169,7 +169,10 @@ void QuadRenderer::set_texture(VkImageView texture_view, VkSampler texture_sampl
 		return;
 	}
 
-	texture_to_render = { texture_view, texture_sampler };
+	texture_to_render->texture_view = texture_view;
+	texture_to_render->texture_sampler = texture_sampler;
+	// this avoids the issue of updating a dset while it's being used
+	texture_to_render->render_frames_remaining = get_graphics_engine().get_num_swapchain_images();
 }
 
 void QuadRenderer::create_render_pass()

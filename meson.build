@@ -1,9 +1,8 @@
 project('krisp', 'cpp', version: '0.1.0')
 
-add_project_arguments('-w', language : 'cpp') # Disables all warnings for c++
-
 install_dir = meson.build_root()/'bin'
-add_global_arguments(
+add_project_arguments(
+	'-w', # Suppresses all build warnings for c++
 	'-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.source_root()), 
 	'-DPROJECT_NAME="@0@"'.format(meson.project_name()),
 	'-DPROJECT_BUILD_DIR="@0@"'.format(meson.build_root()),
@@ -12,6 +11,9 @@ add_global_arguments(
 	'-DQUILL_FMT_EXTERNAL=ON',
 	'-DGLM_ENABLE_EXPERIMENTAL',
 	language: 'cpp')
+if get_option('buildtype') == 'debug'
+	add_project_arguments('-D_DEBUG', language: 'cpp')
+endif
 
 additional_include_directories = [
 	include_directories('shared_code')

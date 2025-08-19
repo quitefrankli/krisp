@@ -25,7 +25,6 @@ public:
 
 	void reset();
 
-	static constexpr int EXPECTED_NUM_SWAPCHAIN_IMAGES = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES;
 	void update_command_buffer();
 	void draw();
 

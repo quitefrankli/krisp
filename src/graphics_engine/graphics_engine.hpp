@@ -66,7 +66,7 @@ public: // getters and setters
 	VkQueue& get_graphics_queue() { return graphics_queue; }
 	VkSurfaceKHR& get_window_surface() { return instance.window_surface; }
 	GraphicsEngineSwapChain& get_swap_chain() { return swap_chain; }
-	static constexpr uint32_t get_num_swapchain_images() { return CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; }
+	uint32_t get_num_swapchain_images() { return swap_chain.get_num_images(); }
 	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }

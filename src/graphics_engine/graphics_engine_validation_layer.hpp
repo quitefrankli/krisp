@@ -25,10 +25,10 @@ public:
 	static constexpr bool is_enabled()
 	{
 		return
-			#ifdef NDEBUG
-				false;
-			#else
+			#ifdef _DEBUG
 				true;
+			#else
+				false;
 			#endif
 	}
 	static bool check_validation_layer_support(bool print_support = false);

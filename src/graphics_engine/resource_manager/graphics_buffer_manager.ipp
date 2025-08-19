@@ -30,7 +30,7 @@ GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
 	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
-	for (uint32_t frame_idx = 0; frame_idx < GraphicsEngine::get_num_swapchain_images(); ++frame_idx)
+	for (uint32_t frame_idx = 0; frame_idx < CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; ++frame_idx)
 	{
 		global_uniform_buffer.reserve_slot(frame_idx, sizeof(SDS::GlobalData));
 	}

@@ -2,7 +2,7 @@
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_engine/vulkan_wrappers.hpp"
-#include "graphics_engine/constants.hpp"
+#include "constants.hpp"
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "renderable/render_types.hpp"
 
@@ -40,7 +40,7 @@ public:
 	virtual constexpr ERendererType get_renderer_type() const = 0;
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) = 0;
 
-	virtual VkSampleCountFlagBits get_msaa_sample_count() const { return CSTS::MSAA_SAMPLE_COUNT; }
+	virtual VkSampleCountFlagBits get_msaa_sample_count() const { return (VkSampleCountFlagBits)CSTS::MSAA_SAMPLE_COUNT; }
 	virtual VkExtent2D get_extent();
 	
 	VkRenderPass get_render_pass() { return render_pass; }
@@ -51,9 +51,6 @@ public:
 							 	 const VkDescriptorSet& renderable_dset,
 							 	 EPipelineModifier pipeline_modifier,
 							 	 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
-
-protected:
-	static constexpr uint32_t get_num_inflight_frames();
 
 protected:
 	// A render pass is a general description of steps to draw something on the screen
