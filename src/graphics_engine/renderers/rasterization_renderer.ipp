@@ -220,8 +220,6 @@ void RasterizationRenderer::submit_draw_commands(
 
 void RasterizationRenderer::set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs)
 {
-	assert(shadow_map_inputs.size() == CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES);
-	
 	// create a custom sampler for shadow map, we want to clamp to a white border
 	VkSamplerCreateInfo sampler_info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling

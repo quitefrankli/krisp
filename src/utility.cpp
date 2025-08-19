@@ -8,6 +8,7 @@
 #include <quill/filters/Filter.h>
 #include <fmt/core.h>
 
+#include <ctime>
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -148,62 +149,6 @@ std::vector<std::filesystem::path> Utility::get_all_files(const std::filesystem:
 
 std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::UtilityImpl>();
 
-
-#ifdef _WIN32
-#include <windows.h>    /* WinAPI */
-#include <mmsystem.h>   /* timeBeginPeriod, timeEndPeriod */
-
-struct Utility::LoopSleeper::Pimpl
-{
-public:
-	Pimpl(LoopSleeper& loop_sleeper)
-	{
-		// Request high resolution timer
-		static MMRESULT result = timeBeginPeriod(timer_period);
-		assert(result == TIMERR_NOERROR);
-
-		/* Create timer */
-		timer = CreateWaitableTimer(NULL, FALSE, NULL);
-		assert(timer);
-
-		/* Set timer properties */
-		li.QuadPart = -loop_sleeper.loop_period.count();
-		auto res = SetWaitableTimer(timer, &li, loop_sleeper.loop_period.count(), NULL, NULL, FALSE);
-		assert(res);
-	}
-
-	~Pimpl()
-	{
-		/* Clean resources */
-		CloseHandle(timer);
-
-		// Release high resolution timer
-		static MMRESULT result = timeEndPeriod(timer_period);
-		assert(result == TIMERR_NOERROR);
-	}
-
-	void sleep()
-	{
-		WaitForSingleObject(timer, INFINITE);
-	}
-
-    HANDLE timer;   /* Timer handle */
-    LARGE_INTEGER li{};   /* Time defintion */
-	const int timer_period = 1;
-};
-
-#elif defined(__unix__) || defined(__APPLE__)
-#include <time.h>   /* nanosleep */
-
-// /* Unix sleep in 100ns units */
-// int nanosleep(const struct timespec *req, struct timespec *rem){
-// 	struct timespec temp_rem;
-// 	if(nanosleep(req, rem) == -1)
-// 		nanosleep(rem, &temp_rem);
-// 	else
-// 		return 1;
-// }
-
 struct Utility::LoopSleeper::Pimpl
 {
 public:
@@ -229,8 +174,6 @@ public:
 
 	LoopSleeper& loop_sleeper;
 };
-
-#endif
 
 Utility::LoopSleeper::LoopSleeper(std::chrono::milliseconds loop_period) :
 	loop_period(loop_period),

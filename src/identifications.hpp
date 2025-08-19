@@ -99,9 +99,9 @@ struct std::hash<ComplexID<T...>>
 	}
 };
 
-using EntityFrameID = ComplexID<ComplexIDCapacities<CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES>, 
+using EntityFrameID = ComplexID<ComplexIDCapacities<CSTS::UPPERBOUND_SWAPCHAIN_IMAGES>, 
 								ObjectID, 
 								uint32_t>;
-using SkeletonFrameID = ComplexID<ComplexIDCapacities<CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES>,
+using SkeletonFrameID = ComplexID<ComplexIDCapacities<CSTS::UPPERBOUND_SWAPCHAIN_IMAGES>,
 								  SkeletonID, 
 								  uint32_t>;

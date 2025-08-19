@@ -10,7 +10,7 @@
 
 GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object& object) :
 	GraphicsEngineBaseModule(engine),
-	per_frame_object_dsets(CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES, nullptr)
+	per_frame_object_dsets(engine.get_num_swapchain_images(), nullptr)
 {
 }
 

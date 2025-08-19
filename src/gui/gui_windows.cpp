@@ -7,7 +7,7 @@
 #include "audio_engine/audio_source.hpp"
 #include "utility.hpp"
 #include "camera.hpp"
-#include "graphics_engine/constants.hpp"
+#include "constants.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "interface/gizmo.hpp"
@@ -523,7 +523,7 @@ void GuiRenderSlicer::draw()
 				selected_slice = i;
 				selected_slice.changed = true;
 				slice_requester(render_slices[i]);
-				cycles_before_draw = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES * 2; // 2 here is extra delay for safety
+				cycles_before_draw = CSTS::UPPERBOUND_SWAPCHAIN_IMAGES + 2; // 2 here is extra delay for safety
 			}
 		}
 		ImGui::EndCombo();

@@ -1,11 +1,12 @@
 # Requirements
 
 * conan2: package manager `mamba: conan`
-* meson: build system `meson`
-* ninja: c++ build system `ninja`
+* meson: build system `install meson`
+* ninja: c++ build system `install ninja`
 * clang: c++ compiler `clang` + `clang-tools`
-* vulkan: graphics api + sdk -> check fi it's available via `vulkaninfo`
 * glslc: shader compiler `mamba: shaderc`
+* vulkan: graphics api + sdk -> check fi it's available via `vulkaninfo`
+	* validation layers: `install vulkan-validationlayers`
 
 ## Building
 

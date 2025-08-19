@@ -130,10 +130,15 @@ void GraphicsEngineDevice::create_logical_device()
 	QueueFamilyIndices indices = get_graphics_engine().findQueueFamilies(physicalDevice);
 
 	std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-	std::vector<uint32_t> unique_queue_families{
-		indices.graphicsFamily.value(),
-		indices.presentFamily.value()
-	};
+	std::vector<uint32_t> unique_queue_families = [&indices]()
+	{
+		const std::set<uint32_t> unique_families{
+			indices.graphicsFamily.value(),
+			indices.presentFamily.value()
+		};
+		return std::vector<uint32_t>(unique_families.begin(), unique_families.end());
+	}();
+
 	// vulkan allows for some queues to have higher priority than others
 	const float queue_priority = 1.0f;
 	for (auto queue_family : unique_queue_families)
@@ -201,17 +206,12 @@ std::vector<const char*> GraphicsEngineDevice::get_required_extensions()
 {
 	std::vector<const char*> required_device_extensions;
 
-#ifdef __APPLE__
-	required_device_extensions.push_back((const char*)(VK_KHR_SWAPCHAIN_EXTENSION_NAME));
-	required_device_extensions.push_back((const char*)(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)); 
-#else
 	required_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	required_device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
 	required_device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
 	required_device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-#endif
 
-#ifndef NDEBUG
+#ifdef _DEBUG
 	// TODO: enable if want shader printf
 	// required_device_extensions.push_back(VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME);
 #endif

@@ -16,14 +16,15 @@
 
 int main(int argc, char* argv[])
 {
-#ifdef NDEBUG
-	fmt::print(fg(fmt::color::blue), "Release Mode\n");
+#ifdef _DEBUG
+	fmt::print(fg(fmt::color::cyan), "Debug Mode\n");
 #else
-	fmt::print(fg(fmt::color::blue), "Debug Mode\n");
+	fmt::print(fg(fmt::color::cyan), "Release Mode\n");
 #endif
+
 	const std::string config_path = argc == 2 ? argv[1] : "default.yaml";
 	Config::initialise_global_config(Utility::get_config_path().string() + "/" + config_path);
-
+	
 	if (Config::enable_logging())
 	{
 		Utility::enable_logging();

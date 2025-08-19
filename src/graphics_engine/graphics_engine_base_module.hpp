@@ -35,7 +35,6 @@ public:
 		VkMemoryPropertyFlags memory_flags,
 		uint32_t alignment = 1);
 	virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);		
-	uint32_t get_num_swapchain_frames() const;
 
 protected:
 	// for derived classes that we may not want to call destructor on because of a std::move

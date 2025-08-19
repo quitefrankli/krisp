@@ -97,8 +97,3 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 					 0,		// first vertex index (used for offsetting and defines the lowest value of gl_VertexIndex)
 					 0);	// first instance, used as offset for instance rendering, defines the lower value of gl_InstanceIndex
 };
-
-constexpr uint32_t Renderer::get_num_inflight_frames()
-{
-	return GraphicsEngine::get_num_swapchain_images();	
-}

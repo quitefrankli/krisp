@@ -147,7 +147,7 @@ GraphicsDescriptorManager::GraphicsDescriptorManager(
 	setup_descriptor_set_layouts();
 	const auto get_gubo_offsets = [&buffer_manager] {
 		std::vector<uint32_t> offsets;
-		for (uint32_t frame_idx = 0; frame_idx < GraphicsEngine::get_num_swapchain_images(); ++frame_idx)
+		for (uint32_t frame_idx = 0; frame_idx < CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; ++frame_idx)
 		{
 			offsets.push_back(buffer_manager.get_global_uniform_buffer_offset(frame_idx));
 		}

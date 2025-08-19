@@ -164,7 +164,8 @@ private:
 	{
 		VkImageView texture_view;
 		VkSampler texture_sampler;
-		int num_frames_to_render = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; // avoids the issue of updating a dset while it's being used
+		// dset is only updated when this hits 0
+		int render_frames_remaining;
 	};
 
 	std::optional<TextureToRender> texture_to_render;

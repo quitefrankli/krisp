@@ -1,6 +1,6 @@
 #pragma once
 
-#include "graphics_engine/constants.hpp"
+#include "constants.hpp"
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "graphics_buffer_manager.hpp"
 
@@ -45,7 +45,7 @@ private:
 	void allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets);
 	void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
 
-	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = CSTS::NUM_EXPECTED_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
+	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
 	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
 	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000; // for ray tracing
 	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;

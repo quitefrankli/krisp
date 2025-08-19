@@ -48,8 +48,3 @@ VkDeviceAddress GraphicsEngineBaseModule::get_buffer_device_address(
 {
 	return graphics_engine.get_device_module().get_buffer_device_address(buffer.get_buffer());
 }
-
-uint32_t GraphicsEngineBaseModule::get_num_swapchain_frames() const
-{
-	return graphics_engine.get_num_swapchain_images();
-}
