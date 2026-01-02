@@ -2,9 +2,11 @@
 
 #include "maths.hpp"
 #include "resource_loader/resource_loader.hpp"
+#include "utility.hpp"
 
 #include <glm/ext.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
+#include <quill/LogMacros.h>
 
 #include <iostream>
 #include <numeric>
@@ -168,6 +170,9 @@ void Object::detach_from()
 		return;
 	}
 
+	// in case the parent's transform has changed since we were attached
+	sync_world_from_relative();
+
 	// callbacks
 	parent->on_child_detached(this);
 	on_parent_detached(parent);
@@ -180,13 +185,13 @@ void Object::attach_to(Object* new_parent)
 {
 	if (new_parent == this)
 	{
-		std::cout << "ERROR: attempted to attach to itself!\n";
+		LOG_ERROR(Utility::get_logger(), "ERROR: attempted to attach to itself!");
 		return;
 	}
 
 	if (new_parent->parent == this)
 	{
-		std::cout << "ERROR: attempted to attach to parent that is already attached to this object! Please detach first!\n";
+		LOG_ERROR(Utility::get_logger(), "ERROR: attempted to create cyclic parent-child relationship! Detach first!");
 		return;
 	}
 

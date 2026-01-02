@@ -30,8 +30,6 @@
 #include <chrono>
 
 
-static DummyApplication dummy_app;
-
 GameEngine::GameEngine(App::Window& window) :
 	GameEngine(window, [](GameEngine& engine) { return std::make_unique<GraphicsEngine>(engine); })
 {
@@ -77,14 +75,12 @@ void GameEngine::run()
 	graphics_engine_thread = std::thread(&GraphicsEngineBase::run, graphics_engine.get());
 	Utility::sleep(std::chrono::milliseconds(100));
 
-	if (!application)
-	{
-		application = &dummy_app;
-	}
-
 	try 
 	{
-		application->on_begin();
+		if (application)
+		{
+			application->on_begin();
+		}
 		gizmo->init();
 
 		Analytics analytics(60);
@@ -176,7 +172,10 @@ void GameEngine::main_loop(const float time_delta)
 
 	ecs.process(time_delta);
 	experimental->process(time_delta);
-	application->on_tick(time_delta);
+	if (application)
+	{
+		application->on_tick(time_delta);
+	}
 }
 
 void GameEngine::shutdown_impl()
@@ -287,6 +286,12 @@ void GameEngine::highlight_object(const Object& object)
 void GameEngine::unhighlight_object(const Object& object)
 {
 	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object));
+}
+
+void GameEngine::set_application(IApplication* application) 
+{
+	assert(!this->applications);
+	this->application=application;
 }
 
 GuiManager& GameEngine::get_gui_manager()
