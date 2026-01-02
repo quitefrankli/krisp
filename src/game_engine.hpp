@@ -84,8 +84,7 @@ public:
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
 
-	void set_application(IApplication* application) { this->application=application; }
-
+	void set_application(IApplication* application);
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
 

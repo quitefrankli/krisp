@@ -55,7 +55,7 @@ void concatenate_vertices(std::vector<VertexType>& vertices,
                           const std::vector<uint32_t>& other_indices)
 {
 	indices.insert(indices.end(), other_indices.begin(), other_indices.end());
-	for (int i = indices.size() - other_indices.size(); i < indices.size(); i++)
+	for (uint32_t i = indices.size() - other_indices.size(); i < indices.size(); ++i)
 	{
 		indices[i] += vertices.size();
 	}
