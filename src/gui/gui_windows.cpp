@@ -118,6 +118,18 @@ GuiObjectSpawner::GuiObjectSpawner()
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
+		},
+		{"physics sphere", spawning_function_type([this](GameEngine& engine)
+			{
+				auto& obj = engine.template spawn_object<Object>(
+					Renderable::make_default(MeshFactory::sphere_id(
+						MeshFactory::EVertexType::COLOR,
+						MeshFactory::GenerationMethod::ICO_SPHERE,
+						50)));
+				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_clickable_entity(obj.get_id());
+				engine.get_ecs().add_physics_entity(obj.get_id(), PhysicsComponent{});
+			})
 		}
 	};
 }

@@ -49,7 +49,6 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 	draw_object(camera->focus_obj);
 	draw_object(camera->upvector_obj);
 	experimental = std::make_unique<Experimental>(*this);
-	spawn_object<CubeMap>(); // background/horizon
 
 	Renderable light_renderable;
 	const auto mat_id = MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE);
