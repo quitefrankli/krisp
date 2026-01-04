@@ -1,6 +1,7 @@
 #pragma once
 
 #include "identifications.hpp"
+#include "force_system.hpp"
 
 #include <unordered_map>
 
@@ -8,10 +9,11 @@
 class ECS;
 struct PhysicsComponent;
 
-class GravitySystem
+class GravitySystem : public ForceSystem
 {
 public:
-	void process(const float delta_secs, std::unordered_map<ObjectID, PhysicsComponent>& physics_entities);
+	virtual void compute_forces(const float delta_secs,
+								std::unordered_map<ObjectID, PhysicsComponent>& physics_entities) override;
 
 public:
 	enum class GravityType
@@ -28,10 +30,6 @@ private:
 									std::unordered_map<ObjectID, PhysicsComponent>& physics_entities);
 	void process_generic_gravity(const float delta_secs, 
 								 std::unordered_map<ObjectID, PhysicsComponent>& physics_entities);
-
-protected:
-	virtual ECS& get_ecs() = 0;
-	virtual PhysicsComponent& get_physics_component(const ObjectID id) = 0;
 
 private:
 	GravityType gravity_type = GravityType::EARTH_LIKE;

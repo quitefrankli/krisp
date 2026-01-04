@@ -6,10 +6,12 @@
 #include <glm/gtc/quaternion.hpp>
 
 
+// Encapsulates every variable needed by physics engine and common to force systems
 struct PhysicsComponent
 {
 	float mass = 1.0f; // in kg
 	
+	glm::vec3 position = Maths::zero_vec;
 	glm::vec3 velocity = Maths::zero_vec;
 	glm::quat angular_velocity = Maths::identity_quat;
 
