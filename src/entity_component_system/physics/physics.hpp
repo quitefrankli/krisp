@@ -2,15 +2,20 @@
 
 #include "identifications.hpp"
 #include "physics_component.hpp"
+#include "force_system.hpp"
 #include "gravity.hpp"
 #include "maths.hpp"
+
+#include <memory>
 
 
 class ECS;
 
-class PhysicsSystem : public GravitySystem
+class PhysicsSystem
 {
 public:
+	PhysicsSystem();
+
 	void add_physics_entity(const ObjectID id, const PhysicsComponent& physics_component)
 	{
 		physics_entities.emplace(id, physics_component);
@@ -23,12 +28,20 @@ public:
 		physics_entities.erase(id);
 	}
 
-protected:
-	PhysicsComponent& get_physics_component(const ObjectID id) override
+	void add_force_system(std::unique_ptr<ForceSystem> force_system)
 	{
-		return physics_entities.at(id);
+		force_systems.push_back(std::move(force_system));
 	}
+
+	GravitySystem& get_gravity_system();
+
+protected:
+	virtual ECS& get_ecs() = 0;
+
+private:
+	void prepare_components();
 
 private:
 	std::unordered_map<ObjectID, PhysicsComponent> physics_entities;
+	std::vector<std::unique_ptr<ForceSystem>> force_systems;
 };
