@@ -40,11 +40,6 @@ class vulkan_conan(ConanFile):
         # Place all build artifacts under the top-level 'build' directory
         basic_layout(self, build_folder="build")
 
-    def build_requirements(self):
-        # Ensure Meson and Ninja are available
-        self.tool_requires("meson/1.3.2")
-        self.tool_requires("ninja/1.13.1")
-
     def generate(self):
         MesonToolchain(self).generate()
         PkgConfigDeps(self).generate()
