@@ -32,7 +32,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 		presentation_image, 
 		swap_chain.get_image_format(), 
 		VK_IMAGE_ASPECT_COLOR_BIT);
-	for (Renderer* renderer : get_graphics_engine().get_renderer_mgr().get_renderers())
+	for (auto& [_, renderer] : engine.get_renderer_mgr().get_renderers())
 	{
 		renderer->allocate_per_frame_resources(presentation_image, presentation_image_view);
 	}

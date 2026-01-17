@@ -22,16 +22,7 @@ public:
 		return *it->second;
 	}
 
-	std::vector<Renderer*> get_renderers()
-	{
-		std::vector<Renderer*> vec;
-		for (auto& [type, renderer] : renderers)
-		{
-			vec.push_back(renderer.get());
-		}
-
-		return vec;
-	}
+	std::map<ERendererType, std::unique_ptr<Renderer>>& get_renderers() { return renderers; }
 
 	// links the inputs and outputs of specific renderers
 	void linkup_renderers();
@@ -39,5 +30,4 @@ public:
 
 private:
 	std::map<ERendererType, std::unique_ptr<Renderer>> renderers;
-
-	};
+};
