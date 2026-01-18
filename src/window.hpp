@@ -30,14 +30,9 @@ namespace App {
 
 		GLFWwindow* get_glfw_window() { return window; }
 
-		bool is_shift_down() const { return shift_down; }
-		void set_shift_down(bool shift_down) { this->shift_down = shift_down; }
-
 	private:
 		const int INITIAL_WINDOW_WIDTH = 1400;
 		const int INITIAL_WINDOW_HEIGHT = 800;
 		GLFWwindow* window = nullptr;
-
-		bool shift_down = false;
 	};
 }

@@ -3,6 +3,7 @@ project('krisp', 'cpp', version: '0.1.0')
 install_dir = meson.build_root()/'bin'
 add_project_arguments(
 	'-w', # Suppresses all build warnings for c++
+	'-Werror=unused-variable',
 	'-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.source_root()), 
 	'-DPROJECT_NAME="@0@"'.format(meson.project_name()),
 	'-DPROJECT_BUILD_DIR="@0@"'.format(meson.build_root()),
