@@ -133,7 +133,8 @@ void GameEngine::main_loop(const float time_delta)
 
 	if (mouse->mmb_down)
 	{
-		if (window.is_shift_down())
+		// if (window.is_shift_down())
+		if (false) // TODO: implement shift key tracking
 		{
 			// panning
 			const float min_threshold = 0.01f;

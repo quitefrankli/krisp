@@ -23,107 +23,48 @@
 #include <chrono>
 
 
-void GameEngine::key_callback(int key, int scan_code, int action, int mode)
+void GameEngine::key_callback(const KeyInput& key_input)
 {
-	static int inc = 0;
-	auto pressed_key = glfwGetKeyName(key, scan_code);
+	using enum EKeyModifier;
+	using enum EInputAction;
 
-	// if (glfwGetKey(window.get_window(), key) == GLFW_RELEASE)
-	// {
-	// 	return; // ignore key releases
-	// }
-
-	if (action == GLFW_REPEAT)
+	if (key_input.eq(GLFW_KEY_ESCAPE, NONE, PRESS))
+		shutdown();
+	else if (key_input.eq(GLFW_KEY_X, NONE, PRESS))
+		experimental->process();
+	else if (key_input.eq(GLFW_KEY_R, SHIFT, PRESS))
 	{
-		// return; // ignore held keys
-	} else {
-		LOG_DEBUG(
-			Utility::get_logger(), 
-			"input detected [{}], key:={}, scan_code:={}, action:={}, mode={}, translated_key:={}", 
-			inc++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+		// HotReload::get().reload();
 	}
-
-	switch (key)
+	else if (key_input.eq(GLFW_KEY_BACKSPACE, NONE, PRESS) ||
+			 key_input.eq(GLFW_KEY_DELETE, NONE, PRESS))
+		gizmo->delete_object();
+	// else if (key_input.eq(GLFW_KEY_LEFT_SHIFT, NONE, PRESS))
+	// 	window.set_shift_down(true);
+	// else if (key_input.eq(GLFW_KEY_LEFT_SHIFT, NONE, RELEASE))
+	// 	window.set_shift_down(false);
+	else if (key_input.eq(GLFW_KEY_LEFT_SUPER, NONE, PRESS)) // for macbook dragging
 	{
-		case GLFW_KEY_ESCAPE:
-			if (action == GLFW_PRESS)
-				shutdown();
-			break;
-
-		case GLFW_KEY_LEFT:
-		case GLFW_KEY_RIGHT:
-		case GLFW_KEY_UP:
-		case GLFW_KEY_DOWN:
-		case GLFW_KEY_SPACE:
-		case GLFW_KEY_Z:
-			application->on_key_press(key, scan_code, action, mode);
-			break;
-		case GLFW_KEY_X: // experimental
-		{
-			if (action == GLFW_RELEASE)
-				break;
-			experimental->process();
-			break;
-		}
-		case GLFW_KEY_C: // toggle camera focus visibility
-		{
-			if (action == GLFW_RELEASE)
-				break;
-			if (mode == GLFW_MOD_SHIFT)
-			{
-				camera->toggle_mode();
-			} else {
-				camera->toggle_visibility();
-			}
-			break;
-		}
-		case GLFW_KEY_R:
-			if (action == GLFW_RELEASE)
-				break;
-			switch (mode) {
-			case GLFW_MOD_SHIFT:
-				// HotReload::get().reload();
-				break;
-			default:
-				break;
-			}
-		case GLFW_KEY_BACKSPACE:
-		case GLFW_KEY_DELETE:
-			if (action == GLFW_RELEASE)
-				break;
-			gizmo->delete_object();
-			break;
-		case GLFW_KEY_LEFT_SHIFT:
-			if (action == GLFW_PRESS)
-			{
-				window.set_shift_down(true);
-			} else if (action == GLFW_RELEASE)
-			{
-				window.set_shift_down(false);
-			}
-			break;
-		case GLFW_KEY_LEFT_SUPER: // for macbook dragging
-			if (action == GLFW_PRESS)
-			{
-				mouse->mmb_down = true;
-				mouse->update_pos();
-				mouse->orig_pos = mouse->curr_pos;
-				camera->update_tracker();
-			} else if (action == GLFW_RELEASE)
-			{
-				mouse->mmb_down = false;
-			}
-			break;
-		default:
-			break;
+		mouse->mmb_down = true;
+		mouse->update_pos();
+		mouse->orig_pos = mouse->curr_pos;
+		camera->update_tracker();
 	}
+	else if (key_input.eq(GLFW_KEY_LEFT_SUPER, NONE, RELEASE))
+		mouse->mmb_down = false;
+	else
+		application->on_key_press(key_input);
 }
 
-void GameEngine::mouse_button_callback(int button, int action, int mode, bool gui_wants_input)
+void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input)
 {
+	using enum EMouseButton;
+	using enum EInputAction;
+	using enum EKeyModifier;
+
 	if (gui_wants_input)
 	{
-		if (action != GLFW_RELEASE)
+		if (mouse_input.action != RELEASE)
 		{
 			return;
 		}
@@ -134,89 +75,49 @@ void GameEngine::mouse_button_callback(int button, int action, int mode, bool gu
 		}
 	}
 
-	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-		if (action == GLFW_PRESS) {
-			mouse->rmb_down = true;
-			mouse->update_pos();
-			camera->update_tracker();
-		} else if (action == GLFW_RELEASE) {
-			mouse->rmb_down = false; 
-		}
-	} else if (button == GLFW_MOUSE_BUTTON_LEFT)
+	if (mouse_input.eq(RIGHT, NONE, PRESS))
 	{
-		if (action == GLFW_PRESS)
+		mouse->rmb_down = true;
+		mouse->update_pos();
+		camera->update_tracker();
+	} else if (mouse_input.eq(RIGHT, NONE, RELEASE)) {
+		mouse->rmb_down = false; 
+	} else if (mouse_input.eq(LEFT, NONE, PRESS)) {
+		mouse->update_pos();
+		if (gizmo->is_active())
 		{
-			mouse->update_pos();
-			const Maths::Ray ray = camera->get_ray(mouse->curr_pos);
-			glm::vec3 intersection{};
-			if (mode == GLFW_MOD_SHIFT)
-			{
-				// gizmo mode, TODO: make else case also a IBaseDispatcher
-				OnClickDispatchers::IBaseDispatcher& on_click_dispatcher = *gizmo;
-				auto clicked_entity = ecs.check_any_entity_clicked(ray);
-				
-				if (clicked_entity.bCollided)
-				{
-					on_click_dispatcher.dispatch_on_click(
-						ecs.get_object(clicked_entity.id), 
-						ray, 
-						clicked_entity.intersection);
-				} else
-				{
-					// no objects detected deselect everything
-					gizmo->deselect();
-				}
-			} else {
-				if (gizmo->is_active())
-				{
-					gizmo->check_collision(ray);
-				} else {
-					// TODO: Add this back, but maybe we don't alert the "application" that a click occurred
-
-					// Object* closest_object = nullptr;
-					// float closest_distance = std::numeric_limits<float>::infinity();
-					// for (auto& obj_pair : objects)
-					// {
-					// 	glm::vec3 intersection;
-					// 	if (obj_pair.second->check_collision(ray, intersection))
-					// 	{
-					// 		// for debugging purposes TODO: add GuiWindow for debugging
-					// 		// spawn_object<Sphere>().set_position(intersection);
-					// 		const float new_distance  = glm::distance2(ray.origin, intersection);
-					// 		if (new_distance < closest_distance)
-					// 		{
-					// 			closest_object = obj_pair.second.get();
-					// 			closest_distance = new_distance;
-					// 		}
-					// 	}
-					// }
-
-					// if (closest_object)
-					// {
-					// 	application->on_click(*closest_object);
-					// }
-				}
-
-				mouse->lmb_down = true;
-				mouse->orig_pos = mouse->curr_pos;
-				//tracker.update(gizmo); // old method to update an object's position via click dragging
-			}
-		} else if (action == GLFW_RELEASE)
-		{
-			mouse->lmb_down = false;
+			const Maths::Ray ray = get_mouse_ray();
+			gizmo->check_collision(ray);
 		}
-	} else if (button == GLFW_MOUSE_BUTTON_MIDDLE)
-	{
-		if (action == GLFW_PRESS)
+
+		mouse->lmb_down = true;
+		mouse->orig_pos = mouse->curr_pos;
+	} else if (mouse_input.eq(LEFT, SHIFT, PRESS)) {
+		mouse->update_pos();
+		const Maths::Ray ray = camera->get_ray(mouse->curr_pos);
+		OnClickDispatchers::IBaseDispatcher& on_click_dispatcher = *gizmo;
+		auto clicked_entity = ecs.check_any_entity_clicked(ray);
+		
+		if (clicked_entity.bCollided)
 		{
-			mouse->mmb_down = true;
-			mouse->update_pos();
-			mouse->orig_pos = mouse->curr_pos;
-			camera->update_tracker();
-		} else if (action == GLFW_RELEASE)
+			on_click_dispatcher.dispatch_on_click(
+				ecs.get_object(clicked_entity.id), 
+				ray, 
+				clicked_entity.intersection);
+		} else
 		{
-			mouse->mmb_down = false;
+			// no objects detected deselect everything
+			gizmo->deselect();
 		}
+	} else if (mouse_input.eq(LEFT, NONE, RELEASE)) {
+		mouse->lmb_down = false; 
+	} else if (mouse_input.eq(MIDDLE, NONE, PRESS)) {
+		mouse->mmb_down = true;
+		mouse->update_pos();
+		mouse->orig_pos = mouse->curr_pos;
+		camera->update_tracker();
+	} else if (mouse_input.eq(MIDDLE, NONE, RELEASE)) {
+		mouse->mmb_down = false; 
 	}
 }
 
