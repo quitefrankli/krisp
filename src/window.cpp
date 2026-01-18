@@ -9,9 +9,41 @@
 #include <imgui.h>
 #include <ImGui/imgui_impl_glfw.h>
 #include <fmt/core.h>
+#include <quill/LogMacros.h>
 
 #include <cassert>
 
+
+const EKeyModifier get_key_modifier(int mode)
+{
+	if (mode & GLFW_MOD_CONTROL && mode & GLFW_MOD_SHIFT && mode & GLFW_MOD_ALT)
+		return EKeyModifier::CTRL_SHIFT_ALT;
+	else if (mode & GLFW_MOD_CONTROL && mode & GLFW_MOD_SHIFT)
+		return EKeyModifier::CTRL_SHIFT;
+	else if (mode & GLFW_MOD_CONTROL && mode & GLFW_MOD_ALT)
+		return EKeyModifier::CTRL_ALT;
+	else if (mode & GLFW_MOD_SHIFT && mode & GLFW_MOD_ALT)
+		return EKeyModifier::SHIFT_ALT;
+	else if (mode & GLFW_MOD_CONTROL)
+		return EKeyModifier::CTRL;
+	else if (mode & GLFW_MOD_SHIFT)
+		return EKeyModifier::SHIFT;
+	else if (mode & GLFW_MOD_ALT)
+		return EKeyModifier::ALT;
+	else
+		return EKeyModifier::NONE;
+}
+
+const EInputAction get_input_action(int action)
+{
+	switch (action)
+	{
+		case GLFW_PRESS: return EInputAction::PRESS;
+		case GLFW_RELEASE: return EInputAction::RELEASE;
+		case GLFW_REPEAT: return EInputAction::REPEAT;
+		default: return EInputAction::RELEASE; // default case
+	}
+}
 
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
@@ -40,10 +72,20 @@ static void key_callback(GLFWwindow* window, int key, int scan_code, int action,
 		return;
 	}
 
+	static int _trigger_count = 0;
 	try
 	{
+		const auto pressed_key = glfwGetKeyName(key, scan_code);
+		LOG_DEBUG(
+			Utility::get_logger(), 
+			"input detected [{}], key:={}, scan_code:={}, action:={}, mode={}, translated_key:={}", 
+			_trigger_count++, key, scan_code, action, mode, pressed_key ? pressed_key : "N/A");
+
+		const EKeyModifier key_modifier = get_key_modifier(mode);
+		const EInputAction input_action = get_input_action(action);
+
 		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->key_callback(key, scan_code, action, mode);
+		window_callback->key_callback({key, key_modifier, input_action});
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());
@@ -60,8 +102,19 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 	try
 	{
+		const EMouseButton mouse_button = [button]() {
+			switch (button)
+			{
+				case GLFW_MOUSE_BUTTON_LEFT: return EMouseButton::LEFT;
+				case GLFW_MOUSE_BUTTON_RIGHT: return EMouseButton::RIGHT;
+				case GLFW_MOUSE_BUTTON_MIDDLE: return EMouseButton::MIDDLE;
+				default: throw std::runtime_error("unsupported mouse button");
+			}}();
+
+		const EInputAction input_action = get_input_action(action);
+
 		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->mouse_button_callback(button, action, mode, ImGui::GetIO().WantCaptureMouse);
+		window_callback->mouse_button_callback({mouse_button, get_key_modifier(mode), input_action}, ImGui::GetIO().WantCaptureMouse);
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());
