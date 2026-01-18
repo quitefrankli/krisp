@@ -60,7 +60,7 @@ public:
 	};
 	virtual void on_click(Object& object) override {};
 	virtual void on_begin() override {};
-	virtual void on_key_press(int key, int scan_code, int action, int mode) override {};
+	virtual void on_key_press(const KeyInput& key_input) override {};
 
 private:
 	GameEngine& engine;

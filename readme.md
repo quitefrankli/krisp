@@ -12,7 +12,7 @@
 ## Building
 
 ```bash
-conan build . -bf=build
+conan build . -bf=build -pr=conan_clang_profile
 build/bin/krisp
 ```
 

@@ -128,8 +128,7 @@ public:
 		// clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
 		// clear_line_fx->set_gain(0.5f);
 	}
-
-	virtual void on_key_press(int key, int scan_code, int action, int mode) override
+	virtual void on_key_press(const KeyInput& key_input) override
 	{
 		if (gui->paused)
 		{
@@ -139,9 +138,9 @@ public:
 		const glm::mat4 curr_transform = get_latest_piece().get_transform();
 		glm::mat4 transform;
 
-		if (action == GLFW_PRESS)
+		if (key_input.action == EInputAction::PRESS)
 		{
-			switch (key)
+			switch (key_input.key)
 			{
 				case GLFW_KEY_LEFT:
 					transform = glm::translate(Maths::identity_mat, -Maths::right_vec) * curr_transform;
