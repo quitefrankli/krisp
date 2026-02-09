@@ -7,6 +7,7 @@
 #include "clickable.hpp"
 #include "hoverable.hpp"
 #include "physics/physics.hpp"
+#include "particle_system.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
@@ -27,7 +28,8 @@ class ECS :
 	public ColliderSystem,
 	public ClickableSystem,
 	public HoverableSystem,
-	public PhysicsSystem
+	public PhysicsSystem,
+	public ParticleSystem
 {
 public:
 	ECS();
@@ -53,6 +55,10 @@ public:
 	// Used by ECSComponents
 	Object& get_object(const ObjectID id);
 	const Object& get_object(const ObjectID id) const;
+	
+	// Particle system access
+	ParticleSystem& get_particle_system() { return *this; }
+	const ParticleSystem& get_particle_system() const { return *this; }
 
 private:
 	// std::unordered_map<ECSComponentType, std::unique_ptr<ECSComponent>> components;

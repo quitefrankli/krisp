@@ -475,3 +475,93 @@ std::vector<VkPushConstantRange> QuadPipeline::get_push_constant_ranges() const
 
 	return { push_constant_range };
 }
+
+std::vector<VkVertexInputBindingDescription> ParticlePipeline::get_binding_descriptions() const
+{
+	// Binding 0: Vertex data (unit quad)
+	VkVertexInputBindingDescription vertex_binding{};
+	vertex_binding.binding = 0;
+	vertex_binding.stride = sizeof(float) * 4; // vec2 pos + vec2 texcoord
+	vertex_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+	// Binding 1: Instance data (particle properties)
+	VkVertexInputBindingDescription instance_binding{};
+	instance_binding.binding = 1;
+	instance_binding.stride = sizeof(SDS::ParticleInstanceData);
+	instance_binding.inputRate = VK_VERTEX_INPUT_RATE_INSTANCE;
+
+	return { vertex_binding, instance_binding };
+}
+
+std::vector<VkVertexInputAttributeDescription> ParticlePipeline::get_attribute_descriptions() const
+{
+	std::vector<VkVertexInputAttributeDescription> attributes;
+
+	// Vertex attributes (binding 0)
+	VkVertexInputAttributeDescription local_pos_attr{};
+	local_pos_attr.binding = 0;
+	local_pos_attr.location = 0;
+	local_pos_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	local_pos_attr.offset = 0;
+	attributes.push_back(local_pos_attr);
+
+	VkVertexInputAttributeDescription tex_coord_attr{};
+	tex_coord_attr.binding = 0;
+	tex_coord_attr.location = 1;
+	tex_coord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	tex_coord_attr.offset = sizeof(float) * 2;
+	attributes.push_back(tex_coord_attr);
+
+	// Instance attributes (binding 1)
+	VkVertexInputAttributeDescription world_pos_attr{};
+	world_pos_attr.binding = 1;
+	world_pos_attr.location = 2;
+	world_pos_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	world_pos_attr.offset = offsetof(SDS::ParticleInstanceData, model) + sizeof(glm::vec4) * 3; // Position is in 4th column of mat4
+	attributes.push_back(world_pos_attr);
+
+	VkVertexInputAttributeDescription size_attr{};
+	size_attr.binding = 1;
+	size_attr.location = 3;
+	size_attr.format = VK_FORMAT_R32_SFLOAT;
+	size_attr.offset = offsetof(SDS::ParticleInstanceData, size);
+	attributes.push_back(size_attr);
+
+	VkVertexInputAttributeDescription color_attr{};
+	color_attr.binding = 1;
+	color_attr.location = 4;
+	color_attr.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	color_attr.offset = offsetof(SDS::ParticleInstanceData, color);
+	attributes.push_back(color_attr);
+
+	VkVertexInputAttributeDescription rotation_attr{};
+	rotation_attr.binding = 1;
+	rotation_attr.location = 5;
+	rotation_attr.format = VK_FORMAT_R32_SFLOAT;
+	rotation_attr.offset = offsetof(SDS::ParticleInstanceData, rotation);
+	attributes.push_back(rotation_attr);
+
+	return attributes;
+}
+
+VkPipelineDepthStencilStateCreateInfo ParticlePipeline::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo depth_stencil_info = GraphicsEnginePipeline::get_depth_stencil_create_info();
+	// Enable depth test but don't write to depth buffer for particles
+	// This allows particles to blend properly with each other
+	depth_stencil_info.depthWriteEnable = VK_FALSE;
+	depth_stencil_info.depthTestEnable = VK_TRUE;
+	return depth_stencil_info;
+}
+
+void ParticlePipeline::mod_color_blend_attachment(VkPipelineColorBlendAttachmentState& color_blend_attachment) const
+{
+	// Enable alpha blending for particles
+	color_blend_attachment.blendEnable = VK_TRUE;
+	color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+	color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
+	color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+	color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+	color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}

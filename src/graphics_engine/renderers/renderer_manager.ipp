@@ -10,6 +10,7 @@ RendererManager::RendererManager(GraphicsEngine& engine) :
 	renderers[ERendererType::OFFSCREEN_GUI_VIEWPORT] = std::make_unique<OffscreenGuiViewportRenderer>(engine);
 	renderers[ERendererType::SHADOW_MAP] = std::make_unique<ShadowMapRenderer>(engine);
 	renderers[ERendererType::QUAD] = std::make_unique<QuadRenderer>(engine);
+	renderers[ERendererType::PARTICLE] = std::make_unique<ParticleRenderer>(engine);
 }
 
 void RendererManager::linkup_renderers()

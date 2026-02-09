@@ -12,4 +12,5 @@ enum class ERenderType
 	LIGHTWEIGHT_OFFSCREEN_PIPELINE,
 	SKINNED, // for skinned meshes
 	QUAD,
+	PARTICLE, // billboard particles
 };

@@ -83,6 +83,9 @@ public:
 	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
+	
+	// Particle system test function
+	void spawn_test_particles();
 
 	void set_application(IApplication* application);
 	ECS& get_ecs() { return ecs; }
@@ -116,7 +119,7 @@ private:
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
-	IApplication* application = nullptr;
+	IApplication* application;
 
 	std::unique_ptr<Experimental> experimental;
 	EntityDeletionQueue entity_deletion_queue;	

@@ -5,6 +5,7 @@
 #include "graphics_engine/graphics_engine_object.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "objects/object.hpp"
+#include "particle_renderer.ipp"
 
 
 RasterizationRenderer::RasterizationRenderer(GraphicsEngine& engine) :
@@ -214,6 +215,12 @@ void RasterizationRenderer::submit_draw_commands(
 							EPipelineModifier::POST_STENCIL);
 		}
 	}
+
+	// Render particles within the same render pass
+	// Get the particle renderer and call its draw function
+	auto& particle_renderer = static_cast<ParticleRenderer&>(
+		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::PARTICLE));
+	particle_renderer.render_particles(command_buffer, frame_index);
 
 	vkCmdEndRenderPass(command_buffer);
 }

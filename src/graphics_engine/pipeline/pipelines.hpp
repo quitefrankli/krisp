@@ -202,3 +202,22 @@ public:
 protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
+
+class ParticlePipeline : public GraphicsEnginePipeline
+{
+public:
+	ParticlePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+	static uint32_t get_vertex_stride() { return sizeof(float) * 4; } // 2 floats for position + 2 floats for texcoord
+	static uint32_t get_instance_stride() { return sizeof(SDS::ParticleInstanceData); }
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "particle"; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+	virtual VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_NONE; } // No culling for particles
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual VkBlendFactor get_src_blend_factor() const { return VK_BLEND_FACTOR_SRC_ALPHA; }
+	virtual VkBlendFactor get_dst_blend_factor() const { return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA; }
+	virtual void mod_color_blend_attachment(VkPipelineColorBlendAttachmentState& color_blend_attachment) const;
+};

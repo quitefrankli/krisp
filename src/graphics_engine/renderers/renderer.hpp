@@ -18,6 +18,7 @@ enum class ERendererType
 	OFFSCREEN_GUI_VIEWPORT,
 	SHADOW_MAP,
 	QUAD,
+	PARTICLE,
 };
 
 class GraphicsEngineObject;
@@ -43,7 +44,7 @@ public:
 	virtual VkSampleCountFlagBits get_msaa_sample_count() const { return (VkSampleCountFlagBits)CSTS::MSAA_SAMPLE_COUNT; }
 	virtual VkExtent2D get_extent();
 	
-	VkRenderPass get_render_pass() { return render_pass; }
+	virtual VkRenderPass get_render_pass() { return render_pass; }
 	
 	virtual void draw_renderable(VkCommandBuffer command_buffer,
 							 	 const Renderable& renderable,

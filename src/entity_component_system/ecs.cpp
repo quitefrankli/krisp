@@ -15,6 +15,7 @@ void ECS::process(const float delta_secs)
 	AnimationSystem::process(delta_secs);
 	SkeletalAnimationSystem::process(delta_secs);
 	PhysicsSystem::process(delta_secs);
+	ParticleSystem::update(delta_secs);
 }
 
 ECS& ECS::get()
@@ -31,6 +32,7 @@ void ECS::remove_object(const ObjectID id)
 	ColliderSystem::remove_entity(id);
 	ClickableSystem::remove_entity(id);
 	PhysicsSystem::remove_entity(id);
+	ParticleSystem::remove_emitters(id);
 	objects.erase(id);
 }
 

@@ -42,6 +42,7 @@ protected:
 	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const { return {}; }
 
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const {}
+	virtual void mod_color_blend_attachment(VkPipelineColorBlendAttachmentState& color_blend_attachment) const {}
 
 private:
 	friend GraphicsEnginePipelineManager;

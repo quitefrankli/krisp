@@ -134,3 +134,23 @@ struct QuadRendererPushConstant
 {
 	int flags;
 };
+
+// Particle data for billboard rendering
+// Uses instance-based rendering for efficiency
+struct ParticleVertex
+{
+	VEC3 pos;           // World position of particle center
+	float size;         // Particle size (diameter)
+	VEC4 color;         // RGBA color
+	float rotation;     // Rotation angle in radians
+	VEC2 uv;            // Texture coordinates
+};
+
+struct ParticleInstanceData
+{
+	MAT4 model;         // Model matrix (billboard will be applied in vertex shader)
+	VEC4 color;         // Particle color
+	float size;         // Particle size
+	float rotation;     // Rotation angle
+	ALIGN(8) VEC2 padding;
+};

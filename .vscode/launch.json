@@ -5,13 +5,13 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "C++ Launch",
+			"name": "krisp",
 			"type": "lldb",
 			"request": "launch",
-			"program": "${workspaceFolder}/build/bin/krisp",
+			"program": "${workspaceFolder}/build/applications/krisp/krisp",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "ninja build"
+			"preLaunchTask": "meson compile -C build krisp"
 		}
 	]
 }

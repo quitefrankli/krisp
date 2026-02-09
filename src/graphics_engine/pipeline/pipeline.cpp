@@ -253,6 +253,7 @@ void GraphicsEnginePipeline::initialise()
 	color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 	color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	mod_color_blend_attachment(color_blend_attachment);
 
 	VkPipelineColorBlendStateCreateInfo color_blending_create_info{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
 	color_blending_create_info.logicOpEnable = VK_FALSE;

@@ -75,6 +75,9 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case ERenderType::QUAD:
 		new_pipeline = create_pipeline<QuadPipeline>(id);
 		break;
+	case ERenderType::PARTICLE:
+		new_pipeline = create_pipeline<ParticlePipeline>(id);
+		break;
 	default:
 		throw std::runtime_error(
 			std::string("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type: ") +

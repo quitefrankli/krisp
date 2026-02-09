@@ -6,6 +6,8 @@
 #include <optional>
 
 
+class ParticleRenderer;
+
 class RasterizationRenderer : public Renderer
 {
 public:
@@ -17,6 +19,9 @@ public:
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
 	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
 	void set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs);
+
+	// Allow particle renderer to draw within our render pass
+	friend class ParticleRenderer;
 
 private:
 	using Renderer::get_graphics_engine;

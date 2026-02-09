@@ -5,6 +5,7 @@
 #include "offscreen_gui_viewport_renderer.ipp"
 #include "shadowmap_renderer.ipp"
 #include "quad_renderer.ipp"
+#include "particle_renderer.ipp"
 #include "renderer_manager.ipp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "game_engine.hpp"

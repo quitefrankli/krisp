@@ -37,6 +37,7 @@ sources = files(
 	'entity_component_system/skeletal.cpp',
 	'entity_component_system/physics/gravity.cpp',
 	'entity_component_system/physics/physics.cpp',
+	'entity_component_system/particle_system.cpp',
 	'resource_loader/resource_loader.cpp',
 	'graphics_engine/pipeline/pipeline.cpp',
 	'graphics_engine/renderers/renderer.cpp',

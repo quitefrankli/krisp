@@ -11,6 +11,7 @@
 #include "experimental.hpp"
 #include "iapplication.hpp"
 #include "interface/gizmo.hpp"
+#include "entity_component_system/particle_system.hpp"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -52,6 +53,8 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	}
 	else if (key_input.eq(GLFW_KEY_LEFT_SUPER, NONE, RELEASE))
 		mouse->mmb_down = false;
+	else if (key_input.eq(GLFW_KEY_P, NONE, PRESS))
+		spawn_test_particles();
 	else
 		application->on_key_press(key_input);
 }
@@ -126,4 +129,46 @@ void GameEngine::scroll_callback(double yoffset)
 	camera->zoom_in(yoffset);
 	static const glm::vec3 scale_factor(0.238f);
 	gizmo->set_scale(scale_factor * camera->get_focal_length());
+}
+
+void GameEngine::spawn_test_particles()
+{
+	// Create a test particle emitter at the camera position
+	ParticleEmitterConfig config;
+	config.max_particles = 500;
+	config.emission_rate = 200.0f;        // 200 particles per second burst
+	config.min_lifetime = 0.5f;
+	config.max_lifetime = 2.0f;
+	config.min_size = 0.05f;
+	config.max_size = 0.15f;
+	config.start_color = { 1.0f, 0.8f, 0.2f, 1.0f };  // Yellow-orange
+	config.end_color = { 1.0f, 0.2f, 0.0f, 0.0f };    // Fade to transparent red
+	config.velocity_min = { -2.0f, -2.0f, -2.0f };
+	config.velocity_max = { 2.0f, 2.0f, 2.0f };
+	config.rotation_speed_min = -3.0f;
+	config.rotation_speed_max = 3.0f;
+	config.loop = false;  // One-shot burst
+	
+	// Create emitters directly without associating with a game object
+	// We'll manage them as world-space emitters
+	auto emitter = std::make_unique<ParticleEmitter>(config);
+	emitter->set_position(camera->get_position());
+	
+	// Add to particle system manually
+	// Access the particle system through ECS
+	auto& particle_system = ecs;
+	particle_system.add_emitter(std::move(emitter));
+	
+	// Also spawn a second emitter with different colors slightly offset
+	config.start_color = { 0.2f, 0.8f, 1.0f, 1.0f };  // Cyan
+	config.end_color = { 0.0f, 0.2f, 1.0f, 0.0f };    // Fade to transparent blue
+	config.velocity_min = { -1.0f, 0.0f, -1.0f };
+	config.velocity_max = { 1.0f, 3.0f, 1.0f };       // Upward bias
+	
+	auto emitter2 = std::make_unique<ParticleEmitter>(config);
+	glm::vec3 offset_pos = camera->get_position() + glm::vec3(0.5f, 0.0f, 0.0f);
+	emitter2->set_position(offset_pos);
+	particle_system.add_emitter(std::move(emitter2));
+	
+	LOG_INFO(Utility::get_logger(), "Spawned test particles at camera position");
 }

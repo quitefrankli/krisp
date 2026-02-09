@@ -33,6 +33,8 @@
 GameEngine::GameEngine(App::Window& window) :
 	GameEngine(window, [](GameEngine& engine) { return std::make_unique<GraphicsEngine>(engine); })
 {
+	static DummyApplication dummy_app;
+	application = &dummy_app;
 }
 
 GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engine_factory) :
@@ -76,10 +78,7 @@ void GameEngine::run()
 
 	try 
 	{
-		if (application)
-		{
-			application->on_begin();
-		}
+		application->on_begin();
 		gizmo->init();
 
 		Analytics analytics(60);
@@ -172,10 +171,7 @@ void GameEngine::main_loop(const float time_delta)
 
 	ecs.process(time_delta);
 	experimental->process(time_delta);
-	if (application)
-	{
-		application->on_tick(time_delta);
-	}
+	application->on_tick(time_delta);
 }
 
 void GameEngine::shutdown_impl()
