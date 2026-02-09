@@ -15,13 +15,10 @@ namespace Maths
 	constexpr float ACCEPTABLE_FLOATING_PT_DIFF = 0.00001f;
 
 	template<class T>
-	T SigmoidFunction(T input);
+	T random_uniform(T min, T max);
 
 	template<class T>
-	T RandomUniform(T min, T max);
-
-	template<class T>
-	T RandomNormal(T mean, T stdDev);
+	T random_normal(T mean, T stdDev);
 
 	template<class T>
 	T lerp(T a, T b, float t);

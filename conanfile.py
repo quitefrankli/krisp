@@ -24,7 +24,7 @@ class vulkan_conan(ConanFile):
         "tinygltf/2.5.0",
         "quill/10.0.1",
         "miniaudio/0.11.22",
-        "libsndfile/1.0.31",
+        "libsndfile/1.0.31", # to be removed after audio refactor
         "fmt/11.2.0",
         "imgui/1.87", # also update backend under third_party
         "gtest/1.15.0",

@@ -234,7 +234,7 @@ private:
 
 		const auto generate_new_piece = [&]()
 		{
-			const int piece_type = Maths::RandomUniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
+			const int piece_type = Maths::random_uniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
 			// offsets due to some shapes such as L that can poke past the walls
 			auto* new_piece = &engine.spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), engine);
 			new_piece->set_position(glm::vec3(0.0f, 0.0f, 10.0f)); // position out of view
@@ -248,7 +248,7 @@ private:
 		}
 
 		current_piece = next_piece;
-		const glm::vec3 position = glm::vec3(Maths::RandomUniform(-width/2+2, width/2-3), height/2.0f, 0.0f);
+		const glm::vec3 position = glm::vec3(Maths::random_uniform(-width/2+2, width/2-3), height/2.0f, 0.0f);
 		current_piece->set_position(position + current_piece->get_type_specific_offset());
 		current_piece->set_visibility(true);
 		current_piece->set_scale(glm::vec3(1.0f)); // reset scale to normal size

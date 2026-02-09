@@ -15,11 +15,8 @@ namespace Maths
 {
 	static std::mt19937 randGen(std::random_device{}());
 
-	template<>
-	float SigmoidFunction<float>(float input) { return 1.0 / (1 + pow(EULERS_NUMBER, -input)); }
-
 	template<typename T>
-	T RandomUniform(T min, T max)
+	T random_uniform(T min, T max)
 	{
 		if (min > max)
 		{
@@ -29,10 +26,10 @@ namespace Maths
 		return std::uniform_real_distribution<T>(min, max)(randGen);
 	}
 
-	template float RandomUniform<float>(float min, float max);
+	template float random_uniform<float>(float min, float max);
 
 	template<>
-	int RandomUniform<int>(int min, int max)
+	int random_uniform<int>(int min, int max)
 	{
 		if (min > max)
 		{
@@ -43,17 +40,17 @@ namespace Maths
 	}
 
 	template<>
-	glm::vec3 RandomUniform<glm::vec3>(glm::vec3 min, glm::vec3 max)
+	glm::vec3 random_uniform<glm::vec3>(glm::vec3 min, glm::vec3 max)
 	{
 		return glm::vec3{
-			RandomUniform(min.x, max.x),
-			RandomUniform(min.y, max.y),
-			RandomUniform(min.z, max.z)
+			random_uniform(min.x, max.x),
+			random_uniform(min.y, max.y),
+			random_uniform(min.z, max.z)
 		};
 	}
 
 	template<typename T>
-	T RandomNormal(T mean, T stdDev)
+	T random_normal(T mean, T stdDev)
 	{
 		if (stdDev <= 0)
 		{
@@ -63,7 +60,7 @@ namespace Maths
 		return std::normal_distribution<T>(mean, stdDev)(randGen);
 	}
 
-	template float RandomNormal<float>(float mean, float stdDev);
+	template float random_normal<float>(float mean, float stdDev);
 
 	template<typename T>
 	T lerp(T a, T b, float t)

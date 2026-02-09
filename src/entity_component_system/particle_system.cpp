@@ -54,12 +54,12 @@ void ParticleSystem::Emitter::emit(uint32_t count)
 	{
 		particles.push_back(Particle{
 			.position = parent_object.get_position(),
-			.velocity = Maths::RandomUniform(config.velocity_min, config.velocity_max),
+			.velocity = Maths::random_uniform(config.velocity_min, config.velocity_max),
 			.color = config.start_color,
-			.size = Maths::RandomUniform(config.min_size, config.max_size),
-			.rotation = Maths::RandomUniform(0.0f, Maths::PI * 2.0f),
-			.lifetime = Maths::RandomUniform(config.min_lifetime, config.max_lifetime),
-			.rotation_speed = Maths::RandomUniform(config.rotation_speed_min, config.rotation_speed_max)
+			.size = Maths::random_uniform(config.min_size, config.max_size),
+			.rotation = Maths::random_uniform(0.0f, Maths::PI * 2.0f),
+			.lifetime = Maths::random_uniform(config.min_lifetime, config.max_lifetime),
+			.rotation_speed = Maths::random_uniform(config.rotation_speed_min, config.rotation_speed_max)
 		});
 	}
 }
