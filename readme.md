@@ -6,8 +6,8 @@
 * ninja: c++ build system `install ninja` or `install ninja-build`
 * clang: c++ compiler `install clang-17` + `clang-tools-17`
 * glslc: shader compiler `mamba: shaderc`
-* vulkan: graphics api + sdk -> check fi it's available via `vulkaninfo`
-	* validation layers: `install vulkan-validationlayers`
+* vulkan: graphics api + sdk -> check if it's available via `vulkaninfo`
+* validation layers: `install vulkan-validationlayers`
 
 ## Building
 

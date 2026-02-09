@@ -1,10 +1,11 @@
-#include "game_engine.hpp"
-#include "graphics_engine/graphics_engine.hpp"
-#include "window.hpp"
-#include "config.hpp"
-#include "utility.hpp"
-#include "renderable/mesh_factory.hpp"
-#include "renderable/material_factory.hpp"
+#include <game_engine.hpp>
+#include <graphics_engine/graphics_engine.hpp>
+#include <window.hpp>
+#include <config.hpp>
+#include <utility.hpp>
+#include <renderable/mesh_factory.hpp>
+#include <renderable/material_factory.hpp>
+#include <objects/cubemap.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -36,6 +37,7 @@ int main(int argc, char* argv[])
 		// seems like glfw window must be on main thread otherwise it wont work, 
 		// therefore engine should always be on its own thread
 		GameEngine engine(window);
+		engine.spawn_object<CubeMap>(); // background/horizon
 		Renderable floor_renderable;
 		floor_renderable.pipeline_render_type = ERenderType::COLOR;
 		floor_renderable.mesh_id = MeshFactory::cube_id();

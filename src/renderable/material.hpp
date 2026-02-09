@@ -24,8 +24,8 @@ struct ColorMaterial : public Material
 public:
 	ColorMaterial()
 	{
-		const glm::vec3 white = glm::vec3(1.0f);
-		const glm::vec3 black = glm::vec3(0.0f);
+		static const glm::vec3 white = glm::vec3(1.0f);
+		static const glm::vec3 black = glm::vec3(0.0f);
 		data.ambient = white;
 		data.diffuse = white;
 		data.specular = white;

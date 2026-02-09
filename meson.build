@@ -38,10 +38,4 @@ subdir('third_party')
 subdir('src')
 subdir('shaders')
 subdir('test')
-
-executable(
-	meson.project_name(), 
-	'src/main.cpp',
-	dependencies: krisp_core,
-	install: true,
-	install_dir: install_dir)
+subdir('applications')
