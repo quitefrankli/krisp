@@ -214,6 +214,15 @@ inline Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	return new_obj;
 }
 
+Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
+{
+	auto& obj = spawn_object<Object>(Renderable::make_default());
+	obj.set_scale(glm::vec3(0.2f));
+	obj.set_visibility(false);
+	ecs.spawn_particle_emitter(obj.get_id(), config);
+	return obj;
+}
+
 void GameEngine::delete_object(ObjectID id)
 {
 	if (!entity_deletion_queue.push(id))

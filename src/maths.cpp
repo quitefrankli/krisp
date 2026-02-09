@@ -18,19 +18,21 @@ namespace Maths
 	template<>
 	float SigmoidFunction<float>(float input) { return 1.0 / (1 + pow(EULERS_NUMBER, -input)); }
 
-	template<>
-	float RandomUniform(float min, float max)
+	template<typename T>
+	T RandomUniform(T min, T max)
 	{
 		if (min > max)
 		{
-			return std::uniform_real_distribution<float>(max, min)(randGen);
+			return std::uniform_real_distribution<T>(max, min)(randGen);
 		}
 
-		return std::uniform_real_distribution<float>(min, max)(randGen);
+		return std::uniform_real_distribution<T>(min, max)(randGen);
 	}
 
+	template float RandomUniform<float>(float min, float max);
+
 	template<>
-	int RandomUniform<int>(int min, int max)	
+	int RandomUniform<int>(int min, int max)
 	{
 		if (min > max)
 		{
@@ -41,15 +43,35 @@ namespace Maths
 	}
 
 	template<>
-	float RandomNormal(float mean, float stdDev)
+	glm::vec3 RandomUniform<glm::vec3>(glm::vec3 min, glm::vec3 max)
+	{
+		return glm::vec3{
+			RandomUniform(min.x, max.x),
+			RandomUniform(min.y, max.y),
+			RandomUniform(min.z, max.z)
+		};
+	}
+
+	template<typename T>
+	T RandomNormal(T mean, T stdDev)
 	{
 		if (stdDev <= 0)
 		{
 			return mean;
 		}
 		
-		return std::normal_distribution<float>(mean, stdDev)(randGen);
+		return std::normal_distribution<T>(mean, stdDev)(randGen);
 	}
+
+	template float RandomNormal<float>(float mean, float stdDev);
+
+	template<typename T>
+	T lerp(T a, T b, float t)
+	{
+		return a + t * (b - a);
+	}
+
+	template glm::vec4 lerp<glm::vec4>(glm::vec4 a, glm::vec4 b, float t);
 
 	// taken from http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
 	glm::quat RotationBetweenVectors(const glm::vec3& start, const glm::vec3& end)

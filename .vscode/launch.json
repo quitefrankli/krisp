@@ -11,7 +11,7 @@
 			"program": "${workspaceFolder}/build/applications/krisp/krisp",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "meson compile -C build krisp"
+			"preLaunchTask": "build krisp"
 		}
 	]
 }

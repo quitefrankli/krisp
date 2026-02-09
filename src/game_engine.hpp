@@ -67,6 +67,8 @@ public:
 
 	Object& spawn_object(std::shared_ptr<Object>&& object);
 
+	Object& spawn_particle_emitter(const ParticleEmitterConfig& config);
+
 	// this function assumes something else manages the lifetime of object
 	template<typename object_t>
 	void draw_object(const std::shared_ptr<object_t>& object)
@@ -83,9 +85,6 @@ public:
 	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
-	
-	// Particle system test function
-	void spawn_test_particles();
 
 	void set_application(IApplication* application);
 	ECS& get_ecs() { return ecs; }

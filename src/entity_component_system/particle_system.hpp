@@ -3,6 +3,7 @@
 #include "shared_data_structures.hpp"
 #include "renderable/material.hpp"
 #include "identifications.hpp"
+#include "objects/object.hpp"
 
 #include <glm/glm.hpp>
 
@@ -13,19 +14,6 @@
 #include <unordered_map>
 
 
-struct Particle
-{
-	glm::vec3 position;
-	glm::vec4 color;
-	float size;
-	float rotation;
-	float lifetime;       // Remaining lifetime
-	float max_lifetime;   // Initial lifetime for normalization
-	glm::vec3 velocity;
-	float rotation_speed;
-};
-
-// Emitter configuration
 struct ParticleEmitterConfig
 {
 	uint32_t max_particles = 1000;
@@ -44,65 +32,51 @@ struct ParticleEmitterConfig
 	std::optional<MaterialID> material_id; // Optional texture
 };
 
-class ParticleEmitter
-{
-public:
-	ParticleEmitter(const ParticleEmitterConfig& config);
-	~ParticleEmitter();
-
-	void update(float delta_time);
-	void emit(uint32_t count);
-	
-	void set_position(const glm::vec3& position) { this->position = position; }
-	const glm::vec3& get_position() const { return position; }
-	
-	void set_enabled(bool enabled) { this->enabled = enabled; }
-	bool is_enabled() const { return enabled; }
-	
-	const std::vector<Particle>& get_particles() const { return particles; }
-	const ParticleEmitterConfig& get_config() const { return config; }
-	
-	bool is_alive() const { return loop || !particles.empty(); }
-
-private:
-	ParticleEmitterConfig config;
-	std::vector<Particle> particles;
-	glm::vec3 position = glm::vec3(0.0f);
-	float emission_accumulator = 0.0f;
-	bool enabled = true;
-	bool loop = true;
-};
-
 class ECS;
 
 class ParticleSystem
 {
 public:
-	ParticleSystem();
-	~ParticleSystem();
-
-	void update(float delta_time);
+	void process(float delta_time);
 	
-	// Create a new particle emitter attached to an object
-	ParticleEmitter& create_emitter(ObjectID object_id, const ParticleEmitterConfig& config);
-	
-	// Add an emitter directly (world-space, not attached to any object)
-	void add_emitter(std::unique_ptr<ParticleEmitter>&& emitter);
-	
-	// Remove all emitters for an object
-	void remove_emitters(ObjectID object_id);
-	
-	// Get all emitters
-	const std::vector<std::unique_ptr<ParticleEmitter>>& get_emitters() const { return emitters; }
+	void spawn_particle_emitter(EntityID entity_id, const ParticleEmitterConfig& config);
 	
 	// Get particle data for rendering (fills instance data buffer)
 	void prepare_render_data(std::vector<SDS::ParticleInstanceData>& out_instance_data);
+
+	void remove_entity(EntityID id);
 
 protected:
 	virtual ECS& get_ecs() = 0;
 	virtual const ECS& get_ecs() const = 0;
 
 private:
-	std::vector<std::unique_ptr<ParticleEmitter>> emitters;
-	std::unordered_map<ObjectID, std::vector<size_t>> object_emitters; // object_id -> emitter indices
+	struct Particle
+	{
+		glm::vec3 position;
+		glm::vec3 velocity;
+		glm::vec4 color;
+		float size;
+		float rotation;
+		float lifetime;       // Remaining lifetime
+		float rotation_speed;
+	};
+
+	struct Emitter
+	{
+		Emitter(const ParticleEmitterConfig& config, const Object& parent_object);
+
+		void process(float delta_time);
+		void emit(uint32_t count);
+		
+		bool is_alive() const { return config.loop || !particles.empty(); }
+
+		ParticleEmitterConfig config;
+		std::vector<Particle> particles;
+		float emission_accumulator = 0.0f;
+		bool enabled = true;
+		const Object& parent_object;
+	};
+
+	std::unordered_map<EntityID, std::unique_ptr<Emitter>> emitters;
 };

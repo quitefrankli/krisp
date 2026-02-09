@@ -18,5 +18,6 @@ struct Renderable
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 	bool casts_shadow = true;
 
+	static Renderable make_default();
 	static Renderable make_default(MeshID mesh_id);
 };

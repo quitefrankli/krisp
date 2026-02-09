@@ -9,8 +9,6 @@
 #include <memory>
 
 
-using EntityID = ObjectID;;
-
 struct DetectedEntityCollision
 {
 	bool bCollided = false;

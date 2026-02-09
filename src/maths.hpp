@@ -23,6 +23,9 @@ namespace Maths
 	template<class T>
 	T RandomNormal(T mean, T stdDev);
 
+	template<class T>
+	T lerp(T a, T b, float t);
+
 	constexpr float deg2rad(float deg) { return PI * deg / 180.0f; }
 	constexpr float rad2deg(float rad) { return rad * 180.0f / PI; }
 

@@ -1,6 +1,12 @@
-#include "renderable/renderable.hpp"
+#include "renderable.hpp"
 #include "renderable/material_factory.hpp"
+#include "renderable/mesh_factory.hpp"
 
+
+Renderable Renderable::make_default()
+{
+	return make_default(MeshFactory::sphere_id());
+}
 
 Renderable Renderable::make_default(MeshID mesh_id)
 {

@@ -8,8 +8,6 @@
 #include <memory>
 
 
-using EntityID = ObjectID;
-
 struct ColliderComponent
 {
 	std::unique_ptr<Collider> collider;

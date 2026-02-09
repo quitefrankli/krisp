@@ -41,6 +41,7 @@ struct std::hash<GenericID<Tag>>
 };
 
 using ObjectID = GenericID<class ObjectIDTag>;
+using EntityID = ObjectID;
 using MeshID = GenericID<class MeshIDTag>;
 using MaterialID = GenericID<class MaterialIDTag>;
 using SkeletonID = GenericID<class SkeletonIDTag>;
