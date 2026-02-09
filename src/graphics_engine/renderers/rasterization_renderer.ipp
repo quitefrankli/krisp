@@ -150,8 +150,10 @@ void RasterizationRenderer::submit_draw_commands(
 		if (!graphics_object.get_visibility())
 			continue;
 		
-		if (stenciled_ids.find(id) != stenciled_ids.end())
-			continue; // skip stenciled objects, we will render them later
+		// skip stenciled objects in main loop - they will be rendered with stencil effect later
+		// unless we're in wireframe mode, in which case we skip the stencil effect
+		if (stenciled_ids.find(id) != stenciled_ids.end() && !get_graphics_engine().is_wireframe_mode)
+			continue;
 
 		const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ? 
 			EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
@@ -168,51 +170,55 @@ void RasterizationRenderer::submit_draw_commands(
 	}
 	
 	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader
-	for (const auto& id : stenciled_ids)
+	// skip stencil effect when in wireframe mode
+	if (!get_graphics_engine().is_wireframe_mode)
 	{
-		const auto it_obj = graphics_objects.find(id);
-		if (it_obj == graphics_objects.end())
-			continue;
-
-		const auto& graphics_object = *it_obj->second;
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
-		if (!graphics_object.get_visibility())
-			continue;
-
-		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+		for (const auto& id : stenciled_ids)
 		{
-			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
-			draw_renderable(command_buffer,
-							renderable,
-							graphics_object.get_obj_dset(frame_index),
-							graphics_object.get_renderable_dsets()[renderable_idx],
-							EPipelineModifier::STENCIL);
-		}	
-	}
+			const auto it_obj = graphics_objects.find(id);
+			if (it_obj == graphics_objects.end())
+				continue;
 
-	for (const auto& id : stenciled_ids)
-	{
-		const auto it_obj = graphics_objects.find(id);
-		if (it_obj == graphics_objects.end())
-			continue;
+			const auto& graphics_object = *it_obj->second;
+			if (graphics_object.is_marked_for_delete())
+				continue;
 
-		const auto& graphics_object = *it_obj->second;
-		if (graphics_object.is_marked_for_delete())
-			continue;
+			if (!graphics_object.get_visibility())
+				continue;
 
-		if (!graphics_object.get_visibility())
-			continue;
-		
-		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+			{
+				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+				draw_renderable(command_buffer,
+								renderable,
+								graphics_object.get_obj_dset(frame_index),
+								graphics_object.get_renderable_dsets()[renderable_idx],
+								EPipelineModifier::STENCIL);
+			}	
+		}
+
+		for (const auto& id : stenciled_ids)
 		{
-			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
-			draw_renderable(command_buffer,
-							renderable,
-							graphics_object.get_obj_dset(frame_index),
-							graphics_object.get_renderable_dsets()[renderable_idx],
-							EPipelineModifier::POST_STENCIL);
+			const auto it_obj = graphics_objects.find(id);
+			if (it_obj == graphics_objects.end())
+				continue;
+
+			const auto& graphics_object = *it_obj->second;
+			if (graphics_object.is_marked_for_delete())
+				continue;
+
+			if (!graphics_object.get_visibility())
+				continue;
+			
+			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+			{
+				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+				draw_renderable(command_buffer,
+								renderable,
+								graphics_object.get_obj_dset(frame_index),
+								graphics_object.get_renderable_dsets()[renderable_idx],
+								EPipelineModifier::POST_STENCIL);
+			}
 		}
 	}
 

@@ -216,6 +216,16 @@ WireframePipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 	return {position_attr};
 }
 
+std::vector<VkVertexInputBindingDescription> WireframePipeline<SkinnedPipeline>::get_binding_descriptions() const
+{
+	return SkinnedPipeline::get_binding_descriptions_();
+}
+
+std::vector<VkVertexInputAttributeDescription> WireframePipeline<SkinnedPipeline>::get_attribute_descriptions() const
+{
+	return SkinnedPipeline::get_attribute_descriptions_();
+}
+
 void RaytracingPipeline::initialise()
 {
 	std::filesystem::path shader_path = Utility::get_shaders_path() / get_shader_name();

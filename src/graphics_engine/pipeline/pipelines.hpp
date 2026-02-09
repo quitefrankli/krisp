@@ -43,19 +43,6 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
-template<Wireframeable PrimaryPipelineType>
-class WireframePipeline : public GraphicsEnginePipeline
-{
-public:
-	WireframePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "wireframe"; }
-	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
-	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
-	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
-};
-
 class RaytracingPipeline : public GraphicsEnginePipeline
 {
 public:
@@ -93,6 +80,32 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "skinned"; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<Wireframeable PrimaryPipelineType>
+class WireframePipeline : public GraphicsEnginePipeline
+{
+public:
+	WireframePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "wireframe"; }
+	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<>
+class WireframePipeline<SkinnedPipeline> : public GraphicsEnginePipeline
+{
+public:
+	WireframePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "wireframe_skinned"; }
+	virtual VkPolygonMode get_polygon_mode() const override { return VkPolygonMode::VK_POLYGON_MODE_LINE; }
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
