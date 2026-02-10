@@ -24,7 +24,7 @@ conan build . -bf=build -c tools.system.package_manager:mode=install -c tools.sy
 During development for debug build
 ```bash
 meson setup build --reconfigure --buildtype=debug
-meson build -C build krisp
+meson compile -C build krisp
 build/applications/krisp/krisp
 ```
 

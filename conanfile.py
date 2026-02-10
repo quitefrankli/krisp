@@ -30,6 +30,7 @@ class vulkan_conan(ConanFile):
         "gtest/1.15.0",
         "yaml-cpp/0.8.0",
         "magic_enum/0.8.2",
+        "perlinnoise/3.0.0",
     ) 
 
     def requirements(self):

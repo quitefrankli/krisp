@@ -195,7 +195,7 @@ const VkPhysicalDeviceProperties2& GraphicsEngineDevice::get_physical_device_pro
 	return physical_device_properties.value();
 }
 
-inline VkDeviceAddress GraphicsEngineDevice::get_buffer_device_address(VkBuffer buffer)
+VkDeviceAddress GraphicsEngineDevice::get_buffer_device_address(VkBuffer buffer)
 {
 	VkBufferDeviceAddressInfo info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
 	info.buffer = buffer;

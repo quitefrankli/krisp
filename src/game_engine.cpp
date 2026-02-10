@@ -187,7 +187,7 @@ void GameEngine::shutdown_impl()
 
 GameEngine::~GameEngine() = default;
 
-inline Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
+Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 {
 	auto it = objects.emplace(object->get_id(), std::move(object));
 	Object& new_obj = *(it.first->second);

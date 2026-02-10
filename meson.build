@@ -32,7 +32,8 @@ conan_dependencies = [
     dependency('gtest', required: true),
     dependency('yaml-cpp', required: true),
     dependency('magic_enum', required: true),
-	dependency('miniaudio', required: true)
+	dependency('miniaudio', required: true),
+	dependency('perlinnoise', required: true)
 ]
 
 subdir('third_party')
