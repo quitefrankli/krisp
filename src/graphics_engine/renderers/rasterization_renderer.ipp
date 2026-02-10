@@ -222,11 +222,13 @@ void RasterizationRenderer::submit_draw_commands(
 		}
 	}
 
-	// Render particles within the same render pass
-	// Get the particle renderer and call its draw function
-	auto& particle_renderer = static_cast<ParticleRenderer&>(
-		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::PARTICLE));
-	particle_renderer.render_particles(command_buffer, frame_index);
+	// Render particles within the same render pass (skip in wireframe mode)
+	if (!get_graphics_engine().is_wireframe_mode)
+	{
+		auto& particle_renderer = static_cast<ParticleRenderer&>(
+			get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::PARTICLE));
+		particle_renderer.render_particles(command_buffer, frame_index);
+	}
 
 	vkCmdEndRenderPass(command_buffer);
 }
