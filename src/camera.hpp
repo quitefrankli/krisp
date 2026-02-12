@@ -29,7 +29,6 @@ public:
 	Maths::Ray get_ray(const glm::vec2& screen) const;
 
 	glm::vec3 get_focus() const;
-	glm::vec3 get_old_focus() const;
 
 	float get_focal_length();
 	void zoom_in(float length);
@@ -63,7 +62,7 @@ public: // object
 	// rotates camera based on screen offset from last screen pos
 	void rotate_camera(const glm::vec2& offset, float delta_time);
 	// pans both camera and focus in a direction
-	void pan(const glm::vec3& axis, const float magnitude);
+	void pan(const glm::vec3& relative_axis, const float magnitude);
 	void pan(const glm::vec2& axis, const float magnitude);
 
 	virtual void toggle_visibility() override;
@@ -74,8 +73,6 @@ protected:
 private:
 	glm::mat4 perspective_matrix;
 	glm::mat4 orthographic_matrix;
-
-	glm::vec3 prev_focus;
 
 	Mode mode;
 	Listener listener;

@@ -121,7 +121,6 @@ void Camera::update_tracker()
 	set_old_position(focus_obj->get_position());
 	set_old_rotation(focus_obj->get_rotation());
 	set_old_scale(get_scale());
-	prev_focus = get_focus();
 }
 
 glm::vec3 Camera::get_focus() const
@@ -142,9 +141,11 @@ void Camera::look_at(const glm::vec3& focus)
 	look_at(focus, get_position());
 }
 
-void Camera::pan(const glm::vec3& axis, const float magnitude)
+void Camera::pan(const glm::vec3& relative_axis, const float magnitude)
 {
-	focus_obj->set_position(get_old_focus() + axis * magnitude);
+	const glm::vec3 offset = relative_axis * magnitude;
+	focus_obj->set_position(get_focus() + offset);
+	Object::set_position(get_position() + offset);
 }
 
 void Camera::pan(const glm::vec2& axis, const float magnitude)
@@ -153,11 +154,6 @@ void Camera::pan(const glm::vec2& axis, const float magnitude)
 	const float sensitivity = panning_sensitivity * get_focal_length();
 	const glm::vec3 vec = sync_to_camera(axis);
 	pan(vec, magnitude * sensitivity);
-}
-
-glm::vec3 Camera::get_old_focus() const
-{
-	return prev_focus;
 }
 
 float Camera::get_focal_length()

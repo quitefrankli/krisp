@@ -40,10 +40,6 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	else if (key_input.eq(GLFW_KEY_BACKSPACE, NONE, PRESS) ||
 			 key_input.eq(GLFW_KEY_DELETE, NONE, PRESS))
 		gizmo->delete_object();
-	// else if (key_input.eq(GLFW_KEY_LEFT_SHIFT, NONE, PRESS))
-	// 	window.set_shift_down(true);
-	// else if (key_input.eq(GLFW_KEY_LEFT_SHIFT, NONE, RELEASE))
-	// 	window.set_shift_down(false);
 	else if (key_input.eq(GLFW_KEY_LEFT_SUPER, NONE, PRESS)) // for macbook dragging
 	{
 		mouse->mmb_down = true;
@@ -53,8 +49,9 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	}
 	else if (key_input.eq(GLFW_KEY_LEFT_SUPER, NONE, RELEASE))
 		mouse->mmb_down = false;
-	else
-		application->on_key_press(key_input);
+		
+	keyboard.update_key(key_input);
+	application->on_key_press(key_input);
 }
 
 void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input)

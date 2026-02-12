@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bitset>
+
 #include <glm/vec2.hpp>
 
 
@@ -92,4 +94,25 @@ struct KeyInput
     {
         return eq(other.key, other.modifier, other.action);
     }
+};
+
+class Keyboard
+{
+public:
+	static constexpr int MAX_KEYS = 512; // GLFW key codes go up to ~348
+
+	void update_key(const KeyInput& key_input);
+	
+	bool is_pressed(int key) const;
+	
+	// Named accessors for commonly used keys
+	bool w_pressed() const;
+	bool s_pressed() const;
+	bool a_pressed() const;
+	bool d_pressed() const;
+	bool q_pressed() const;
+	bool e_pressed() const;
+
+private:
+	std::bitset<MAX_KEYS> key_states;
 };

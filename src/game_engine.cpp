@@ -169,9 +169,42 @@ void GameEngine::main_loop(const float time_delta)
 		}
 	}
 
+	process_camera_movement(time_delta);
+
 	ecs.process(time_delta);
 	experimental->process(time_delta);
 	application->on_tick(time_delta);
+}
+
+void GameEngine::process_camera_movement(float time_delta)
+{
+	const float move_speed = 5.0f;
+	glm::vec3 offset = Maths::zero_vec;
+	
+	// Get camera's forward direction (from rotation)
+	const glm::vec3 forward = camera->get_rotation() * Maths::forward_vec;
+	const glm::vec3 right = camera->get_rotation() * Maths::right_vec;
+	
+	// W/S: move forward/backward along camera's forward direction
+	if (keyboard.w_pressed())
+		offset += forward * move_speed * time_delta;
+	if (keyboard.s_pressed())
+		offset -= forward * move_speed * time_delta;
+	
+	// A/D: move left/right along camera's right direction
+	if (keyboard.a_pressed())
+		offset -= right * move_speed * time_delta;
+	if (keyboard.d_pressed())
+		offset += right * move_speed * time_delta;
+	
+	// Q/E: move down/up along world vertical axis
+	if (keyboard.q_pressed())
+		offset -= Maths::up_vec * move_speed * time_delta;
+	if (keyboard.e_pressed())
+		offset += Maths::up_vec * move_speed * time_delta;
+	
+	if (offset != Maths::zero_vec)
+		camera->pan(offset, 1.0f);
 }
 
 void GameEngine::shutdown_impl()

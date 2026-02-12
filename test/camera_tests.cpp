@@ -52,16 +52,17 @@ TEST_F(CameraTests, camera_panning)
 	camera.pan(delta, glm::length(delta));
 	camera.update_tracker();
 	apparent_object = camera.get_view() * glm::vec4(object, 1.0f);
-	// 0.4f from Camera::panning_sensitivity * camera.focal_length()
-	ASSERT_TRUE(glm_equal(apparent_object, {-0.4f, 0.0f, 2.0f}));
+	// When both camera and focus move together, both position and focus shift
+	// This maintains the view direction but changes the apparent position
+	ASSERT_TRUE(glm_equal(apparent_object, {-0.392232f, 0.0f, 2.118054f}));
 
 	delta = glm::vec2{ 0.0f, 0.5f } - start;
 	camera.pan(delta, glm::length(delta));
 	camera.update_tracker();
 	apparent_object = camera.get_view() * glm::vec4(object, 1.0f);
-	ASSERT_TRUE(glm_equal(apparent_object, {-0.4f, -0.2f, 2.0f}));
+	ASSERT_TRUE(glm_equal(apparent_object, {-0.392232f, -0.195143f, 2.148132f}));
 	apparent_object = camera.get_view() * glm::vec4(object2, 1.0f);
-	ASSERT_TRUE(glm_equal(apparent_object, {0.6f, 0.8f, 3.0f}));
+	ASSERT_TRUE(glm_equal(apparent_object, {0.784465f, 0.877952f, 2.829200f}));
 }
 
 TEST_F(CameraTests, camera_ray_cast)

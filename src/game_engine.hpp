@@ -112,6 +112,7 @@ private:
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<Gizmo> gizmo;
 	std::unique_ptr<Mouse> mouse;
+	Keyboard keyboard;
 	ResourceLoader resource_loader;
 	ECS& ecs;
 
@@ -134,6 +135,9 @@ public: // callbacks
 	virtual void key_callback(const KeyInput& key_input) override;
 	virtual void mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input) override;
 	// void pause();
+
+private:
+	void process_camera_movement(float time_delta);
 	
 private: // friends
 	friend Experimental;
