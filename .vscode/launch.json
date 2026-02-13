@@ -12,6 +12,15 @@
 			"args": [],
 			"cwd": "${workspaceFolder}",
 			"preLaunchTask": "build krisp"
+		},
+		{
+			"name": "space",
+			"type": "lldb",
+			"request": "launch",
+			"program": "${workspaceFolder}/build/applications/space/space",
+			"args": [],
+			"cwd": "${workspaceFolder}",
+			"preLaunchTask": "build space"
 		}
 	]
 }

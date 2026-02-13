@@ -18,6 +18,15 @@
 				"kind": "build",
 				"isDefault": false
 			}
+		},
+		{
+			"label": "build space",
+			"type": "shell",
+			"command": "meson compile -C build space",
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
 		}
 	]
 }

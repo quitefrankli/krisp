@@ -9,7 +9,8 @@ sources = [
 	'camera_tests.cpp',
 	'math_tests.cpp',
 	'mock_graphics_engine.hpp',
-	'object_tests.cpp']
+	'object_tests.cpp',
+	'orbital_physics_tests.cpp']
 
 exec = executable(
 	'krisp_tests',

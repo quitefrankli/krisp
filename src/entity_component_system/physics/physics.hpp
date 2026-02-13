@@ -35,6 +35,13 @@ public:
 
 	GravitySystem& get_gravity_system();
 
+	// for unit tests
+	const PhysicsComponent* _get_physics_component(const ObjectID id) const
+	{
+		auto it = physics_entities.find(id);
+		return it != physics_entities.end() ? &it->second : nullptr;
+	}
+
 protected:
 	virtual ECS& get_ecs() = 0;
 
