@@ -9,6 +9,7 @@ layout(location=1) in vec3 in_normal;
 layout(location=2) in vec2 in_tex_coord;
 layout(location=3) in vec4 bone_ids;
 layout(location=4) in vec4 bone_weights;
+layout(location=0) out vec3 world_pos;
 
 layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
@@ -19,11 +20,6 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_BON
 {
 	Bone data[];
 } bone_data;
-
-layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
-{
-	GlobalData data;
-} global_data;
 
 mat4 get_bone_matrix(float index)
 {
@@ -41,9 +37,6 @@ void main()
 		get_bone_matrix(bone_ids.y) * bone_weights.y + 
 		get_bone_matrix(bone_ids.z) * bone_weights.z + 
 		get_bone_matrix(bone_ids.w) * bone_weights.w;
-	
-	// TODO: using bone_ids.x is a hack to get the shadow transform, we should do this properly
-	const mat4 shadow_transform = bone_data.data[int(bone_ids.x)].shadow_transform;
-
-    gl_Position = shadow_transform * skin_matrix * vec4(in_position, 1.0);
+	world_pos = (skin_matrix * vec4(in_position, 1.0)).xyz;
+	gl_Position = vec4(world_pos, 1.0);
 }

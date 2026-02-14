@@ -52,18 +52,6 @@ GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engin
 	draw_object(camera->upvector_obj);
 	experimental = std::make_unique<Experimental>(*this);
 
-	Renderable light_renderable;
-	const auto mat_id = MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE);
-	light_renderable.material_ids.push_back(mat_id);
-	light_renderable.mesh_id = MeshFactory::sphere_id();
-	auto light_source = std::make_shared<Object>(light_renderable);
-	light_source->set_name("light source");
-	auto& light_source_obj = spawn_object(std::move(light_source));
-	light_source_obj.set_position(glm::vec3(0.0f, 5.0f, 0.0f));
-	ecs.add_light_source(light_source_obj.get_id(), LightComponent());
-	ecs.add_collider(light_source_obj.get_id(), std::make_unique<SphereCollider>());
-	ecs.add_clickable_entity(light_source_obj.get_id());
-
 	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
 		set_tps(float(1e6) / tps);

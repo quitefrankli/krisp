@@ -3,6 +3,8 @@
 #include "shared_data_structures.hpp"
 
 
+static constexpr uint32_t SHADOW_MAP_LAYER_COUNT = 6; // 6 sided cube
+
 ShadowMapRenderer::ShadowMapRenderer(GraphicsEngine& engine) :
 	Renderer(engine)
 {
@@ -13,6 +15,10 @@ ShadowMapRenderer::ShadowMapRenderer(GraphicsEngine& engine) :
 ShadowMapRenderer::~ShadowMapRenderer()
 {
 	vkDestroySampler(get_logical_device(), shadow_map_sampler, nullptr);
+	for (auto view : shadow_map_cube_views)
+	{
+		vkDestroyImageView(get_logical_device(), view, nullptr);
+	}
 	for (auto& attachment : shadow_map_attachments)
 	{
 		attachment.destroy(get_logical_device());
@@ -37,14 +43,26 @@ void ShadowMapRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		shadow_map_attachment.image,
 		shadow_map_attachment.image_memory,
-		get_msaa_sample_count());
+		get_msaa_sample_count(),
+		SHADOW_MAP_LAYER_COUNT,
+		VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 	shadow_map_attachment.image_view = get_graphics_engine().create_image_view(
 		shadow_map_attachment.image, 
 		depth_format, 
-		VK_IMAGE_ASPECT_DEPTH_BIT);
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+		SHADOW_MAP_LAYER_COUNT);
 
-	create_shadow_map_dset(shadow_map_attachment.image_view);
+	VkImageView shadow_map_cube_view = get_graphics_engine().create_image_view(
+		shadow_map_attachment.image,
+		depth_format,
+		VK_IMAGE_ASPECT_DEPTH_BIT,
+		VK_IMAGE_VIEW_TYPE_CUBE,
+		SHADOW_MAP_LAYER_COUNT);
+
+	create_shadow_map_dset(shadow_map_cube_view);
 	shadow_map_attachments.push_back(shadow_map_attachment);
+	shadow_map_cube_views.push_back(shadow_map_cube_view);
 
 	//
 	// Create framebuffer
@@ -59,7 +77,7 @@ void ShadowMapRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 	frame_buffer_create_info.pAttachments = attachments.data();
 	frame_buffer_create_info.width = extent.width;
 	frame_buffer_create_info.height = extent.height;
-	frame_buffer_create_info.layers = 1;
+	frame_buffer_create_info.layers = SHADOW_MAP_LAYER_COUNT;
 
 	VkFramebuffer new_frame_buffer;
 	if (vkCreateFramebuffer(get_logical_device(), &frame_buffer_create_info, nullptr, &new_frame_buffer) != VK_SUCCESS)

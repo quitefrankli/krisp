@@ -14,6 +14,7 @@
 
 #include <glm/gtx/string_cast.hpp>
 
+#include <array>
 #include <iostream>
 
 
@@ -241,41 +242,53 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	gubo.proj = get_graphics_engine().get_camera()->get_projection();
 	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
 
-	// light controlled by light source, only supports single light source and white lighting currently
-	ObjectID entity = get_graphics_engine().get_ecs().get_global_light_source();
-	auto& light_source = get_graphics_engine().get_object(entity);
-	gubo.light_pos = light_source.get_game_object().get_position();
-	gubo.lighting_scalar = graphic_settings.light_strength;
+	// currently uses a single active light source
+	if (get_graphics_engine().get_ecs().has_light_source())
+	{
+		ObjectID entity = get_graphics_engine().get_ecs().get_global_light_source();
+		auto& light_source = get_graphics_engine().get_object(entity);
+		gubo.light_pos = light_source.get_game_object().get_position();
+		gubo.lighting_scalar = graphic_settings.light_strength;
+	}
+	else
+	{
+		gubo.light_pos = glm::vec3(0.0f, 5.0f, 0.0f);
+		gubo.lighting_scalar = 0.0f;
+	}
+	gubo.shadow_far_plane = 250.0f;
+
+	const std::array<glm::vec3, 6> SHADOW_DIRECTIONS = {
+		Maths::right_vec,
+		-Maths::right_vec,
+		Maths::up_vec,
+		-Maths::up_vec,
+		Maths::forward_vec,
+		-Maths::forward_vec
+	};
+	const std::array<glm::vec3, 6> SHADOW_UPS = {
+		-Maths::up_vec,
+		-Maths::up_vec,
+		Maths::forward_vec,
+		-Maths::forward_vec,
+		-Maths::up_vec,
+		-Maths::up_vec
+	};
+
+	const glm::mat4 shadow_proj = glm::perspectiveLH(
+		Maths::deg2rad(90.0f),
+		1.0f,
+		0.1f,
+		gubo.shadow_far_plane);
+	for (int face_idx = 0; face_idx < 6; ++face_idx)
+	{
+		const glm::mat4 shadow_view = glm::lookAtLH(
+			gubo.light_pos,
+			gubo.light_pos + SHADOW_DIRECTIONS[face_idx],
+			SHADOW_UPS[face_idx]);
+		gubo.shadow_view_proj_mats[face_idx] = shadow_proj * shadow_view;
+	}
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(image_index, gubo);
-
-	// TODO: this is a hacky approach, this will not work with multiple light sources
-	// we will need to eventually fix this up properly
-	
-	const auto get_shadow_view_proj_matrix = [&](const glm::vec3& obj_pos) -> glm::mat4
-	{
-		// const glm::mat4 view = glm::lookAtLH(
-		// 	gubo.light_pos,
-		// 	obj_pos, 
-		// 	Maths::forward_vec);
-		const glm::mat4 view = glm::lookAtLH(
-			gubo.light_pos + Maths::up_vec, 
-			gubo.light_pos, 
-			Maths::forward_vec);
-		// const glm::vec2 horizontal_span = { -10.0f, 10.0f };
-		// const glm::mat4 proj = glm::orthoLH(
-		// 	horizontal_span.x, 
-		// 	horizontal_span.y, 
-		// 	horizontal_span.x, 
-		// 	horizontal_span.y, 
-		// 	0.1f, 
-		// 	250.0f);
-
-		// const auto resolution = Maths::deg2rad(45.0f); // higher is lower
-		const auto resolution = Maths::deg2rad(135.0f); // higher is lower
-		const glm::mat4 proj = glm::perspectiveLH(resolution, 1.0f, 0.1f, 250.0f);
-		return proj * view;
-	};
 
 	// update per object uniforms
 	SDS::ObjectData object_data{};
@@ -285,7 +298,6 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		object_data.model = graphics_object->get_game_object().get_transform();
 		object_data.mvp = gubo.proj * gubo.view * object_data.model;
 		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
-		object_data.shadow_mvp = get_shadow_view_proj_matrix(graphics_object->get_game_object().get_position()) * object_data.model;
 		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
 
 		// if object contains skinned meshes update the bone matrices
@@ -297,10 +309,8 @@ void GraphicsEngineFrame::update_uniform_buffer()
 			}
 
 			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*renderable.skeleton_id);
-			std::ranges::for_each(bones, [transform=object_data.model, &get_shadow_view_proj_matrix](SDS::Bone& bone) {
+			std::ranges::for_each(bones, [transform=object_data.model](SDS::Bone& bone) {
 				bone.final_transform = transform * bone.final_transform;
-				const glm::vec3 DUMMY_POS = {0.0f, 0.0f, 0.0f};
-				bone.shadow_transform = get_shadow_view_proj_matrix(DUMMY_POS);
 			});
 			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*renderable.skeleton_id, image_index), bones);
 		}

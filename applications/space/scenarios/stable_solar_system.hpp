@@ -2,6 +2,7 @@
 
 #include <game_engine.hpp>
 #include <renderable/mesh_factory.hpp>
+#include <renderable/material_factory.hpp>
 #include <entity_component_system/material_system.hpp>
 #include <entity_component_system/physics/physics_component.hpp>
 
@@ -14,16 +15,19 @@ namespace Scenarios
 inline void setup_orbital_system(GameEngine& engine)
 {
 	// Create the star (central body)
-	ColorMaterial star_material;
-	star_material.data.diffuse = glm::vec3(1.0f, 0.9f, 0.2f);
-	star_material.data.emissive = glm::vec3(0.8f, 0.7f, 0.1f);
-
-	Renderable star_renderable = Renderable::make_default(MeshFactory::sphere_id());
-	star_renderable.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(star_material))));
+	Renderable star_renderable{
+		.mesh_id = MeshFactory::sphere_id(MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::ICO_SPHERE, 100),
+		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+		.casts_shadow = false,
+	};
+	LightComponent sun_light;
+	sun_light.intensity = 1.0f;
+	sun_light.color = glm::vec3(1.0f, 0.9f, 0.2f);
 	Planet& star = engine.spawn_object<Planet>(star_renderable);
 	star.set_name("Star");
 	star.set_position(glm::vec3(0.0f, 0.0f, 0.0f));
 	star.set_scale(glm::vec3(3.0f, 3.0f, 3.0f));
+	engine.get_ecs().add_light_source(star.get_id(), sun_light);
 
 	PhysicsComponent star_physics;
 	star_physics.mass = 5000.0f;

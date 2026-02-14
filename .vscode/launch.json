@@ -11,6 +11,11 @@
 			"program": "${workspaceFolder}/build/applications/krisp/krisp",
 			"args": [],
 			"cwd": "${workspaceFolder}",
+			"initCommands": [
+				"type category enable default",
+				"type category enable libcxx",
+				"type category enable gnu-libstdc++"
+			],
 			"preLaunchTask": "build krisp"
 		},
 		{
@@ -20,6 +25,11 @@
 			"program": "${workspaceFolder}/build/applications/space/space",
 			"args": [],
 			"cwd": "${workspaceFolder}",
+			"initCommands": [
+				"type category enable default",
+				"type category enable libcxx",
+				"type category enable gnu-libstdc++"
+			],
 			"preLaunchTask": "build space"
 		}
 	]

@@ -59,7 +59,7 @@ krisp_libs = static_library(
 	'krisp_libs', 
 	all_sources,
 	include_directories: additional_include_directories,
-	dependencies: conan_dependencies + third_party_libs_dep)
+	dependencies: conan_dependencies + [third_party_libs_dep, shader_artifacts_dep])
 
 krisp_core = declare_dependency(
 	include_directories: additional_include_directories + include_directories('.'),

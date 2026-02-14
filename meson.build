@@ -36,8 +36,8 @@ conan_dependencies = [
 	dependency('perlinnoise', required: true)
 ]
 
+subdir('shaders')
 subdir('third_party')
 subdir('src')
-subdir('shaders')
 subdir('test')
 subdir('applications')

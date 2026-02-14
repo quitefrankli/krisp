@@ -9,11 +9,16 @@ foreach f : run_command('find', meson.source_root() / 'shaders', '-type', 'f').s
 	endif
 endforeach
 
-custom_target(
+shader_artifacts = custom_target(
 	'shader_artifacts',
 	input: shader_files,
 	output: ['dummy'],
 	command: ['bash', meson.source_root()/'shader_compiler.sh', '&&', 'touch', '@OUTPUT@'],
 	depend_files: shader_files,
 	build_by_default: true
+)
+
+
+shader_artifacts_dep = declare_dependency(
+	sources: [shader_artifacts]
 )

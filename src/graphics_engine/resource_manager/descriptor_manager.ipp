@@ -11,6 +11,7 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_global_binding()
 	gubo_layout_binding.descriptorCount = 1;
 	// defines which shader stage the descriptor is going to be referenced
 	gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
+		VK_SHADER_STAGE_GEOMETRY_BIT |
 		VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 	gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 

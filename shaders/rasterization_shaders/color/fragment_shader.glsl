@@ -7,7 +7,6 @@
 // note that the fragment shader receives the input as interpolated values
 layout(location=2) in vec3 surface_normal;
 layout(location=4) in vec3 frag_pos;
-layout(location=5) in vec4 shadow_coords;
 
 layout(location=0) out vec4 out_color;
 
@@ -21,36 +20,17 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 	GlobalData data;
 } global_data;
 
-layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform sampler2D shadow_map;
+layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform samplerCube shadow_map;
 
-float compute_shadow_factor(vec4 shadow_coords)
+float compute_shadow_factor(vec3 normal, vec3 lightDir)
 {
-	// if (abs(shadow_coords.z) > 1.0)
-	// {
-	// 	// outside NDC, so treat as if not in shadow
-	// 	return 1.0;
-	// }
-
-	// convert light space to screen space NDC
-	shadow_coords.xyz /= shadow_coords.w;
-	// Vulkan's Z is already in NDC [0 : 1]
-	shadow_coords.xy = shadow_coords.xy * 0.5 + 0.5;
-
-	shadow_coords.y = 1.0 - shadow_coords.y; // I'm not sure why it appears the y-axis is flipped, adding here
-
-	// percentage closer filtering
-	const vec2 texel_size = 1.0 / textureSize(shadow_map, 0);
-	float shadow_factor = 0.0;
-	for (int x = -1; x <= 1; ++x)
-	{
-		for (int y = -1; y <= 1; ++y)
-		{
-			const float closest_depth = texture(shadow_map, shadow_coords.xy + vec2(x, y) * texel_size).r; 
-			shadow_factor += shadow_coords.z > closest_depth ? 0.05 : 1.0;
-		}
-	}
-
-	return shadow_factor / 9.0;
+	const vec3 frag_to_light = frag_pos - global_data.data.light_pos;
+	// Our engine uses a left-handed world basis; cubemap lookup expects right-handed orientation.
+	const vec3 shadow_lookup_dir = vec3(-frag_to_light.x, frag_to_light.y, -frag_to_light.z);
+	const float current_depth = length(frag_to_light);
+	const float closest_depth = texture(shadow_map, shadow_lookup_dir).r * global_data.data.shadow_far_plane;
+	const float bias = max(0.03 * (1.0 - dot(normal, lightDir)), 0.003);
+	return (current_depth - bias) > closest_depth ? 0.05 : 1.0;
 }
 
 void main()
@@ -74,5 +54,5 @@ void main()
 	// emissive
 	const vec3 emissive = EMISSIVE_STRENGTH * mat_data.data.emissive;
         
-	out_color = vec4(ambient + (diffuse + specular)*compute_shadow_factor(shadow_coords) + emissive, 1.0);
+	out_color = vec4(ambient + (diffuse + specular) * compute_shadow_factor(norm, lightDir) + emissive, 1.0);
 }

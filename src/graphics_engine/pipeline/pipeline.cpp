@@ -151,6 +151,7 @@ void GraphicsEnginePipeline::initialise()
 
 	VkShaderModule vertex_shader = create_shader_module(shader_path.string() + "/vertex_shader.spv");
 	VkShaderModule fragment_shader = create_shader_module(shader_path.string() + "/fragment_shader.spv");
+	VkShaderModule geometry_shader = VK_NULL_HANDLE;
 
 	VkPipelineShaderStageCreateInfo vertex_shader_create_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	vertex_shader_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT; // tells vulkan which pipeline stage the shader is going to be used
@@ -163,7 +164,18 @@ void GraphicsEnginePipeline::initialise()
 	fragment_shader_create_info.module = fragment_shader;
 	fragment_shader_create_info.pName = "main";
 
-	VkPipelineShaderStageCreateInfo shader_stages[] = { vertex_shader_create_info, fragment_shader_create_info };
+	std::vector<VkPipelineShaderStageCreateInfo> shader_stages = { vertex_shader_create_info };
+	const std::filesystem::path geometry_shader_path = shader_path / "geometry_shader.spv";
+	if (std::filesystem::exists(geometry_shader_path))
+	{
+		geometry_shader = create_shader_module(geometry_shader_path.string());
+		VkPipelineShaderStageCreateInfo geometry_shader_create_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+		geometry_shader_create_info.stage = VK_SHADER_STAGE_GEOMETRY_BIT;
+		geometry_shader_create_info.module = geometry_shader;
+		geometry_shader_create_info.pName = "main";
+		shader_stages.push_back(geometry_shader_create_info);
+	}
+	shader_stages.push_back(fragment_shader_create_info);
 
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info{VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
 	const auto descriptor_set_layouts = get_expected_dset_layouts();
@@ -266,8 +278,8 @@ void GraphicsEnginePipeline::initialise()
 	color_blending_create_info.blendConstants[3] = 0.0f; // Optional
 
 	VkGraphicsPipelineCreateInfo graphics_pipeline_create_info{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
-	graphics_pipeline_create_info.stageCount = 2;
-	graphics_pipeline_create_info.pStages = shader_stages;
+	graphics_pipeline_create_info.stageCount = shader_stages.size();
+	graphics_pipeline_create_info.pStages = shader_stages.data();
 	graphics_pipeline_create_info.pVertexInputState = &vertex_input_create_info;
 	graphics_pipeline_create_info.pInputAssemblyState = &input_assembly;
 	graphics_pipeline_create_info.pViewportState = &view_port_state_create_info;
@@ -303,4 +315,8 @@ void GraphicsEnginePipeline::initialise()
 
 	vkDestroyShaderModule(get_logical_device(), vertex_shader, nullptr);
 	vkDestroyShaderModule(get_logical_device(), fragment_shader, nullptr);
+	if (geometry_shader != VK_NULL_HANDLE)
+	{
+		vkDestroyShaderModule(get_logical_device(), geometry_shader, nullptr);
+	}
 }

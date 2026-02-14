@@ -34,6 +34,7 @@ compile_shader_dir()
 	mkdir -p $build_dir
 
 	compile_if_file_exists "-fshader-stage=vertex" vertex_shader $src_dir $build_dir
+	compile_if_file_exists "-fshader-stage=geometry" geometry_shader $src_dir $build_dir
 	compile_if_file_exists "-fshader-stage=fragment" fragment_shader $src_dir $build_dir
 	compile_if_file_exists "-fshader-stage=rgen --target-env=vulkan1.2" raygen_shader $src_dir $build_dir
 	compile_if_file_exists "-fshader-stage=rchit --target-env=vulkan1.2" rayhit_shader $src_dir $build_dir

@@ -18,6 +18,7 @@ class LightSystem
 public:
 	void add_light_source(const ObjectID id, const LightComponent& new_light) { lights.emplace(id, new_light); }
 	void remove_light_source(const ObjectID id) { lights.erase(id); }
+	bool has_light_source() const { return !lights.empty(); }
 
 	// TODO: this is a quick hack and relies on at least 1 light source in the container, delete this when we can support multiple light sources
 	ObjectID get_global_light_source() const { return lights.begin()->first; }

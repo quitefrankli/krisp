@@ -51,6 +51,21 @@ int main(int argc, char* argv[])
 		floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 		engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
 		engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
+
+		auto& light_source = engine.spawn_object<Object>(Renderable{
+			.mesh_id = MeshFactory::sphere_id(),
+			.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+			.pipeline_render_type = ERenderType::COLOR
+		});
+		light_source.set_position(glm::vec3(0.0f, 8.0f, 0.0f));
+		LightComponent light_component{
+			.intensity = 1.0f,
+			.color = { 1.0f, 0.9f, 0.2f }
+		};
+		engine.get_ecs().add_light_source(light_source.get_id(), light_component);
+		engine.get_ecs().add_clickable_entity(light_source.get_id());
+		engine.get_ecs().add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
+
 		engine.run();
 	}
 

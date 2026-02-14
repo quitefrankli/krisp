@@ -240,9 +240,9 @@ void RasterizationRenderer::set_shadow_map_inputs(const std::vector<VkImageView>
 	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
 	sampler_info.minFilter = VK_FILTER_LINEAR; // how to interpolate texels that are minimised, solves undersampling
 	// U,V,W is convention for texture space dimensions
-	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	sampler_info.anisotropyEnable = false;
 	sampler_info.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
