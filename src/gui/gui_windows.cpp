@@ -362,6 +362,14 @@ void GuiStatistics::update_buffer_capacities(
 
 void GuiDebug::process(GameEngine& engine)
 {
+	is_paused = engine.is_paused();
+	if (should_toggle_pause)
+	{
+		engine.toggle_paused();
+		is_paused = engine.is_paused();
+		should_toggle_pause = false;
+	}
+
 	// TODO: fix bone visualisers
 	// if (show_bone_visualisers.changed)
 	// {
@@ -403,6 +411,11 @@ void GuiDebug::process(GameEngine& engine)
 void GuiDebug::draw()
 {
 	ImGui::Begin("Debug");
+
+	if (ImGui::Button(is_paused ? "Resume" : "Pause"))
+	{
+		should_toggle_pause = true;
+	}
 
 	if (ImGui::Checkbox("Show Bone Visualisers", &show_bone_visualisers.value))
 	{

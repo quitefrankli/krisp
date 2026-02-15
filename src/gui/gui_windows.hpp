@@ -167,6 +167,8 @@ public:
 
 private:
 	bool should_refresh_objects_list = false;
+	bool should_toggle_pause = false;
+	bool is_paused = false;
 	std::vector<ObjectID> object_ids;
 	std::vector<std::string> object_ids_strs;
 	GuiVar<ObjectID> selected_object = ObjectID(0);

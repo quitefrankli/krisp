@@ -159,7 +159,10 @@ void GameEngine::main_loop(const float time_delta)
 
 	process_camera_movement(time_delta);
 
-	ecs.process(time_delta);
+	if (!paused)
+	{
+		ecs.process(time_delta);
+	}
 	experimental->process(time_delta);
 	application->on_tick(time_delta);
 }

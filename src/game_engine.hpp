@@ -92,6 +92,9 @@ public:
 
 	float get_tps() const { return tps; }
 	void set_tps(const float tps) { this->tps = tps; }
+	bool is_paused() const { return paused; }
+	void set_paused(bool new_paused) { paused = new_paused; }
+	void toggle_paused() { paused = !paused; }
 	uint32_t get_window_width();
 	uint32_t get_window_height();
 	Maths::Ray get_mouse_ray() const;
@@ -129,6 +132,7 @@ private:
 	void process_objs_to_delete();
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
+	bool paused = false;
 
 public: // callbacks
 	virtual void scroll_callback(double yoffset) override;
