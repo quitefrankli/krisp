@@ -416,14 +416,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-	const std::string config_path = argc == 2 ? argv[1] : "default.yaml";
-	Config::initialise_global_config(Utility::get_config_path().string() + "/" + config_path);
-	
-	if (Config::enable_logging())
-	{
-		Utility::enable_logging();
-	}
-		
+	Config::init(PROJECT_NAME);
 	{
 		App::Window window;
 		window.open(Config::get_window_pos().first, Config::get_window_pos().second);

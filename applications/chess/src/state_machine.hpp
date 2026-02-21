@@ -1,9 +1,10 @@
 #pragma once
 
 #include "board.hpp"
-#include "chess_engine.hpp"
 
 #include <memory>
+
+class GameEngine;
 
 
 class Object;
@@ -18,7 +19,7 @@ struct State
 	virtual State* process(Object&) = 0;
 
 	static Board* board;
-	static GameEngineT* engine;
+	static GameEngine* engine;
 };
 
 // when nothing is selected

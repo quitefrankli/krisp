@@ -27,6 +27,15 @@
 				"kind": "build",
 				"isDefault": false
 			}
+		},
+		{
+			"label": "build chess",
+			"type": "shell",
+			"command": "meson compile -C build chess",
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
 		}
 	]
 }

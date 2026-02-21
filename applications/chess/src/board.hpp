@@ -1,10 +1,11 @@
 #pragma once
 
-#include "chess_engine.hpp"
 #include "pieces.hpp"
 
 #include <objects/object.hpp>
 #include <maths.hpp>
+
+class GameEngine;
 
 
 class ActiveTile;
@@ -40,11 +41,11 @@ private:
 class Board : public Object
 {
 public:
-	Board(GameEngineT& engine);
+	Board(GameEngine& engine);
 
 	Tile* get_tile(int x, int y)
 	{
-		if (x < 0 || x > size || y < 0 || y > size)
+		if (x < 0 || x >= size || y < 0 || y >= size)
 			throw std::runtime_error("Board::get_tile: err out of bounds!");
 		return tiles[y*size+x];
 	}

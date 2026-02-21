@@ -12,7 +12,7 @@ class ResourceLoaderECS : public testing::Test
 public:
 	ResourceLoaderECS()
 	{
-		model = ResourceLoader::load_model(model_path.string());
+		model = ResourceLoader::load_model(model_path);
 	}
 
 	glm::vec3 apply_transform(const glm::mat4& transform, const glm::vec3& v)
@@ -155,4 +155,14 @@ TEST_F(ResourceLoaderECS, animations)
 	// left bone
 	ASSERT_TRUE(pos_checker(bone_animations[4], Maths::up_vec));
 	ASSERT_TRUE(quat_checker(bone_animations[4], glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
+}
+
+TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material_id)
+{
+	const auto texture_path = Utility::get_texture("texture.jpg");
+
+	const auto first = ResourceLoader::fetch_texture(texture_path);
+	const auto second = ResourceLoader::fetch_texture(texture_path);
+
+	ASSERT_EQ(first, second);
 }

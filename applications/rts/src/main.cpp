@@ -69,12 +69,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-	Config::initialise_global_config(Utility::get_config_path().string() + "/default.yaml");
-	if (Config::enable_logging())
-	{
-		Utility::enable_logging();
-	}
-	
+	Config::init(PROJECT_NAME);
 	App::Window window;
 	window.open(Config::get_window_pos().first, Config::get_window_pos().second);
 	GameEngine engine(window);

@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <memory>
+#include <filesystem>
 
 
 class GraphicsEngineGuiManager : public GraphicsEngineBaseModule, public GuiManager
@@ -27,7 +28,7 @@ public:
 	// some gui_windows require setup in the graphics_engine thread
 	void setup_gui_windows();
 	
-	void compose_texture_for_gui_window(const std::string_view texture_path, GuiPhotoBase& gui_photo);
+	void compose_texture_for_gui_window(const std::filesystem::path& texture_path, GuiPhotoBase& gui_photo);
 
 	const GuiGraphicsSettings& get_graphic_settings() const { return this->graphic_settings; }
 

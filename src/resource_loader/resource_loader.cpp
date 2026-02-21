@@ -61,14 +61,15 @@ private:
 	std::vector<unsigned char> data;
 };
 
-MaterialID ResourceLoader::fetch_texture(const std::string_view file)
+MaterialID ResourceLoader::fetch_texture(const std::filesystem::path& file_path)
 {
-	if (global_resource_loader.texture_name_to_mat_id.contains(file.data()))
+	const auto file_str = file_path.string();
+	if (global_resource_loader.texture_name_to_mat_id.contains(file_str))
 	{
-		return global_resource_loader.texture_name_to_mat_id[file.data()];
+		return global_resource_loader.texture_name_to_mat_id[file_str];
 	}
 
-	return global_resource_loader.load_texture(file);
+	return global_resource_loader.load_texture(file_path);
 }
 
 std::vector<uint32_t> load_indices(const tinygltf::Accessor& index_accessor, 
@@ -194,9 +195,8 @@ static std::vector<Bone> load_bones(const tinygltf::Model& model)
 	return bones;
 }
 
-ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view file)
+ResourceLoader::LoadedModel ResourceLoader::load_model(const std::filesystem::path& file_path)
 {
-	std::filesystem::path file_path(file);
 	tinygltf::Model model;
 	std::string err;
 	std::string warn;
@@ -210,7 +210,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		{
 			throw std::runtime_error(fmt::format(
 				"ResourceLoader::load_model: failed to load model: {}, err {}, warn {}", 
-				file,
+				file_path.string(),
 				err,
 				warn));
 		}
@@ -220,7 +220,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 		{
 			throw std::runtime_error(fmt::format(
 				"ResourceLoader::load_model: failed to load model: {}, err {}, warn {}", 
-				file,
+				file_path.string(),
 				err,
 				warn));
 		}
@@ -328,16 +328,17 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(const std::string_view fi
 	return retval;
 }
 
-MaterialID ResourceLoader::load_texture(const std::string_view filename) 
+MaterialID ResourceLoader::load_texture(const std::filesystem::path& filename) 
 {
 	if (!std::filesystem::exists(filename))
 	{
-		throw std::runtime_error(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", filename));
+		throw std::runtime_error(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", filename.string()));
 	}
 
 	TextureMaterial material;
+	const auto filename_str = filename.string();
 	material.data = std::make_unique<RawTextureDataSTB>(stbi_load(
-		filename.data(), 
+		filename_str.c_str(),
 		(int*)(&material.width), 
 		(int*)(&material.height), 
 		(int*)(&material.channels), 
@@ -350,8 +351,10 @@ MaterialID ResourceLoader::load_texture(const std::string_view filename)
 
 	if (!material.data.get())
 	{
-		throw std::runtime_error(fmt::format("failed to load texture image! {}", filename));
+		throw std::runtime_error(fmt::format("failed to load texture image! {}", filename_str));
 	}
 
-	return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
+	const auto mat_id = MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
+	texture_name_to_mat_id[filename_str] = mat_id;
+	return mat_id;
 }

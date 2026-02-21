@@ -143,14 +143,14 @@ std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline::get_expected_dset_lay
 
 void GraphicsEnginePipeline::initialise()
 {
-	std::filesystem::path shader_path = Utility::get_shaders_path() / get_shader_name();
+	const std::filesystem::path shader_path = Utility::get_shader(get_shader_name());
 	VkPolygonMode polygon_mode = get_polygon_mode();
 	// culling is determined by either clockerwise or counter clockwise vertex order
 	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise
 	VkFrontFace front_face = get_front_face();
 
-	VkShaderModule vertex_shader = create_shader_module(shader_path.string() + "/vertex_shader.spv");
-	VkShaderModule fragment_shader = create_shader_module(shader_path.string() + "/fragment_shader.spv");
+	VkShaderModule vertex_shader = create_shader_module((shader_path / "vertex_shader.spv").string());
+	VkShaderModule fragment_shader = create_shader_module((shader_path / "fragment_shader.spv").string());
 	VkShaderModule geometry_shader = VK_NULL_HANDLE;
 
 	VkPipelineShaderStageCreateInfo vertex_shader_create_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};

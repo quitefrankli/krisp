@@ -4,7 +4,6 @@
 #include <string>
 #include <memory>
 #include <chrono>
-#include <optional>
 #include <unordered_set>
 
 #include <quill/Logger.h>
@@ -19,32 +18,28 @@ public:
 	// maintains consistent loop frequency, regardless of other compute within the loop
 	struct LoopSleeper
 	{
-		LoopSleeper(std::chrono::milliseconds loop_period);
-		~LoopSleeper();
+		LoopSleeper(std::chrono::milliseconds loop_period) : loop_period(loop_period) {}
 		void operator()();
 
 	private:
 		const std::chrono::milliseconds loop_period;
 		std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
-		struct Pimpl;
-		std::unique_ptr<Pimpl> pimpl;
 	};
 
-	static constexpr std::string_view get_project_name() { return PROJECT_NAME; }
+	static std::string_view get_project_name();
 	static const std::filesystem::path& get_top_level_path() { return get().top_level_dir; }
 	static const std::filesystem::path& get_build_path() { return get().build; };
-	static const std::filesystem::path& get_shaders_path() { return get().shaders; }
 	static const std::filesystem::path& get_binary_path() { return get().binary; };
-	static const std::filesystem::path& get_config_path() { return get().config; };
-	static const std::filesystem::path& get_model_path() { return get().models; }
-	static const std::filesystem::path& get_textures_path() { return get().textures; }
-	static const std::filesystem::path& get_audio_path() { return get().audio; }
+	static std::filesystem::path get_config_path();
 
-	static std::string get_texture(const std::string_view texture);
-	static std::string get_model(const std::string_view model);
-	static float get_rand(float min, float max);
-	static std::vector<std::filesystem::path> get_all_files(const std::filesystem::path& path, 
-												  			const std::unordered_set<std::string_view>& extensions);
+	static std::filesystem::path get_texture(std::string_view filename);
+	static std::filesystem::path get_model(std::string_view filename);
+	static std::filesystem::path get_shader(std::string_view filename);
+	static std::filesystem::path get_audio(std::string_view filename);
+
+	static std::vector<std::filesystem::path> get_all_textures();
+	static std::vector<std::filesystem::path> get_all_models();
+	static std::vector<std::filesystem::path> get_all_audio();
 
 	static quill::Logger* get_logger() { return get().logger; }
 
@@ -57,18 +52,12 @@ public:
 
 private:
 	static Utility& get();
-	
+	static std::filesystem::path get_rsrc_path(bool use_default = false);
+	static std::filesystem::path resolve_resource(std::string_view subdir, std::string_view filename);
+	static std::vector<std::filesystem::path> collect_resources(std::string_view subdir, const std::unordered_set<std::string_view>& extensions);
+
 	quill::Logger* logger;
 	std::filesystem::path top_level_dir;
-	std::filesystem::path shaders;
-	std::filesystem::path models;
-	std::filesystem::path textures;
 	std::filesystem::path build;
 	std::filesystem::path binary;
-	std::filesystem::path audio;
-	std::filesystem::path config;
-	std::optional<std::filesystem::path> app_rsrc_path;
-	
-	struct UtilityImpl;
-	static std::unique_ptr<UtilityImpl> impl;
 };

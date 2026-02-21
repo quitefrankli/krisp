@@ -392,7 +392,7 @@ void Experimental::process()
 
     ma_engine audio_engine;
     ma_engine_init(nullptr, &audio_engine);
-    auto audio_file = Utility::get_audio_path() / "wav2.wav";
+    auto audio_file = Utility::get_audio("wav2.wav");
     ma_engine_play_sound(&audio_engine, audio_file.string().c_str(), nullptr);
     spawn_test_particles(this->engine);
     std::this_thread::sleep_for(std::chrono::seconds(2));

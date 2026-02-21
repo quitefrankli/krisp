@@ -7,7 +7,8 @@ void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& colli
 	add_collider(id, std::move(collider), Maths::Transform{});
 }
 
-void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider, const Maths::Transform& offset) 
+void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider, 
+								  const Maths::Transform& offset) 
 {
 	ColliderComponent new_component;
 	new_component.collider = std::move(collider);

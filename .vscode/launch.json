@@ -31,6 +31,20 @@
 				"type category enable gnu-libstdc++"
 			],
 			"preLaunchTask": "build space"
+		},
+		{
+			"name": "chess",
+			"type": "lldb",
+			"request": "launch",
+			"program": "${workspaceFolder}/build/applications/chess/chess",
+			"args": [],
+			"cwd": "${workspaceFolder}",
+			"initCommands": [
+				"type category enable default",
+				"type category enable libcxx",
+				"type category enable gnu-libstdc++"
+			],
+			"preLaunchTask": "build chess"
 		}
 	]
 }

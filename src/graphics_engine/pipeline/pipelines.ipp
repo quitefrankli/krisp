@@ -228,10 +228,10 @@ std::vector<VkVertexInputAttributeDescription> WireframePipeline<SkinnedPipeline
 
 void RaytracingPipeline::initialise()
 {
-	std::filesystem::path shader_path = Utility::get_shaders_path() / get_shader_name();
-	VkShaderModule raygen_shader = create_shader_module(shader_path.string() + "/raygen_shader.spv");
-	VkShaderModule rayhit_shader = create_shader_module(shader_path.string() + "/rayhit_shader.spv");
-	VkShaderModule raymiss_shader = create_shader_module(shader_path.string() + "/raymiss_shader.spv");
+	const auto shader_path = Utility::get_shader(get_shader_name()).string();
+	VkShaderModule raygen_shader = create_shader_module(shader_path + "/raygen_shader.spv");
+	VkShaderModule rayhit_shader = create_shader_module(shader_path + "/rayhit_shader.spv");
+	VkShaderModule raymiss_shader = create_shader_module(shader_path + "/raymiss_shader.spv");
 
 	VkPipelineShaderStageCreateInfo raygen_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
 	raygen_info.stage = VK_SHADER_STAGE_RAYGEN_BIT_KHR;

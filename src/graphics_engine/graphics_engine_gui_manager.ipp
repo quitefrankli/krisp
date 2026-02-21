@@ -111,7 +111,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 
 void GraphicsEngineGuiManager::setup_gui_windows()
 {
-	this->photo.init([&](const std::string_view picture)
+	this->photo.init([&](const std::filesystem::path& picture)
 	{
 		compose_texture_for_gui_window(picture, this->photo);
 	});
@@ -136,7 +136,7 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 }
 
 void GraphicsEngineGuiManager::compose_texture_for_gui_window(
-	const std::string_view texture_path,
+	const std::filesystem::path& texture_path,
 	GuiPhotoBase& gui_photo)
 {
 	const auto texture_mat_id = ResourceLoader::fetch_texture(texture_path);

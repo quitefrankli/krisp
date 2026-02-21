@@ -1,9 +1,10 @@
 #include "board.hpp"
 
-#include <resource_loader.hpp>
+#include <resource_loader/resource_loader.hpp>
 #include <utility.hpp>
 #include <game_engine.hpp>
-#include <shapes/shapes.hpp>
+#include <renderable/mesh_factory.hpp>
+#include <entity_component_system/material_system.hpp>
 
 #include <cassert>
 #include <iostream>
@@ -11,11 +12,13 @@
 
 VisualTile::VisualTile(const glm::vec3& color, int size)
 {
-	Shapes::Square plane;
-	plane.set_color(color);
-	plane.transform_vertices(glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec));
-	shapes.push_back(std::move(plane));
+	Renderable& renderable = renderables.emplace_back();
+	renderable.mesh_id = MeshFactory::quad_id();
+	ColorMaterial material;
+	material.data.diffuse = color;
+	renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
 	set_scale(glm::vec3(size));
+	set_rotation(glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec));
 }
 
 const float Tile::tile_size = 5;
@@ -56,26 +59,9 @@ bool Tile::is_highlighted() const
 	return highlighted.get_visibility();
 }
 
-Board::Board(GameEngineT& engine)
+Board::Board(GameEngine& engine)
 {
-	ResourceLoader loader;
-	auto chess_set = loader.load_objects(
-		Utility::get().get_model_path().string() + "/chess_set.obj",
-		std::vector<std::string_view>(33, Utility::get().get_textures_path().string() + "/chess_set.png"),
-		ResourceLoader::Setting::ZERO_XZ);
-	
-	const std::vector<std::pair<int, std::pair<int, int>>> mapping {
-		{Piece::KING, {0,3}}, {Piece::PAWN, {1,0}}, {Piece::PAWN, {1,1}}, {Piece::PAWN, {1,2}}, 
-		{Piece::PAWN, {1,3}}, {Piece::PAWN, {1,4}}, {Piece::PAWN, {1,5}}, {Piece::PAWN, {1,6}},
-		{Piece::PAWN, {1,7}}, {Piece::QUEEN, {0,4}}, {Piece::ROOK, {0,0}}, {Piece::ROOK, {0,7}}, 
-		{Piece::BISHOP, {0,2}}, {Piece::BISHOP, {0,5}}, {Piece::KNIGHT, {0,1}}, {Piece::KNIGHT, {0,6}},
-		{Piece::KING, {7,3}}, {Piece::QUEEN, {7,4}}, {Piece::KNIGHT, {7,1}}, {Piece::KNIGHT, {7,6}},
-		{Piece::BISHOP, {7,2}}, {Piece::BISHOP, {7,5}}, {Piece::ROOK, {7,0}}, {Piece::ROOK, {7,7}},
-		{Piece::PAWN, {6,0}}, {Piece::PAWN, {6,1}}, {Piece::PAWN, {6,2}}, {Piece::PAWN, {6,3}}, 
-		{Piece::PAWN, {6,4}}, {Piece::PAWN, {6,5}}, {Piece::PAWN, {6,6}}, {Piece::PAWN, {6,7}},
-	};
-
-	assert(chess_set.size() - 1 == mapping.size() && mapping.size() == 32);
+	// Create board tiles
 	for (int y = 0; y < size; y++)
 	{
 		for (int x = 0; x < size; x++)
@@ -86,13 +72,76 @@ Board::Board(GameEngineT& engine)
 		}
 	}
 
-	for (int i = 0; i < mapping.size(); i++)
-	{
-		const auto val = mapping[i];
-		// index 0  == chess board
-		Piece& piece = engine.spawn_object<Piece>(std::move(chess_set[i+1]), nullptr);
-		piece.type = val.first;
-		piece.move_to_tile(get_tile(val.second.second, val.second.first));
-		piece.side = i < mapping.size()/2 ? Piece::Side::WHITE : Piece::Side::BLACK;
-	}
+	// Load chess pieces from glTF model
+	auto loaded_model = ResourceLoader::load_model(Utility::get_model("chess_set_2k.gltf"));
+
+	// Mapping of renderable index to {piece_type, {x, y}, side}
+	// Based on the glTF node order from chess_set_2k.gltf
+	struct PieceInfo {
+		int type;
+		int x, y;
+		Piece::Side side;
+	};
+
+	const std::vector<PieceInfo> piece_mapping = {
+		// White pieces (indices 0-16, skipping 6 which is the board)
+		{Piece::ROOK,   0, 0, Piece::Side::WHITE},  // 0: rook_white_01
+		{Piece::PAWN,   0, 1, Piece::Side::WHITE},  // 1: pawn_white_01
+		{Piece::BISHOP, 2, 0, Piece::Side::WHITE},  // 2: bishop_white_01
+		{Piece::QUEEN,  3, 0, Piece::Side::WHITE},  // 3: queen_white
+		{Piece::KING,   4, 0, Piece::Side::WHITE},  // 4: king_white
+		{Piece::KNIGHT, 1, 0, Piece::Side::WHITE},  // 5: knight_white_01
+		{Piece::UNKNOWN, -1, -1, Piece::Side::WHITE}, // 6: board (skip)
+		{Piece::KNIGHT, 6, 0, Piece::Side::WHITE},  // 7: knight_white_02
+		{Piece::ROOK,   7, 0, Piece::Side::WHITE},  // 8: rook_white_02
+		{Piece::BISHOP, 5, 0, Piece::Side::WHITE},  // 9: bishop_white_02
+		{Piece::PAWN,   1, 1, Piece::Side::WHITE},  // 10: pawn_white_02
+		{Piece::PAWN,   2, 1, Piece::Side::WHITE},  // 11: pawn_white_03
+		{Piece::PAWN,   3, 1, Piece::Side::WHITE},  // 12: pawn_white_04
+		{Piece::PAWN,   4, 1, Piece::Side::WHITE},  // 13: pawn_white_05
+		{Piece::PAWN,   5, 1, Piece::Side::WHITE},  // 14: pawn_white_06
+		{Piece::PAWN,   6, 1, Piece::Side::WHITE},  // 15: pawn_white_07
+		{Piece::PAWN,   7, 1, Piece::Side::WHITE},  // 16: pawn_white_08
+		// Black pieces (indices 17-32)
+		{Piece::ROOK,   0, 7, Piece::Side::BLACK},  // 17: rook_black_01
+		{Piece::PAWN,   0, 6, Piece::Side::BLACK},  // 18: pawn_black_01
+		{Piece::BISHOP, 2, 7, Piece::Side::BLACK},  // 19: bishop_black_01
+		{Piece::QUEEN,  3, 7, Piece::Side::BLACK},  // 20: queen_black
+		{Piece::KING,   4, 7, Piece::Side::BLACK},  // 21: king_black
+		{Piece::KNIGHT, 1, 7, Piece::Side::BLACK},  // 22: knight_black_01
+		{Piece::KNIGHT, 6, 7, Piece::Side::BLACK},  // 23: knight_black_02
+		{Piece::ROOK,   7, 7, Piece::Side::BLACK},  // 24: rook_black_02
+		{Piece::BISHOP, 5, 7, Piece::Side::BLACK},  // 25: bishop_black_02
+		{Piece::PAWN,   1, 6, Piece::Side::BLACK},  // 26: pawn_black_02
+		{Piece::PAWN,   2, 6, Piece::Side::BLACK},  // 27: pawn_black_03
+		{Piece::PAWN,   3, 6, Piece::Side::BLACK},  // 28: pawn_black_04
+		{Piece::PAWN,   4, 6, Piece::Side::BLACK},  // 29: pawn_black_05
+		{Piece::PAWN,   5, 6, Piece::Side::BLACK},  // 30: pawn_black_06
+		{Piece::PAWN,   6, 6, Piece::Side::BLACK},  // 31: pawn_black_07
+		{Piece::PAWN,   7, 6, Piece::Side::BLACK},  // 32: pawn_black_08
+	};
+
+	assert(loaded_model.renderables.size() == piece_mapping.size() && "Chess model should have 33 renderables");
+
+	// // Spawn each piece
+	// for (size_t i = 0; i < loaded_model.renderables.size(); i++)
+	// {
+	// 	const auto& info = piece_mapping[i];
+
+	// 	// Skip the board renderable (index 6)
+	// 	if (info.type == Piece::UNKNOWN)
+	// 		continue;
+
+	// 	// Create object from renderable
+	// 	Object temp_obj(loaded_model.renderables[i]);
+
+	// 	// Get the tile for this piece
+	// 	Tile* tile = get_tile(info.x, info.y);
+
+	// 	// Spawn the piece
+	// 	Piece& piece = engine.spawn_object<Piece>(std::move(temp_obj), tile);
+	// 	piece.type = info.type;
+	// 	piece.side = info.side;
+	// 	piece.move_to_tile(tile);
+	// }
 }

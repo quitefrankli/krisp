@@ -8,11 +8,11 @@
 
 #include <string>
 #include <vector>
-#include <string_view>
 #include <unordered_map>
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <filesystem>
 
 
 class Object;
@@ -43,11 +43,11 @@ public:
 		Maths::Transform onload_transform;
 	};
 
-	static MaterialID fetch_texture(const std::string_view file);
-	static LoadedModel load_model(const std::string_view file);
+	static MaterialID fetch_texture(const std::filesystem::path& file_path);
+	static LoadedModel load_model(const std::filesystem::path& file_path);
 
 private:
-	MaterialID load_texture(const std::string_view file);
+	MaterialID load_texture(const std::filesystem::path& file_path);
 	MaterialID load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model);
 
 private:

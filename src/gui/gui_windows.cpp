@@ -81,7 +81,7 @@ GuiObjectSpawner::GuiObjectSpawner()
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
 				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
-				const auto mat_id = ResourceLoader::fetch_texture(Utility::get_texture("texture.jpg").data());
+				const auto mat_id = ResourceLoader::fetch_texture(Utility::get_texture("texture.jpg"));
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
 				renderable.material_ids = { mat_id };
@@ -165,12 +165,7 @@ void GuiObjectSpawner::process(GameEngine& engine)
 
 GuiModelSpawner::GuiModelSpawner()
 {
-	model_paths = Utility::get_all_files(
-		Utility::get_model_path(), 
-		{ 
-			".gltf",
-			".glb"
-		});
+	model_paths = Utility::get_all_models();
 	std::ranges::transform(
 		model_paths, 
 		std::back_inserter(models), 
@@ -182,7 +177,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 	if (should_spawn)
 	{
 		should_spawn = false;
-		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model].string());
+		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model]);
 		auto mesh = std::make_shared<Object>(loaded_model.renderables);
 		mesh->set_transform(loaded_model.onload_transform.get_mat4());
 		const auto name = model_paths[selected_model].stem().string();
@@ -259,7 +254,7 @@ void GuiFPSCounter::draw()
 GuiMusic::GuiMusic(AudioSource&& audio_source) : 
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
-	songs_paths = Utility::get_all_files(Utility::get_audio_path(), { ".wav" });
+	songs_paths = Utility::get_all_audio();
 	std::ranges::transform(songs_paths, std::back_inserter(songs), [](const auto& path) { return path.filename().string(); });
 }
 
@@ -474,14 +469,14 @@ void GuiPhotoBase::draw()
 
 GuiPhoto::GuiPhoto()
 {
-	photo_paths = Utility::get_all_files(Utility::get_textures_path(), { ".jpg", ".png", ".JPG", ".PNG" });
+	photo_paths = Utility::get_all_textures();
 	std::ranges::transform(photo_paths, std::back_inserter(photos), [](const auto& path) { return path.filename().string(); });
 
 	selected_image = 0;
 	selected_image.changed = true;
 }
 
-void GuiPhoto::init(std::function<void(const std::string_view)>&& texture_requester)
+void GuiPhoto::init(std::function<void(const std::filesystem::path&)>&& texture_requester)
 {
 	this->texture_requester = std::move(texture_requester);
 }
@@ -514,7 +509,7 @@ void GuiPhoto::draw()
 	{
 		if (selected_image.changed)
 		{
-			texture_requester(photo_paths[selected_image].string().c_str());
+			texture_requester(photo_paths[selected_image]);
 			selected_image.changed = false;
 		}
 		should_show = true;

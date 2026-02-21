@@ -4,8 +4,7 @@ install_dir = meson.build_root()/'bin'
 add_project_arguments(
 	'-w', # Suppresses all build warnings for c++
 	'-Werror=unused-variable',
-	'-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.source_root()), 
-	'-DPROJECT_NAME="@0@"'.format(meson.project_name()),
+	'-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.source_root()),
 	'-DPROJECT_BUILD_DIR="@0@"'.format(meson.build_root()),
 	'-DPROJECT_BIN_DIR="@0@"'.format(install_dir),
 	'-DGLM_FORCE_DEPTH_ZERO_TO_ONE', # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]

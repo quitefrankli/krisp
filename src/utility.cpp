@@ -1,4 +1,5 @@
 #include "utility.hpp"
+#include "config.hpp"
 
 #include <quill/LogMacros.h>
 #include <quill/Backend.h>
@@ -18,15 +19,8 @@
 Utility::Utility()
 {
 	top_level_dir = PROJECT_TOP_LEVEL_SRC_DIR;
-	config = get_child(top_level_dir, "configs");
-	
-	models = get_child(top_level_dir, "resources/models");
-	textures = get_child(top_level_dir, "resources/textures");
-	audio = get_child(top_level_dir, "resources/sound");
-	
 	build = PROJECT_BUILD_DIR;
 	binary = PROJECT_BIN_DIR;
-	shaders = get_child(build, "shaders");
 
 	quill::FileSinkConfig file_sink_config{};
 	file_sink_config.set_open_mode('a');
@@ -53,22 +47,15 @@ Utility::Utility()
 
 	// guarantees a blocking flush when a log level at or higher than this is logged
 	logger->init_backtrace(10, quill::LogLevel::Error);
-
-	// create all the directories if they do not exist
-	std::filesystem::create_directories(models);
-	std::filesystem::create_directories(textures);
-	std::filesystem::create_directories(audio);
 }
 
 void Utility::enable_logging()
 {
 	quill::BackendOptions backend_options;
 	quill::Backend::start(backend_options); // this will consume CPU cycles
-	LOG_INFO(get_logger(), 
-			 "Utility::Utility: Initialised with models:{}, textures:{}, build:{}, binary{}", 
-			 get_model_path().string(), 
-			 get_textures_path().string(), 
-			 get_build_path().string(), 
+	LOG_INFO(get_logger(),
+			 "Utility::Utility: Initialised with build:{}, binary:{}",
+			 get_build_path().string(),
 			 get_binary_path().string());
 }
 
@@ -79,14 +66,72 @@ Utility& Utility::get()
 	return singleton;
 }
 
-std::string Utility::get_texture(const std::string_view texture)
+std::filesystem::path Utility::resolve_resource(std::string_view subdir, std::string_view filename)
 {
-	return get().get_textures_path().string() + '/' + texture.data();
+	auto app_path = get_rsrc_path() / subdir / filename;
+	if (std::filesystem::exists(app_path))
+	{
+		return app_path;
+	}
+
+	auto default_path = get_rsrc_path(true) / subdir / filename;
+	if (std::filesystem::exists(default_path))
+	{
+		return default_path;
+	}
+
+	throw std::runtime_error(fmt::format(
+		"Utility::resolve_resource: resource not found in app/default paths. subdir='{}', filename='{}'",
+		subdir,
+		filename));
 }
 
-std::string Utility::get_model(const std::string_view model)
+std::string_view Utility::get_project_name()
 {
-	return get().get_model_path().string() + '/' + model.data();
+	return Config::get_project_name();
+}
+
+std::filesystem::path Utility::get_config_path()
+{
+	auto app_config = get().top_level_dir / "applications" / std::string(Config::get_project_name()) / "config.yaml";
+	if (std::filesystem::exists(app_config))
+	{
+		return app_config;
+	}
+	return get().top_level_dir / "configs" / "default.yaml";
+}
+
+std::filesystem::path Utility::get_rsrc_path(bool use_default)
+{
+	if (use_default)
+	{
+		return get().top_level_dir / "resources/applications/default";
+	}
+
+	return get().top_level_dir / "resources/applications" / std::string(Config::get_project_name());
+}
+
+std::filesystem::path Utility::get_texture(std::string_view filename)
+{
+	return resolve_resource("textures", filename);
+}
+
+std::filesystem::path Utility::get_model(std::string_view filename)
+{
+	return resolve_resource("models", filename);
+}
+
+std::filesystem::path Utility::get_shader(std::string_view filename)
+{
+	auto app_path = get_rsrc_path() / "shaders" / filename;
+	if (std::filesystem::exists(app_path))
+		return app_path;
+	return get().build / "shaders" / filename;
+}
+
+std::filesystem::path Utility::get_audio(std::string_view filename)
+{
+	return resolve_resource("sound", filename);
 }
 
 std::filesystem::path Utility::get_child(const std::filesystem::path& parent, const std::string_view child)
@@ -117,75 +162,61 @@ void Utility::sleep(std::chrono::milliseconds duration, bool precise)
 	}
 }
 
-struct Utility::UtilityImpl
+std::vector<std::filesystem::path> Utility::collect_resources(std::string_view subdir,
+                                                              const std::unordered_set<std::string_view>& extensions)
 {
-	UtilityImpl() : rng(rd())
-	{
-	}
-
-	std::random_device rd;
-	std::mt19937_64 rng;
-};
-
-float Utility::get_rand(float min, float max)
-{
-	return std::uniform_real_distribution(min, max)(impl->rng);
-}
-
-std::vector<std::filesystem::path> Utility::get_all_files(const std::filesystem::path& path,
-                                                		  const std::unordered_set<std::string_view>& extensions)
-{
+	std::unordered_set<std::string> seen_filenames;
 	std::vector<std::filesystem::path> files;
-	for (const auto& entry : std::filesystem::directory_iterator(path))
-	{
-		if (entry.is_regular_file() && extensions.contains(entry.path().extension().string()))
+
+	auto collect_from = [&](const std::filesystem::path& dir) {
+		if (!std::filesystem::exists(dir)) return;
+		for (const auto& entry : std::filesystem::directory_iterator(dir))
 		{
-			files.push_back(entry);
+			if (entry.is_regular_file() && extensions.contains(entry.path().extension().string()))
+			{
+				auto filename = entry.path().filename().string();
+				if (!seen_filenames.contains(filename))
+				{
+					seen_filenames.insert(filename);
+					files.push_back(entry);
+				}
+			}
 		}
-	}
+	};
+
+	collect_from(get_rsrc_path() / subdir);
+	collect_from(get_rsrc_path(true) / subdir);
 
 	return files;
 }
 
-std::unique_ptr<Utility::UtilityImpl> Utility::impl = std::make_unique<Utility::UtilityImpl>();
-
-struct Utility::LoopSleeper::Pimpl
+std::vector<std::filesystem::path> Utility::get_all_textures()
 {
-public:
-	Pimpl(LoopSleeper& loop_sleeper) : loop_sleeper(loop_sleeper)
-	{
-	}
-
-	void sleep()
-	{
-		const auto start = std::chrono::system_clock::now();
-		const auto margin_of_error = std::chrono::milliseconds(1); // system can only sleep longer than requested
-
-		while (true)
-		{
-			const auto elapsed = std::chrono::system_clock::now() - start;
-			if (elapsed > (loop_sleeper.loop_period - margin_of_error))
-			{
-				break;
-			}
-			std::this_thread::sleep_for(std::chrono::milliseconds(1));
-		}
+	return collect_resources("textures", { ".jpg", ".jpeg", ".png", ".bmp", ".tga" });
 }
 
-	LoopSleeper& loop_sleeper;
-};
-
-Utility::LoopSleeper::LoopSleeper(std::chrono::milliseconds loop_period) :
-	loop_period(loop_period),
-	pimpl(std::make_unique<Pimpl>(*this))
+std::vector<std::filesystem::path> Utility::get_all_models()
 {
+	return collect_resources("models", { ".gltf", ".glb", ".obj", ".fbx" });
 }
 
-Utility::LoopSleeper::~LoopSleeper()
+std::vector<std::filesystem::path> Utility::get_all_audio()
 {
+	return collect_resources("sound", { ".wav", ".ogg", ".mp3", ".flac" });
 }
 
 void Utility::LoopSleeper::operator()()
 {
-	pimpl->sleep();
+	const auto start = std::chrono::system_clock::now();
+	const auto margin_of_error = std::chrono::milliseconds(1); // system can only sleep longer than requested
+
+	while (true)
+	{
+		const auto elapsed = std::chrono::system_clock::now() - start;
+		if (elapsed > (loop_period - margin_of_error))
+		{
+			break;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
 }

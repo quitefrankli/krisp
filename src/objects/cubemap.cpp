@@ -22,16 +22,14 @@ CubeMap::CubeMap()
 		"back"
 	};
 
-	const auto texture_path = Utility::get_textures_path().string();
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR); // I'm not sure why COLOR seems to work, TEXTURE seems to break
 	CubeMapMatGroup material_group;
 	for (const auto& texture_name : texture_order)
 	{
-		material_group.cube_map_mats.push_back(ResourceLoader::fetch_texture(fmt::format("{}/skybox/{}.jpg", 
-																			 texture_path, 
-																			 texture_name)));
+		const auto texture_path = Utility::get_texture(fmt::format("skybox/{}.jpg", texture_name));
+		material_group.cube_map_mats.push_back(ResourceLoader::fetch_texture(texture_path));
 	}
 	renderable.material_ids = material_group.get_materials();
 

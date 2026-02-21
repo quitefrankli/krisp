@@ -22,4 +22,4 @@
 
 * refer to readme.md for build instructions
 
-* perform all build/tests in debug mode
+* IMPORTANT: use DEBUG build for all compilations and testing! Make sure to run `meson setup build --reconfigure --buildtype=debug` initially, and then `meson compile -C build $TARGET` for targetted builds

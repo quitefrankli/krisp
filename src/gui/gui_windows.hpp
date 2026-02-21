@@ -200,7 +200,7 @@ class GuiPhoto : public GuiWindow, public GuiPhotoBase
 public:
 	GuiPhoto();
 
-	void init(std::function<void(const std::string_view)>&& texture_requester);
+	void init(std::function<void(const std::filesystem::path&)>&& texture_requester);
 
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
@@ -210,7 +210,7 @@ private:
 	std::vector<std::filesystem::path> photo_paths;
 	bool should_show = false;
 	GuiVar<int> selected_image = 0;
-	std::function<void(const std::string_view)> texture_requester;
+	std::function<void(const std::filesystem::path&)> texture_requester;
 };
 
 // Shows mid-render slices for visualisation/debug purposes
