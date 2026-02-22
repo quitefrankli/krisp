@@ -30,23 +30,36 @@
 #include <chrono>
 
 
-GameEngine::GameEngine(App::Window& window) :
-	GameEngine(window, [](GameEngine& engine) { return std::make_unique<GraphicsEngine>(engine); })
+GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
+	window(std::make_unique<App::Window>()),
+	mouse(std::make_unique<Mouse>(*window)),
+	graphics_engine(std::make_unique<GraphicsEngine>(*this)),
+	camera(std::make_unique<Camera>(Listener(),
+		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
+	ecs(ECS::get()),
+	application(std::move(app))
 {
-	static DummyApplication dummy_app;
-	application = &dummy_app;
+	init();
 }
 
-GameEngine::GameEngine(App::Window& window, GraphicsEngineFactory graphics_engine_factory) :
-	window(window),
-	mouse(std::make_unique<Mouse>(window)),
-	gizmo(std::make_unique<Gizmo>(*this)),
-	graphics_engine(graphics_engine_factory(*this)),
-	camera(std::make_unique<Camera>(Listener(), 
-		   static_cast<float>(window.get_width())/static_cast<float>(window.get_height()))),
-	ecs(ECS::get())
+GameEngine::GameEngine(std::unique_ptr<App::Window> win, 
+					   std::unique_ptr<IApplication> app, 
+					   std::unique_ptr<GraphicsEngineBase> gfx_engine) :
+	window(std::move(win)),
+	mouse(std::make_unique<Mouse>(*window)),
+	graphics_engine(std::move(gfx_engine)),
+	camera(std::make_unique<Camera>(Listener(),
+		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
+	ecs(ECS::get()),
+	application(std::move(app))
 {
-	window.setup_callbacks(*this);
+	init();
+}
+
+void GameEngine::init()
+{
+	gizmo = std::make_unique<Gizmo>(*this);
+	window->setup_callbacks(*this);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
 	draw_object(camera->focus_obj);
 	draw_object(camera->upvector_obj);
@@ -66,7 +79,7 @@ void GameEngine::run()
 
 	try 
 	{
-		application->on_begin();
+		application->on_begin(*this);
 		gizmo->init();
 
 		Analytics analytics(60);
@@ -76,7 +89,7 @@ void GameEngine::run()
 
 		TPS_counter->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
-		while (!should_shutdown && !window.should_close())
+		while (!should_shutdown && !window->should_close())
 		{
 	#ifndef DISABLE_SLEEP
 			loop_sleeper();
@@ -106,7 +119,7 @@ void GameEngine::run()
 
 void GameEngine::main_loop(const float time_delta)
 {
-	window.poll_events();
+	window->poll_events();
 
 	process_objs_to_delete();
 
@@ -115,7 +128,7 @@ void GameEngine::main_loop(const float time_delta)
 
 	if (mouse->mmb_down)
 	{
-		// if (window.is_shift_down())
+		// if (window->is_shift_down())
 		if (false) // TODO: implement shift key tracking
 		{
 			// panning
@@ -164,7 +177,7 @@ void GameEngine::main_loop(const float time_delta)
 		ecs.process(time_delta);
 	}
 	experimental->process(time_delta);
-	application->on_tick(time_delta);
+	application->on_tick(*this, time_delta);
 }
 
 void GameEngine::process_camera_movement(float time_delta)
@@ -317,11 +330,6 @@ void GameEngine::unhighlight_object(const Object& object)
 	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object));
 }
 
-void GameEngine::set_application(IApplication* application) 
-{
-	assert(!this->application);
-	this->application=application;
-}
 
 GuiManager& GameEngine::get_gui_manager()
 {
@@ -335,12 +343,12 @@ void GameEngine::send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
 
 uint32_t GameEngine::get_window_width()
 {
-	return window.get_width();
+	return window->get_width();
 }
 
 uint32_t GameEngine::get_window_height()
 {
-	return window.get_height();
+	return window->get_height();
 }
 
 Maths::Ray GameEngine::get_mouse_ray() const

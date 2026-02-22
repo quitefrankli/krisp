@@ -14,7 +14,7 @@
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
 {
 public:
-	virtual void handle_command(DestroyResourcesCmd& cmd) override 
+	virtual void handle_command(DestroyResourcesCmd& cmd) override
 	{
 		for (const auto& mesh_id : cmd.mesh_ids)
 		{
@@ -30,20 +30,22 @@ public:
 	std::vector<MaterialID> materials_to_destroy;
 };
 
+class TestableGameEngine : public GameEngine
+{
+public:
+	TestableGameEngine() :
+		GameEngine(std::make_unique<MockWindow>(), 
+				   std::make_unique<DummyApplication>(), 
+				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
+	{
+	}
+};
+
 class GameEngineTests : public testing::Test
 {
 public:
-    GameEngineTests() : 
-		engine(mock_window, [](GameEngine& engine) { return std::make_unique<GameEngineTestsMockGraphicsEngine>(); })
-	{
-		engine.set_application(&application);
-		graphics_engine = static_cast<GameEngineTestsMockGraphicsEngine*>(&engine.get_graphics_engine());
-	}
-
-	MockWindow mock_window;
-    DummyApplication application;
-    GameEngine engine;
-	GameEngineTestsMockGraphicsEngine* graphics_engine = nullptr;
+	TestableGameEngine engine;
+	GameEngineTestsMockGraphicsEngine& get_mock_gfx() { return static_cast<GameEngineTestsMockGraphicsEngine&>(engine.get_graphics_engine()); }
 };
 
 TEST_F(GameEngineTests, Constructor)
@@ -81,11 +83,11 @@ TEST_F(GameEngineTests, resource_cleanup)
 	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 
-	ASSERT_EQ(graphics_engine->meshes_to_destroy.size(), 1);
-	ASSERT_EQ(graphics_engine->materials_to_destroy.size(), 1);
+	ASSERT_EQ(get_mock_gfx().meshes_to_destroy.size(), 1);
+	ASSERT_EQ(get_mock_gfx().materials_to_destroy.size(), 1);
 
-	ASSERT_EQ(graphics_engine->meshes_to_destroy[0], mesh_id);
-	ASSERT_EQ(graphics_engine->materials_to_destroy[0], material_id);
+	ASSERT_EQ(get_mock_gfx().meshes_to_destroy[0], mesh_id);
+	ASSERT_EQ(get_mock_gfx().materials_to_destroy[0], material_id);
 }
 
 TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
@@ -103,8 +105,8 @@ TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 
-	ASSERT_EQ(graphics_engine->meshes_to_destroy.size(), 1);
-	ASSERT_EQ(graphics_engine->materials_to_destroy.size(), 0);
+	ASSERT_EQ(get_mock_gfx().meshes_to_destroy.size(), 1);
+	ASSERT_EQ(get_mock_gfx().materials_to_destroy.size(), 0);
 
-	ASSERT_EQ(graphics_engine->meshes_to_destroy[0], mesh_id);
+	ASSERT_EQ(get_mock_gfx().meshes_to_destroy[0], mesh_id);
 }

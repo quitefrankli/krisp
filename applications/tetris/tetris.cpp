@@ -69,12 +69,7 @@ private:
 class Application : public IApplication
 {
 public:
-	Application(GameEngine& engine) : 
-		engine(engine)
-	{
-	}
-
-	virtual void on_tick(float delta) override
+	virtual void on_tick(GameEngine&, float delta) override
 	{
 		if (gui->restart)
 		{
@@ -102,16 +97,15 @@ public:
 		}
 	}
 
-	virtual void on_click(Object& object) override
-	{
-	}
+	virtual void on_click(GameEngine&, Object&) override {}
 
-	virtual void on_begin() override
+	virtual void on_begin(GameEngine& e) override
 	{
-		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
-		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
-		auto light_source_id = engine.get_ecs().get_global_light_source();
-		engine.get_ecs().get_object(light_source_id).set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
+		engine = &e;
+		gui = &engine->get_gui_manager().spawn_gui<TetrisGui>();
+		engine->get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
+		auto light_source_id = engine->get_ecs().get_global_light_source();
+		engine->get_ecs().get_object(light_source_id).set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
 		spawn_environment();
 		generate_next_piece();
 		// engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
@@ -128,7 +122,7 @@ public:
 		// clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
 		// clear_line_fx->set_gain(0.5f);
 	}
-	virtual void on_key_press(const KeyInput& key_input) override
+	virtual void on_key_press(GameEngine&, const KeyInput& key_input) override
 	{
 		if (gui->paused)
 		{
@@ -189,25 +183,25 @@ private:
 	{
 		auto cube_renderable = Renderable::make_default(MeshFactory::cube_id());
 
-		auto& root = engine.spawn_object<Object>(cube_renderable);
+		auto& root = engine->spawn_object<Object>(cube_renderable);
 		root.set_visibility(false);
 
-		auto& floor = engine.spawn_object<Object>(cube_renderable);
+		auto& floor = engine->spawn_object<Object>(cube_renderable);
 		floor.set_position(glm::vec3(0.0f, -10.75f, 0.0f));
 		floor.set_scale(glm::vec3(width*2, 1.5f, 3.0f));
 		floor.attach_to(&root);
 
-		auto& left_wall = engine.spawn_object<Object>(cube_renderable);
+		auto& left_wall = engine->spawn_object<Object>(cube_renderable);
 		left_wall.set_position(glm::vec3(-width/2-0.5f, 0.0f, 0.0f));
 		left_wall.set_scale(glm::vec3(1.0f, height, 3.0f));
 		left_wall.attach_to(&root);
 
-		auto& right_wall = engine.spawn_object<Object>(cube_renderable);
+		auto& right_wall = engine->spawn_object<Object>(cube_renderable);
 		right_wall.set_position(glm::vec3(width/2+0.5f, 0.0f, 0.0f));
 		right_wall.set_scale(glm::vec3(1.0f, height, 3.0f));
 		right_wall.attach_to(&root);
 
-		auto& back_wall = engine.spawn_object<Object>(cube_renderable);
+		auto& back_wall = engine->spawn_object<Object>(cube_renderable);
 		back_wall.set_position(glm::vec3(0.0f, 0.0f, 2.0f));
 		back_wall.set_scale(glm::vec3(width+2, height, 1.0f));
 		back_wall.attach_to(&root);
@@ -236,7 +230,7 @@ private:
 		{
 			const int piece_type = Maths::random_uniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
 			// offsets due to some shapes such as L that can poke past the walls
-			auto* new_piece = &engine.spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), engine);
+			auto* new_piece = &engine->spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), *engine);
 			new_piece->set_position(glm::vec3(0.0f, 0.0f, 10.0f)); // position out of view
 			new_piece->set_scale(glm::vec3(3.0f)); // make it larger so it looks normal size in preview
 			return new_piece;
@@ -253,7 +247,7 @@ private:
 		current_piece->set_visibility(true);
 		current_piece->set_scale(glm::vec3(1.0f)); // reset scale to normal size
 		next_piece = generate_new_piece();
-		engine.preview_objs_in_gui({ next_piece }, dynamic_cast<GuiPhotoBase&>(*gui));
+		engine->preview_objs_in_gui({ next_piece }, dynamic_cast<GuiPhotoBase&>(*gui));
 
 		// if we are already colliding with another piece then this is game over
 		if (check_for_collision(get_latest_piece().get_transform()))
@@ -297,13 +291,13 @@ private:
 		{
 			for (auto* cell : row)
 			{
-				engine.delete_object(cell->get_id());
+				engine->delete_object(cell->get_id());
 			}
 			row.clear();
 		}
 
 		filled_spots.clear();
-		engine.delete_object(get_latest_piece().get_id());
+		engine->delete_object(get_latest_piece().get_id());
 		current_piece = nullptr;
 
 		// prepare for next game
@@ -323,15 +317,15 @@ private:
 		const auto cell_locations = latest_piece.get_cell_locations();
 		for (unsigned i = 0; i < cell_locations.size(); ++i)
 		{
-			auto* cell = engine.get_object(latest_piece.get_cells()[i]);
+			auto* cell = engine->get_object(latest_piece.get_cells()[i]);
 			const auto& loc = cell_locations[i];
 			filled_spots.insert(loc);
 			entrenched_cells[loc.y+height/2].push_back(cell);
 		}
 
-		auto* parent = engine.get_object(latest_piece.get_id());
+		auto* parent = engine->get_object(latest_piece.get_id());
 		parent->detach_all_children();
-		engine.delete_object(latest_piece.get_id());
+		engine->delete_object(latest_piece.get_id());
 		current_piece = nullptr;
 
 		// check for full rows, go from bottom to top
@@ -379,7 +373,7 @@ private:
 			{
 				const auto pos = cell->get_position();
 				filled_spots.erase(glm::ivec2(std::round(pos.x), std::round(pos.y)));
-				engine.delete_object(cell->get_id());
+				engine->delete_object(cell->get_id());
 			}
 			entrenched_cells[row].clear();
 			return true;
@@ -401,7 +395,7 @@ private:
 	}
 
 private:
-	GameEngine& engine;
+	GameEngine* engine = nullptr;
 	TetrisPiece* next_piece = nullptr;
 	TetrisPiece* current_piece = nullptr;
 	TetrisGui* gui = nullptr;
@@ -418,13 +412,7 @@ int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
 	{
-		App::Window window;
-		window.open(Config::get_window_pos().first, Config::get_window_pos().second);
-		GameEngine engine(window);
-
-		Application app(engine);
-		engine.set_application(&app);
-
+		auto engine = GameEngine::create<Application>();
 		engine.run();
 	}
 

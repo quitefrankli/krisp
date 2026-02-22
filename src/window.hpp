@@ -14,10 +14,9 @@ namespace App {
 	class Window
 	{
 	public:
-		Window() = default;
-		~Window();
+		Window();
+		virtual ~Window();
 
-		virtual void open(int x0, int y0);
 		virtual void setup_callbacks(IWindowCallbacks& callbacks);
 		virtual void poll_events();
 		virtual bool should_close();
@@ -31,8 +30,8 @@ namespace App {
 		GLFWwindow* get_glfw_window() { return window; }
 
 	private:
-		const int INITIAL_WINDOW_WIDTH = 1400;
-		const int INITIAL_WINDOW_HEIGHT = 800;
+		static constexpr int INITIAL_WINDOW_WIDTH = 1400;
+		static constexpr int INITIAL_WINDOW_HEIGHT = 800;
 		GLFWwindow* window = nullptr;
 	};
 }

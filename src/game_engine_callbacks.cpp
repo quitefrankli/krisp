@@ -51,7 +51,7 @@ void GameEngine::key_callback(const KeyInput& key_input)
 		mouse->mmb_down = false;
 		
 	keyboard.update_key(key_input);
-	application->on_key_press(key_input);
+	application->on_key_press(*this, key_input);
 }
 
 void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input)

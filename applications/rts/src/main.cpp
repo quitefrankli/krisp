@@ -25,30 +25,24 @@
 class Application : public IApplication
 {
 public:
-	Application(GameEngine& engine) :
-		engine(engine)
-	{
-	}
-
-	// in seconds
-	virtual void on_tick(float delta) override
+	virtual void on_tick(GameEngine& engine, float delta) override
 	{
 		const auto hovered = engine.get_ecs().check_any_entity_hovered(engine.get_mouse_ray());
 		Object* object_to_unhighlight = prev_hovered.has_value() ?
 			&engine.get_ecs().get_object(prev_hovered.value()) : nullptr;
-		
+
 		if (hovered.bCollided)
 		{
 			const auto& hovered_obj = engine.get_ecs().get_object(hovered.id);
 			if (&hovered_obj == object_to_unhighlight)
 			{
 				object_to_unhighlight = nullptr;
-			} else 
+			} else
 			{
 				engine.highlight_object(hovered_obj);
 			}
 			prev_hovered = hovered.id;
-		} else 
+		} else
 		{
 			prev_hovered.reset();
 		}
@@ -57,25 +51,19 @@ public:
 		{
 			engine.unhighlight_object(*object_to_unhighlight);
 		}
-	};
-	virtual void on_click(Object& object) override {};
-	virtual void on_begin() override {};
-	virtual void on_key_press(const KeyInput& key_input) override {};
+	}
+	virtual void on_click(GameEngine&, Object&) override {}
+	virtual void on_begin(GameEngine&) override {}
+	virtual void on_key_press(GameEngine&, const KeyInput&) override {}
 
 private:
-	GameEngine& engine;
 	std::optional<ObjectID> prev_hovered;
 };
 
 int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
-	App::Window window;
-	window.open(Config::get_window_pos().first, Config::get_window_pos().second);
-	GameEngine engine(window);
-
-	Application app(engine);
-	engine.set_application(&app);
+	auto engine = GameEngine::create<Application>();
 
 	Tile::tile_object_spawner = [&engine](const TileCoord& coord)
 	{

@@ -16,40 +16,30 @@
 #include <fmt/core.h>
 #include <fmt/color.h>
 
+#include <optional>
+
 class Application : public IApplication
 {
 public:
-	Application(GameEngine& engine) :
-		engine(engine),
-		board(engine)
-	{
-		State::board = &board;
-		State::engine = &engine;
-	}
+	virtual void on_tick(GameEngine&, float) override {}
 
-	virtual void on_tick(float delta) override
-	{
-
-	}
-
-	virtual void on_click(Object& object) override
+	virtual void on_click(GameEngine&, Object& object) override
 	{
 		state = state->process(object);
 	}
 
-	virtual void on_begin() override
+	virtual void on_begin(GameEngine& engine) override
 	{
+		board.emplace(engine);
+		State::board = &*board;
+		State::engine = &engine;
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 20.0f, -50.0f));
 	}
 
-	virtual void on_key_press(const KeyInput& key_input) override
-	{
-
-	}
+	virtual void on_key_press(GameEngine&, const KeyInput&) override {}
 
 private:
-	GameEngine& engine;
-	Board board;
+	std::optional<Board> board;
 	Tile* active_tile = nullptr;
 	State* state = State::initial.get();
 };
@@ -58,9 +48,7 @@ int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
 	{
-		App::Window window;
-		window.open(Config::get_window_pos().first, Config::get_window_pos().second);
-		GameEngine engine(window);
+		auto engine = GameEngine::create<Application>();
 
 		auto& ecs = engine.get_ecs();
 
@@ -76,7 +64,7 @@ int main(int argc, char* argv[])
 		});
 		light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
 		light_source.set_scale(glm::vec3(2.0f));
-		
+
 		ecs.add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
 		ecs.add_clickable_entity(light_source.get_id());
 
@@ -85,8 +73,6 @@ int main(int argc, char* argv[])
 		light.color = glm::vec3(1.0f, 0.95f, 0.9f);
 		ecs.add_light_source(light_source.get_id(), light);
 
-		Application app(engine);
-		engine.set_application(&app);
 		engine.run();
 	}
 

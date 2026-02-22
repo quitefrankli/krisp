@@ -33,19 +33,28 @@ class GameEngine : public IWindowCallbacks
 {
 public: // getters and setters
 	Camera& get_camera() { return *camera; }
-	App::Window& get_window() { return window; }
+	App::Window& get_window() { return *window; }
 	GraphicsEngineBase& get_graphics_engine() { return *graphics_engine; }
 	GuiManager& get_gui_manager();
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 	Gizmo& get_gizmo();
 
-	using GraphicsEngineFactory = std::function<std::unique_ptr<GraphicsEngineBase>(GameEngine&)>;
-
 public:
-	GameEngine(App::Window& window);
-	GameEngine(App::Window& window, GraphicsEngineFactory factory);
+	template<typename AppT, typename... Args>
+	static GameEngine create(Args&&... args)
+	{
+		return GameEngine(std::make_unique<AppT>(std::forward<Args>(args)...));
+	}
+
 	~GameEngine();
 
+protected:
+	GameEngine(std::unique_ptr<IApplication> application);
+	GameEngine(std::unique_ptr<App::Window> window, 
+			   std::unique_ptr<IApplication> application, 
+			   std::unique_ptr<GraphicsEngineBase> graphics_engine);
+
+public:
 	void run();
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
@@ -86,7 +95,6 @@ public:
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
 
-	void set_application(IApplication* application);
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
 
@@ -109,7 +117,7 @@ public:
 	void preview_objs_in_gui(const std::vector<Object*>& objs, GuiPhotoBase& gui_window);
 
 private:
-	App::Window& window;
+	std::unique_ptr<App::Window> window;
 	AudioEnginePimpl audio_engine;
     std::unique_ptr<GraphicsEngineBase> graphics_engine;
 	std::unique_ptr<Camera> camera;
@@ -122,12 +130,13 @@ private:
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
 	std::thread graphics_engine_thread;
-	IApplication* application;
+	std::unique_ptr<IApplication> application;
 
 	std::unique_ptr<Experimental> experimental;
 	EntityDeletionQueue entity_deletion_queue;	
 
 private:
+	void init();
 	void shutdown_impl();
 	void process_objs_to_delete();
 	std::unique_ptr<Analytics> TPS_counter;

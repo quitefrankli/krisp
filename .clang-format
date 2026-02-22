@@ -1,6 +1,6 @@
 ---
 Language:        Cpp
-BasedOnStyle:  Mozilla
+BasedOnStyle:  LLVM
 
 BreakBeforeBraces: Custom
 BreakConstructorInitializers: AfterColon
@@ -32,5 +32,6 @@ SortIncludes:    false
 SpaceAfterTemplateKeyword: false
 AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
+AlignAfterOpenBracket: Align
 ...
 

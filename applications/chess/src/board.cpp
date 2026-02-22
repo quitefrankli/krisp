@@ -121,27 +121,27 @@ Board::Board(GameEngine& engine)
 		{Piece::PAWN,   7, 6, Piece::Side::BLACK},  // 32: pawn_black_08
 	};
 
-	assert(loaded_model.renderables.size() == piece_mapping.size() && "Chess model should have 33 renderables");
+	// assert(loaded_model.renderables.size() == piece_mapping.size() && "Chess model should have 33 renderables");
 
-	// // Spawn each piece
-	// for (size_t i = 0; i < loaded_model.renderables.size(); i++)
-	// {
-	// 	const auto& info = piece_mapping[i];
+	// Spawn each piece
+	for (size_t i = 0; i < piece_mapping.size(); i++)
+	{
+		const auto& info = piece_mapping[i];
 
-	// 	// Skip the board renderable (index 6)
-	// 	if (info.type == Piece::UNKNOWN)
-	// 		continue;
+		// Skip the board renderable (index 6)
+		if (info.type == Piece::UNKNOWN)
+			continue;
 
-	// 	// Create object from renderable
-	// 	Object temp_obj(loaded_model.renderables[i]);
+		// Create object from renderable
+		Object temp_obj(loaded_model.renderables[i]);
 
-	// 	// Get the tile for this piece
-	// 	Tile* tile = get_tile(info.x, info.y);
+		// Get the tile for this piece
+		Tile* tile = get_tile(info.x, info.y);
 
-	// 	// Spawn the piece
-	// 	Piece& piece = engine.spawn_object<Piece>(std::move(temp_obj), tile);
-	// 	piece.type = info.type;
-	// 	piece.side = info.side;
-	// 	piece.move_to_tile(tile);
-	// }
+		// Spawn the piece
+		Piece& piece = engine.spawn_object<Piece>(std::move(temp_obj), tile);
+		piece.type = info.type;
+		piece.side = info.side;
+		piece.move_to_tile(tile);
+	}
 }

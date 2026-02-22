@@ -5,10 +5,6 @@
 class MockWindow : public App::Window
 {
 public:
-	virtual void open(int x0, int y0) override
-	{
-	}
-
 	virtual void setup_callbacks(IWindowCallbacks& callbacks) override
 	{
 	}
