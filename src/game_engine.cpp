@@ -319,7 +319,7 @@ void GameEngine::unhighlight_object(const Object& object)
 
 void GameEngine::set_application(IApplication* application) 
 {
-	assert(!this->applications);
+	assert(!this->application);
 	this->application=application;
 }
 

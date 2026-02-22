@@ -4,6 +4,7 @@
 #include "game_engine.hpp"
 #include "camera.hpp"
 #include "utility.hpp"
+#include "config.hpp"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -202,7 +203,7 @@ void App::Window::open(int x0, int y0)
 	window = glfwCreateWindow(
 		INITIAL_WINDOW_WIDTH, 
 		INITIAL_WINDOW_HEIGHT, 
-		Utility::get_project_name().data(), 
+		Config::get_project_name().data(), 
 		nullptr, 
 		nullptr);
 	assert(window);

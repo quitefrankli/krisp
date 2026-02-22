@@ -86,14 +86,9 @@ std::filesystem::path Utility::resolve_resource(std::string_view subdir, std::st
 		filename));
 }
 
-std::string_view Utility::get_project_name()
-{
-	return Config::get_project_name();
-}
-
 std::filesystem::path Utility::get_config_path()
 {
-	auto app_config = get().top_level_dir / "applications" / std::string(Config::get_project_name()) / "config.yaml";
+	auto app_config = get().top_level_dir / "applications" / Config::get_project_name() / "config.yaml";
 	if (std::filesystem::exists(app_config))
 	{
 		return app_config;
@@ -108,7 +103,7 @@ std::filesystem::path Utility::get_rsrc_path(bool use_default)
 		return get().top_level_dir / "resources/applications/default";
 	}
 
-	return get().top_level_dir / "resources/applications" / std::string(Config::get_project_name());
+	return get().top_level_dir / "resources/applications" / Config::get_project_name();
 }
 
 std::filesystem::path Utility::get_texture(std::string_view filename)

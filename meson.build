@@ -12,7 +12,7 @@ add_project_arguments(
 	'-DGLM_ENABLE_EXPERIMENTAL',
 	language: 'cpp')
 if get_option('buildtype') == 'debug'
-	add_project_arguments('-D_DEBUG', language: 'cpp')
+	add_project_arguments('-D_DEBUG', '-UNDEBUG', language: 'cpp')
 endif
 
 additional_include_directories = [

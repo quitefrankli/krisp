@@ -26,7 +26,6 @@ public:
 		std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
 	};
 
-	static std::string_view get_project_name();
 	static const std::filesystem::path& get_top_level_path() { return get().top_level_dir; }
 	static const std::filesystem::path& get_build_path() { return get().build; };
 	static const std::filesystem::path& get_binary_path() { return get().binary; };

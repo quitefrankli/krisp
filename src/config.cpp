@@ -34,7 +34,7 @@ void Config::init(std::string_view project_name)
 
 std::string_view Config::get_project_name()
 {
-	assert(!config_node.IsNull());
+	assert(!_project_name.empty());
 	return _project_name;
 }
 
