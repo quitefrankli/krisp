@@ -178,7 +178,12 @@ void GuiModelSpawner::process(GameEngine& engine)
 	{
 		should_spawn = false;
 		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model]);
-		auto mesh = std::make_shared<Object>(loaded_model.renderables);
+		std::vector<Renderable> all_renderables;
+		for (const auto& mesh : loaded_model.meshes)
+		{
+			all_renderables.insert(all_renderables.end(), mesh.renderables.begin(), mesh.renderables.end());
+		}
+		auto mesh = std::make_shared<Object>(all_renderables);
 		mesh->set_transform(loaded_model.onload_transform.get_mat4());
 		const auto name = model_paths[selected_model].stem().string();
 		mesh->set_name(name);
@@ -303,36 +308,15 @@ void GuiStatistics::draw()
 {
 	ImGui::Begin("Statistics");
 
-	ImGui::ProgressBar(
-		float(vertex_buffer_capacity.filled_capacity) / float(vertex_buffer_capacity.total_capacity), 
-		ImVec2(0.0f, 0.0f), 
-		"vertex buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", vertex_buffer_capacity.total_capacity / 1024);
-	ImGui::ProgressBar(
-		float(index_buffer_capacity.filled_capacity) / float(index_buffer_capacity.total_capacity), 
-		ImVec2(0.0f, 0.0f), 
-		"index buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", index_buffer_capacity.total_capacity / 1024);
-	ImGui::ProgressBar(
-		float(uniform_buffer_capacity.filled_capacity) / float(uniform_buffer_capacity.total_capacity), 
-		ImVec2(0.0f, 0.0f), 
-		"uniform buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", uniform_buffer_capacity.total_capacity / 1024);
-	ImGui::ProgressBar(
-		float(materials_buffer_capacity.filled_capacity) / float(materials_buffer_capacity.total_capacity), 
-		ImVec2(0.0f, 0.0f), 
-		"materials buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", materials_buffer_capacity.total_capacity / 1024);
-	ImGui::ProgressBar(
-		float(mapping_buffer_capacity.filled_capacity) / float(mapping_buffer_capacity.total_capacity), 
-		ImVec2(0.0f, 0.0f), 
-		"mapping buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", mapping_buffer_capacity.total_capacity / 1024);
-	ImGui::ProgressBar(
-		float(bone_buffer_capacity.filled_capacity) / float(bone_buffer_capacity.total_capacity), 
-		ImVec2(0.0f, 0.0f), 
-		"bone buffer");
-	ImGui::SameLine(); ImGui::Text("%ukB", bone_buffer_capacity.total_capacity / 1024);
+	for (const auto& [label, capacity] : buffer_capacities)
+	{
+		static constexpr float bytes_to_mb = 1.0f / (1024.0f * 1024.0f);
+		ImGui::ProgressBar(
+			float(capacity.filled_capacity) / float(capacity.total_capacity), 
+			ImVec2(0.0f, 0.0f), 
+			label.data());
+		ImGui::SameLine(); ImGui::Text("%.2f Mb", float(capacity.total_capacity) * bytes_to_mb);
+	}
 
 	ImGui::End();
 }
@@ -341,18 +325,14 @@ void GuiStatistics::update_buffer_capacities(
 	const std::vector<std::pair<size_t, size_t>>& buffer_capacities)
 {
 	assert(buffer_capacities.size() == 6);
-	vertex_buffer_capacity.filled_capacity = buffer_capacities[0].first;
-	vertex_buffer_capacity.total_capacity = buffer_capacities[0].second;
-	index_buffer_capacity.filled_capacity = buffer_capacities[1].first;
-	index_buffer_capacity.total_capacity = buffer_capacities[1].second;
-	uniform_buffer_capacity.filled_capacity = buffer_capacities[2].first;
-	uniform_buffer_capacity.total_capacity = buffer_capacities[2].second;
-	materials_buffer_capacity.filled_capacity = buffer_capacities[3].first;
-	materials_buffer_capacity.total_capacity = buffer_capacities[3].second;
-	mapping_buffer_capacity.filled_capacity = buffer_capacities[4].first;
-	mapping_buffer_capacity.total_capacity = buffer_capacities[4].second;
-	bone_buffer_capacity.filled_capacity = buffer_capacities[5].first;
-	bone_buffer_capacity.total_capacity = buffer_capacities[5].second;
+
+	for (size_t i = 0; i < buffer_capacities.size(); ++i)
+	{
+		auto& [label, capacity] = this->buffer_capacities[i];
+		const auto& capacity_pair = buffer_capacities[i];
+		capacity.filled_capacity = capacity_pair.first;
+		capacity.total_capacity = capacity_pair.second;
+	}
 }
 
 void GuiDebug::process(GameEngine& engine)

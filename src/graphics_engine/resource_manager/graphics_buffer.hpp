@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <string>
 #include <unordered_map>
 #include <map>
 
@@ -11,7 +12,12 @@ class GraphicsBuffer
 public:
 	using offset_t = uint32_t;
 
-	GraphicsBuffer(VkBuffer buffer, VkDeviceMemory memory, uint32_t capacity, uint32_t alignment = 1);
+	GraphicsBuffer(
+		VkBuffer buffer,
+		VkDeviceMemory memory,
+		uint32_t capacity,
+		uint32_t alignment = 1,
+		std::string name = "");
 	GraphicsBuffer(const GraphicsBuffer&) = delete;
 	GraphicsBuffer(GraphicsBuffer&& other) noexcept;
 	~GraphicsBuffer();
@@ -36,6 +42,7 @@ public:
 	offset_t get_offset(uint32_t id) const;
 	VkBuffer get_buffer() const { return buffer; }
 	VkDeviceMemory get_memory() const { return memory; }
+	const std::string& get_name() const { return name; }
 	Slot get_slot(uint32_t id) const;
 	bool has_slot(uint32_t id) const { return filled_slots.contains(id); }
 
@@ -52,6 +59,7 @@ private:
 	size_t filled_capacity = 0;
 	const size_t capacity;
 	const uint32_t alignment;
+	std::string name;
 };
 
 // This buffer version is append only, it can only grow and never shrink or modify contents

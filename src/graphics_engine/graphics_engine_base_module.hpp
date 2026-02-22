@@ -2,6 +2,9 @@
 
 #include "vulkan/vulkan.hpp"
 
+#include <string>
+#include <utility>
+
 #include "resource_manager/graphics_buffer.hpp"
 
 
@@ -33,7 +36,8 @@ public:
 		size_t size, 
 		VkBufferUsageFlags usage_flags, 
 		VkMemoryPropertyFlags memory_flags,
-		uint32_t alignment = 1);
+		uint32_t alignment = 1,
+		std::string name = "");
 	virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);		
 
 protected:

@@ -150,12 +150,14 @@ private:
 		size_t filled_capacity = 0;
 	};
 
-	BufferCapacity vertex_buffer_capacity;
-	BufferCapacity index_buffer_capacity;
-	BufferCapacity uniform_buffer_capacity;
-	BufferCapacity materials_buffer_capacity;
-	BufferCapacity mapping_buffer_capacity;
-	BufferCapacity bone_buffer_capacity;
+	std::vector<std::pair<std::string, BufferCapacity>> buffer_capacities = {
+		{ "vertex buffer", {} },
+		{ "index buffer", {} },
+		{ "uniform buffer", {} },
+		{ "materials buffer", {} },
+		{ "mapping buffer", {} },
+		{ "bone buffer", {} }
+	};
 };
 
 class Object;

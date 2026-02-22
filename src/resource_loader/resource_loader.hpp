@@ -35,10 +35,15 @@ public:
 		ZERO_XZ,   // per mesh center moved to (0,y,0) and bottom of mesh is at y=0
 	};
 
-	// used as a return value when loading models
+	struct LoadedMesh
+	{
+		std::string name;
+		std::vector<Renderable> renderables;
+	};
+
 	struct LoadedModel
 	{
-		std::vector<Renderable> renderables;
+		std::vector<LoadedMesh> meshes;
 		std::vector<AnimationID> animations;
 		Maths::Transform onload_transform;
 	};
@@ -48,10 +53,12 @@ public:
 
 private:
 	MaterialID load_texture(const std::filesystem::path& file_path);
-	MaterialID load_material(const tinygltf::Primitive& primitive, tinygltf::Model& model);
+	void load_all_materials(const tinygltf::Model& model);
+	MaterialID load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
 
 private:
 	std::unordered_map<std::string, MaterialID> texture_name_to_mat_id;
+	std::unordered_map<int, MaterialID> gltf_material_to_mat_id;
 
 	static ResourceLoader global_resource_loader;
 };

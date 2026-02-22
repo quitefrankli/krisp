@@ -1,4 +1,4 @@
-* Minimise token usage - this directly affects cost and speed:
+* Minimise token usage
 
 * Don't poll or re-read: For background tasks, wait for completion once rather than repeatedly reading output files.
 
@@ -9,8 +9,6 @@
 * One tool call, not three: Prefer a single well-constructed command over multiple incremental checks.
 
 * Don't narrate tool use: Skip "Let me read the file" or "Let me check the status" ? just do it.
-
-* Context preservation: Background tasks return completion notifications with `<result>` tags containing only the final message. Do NOT call `TaskOutput` to check results. `TaskOutput` returns the full conversation transcript (every tool call, file read, and intermediate message), which wastes massive amounts of context. Wait for each task's completion notification and use the `<result>` tag content directly.
 
 * Minimise comments/docstrings, only add comments when they are truly helpful i.e. deep functions, surprsing logic. Don't add any readme.md files or other documentation files unless explicitly asked to.
 
@@ -23,3 +21,5 @@
 * refer to readme.md for build instructions
 
 * IMPORTANT: use DEBUG build for all compilations and testing! Make sure to run `meson setup build --reconfigure --buildtype=debug` initially, and then `meson compile -C build $TARGET` for targetted builds
+
+* limit number of concurrent build jobs to 6

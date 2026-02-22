@@ -38,9 +38,15 @@ GraphicsBuffer GraphicsEngineBaseModule::create_buffer(
 	size_t size, 
 	VkBufferUsageFlags usage_flags, 
 	VkMemoryPropertyFlags memory_flags,
-	uint32_t alignment)
+	uint32_t alignment,
+	std::string name)
 {
-	return static_cast<GraphicsBufferManager&>(get_rsrc_mgr()).create_buffer(size, usage_flags, memory_flags, alignment);
+	return static_cast<GraphicsBufferManager&>(get_rsrc_mgr()).create_buffer(
+		size,
+		usage_flags,
+		memory_flags,
+		alignment,
+		std::move(name));
 }
 
 VkDeviceAddress GraphicsEngineBaseModule::get_buffer_device_address(

@@ -3,6 +3,7 @@
 #include <resource_loader/resource_loader.hpp>
 #include <utility.hpp>
 #include <entity_component_system/ecs.hpp>
+#include <entity_component_system/material_system.hpp>
 
 #include <gtest/gtest.h>
 
@@ -22,7 +23,7 @@ public:
 
 	const std::vector<Bone>& get_bones()
 	{
-		const auto& renderable = model.renderables[0];
+		const auto& renderable = model.meshes[0].renderables[0];
 		const auto skeleton_id = renderable.skeleton_id.value();
 		const auto& skeleton = ECS::get().get_skeletal_component(skeleton_id);
 		return skeleton.get_bones();
@@ -45,8 +46,9 @@ public:
 // test loading .gltf file with bones into std::vector<Bone>
 TEST_F(ResourceLoaderECS, load_bones)
 {
-	ASSERT_EQ(model.renderables.size(), 1);
-	const auto& renderable = model.renderables[0];
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& renderable = model.meshes[0].renderables[0];
 	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
 	const auto skeleton_id = renderable.skeleton_id.value();
 	const auto& skeleton = ECS::get().get_skeletal_component(skeleton_id);
@@ -165,4 +167,64 @@ TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material
 	const auto second = ResourceLoader::fetch_texture(texture_path);
 
 	ASSERT_EQ(first, second);
+}
+
+TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
+{
+	const auto model_path = Utility::get_top_level_path()/"test/data/static_mesh_textured.gltf";
+	const auto model = ResourceLoader::load_model(model_path);
+
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+
+	const auto& renderable = model.meshes[0].renderables[0];
+	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
+	ASSERT_FALSE(renderable.skeleton_id.has_value());
+
+	ASSERT_EQ(renderable.material_ids.size(), 1);
+	const auto& material = MaterialSystem::get(renderable.material_ids[0]);
+	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
+	ASSERT_NE(tex_material, nullptr);
+	ASSERT_EQ(tex_material->width, 2);
+	ASSERT_EQ(tex_material->height, 2);
+}
+
+TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses_cached_material)
+{
+	const auto model_path = Utility::get_top_level_path()/"test/data/static_mesh_textured_shared_material.gltf";
+	const auto model = ResourceLoader::load_model(model_path);
+
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
+
+	const auto first_mat_id = model.meshes[0].renderables[0].material_ids[0];
+	const auto second_mat_id = model.meshes[0].renderables[1].material_ids[0];
+	ASSERT_EQ(first_mat_id, second_mat_id);
+
+	const auto& material = MaterialSystem::get(first_mat_id);
+	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
+	ASSERT_NE(tex_material, nullptr);
+	ASSERT_EQ(tex_material->width, 2);
+	ASSERT_EQ(tex_material->height, 2);
+}
+
+TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
+{
+	const auto model_path = Utility::get_top_level_path()/"test/data/multi_mesh_multi_primitive.gltf";
+	const auto model = ResourceLoader::load_model(model_path);
+
+	ASSERT_EQ(model.meshes.size(), 2);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
+	ASSERT_EQ(model.meshes[1].renderables.size(), 2);
+	for (const auto& mesh : model.meshes)
+	{
+		for (const auto& renderable : mesh.renderables)
+		{
+			ASSERT_EQ(renderable.pipeline_render_type, ERenderType::COLOR);
+			ASSERT_FALSE(renderable.skeleton_id.has_value());
+			ASSERT_EQ(renderable.material_ids.size(), 1);
+			const auto& material = MaterialSystem::get(renderable.material_ids[0]);
+			ASSERT_NE(dynamic_cast<const ColorMaterial*>(&material), nullptr);
+		}
+	}
 }

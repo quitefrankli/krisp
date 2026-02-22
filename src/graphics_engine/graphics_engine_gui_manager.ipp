@@ -83,7 +83,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 {
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
-	static const std::string configs_path = fmt::format("{}/imgui.ini", Utility::get_config_path().string());
+	static const std::string configs_path = Utility::get_config_path("imgui.ini").string();
 	io.IniFilename = configs_path.c_str();
 	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window().get_glfw_window(), true);
 	

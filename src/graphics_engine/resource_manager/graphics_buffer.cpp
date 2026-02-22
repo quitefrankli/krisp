@@ -1,13 +1,20 @@
 #include "graphics_buffer.hpp"
 
 #include <cstddef>
+#include <utility>
 
 
-GraphicsBuffer::GraphicsBuffer(VkBuffer buffer, VkDeviceMemory memory, uint32_t capacity, uint32_t alignment) :
+GraphicsBuffer::GraphicsBuffer(
+	VkBuffer buffer,
+	VkDeviceMemory memory,
+	uint32_t capacity,
+	uint32_t alignment,
+	std::string name) :
 	buffer(buffer),
 	memory(memory),
 	capacity(capacity),
-	alignment(alignment)
+	alignment(alignment),
+	name(std::move(name))
 {
 	Slot slot;
 	slot.offset = 0;
@@ -21,6 +28,7 @@ GraphicsBuffer::GraphicsBuffer(GraphicsBuffer&& other) noexcept :
 	memory(other.memory),
 	capacity(other.capacity),
 	alignment(other.alignment),
+	name(std::move(other.name)),
 	filled_slots(std::move(other.filled_slots)),
 	free_slots(std::move(other.free_slots))
 {

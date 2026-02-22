@@ -6,28 +6,54 @@
 
 GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine),
-	vertex_buffer(create_buffer(VERTEX_BUFFER_CAPACITY, VERTEX_BUFFER_USAGE_FLAGS, VERTEX_BUFFER_MEMORY_FLAGS, 4)),
-	index_buffer(create_buffer(INDEX_BUFFER_CAPACITY, INDEX_BUFFER_USAGE_FLAGS, INDEX_BUFFER_MEMORY_FLAGS, 4)),
+	vertex_buffer(create_buffer(
+		VERTEX_BUFFER_CAPACITY, 
+		VERTEX_BUFFER_USAGE_FLAGS, 
+		VERTEX_BUFFER_MEMORY_FLAGS, 
+		4, 
+		"vertex_buffer")),
+	index_buffer(create_buffer(
+		INDEX_BUFFER_CAPACITY, 
+		INDEX_BUFFER_USAGE_FLAGS, 
+		INDEX_BUFFER_MEMORY_FLAGS, 
+		4, 
+		"index_buffer")),
 	uniform_buffer(create_buffer(
 		UNIFORM_BUFFER_CAPACITY, 
 		UNIFORM_BUFFER_USAGE_FLAGS, 
 		UNIFORM_BUFFER_MEMORY_FLAGS, 
-		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment)),
+		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment,
+		"uniform_buffer")),
 	materials_buffer(create_buffer(
 		MATERIALS_BUFFER_CAPACITY, 
 		MATERIALS_BUFFER_USAGE_FLAGS, 
 		MATERIALS_BUFFER_MEMORY_FLAGS, 
-		engine.get_device_module().get_physical_device_properties().properties.limits.minStorageBufferOffsetAlignment)),
+		engine.get_device_module().get_physical_device_properties().properties.limits.minStorageBufferOffsetAlignment,
+		"materials_buffer")),
 	global_uniform_buffer(create_buffer(
 		GLOBAL_UNIFORM_BUFFER_CAPACITY, 
 		GLOBAL_UNIFORM_BUFFER_USAGE_FLAGS, 
 		GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS,
-		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment)),
+		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment,
+		"global_uniform_buffer")),
 	mapping_buffer(create_buffer(
-		MAPPING_BUFFER_CAPACITY, MAPPING_BUFFER_USAGE_FLAGS, MAPPING_BUFFER_MEMORY_FLAGS), sizeof(SDS::BufferMapEntry)),
+		MAPPING_BUFFER_CAPACITY, 
+		MAPPING_BUFFER_USAGE_FLAGS, 
+		MAPPING_BUFFER_MEMORY_FLAGS, 
+		1, 
+		"mapping_buffer"), sizeof(SDS::BufferMapEntry)),
 	bone_buffer(create_buffer(
-		BONE_BUFFER_CAPACITY, BONE_BUFFER_USAGE_FLAGS, BONE_BUFFER_MEMORY_FLAGS)),
-	staging_buffer(create_buffer(INITIAL_STAGING_BUFFER_CAPACITY, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS))
+		BONE_BUFFER_CAPACITY, 
+		BONE_BUFFER_USAGE_FLAGS, 
+		BONE_BUFFER_MEMORY_FLAGS, 
+		1, 
+		"bone_buffer")),
+	staging_buffer(create_buffer(
+		INITIAL_STAGING_BUFFER_CAPACITY, 
+		STAGING_BUFFER_USAGE_FLAGS, 
+		STAGING_BUFFER_MEMORY_FLAGS, 
+		1, 
+		"staging_buffer"))
 {
 	// reserve the first slot in the global uniform buffer for gubo (we only ever use 1 slot)
 	for (uint32_t frame_idx = 0; frame_idx < CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; ++frame_idx)
@@ -130,7 +156,8 @@ GraphicsBuffer GraphicsBufferManager::create_buffer(
 	size_t size,
 	VkBufferUsageFlags usage_flags,
 	VkMemoryPropertyFlags memory_flags,
-	uint32_t alignment)
+	uint32_t alignment,
+	std::string name)
 {
 	VkBuffer buffer;
 	VkDeviceMemory memory;
@@ -165,7 +192,7 @@ GraphicsBuffer GraphicsBufferManager::create_buffer(
 
 	vkBindBufferMemory(get_logical_device(), buffer, memory, 0);
 
-	return GraphicsBuffer(buffer, memory, size, alignment);
+	return GraphicsBuffer(buffer, memory, size, alignment, std::move(name));
 }
 
 void GraphicsBufferManager::create_buffer_deprecated(size_t size,
@@ -216,7 +243,12 @@ void GraphicsBufferManager::stage_data_to_buffer(VkBuffer destination_buffer,
 	{
 		// recreate the staging buffer if it is too small
 		staging_buffer.destroy(get_logical_device());
-		new (&staging_buffer) GraphicsBuffer(create_buffer(size, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS));
+		new (&staging_buffer) GraphicsBuffer(create_buffer(
+			size,
+			STAGING_BUFFER_USAGE_FLAGS,
+			STAGING_BUFFER_MEMORY_FLAGS,
+			1,
+			"staging_buffer"));
 	}
 
 	// fill the staging buffer
@@ -252,7 +284,12 @@ void GraphicsBufferManager::stage_data_to_image(
 	{
 		// recreate the staging buffer if it is too small
 		staging_buffer.destroy(get_logical_device());
-		new (&staging_buffer) GraphicsBuffer(create_buffer(size, STAGING_BUFFER_USAGE_FLAGS, STAGING_BUFFER_MEMORY_FLAGS));
+		new (&staging_buffer) GraphicsBuffer(create_buffer(
+			size,
+			STAGING_BUFFER_USAGE_FLAGS,
+			STAGING_BUFFER_MEMORY_FLAGS,
+			1,
+			"staging_buffer"));
 	}
 
 	// fill the staging buffer

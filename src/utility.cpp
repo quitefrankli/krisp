@@ -86,14 +86,14 @@ std::filesystem::path Utility::resolve_resource(std::string_view subdir, std::st
 		filename));
 }
 
-std::filesystem::path Utility::get_config_path()
+std::filesystem::path Utility::get_config_path(std::string_view filename)
 {
-	auto app_config = get().top_level_dir / "applications" / Config::get_project_name() / "config.yaml";
+	auto app_config = get().top_level_dir / "applications" / Config::get_project_name() / filename;
 	if (std::filesystem::exists(app_config))
 	{
 		return app_config;
 	}
-	return get().top_level_dir / "configs" / "default.yaml";
+	return get().top_level_dir / "configs" / filename;
 }
 
 std::filesystem::path Utility::get_rsrc_path(bool use_default)

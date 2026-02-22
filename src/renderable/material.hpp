@@ -13,6 +13,7 @@
 struct Material
 {
 public:
+	virtual ~Material() = default;
 	MaterialID get_id() const { return id; }
 
 private:

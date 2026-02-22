@@ -24,7 +24,7 @@ void Config::init(std::string_view project_name)
 	#endif
 
 	_project_name = project_name;
-	config_node = YAML::LoadFile(Utility::get_config_path().string());
+	config_node = YAML::LoadFile(Utility::get_config_path("default.yaml").string());
 
 	if (enable_logging())
 	{
