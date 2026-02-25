@@ -8,14 +8,15 @@
 #include "hoverable.hpp"
 #include "physics/physics.hpp"
 #include "particle_system.hpp"
+#include "tile_system.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
 #include <memory>
 
 
-class ECS : 
-	public SkeletalSystem, 
+class ECS :
+	public SkeletalSystem,
 	public SkeletalAnimationSystem,
 	public AnimationSystem,
 	public LightSystem,
@@ -23,7 +24,8 @@ class ECS :
 	public ClickableSystem,
 	public HoverableSystem,
 	public PhysicsSystem,
-	public ParticleSystem
+	public ParticleSystem,
+	public TileSystem
 {
 public:
 	void process(const float delta_secs);

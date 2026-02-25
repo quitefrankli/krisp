@@ -64,12 +64,33 @@ void GameEngine::init()
 	draw_object(camera->focus_obj);
 	draw_object(camera->upvector_obj);
 	experimental = std::make_unique<Experimental>(*this);
-
+	
 	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>([this](float tps) {
 		set_tps(float(1e6) / tps);
 	}, 1);
 	TPS_counter->text = "TPS Counter";
+
+	ecs.set_tile_spawner([this]() -> Object&
+	{
+		static Renderable renderable = []() -> Renderable
+		{
+			ColorMaterial mat{};
+			mat.data.ambient = glm::vec3(1.0f) / 0.03f; // compensate for gamma correction and lack of real lighting
+			mat.data.diffuse = Maths::zero_vec;
+			mat.data.specular = Maths::zero_vec;
+			mat.data.emissive = Maths::zero_vec;
+			mat.data.shininess = 0.0f;
+			
+			return Renderable{
+				.mesh_id = MeshFactory::cube_id(),
+				.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(mat)) },
+				.pipeline_render_type = ERenderType::COLOR
+			};
+		}();
+
+		return spawn_object<Object>(renderable);
+	});
 }
 
 void GameEngine::run()
@@ -171,6 +192,16 @@ void GameEngine::main_loop(const float time_delta)
 	}
 
 	process_camera_movement(time_delta);
+	const auto hover_result = ecs.process_hover(get_mouse_ray());
+	if (hover_result.prev_hovered)
+	{
+		unhighlight_object(*get_object(*hover_result.prev_hovered));
+	}
+
+	if (hover_result.new_hovered)
+	{
+		highlight_object(*get_object(*hover_result.new_hovered));
+	}
 
 	if (!paused)
 	{

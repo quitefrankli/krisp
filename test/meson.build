@@ -8,9 +8,11 @@ sources = [
 	'graphics_buffer_tests.cpp',
 	'camera_tests.cpp',
 	'math_tests.cpp',
+	'collider_tests.cpp',
 	'mock_graphics_engine.hpp',
 	'object_tests.cpp',
-	'orbital_physics_tests.cpp']
+	'orbital_physics_tests.cpp',
+	'tile_system_tests.cpp']
 
 exec = executable(
 	'krisp_tests',
@@ -19,4 +21,3 @@ exec = executable(
 	install_dir: install_dir)
 
 test('krisp_tests', exec)
-

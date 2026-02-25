@@ -2,17 +2,16 @@
 
 #include "maths.hpp"
 
+#include <glm/vec2.hpp>
+
 
 enum class ECollider
 {
-	// MAIN COLLIDERS
 	RAY,
 	SPHERE,
 	// BOX,
 	// CAPSULE,
-
-	// CUSTOM COLLIDERS
-
+	QUAD,
 };
 
 struct Collider
@@ -39,6 +38,23 @@ struct RayCollider : public Collider
 
 private:
 	Maths::Ray data;
+};
+
+struct QuadCollider : public Collider
+{
+	QuadCollider() = default;
+	QuadCollider(const Maths::Plane& plane, const glm::vec2& size) : data(plane), size(size) {}
+	virtual ECollider get_type() const override { return ECollider::QUAD; }
+
+	Maths::Plane get_data() const;
+	bool check_collision(const RayCollider& ray) const;
+	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
+
+private:
+	bool is_point_in_quad_bounds(const glm::vec3& point, const Maths::Plane& plane) const;
+
+	Maths::Plane data;
+	glm::vec2 size = glm::vec2(1.0f);
 };
 
 struct SphereCollider : public Collider

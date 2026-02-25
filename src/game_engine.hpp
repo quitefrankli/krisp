@@ -38,6 +38,8 @@ public: // getters and setters
 	GuiManager& get_gui_manager();
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 	Gizmo& get_gizmo();
+	IApplication& get_application() { return *application; }
+	const IApplication& get_application() const { return *application; }
 
 public:
 	template<typename AppT, typename... Args>

@@ -24,6 +24,7 @@ void ECS::remove_object(const ObjectID id)
 	ClickableSystem::remove_entity(id);
 	PhysicsSystem::remove_entity(id);
 	ParticleSystem::remove_entity(id);
+	TileSystem::remove_entity(id);
 	objects.erase(id);
 }
 
