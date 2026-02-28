@@ -82,9 +82,15 @@ void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_w
 		mouse->rmb_down = false; 
 	} else if (mouse_input.eq(LEFT, NONE, PRESS)) {
 		mouse->update_pos();
+		const Maths::Ray ray = camera->get_ray(mouse->curr_pos);
+		const auto clicked_entity = ecs.check_any_entity_clicked(ray);
+		if (clicked_entity.bCollided)
+		{
+			application->on_click(*this, ecs.get_object(clicked_entity.id));
+		}
+
 		if (gizmo->is_active())
 		{
-			const Maths::Ray ray = get_mouse_ray();
 			gizmo->check_collision(ray);
 		}
 
@@ -125,4 +131,3 @@ void GameEngine::scroll_callback(double yoffset)
 	static const glm::vec3 scale_factor(0.238f);
 	gizmo->set_scale(scale_factor * camera->get_focal_length());
 }
-
