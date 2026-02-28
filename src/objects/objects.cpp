@@ -18,6 +18,11 @@ Arrow::Arrow()
 	renderables = { std::move(renderable) };
 }
 
+Arrow::Arrow(const glm::vec3& start, const glm::vec3& end) : Arrow()
+{
+	point(start, end);
+}
+
 void Arrow::point(const glm::vec3& start, const glm::vec3& end)
 {
 	const auto& v1 = Maths::forward_vec;

@@ -9,6 +9,7 @@
 #include <vector>
 #include <filesystem>
 #include <optional>
+#include <unordered_map>
 
 
 class GameEngine;
@@ -168,6 +169,9 @@ public:
 	virtual void draw() override;
 
 private:
+	void sync_collider_visualisers(GameEngine& engine);
+	void clear_collider_visualisers(GameEngine& engine);
+
 	bool should_refresh_objects_list = false;
 	bool should_toggle_pause = false;
 	bool is_paused = false;
@@ -175,6 +179,8 @@ private:
 	std::vector<std::string> object_ids_strs;
 	GuiVar<ObjectID> selected_object = ObjectID(0);
 	GuiVar<bool> show_bone_visualisers = false;
+	GuiVar<bool> show_collider_visualisers = false;
+	std::unordered_map<EntityID, ObjectID> collider_visualiser_ids;
 	std::string filter_text = std::string(1024, '\0');
 };
 

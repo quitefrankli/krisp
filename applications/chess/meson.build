@@ -1,8 +1,7 @@
 chess_sources = [
   'src/chess.cpp',
   'src/board.cpp',
-  'src/pieces.cpp',
-  'src/state_machine.cpp'
+  'src/pieces.cpp'
 ]
 
 executable('chess', 

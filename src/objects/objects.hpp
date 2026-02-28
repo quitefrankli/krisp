@@ -8,6 +8,7 @@ class Arrow : public Object
 {
 public:
 	Arrow();
+	Arrow(const glm::vec3& start, const glm::vec3& end);
 	Arrow(Arrow&&) = delete;
 
 	void point(const glm::vec3& start, const glm::vec3& end);

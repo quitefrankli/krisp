@@ -76,7 +76,7 @@ void GameEngine::init()
 		static Renderable renderable = []() -> Renderable
 		{
 			ColorMaterial mat{};
-			mat.data.ambient = glm::vec3(1.0f) / 0.03f; // compensate for gamma correction and lack of real lighting
+			mat.data.ambient = glm::vec3(0.45f) / SDS::AMBIENT_STRENGTH;
 			mat.data.diffuse = Maths::zero_vec;
 			mat.data.specular = Maths::zero_vec;
 			mat.data.emissive = Maths::zero_vec;
@@ -192,6 +192,10 @@ void GameEngine::main_loop(const float time_delta)
 	}
 
 	process_camera_movement(time_delta);
+	// I just realised there is a MUCH more efficient method of doing this
+	// all we need to do is find intersection point of ray with plane of tileset
+	// and check if that point is within bounds of tileset, then we can calculate hovered tile coord from that point
+	// and take into account gaps between tiles as well, this is way more efficient than checking ray intersection with every single tile's collider
 	const auto hover_result = ecs.process_hover(get_mouse_ray());
 	if (hover_result.prev_hovered)
 	{

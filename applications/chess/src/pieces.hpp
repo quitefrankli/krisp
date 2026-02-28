@@ -1,23 +1,22 @@
 #pragma once
 
+#include <entity_component_system/tile_system.hpp>
 #include <objects/object.hpp>
 
 
-class Tile;
+class BoardSquare;
 
 class Piece : public Object
 {
 public:
-	Piece(Object&& obj, Tile* tile);
-
-	enum {
+	enum Type {
 		ROOK,
 		KNIGHT,
 		BISHOP,
 		KING,
 		QUEEN,
 		PAWN,
-		UNKNOWN,
+		UNKNOWN
 	};
 
 	enum class Side {
@@ -25,19 +24,15 @@ public:
 		BLACK
 	};
 
-	int type;
+	Piece(std::vector<Renderable> renderables, Type type, Side side);
 
-	virtual bool move_to_tile(Tile* tile);
+	Type type;
+	Side side;
 
 	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 
-	Tile* get_tile() { return tile; }
-
-	std::vector<std::pair<int, int>> get_move_set() { return get_move_set(type); }
-
-	Side side = Side::WHITE;
+	std::vector<TileCoord> get_move_set(const TileCoord& current_pos) { return get_move_set(type, current_pos); }
 
 private:
-	std::vector<std::pair<int, int>> get_move_set(int desired_type);
-	Tile* tile;
+	std::vector<TileCoord> get_move_set(Type desired_type, const TileCoord& current_pos);
 };

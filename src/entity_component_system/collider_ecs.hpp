@@ -25,6 +25,7 @@ public:
 	void remove_collider(EntityID id) { components.erase(id); }
 
 	const Collider* get_collider(EntityID id) const;
+	const std::unordered_map<EntityID, ColliderComponent>& get_all_colliders() const { return components; }
 
 protected:
 	void remove_entity(EntityID id) { components.erase(id); }

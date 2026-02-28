@@ -8,6 +8,8 @@
 #include "renderable/mesh.hpp"
 #include "renderable/mesh_maths.hpp"
 #include "renderable/material.hpp"
+#include "renderable/mesh_factory.hpp"
+#include "renderable/material_factory.hpp"
 
 #include <fmt/core.h>
 #define MINIAUDIO_IMPLEMENTATION

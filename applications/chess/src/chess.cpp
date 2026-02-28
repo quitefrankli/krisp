@@ -1,6 +1,5 @@
 #include "pieces.hpp"
 #include "board.hpp"
-#include "state_machine.hpp"
 
 #include <game_engine.hpp>
 #include <window.hpp>
@@ -15,8 +14,11 @@
 
 #include <fmt/core.h>
 #include <fmt/color.h>
+#include <GLFW/glfw3.h> // for key macros
 
 #include <optional>
+#include <iostream>
+
 
 class Application : public IApplication
 {
@@ -25,14 +27,18 @@ public:
 
 	virtual void on_click(GameEngine&, Object& object) override
 	{
-		state = state->process(object);
+		(void)object;
 	}
 
 	virtual void on_begin(GameEngine& engine) override
 	{
-		board.emplace(engine);
-		State::board = &*board;
-		State::engine = &engine;
+		board.emplace([&engine](std::vector<Renderable> renderables, Piece::Type type, Piece::Side side) -> Piece& {
+			return engine.spawn_object<Piece>(std::move(renderables), type, side);
+		});
+
+		engine.get_ecs().spawn_tileset(8, 8, 5.0f);
+		// engine.get_ecs().spawn_tileset(1, 1, 1.0f);
+
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 20.0f, -50.0f));
 	}
 
@@ -40,41 +46,35 @@ public:
 
 private:
 	std::optional<Board> board;
-	Tile* active_tile = nullptr;
-	State* state = State::initial.get();
 };
 
 int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
-	{
-		auto engine = GameEngine::create<Application>();
 
-		auto& ecs = engine.get_ecs();
+	auto engine = GameEngine::create<Application>();
+	auto& ecs = engine.get_ecs();
 
-		// Add skybox
-		engine.spawn_object<CubeMap>();
+	// Add skybox
+	engine.spawn_object<CubeMap>();
 
-		// Add light source
-		auto& light_source = engine.spawn_object<Object>(Renderable{
-			.mesh_id = MeshFactory::sphere_id(),
-			.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
-			.pipeline_render_type = ERenderType::COLOR,
-			.casts_shadow = false
-		});
-		light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
-		light_source.set_scale(glm::vec3(2.0f));
+	// Add light source
+	auto& light_source = engine.spawn_object<Object>(Renderable{
+		.mesh_id = MeshFactory::sphere_id(),
+		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+		.pipeline_render_type = ERenderType::COLOR,
+		.casts_shadow = false
+	});
+	light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
+	light_source.set_scale(glm::vec3(2.0f));
 
-		ecs.add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
-		ecs.add_clickable_entity(light_source.get_id());
+	ecs.add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
+	ecs.add_clickable_entity(light_source.get_id());
 
-		LightComponent light;
-		light.intensity = 1.0f;
-		light.color = glm::vec3(1.0f, 0.95f, 0.9f);
-		ecs.add_light_source(light_source.get_id(), light);
+	LightComponent light;
+	light.intensity = 1.0f;
+	light.color = glm::vec3(1.0f, 0.95f, 0.9f);
+	ecs.add_light_source(light_source.get_id(), light);
 
-		engine.run();
-	}
-
-	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
+	engine.run();
 }

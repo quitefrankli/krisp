@@ -1,5 +1,6 @@
 #pragma once
 
+#include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/constants.hpp>
@@ -56,6 +57,15 @@ namespace Maths
 
 		glm::vec3 offset;
 		glm::vec3 normal;
+	};
+
+	struct Quad : Plane
+	{
+		Quad() = default;
+		Quad(const glm::vec3& offset_, const glm::vec3& normal_, const glm::vec2& size_)
+			: Plane(offset_, normal_), size(size_) {}
+
+		glm::vec2 size;
 	};
 
 	struct Sphere

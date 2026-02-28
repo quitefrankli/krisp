@@ -73,6 +73,13 @@ const int RAYTRACING_BUFFER_MAPPER_BINDING = BUFFER_MAPPER_BINDING;
 const int RAYTRACING_VERTICES_DATA_BINDING = VERTICES_DATA_BINDING;
 const int RAYTRACING_INDICES_DATA_BINDING = INDICES_DATA_BINDING;
 
+const float AMBIENT_STRENGTH = 0.03;
+const float DIFFUSE_STRENGTH = 0.9;
+const float SPECULAR_STRENGTH = 0.5;
+const float EMISSIVE_STRENGTH = 1.0; // it's high because for now only light sources use this value
+const float STENCIL_OFFSET = 0.05;
+const VEC4 STENCIL_COLOR = VEC4(1.0, 0.5, 0.0, 1.0);
+
 // maps object id to starting offset in the vertex, index and uniform buffers
 struct BufferMapEntry
 {

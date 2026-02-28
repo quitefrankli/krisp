@@ -2,13 +2,14 @@
 
 #include "pieces.hpp"
 
+#include <entity_component_system/tile_system.hpp>
 #include <objects/object.hpp>
 #include <maths.hpp>
 
-class GameEngine;
+#include <functional>
 
 
-class ActiveTile;
+class ActiveBoardSquare;
 
 class VisualTile : public Object
 {
@@ -18,41 +19,41 @@ public:
 	virtual bool check_collision(const Maths::Ray& ray) override { return false; }
 };
 
-class Tile : public VisualTile
+class BoardSquare : public VisualTile
 {
 public:
-	Tile(float x, float y);
+	BoardSquare(float x, float y);
 
-	const std::pair<int, int> pos;
-	Piece* piece = nullptr;
+	const TileCoord pos;
 	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
 	void highlight(bool turn_on);
 	VisualTile& get_highlighted_tile() { return highlighted; }
 	bool is_highlighted() const;
 
-private:
 	static const float tile_size;
+private:
 	static const glm::vec3 pattern1;
 	static const glm::vec3 pattern2;
-	// since there is no support for runtime colors currently, we can mimic it by toggling visibility of another tile
 	VisualTile highlighted;
 };
 
-class Board : public Object
+class Board
 {
 public:
-	Board(GameEngine& engine);
+	using PieceSpawner = std::function<Piece&(std::vector<Renderable>, Piece::Type, Piece::Side)>;
 
-	Tile* get_tile(int x, int y)
+	Board(PieceSpawner spawner);
+
+	BoardSquare* get_square(int x, int y)
 	{
 		if (x < 0 || x >= size || y < 0 || y >= size)
-			throw std::runtime_error("Board::get_tile: err out of bounds!");
-		return tiles[y*size+x];
+			throw std::runtime_error("Board::get_square: err out of bounds!");
+		return squares[y*size+x];
 	}
 
-	std::vector<Tile*> tiles;
+	BoardSquare* get_square(const TileCoord& coord) { return get_square(coord.x, coord.y); }
 
-private:
-	// std::vector<Piece&> pieces;
-	const int size = 8;
+	std::vector<BoardSquare*> squares;
+
+	static constexpr int size = 8;
 };

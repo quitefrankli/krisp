@@ -18,7 +18,32 @@
 
 #include <iostream>
 #include <algorithm>
+#include <unordered_set>
 #include "gui_windows.hpp"
+
+namespace
+{
+Object& get_or_spawn_collider_visual(GameEngine& engine,
+									 std::unordered_map<EntityID, ObjectID>& collider_visualiser_ids,
+									 EntityID collider_entity,
+									 const Collider& collider)
+{
+	auto it = collider_visualiser_ids.find(collider_entity);
+	if (it != collider_visualiser_ids.end())
+	{
+		if (auto* existing = engine.get_object(it->second))
+		{
+			return *existing;
+		}
+
+		collider_visualiser_ids.erase(it);
+	}
+
+	Object& visual = collider.spawn_debug_object(engine);
+	collider_visualiser_ids.emplace(collider_entity, visual.get_id());
+	return visual;
+}
+}
 
 
 GuiGraphicsSettings::GuiGraphicsSettings() = default;
@@ -368,6 +393,21 @@ void GuiDebug::process(GameEngine& engine)
 		selected_object.changed = false;
 	}
 
+	if (show_collider_visualisers.changed)
+	{
+		if (!show_collider_visualisers.value)
+		{
+			clear_collider_visualisers(engine);
+		}
+
+		show_collider_visualisers.changed = false;
+	}
+
+	if (show_collider_visualisers.value)
+	{
+		sync_collider_visualisers(engine);
+	}
+
 	if (should_refresh_objects_list)
 	{
 		object_ids.clear();
@@ -395,6 +435,11 @@ void GuiDebug::draw()
 	if (ImGui::Checkbox("Show Bone Visualisers", &show_bone_visualisers.value))
 	{
 		show_bone_visualisers.changed = true;
+	}
+
+	if (ImGui::Checkbox("Show Collider Visualisers", &show_collider_visualisers.value))
+	{
+		show_collider_visualisers.changed = true;
 	}
 
 	if (ImGui::Button("Refresh Objects List"))
@@ -431,6 +476,47 @@ void GuiDebug::draw()
 	}
 
 	ImGui::End();
+}
+
+void GuiDebug::sync_collider_visualisers(GameEngine& engine)
+{
+	std::unordered_set<EntityID> seen;
+
+	for (const auto& [entity_id, _] : engine.get_ecs().get_all_colliders())
+	{
+		seen.insert(entity_id);
+
+		const Collider* collider = engine.get_ecs().get_collider(entity_id);
+		if (!collider)
+		{
+			continue;
+		}
+
+		Object& visual = get_or_spawn_collider_visual(engine, collider_visualiser_ids, entity_id, *collider);
+		collider->update_debug_object(visual);
+	}
+
+	for (auto it = collider_visualiser_ids.begin(); it != collider_visualiser_ids.end(); )
+	{
+		if (seen.contains(it->first))
+		{
+			++it;
+			continue;
+		}
+
+		engine.delete_object(it->second);
+		it = collider_visualiser_ids.erase(it);
+	}
+}
+
+void GuiDebug::clear_collider_visualisers(GameEngine& engine)
+{
+	for (const auto& [_, visual_id] : collider_visualiser_ids)
+	{
+		engine.delete_object(visual_id);
+	}
+
+	collider_visualiser_ids.clear();
 }
 
 void GuiPhotoBase::update(void* img_rsrc, const glm::uvec2& true_img_size, uint32_t requested_width)

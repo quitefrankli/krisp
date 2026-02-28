@@ -35,7 +35,7 @@ void TileSystem::spawn_tileset(int rows, int cols, float cell_size, const TileSe
 	const float x_start = -0.5f * static_cast<float>(cols) * cell_size + 0.5f * cell_size;
 	const float z_start = -0.5f * static_cast<float>(rows) * cell_size + 0.5f * cell_size;
 	const float thickness = 0.05f;
-	const float gap = 0.01f;
+	const float gap = cell_size * 0.04f; // gap between tiles to make the grid lines visible
 	for (int row = 0; row < rows; ++row)
 	{
 		for (int col = 0; col < cols; ++col)
@@ -116,6 +116,7 @@ TileSystem::HoverResult TileSystem::process_hover(const Maths::Ray& ray)
 
 	if (!hovered.bCollided || !all_tiles.contains(hovered.id))
 	{
+		prev_hovered.reset();
 		return result;
 	}
 
