@@ -25,6 +25,7 @@
 #include <mutex>
 #include <queue>
 #include <unordered_set>
+#include <optional>
 
 
 class Analytics;

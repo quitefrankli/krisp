@@ -421,6 +421,7 @@ void GuiDebug::process(GameEngine& engine)
 
 		should_refresh_objects_list = false;
 	}
+
 }
 
 void GuiDebug::draw()
@@ -430,6 +431,11 @@ void GuiDebug::draw()
 	if (ImGui::Button(is_paused ? "Resume" : "Pause"))
 	{
 		should_toggle_pause = true;
+	}
+
+	if (ImGui::Button("screenshot"))
+	{
+		should_take_screenshot = true;
 	}
 
 	if (ImGui::Checkbox("Show Bone Visualisers", &show_bone_visualisers.value))

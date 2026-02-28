@@ -7,6 +7,8 @@
 #include <vulkan/vulkan.hpp>
 
 #include <queue>
+#include <optional>
+#include <filesystem>
 
 
 class GraphicsEngineSwapChain;
@@ -29,6 +31,8 @@ public:
 private:
 	void update_uniform_buffer();
 	void create_synchronisation_objects();
+	void maybe_prepare_screenshot_capture();
+	void flush_screenshot_capture();
 	
 	// this function does stuff that needs to be done before cmd buffer is recorded
 	// i.e. check for objects to be deleted
@@ -36,6 +40,7 @@ private:
 
 public:
 	// Interprets a VkImage and describes how to access it
+	VkImage presentation_image;
 	VkImageView presentation_image_view;
 	VkCommandBuffer command_buffer;
 
@@ -69,4 +74,7 @@ private:
 	Analytics analytics;
 
 	std::queue<ObjectID> objs_to_delete;
+	std::optional<GraphicsBuffer> screenshot_staging_buffer;
+	std::filesystem::path screenshot_path;
+	VkExtent2D screenshot_extent{};
 };

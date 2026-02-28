@@ -111,9 +111,8 @@ Board::Board(PieceSpawner spawner)
 		{
 			auto& board = spawner(loaded_model.meshes[i].renderables, info.type, info.side);
 			board.set_name("chess_board");
-			board.set_scale(glm::vec3(100.0f));
-			board.set_position(Maths::up_vec * -2.5f);
-			board.set_visibility(false);
+			board.set_scale(glm::vec3(85.0f));
+			board.set_position(Maths::up_vec * -1.3f);
 			continue;
 		}
 

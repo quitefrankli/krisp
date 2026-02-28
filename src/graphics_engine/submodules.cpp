@@ -1,6 +1,7 @@
 #include "graphics_engine_base_module.ipp"
 #include "graphics_engine_device.ipp"
 #include "graphics_engine_frame.ipp"
+#include "graphics_engine_screenshot.ipp"
 #include "graphics_engine_gui_manager.ipp"
 #include "graphics_engine_object.ipp"
 #include "graphics_engine_swap_chain.ipp"

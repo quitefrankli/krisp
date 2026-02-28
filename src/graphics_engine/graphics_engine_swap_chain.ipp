@@ -44,7 +44,8 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : Graph
 	create_info.imageArrayLayers = 1; // number of layers per image, should always = 1
 	// color attachment bit refers to rendering directly, if we want post processing we should use something like VK_IMAGE_USAGE_TRANSFER_DST_BIT
 	create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | 
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT; // TODO: perf concern this was initially added for raytracing but might make rasterization slower
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT; // required for screenshot readback
 
 	QueueFamilyIndices indices = get_graphics_engine().findQueueFamilies(get_physical_device());
 	uint32_t queue_family_indices[] = {indices.graphicsFamily.value(), indices.presentFamily.value()};

@@ -14,6 +14,7 @@ configs/*
 build/
 collection_log/
 metadata/
+screenshots/
 
 vulkanSDKMacOS
 .DS_Store

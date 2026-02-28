@@ -16,6 +16,7 @@
 
 #include <array>
 #include <iostream>
+#include <algorithm>
 
 
 int GraphicsEngineFrame::global_image_index = 0;
@@ -25,6 +26,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 	GraphicsEngineSwapChain& parent_swapchain, 
 	VkImage presentation_image) :
 	GraphicsEngineBaseModule(engine),
+	presentation_image(presentation_image),
 	swap_chain(parent_swapchain),
 	image_index(global_image_index++),
 	analytics(60)
@@ -46,6 +48,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 
 GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	GraphicsEngineBaseModule(frame.get_graphics_engine()),
+	presentation_image(std::move(frame.presentation_image)),
 	presentation_image_view(std::move(frame.presentation_image_view)),
 	command_buffer(std::move(frame.command_buffer)),
 	image_index(std::move(frame.image_index)),
@@ -55,7 +58,10 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
 	fence_image_inflight(std::move(frame.fence_image_inflight)),
 	analytics(std::move(frame.analytics)),
-	objs_to_delete(std::move(frame.objs_to_delete))
+	objs_to_delete(std::move(frame.objs_to_delete)),
+	screenshot_staging_buffer(std::move(frame.screenshot_staging_buffer)),
+	screenshot_path(std::move(frame.screenshot_path)),
+	screenshot_extent(std::move(frame.screenshot_extent))
 {
 	frame.should_destroy = false;
 }
@@ -76,6 +82,10 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
 	// vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr); // this isn't an actual fence it's rather a reference to the inflight frame fence
 	vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
+	if (screenshot_staging_buffer.has_value())
+	{
+		screenshot_staging_buffer->destroy(get_logical_device());
+	}
 }
 
 void GraphicsEngineFrame::update_command_buffer()
@@ -118,9 +128,14 @@ void GraphicsEngineFrame::update_command_buffer()
 	renderer_mgr.get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).submit_draw_commands(
 		command_buffer, presentation_image_view, image_index);
 
-	// ImGui
-	renderer_mgr.get_renderer(ERendererType::GUI).submit_draw_commands(
-		command_buffer, presentation_image_view, image_index);
+	maybe_prepare_screenshot_capture();
+
+	if (!screenshot_staging_buffer.has_value())
+	{
+		// ImGui
+		renderer_mgr.get_renderer(ERendererType::GUI).submit_draw_commands(
+			command_buffer, presentation_image_view, image_index);
+	}
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{
@@ -224,6 +239,8 @@ void GraphicsEngineFrame::draw()
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("failed to present swap chain image!");
 	}
+
+	flush_screenshot_capture();
 
 	// if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window
 	// 	frame_buffer_resized = false;

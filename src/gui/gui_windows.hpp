@@ -167,6 +167,12 @@ class GuiDebug : public GuiWindow
 public:
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
+	bool consume_screenshot_request()
+	{
+		const bool request = should_take_screenshot;
+		should_take_screenshot = false;
+		return request;
+	}
 
 private:
 	void sync_collider_visualisers(GameEngine& engine);
@@ -174,6 +180,7 @@ private:
 
 	bool should_refresh_objects_list = false;
 	bool should_toggle_pause = false;
+	bool should_take_screenshot = false;
 	bool is_paused = false;
 	std::vector<ObjectID> object_ids;
 	std::vector<std::string> object_ids_strs;
