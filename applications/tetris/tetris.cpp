@@ -37,7 +37,6 @@ public:
 		if (!game_over)
 		{
 			ImGui::SameLine();
-			pause_unpause_toggled = ImGui::Button(paused ? "Unpause" : "Pause");
 		} else
 		{
 			ImGui::Text("Game Over!");
@@ -51,20 +50,12 @@ public:
 
 	void process(GameEngine& engine) override
 	{
-		if (pause_unpause_toggled)
-		{
-			paused = !paused;
-		}
 	}
 
 	int score = 0;
 	int level = 0;
 	bool restart = false;
-	bool paused = false;
 	bool game_over = false;
-
-private:
-	bool pause_unpause_toggled = false;
 };
 
 class Application : public IApplication
@@ -76,11 +67,6 @@ public:
 		{
 			gui->restart = false;
 			restart();
-			return;
-		}
-
-		if (gui->paused)
-		{
 			return;
 		}
 
@@ -107,24 +93,6 @@ public:
 		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
 		
-		// Add skybox
-		engine.spawn_object<CubeMap>();
-		
-		// Add light source
-		auto& light_source = engine.spawn_object<Object>(Renderable{
-			.mesh_id = MeshFactory::sphere_id(),
-			.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
-			.pipeline_render_type = ERenderType::COLOR
-		});
-		light_source.set_position(glm::vec3(0.0f, 8.0f, 0.0f));
-		LightComponent light_component{
-			.intensity = 1.0f,
-			.color = { 1.0f, 0.9f, 0.2f }
-		};
-		engine.get_ecs().add_light_source(light_source.get_id(), light_component);
-		// light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
-		light_source.set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
-
 		spawn_environment();
 		generate_next_piece();
 		// engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
@@ -143,11 +111,6 @@ public:
 	}
 	virtual void on_key_press(GameEngine&, const KeyInput& key_input) override
 	{
-		if (gui->paused)
-		{
-			return;
-		}
-
 		const glm::mat4 curr_transform = get_latest_piece().get_transform();
 		glm::mat4 transform;
 
@@ -200,27 +163,37 @@ private:
 	// includes floor and walls
 	void spawn_environment()
 	{
-		auto cube_renderable = Renderable::make_default(MeshFactory::cube_id());
+		const auto cube_renderable = Renderable::make_default(MeshFactory::cube_id());
+		const std::vector<Renderable> renderables = { cube_renderable };
 
-		auto& root = engine->spawn_object<Object>(cube_renderable);
+		// slightly grey side walls
+		ColorMaterial side_wall_material{};
+		side_wall_material.data.diffuse = glm::vec3(0.8f);
+		const auto side_wall_material_id = MaterialSystem::add(std::make_unique<ColorMaterial>(side_wall_material));
+		const auto side_wall_renderable = Renderable{
+			.mesh_id = MeshFactory::cube_id(),
+			.material_ids = { side_wall_material_id }
+		};
+
+		auto& root = engine->spawn_object<Object>(renderables);
 		root.set_visibility(false);
 
-		auto& floor = engine->spawn_object<Object>(cube_renderable);
-		floor.set_position(glm::vec3(0.0f, -10.75f, 0.0f));
-		floor.set_scale(glm::vec3(width*2, 1.5f, 3.0f));
+		auto& floor = engine->spawn_object<Object>(renderables);
+		floor.set_position(glm::vec3(0.0f, -10.75f, 0.5f));
+		floor.set_scale(glm::vec3(width*2, 1.5f, 4.0f));
 		floor.attach_to(&root);
 
-		auto& left_wall = engine->spawn_object<Object>(cube_renderable);
+		auto& left_wall = engine->spawn_object<Object>(side_wall_renderable);
 		left_wall.set_position(glm::vec3(-width/2-0.5f, 0.0f, 0.0f));
 		left_wall.set_scale(glm::vec3(1.0f, height, 3.0f));
 		left_wall.attach_to(&root);
 
-		auto& right_wall = engine->spawn_object<Object>(cube_renderable);
+		auto& right_wall = engine->spawn_object<Object>(side_wall_renderable);
 		right_wall.set_position(glm::vec3(width/2+0.5f, 0.0f, 0.0f));
 		right_wall.set_scale(glm::vec3(1.0f, height, 3.0f));
 		right_wall.attach_to(&root);
 
-		auto& back_wall = engine->spawn_object<Object>(cube_renderable);
+		auto& back_wall = engine->spawn_object<Object>(renderables);
 		back_wall.set_position(glm::vec3(0.0f, 0.0f, 2.0f));
 		back_wall.set_scale(glm::vec3(width+2, height, 1.0f));
 		back_wall.attach_to(&root);
@@ -325,7 +298,6 @@ private:
 		main_theme->play();
 		gui->score = 0;
 		gui->game_over = false;
-		gui->paused = false;
 		piece_count = 0;
 	}
 
@@ -409,8 +381,6 @@ private:
 	{
 		main_theme->stop();
 		gui->game_over = true;
-		// can simulate game over with a paused game that can only be resumed on new game
-		gui->paused = true;
 	}
 
 private:
@@ -431,5 +401,22 @@ int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
 	auto engine = GameEngine::create<Application>();
+	// Add skybox
+	engine.spawn_object<CubeMap>();
+	
+	// Add light source
+	auto& light_source = engine.spawn_object<Object>(Renderable{
+		.mesh_id = MeshFactory::sphere_id(),
+		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+		.pipeline_render_type = ERenderType::COLOR
+	});
+	light_source.set_position(glm::vec3(0.0f, 8.0f, 0.0f));
+	LightComponent light_component{
+		.intensity = 1.0f,
+		.color = { 1.0f, 0.9f, 0.2f }
+	};
+	engine.get_ecs().add_light_source(light_source.get_id(), light_component);
+	// light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
+	light_source.set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
 	engine.run();
 }

@@ -33,6 +33,7 @@ public:
 	static MeshID cylinder_id(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
 	static MeshID arrow_id(float radius = 0.05f, uint32_t nVertices = 8);
 	static MeshID arc_id(uint32_t nSegments = 10, float outer_radius = 1.0f, float inner_radius = 0.8f);
+	static MeshID cube_edges_id(float thickness = 0.02f);
 
 public:
 	static MeshPtr quad(EVertexType vertex_type = EVertexType::COLOR);
@@ -47,6 +48,7 @@ public:
 	static MeshPtr cylinder(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
 	static MeshPtr arrow(float radius = 0.05f, uint32_t nVertices = 8);
 	static MeshPtr arc(uint32_t nSegments = 10, float outer_radius = 1.0f, float inner_radius = 0.8f);
+	static MeshPtr cube_edges(float thickness = 0.02f);
 
 private:
 	static MeshPtr generate_uv_sphere(int nVertices);

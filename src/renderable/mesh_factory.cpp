@@ -128,6 +128,17 @@ MeshID MeshFactory::arc_id(uint32_t nSegments, float outer_radius, float inner_r
 	return cached_arcs[tuple];
 }
 
+MeshID MeshFactory::cube_edges_id(float thickness)
+{
+	static std::map<float, MeshID> cached;
+	if (!cached.contains(thickness))
+	{
+		cached[thickness] = MeshSystem::add_permanent(cube_edges(thickness));
+	}
+
+	return cached[thickness];
+}
+
 
 //
 // Raw Mesh
@@ -501,6 +512,54 @@ MeshPtr MeshFactory::arc(uint32_t nSegments, float outer_radius, float inner_rad
 
 	// let default plane normal be the forward axis
 	transform_vertices(vertices, glm::angleAxis(-Maths::PI/2.0f, glm::vec3(1.0f, 0.0f, 0.0f)));	
+	generate_normals(vertices, indices);
+
+	return std::make_unique<ColorMesh>(vertices, indices);
+}
+
+MeshPtr MeshFactory::cube_edges(float thickness)
+{
+	ColorVertices vertices;
+	VertexIndices indices;
+
+	// each edge bar is pushed outward by half-thickness to avoid z-fighting
+	const float half = 0.5f + thickness * 0.5f; // perpendicular offset + bar half-length (covers corners)
+	const float th   = thickness * 0.5f;
+
+	auto add_box = [&](glm::vec3 center, glm::vec3 he)
+	{
+		const uint32_t base = vertices.size();
+		// 8 corners: bit pattern (x,y,z) where 0=negative, 1=positive
+		for (int bx : {-1, 1}) for (int by : {-1, 1}) for (int bz : {-1, 1})
+			vertices.emplace_back(SDS::ColorVertex{center + glm::vec3(bx*he.x, by*he.y, bz*he.z)});
+
+		// vertex indices: 0=(-,-,-) 1=(-,-,+) 2=(-,+,-) 3=(-,+,+) 4=(+,-,-) 5=(+,-,+) 6=(+,+,-) 7=(+,+,+)
+		// -X face
+		indices.insert(indices.end(), {base+0, base+2, base+3, base+0, base+3, base+1});
+		// +X face
+		indices.insert(indices.end(), {base+4, base+5, base+7, base+4, base+7, base+6});
+		// -Y face
+		indices.insert(indices.end(), {base+0, base+1, base+5, base+0, base+5, base+4});
+		// +Y face
+		indices.insert(indices.end(), {base+2, base+6, base+7, base+2, base+7, base+3});
+		// -Z face
+		indices.insert(indices.end(), {base+0, base+4, base+6, base+0, base+6, base+2});
+		// +Z face
+		indices.insert(indices.end(), {base+1, base+3, base+7, base+1, base+7, base+5});
+	};
+
+	// 4 edges along X: at (y=±half, z=±half), length along X = 2*half
+	for (int sy : {-1, 1}) for (int sz : {-1, 1})
+		add_box({0.0f, sy*half, sz*half}, {half, th, th});
+
+	// 4 edges along Y: at (x=±half, z=±half)
+	for (int sx : {-1, 1}) for (int sz : {-1, 1})
+		add_box({sx*half, 0.0f, sz*half}, {th, half, th});
+
+	// 4 edges along Z: at (x=±half, y=±half)
+	for (int sx : {-1, 1}) for (int sy : {-1, 1})
+		add_box({sx*half, sy*half, 0.0f}, {th, th, half});
+
 	generate_normals(vertices, indices);
 
 	return std::make_unique<ColorMesh>(vertices, indices);

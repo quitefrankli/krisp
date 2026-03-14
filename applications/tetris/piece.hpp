@@ -22,11 +22,22 @@ class TetrisCell : public Object
 public:
 	TetrisCell(const glm::vec3& color)
 	{
-		Renderable& renderable = renderables.emplace_back();
-		renderable.mesh_id = MeshFactory::cube_id();
-		ColorMaterial material;
-		material.data.diffuse = color;
-		renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
+		auto& cube = renderables.emplace_back();
+		cube.mesh_id = MeshFactory::cube_id();
+		ColorMaterial cube_material;
+		cube_material.data.ambient = Maths::zero_vec;
+		cube_material.data.diffuse = Maths::zero_vec;
+		cube_material.data.specular = Maths::zero_vec;
+		cube_material.data.emissive = color;
+		cube_material.data.shininess = 1.0f;
+		cube.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(cube_material)));
+
+		auto& border = renderables.emplace_back();
+		border.mesh_id = MeshFactory::cube_edges_id();
+		ColorMaterial border_material;
+		border_material.data = cube_material.data;
+		border_material.data.emissive = Maths::zero_vec;
+		border.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(border_material)));
 	}
 };
 
