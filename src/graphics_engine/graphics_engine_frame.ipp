@@ -113,28 +113,27 @@ void GraphicsEngineFrame::update_command_buffer()
 	pre_cmdbuffer_recording();
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
+	const auto submit_draw_commands = [&](const ERendererType renderer_type)
+	{
+		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+	};
 	if (get_graphics_engine().get_gui_manager().graphic_settings.rtx_on)
 	{
-		renderer_mgr.get_renderer(ERendererType::RAYTRACING).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		submit_draw_commands(ERendererType::RAYTRACING);
 	} else
 	{
-		renderer_mgr.get_renderer(ERendererType::SHADOW_MAP).submit_draw_commands(command_buffer, presentation_image_view, image_index);
-		renderer_mgr.get_renderer(ERendererType::RASTERIZATION).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		submit_draw_commands(ERendererType::SHADOW_MAP);
+		submit_draw_commands(ERendererType::RASTERIZATION);
 		// Note: Particle rendering is now done within the RasterizationRenderer
-		renderer_mgr.get_renderer(ERendererType::QUAD).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		submit_draw_commands(ERendererType::QUAD);
+		// submit_draw_commands(ERendererType::OFFSCREEN_GUI_VIEWPORT);
 	}
-
-	// Offscreen
-	renderer_mgr.get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT).submit_draw_commands(
-		command_buffer, presentation_image_view, image_index);
 
 	maybe_prepare_screenshot_capture();
 
 	if (!screenshot_staging_buffer.has_value())
 	{
-		// ImGui
-		renderer_mgr.get_renderer(ERendererType::GUI).submit_draw_commands(
-			command_buffer, presentation_image_view, image_index);
+		submit_draw_commands(ERendererType::GUI); // ImGui
 	}
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)

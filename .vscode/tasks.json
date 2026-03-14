@@ -36,6 +36,15 @@
 				"kind": "build",
 				"isDefault": false
 			}
+		},
+		{
+			"label": "build tetris",
+			"type": "shell",
+			"command": "meson compile -C build tetris",
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
 		}
 	]
 }

@@ -30,7 +30,10 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	using enum EInputAction;
 
 	if (key_input.eq(GLFW_KEY_ESCAPE, NONE, PRESS))
+	{
 		shutdown();
+		return;
+	}
 	else if (key_input.eq(GLFW_KEY_X, NONE, PRESS))
 		experimental->process();
 	else if (key_input.eq(GLFW_KEY_R, SHIFT, PRESS))

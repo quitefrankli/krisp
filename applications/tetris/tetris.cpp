@@ -9,6 +9,7 @@
 #include <utility.hpp>
 #include <camera.hpp>
 #include <config.hpp>
+#include <objects/cubemap.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -99,13 +100,31 @@ public:
 
 	virtual void on_click(GameEngine&, Object&) override {}
 
-	virtual void on_begin(GameEngine& e) override
+	virtual void on_begin(GameEngine& engine) override
 	{
-		engine = &e;
-		gui = &engine->get_gui_manager().spawn_gui<TetrisGui>();
-		engine->get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
-		auto light_source_id = engine->get_ecs().get_global_light_source();
-		engine->get_ecs().get_object(light_source_id).set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
+		this->engine = &engine;
+		
+		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
+		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
+		
+		// Add skybox
+		engine.spawn_object<CubeMap>();
+		
+		// Add light source
+		auto& light_source = engine.spawn_object<Object>(Renderable{
+			.mesh_id = MeshFactory::sphere_id(),
+			.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+			.pipeline_render_type = ERenderType::COLOR
+		});
+		light_source.set_position(glm::vec3(0.0f, 8.0f, 0.0f));
+		LightComponent light_component{
+			.intensity = 1.0f,
+			.color = { 1.0f, 0.9f, 0.2f }
+		};
+		engine.get_ecs().add_light_source(light_source.get_id(), light_component);
+		// light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
+		light_source.set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
+
 		spawn_environment();
 		generate_next_piece();
 		// engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
@@ -247,7 +266,7 @@ private:
 		current_piece->set_visibility(true);
 		current_piece->set_scale(glm::vec3(1.0f)); // reset scale to normal size
 		next_piece = generate_new_piece();
-		engine->preview_objs_in_gui({ next_piece }, dynamic_cast<GuiPhotoBase&>(*gui));
+		engine->preview_objs_in_gui({ next_piece }, *gui);
 
 		// if we are already colliding with another piece then this is game over
 		if (check_for_collision(get_latest_piece().get_transform()))
@@ -411,10 +430,6 @@ private:
 int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
-	{
-		auto engine = GameEngine::create<Application>();
-		engine.run();
-	}
-
-	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
+	auto engine = GameEngine::create<Application>();
+	engine.run();
 }
