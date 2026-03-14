@@ -266,7 +266,7 @@ private:
 		current_piece->set_visibility(true);
 		current_piece->set_scale(glm::vec3(1.0f)); // reset scale to normal size
 		next_piece = generate_new_piece();
-		engine->preview_objs_in_gui({ next_piece }, *gui);
+		// engine->preview_objs_in_gui({ next_piece->get_id() }, *gui);
 
 		// if we are already colliding with another piece then this is game over
 		if (check_for_collision(get_latest_piece().get_transform()))

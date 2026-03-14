@@ -116,7 +116,7 @@ public:
 	}
 	std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() { return objects; }
 
-	void preview_objs_in_gui(const std::vector<Object*>& objs, GuiPhotoBase& gui_window);
+	void preview_objs_in_gui(const std::vector<ObjectID>& objs, GuiPhotoBase& gui_window);
 
 private:
 	std::unique_ptr<App::Window> window;

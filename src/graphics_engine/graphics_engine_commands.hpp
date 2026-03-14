@@ -76,10 +76,10 @@ struct UpdateRayTracingCmd : public GraphicsEngineCommand
 
 struct PreviewObjectsCmd : public GraphicsEngineCommand
 {
-	PreviewObjectsCmd(const std::vector<Object*>& objects, GuiPhotoBase& gui);
+	PreviewObjectsCmd(const std::vector<ObjectID>& objects, GuiPhotoBase& gui);
 	virtual void process(GraphicsEngineBase* engine) override;
 
-	const std::vector<Object*> objects;
+	const std::vector<ObjectID> objects;
 	GuiPhotoBase& gui;
 };
 

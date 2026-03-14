@@ -392,8 +392,8 @@ Maths::Ray GameEngine::get_mouse_ray() const
 }
 
 void GameEngine::preview_objs_in_gui(
-	const std::vector<Object*>& objs, 
-	GuiPhotoBase& gui_window) 
+	const std::vector<ObjectID>& objs,
+	GuiPhotoBase& gui_window)
 {
 	send_graphics_cmd(std::make_unique<PreviewObjectsCmd>(objs, gui_window));
 }

@@ -72,9 +72,8 @@ void GraphicsEngine::handle_command(UpdateRayTracingCmd& cmd)
 void GraphicsEngine::handle_command(PreviewObjectsCmd& cmd)
 {
 	offscreen_rendering_objects.clear();
-	for (Object* object : cmd.objects)
+	for (const auto& id : cmd.objects)
 	{
-		const auto id = object->get_id();
 		auto it = objects.find(id);
 		if (it == objects.end())
 		{

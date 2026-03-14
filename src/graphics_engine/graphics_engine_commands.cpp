@@ -56,7 +56,7 @@ void UpdateRayTracingCmd::process(GraphicsEngineBase* engine) {
 	engine->handle_command(*this);
 }
 
-PreviewObjectsCmd::PreviewObjectsCmd(const std::vector<Object*>& objects, GuiPhotoBase& gui) :
+PreviewObjectsCmd::PreviewObjectsCmd(const std::vector<ObjectID>& objects, GuiPhotoBase& gui) :
 	objects(objects),
 	gui(gui)
 {
