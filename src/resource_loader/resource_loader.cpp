@@ -28,8 +28,13 @@
 
 ResourceLoader ResourceLoader::global_resource_loader;
 
-MaterialID ResourceLoader::fetch_texture(const std::filesystem::path& file_path)
+MaterialID ResourceLoader::fetch_texture(std::filesystem::path file_path)
 {
+	if (!std::filesystem::exists(file_path))
+	{
+		file_path = Utility::get_texture(file_path.string());
+	}
+
 	const auto file_str = file_path.string();
 	if (global_resource_loader.texture_name_to_mat_id.contains(file_str))
 	{
@@ -127,8 +132,13 @@ static std::vector<Bone> load_bones(const tinygltf::Model& model)
 	return bones;
 }
 
-ResourceLoader::LoadedModel ResourceLoader::load_model(const std::filesystem::path& file_path)
+ResourceLoader::LoadedModel ResourceLoader::load_model(std::filesystem::path file_path)
 {
+	if (!std::filesystem::exists(file_path))
+	{
+		file_path = Utility::get_model(file_path.string());
+	}
+
 	tinygltf::Model model;
 	std::string err;
 	std::string warn;

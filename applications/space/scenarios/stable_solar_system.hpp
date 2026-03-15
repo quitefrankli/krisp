@@ -15,18 +15,18 @@ namespace Scenarios
 inline void setup_orbital_system(GameEngine& engine)
 {
 	// Create the star (central body)
-	Renderable star_renderable{
-		.mesh_id = MeshFactory::sphere_id(MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::ICO_SPHERE, 100),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
-		.casts_shadow = false,
-	};
+
+	auto sun_model = ResourceLoader::load_model("sun.glb");
+	auto& star_renderable = sun_model.meshes[0].renderables[0];
+	star_renderable.casts_shadow = false;
+	
 	LightComponent sun_light;
 	sun_light.intensity = 1.0f;
 	sun_light.color = glm::vec3(1.0f, 0.9f, 0.2f);
 	Planet& star = engine.spawn_object<Planet>(star_renderable);
 	star.set_name("Star");
 	star.set_position(glm::vec3(0.0f, 0.0f, 0.0f));
-	star.set_scale(glm::vec3(3.0f, 3.0f, 3.0f));
+	star.set_scale(glm::vec3(0.1f));
 	engine.get_ecs().add_light_source(star.get_id(), sun_light);
 
 	PhysicsComponent star_physics;
@@ -46,7 +46,7 @@ inline void setup_orbital_system(GameEngine& engine)
 	star_trail.end_color = glm::vec4(1.0f, 0.5f, 0.0f, 0.0f);
 	star_trail.velocity_min = glm::vec3(-0.1f, -0.1f, -0.1f);
 	star_trail.velocity_max = glm::vec3(0.1f, 0.1f, 0.1f);
-	engine.get_ecs().spawn_particle_emitter(star.get_id(), star_trail);
+	// engine.get_ecs().spawn_particle_emitter(star.get_id(), star_trail);
 
 	// Create planet 1
 	ColorMaterial planet1_material;

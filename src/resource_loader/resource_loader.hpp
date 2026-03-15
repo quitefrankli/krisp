@@ -48,8 +48,8 @@ public:
 		Maths::Transform onload_transform;
 	};
 
-	static MaterialID fetch_texture(const std::filesystem::path& file_path);
-	static LoadedModel load_model(const std::filesystem::path& file_path);
+	static MaterialID fetch_texture(std::filesystem::path file_path);
+	static LoadedModel load_model(std::filesystem::path file_path);
 
 private:
 	MaterialID load_texture(const std::filesystem::path& file_path);
