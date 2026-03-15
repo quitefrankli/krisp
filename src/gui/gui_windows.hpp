@@ -174,6 +174,22 @@ public:
 		return request;
 	}
 
+	bool consume_start_recording_request()
+	{
+		const bool r = should_start_recording;
+		should_start_recording = false;
+		return r;
+	}
+
+	bool consume_stop_recording_request()
+	{
+		const bool r = should_stop_recording;
+		should_stop_recording = false;
+		return r;
+	}
+
+	void set_is_recording(bool v) { is_recording = v; }
+
 private:
 	void sync_collider_visualisers(GameEngine& engine);
 	void clear_collider_visualisers(GameEngine& engine);
@@ -181,6 +197,9 @@ private:
 	bool should_refresh_objects_list = false;
 	bool should_toggle_pause = false;
 	bool should_take_screenshot = false;
+	bool should_start_recording = false;
+	bool should_stop_recording = false;
+	bool is_recording = false;
 	bool is_paused = false;
 	std::vector<ObjectID> object_ids;
 	std::vector<std::string> object_ids_strs;

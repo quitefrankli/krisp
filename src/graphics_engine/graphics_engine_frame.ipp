@@ -61,7 +61,10 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	objs_to_delete(std::move(frame.objs_to_delete)),
 	screenshot_staging_buffer(std::move(frame.screenshot_staging_buffer)),
 	screenshot_path(std::move(frame.screenshot_path)),
-	screenshot_extent(std::move(frame.screenshot_extent))
+	screenshot_extent(std::move(frame.screenshot_extent)),
+	recording_staging_buffer(std::move(frame.recording_staging_buffer)),
+	recording_extent(std::move(frame.recording_extent)),
+	recording_has_pending_frame(frame.recording_has_pending_frame)
 {
 	frame.should_destroy = false;
 }
@@ -85,6 +88,10 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	if (screenshot_staging_buffer.has_value())
 	{
 		screenshot_staging_buffer->destroy(get_logical_device());
+	}
+	if (recording_staging_buffer.has_value())
+	{
+		recording_staging_buffer->destroy(get_logical_device());
 	}
 }
 
@@ -135,6 +142,8 @@ void GraphicsEngineFrame::update_command_buffer()
 	{
 		submit_draw_commands(ERendererType::GUI); // ImGui
 	}
+
+	maybe_prepare_recording_capture();
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{
@@ -240,6 +249,7 @@ void GraphicsEngineFrame::draw()
 	}
 
 	flush_screenshot_capture();
+	flush_recording_capture();
 
 	// if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window
 	// 	frame_buffer_resized = false;

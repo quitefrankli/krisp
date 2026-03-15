@@ -31,7 +31,7 @@ class vulkan_conan(ConanFile):
         "yaml-cpp/0.8.0",
         "magic_enum/0.8.2",
         "perlinnoise/3.0.0",
-    ) 
+    )
 
     def requirements(self):
         self.requires("libiconv/1.18", override=True)

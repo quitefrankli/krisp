@@ -13,14 +13,10 @@
 int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
-	{
-		auto engine = GameEngine::create<DummyApplication>();
+	auto engine = GameEngine::create<DummyApplication>();
 
-		engine.get_ecs().get_gravity_system().set_gravity_type(GravitySystem::GravityType::TRUE);
-		Scenarios::setup_orbital_system(engine);
+	engine.get_ecs().get_gravity_system().set_gravity_type(GravitySystem::GravityType::TRUE);
+	Scenarios::setup_orbital_system(engine);
 
-		engine.run();
-	}
-
-	fmt::print(fg(fmt::color::green), "Clean shutdown success!\n");
+	engine.run();
 }

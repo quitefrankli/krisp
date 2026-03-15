@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics_engine.hpp"
+#include "video_recorder.hpp"
 
 #include "camera.hpp"
 #include "game_engine.hpp"
@@ -36,7 +37,8 @@ GraphicsEngine::GraphicsEngine(GameEngine& game_engine) :
 	swap_chain(*this),
 	pipeline_mgr(*this),
 	raytracing_component(*this),
-	gui_manager(*this)
+	gui_manager(*this),
+	video_recorder(std::make_unique<VideoRecorder>())
 {
 	FPS_tracker = std::make_unique<Analytics>(
 		[this](float fps) {

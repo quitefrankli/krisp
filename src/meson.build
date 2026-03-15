@@ -1,4 +1,5 @@
-graphics_sources = files('graphics_engine/pipeline/pipeline.cpp',
+graphics_sources = files('graphics_engine/video_recorder.cpp',
+					 'graphics_engine/pipeline/pipeline.cpp',
 						 'graphics_engine/renderers/renderer.cpp',
 						 'graphics_engine/raytracing.cpp',
 						 'graphics_engine/resource_manager/graphics_resource_manager.cpp',

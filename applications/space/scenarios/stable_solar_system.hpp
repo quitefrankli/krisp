@@ -51,9 +51,11 @@ inline void setup_orbital_system(GameEngine& engine)
 	// Create planet 1
 	ColorMaterial planet1_material;
 	planet1_material.data.diffuse = glm::vec3(0.2f, 0.5f, 1.0f);
-
-	Renderable planet1_renderable = Renderable::make_default(MeshFactory::sphere_id());
-	planet1_renderable.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(planet1_material))));
+	const auto planet1_material_id = MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(planet1_material)));
+	Renderable planet1_renderable{
+		.mesh_id = MeshFactory::sphere_id(),
+		.material_ids = { planet1_material_id }
+	};
 	Planet& planet1 = engine.spawn_object<Planet>(planet1_renderable);
 	planet1.set_name("Planet 1");
 	planet1.set_position(glm::vec3(25.0f, 0.0f, 0.0f));
@@ -80,9 +82,12 @@ inline void setup_orbital_system(GameEngine& engine)
 	// Create planet 2
 	ColorMaterial planet2_material;
 	planet2_material.data.diffuse = glm::vec3(1.0f, 0.3f, 0.2f);
+	const auto planet2_material_id = MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(planet2_material)));
 
-	Renderable planet2_renderable = Renderable::make_default(MeshFactory::sphere_id());
-	planet2_renderable.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(planet2_material))));
+	Renderable planet2_renderable{
+		.mesh_id = MeshFactory::sphere_id(),
+		.material_ids = { planet2_material_id }
+	};
 	Planet& planet2 = engine.spawn_object<Planet>(planet2_renderable);
 	planet2.set_name("Planet 2");
 	planet2.set_position(glm::vec3(-25.0f, 0.0f, 0.0f));

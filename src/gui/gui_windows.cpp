@@ -438,6 +438,19 @@ void GuiDebug::draw()
 		should_take_screenshot = true;
 	}
 
+	if (ImGui::Button(is_recording ? "Stop Recording" : "Start Recording"))
+	{
+		if (is_recording)
+			should_stop_recording = true;
+		else
+			should_start_recording = true;
+	}
+	if (is_recording)
+	{
+		ImGui::SameLine();
+		ImGui::TextColored({1.0f, 0.0f, 0.0f, 1.0f}, "REC");
+	}
+
 	if (ImGui::Checkbox("Show Bone Visualisers", &show_bone_visualisers.value))
 	{
 		show_bone_visualisers.changed = true;

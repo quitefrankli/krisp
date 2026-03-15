@@ -32,8 +32,18 @@ conan_dependencies = [
     dependency('yaml-cpp', required: true),
     dependency('magic_enum', required: true),
 	dependency('miniaudio', required: true),
-	dependency('perlinnoise', required: true)
+	dependency('perlinnoise', required: true),
 ]
+
+cc = meson.get_compiler('cpp')
+ffmpeg_deps = [
+	cc.find_library('avcodec', required: true),
+	cc.find_library('avformat', required: true),
+	cc.find_library('avutil', required: true),
+	cc.find_library('swscale', required: true),
+]
+
+conan_dependencies += ffmpeg_deps
 
 subdir('shaders')
 subdir('third_party')

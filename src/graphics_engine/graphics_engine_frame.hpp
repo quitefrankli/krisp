@@ -33,6 +33,8 @@ private:
 	void create_synchronisation_objects();
 	void maybe_prepare_screenshot_capture();
 	void flush_screenshot_capture();
+	void maybe_prepare_recording_capture();
+	void flush_recording_capture();
 	
 	// this function does stuff that needs to be done before cmd buffer is recorded
 	// i.e. check for objects to be deleted
@@ -77,4 +79,8 @@ private:
 	std::optional<GraphicsBuffer> screenshot_staging_buffer;
 	std::filesystem::path screenshot_path;
 	VkExtent2D screenshot_extent{};
+
+	std::optional<GraphicsBuffer> recording_staging_buffer;
+	VkExtent2D recording_extent{};
+	bool recording_has_pending_frame = false;
 };

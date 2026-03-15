@@ -32,6 +32,7 @@ class Analytics;
 class Camera;
 class GraphicsEngineObject;
 class ECS;
+class VideoRecorder;
 
 class GraphicsEngine : public GraphicsEngineBase
 {
@@ -74,6 +75,7 @@ public: // getters and setters
 	GraphicsEngineRayTracing& get_raytracing_module() { return raytracing_component; }
 	GraphicsEngineGuiManager& get_graphics_gui_manager() { return gui_manager; }
 	GuiManager& get_gui_manager() final { return static_cast<GuiManager&>(gui_manager); }
+	VideoRecorder& get_video_recorder() { return *video_recorder; }
 	RendererManager& get_renderer_mgr() { return renderer_mgr; }
 	GraphicsResourceManager& get_rsrc_mgr() { return rsrc_mgr; }
 	const GraphicsResourceManager& get_rsrc_mgr() const { return rsrc_mgr; }
@@ -166,6 +168,7 @@ private: // core components
 	GraphicsEnginePipelineManager pipeline_mgr;
 	GraphicsEngineRayTracing raytracing_component;
 	GraphicsEngineGuiManager gui_manager;
+	std::unique_ptr<VideoRecorder> video_recorder;
 
 public: // commands
 	void handle_command(SpawnObjectCmd& cmd) final;
