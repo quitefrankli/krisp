@@ -51,7 +51,21 @@ Maths::Ray RayCollider::get_data() const
 
 Maths::Quad QuadCollider::get_data() const
 {
-	return data;
+	const auto& transform = get_temporary_transform();
+	const glm::vec3 transformed_offset = transform.get_mat4() * glm::vec4(data.offset, 1.0f);
+	const glm::vec3 transformed_normal = glm::normalize(transform.get_orient() * data.normal);
+
+	// Scale the size along the quad's tangent and bitangent axes
+	const glm::vec3 normal = glm::normalize(data.normal);
+	const glm::vec3 ref_axis = glm::abs(normal.y) > 0.99f ? Maths::right_vec : Maths::up_vec;
+	const glm::vec3 tangent = glm::normalize(glm::cross(ref_axis, normal));
+	const glm::vec3 bitangent = glm::normalize(glm::cross(normal, tangent));
+	const glm::mat3 scale_mat = glm::mat3(transform.get_mat4());
+	const glm::vec2 transformed_size(
+		data.size.x * glm::length(scale_mat * tangent),
+		data.size.y * glm::length(scale_mat * bitangent));
+
+	return Maths::Quad(transformed_offset, transformed_normal, transformed_size);
 }
 
 Object& QuadCollider::spawn_debug_object(GameEngine& engine) const
@@ -97,7 +111,6 @@ bool QuadCollider::check_collision(const RayCollider& ray, glm::vec3& out_inters
 
 bool QuadCollider::is_point_in_quad_bounds(const glm::vec3& point, const Maths::Quad& quad) const
 {
-	const auto& transform = get_temporary_transform();
 	const glm::vec3 normal = glm::normalize(quad.normal);
 	const glm::vec3 ref_axis = glm::abs(normal.y) > 0.99f ? Maths::right_vec : Maths::up_vec;
 	const glm::vec3 tangent = glm::normalize(glm::cross(ref_axis, normal));
