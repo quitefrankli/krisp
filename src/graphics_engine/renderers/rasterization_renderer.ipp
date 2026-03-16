@@ -155,7 +155,18 @@ void RasterizationRenderer::submit_draw_commands(
 		if (stenciled_ids.find(id) != stenciled_ids.end() && !get_graphics_engine().is_wireframe_mode)
 			continue;
 
-		const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ? 
+		// skip overlay objects - they will be rendered on top after depth clear
+		{
+			bool has_overlay = false;
+			for (const auto& r : graphics_object.get_renderables())
+			{
+				if (r.render_on_top) { has_overlay = true; break; }
+			}
+			if (has_overlay)
+				continue;
+		}
+
+		const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ?
 			EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
 
 		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
@@ -218,6 +229,46 @@ void RasterizationRenderer::submit_draw_commands(
 								graphics_object.get_obj_dset(frame_index),
 								graphics_object.get_renderable_dsets()[renderable_idx],
 								EPipelineModifier::POST_STENCIL);
+			}
+		}
+	}
+
+	// Render overlay objects (gizmos etc.) on top of everything by clearing depth first
+	{
+		VkClearAttachment clear_depth{};
+		clear_depth.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		clear_depth.clearValue.depthStencil = { 1.0f, 0 };
+		VkClearRect clear_rect{};
+		clear_rect.rect.extent = this->get_extent();
+		clear_rect.baseArrayLayer = 0;
+		clear_rect.layerCount = 1;
+		vkCmdClearAttachments(command_buffer, 1, &clear_depth, 1, &clear_rect);
+
+		for (const auto& [id, obj_ptr] : graphics_objects)
+		{
+			const auto& graphics_object = *obj_ptr;
+			if (graphics_object.is_marked_for_delete() || !graphics_object.get_visibility())
+				continue;
+
+			bool has_overlay = false;
+			for (const auto& r : graphics_object.get_renderables())
+			{
+				if (r.render_on_top) { has_overlay = true; break; }
+			}
+			if (!has_overlay)
+				continue;
+
+			const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ?
+				EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
+
+			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+			{
+				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+				draw_renderable(command_buffer,
+								renderable,
+								graphics_object.get_obj_dset(frame_index),
+								graphics_object.get_renderable_dsets()[renderable_idx],
+								modifier);
 			}
 		}
 	}

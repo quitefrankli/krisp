@@ -68,9 +68,10 @@ bool ScaleGizmoObj::check_collision(const Maths::Ray& ray, glm::vec3& intersecti
 	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
 	const float length = get_scale().z;
 	const float radius = INITIAL_RADIUS * get_scale().x;
-	return Maths::check_ray_rod_collision(ray, 
-										  get_position(), 
-										  get_position() + axis * length, 
+	return Maths::check_ray_rod_collision(ray,
+										  get_position(),
+										  get_position() + axis * length,
 										  radius,
 										  intersection);
 }
+

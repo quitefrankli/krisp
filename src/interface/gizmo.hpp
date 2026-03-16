@@ -74,6 +74,7 @@ public:
 	ScaleGizmo(GameEngine& engine, Gizmo& gizmo);
 
 	virtual void init() override;
+	virtual void set_visibility(bool) override;
 	virtual bool check_collision(const Maths::Ray& ray) override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	
@@ -83,8 +84,10 @@ private:
 	ScaleGizmoObj xAxis;
 	ScaleGizmoObj yAxis;
 	ScaleGizmoObj zAxis;
+	Object uniformCube;
 
 	const float minimum_scale = 0.1f;
+	bool uniform_scaling = false;
 };
 
 class Gizmo : public Object, public OnClickDispatchers::IBaseDispatcher

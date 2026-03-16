@@ -7,8 +7,13 @@
 #include "game_engine.hpp"
 #include "camera.hpp"
 #include "renderable/material_factory.hpp"
+#include "renderable/mesh_factory.hpp"
+#include "renderable/mesh_maths.hpp"
+#include "entity_component_system/mesh_system.hpp"
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/component_wise.hpp>
 #include <fmt/core.h>
 
 #include <iostream>
@@ -75,6 +80,7 @@ void TranslationGizmo::init()
 	{
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW);
 		axis->renderables[0].casts_shadow = false;
+		axis->renderables[0].render_on_top = true;
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -133,6 +139,7 @@ void RotationGizmo::init()
 	{
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC);
 		axis->renderables[0].casts_shadow = false;
+		axis->renderables[0].render_on_top = true;
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
@@ -199,10 +206,34 @@ void ScaleGizmo::init()
 	{
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW);
 		axis->renderables[0].casts_shadow = false;
+		axis->renderables[0].render_on_top = true;
 		axis->attach_to(this);
 		engine.draw_object(*axis);
 	});
+
+	{
+		MeshPtr cube_ptr = MeshFactory::cube();
+		auto& cube = static_cast<ColorMesh&>(*cube_ptr);
+		auto vertices = cube.get_vertices();
+		auto indices = cube.get_indices();
+		constexpr float CUBE_SIZE = 0.3f;
+		transform_vertices(vertices, glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE)));
+		const auto mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
+		uniformCube.renderables = { Renderable::make_default(mesh_id) };
+	}
+	uniformCube.renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW);
+	uniformCube.renderables[0].casts_shadow = false;
+	uniformCube.renderables[0].render_on_top = true;
+	uniformCube.attach_to(this);
+	engine.draw_object(uniformCube);
+
 	set_visibility(false);
+}
+
+void ScaleGizmo::set_visibility(bool visibility)
+{
+	uniformCube.set_visibility(visibility);
+	GizmoBase::set_visibility(visibility);
 }
 
 bool ScaleGizmo::check_collision(const Maths::Ray& ray)
@@ -211,9 +242,26 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	{
 		return false;
 	}
-	
+
 	// assume active_axis has been cleared already
-	
+	uniform_scaling = false;
+
+	// check centre cube first (it overlaps the axes at origin)
+	constexpr float UNIFORM_CUBE_RADIUS = 0.15f;
+	auto cube_hit = Maths::ray_sphere_collision(
+		Maths::Sphere(uniformCube.get_position(), UNIFORM_CUBE_RADIUS), ray);
+	if (cube_hit)
+	{
+		active_axis = &uniformCube;
+		uniform_scaling = true;
+		reference_transform.set_scale(gizmo.selected_object->get_scale());
+
+		plane.normal = glm::normalize(-ray.direction);
+		plane.offset = get_position();
+		p1 = Maths::ray_plane_intersection(ray, plane);
+		return true;
+	}
+
 	Object* closest_axis = get_closest_clicked_axis(ray);
 	if (closest_axis)
 	{
@@ -221,7 +269,7 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 		reference_transform.set_scale(gizmo.selected_object->get_scale());
 
 		const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
-		plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
+		plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));
 		plane.offset = get_position();
 		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
@@ -234,19 +282,30 @@ void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 	if (!active_axis)
 		return;
 
-	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
-
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
+
+	if (uniform_scaling)
+	{
+		// use camera right vector so dragging left scales up, right scales down
+		const glm::vec3 cam_right = glm::normalize(glm::cross(-plane.normal, Maths::up_vec));
+		const float magnitude = -glm::dot(p2 - p1, cam_right);
+		const glm::vec3 new_scale = reference_transform.get_scale() + glm::vec3(magnitude);
+
+		if (glm::compMin(new_scale) < minimum_scale)
+			return;
+
+		gizmo.selected_object->set_scale(new_scale);
+		return;
+	}
+
+	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
 	const float magnitude = glm::dot(p2 - p1, curr_axis);
-	// const auto Vp1_p2 = tmp * curr_axis;
 
 	const auto& original_axis = static_cast<ScaleGizmoObj*>(active_axis)->original_axis;
 	const glm::vec3 new_scale = reference_transform.get_scale() + original_axis * magnitude;
-	
+
 	if (glm::dot(new_scale, original_axis) < minimum_scale)
-	{
 		return;
-	}
 
 	gizmo.selected_object->set_scale(new_scale);
 }

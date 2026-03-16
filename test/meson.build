@@ -12,7 +12,8 @@ sources = [
 	'mock_graphics_engine.hpp',
 	'object_tests.cpp',
 	'orbital_physics_tests.cpp',
-	'tile_system_tests.cpp']
+	'tile_system_tests.cpp',
+	'scale_gizmo_tests.cpp']
 
 exec = executable(
 	'krisp_tests',
