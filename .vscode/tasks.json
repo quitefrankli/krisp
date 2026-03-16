@@ -45,6 +45,15 @@
 				"kind": "build",
 				"isDefault": false
 			}
+		},
+		{
+			"label": "build tests",
+			"type": "shell",
+			"command": "meson compile -C build krisp_tests",
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
 		}
 	]
 }

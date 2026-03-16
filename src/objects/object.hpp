@@ -58,6 +58,7 @@ public:
 
 	virtual void set_transform(const glm::mat4& transform);
 	virtual void set_position(const glm::vec3& position);
+	void set_scale(float uniform_scale) { set_scale(glm::vec3(uniform_scale)); }
 	virtual void set_scale(const glm::vec3& scale);
 	virtual void set_rotation(const glm::quat& rotation);
 

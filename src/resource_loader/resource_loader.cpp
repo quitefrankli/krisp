@@ -240,7 +240,10 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(std::filesystem::path fil
 			std::vector<uint32_t> indices = load_indices(index_accessor, index_buffer_view, index_buffer);
 
 			const auto mat_id = global_resource_loader.load_material(primitive, model);
-			const bool has_texture = [&primitive](){ return primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end(); }();
+			const bool material_has_texture = primitive.material >= 0
+			&& model.materials[primitive.material].pbrMetallicRoughness.baseColorTexture.index >= 0;
+		const bool has_texture = material_has_texture
+			&& primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end();
 
 			Renderable renderable;
 			MeshPtr new_mesh;

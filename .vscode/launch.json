@@ -59,6 +59,20 @@
 				"type category enable gnu-libstdc++"
 			],
 			"preLaunchTask": "build tetris"
+		},
+		{
+			"name": "tests",
+			"type": "lldb",
+			"request": "launch",
+			"program": "${workspaceFolder}/build/test/krisp_tests",
+			"args": [],
+			"cwd": "${workspaceFolder}",
+			"initCommands": [
+				"type category enable default",
+				"type category enable libcxx",
+				"type category enable gnu-libstdc++"
+			],
+			"preLaunchTask": "build tests"
 		}
 	]
 }
