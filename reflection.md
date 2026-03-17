@@ -23,7 +23,7 @@
 
 ## What Designs Was/Am I Unhappy With?
 
-1. OOP Style objects, too many different classes are required to deal with the mixed variety of Object types, i.e. *base_objs*, *clickable_objs*, *light_source_objs*, *clickable_light_source_objs*. Each required it's own separate class and this was clearly unscalable. ECS will probably be the right approach going forward.
+1. ~~OOP Style objects, too many different classes are required to deal with the mixed variety of Object types, i.e. base_objs, clickable_objs, light_source_objs, clickable_light_source_objs. Each required it's own separate class and this was clearly unscalable. ECS will probably be the right approach going forward.~~ -> replaced with ECS system
 
 2. ~~`Shape` class only supporting 2D shapes with `Object` class supporting composition of `Shape`. This was terrible as this was never a good separation and really only worked with extremely simple shapes like cubes and convex polyhedrons. With complicated meshes like humanoids this completely falls apart.~~ -> Solution was to treat shape as 3D mesh.
 
