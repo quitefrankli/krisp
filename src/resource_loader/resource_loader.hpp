@@ -39,6 +39,22 @@ public:
 	{
 		std::string name;
 		std::vector<Renderable> renderables;
+		Maths::Transform transform;
+		int source_node = -1;
+		int source_skin = -1;
+	};
+
+	struct ImportWarning
+	{
+		std::string message;
+	};
+
+	struct LoadOptions
+	{
+		std::optional<int> scene_index;
+		bool generate_missing_normals = true;
+		bool allow_non_triangle_primitives = true;
+		bool strict = false;
 	};
 
 	struct LoadedModel
@@ -46,10 +62,12 @@ public:
 		std::vector<LoadedMesh> meshes;
 		std::vector<AnimationID> animations;
 		Maths::Transform onload_transform;
+		std::vector<ImportWarning> warnings;
 	};
 
 	static MaterialID fetch_texture(std::filesystem::path file_path);
 	static LoadedModel load_model(std::filesystem::path file_path);
+	static LoadedModel load_model(std::filesystem::path file_path, const LoadOptions& options);
 
 private:
 	MaterialID load_texture(const std::filesystem::path& file_path);

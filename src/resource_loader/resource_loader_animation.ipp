@@ -35,6 +35,8 @@ std::vector<std::pair<glm::vec4, float>> get_sampler_data(
 		throw std::runtime_error("ResourceLoader: invalid input accessor");
 	}
 
+	if (sampler.output < 0 || sampler.output >= model.accessors.size())
+		throw std::runtime_error("ResourceLoader: invalid output accessor");
 	const auto& input_accesor = model.accessors[sampler.input];
 	const auto& output_accessor = model.accessors[sampler.output];
 	
@@ -49,46 +51,43 @@ std::vector<std::pair<glm::vec4, float>> get_sampler_data(
 		throw std::runtime_error("ResourceLoader: only float vec3 output accessors are supported");
 	}
 
-	const auto& input_buffer_view = model.bufferViews[input_accesor.bufferView];
-	const auto& input_buffer = model.buffers[input_buffer_view.buffer];
-	const auto* input_data = reinterpret_cast<const float*>(&input_buffer.data[input_accesor.byteOffset + input_buffer_view.byteOffset]);
-	
-	const auto& output_buffer_view = model.bufferViews[output_accessor.bufferView];
-	const auto& output_buffer = model.buffers[output_buffer_view.buffer];
-	const auto* output_data = &output_buffer.data[output_accessor.byteOffset + output_buffer_view.byteOffset];
+	GltfImport::AccessorReader input_reader(model, sampler.input);
+	GltfImport::AccessorReader output_reader(model, sampler.output);
+	if (input_accesor.count != output_accessor.count)
+		throw std::runtime_error("ResourceLoader: animation input and output counts differ");
 
 	retval.reserve(input_accesor.count);
-	assert(input_accesor.count == output_accessor.count);
-
-	for (int i = 0; i < input_accesor.count; ++i)
+	for (size_t i = 0; i < input_accesor.count; ++i)
 	{
 		if (output_accessor.type == TINYGLTF_TYPE_VEC3)
 		{
-			retval.push_back({ glm::vec4(reinterpret_cast<const glm::vec3*>(output_data)[i], 1.0f), input_data[i] });
+			retval.push_back({ glm::vec4(output_reader.number(i, 0), output_reader.number(i, 1), output_reader.number(i, 2), 1.0f), input_reader.number(i, 0) });
 		} else
 		{
-			retval.push_back({ reinterpret_cast<const glm::vec4*>(output_data)[i], input_data[i] });
+			retval.push_back({
+				glm::vec4(output_reader.number(i, 0), output_reader.number(i, 1), output_reader.number(i, 2), output_reader.number(i, 3)),
+				input_reader.number(i, 0)
+			});
 		}
 	}
 
 	return retval;
 }
 
-static std::vector<AnimationID> load_animations(const tinygltf::Model& model, const std::vector<Bone>& initial_bones)
+static std::vector<AnimationID> load_animations(
+	const tinygltf::Model& model,
+	const std::vector<Bone>& initial_bones,
+	const int skin_index)
 {
-	if (model.skins.size() != 1)
-	{
-		throw std::runtime_error("ResourceLoader::load_animations: only one skin is supported");
-	}
-	
+	const auto& skin = model.skins.at(skin_index);
 	std::vector<AnimationID> final_animations;
 
-	const std::map<int, int> node_to_joint = [&model] {
+	const std::map<int, int> node_to_joint = [&skin] {
 
 		std::map<int, int> retval;
-		for (int i = 0; i < model.skins[0].joints.size(); i++)
+		for (int i = 0; i < skin.joints.size(); i++)
 		{
-			retval[model.skins[0].joints[i]] = i;
+			retval[skin.joints[i]] = i;
 		}
 		return retval;
 	}();
@@ -96,7 +95,7 @@ static std::vector<AnimationID> load_animations(const tinygltf::Model& model, co
 	for (const auto& animation : model.animations)
 	{	
 		// An animation represents a collection of BoneAnimations, each of which is a collection of keyframes
-		std::vector<TKFS> bone_tkfss(model.skins[0].joints.size());
+		std::vector<TKFS> bone_tkfss(skin.joints.size());
 
 		for (const auto& channel : animation.channels)
 		{
@@ -110,7 +109,13 @@ static std::vector<AnimationID> load_animations(const tinygltf::Model& model, co
 				throw std::runtime_error("ResourceLoader: invalid target node");
 			}
 
-			const auto joint_idx = node_to_joint.at(channel.target_node);
+			const auto node_it = node_to_joint.find(channel.target_node);
+			if (node_it == node_to_joint.end())
+			{
+				// glTF animations may also target helper nodes outside this skin.
+				continue;
+			}
+			const auto joint_idx = node_it->second;
 			auto& bone_tkfs = bone_tkfss[joint_idx];
 
 			auto sampler_data = get_sampler_data(model, animation.samplers[channel.sampler]);

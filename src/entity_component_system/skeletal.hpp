@@ -14,11 +14,12 @@ class ECS;
 
 struct Bone
 {
+	static constexpr uint32_t NO_PARENT = std::numeric_limits<uint32_t>::max();
 	Maths::Transform original_transform;
 	Maths::Transform relative_transform;
 	Maths::Transform inverse_bind_pose;
 	std::string name;
-	uint32_t parent_node;
+	uint32_t parent_node = NO_PARENT;
 };
 
 struct BoneAnimation

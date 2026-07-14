@@ -4,6 +4,7 @@
 #include <utility.hpp>
 #include <entity_component_system/ecs.hpp>
 #include <entity_component_system/material_system.hpp>
+#include <entity_component_system/mesh_system.hpp>
 
 #include <gtest/gtest.h>
 
@@ -227,4 +228,56 @@ TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
 			ASSERT_NE(dynamic_cast<const ColorMaterial*>(&material), nullptr);
 		}
 	}
+}
+
+TEST(ResourceLoaderVariants, scene_nodes_create_distinct_mesh_instances)
+{
+	const auto model = ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf");
+
+	ASSERT_EQ(model.meshes.size(), 2);
+	EXPECT_EQ(model.meshes[0].name, "Right instance");
+	EXPECT_EQ(model.meshes[1].name, "Left instance");
+	EXPECT_TRUE(glm_equal(model.meshes[0].transform.get_pos(), glm::vec3(3.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(model.meshes[1].transform.get_pos(), glm::vec3(-1.0f, 2.0f, 0.0f)));
+}
+
+TEST(ResourceLoaderVariants, explicit_scene_selection_uses_requested_scene)
+{
+	ResourceLoader::LoadOptions options;
+	options.scene_index = 1;
+	const auto model = ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf", options);
+
+	ASSERT_EQ(model.meshes.size(), 1);
+	EXPECT_EQ(model.meshes[0].name, "Alternate scene mesh");
+	EXPECT_EQ(model.meshes[0].source_node, 2);
+	EXPECT_TRUE(glm_equal(model.meshes[0].transform.get_pos(), glm::vec3(0.0f, 4.0f, 0.0f)));
+}
+
+TEST(ResourceLoaderVariants, generates_normals_for_non_indexed_interleaved_triangle_strip)
+{
+	const auto model = ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf");
+
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& mesh = MeshSystem::get(model.meshes[0].renderables[0].mesh_id);
+	EXPECT_EQ(mesh.get_num_unique_vertices(), 4);
+	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 1, 2, 2, 1, 3 }));
+	ASSERT_EQ(model.warnings.size(), 4);
+}
+
+TEST(ResourceLoaderVariants, non_triangle_conversion_can_be_disabled)
+{
+	ResourceLoader::LoadOptions options;
+	options.allow_non_triangle_primitives = false;
+	EXPECT_THROW(
+		ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf", options),
+		std::runtime_error);
+}
+
+TEST(ResourceLoaderVariants, strict_mode_turns_import_warnings_into_errors)
+{
+	ResourceLoader::LoadOptions options;
+	options.strict = true;
+	EXPECT_THROW(
+		ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf", options),
+		std::runtime_error);
 }

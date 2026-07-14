@@ -68,7 +68,16 @@ MaterialID ResourceLoader::load_material(const tinygltf::Primitive& primitive, c
 		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
 		if (color_texture.index >= 0)
 		{
-			const tinygltf::Image& image = model.images[color_texture.index];
+			if (color_texture.index >= static_cast<int>(model.textures.size()))
+			{
+				throw std::runtime_error(fmt::format("ResourceLoader: material {} references an invalid texture", primitive.material));
+			}
+			const auto& texture = model.textures[color_texture.index];
+			if (texture.source < 0 || texture.source >= static_cast<int>(model.images.size()))
+			{
+				throw std::runtime_error(fmt::format("ResourceLoader: texture {} references an invalid image", color_texture.index));
+			}
+			const tinygltf::Image& image = model.images[texture.source];
 			TextureMaterial new_material;
 			new_material.width = image.width;
 			new_material.height = image.height;

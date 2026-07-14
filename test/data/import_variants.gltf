@@ -1,0 +1,44 @@
+{
+  "asset": { "version": "2.0" },
+  "scene": 0,
+  "scenes": [
+    { "nodes": [0, 1] },
+    { "nodes": [2] }
+  ],
+  "nodes": [
+    { "name": "Right instance", "mesh": 0, "translation": [3, 0, 0] },
+    { "name": "Left instance", "mesh": 0, "translation": [-1, 2, 0] },
+    { "name": "Alternate scene mesh", "mesh": 1, "translation": [0, 4, 0] }
+  ],
+  "meshes": [
+    {
+      "name": "Interleaved strip",
+      "primitives": [
+        { "attributes": { "POSITION": 0 }, "mode": 5 }
+      ]
+    },
+    {
+      "name": "Alternate triangles",
+      "primitives": [
+        { "attributes": { "POSITION": 0 }, "mode": 4 }
+      ]
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 4,
+      "type": "VEC3"
+    }
+  ],
+  "bufferViews": [
+    { "buffer": 0, "byteOffset": 0, "byteLength": 64, "byteStride": 16 }
+  ],
+  "buffers": [
+    {
+      "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAADGQgAAgD8AAAAAAAAAAAAAxkIAAAAAAACAPwAAAAAAAMZCAACAPwAAgD8AAAAAAADGQg==",
+      "byteLength": 64
+    }
+  ]
+}

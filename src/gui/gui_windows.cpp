@@ -222,18 +222,16 @@ void GuiModelSpawner::process(GameEngine& engine)
 	{
 		should_spawn = false;
 		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model]);
-		std::vector<Renderable> all_renderables;
-		for (const auto& mesh : loaded_model.meshes)
+		const auto model_name = model_paths[selected_model].stem().string();
+		for (const auto& loaded_mesh : loaded_model.meshes)
 		{
-			all_renderables.insert(all_renderables.end(), mesh.renderables.begin(), mesh.renderables.end());
+			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
+			mesh->set_transform(loaded_model.onload_transform.get_mat4() * loaded_mesh.transform.get_mat4());
+			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
+			Object& object = engine.spawn_object(std::move(mesh));
+			engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
+			engine.get_ecs().add_clickable_entity(object.get_id());
 		}
-		auto mesh = std::make_shared<Object>(all_renderables);
-		mesh->set_transform(loaded_model.onload_transform.get_mat4());
-		const auto name = model_paths[selected_model].stem().string();
-		mesh->set_name(name);
-		Object& object = engine.spawn_object(std::move(mesh));
-		engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
-		engine.get_ecs().add_clickable_entity(object.get_id());
 	}
 }
 

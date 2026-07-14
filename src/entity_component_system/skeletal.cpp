@@ -4,23 +4,35 @@
 #include <stdexcept>
 #include <ranges>
 #include <algorithm>
+#include <functional>
 
 
 std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 {
-	// TODO: can potentially rely on SkeletalSystem::process to do this...
-	// This is kinda expensive
-
 	std::vector<SDS::Bone> final_bones_data(bones.size());
-	final_bones_data[0].final_transform = bones[0].relative_transform.get_mat4();
-	final_bones_data[0].inverse_transform = bones[0].inverse_bind_pose.get_mat4();
-	for (uint32_t i = 1; i < bones.size(); ++i)
+	std::vector<bool> resolved(bones.size(), false);
+	std::function<void(uint32_t)> resolve = [&](const uint32_t index)
 	{
-		const auto& bone = bones[i];
-		final_bones_data[i].final_transform = 
-			final_bones_data[bone.parent_node].final_transform * bone.relative_transform.get_mat4();
-		final_bones_data[i].inverse_transform = bone.inverse_bind_pose.get_mat4();
-	}
+		if (resolved[index])
+			return;
+		const auto& bone = bones[index];
+		if (bone.parent_node != Bone::NO_PARENT)
+		{
+			if (bone.parent_node >= bones.size())
+				throw std::runtime_error("SkeletalComponent: invalid bone parent index");
+			resolve(bone.parent_node);
+			final_bones_data[index].final_transform =
+				final_bones_data[bone.parent_node].final_transform * bone.relative_transform.get_mat4();
+		}
+		else
+		{
+			final_bones_data[index].final_transform = bone.relative_transform.get_mat4();
+		}
+		final_bones_data[index].inverse_transform = bone.inverse_bind_pose.get_mat4();
+		resolved[index] = true;
+	};
+	for (uint32_t i = 0; i < bones.size(); ++i)
+		resolve(i);
 
 	for (uint32_t i = 0; i < bones.size(); i++)
 	{

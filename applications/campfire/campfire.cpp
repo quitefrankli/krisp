@@ -41,6 +41,7 @@ int main(int argc, char* argv[])
 	{
 		auto& obj = engine.spawn_object<Object>(mesh.renderables);
 		obj.set_name(mesh.name);
+		obj.set_transform(campfire_model.onload_transform.get_mat4() * mesh.transform.get_mat4());
 	}
 
 	// Fire light source

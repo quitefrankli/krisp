@@ -22,4 +22,6 @@
 
 * IMPORTANT: always use a DEBUG build for all development, compilations, and testing. Run `meson setup build --reconfigure --buildtype=debug` initially, then `meson compile -C build $TARGET` for targeted builds.
 
+* IMPORTANT: never commit changes without the user's explicit approval.
+
 * limit number of concurrent build jobs to 6
