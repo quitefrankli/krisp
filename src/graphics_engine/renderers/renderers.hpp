@@ -122,9 +122,9 @@ public:
 
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
-	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::OFFSCREEN_GUI_VIEWPORT; }
+	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::SHADOW_MAP; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return shadow_map_cube_views[frame_idx]; };
-	virtual VkExtent2D get_extent() override { return { 1024, 1024 }; } // resolution of each face of the shadow map
+	virtual VkExtent2D get_extent() override { return { 2048, 2048 }; } // resolution of each face of the shadow map
 
 	VkDescriptorSet get_shadow_map_dset(uint32_t frame_idx) { return shadow_map_dsets[frame_idx]; }
 

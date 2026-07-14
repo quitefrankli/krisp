@@ -281,7 +281,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		gubo.light_pos = glm::vec3(0.0f, 5.0f, 0.0f);
 		gubo.lighting_scalar = 0.0f;
 	}
-	gubo.shadow_far_plane = 250.0f;
+	gubo.shadow_far_plane = 256.0f;
 
 	const std::array<glm::vec3, 6> SHADOW_DIRECTIONS = {
 		Maths::right_vec,
@@ -292,12 +292,12 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		-Maths::forward_vec
 	};
 	const std::array<glm::vec3, 6> SHADOW_UPS = {
-		-Maths::up_vec,
-		-Maths::up_vec,
-		Maths::forward_vec,
+		Maths::up_vec,
+		Maths::up_vec,
 		-Maths::forward_vec,
-		-Maths::up_vec,
-		-Maths::up_vec
+		Maths::forward_vec,
+		Maths::up_vec,
+		Maths::up_vec
 	};
 
 	const glm::mat4 shadow_proj = glm::perspectiveLH(

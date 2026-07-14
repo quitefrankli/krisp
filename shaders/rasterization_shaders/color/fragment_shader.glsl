@@ -25,8 +25,8 @@ layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP
 float compute_shadow_factor(vec3 normal, vec3 lightDir)
 {
 	const vec3 frag_to_light = frag_pos - global_data.data.light_pos;
-	// Our engine uses a left-handed world basis; cubemap lookup expects right-handed orientation.
-	const vec3 shadow_lookup_dir = vec3(-frag_to_light.x, frag_to_light.y, -frag_to_light.z);
+	// The cubemap faces are rendered using the same left-handed world directions.
+	const vec3 shadow_lookup_dir = frag_to_light;
 	const float current_depth = length(frag_to_light);
 	const float closest_depth = texture(shadow_map, shadow_lookup_dir).r * global_data.data.shadow_far_plane;
 	const float bias = max(0.03 * (1.0 - dot(normal, lightDir)), 0.003);
