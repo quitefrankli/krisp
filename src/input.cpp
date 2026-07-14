@@ -51,6 +51,18 @@ bool Mouse::update_pos_on_significant_offset(const float min_offset)
 	return true;
 }
 
+bool Mouse::is_middle_double_click()
+{
+	const auto now = std::chrono::steady_clock::now();
+	constexpr auto double_click_interval = std::chrono::milliseconds(250);
+	const bool is_double_click = last_middle_mouse_press &&
+		now - *last_middle_mouse_press <= double_click_interval;
+	last_middle_mouse_press = now;
+	if (is_double_click)
+		last_middle_mouse_press.reset();
+	return is_double_click;
+}
+
 void Keyboard::update_key(const KeyInput& key_input)
 {
 	using enum EInputAction;

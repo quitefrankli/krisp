@@ -102,6 +102,19 @@ TEST_F(CameraTests, camera_ray_cast)
 	ASSERT_TRUE(glm_equal(ray.direction, { 0.000000f, 0.382683f, 0.923880f }));
 }
 
+TEST_F(CameraTests, reset_roll_and_focal_length_preserves_view_direction)
+{
+	const glm::vec3 direction_before_reset = glm::normalize(camera.get_focus() - camera.get_position());
+	camera.focus_obj->set_rotation(glm::angleAxis(glm::half_pi<float>(), Maths::forward_vec) * camera.focus_obj->get_rotation());
+	camera.zoom_in(-1.0f);
+	ASSERT_NEAR(camera.get_focal_length(), 2.4f, 0.001f);
+
+	camera.reset_roll_and_focal_length();
+	ASSERT_NEAR(camera.get_focal_length(), 2.0f, 0.001f);
+	ASSERT_TRUE(glm_equal(glm::normalize(camera.get_focus() - camera.get_position()), direction_before_reset));
+	ASSERT_TRUE(glm_equal(camera.focus_obj->get_rotation() * Maths::up_vec, Maths::up_vec));
+}
+
 TEST_F(CameraTests, orthographic_camera_rays_start_on_the_corresponding_near_plane_point)
 {
 	camera.toggle_projection();

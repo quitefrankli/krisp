@@ -14,7 +14,6 @@
 #include "entity_deletion_queue.hpp"
 #include "graphics_engine/engine_base.hpp"
 
-#include <chrono>
 #include <atomic>
 #include <thread>
 #include <unordered_map>

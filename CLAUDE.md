@@ -22,4 +22,6 @@
 
 * IMPORTANT: never commit changes without the user's explicit approval.
 
+* Commit messages must use a descriptive imperative subject and, when the change is non-trivial, a wrapped body explaining the main behavior and important constraints.
+
 * limit number of concurrent build jobs to 6

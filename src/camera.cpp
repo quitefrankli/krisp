@@ -139,6 +139,8 @@ void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 	focus_obj->set_position(focus);
 	focus_obj->set_rotation(Maths::RotationBetweenVectors(Maths::forward_vec, view_dir));
 	set_position(from);
+	if (default_focal_length <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+		default_focal_length = glm::distance(focus, from);
 }
 
 void Camera::look_at(const glm::vec3& focus)
@@ -168,6 +170,34 @@ void Camera::pan(const glm::vec2& axis, const float magnitude)
 float Camera::get_focal_length()
 {
 	return glm::distance(get_focus(), get_position());
+}
+
+void Camera::reset_roll_and_focal_length()
+{
+	const glm::vec3 camera_position = get_position();
+	const glm::vec3 focus = get_focus();
+	const glm::vec3 view_direction = glm::normalize(focus - camera_position);
+	const float focal_length = default_focal_length > Maths::ACCEPTABLE_FLOATING_PT_DIFF
+		? default_focal_length
+		: get_focal_length();
+
+	// Level the camera by rotating only around its current view axis. Rebuilding
+	// the full orientation here would subtly alter yaw and pitch.
+	const glm::vec3 world_up = Maths::up_vec;
+	const glm::vec3 projected_up = world_up - glm::dot(world_up, view_direction) * view_direction;
+	if (glm::length2(projected_up) > Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+	{
+		const glm::vec3 desired_up = glm::normalize(projected_up);
+		const glm::vec3 current_up = glm::normalize(focus_obj->get_rotation() * Maths::up_vec);
+		const float roll = std::atan2(
+			glm::dot(view_direction, glm::cross(current_up, desired_up)),
+			glm::dot(current_up, desired_up));
+		focus_obj->set_rotation(glm::angleAxis(roll, view_direction) * focus_obj->get_rotation());
+	}
+	if (mode == Mode::ORBIT)
+		set_position(focus - view_direction * focal_length);
+	else
+		focus_obj->set_position(camera_position + view_direction * focal_length);
 }
 
 void Camera::zoom_in(float length)

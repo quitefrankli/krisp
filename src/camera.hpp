@@ -32,6 +32,7 @@ public:
 
 	float get_focal_length();
 	void zoom_in(float length);
+	void reset_roll_and_focal_length();
 
 	std::shared_ptr<Object> upvector_obj;
 	
@@ -86,6 +87,7 @@ private:
 	const float fov = Maths::deg2rad(45.0f);
 	const float near_clipping = 0.1f;
 	const float far_clipping = 250.0f;
+	float default_focal_length = 0.0f;
 
 	class CameraTests;
 	friend CameraTests;

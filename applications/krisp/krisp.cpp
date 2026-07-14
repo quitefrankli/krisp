@@ -40,7 +40,7 @@ int main(int argc, char* argv[])
 		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
 		.pipeline_render_type = ERenderType::COLOR
 	});
-	light_source.set_position(glm::vec3(0.0f, 8.0f, 0.0f));
+	light_source.set_position(glm::vec3(0.0f, 30.0f, 0.0f));
 	LightComponent light_component{
 		.intensity = 1.0f,
 		.color = { 1.0f, 0.9f, 0.2f }
