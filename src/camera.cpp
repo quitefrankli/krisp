@@ -144,8 +144,12 @@ void Camera::look_at(const glm::vec3& focus)
 void Camera::pan(const glm::vec3& relative_axis, const float magnitude)
 {
 	const glm::vec3 offset = relative_axis * magnitude;
+	// The camera is attached to focus_obj in orbit mode, so moving the focus
+	// already moves the camera. Preserve its pre-pan world position to avoid
+	// applying the translation twice and changing the camera-focus direction.
+	const glm::vec3 camera_position = get_position();
 	focus_obj->set_position(get_focus() + offset);
-	Object::set_position(get_position() + offset);
+	Object::set_position(camera_position + offset);
 }
 
 void Camera::pan(const glm::vec2& axis, const float magnitude)

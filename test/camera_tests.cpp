@@ -52,17 +52,31 @@ TEST_F(CameraTests, camera_panning)
 	camera.pan(delta, glm::length(delta));
 	camera.update_tracker();
 	apparent_object = camera.get_view() * glm::vec4(object, 1.0f);
-	// When both camera and focus move together, both position and focus shift
-	// This maintains the view direction but changes the apparent position
-	ASSERT_TRUE(glm_equal(apparent_object, {-0.392232f, 0.0f, 2.118054f}));
+	// Camera and focus translate together, preserving their relative transform.
+	ASSERT_TRUE(glm_equal(apparent_object, {-0.4f, 0.0f, 2.0f}));
 
 	delta = glm::vec2{ 0.0f, 0.5f } - start;
 	camera.pan(delta, glm::length(delta));
 	camera.update_tracker();
 	apparent_object = camera.get_view() * glm::vec4(object, 1.0f);
-	ASSERT_TRUE(glm_equal(apparent_object, {-0.392232f, -0.195143f, 2.148132f}));
+	ASSERT_TRUE(glm_equal(apparent_object, {-0.4f, -0.2f, 2.0f}));
 	apparent_object = camera.get_view() * glm::vec4(object2, 1.0f);
-	ASSERT_TRUE(glm_equal(apparent_object, {0.784465f, 0.877952f, 2.829200f}));
+	ASSERT_TRUE(glm_equal(apparent_object, {0.6f, 0.8f, 3.0f}));
+}
+
+TEST_F(CameraTests, panning_after_orbit_preserves_view_direction)
+{
+	camera.rotate_camera({ 0.03f, -0.02f }, 0.1f);
+	const glm::vec3 direction_before_pan = glm::normalize(camera.get_focus() - camera.get_position());
+	const float focal_length_before_pan = camera.get_focal_length();
+
+	// Match keyboard panning by moving along a camera-relative axis.
+	const glm::vec3 keyboard_pan = camera.get_rotation() * Maths::right_vec;
+	camera.pan(keyboard_pan, 0.5f);
+
+	const glm::vec3 direction_after_pan = glm::normalize(camera.get_focus() - camera.get_position());
+	EXPECT_TRUE(glm_equal(direction_after_pan, direction_before_pan));
+	EXPECT_NEAR(camera.get_focal_length(), focal_length_before_pan, 0.001f);
 }
 
 TEST_F(CameraTests, camera_ray_cast)

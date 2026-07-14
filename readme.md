@@ -26,6 +26,9 @@ conan build . -bf=build -c tools.system.package_manager:mode=install -c tools.sy
 ```
 
 During development for debug build
+
+Always configure and compile in Debug mode during development and testing.
+
 ```bash
 meson setup build --reconfigure --buildtype=debug
 meson compile -C build krisp
