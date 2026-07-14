@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 	floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
 	floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
 	engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
-	engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<SphereCollider>());
+	engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<BoxCollider>());
 
 	auto& light_source = engine.spawn_object<Object>(Renderable{
 		.mesh_id = MeshFactory::sphere_id(),

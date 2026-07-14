@@ -2,10 +2,7 @@
 
 #include "objects/object.hpp"
 
-#include <glm/gtx/component_wise.hpp>
-#include <glm/gtx/string_cast.hpp>
-
-#include <iostream>
+#include <limits>
 
 
 AABB::AABB() = default;
@@ -25,43 +22,39 @@ void AABB::min_max(const AABB& other)
 	max_bound.z = std::max(max_bound.z, other.max_bound.z);
 }
 
-// from
-// https://medium.com/@bromanz/another-view-on-the-classic-ray-aabb-intersection-algorithm-for-bvh-traversal-41125138b525
 bool AABB::check_collision(const Maths::Ray& ray) const
 {
-	const auto invRaydir = 1.0f/ray.direction;
-	const glm::vec3 t0 = (min_bound - ray.origin) * invRaydir;
-	std::cout<<glm::to_string(t0)<<'\n';
-	const glm::vec3 t1 = (max_bound - ray.origin) * invRaydir;
-	const glm::vec3 tmin(std::min(t0.x, t1.x),
-						 std::min(t0.y, t1.y),
-						 std::min(t0.z, t1.z));
-	const glm::vec3 tmax(std::max(t0.x, t1.x),
-						 std::max(t0.y, t1.y),
-						 std::max(t0.z, t1.z));
-	const float minCompOfMaxSet = glm::compMin(tmax);
-	const float maxCompOfMinSet = glm::compMax(tmin);
-  	return maxCompOfMinSet <= minCompOfMaxSet && minCompOfMaxSet > 0.0f;
+	glm::vec3 intersection;
+	return check_collision(ray, intersection);
 }
 
 bool AABB::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
 {
-	const auto invRaydir = 1.0f/ray.direction;
-	const glm::vec3 t0 = (min_bound - ray.origin) * invRaydir;
-	const glm::vec3 t1 = (max_bound - ray.origin) * invRaydir;
-	const glm::vec3 tmin(std::min(t0.x, t1.x),
-						 std::min(t0.y, t1.y),
-						 std::min(t0.z, t1.z));
-	const glm::vec3 tmax(std::max(t0.x, t1.x),
-						 std::max(t0.y, t1.y),
-						 std::max(t0.z, t1.z));
-	const float minCompOfMaxSet = glm::compMin(tmax);
-	const float maxCompOfMinSet = glm::compMax(tmin);
-	if (maxCompOfMinSet > minCompOfMaxSet || minCompOfMaxSet < 0.0f)
+	float near_t = -std::numeric_limits<float>::infinity();
+	float far_t = std::numeric_limits<float>::infinity();
+	for (int axis = 0; axis < 3; ++axis)
 	{
-		return false;
+		const float direction = ray.direction[axis];
+		const float origin = ray.origin[axis];
+		if (Maths::absf(direction) <= std::numeric_limits<float>::epsilon())
+		{
+			if (origin < min_bound[axis] || origin > max_bound[axis])
+				return false;
+			continue;
+		}
+
+		float t0 = (min_bound[axis] - origin) / direction;
+		float t1 = (max_bound[axis] - origin) / direction;
+		if (t0 > t1)
+			std::swap(t0, t1);
+		near_t = std::max(near_t, t0);
+		far_t = std::min(far_t, t1);
+		if (near_t > far_t)
+			return false;
 	}
 
-	intersection = ray.origin + ray.direction * maxCompOfMinSet;
+	if (far_t < 0.0f)
+		return false;
+	intersection = ray.origin + ray.direction * std::max(near_t, 0.0f);
 	return true;
 }

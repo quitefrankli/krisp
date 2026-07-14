@@ -53,4 +53,15 @@ CollisionDetector::CollisionDetector()
 			intersection
 		};
 	});
+
+	CollisionType ray_box{ ECollider::RAY, ECollider::BOX };
+	detectors.emplace(ray_box, [](const Collider* collider1, const Collider* collider2) -> CollisionResult
+	{
+		const auto* ray = static_cast<const RayCollider*>(collider1);
+		const auto* box = static_cast<const BoxCollider*>(collider2);
+
+		glm::vec3 intersection{};
+		const bool collided = box->check_collision(*ray, intersection);
+		return { collided, intersection };
+	});
 }

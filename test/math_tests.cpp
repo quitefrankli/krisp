@@ -30,11 +30,31 @@ TEST(math_tests, ray_plane_intersections)
 TEST(math_tests, ray_plane_intersections_plane_behind_ray)
 {
     Maths::Plane plane(glm::vec3(0.0f, 0.0f, 0.0f), Maths::forward_vec);
-    Maths::Ray ray(glm::vec3(0.0f, 1.0f, 0.0f), Maths::forward_vec);
+    Maths::Ray ray(glm::vec3(0.0f, 0.0f, 1.0f), Maths::forward_vec);
     ASSERT_EQ(Maths::check_ray_plane_intersection(ray, plane), false);
 
     ray.direction = glm::normalize(glm::vec3(1.0f, 0.0f, 1.0f));
     ASSERT_EQ(Maths::check_ray_plane_intersection(ray, plane), false);
+}
+
+TEST(math_tests, ray_starting_on_plane_intersects_at_its_origin)
+{
+    const Maths::Plane plane(glm::vec3(0.0f), Maths::forward_vec);
+    const Maths::Ray ray(glm::vec3(0.0f, 1.0f, 0.0f), Maths::forward_vec);
+    ASSERT_TRUE(Maths::check_ray_plane_intersection(ray, plane));
+    ASSERT_TRUE(Maths::is_vec3_equal(Maths::ray_plane_intersection(ray, plane), ray.origin));
+}
+
+TEST(math_tests, ray_sphere_intersection_rejects_misses_and_accepts_non_normalized_rays)
+{
+    const Maths::Sphere sphere(Maths::zero_vec, 0.5f);
+    ASSERT_FALSE(Maths::ray_sphere_collision(
+        sphere, Maths::Ray(glm::vec3(1.0f, 0.0f, -1.0f), Maths::forward_vec)).has_value());
+
+    const auto hit = Maths::ray_sphere_collision(
+        sphere, Maths::Ray(glm::vec3(0.0f, 0.0f, -2.0f), 2.0f * Maths::forward_vec));
+    ASSERT_TRUE(hit.has_value());
+    ASSERT_TRUE(Maths::is_vec3_equal(*hit, glm::vec3(0.0f, 0.0f, -0.5f)));
 }
 
 TEST(math_tests, ray_plane_intersections_plane_orthogonal_to_ray)

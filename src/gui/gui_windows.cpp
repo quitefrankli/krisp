@@ -115,7 +115,7 @@ GuiObjectSpawner::GuiObjectSpawner() :
 			{
 				auto& obj = engine.template spawn_object<Object>(
 					Renderable::make_default(MeshFactory::cube_id(MeshFactory::EVertexType::COLOR)));
-				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
@@ -130,7 +130,7 @@ GuiObjectSpawner::GuiObjectSpawner() :
 
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
-				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
 				engine.spawn_object(std::move(obj));
 			})
@@ -144,7 +144,7 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
 				auto obj = std::make_shared<Object>(renderable);
 				engine.get_ecs().add_object(*obj);
-				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<SphereCollider>());
+				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
 				engine.spawn_object(std::move(obj));
 			})

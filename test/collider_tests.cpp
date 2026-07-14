@@ -48,6 +48,32 @@ TEST(collider_tests, collision_detector_dispatches_ray_quad_via_registry)
     ASSERT_TRUE(glm_equal(reverse_result.intersection, glm::vec3(0.0f, 0.0f, 0.0f)));
 }
 
+TEST(collider_tests, box_collider_hits_rotated_non_uniformly_scaled_bounds)
+{
+    BoxCollider box;
+    box.set_temporary_transform(Maths::Transform(
+        glm::vec3(0.0f), glm::vec3(2.0f, 1.0f, 1.0f),
+        glm::angleAxis(glm::half_pi<float>(), Maths::forward_vec)));
+
+    const RayCollider ray(Maths::Ray(glm::vec3(0.0f, -3.0f, 0.0f), Maths::up_vec));
+    const CollisionResult result = CollisionDetector::check_collision(&ray, &box);
+    ASSERT_TRUE(result.bCollided);
+    ASSERT_TRUE(glm_equal(result.intersection, glm::vec3(0.0f, -1.0f, 0.0f)));
+}
+
+TEST(collider_tests, box_collider_handles_parallel_ray_axes_and_inside_origins)
+{
+    const BoxCollider box;
+    RayCollider ray(Maths::Ray(glm::vec3(0.0f, 0.0f, -2.0f), Maths::forward_vec));
+    glm::vec3 intersection;
+    ASSERT_TRUE(box.check_collision(ray, intersection));
+    ASSERT_TRUE(glm_equal(intersection, glm::vec3(0.0f, 0.0f, -0.5f)));
+
+    ray = RayCollider(Maths::Ray(glm::vec3(0.0f), Maths::forward_vec));
+    ASSERT_TRUE(box.check_collision(ray, intersection));
+    ASSERT_TRUE(glm_equal(intersection, glm::vec3(0.0f)));
+}
+
 TEST(collider_tests, tiled_quad_with_various_rays)
 {
     // 1x1 quad centered at origin, facing up

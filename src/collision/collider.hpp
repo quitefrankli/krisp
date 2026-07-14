@@ -1,6 +1,7 @@
 #pragma once
 
 #include "maths.hpp"
+#include "collision/bounding_box.hpp"
 
 #include <glm/vec2.hpp>
 
@@ -14,6 +15,7 @@ enum class ECollider
 	// BOX,
 	// CAPSULE,
 	QUAD,
+	BOX,
 };
 
 struct Collider
@@ -77,4 +79,21 @@ struct SphereCollider : public Collider
 
 private:
 	Maths::Sphere data;
+};
+
+// An oriented box in world space, represented by an axis-aligned box in the
+// owning object's local space. This keeps selection accurate for rotated and
+// non-uniformly scaled objects.
+struct BoxCollider : public Collider
+{
+	BoxCollider() = default;
+	BoxCollider(const AABB& bounds) : data(bounds) {}
+	virtual ECollider get_type() const override { return ECollider::BOX; }
+	virtual Object& spawn_debug_object(GameEngine& engine) const override;
+	virtual void update_debug_object(Object& object) const override;
+
+	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
+
+private:
+	AABB data{ glm::vec3(-0.5f), glm::vec3(0.5f) };
 };

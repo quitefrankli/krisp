@@ -77,12 +77,17 @@ Maths::Ray Camera::get_ray(const glm::vec2& screen) const
 		return glm::vec3(point);
 	};
 
-	// arbitrary constants that seem to work, although i have no idea what they mean, just got them by experimentation
-	// it's supposedly for the near and far planes but it doesn't appear to be linear
-	const auto p1 = unproj(0.7f);
-	const auto p2 = unproj(0.95f);
+	// GLM is configured for Vulkan's [0, 1] clip-space depth range.  Unproject
+	// the actual near and far clip planes so this ray exactly matches the camera
+	// projection rather than relying on sampled depth values.
+	const auto near_point = unproj(0.0f);
+	const auto far_point = unproj(1.0f);
+	const auto direction = glm::normalize(far_point - near_point);
 
-	return Maths::Ray(get_position(), glm::normalize(p2-p1));
+	// Perspective rays all pass through the camera position. Orthographic rays
+	// are parallel but begin at a different point on the near plane for each
+	// screen coordinate.
+	return Maths::Ray(projection_is_perspective ? get_position() : near_point, direction);
 }
 
 glm::mat4 Camera::get_projection() const

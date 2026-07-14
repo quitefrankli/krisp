@@ -5,6 +5,8 @@
 
 #include <glm/gtx/quaternion.hpp>
 
+#include <limits>
+
 namespace
 {
 glm::quat quad_normal_to_rotation(const glm::vec3& normal)
@@ -155,4 +157,49 @@ void SphereCollider::update_debug_object(Object& obj) const
 	obj.set_position(sphere.origin);
 	obj.set_rotation(Maths::identity_quat);
 	obj.set_scale(glm::vec3(sphere.radius * 2.0f));
+}
+
+bool BoxCollider::check_collision(const RayCollider& ray, glm::vec3& out_intersection) const
+{
+	const auto ray_data = ray.get_data();
+	const glm::mat4& transform = get_temporary_transform().get_mat4();
+	if (Maths::absf(glm::determinant(transform)) <= std::numeric_limits<float>::epsilon())
+	{
+		return false;
+	}
+
+	const glm::mat4 inverse_transform = glm::inverse(transform);
+	const Maths::Ray local_ray(
+		glm::vec3(inverse_transform * glm::vec4(ray_data.origin, 1.0f)),
+		glm::vec3(inverse_transform * glm::vec4(ray_data.direction, 0.0f)));
+	glm::vec3 local_intersection;
+	if (!data.check_collision(local_ray, local_intersection))
+	{
+		return false;
+	}
+
+	out_intersection = glm::vec3(transform * glm::vec4(local_intersection, 1.0f));
+	return true;
+}
+
+Object& BoxCollider::spawn_debug_object(GameEngine& engine) const
+{
+	static Renderable renderable{
+		.mesh_id = MeshFactory::cube_id(),
+		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
+		.pipeline_render_type = ERenderType::COLOR,
+		.casts_shadow = false,
+	};
+	Object& obj = engine.spawn_object<Object>(renderable);
+	obj.set_name("Collider Visual");
+	update_debug_object(obj);
+	return obj;
+}
+
+void BoxCollider::update_debug_object(Object& obj) const
+{
+	const glm::vec3 centre = (data.min_bound + data.max_bound) * 0.5f;
+	const glm::vec3 size = data.max_bound - data.min_bound;
+	obj.set_transform(get_temporary_transform().get_mat4() *
+		glm::translate(Maths::identity_mat, centre) * glm::scale(Maths::identity_mat, size));
 }

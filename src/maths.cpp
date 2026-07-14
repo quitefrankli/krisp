@@ -137,25 +137,28 @@ namespace Maths
 
 		// solving for L and then back substituting eqn 1 gives P
 
-		const float L = glm::dot(plane.offset - ray.origin, plane.normal) / glm::dot(ray.direction, plane.normal);
+		const float denominator = glm::dot(ray.direction, plane.normal);
+		if (Maths::absf(denominator) <= ACCEPTABLE_FLOATING_PT_DIFF)
+		{
+			return ray.origin;
+		}
+		const float L = glm::dot(plane.offset - ray.origin, plane.normal) / denominator;
 
 		return L * ray.direction + ray.origin;
 	}
 
 	bool check_ray_plane_intersection(const Ray& ray, const Plane& plane)
 	{
-		if (is_vec3_equal(ray.origin, plane.offset))
-		{
-			return true;
-		}
-		return glm::dot(ray.origin - plane.offset, ray.direction) < 0;
+		const float denominator = glm::dot(ray.direction, plane.normal);
+		const float numerator = glm::dot(plane.offset - ray.origin, plane.normal);
+		if (Maths::absf(denominator) <= ACCEPTABLE_FLOATING_PT_DIFF)
+			return Maths::absf(numerator) <= ACCEPTABLE_FLOATING_PT_DIFF;
+		return numerator / denominator >= 0.0f;
 	}
 
 	bool check_spherical_collision(const Ray& ray, const Sphere& sphere)
 	{
-		glm::vec3 projP = -glm::dot(ray.origin, ray.direction) * ray.direction + 
-			ray.origin + glm::dot(ray.direction, sphere.origin) * ray.direction;
-		return glm::distance(projP, sphere.origin) < sphere.radius;
+		return ray_sphere_collision(sphere, ray).has_value();
 	}
 
 	bool check_ray_rod_collision(const Ray& ray, const glm::vec3& rod_start, const glm::vec3& rod_end, const float radius)
@@ -350,18 +353,20 @@ namespace Maths
 			return ray.origin;
 		}
 
-		const float x_t = glm::dot(sphere.origin - ray.origin, ray.direction);
-		// x is the closest point on the ray to sphere's center
-		const glm::vec3 x = ray.origin + ray.direction * x_t;
-		const float h = glm::distance(sphere.origin, x);
-		// l is the distance between x and the surface of the sphere
-		const float l = Maths::sqrtf(std::pow(sphere.radius, 2.0f) - std::pow(h, 2.0f));
-		const float t = x_t - l;
-		if (t < 0)
+		const glm::vec3 origin_to_centre = ray.origin - sphere.origin;
+		const float a = glm::dot(ray.direction, ray.direction);
+		if (a <= ACCEPTABLE_FLOATING_PT_DIFF)
+			return std::nullopt;
+		const float half_b = glm::dot(origin_to_centre, ray.direction);
+		const float c = glm::dot(origin_to_centre, origin_to_centre) - sphere.radius * sphere.radius;
+		const float discriminant = half_b * half_b - a * c;
+		if (discriminant < 0.0f)
 		{
 			return std::nullopt;
 		}
-		
+		const float t = (-half_b - Maths::sqrtf(discriminant)) / a;
+		if (t < 0.0f)
+			return std::nullopt;
 		return ray.origin + ray.direction * t;
 	}
 }

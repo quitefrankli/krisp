@@ -101,3 +101,16 @@ TEST_F(CameraTests, camera_ray_cast)
 	ASSERT_TRUE(glm_equal(ray.origin, { 0.0f, 0.0f, -2.0f }));
 	ASSERT_TRUE(glm_equal(ray.direction, { 0.000000f, 0.382683f, 0.923880f }));
 }
+
+TEST_F(CameraTests, orthographic_camera_rays_start_on_the_corresponding_near_plane_point)
+{
+	camera.toggle_projection();
+
+	const auto centre_ray = camera.get_ray({ 0.0f, 0.0f });
+	ASSERT_TRUE(glm_equal(centre_ray.origin, { 0.0f, 0.0f, -1.9f }));
+	ASSERT_TRUE(glm_equal(centre_ray.direction, Maths::forward_vec));
+
+	const auto right_ray = camera.get_ray({ 1.0f, 0.0f });
+	ASSERT_TRUE(glm_equal(right_ray.origin, { 1.0f, 0.0f, -1.9f }));
+	ASSERT_TRUE(glm_equal(right_ray.direction, Maths::forward_vec));
+}
