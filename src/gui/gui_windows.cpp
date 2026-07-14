@@ -45,8 +45,21 @@ Object& get_or_spawn_collider_visual(GameEngine& engine,
 }
 }
 
+bool GuiWindow::begin(int flags)
+{
+	return ImGui::Begin(get_imgui_name(), get_visible_ptr(), flags);
+}
 
-GuiGraphicsSettings::GuiGraphicsSettings() = default;
+void GuiWindow::end()
+{
+	ImGui::End();
+}
+
+
+GuiGraphicsSettings::GuiGraphicsSettings() :
+	GuiWindow({ "graphics_settings", "Graphics Settings", GuiPanelDock::RIGHT })
+{
+}
 
 void GuiGraphicsSettings::draw()
 {
@@ -63,7 +76,8 @@ void GuiGraphicsSettings::draw()
 		return width + ImGui::GetStyle().FramePadding.x * 2.0f + drop_down_icon_width;
 	}();
 
-	ImGui::Begin("Graphics Settings");
+	if (begin())
+	{
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
 	rtx_on.changed = ImGui::Checkbox("RTX", &rtx_on.value);
@@ -75,7 +89,8 @@ void GuiGraphicsSettings::draw()
 		camera_projections.data(), 
 		camera_projections.size());
 
-	ImGui::End();
+	}
+	end();
 }
 void GuiGraphicsSettings::process(GameEngine& engine)
 {
@@ -92,7 +107,8 @@ void GuiGraphicsSettings::process(GameEngine& engine)
 	}
 }
 
-GuiObjectSpawner::GuiObjectSpawner()
+GuiObjectSpawner::GuiObjectSpawner() :
+	GuiWindow({ "object_spawner", "Object Spawner", GuiPanelDock::LEFT })
 {
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngine& engine)
@@ -160,7 +176,8 @@ GuiObjectSpawner::GuiObjectSpawner()
 
 void GuiObjectSpawner::draw()
 {
-	ImGui::Begin("Object Spawner");
+	if (begin())
+	{
 
 	ImVec2 button_dim(button_width, button_height);
 	if (spawning_function)
@@ -176,7 +193,8 @@ void GuiObjectSpawner::draw()
 		}
 	}
 	
-	ImGui::End();
+	}
+	end();
 }
 
 void GuiObjectSpawner::process(GameEngine& engine)
@@ -188,7 +206,8 @@ void GuiObjectSpawner::process(GameEngine& engine)
 	}	
 }
 
-GuiModelSpawner::GuiModelSpawner()
+GuiModelSpawner::GuiModelSpawner() :
+	GuiWindow({ "model_spawner", "Model Spawner", GuiPanelDock::LEFT })
 {
 	model_paths = Utility::get_all_models();
 	std::ranges::transform(
@@ -220,7 +239,8 @@ void GuiModelSpawner::process(GameEngine& engine)
 
 void GuiModelSpawner::draw() 
 {
-	ImGui::Begin("Model Spawner");
+	if (begin())
+	{
 
 	if (!models.empty() && ImGui::BeginCombo("Model", models[selected_model].c_str()))
 	{
@@ -240,26 +260,25 @@ void GuiModelSpawner::draw()
 		should_spawn = true;
 	}
 
-	ImGui::End();
+	}
+	end();
 }
 
+
+GuiFPSCounter::GuiFPSCounter() :
+	GuiWindow({ "fps_counter", "FPS Counter", GuiPanelDock::NONE, true, false })
+{
+}
 
 void GuiFPSCounter::process(GameEngine& engine)
 {
 	tps = engine.get_tps();
 	fps = engine.get_graphics_engine().get_fps();
-	if (!window_width.has_value())
-	{
-		window_width = engine.get_window_width();
-	}
+	window_width = engine.get_window_width();
 }
 
 void GuiFPSCounter::draw()
 {
-	ImGui::Begin("FPS Counter", nullptr, 
-		ImGuiWindowFlags_::ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_::ImGuiWindowFlags_NoInputs |
-		ImGuiWindowFlags_::ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_::ImGuiWindowFlags_NoScrollbar
-	);
 	const auto get_num_digits = [](float f) {
 		int digits = 0;
 		while (f >= 10.0f)
@@ -272,8 +291,13 @@ void GuiFPSCounter::draw()
 	const int PAD_PER_DIGIT = 10;
 	const int TEXT_RIGHT_PADDING = 50 + PAD_PER_DIGIT * std::max(get_num_digits(fps), get_num_digits(tps));
 	const uint32_t width = window_width.has_value() ? *window_width : 0;
-	ImGui::SetWindowPos(ImVec2{ float(width - TEXT_RIGHT_PADDING), 0.0f });
-	ImGui::SetWindowSize(ImVec2{ float(TEXT_RIGHT_PADDING), 80.0f });
+	ImGui::SetNextWindowPos(ImVec2{ float(width - TEXT_RIGHT_PADDING), 0.0f }, ImGuiCond_Always);
+	ImGui::SetNextWindowSize(ImVec2{ float(TEXT_RIGHT_PADDING), 80.0f }, ImGuiCond_Always);
+	ImGui::Begin(get_imgui_name(), nullptr,
+		ImGuiWindowFlags_::ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_::ImGuiWindowFlags_NoInputs |
+		ImGuiWindowFlags_::ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_::ImGuiWindowFlags_NoScrollbar |
+		ImGuiWindowFlags_::ImGuiWindowFlags_NoSavedSettings
+	);
 	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{0.0f, 0.0f, 0.0f, 1.0f});
 	ImGui::Text("fps %.1f", fps);
 	ImGui::Text("tps %.1f", tps);
@@ -281,7 +305,8 @@ void GuiFPSCounter::draw()
 	ImGui::End();
 }
 
-GuiMusic::GuiMusic(AudioSource&& audio_source) : 
+GuiMusic::GuiMusic(AudioSource&& audio_source) :
+	GuiWindow({ "audio", "Audio", GuiPanelDock::RIGHT, false }),
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
 	songs_paths = Utility::get_all_audio();
@@ -299,7 +324,8 @@ void GuiMusic::process(GameEngine& engine)
 
 void GuiMusic::draw()
 {
-	ImGui::Begin("Audio");
+	if (begin())
+	{
 
 	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
@@ -322,7 +348,13 @@ void GuiMusic::draw()
 		audio_source->play();
 	}
 
-	ImGui::End();
+	}
+	end();
+}
+
+GuiStatistics::GuiStatistics() :
+	GuiWindow({ "statistics", "Statistics", GuiPanelDock::BOTTOM })
+{
 }
 
 void GuiStatistics::process(GameEngine& engine)
@@ -331,7 +363,8 @@ void GuiStatistics::process(GameEngine& engine)
 
 void GuiStatistics::draw()
 {
-	ImGui::Begin("Statistics");
+	if (begin())
+	{
 
 	for (const auto& [label, capacity] : buffer_capacities)
 	{
@@ -343,7 +376,8 @@ void GuiStatistics::draw()
 		ImGui::SameLine(); ImGui::Text("%.2f Mb", float(capacity.total_capacity) * bytes_to_mb);
 	}
 
-	ImGui::End();
+	}
+	end();
 }
 
 void GuiStatistics::update_buffer_capacities(
@@ -358,6 +392,11 @@ void GuiStatistics::update_buffer_capacities(
 		capacity.filled_capacity = capacity_pair.first;
 		capacity.total_capacity = capacity_pair.second;
 	}
+}
+
+GuiDebug::GuiDebug() :
+	GuiWindow({ "debug", "Debug", GuiPanelDock::RIGHT })
+{
 }
 
 void GuiDebug::process(GameEngine& engine)
@@ -426,7 +465,8 @@ void GuiDebug::process(GameEngine& engine)
 
 void GuiDebug::draw()
 {
-	ImGui::Begin("Debug");
+	if (begin())
+	{
 
 	if (ImGui::Button(is_paused ? "Resume" : "Pause"))
 	{
@@ -494,7 +534,8 @@ void GuiDebug::draw()
 		ImGui::EndCombo();
 	}
 
-	ImGui::End();
+	}
+	end();
 }
 
 void GuiDebug::sync_collider_visualisers(GameEngine& engine)
@@ -552,7 +593,8 @@ void GuiPhotoBase::draw()
 	}
 }
 
-GuiPhoto::GuiPhoto()
+GuiPhoto::GuiPhoto() :
+	GuiWindow({ "texture_viewer", "Texture Viewer", GuiPanelDock::BOTTOM, false })
 {
 	photo_paths = Utility::get_all_textures();
 	std::ranges::transform(photo_paths, std::back_inserter(photos), [](const auto& path) { return path.filename().string(); });
@@ -572,7 +614,8 @@ void GuiPhoto::process(GameEngine& engine)
 
 void GuiPhoto::draw()
 {
-	ImGui::Begin("Texture Viewer");
+	if (begin())
+	{
 
 	const std::string_view current_texture = selected_image < photos.size() ? photos[selected_image] : "N/A";
 	if (ImGui::BeginCombo("Texture", current_texture.data()))
@@ -611,12 +654,19 @@ void GuiPhoto::draw()
 		ImGui::Image((ImTextureID)img_rsrc, ImVec2(get_requested_width(), get_requested_height()));
 	}
 
-	ImGui::End();
+	}
+	end();
+}
+
+GuiRenderSlicer::GuiRenderSlicer() :
+	GuiWindow({ "render_slicer", "RenderSlicer", GuiPanelDock::BOTTOM, false })
+{
 }
 
 void GuiRenderSlicer::draw()
 {
-	ImGui::Begin("RenderSlicer");
+	if (begin())
+	{
 
 	if (ImGui::BeginCombo("Slices", render_slices[selected_slice].c_str()))
 	{
@@ -638,12 +688,18 @@ void GuiRenderSlicer::draw()
 		GuiPhotoBase::draw();
 	}
 
-	ImGui::End();
+	}
+	end();
 
 	if (cycles_before_draw > 0)
 	{
 		--cycles_before_draw;
 	}
+}
+
+GuiAnimationSelector::GuiAnimationSelector() :
+	GuiWindow({ "animation_selector", "Animation Selector", GuiPanelDock::LEFT, false })
+{
 }
 
 void GuiAnimationSelector::process(GameEngine& engine) 
@@ -670,7 +726,8 @@ void GuiAnimationSelector::process(GameEngine& engine)
 
 void GuiAnimationSelector::draw() 
 {
-	ImGui::Begin("Animation Selector");
+	if (begin())
+	{
 
 	if (ImGui::BeginCombo("Animations", selected_animation_name.c_str()))
 	{
@@ -698,5 +755,6 @@ void GuiAnimationSelector::draw()
 		}
 	}
 
-	ImGui::End();
+	}
+	end();
 }

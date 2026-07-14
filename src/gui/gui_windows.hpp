@@ -10,9 +10,27 @@
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
+#include <utility>
 
 
 class GameEngine;
+
+enum class GuiPanelDock
+{
+	LEFT,
+	RIGHT,
+	BOTTOM,
+	NONE
+};
+
+struct GuiPanelInfo
+{
+	std::string id;
+	std::string title;
+	GuiPanelDock default_dock = GuiPanelDock::NONE;
+	bool initially_visible = true;
+	bool dockable = true;
+};
 
 template<typename T>
 struct GuiVar
@@ -47,9 +65,29 @@ public:
 	// used in game engine
 	virtual void process(GameEngine&) {}
 
-	GuiWindow() = default;
+	explicit GuiWindow(GuiPanelInfo panel = {}) :
+		panel(std::move(panel)),
+		imgui_name(this->panel.title + "###" + this->panel.id),
+		visible(this->panel.initially_visible)
+	{
+	}
 	GuiWindow(GuiWindow&&) noexcept = default;
 	GuiWindow(const GuiWindow&) = delete;
+
+	const GuiPanelInfo& get_panel_info() const { return panel; }
+	const char* get_imgui_name() const { return imgui_name.c_str(); }
+	bool* get_visible_ptr() { return &visible; }
+	bool is_visible() const { return visible; }
+	void set_visible(bool value) { visible = value; }
+
+protected:
+	bool begin(int flags = 0);
+	void end();
+
+private:
+	GuiPanelInfo panel;
+	std::string imgui_name;
+	bool visible = true;
 };
 
 class GuiGraphicsSettings : public GuiWindow
@@ -106,6 +144,7 @@ class ImFont;
 class GuiFPSCounter : public GuiWindow
 {
 public:
+	GuiFPSCounter();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
@@ -139,6 +178,7 @@ private:
 class GuiStatistics : public GuiWindow
 {
 public:
+	GuiStatistics();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 
@@ -165,6 +205,7 @@ class Object;
 class GuiDebug : public GuiWindow
 {
 public:
+	GuiDebug();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 	bool consume_screenshot_request()
@@ -254,6 +295,7 @@ private:
 class GuiRenderSlicer : public GuiWindow, public GuiPhotoBase
 {
 public:
+	GuiRenderSlicer();
 	using requester_t = std::function<void(const std::string&)>;
 
 	virtual void draw() override;
@@ -272,6 +314,7 @@ private:
 class GuiAnimationSelector : public GuiWindow
 {
 public:
+	GuiAnimationSelector();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
 

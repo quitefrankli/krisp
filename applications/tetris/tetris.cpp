@@ -28,9 +28,15 @@ constexpr int width = 10;
 class TetrisGui : public GuiWindow, public GuiPhotoBase
 {
 public:
+	TetrisGui() :
+		GuiWindow({ "tetris", "Tetris", GuiPanelDock::RIGHT })
+	{
+	}
+
 	void draw() override
 	{
-		ImGui::Begin("Tetris");
+		if (begin())
+		{
 
 		ImGui::Text("Level: %d, Score: %d", level, score);
 		restart = ImGui::Button("New Game");
@@ -45,7 +51,8 @@ public:
 		ImGui::Text("Next Piece");
 		GuiPhotoBase::draw();
 
-		ImGui::End();
+		}
+		end();
 	}
 
 	void process(GameEngine& engine) override

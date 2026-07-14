@@ -9,6 +9,8 @@
 #include <memory>
 #include <filesystem>
 
+#include <imgui.h>
+
 
 class GraphicsEngineGuiManager : public GraphicsEngineBaseModule, public GuiManager
 {
@@ -25,6 +27,8 @@ public:
 		const glm::uvec2& dimensions);
 
 	void setup_imgui();
+	void draw_workspace();
+	void build_default_layout(ImGuiID dockspace_id, const ImVec2& size);
 	// some gui_windows require setup in the graphics_engine thread
 	void setup_gui_windows();
 	
@@ -33,6 +37,8 @@ public:
 	const GuiGraphicsSettings& get_graphic_settings() const { return this->graphic_settings; }
 
 private:
+	bool reset_layout_requested = false;
+
 	using GuiManager::gui_windows;
 	using GuiManager::graphic_settings;
 	using GuiManager::object_spawner;

@@ -46,14 +46,119 @@ void GraphicsEngineGuiManager::draw()
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-	// ImGui::ShowDemoWindow();
+	draw_workspace();
 
 	for (auto& gui_window : gui_windows)
 	{
-		gui_window->draw();
+		if (gui_window->is_visible())
+		{
+			gui_window->draw();
+		}
 	}
 	
 	ImGui::Render();
+}
+
+void GraphicsEngineGuiManager::draw_workspace()
+{
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->WorkPos);
+	ImGui::SetNextWindowSize(viewport->WorkSize);
+	ImGui::SetNextWindowViewport(viewport->ID);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+
+	const ImGuiWindowFlags host_flags =
+		ImGuiWindowFlags_MenuBar |
+		ImGuiWindowFlags_NoDocking |
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoCollapse |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoBringToFrontOnFocus |
+		ImGuiWindowFlags_NoNavFocus |
+		ImGuiWindowFlags_NoBackground;
+
+	ImGui::Begin("Krisp Workspace###workspace", nullptr, host_flags);
+	ImGui::PopStyleVar(3);
+
+	if (ImGui::BeginMenuBar())
+	{
+		if (ImGui::BeginMenu("View"))
+		{
+			for (const auto& gui_window : gui_windows)
+			{
+				const auto& panel = gui_window->get_panel_info();
+				if (!panel.dockable)
+				{
+					continue;
+				}
+
+				bool visible = gui_window->is_visible();
+				if (ImGui::MenuItem(panel.title.c_str(), nullptr, &visible))
+				{
+					gui_window->set_visible(visible);
+				}
+			}
+
+			ImGui::Separator();
+			if (ImGui::MenuItem("Reset Layout"))
+			{
+				reset_layout_requested = true;
+			}
+			ImGui::EndMenu();
+		}
+		ImGui::EndMenuBar();
+	}
+
+	const ImGuiID dockspace_id = ImGui::GetID("KrispWorkspaceDockSpace");
+	if (reset_layout_requested || ImGui::DockBuilderGetNode(dockspace_id) == nullptr)
+	{
+		build_default_layout(dockspace_id, viewport->WorkSize);
+		reset_layout_requested = false;
+	}
+
+	ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+	ImGui::End();
+}
+
+void GraphicsEngineGuiManager::build_default_layout(ImGuiID dockspace_id, const ImVec2& size)
+{
+	ImGui::DockBuilderRemoveNode(dockspace_id);
+	ImGui::DockBuilderAddNode(
+		dockspace_id,
+		ImGuiDockNodeFlags_DockSpace | ImGuiDockNodeFlags_PassthruCentralNode);
+	ImGui::DockBuilderSetNodeSize(dockspace_id, size);
+
+	ImGuiID remaining = dockspace_id;
+	ImGuiID left = 0;
+	ImGuiID right = 0;
+	ImGuiID bottom = 0;
+	ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Left, 0.23f, &left, &remaining);
+	ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Right, 0.28f, &right, &remaining);
+	ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Down, 0.25f, &bottom, &remaining);
+
+	for (const auto& gui_window : gui_windows)
+	{
+		const auto& panel = gui_window->get_panel_info();
+		if (!panel.dockable)
+		{
+			continue;
+		}
+
+		ImGuiID target = remaining;
+		switch (panel.default_dock)
+		{
+			case GuiPanelDock::LEFT: target = left; break;
+			case GuiPanelDock::RIGHT: target = right; break;
+			case GuiPanelDock::BOTTOM: target = bottom; break;
+			case GuiPanelDock::NONE: break;
+		}
+		ImGui::DockBuilderDockWindow(gui_window->get_imgui_name(), target);
+	}
+
+	ImGui::DockBuilderFinish(dockspace_id);
 }
 
 void GraphicsEngineGuiManager::update_preview_window(
@@ -83,30 +188,30 @@ void GraphicsEngineGuiManager::setup_imgui()
 {
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 	static const std::string configs_path = Utility::get_config_path("imgui.ini").string();
 	io.IniFilename = configs_path.c_str();
 	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window().get_glfw_window(), true);
 	
 	ImGui_ImplVulkan_InitInfo init_info{};
+	init_info.ApiVersion = VK_API_VERSION_1_3;
 	init_info.Instance = get_graphics_engine().get_instance();
 	init_info.PhysicalDevice = get_graphics_engine().get_physical_device();
 	init_info.Device = get_graphics_engine().get_logical_device();
 	init_info.Queue = get_graphics_engine().get_graphics_queue();
-	init_info.DescriptorPool = get_graphics_engine().get_rsrc_mgr().get_descriptor_pool();
+	// Keep ImGui descriptors isolated from the engine's combined-image-sampler
+	// pool: the current backend requires separate sampled-image and sampler
+	// descriptor types for its dynamic font atlas.
+	init_info.DescriptorPool = VK_NULL_HANDLE;
+	init_info.DescriptorPoolSize = 64;
 	init_info.MinImageCount = get_graphics_engine().get_num_swapchain_images();
 	init_info.ImageCount = init_info.MinImageCount;
-	// temporary fix, Gui doesn't really need anti-aliasing it should use its own dedicated pipeline
-	init_info.MSAASamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; //get_graphics_engine().get_msaa_samples();
+	// GUI uses a dedicated single-sample pipeline over the presentation image.
+	init_info.PipelineInfoMain.RenderPass =
+		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::GUI).get_render_pass();
+	init_info.PipelineInfoMain.MSAASamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
 
-	ImGui_ImplVulkan_Init(&init_info, get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::GUI).get_render_pass());
-
-	// execute a GPU command to upload ImGui font textures
-	VkCommandBuffer buffer = get_graphics_engine().begin_single_time_commands();
-	ImGui_ImplVulkan_CreateFontsTexture(buffer);
-	get_graphics_engine().end_single_time_commands(buffer);
-
-	// clear font textures from CPU data
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
+	ImGui_ImplVulkan_Init(&init_info);
 }
 
 void GraphicsEngineGuiManager::setup_gui_windows()
