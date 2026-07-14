@@ -2,8 +2,11 @@
 
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
+#include "identifications.hpp"
 
 #include <glm/vec2.hpp>
+
+#include <vector>
 
 class GameEngine;
 class Object;
@@ -16,6 +19,7 @@ enum class ECollider
 	// CAPSULE,
 	QUAD,
 	BOX,
+	MESH,
 };
 
 struct Collider
@@ -96,4 +100,20 @@ struct BoxCollider : public Collider
 
 private:
 	AABB data{ glm::vec3(-0.5f), glm::vec3(0.5f) };
+};
+
+// Tests the indexed triangles of one or more renderable meshes. Mesh data is
+// stored in object-local space; the owning object's transform makes this an
+// oriented collider in world space.
+struct MeshCollider : public Collider
+{
+	explicit MeshCollider(std::vector<MeshID> mesh_ids) : mesh_ids(std::move(mesh_ids)) {}
+	virtual ECollider get_type() const override { return ECollider::MESH; }
+	virtual Object& spawn_debug_object(GameEngine& engine) const override;
+	virtual void update_debug_object(Object& object) const override;
+
+	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
+
+private:
+	std::vector<MeshID> mesh_ids;
 };

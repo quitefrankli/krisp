@@ -2,6 +2,7 @@
 
 #include "shared_data_structures.hpp"
 #include "identifications.hpp"
+#include "collision/mesh_bvh.hpp"
 
 #include <glm/glm.hpp>
 
@@ -16,7 +17,11 @@ public:
 	MeshID get_id() const { return id; }
 
 	const std::vector<uint32_t>& get_indices() const { return indices; }
-	void set_indices(std::vector<uint32_t>&& indices) { this->indices = std::move(indices); }
+	void set_indices(std::vector<uint32_t>&& indices)
+	{
+		this->indices = std::move(indices);
+		pick_data = MeshPickData(pick_data.get_positions(), this->indices);
+	}
 
 	virtual uint32_t get_num_unique_vertices() const = 0;
 	virtual uint32_t get_num_vertex_indices() const { return static_cast<uint32_t>(indices.size()); };
@@ -25,12 +30,24 @@ public:
 	const std::byte* get_indices_data() const { return reinterpret_cast<const std::byte*>(indices.data()); }
 	virtual size_t get_vertices_data_size() const = 0;
 	size_t get_indices_data_size() const { return indices.size() * sizeof(uint32_t); }
+	const MeshPickData& get_pick_data() const { return pick_data; }
 
 protected:
 	std::vector<uint32_t> indices;
 
+	template<typename VertexType>
+	void set_pick_vertices(const std::vector<VertexType>& vertices)
+	{
+		std::vector<glm::vec3> positions;
+		positions.reserve(vertices.size());
+		for (const auto& vertex : vertices)
+			positions.push_back(vertex.pos);
+		pick_data = MeshPickData(std::move(positions), indices);
+	}
+
 private:
 	const MeshID id = MeshID::generate_new_id();
+	MeshPickData pick_data;
 };
 
 template<typename VertexType_>
@@ -44,11 +61,13 @@ public:
 		vertices(vertices)
 	{
 		this->indices = indices;
+		this->set_pick_vertices(this->vertices);
 	}
 	DerivedMesh(std::vector<VertexType_>&& vertices, std::vector<uint32_t>&& indices) : 
 		vertices(std::move(vertices))
 	{
 		this->indices = std::move(indices);
+		this->set_pick_vertices(this->vertices);
 	}
 	DerivedMesh(const DerivedMesh& mesh) = delete;
 	DerivedMesh& operator=(const DerivedMesh& mesh) = default;

@@ -2,6 +2,7 @@
 #include "game_engine.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "renderable/material_factory.hpp"
+#include "entity_component_system/mesh_system.hpp"
 
 #include <glm/gtx/quaternion.hpp>
 
@@ -16,6 +17,31 @@ glm::quat quad_normal_to_rotation(const glm::vec3& normal)
 	const glm::vec3 tangent = glm::normalize(glm::cross(ref_axis, normalized_normal));
 	const glm::vec3 bitangent = glm::normalize(glm::cross(normalized_normal, tangent));
 	return glm::quat_cast(glm::mat3(tangent, bitangent, normalized_normal));
+}
+
+bool ray_triangle_intersection(const Maths::Ray& ray,
+	const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2,
+	float& out_t)
+{
+	const glm::vec3 edge1 = p1 - p0;
+	const glm::vec3 edge2 = p2 - p0;
+	const glm::vec3 p = glm::cross(ray.direction, edge2);
+	const float determinant = glm::dot(edge1, p);
+	if (Maths::absf(determinant) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+		return false;
+
+	const float inverse_determinant = 1.0f / determinant;
+	const glm::vec3 origin_to_triangle = ray.origin - p0;
+	const float u = glm::dot(origin_to_triangle, p) * inverse_determinant;
+	if (u < 0.0f || u > 1.0f)
+		return false;
+	const glm::vec3 q = glm::cross(origin_to_triangle, edge1);
+	const float v = glm::dot(ray.direction, q) * inverse_determinant;
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+
+	out_t = glm::dot(edge2, q) * inverse_determinant;
+	return out_t >= 0.0f;
 }
 
 }
@@ -202,4 +228,103 @@ void BoxCollider::update_debug_object(Object& obj) const
 	const glm::vec3 size = data.max_bound - data.min_bound;
 	obj.set_transform(get_temporary_transform().get_mat4() *
 		glm::translate(Maths::identity_mat, centre) * glm::scale(Maths::identity_mat, size));
+}
+
+bool MeshCollider::check_collision(const RayCollider& ray, glm::vec3& out_intersection) const
+{
+	const auto ray_data = ray.get_data();
+	const glm::mat4& transform = get_temporary_transform().get_mat4();
+	if (Maths::absf(glm::determinant(transform)) <= std::numeric_limits<float>::epsilon())
+		return false;
+
+	const glm::mat4 inverse_transform = glm::inverse(transform);
+	const Maths::Ray local_ray(
+		glm::vec3(inverse_transform * glm::vec4(ray_data.origin, 1.0f)),
+		glm::vec3(inverse_transform * glm::vec4(ray_data.direction, 0.0f)));
+
+	bool collided = false;
+	float closest_t = std::numeric_limits<float>::infinity();
+	for (const MeshID mesh_id : mesh_ids)
+	{
+		const MeshPickData& data = MeshSystem::get(mesh_id).get_pick_data();
+		if (!data.has_triangles())
+			continue;
+		glm::vec3 unused_intersection;
+		if (!data.get_bounds().check_collision(local_ray, unused_intersection))
+			continue;
+
+		std::vector<uint32_t> stack{ 0 };
+		const auto& nodes = data.get_nodes();
+		const auto& positions = data.get_positions();
+		const auto& triangles = data.get_triangles();
+		const auto& triangle_indices = data.get_triangle_indices();
+		while (!stack.empty())
+		{
+			const MeshBvhNode& node = nodes[stack.back()];
+			stack.pop_back();
+			if (!node.bounds.check_collision(local_ray, unused_intersection))
+				continue;
+			if (!node.is_leaf())
+			{
+				stack.push_back(node.first);
+				stack.push_back(node.second);
+				continue;
+			}
+
+			for (uint32_t i = 0; i < node.count; ++i)
+			{
+				const auto& triangle = triangles[triangle_indices[node.first + i]];
+				float t;
+				if (ray_triangle_intersection(local_ray,
+					positions[triangle.vertices[0]], positions[triangle.vertices[1]], positions[triangle.vertices[2]], t) &&
+					t < closest_t)
+				{
+					closest_t = t;
+					collided = true;
+				}
+			}
+		}
+	}
+
+	if (!collided)
+		return false;
+	out_intersection = glm::vec3(transform * glm::vec4(local_ray.origin + closest_t * local_ray.direction, 1.0f));
+	return true;
+}
+
+Object& MeshCollider::spawn_debug_object(GameEngine& engine) const
+{
+	Object& obj = engine.spawn_object<Object>(Renderable{
+		.mesh_id = MeshFactory::cube_id(),
+		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
+		.pipeline_render_type = ERenderType::COLOR,
+		.casts_shadow = false,
+	});
+	obj.set_name("Collider Visual");
+	update_debug_object(obj);
+	return obj;
+}
+
+void MeshCollider::update_debug_object(Object& obj) const
+{
+	bool has_bounds = false;
+	AABB bounds;
+	for (const MeshID mesh_id : mesh_ids)
+	{
+		const auto& data = MeshSystem::get(mesh_id).get_pick_data();
+		if (!data.has_bounds())
+			continue;
+		if (!has_bounds)
+		{
+			bounds = data.get_bounds();
+			has_bounds = true;
+		}
+		else
+			bounds.min_max(data.get_bounds());
+	}
+	if (!has_bounds)
+		return;
+	const glm::vec3 centre = (bounds.min_bound + bounds.max_bound) * 0.5f;
+	obj.set_transform(get_temporary_transform().get_mat4() * glm::translate(Maths::identity_mat, centre) *
+		glm::scale(Maths::identity_mat, bounds.max_bound - bounds.min_bound));
 }

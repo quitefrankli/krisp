@@ -22,6 +22,7 @@ public:
 
 	void add_collider(EntityID id, std::unique_ptr<Collider>&& collider);
 	void add_collider(EntityID id, std::unique_ptr<Collider>&& collider, const Maths::Transform& offset);
+	void add_mesh_collider(EntityID id);
 	void remove_collider(EntityID id) { components.erase(id); }
 
 	const Collider* get_collider(EntityID id) const;

@@ -28,6 +28,7 @@ audio_sources = files('audio_engine/audio_engine.cpp',
 					  'audio_engine/listener.cpp')
 
 sources = files('collision/collider.cpp',
+				'collision/mesh_bvh.cpp',
 				# 'hot_reload.cpp',
 				'collision/collision_detector.cpp',
 				'collision/bounding_box.cpp',

@@ -64,4 +64,14 @@ CollisionDetector::CollisionDetector()
 		const bool collided = box->check_collision(*ray, intersection);
 		return { collided, intersection };
 	});
+
+	CollisionType ray_mesh{ ECollider::RAY, ECollider::MESH };
+	detectors.emplace(ray_mesh, [](const Collider* collider1, const Collider* collider2) -> CollisionResult
+	{
+		const auto* ray = static_cast<const RayCollider*>(collider1);
+		const auto* mesh = static_cast<const MeshCollider*>(collider2);
+		glm::vec3 intersection{};
+		const bool collided = mesh->check_collision(*ray, intersection);
+		return { collided, intersection };
+	});
 }

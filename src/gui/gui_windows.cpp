@@ -9,6 +9,7 @@
 #include "camera.hpp"
 #include "constants.hpp"
 #include "entity_component_system/material_system.hpp"
+#include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "interface/gizmo.hpp"
 
@@ -23,6 +24,36 @@
 
 namespace
 {
+template<typename MeshType>
+MeshID bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
+{
+	auto vertices = source.get_vertices();
+	const glm::mat3 normal_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
+	for (auto& vertex : vertices)
+	{
+		vertex.pos = glm::vec3(transform * glm::vec4(vertex.pos, 1.0f));
+		vertex.normal = glm::normalize(normal_transform * vertex.normal);
+	}
+	return MeshSystem::add(std::make_unique<MeshType>(std::move(vertices), source.get_indices()));
+}
+
+MeshID bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
+{
+	const Mesh& source = MeshSystem::get(mesh_id);
+	MeshID baked_id;
+	if (const auto* mesh = dynamic_cast<const ColorMesh*>(&source))
+		baked_id = bake_mesh_transform(*mesh, transform);
+	else if (const auto* mesh = dynamic_cast<const TexMesh*>(&source))
+		baked_id = bake_mesh_transform(*mesh, transform);
+	else if (const auto* mesh = dynamic_cast<const SkinnedMesh*>(&source))
+		baked_id = bake_mesh_transform(*mesh, transform);
+	else
+		throw std::runtime_error("GuiModelSpawner: unsupported mesh type");
+
+	MeshSystem::unregister_owner(mesh_id);
+	return baked_id;
+}
+
 Object& get_or_spawn_collider_visual(GameEngine& engine,
 									 std::unordered_map<EntityID, ObjectID>& collider_visualiser_ids,
 									 EntityID collider_entity,
@@ -223,13 +254,44 @@ void GuiModelSpawner::process(GameEngine& engine)
 		should_spawn = false;
 		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model]);
 		const auto model_name = model_paths[selected_model].stem().string();
+		const bool contains_skinned_mesh = std::ranges::any_of(loaded_model.meshes, [](const auto& loaded_mesh)
+		{
+			return std::ranges::any_of(loaded_mesh.renderables, [](const auto& renderable)
+			{
+				return renderable.skeleton_id.has_value();
+			});
+		});
+		const bool merge_meshes = merge_imported_meshes.value && !contains_skinned_mesh;
+		if (merge_imported_meshes.value && contains_skinned_mesh)
+			LOG_WARNING(Utility::get_logger(), "GuiModelSpawner: cannot merge skinned model '{}' into one object", model_name);
+
+		if (merge_meshes)
+		{
+			auto object = std::make_shared<Object>();
+			object->set_name(model_name);
+			object->set_transform(loaded_model.onload_transform.get_mat4());
+			for (auto& loaded_mesh : loaded_model.meshes)
+			{
+				const glm::mat4 transform = loaded_mesh.transform.get_mat4();
+				for (auto renderable : loaded_mesh.renderables)
+				{
+					renderable.mesh_id = bake_mesh_transform(renderable.mesh_id, transform);
+					object->renderables.push_back(std::move(renderable));
+				}
+			}
+			Object& spawned_object = engine.spawn_object(std::move(object));
+			engine.get_ecs().add_mesh_collider(spawned_object.get_id());
+			engine.get_ecs().add_clickable_entity(spawned_object.get_id());
+			return;
+		}
+
 		for (const auto& loaded_mesh : loaded_model.meshes)
 		{
 			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
 			mesh->set_transform(loaded_model.onload_transform.get_mat4() * loaded_mesh.transform.get_mat4());
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
-			engine.get_ecs().add_collider(object.get_id(), std::make_unique<SphereCollider>());
+			engine.get_ecs().add_mesh_collider(object.get_id());
 			engine.get_ecs().add_clickable_entity(object.get_id());
 		}
 	}
@@ -257,6 +319,7 @@ void GuiModelSpawner::draw()
 	{
 		should_spawn = true;
 	}
+	ImGui::Checkbox("Merge imported meshes into one object", &merge_imported_meshes.value);
 
 	}
 	end();

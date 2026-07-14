@@ -2,8 +2,22 @@
 
 #include <collision/collider.hpp>
 #include <collision/collision_detector.hpp>
+#include <entity_component_system/mesh_system.hpp>
+#include <renderable/mesh_factory.hpp>
 
 #include <gtest/gtest.h>
+
+namespace
+{
+MeshID add_test_mesh(const std::initializer_list<glm::vec3> positions, std::vector<uint32_t> indices)
+{
+    ColorVertices vertices;
+    vertices.reserve(positions.size());
+    for (const auto& position : positions)
+        vertices.push_back({ .pos = position });
+    return MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
+}
+}
 
 
 TEST(collider_tests, quad_collider_hits_inside_unit_square)
@@ -72,6 +86,65 @@ TEST(collider_tests, box_collider_handles_parallel_ray_axes_and_inside_origins)
     ray = RayCollider(Maths::Ray(glm::vec3(0.0f), Maths::forward_vec));
     ASSERT_TRUE(box.check_collision(ray, intersection));
     ASSERT_TRUE(glm_equal(intersection, glm::vec3(0.0f)));
+}
+
+TEST(collider_tests, mesh_collider_rejects_aabb_hits_outside_the_mesh_triangles)
+{
+    const MeshID mesh_id = add_test_mesh({
+        { -1.0f, -1.0f, 0.0f }, { 1.0f, -1.0f, 0.0f }, { -1.0f, 1.0f, 0.0f }
+    }, { 0, 1, 2 });
+    const MeshCollider mesh({ mesh_id });
+    const RayCollider hit_ray(Maths::Ray(glm::vec3(-0.5f, -0.5f, -1.0f), Maths::forward_vec));
+    const RayCollider gap_ray(Maths::Ray(glm::vec3(0.75f, 0.75f, -1.0f), Maths::forward_vec));
+    glm::vec3 intersection;
+
+    ASSERT_TRUE(mesh.check_collision(hit_ray, intersection));
+    ASSERT_TRUE(glm_equal(intersection, glm::vec3(-0.5f, -0.5f, 0.0f)));
+    ASSERT_FALSE(mesh.check_collision(gap_ray, intersection));
+    MeshSystem::unregister_owner(mesh_id);
+}
+
+TEST(collider_tests, mesh_collider_returns_the_closest_triangle_across_meshes_and_transforms)
+{
+    const MeshID near_mesh = add_test_mesh({
+        { -1.0f, -1.0f, 0.0f }, { 1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }
+    }, { 0, 1, 2 });
+    const MeshID far_mesh = add_test_mesh({
+        { -1.0f, -1.0f, 1.0f }, { 1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f }
+    }, { 0, 1, 2 });
+    MeshCollider mesh({ near_mesh, far_mesh });
+    mesh.set_temporary_transform(Maths::Transform(
+        glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.0f, 1.0f, 1.0f), Maths::identity_quat));
+    const RayCollider ray(Maths::Ray(glm::vec3(2.0f, 0.0f, -1.0f), Maths::forward_vec));
+    glm::vec3 intersection;
+
+    ASSERT_TRUE(mesh.check_collision(ray, intersection));
+    ASSERT_TRUE(glm_equal(intersection, glm::vec3(2.0f, 0.0f, 0.0f)));
+    MeshSystem::unregister_owner(near_mesh);
+    MeshSystem::unregister_owner(far_mesh);
+}
+
+TEST(collider_tests, mesh_collider_traverses_the_bvh_for_multi_triangle_meshes)
+{
+    const MeshID cube_id = MeshFactory::cube_id();
+    const auto& pick_data = MeshSystem::get(cube_id).get_pick_data();
+    ASSERT_GT(pick_data.get_nodes().size(), 1u);
+
+    const MeshCollider mesh({ cube_id });
+    const RayCollider ray(Maths::Ray(glm::vec3(0.0f, 0.0f, -2.0f), Maths::forward_vec));
+    glm::vec3 intersection;
+    ASSERT_TRUE(mesh.check_collision(ray, intersection));
+    ASSERT_TRUE(glm_equal(intersection, glm::vec3(0.0f, 0.0f, -0.5f)));
+}
+
+TEST(collider_tests, mesh_pick_data_ignores_invalid_and_degenerate_triangles)
+{
+    const std::vector<glm::vec3> positions{
+        { 0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 2.0f, 0.0f, 0.0f }
+    };
+    const MeshPickData data(positions, { 0, 1, 2, 0, 1, 99 });
+    ASSERT_TRUE(data.has_bounds());
+    ASSERT_FALSE(data.has_triangles());
 }
 
 TEST(collider_tests, tiled_quad_with_various_rays)

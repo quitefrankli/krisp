@@ -137,6 +137,7 @@ private:
 	std::vector<std::string> models;
 	std::vector<std::filesystem::path> model_paths;
 	GuiVar<int> selected_model = 0;
+	GuiVar<bool> merge_imported_meshes = false;
 	bool should_spawn = false;
 };
 
