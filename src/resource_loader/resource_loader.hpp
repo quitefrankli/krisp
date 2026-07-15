@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <filesystem>
+#include <stdexcept>
 
 
 class Object;
@@ -24,6 +25,12 @@ namespace tinygltf
 	class Model;
 	class Primitive;
 }
+
+class ResourceLoadError : public std::runtime_error
+{
+public:
+	using std::runtime_error::runtime_error;
+};
 
 class ResourceLoader
 {

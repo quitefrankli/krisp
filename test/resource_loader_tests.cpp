@@ -43,6 +43,15 @@ public:
 	glm::vec3 v2 = {1.0f, 1.0f, 0.0f};
 };
 
+TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
+{
+	const auto missing_model = Utility::get_top_level_path()/"test/data/does_not_exist.glb";
+	const auto missing_texture = Utility::get_top_level_path()/"test/data/does_not_exist.png";
+
+	EXPECT_THROW(ResourceLoader::load_model(missing_model), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::fetch_texture(missing_texture), ResourceLoadError);
+}
+
 
 // test loading .gltf file with bones into std::vector<Bone>
 TEST_F(ResourceLoaderECS, load_bones)
@@ -213,7 +222,8 @@ TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses
 TEST(ResourceLoaderNormalMaps, missing_tangents_fail_by_default)
 {
 	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_missing_tangents.gltf";
-	EXPECT_THROW(ResourceLoader::load_model(path), std::runtime_error);
+	const ResourceLoader::LoadOptions options;
+	EXPECT_THROW(ResourceLoader::load_model(path, options), ResourceLoadError);
 }
 
 TEST(ResourceLoaderNormalMaps, missing_tangents_can_be_generated)
@@ -259,7 +269,7 @@ TEST(ResourceLoaderNormalMaps, authored_tangents_are_preserved_and_scale_warns)
 
 	ResourceLoader::LoadOptions strict_options;
 	strict_options.strict = true;
-	EXPECT_THROW(ResourceLoader::load_model(path, strict_options), std::runtime_error);
+	EXPECT_THROW(ResourceLoader::load_model(path, strict_options), ResourceLoadError);
 }
 
 TEST(ResourceLoaderNormalMaps, shared_material_registers_all_texture_owners)
@@ -278,7 +288,7 @@ TEST(ResourceLoaderNormalMaps, shared_material_registers_all_texture_owners)
 TEST(ResourceLoaderNormalMaps, normal_map_without_base_color_is_rejected)
 {
 	const auto path = Utility::get_top_level_path()/"test/data/normal_map_without_base_color.gltf";
-	EXPECT_THROW(ResourceLoader::load_model(path), std::runtime_error);
+	EXPECT_THROW(ResourceLoader::load_model(path), ResourceLoadError);
 }
 
 TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
@@ -375,7 +385,7 @@ TEST(ResourceLoaderVariants, non_triangle_conversion_can_be_disabled)
 	options.allow_non_triangle_primitives = false;
 	EXPECT_THROW(
 		ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf", options),
-		std::runtime_error);
+		ResourceLoadError);
 }
 
 TEST(ResourceLoaderVariants, strict_mode_turns_import_warnings_into_errors)
@@ -384,5 +394,5 @@ TEST(ResourceLoaderVariants, strict_mode_turns_import_warnings_into_errors)
 	options.strict = true;
 	EXPECT_THROW(
 		ResourceLoader::load_model(Utility::get_top_level_path()/"test/data/import_variants.gltf", options),
-		std::runtime_error);
+		ResourceLoadError);
 }

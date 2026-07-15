@@ -20,14 +20,29 @@ ResourceLoader ResourceLoader::global_resource_loader;
 
 MaterialID ResourceLoader::fetch_texture(std::filesystem::path file_path)
 {
-	if (!std::filesystem::exists(file_path))
-		file_path = Utility::get_texture(file_path.string());
+	try
+	{
+		if (!std::filesystem::exists(file_path))
+			file_path = Utility::get_texture(file_path.string());
 
-	const auto file_str = file_path.lexically_normal().string();
-	if (global_resource_loader.texture_name_to_mat_id.contains(file_str))
-		return global_resource_loader.texture_name_to_mat_id.at(file_str);
+		const auto file_str = file_path.lexically_normal().string();
+		if (global_resource_loader.texture_name_to_mat_id.contains(file_str))
+			return global_resource_loader.texture_name_to_mat_id.at(file_str);
 
-	return global_resource_loader.load_texture(file_path);
+		return global_resource_loader.load_texture(file_path);
+	}
+	catch (const ResourceLoadError&)
+	{
+		throw;
+	}
+	catch (const std::runtime_error& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
+	catch (const std::out_of_range& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
 }
 
 namespace
@@ -149,6 +164,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	std::filesystem::path file_path,
 	const LoadOptions& options)
 {
+	try
+	{
 	if (!std::filesystem::exists(file_path))
 		file_path = Utility::get_model(file_path.string());
 	const bool is_glb = file_path.extension() == ".glb";
@@ -332,6 +349,19 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	if (result.meshes.empty())
 		add_warning(result, options, "ResourceLoader: selected scene contains no mesh nodes");
 	return result;
+	}
+	catch (const ResourceLoadError&)
+	{
+		throw;
+	}
+	catch (const std::runtime_error& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
+	catch (const std::out_of_range& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
 }
 
 ResourceLoader::LoadedModel ResourceLoader::load_model(std::filesystem::path file_path)

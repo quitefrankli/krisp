@@ -28,8 +28,9 @@ Utility::Utility()
 		fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), file_sink_config);
 
 	quill::ConsoleSinkConfig console_sink_config;
+	console_sink_config.set_stream("stderr");
 	auto console_sink = quill::Frontend::create_or_get_sink<quill::ConsoleSink>(
-		"stdout",
+		"stderr",
 		console_sink_config);
 	console_sink->set_log_level_filter(quill::LogLevel::Error);
 

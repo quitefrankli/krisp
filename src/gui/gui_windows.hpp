@@ -120,6 +120,7 @@ private:
 	using spawning_function_type = std::function<void(GameEngine&)>;
 	std::map<std::string, spawning_function_type> mapping;
 	spawning_function_type* spawning_function = nullptr;
+	std::optional<std::string> load_error;
 
 	const float button_width = 120.0f;
 	const float button_height = 20.0f;
@@ -134,11 +135,15 @@ public:
 	virtual void draw() override;
 
 private:
+	void refresh_models();
+
 	std::vector<std::string> models;
 	std::vector<std::filesystem::path> model_paths;
 	GuiVar<int> selected_model = 0;
 	GuiVar<bool> merge_imported_meshes = false;
 	bool should_spawn = false;
+	bool should_refresh_models = false;
+	std::optional<std::string> load_error;
 };
 
 class ImFont;
@@ -287,6 +292,7 @@ private:
 	bool should_show = false;
 	GuiVar<int> selected_image = 0;
 	std::function<void(const std::filesystem::path&)> texture_requester;
+	std::optional<std::string> load_error;
 };
 
 // Shows mid-render slices for visualisation/debug purposes

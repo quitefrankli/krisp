@@ -16,6 +16,7 @@
 #include <imgui.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <quill/LogMacros.h>
+#include <fmt/core.h>
 
 #include <iostream>
 #include <algorithm>
@@ -52,6 +53,23 @@ MeshID bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
 
 	MeshSystem::unregister_owner(mesh_id);
 	return baked_id;
+}
+
+std::string report_resource_load_error(std::string_view context, const ResourceLoadError& error)
+{
+	std::string message = fmt::format("{}: {}", context, error.what());
+	LOG_ERROR(Utility::get_logger(), "{}", message);
+	return message;
+}
+
+void draw_resource_load_error(const std::optional<std::string>& error)
+{
+	if (!error)
+		return;
+
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.25f, 0.25f, 1.0f));
+	ImGui::TextWrapped("%s", error->c_str());
+	ImGui::PopStyleColor();
 }
 
 Object& get_or_spawn_collider_visual(GameEngine& engine,
@@ -153,7 +171,7 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
 				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
-				const auto mat_id = ResourceLoader::fetch_texture(Utility::get_texture("texture.jpg"));
+				const auto mat_id = ResourceLoader::fetch_texture("texture.jpg");
 				Renderable renderable;
 				renderable.mesh_id = mesh_id;
 				renderable.material_ids = { mat_id };
@@ -223,6 +241,7 @@ void GuiObjectSpawner::draw()
 			}
 		}
 	}
+	draw_resource_load_error(load_error);
 	
 	}
 	end();
@@ -232,7 +251,15 @@ void GuiObjectSpawner::process(GameEngine& engine)
 {
 	if (spawning_function)
 	{
-		(*spawning_function)(engine);
+		try
+		{
+			(*spawning_function)(engine);
+			load_error.reset();
+		}
+		catch (const ResourceLoadError& error)
+		{
+			load_error = report_resource_load_error("Object Spawner failed to load a resource", error);
+		}
 		spawning_function = nullptr;
 	}	
 }
@@ -240,20 +267,72 @@ void GuiObjectSpawner::process(GameEngine& engine)
 GuiModelSpawner::GuiModelSpawner() :
 	GuiWindow({ "model_spawner", "Model Spawner", GuiPanelDock::LEFT })
 {
+	refresh_models();
+}
+
+void GuiModelSpawner::refresh_models()
+{
+	std::optional<std::string> selected_path;
+	if (selected_model.value >= 0 && selected_model.value < static_cast<int>(model_paths.size()))
+		selected_path = model_paths[selected_model.value].lexically_normal().generic_string();
+
 	model_paths = Utility::get_all_models();
+	std::ranges::sort(model_paths, [](const auto& lhs, const auto& rhs)
+	{
+		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
+	});
+
+	models.clear();
+	models.reserve(model_paths.size());
 	std::ranges::transform(
-		model_paths, 
-		std::back_inserter(models), 
+		model_paths,
+		std::back_inserter(models),
 		[](const auto& path) { return path.filename().string(); });
+
+	selected_model = 0;
+	if (selected_path)
+	{
+		const auto selected = std::ranges::find_if(model_paths, [&](const auto& path)
+		{
+			return path.lexically_normal().generic_string() == *selected_path;
+		});
+		if (selected != model_paths.end())
+			selected_model = static_cast<int>(std::distance(model_paths.begin(), selected));
+	}
+	selected_model.changed = true;
+	should_spawn = false;
+	load_error.reset();
 }
 
 void GuiModelSpawner::process(GameEngine& engine)
 {
+	if (should_refresh_models)
+	{
+		should_refresh_models = false;
+		refresh_models();
+	}
+
 	if (should_spawn)
 	{
 		should_spawn = false;
-		auto loaded_model = ResourceLoader::load_model(model_paths[selected_model]);
-		const auto model_name = model_paths[selected_model].stem().string();
+		if (selected_model.value < 0 || selected_model.value >= static_cast<int>(model_paths.size()))
+			return;
+
+		const auto model_path = model_paths[selected_model.value];
+		ResourceLoader::LoadedModel loaded_model;
+		try
+		{
+			loaded_model = ResourceLoader::load_model(model_path);
+			load_error.reset();
+		}
+		catch (const ResourceLoadError& error)
+		{
+			load_error = report_resource_load_error(
+				fmt::format("Model Spawner failed to load '{}'", model_path.string()), error);
+			return;
+		}
+
+		const auto model_name = model_path.stem().string();
 		const bool contains_skinned_mesh = std::ranges::any_of(loaded_model.meshes, [](const auto& loaded_mesh)
 		{
 			return std::ranges::any_of(loaded_mesh.renderables, [](const auto& renderable)
@@ -302,11 +381,11 @@ void GuiModelSpawner::draw()
 	if (begin())
 	{
 
-	if (!models.empty() && ImGui::BeginCombo("Model", models[selected_model].c_str()))
+	if (!models.empty() && ImGui::BeginCombo("Model", models[selected_model.value].c_str()))
 	{
-		for (int i = 0; i < models.size(); i++)
+		for (int i = 0; i < static_cast<int>(models.size()); i++)
 		{
-			if (ImGui::Selectable(models[i].c_str(), i == selected_model))
+			if (ImGui::Selectable(models[i].c_str(), i == selected_model.value))
 			{
 				selected_model = i;
 				selected_model.changed = true;
@@ -314,12 +393,24 @@ void GuiModelSpawner::draw()
 		}
 		ImGui::EndCombo();
 	}
+	else if (models.empty())
+	{
+		ImGui::TextUnformatted("No models found");
+	}
 
+	if (ImGui::Button("Refresh Models"))
+		should_refresh_models = true;
+
+	if (models.empty())
+		ImGui::BeginDisabled();
 	if (ImGui::Button("Spawn"))
 	{
 		should_spawn = true;
 	}
+	if (models.empty())
+		ImGui::EndDisabled();
 	ImGui::Checkbox("Merge imported meshes into one object", &merge_imported_meshes.value);
+	draw_resource_load_error(load_error);
 
 	}
 	end();
@@ -696,12 +787,25 @@ void GuiPhoto::draw()
 
 	if (ImGui::Button("Show"))
 	{
-		if (selected_image.changed)
+		if (selected_image.changed && selected_image.value >= 0 &&
+			selected_image.value < static_cast<int>(photo_paths.size()) && texture_requester)
 		{
-			texture_requester(photo_paths[selected_image]);
-			selected_image.changed = false;
+			const auto texture_path = photo_paths[selected_image.value];
+			try
+			{
+				texture_requester(texture_path);
+				selected_image.changed = false;
+				load_error.reset();
+			}
+			catch (const ResourceLoadError& error)
+			{
+				load_error = report_resource_load_error(
+					fmt::format("Texture Viewer failed to load '{}'", texture_path.string()), error);
+				should_show = false;
+			}
 		}
-		should_show = true;
+		if (!load_error)
+			should_show = true;
 	}
 
 	ImGui::SameLine();
@@ -714,6 +818,7 @@ void GuiPhoto::draw()
 	{
 		ImGui::Image((ImTextureID)img_rsrc, ImVec2(get_requested_width(), get_requested_height()));
 	}
+	draw_resource_load_error(load_error);
 
 	}
 	end();
