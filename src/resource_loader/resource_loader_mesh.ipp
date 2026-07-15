@@ -2,11 +2,14 @@
 #include "renderable/mesh.hpp"
 
 #include <tiny_gltf.h>
+#include <MikkTSpace/mikktspace.h>
 
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <cmath>
 #include <stdexcept>
+#include <unordered_map>
 
 namespace GltfImport
 {
@@ -229,6 +232,142 @@ inline std::vector<glm::vec3> generate_normals(
 		normal = glm::length(normal) > 0.0f ? glm::normalize(normal) : Maths::up_vec;
 	return normals;
 }
+
+struct TangentGenerationInput
+{
+	const std::vector<glm::vec3>& positions;
+	const std::vector<glm::vec3>& normals;
+	const std::vector<glm::vec2>& texcoords;
+	const std::vector<uint32_t>& indices;
+	std::vector<glm::vec4> corner_tangents;
+};
+
+inline uint32_t tangent_source_index(const TangentGenerationInput& input, const int face, const int vertex)
+{
+	return input.indices.at(static_cast<size_t>(face) * 3 + vertex);
+}
+
+inline TangentGenerationInput& tangent_input(const SMikkTSpaceContext* context)
+{
+	return *static_cast<TangentGenerationInput*>(context->m_pUserData);
+}
+
+inline int tangent_face_count(const SMikkTSpaceContext* context)
+{
+	return static_cast<int>(tangent_input(context).indices.size() / 3);
+}
+
+inline int tangent_vertices_per_face(const SMikkTSpaceContext*, const int)
+{
+	return 3;
+}
+
+inline void tangent_position(const SMikkTSpaceContext* context, float out[], const int face, const int vertex)
+{
+	const auto& input = tangent_input(context);
+	const auto& value = input.positions.at(tangent_source_index(input, face, vertex));
+	out[0] = value.x;
+	out[1] = value.y;
+	out[2] = value.z;
+}
+
+inline void tangent_normal(const SMikkTSpaceContext* context, float out[], const int face, const int vertex)
+{
+	const auto& input = tangent_input(context);
+	const auto& value = input.normals.at(tangent_source_index(input, face, vertex));
+	out[0] = value.x;
+	out[1] = value.y;
+	out[2] = value.z;
+}
+
+inline void tangent_texcoord(const SMikkTSpaceContext* context, float out[], const int face, const int vertex)
+{
+	const auto& input = tangent_input(context);
+	const auto& value = input.texcoords.at(tangent_source_index(input, face, vertex));
+	out[0] = value.x;
+	out[1] = value.y;
+}
+
+inline void set_tangent(
+	const SMikkTSpaceContext* context,
+	const float tangent[],
+	const float sign,
+	const int face,
+	const int vertex)
+{
+	auto& input = tangent_input(context);
+	input.corner_tangents.at(static_cast<size_t>(face) * 3 + vertex) =
+		glm::vec4(tangent[0], tangent[1], tangent[2], sign);
+}
+
+struct TangentRemap
+{
+	std::vector<uint32_t> source_vertices;
+	std::vector<glm::vec4> tangents;
+	std::vector<uint32_t> indices;
+};
+
+struct TangentVertexKey
+{
+	uint32_t source_vertex;
+	glm::vec4 tangent;
+	bool operator==(const TangentVertexKey&) const = default;
+};
+
+struct TangentVertexKeyHash
+{
+	size_t operator()(const TangentVertexKey& key) const
+	{
+		return std::hash<uint32_t>()(key.source_vertex) ^ std::hash<glm::vec4>()(key.tangent);
+	}
+};
+
+inline TangentRemap generate_tangents(
+	const std::vector<glm::vec3>& positions,
+	const std::vector<glm::vec3>& normals,
+	const std::vector<glm::vec2>& texcoords,
+	const std::vector<uint32_t>& indices)
+{
+	if (indices.empty() || indices.size() % 3 != 0)
+		throw std::runtime_error("ResourceLoader: tangent generation requires triangle indices");
+	if (positions.size() != normals.size() || positions.size() != texcoords.size())
+		throw std::runtime_error("ResourceLoader: tangent-generation attribute counts differ");
+
+	TangentGenerationInput input{ positions, normals, texcoords, indices,
+		std::vector<glm::vec4>(indices.size(), glm::vec4(0.0f)) };
+	SMikkTSpaceInterface interface{};
+	interface.m_getNumFaces = tangent_face_count;
+	interface.m_getNumVerticesOfFace = tangent_vertices_per_face;
+	interface.m_getPosition = tangent_position;
+	interface.m_getNormal = tangent_normal;
+	interface.m_getTexCoord = tangent_texcoord;
+	interface.m_setTSpaceBasic = set_tangent;
+	SMikkTSpaceContext context{ &interface, &input };
+	if (!genTangSpaceDefault(&context))
+		throw std::runtime_error("ResourceLoader: MikkTSpace tangent generation failed");
+
+	TangentRemap result;
+	result.indices.reserve(indices.size());
+	std::unordered_map<TangentVertexKey, uint32_t, TangentVertexKeyHash> remap;
+	for (size_t corner = 0; corner < indices.size(); ++corner)
+	{
+		auto tangent = input.corner_tangents[corner];
+		const glm::vec3 tangent_xyz(tangent);
+		if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y) || !std::isfinite(tangent.z) ||
+			glm::length(tangent_xyz) < 0.00001f)
+			throw std::runtime_error("ResourceLoader: cannot generate tangents for degenerate geometry or UVs");
+		tangent = glm::vec4(glm::normalize(tangent_xyz), tangent.w < 0.0f ? -1.0f : 1.0f);
+		const TangentVertexKey key{ indices[corner], tangent };
+		auto [it, inserted] = remap.emplace(key, static_cast<uint32_t>(result.source_vertices.size()));
+		if (inserted)
+		{
+			result.source_vertices.push_back(key.source_vertex);
+			result.tangents.push_back(key.tangent);
+		}
+		result.indices.push_back(it->second);
+	}
+	return result;
+}
 }
 
 inline ColorVertices load_color_vertices(
@@ -247,7 +386,8 @@ inline ColorVertices load_color_vertices(
 inline TexVertices load_tex_vertices(
 	const std::vector<glm::vec3>& positions,
 	const std::vector<glm::vec3>& normals,
-	const std::vector<glm::vec2>& texcoords)
+	const std::vector<glm::vec2>& texcoords,
+	const std::vector<glm::vec4>& tangents)
 {
 	TexVertices vertices(positions.size());
 	for (size_t i = 0; i < vertices.size(); ++i)
@@ -255,6 +395,7 @@ inline TexVertices load_tex_vertices(
 		vertices[i].pos = positions[i];
 		vertices[i].normal = normals[i];
 		vertices[i].texCoord = texcoords[i];
+		vertices[i].tangent = tangents[i];
 	}
 	return vertices;
 }
@@ -263,6 +404,7 @@ inline SkinnedVertices load_skinned_vertices(
 	const std::vector<glm::vec3>& positions,
 	const std::vector<glm::vec3>& normals,
 	const std::vector<glm::vec2>& texcoords,
+	const std::vector<glm::vec4>& tangents,
 	const std::vector<glm::vec4>& joints,
 	const std::vector<glm::vec4>& weights)
 {
@@ -272,8 +414,49 @@ inline SkinnedVertices load_skinned_vertices(
 		vertices[i].pos = positions[i];
 		vertices[i].normal = normals[i];
 		vertices[i].texCoord = texcoords[i];
+		vertices[i].tangent = tangents[i];
 		vertices[i].bone_ids = joints[i];
 		vertices[i].bone_weights = weights[i];
+	}
+	return vertices;
+}
+
+inline TexVertices load_tex_vertices(
+	const std::vector<glm::vec3>& positions,
+	const std::vector<glm::vec3>& normals,
+	const std::vector<glm::vec2>& texcoords,
+	const GltfImport::TangentRemap& remap)
+{
+	TexVertices vertices(remap.source_vertices.size());
+	for (size_t i = 0; i < vertices.size(); ++i)
+	{
+		const auto source = remap.source_vertices[i];
+		vertices[i].pos = positions[source];
+		vertices[i].normal = normals[source];
+		vertices[i].texCoord = texcoords[source];
+		vertices[i].tangent = remap.tangents[i];
+	}
+	return vertices;
+}
+
+inline SkinnedVertices load_skinned_vertices(
+	const std::vector<glm::vec3>& positions,
+	const std::vector<glm::vec3>& normals,
+	const std::vector<glm::vec2>& texcoords,
+	const GltfImport::TangentRemap& remap,
+	const std::vector<glm::vec4>& joints,
+	const std::vector<glm::vec4>& weights)
+{
+	SkinnedVertices vertices(remap.source_vertices.size());
+	for (size_t i = 0; i < vertices.size(); ++i)
+	{
+		const auto source = remap.source_vertices[i];
+		vertices[i].pos = positions[source];
+		vertices[i].normal = normals[source];
+		vertices[i].texCoord = texcoords[source];
+		vertices[i].tangent = remap.tangents[i];
+		vertices[i].bone_ids = joints[source];
+		vertices[i].bone_weights = weights[source];
 	}
 	return vertices;
 }

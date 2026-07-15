@@ -15,7 +15,7 @@ std::vector<VkVertexInputBindingDescription> TexturePipeline::get_binding_descri
 
 std::vector<VkVertexInputAttributeDescription> TexturePipeline::get_attribute_descriptions() const
 {
-	VkVertexInputAttributeDescription position_attr, texCoord_attr, normal_attr;
+	VkVertexInputAttributeDescription position_attr, texCoord_attr, normal_attr, tangent_attr;
 	position_attr.binding = 0;
 	position_attr.location = 0; // specify in shader
 	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -31,7 +31,12 @@ std::vector<VkVertexInputAttributeDescription> TexturePipeline::get_attribute_de
 	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
 	normal_attr.offset = offsetof(SDS::TexVertex, normal);
 
-	return {position_attr, texCoord_attr, normal_attr};
+	tangent_attr.binding = 0;
+	tangent_attr.location = 4;
+	tangent_attr.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	tangent_attr.offset = offsetof(SDS::TexVertex, tangent);
+
+	return {position_attr, texCoord_attr, normal_attr, tangent_attr};
 }
 
 std::vector<VkVertexInputBindingDescription> CubemapPipeline::get_binding_descriptions() const
@@ -368,7 +373,13 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_de
 	bone_weights_attr.format = VK_FORMAT_R32G32B32A32_SFLOAT; // using float as it's more convenient, we can simply refer to it as a vec4 in glsl
 	bone_weights_attr.offset = offsetof(SDS::SkinnedVertex, bone_weights);
 
-	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr};
+	VkVertexInputAttributeDescription tangent_attr{};
+	tangent_attr.binding = 0;
+	tangent_attr.location = 5;
+	tangent_attr.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	tangent_attr.offset = offsetof(SDS::SkinnedVertex, tangent);
+
+	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr, tangent_attr};
 }
 
 std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const

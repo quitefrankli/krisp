@@ -341,12 +341,12 @@ void GameEngine::process_objs_to_delete()
 			}
 		}
 
-		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(destroy_resources_cmd));
-
 		objects.erase(id);
 		ecs.remove_object(id);
 		entity_deletion_queue.pop();
 	}
+	if (!destroy_resources_cmd.material_ids.empty() || !destroy_resources_cmd.mesh_ids.empty())
+		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroy_resources_cmd)));
 }
 
 void GameEngine::highlight_object(const Object& object)

@@ -178,10 +178,10 @@ MeshPtr MeshFactory::quad(EVertexType vertex_type)
 	{
 		return std::make_unique<TexMesh>(
 			std::vector<SDS::TexVertex>{
-				SDS::TexVertex{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}}, // bottom left
-				SDS::TexVertex{{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}}, // bottom right
-				SDS::TexVertex{{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}}, // top right
-				SDS::TexVertex{{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}}	// top left
+				SDS::TexVertex{{-0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, -1.0f}}, // bottom left
+				SDS::TexVertex{{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, -1.0f}}, // bottom right
+				SDS::TexVertex{{ 0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, -1.0f}}, // top right
+				SDS::TexVertex{{-0.5f,  0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, -1.0f}}	// top left
 			},
 			indices);
 	}

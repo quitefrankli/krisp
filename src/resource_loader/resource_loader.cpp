@@ -174,7 +174,15 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	LoadedModel result;
 	if (!warn.empty())
 		result.warnings.push_back({ warn });
-	global_resource_loader.load_all_materials(model);
+	global_resource_loader.gltf_material_to_mat_ids.clear();
+	for (size_t material_index = 0; material_index < model.materials.size(); ++material_index)
+	{
+		const auto& normal_texture = model.materials[material_index].normalTexture;
+		if (normal_texture.index >= 0 && std::abs(normal_texture.scale - 1.0) > 0.00001)
+			add_warning(result, options, fmt::format(
+				"ResourceLoader: material {} normalTexture.scale={} is not supported; using 1.0",
+				material_index, normal_texture.scale));
+	}
 
 	std::unordered_map<int, std::vector<Bone>> skins;
 	std::unordered_map<int, std::vector<AnimationID>> animations_by_skin;
@@ -231,10 +239,48 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			if (positions.size() != normals.size())
 				throw std::runtime_error("ResourceLoader: POSITION and NORMAL counts differ");
 
-			const auto material_id = global_resource_loader.load_material(primitive, model);
+			const auto material_ids = global_resource_loader.load_material(primitive, model);
 			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");
 			const bool textured = primitive.material >= 0 &&
 				model.materials.at(primitive.material).pbrMetallicRoughness.baseColorTexture.index >= 0;
+			const bool normal_mapped = primitive.material >= 0 &&
+				model.materials.at(primitive.material).normalTexture.index >= 0;
+			if (normal_mapped && !has_texcoords)
+				throw std::runtime_error("ResourceLoader: normal-mapped primitive is missing TEXCOORD_0");
+
+			auto texcoords = has_texcoords
+				? GltfImport::read_vec2(model, primitive.attributes.at("TEXCOORD_0"))
+				: std::vector<glm::vec2>(positions.size(), glm::vec2(0.0f));
+			if (texcoords.size() != positions.size())
+				throw std::runtime_error("ResourceLoader: POSITION and TEXCOORD_0 counts differ");
+
+			std::vector<glm::vec4> tangents(positions.size(), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+			std::optional<GltfImport::TangentRemap> tangent_remap;
+			if (normal_mapped)
+			{
+				if (GltfImport::has_attribute(primitive, "TANGENT"))
+				{
+					tangents = GltfImport::read_vec4(model, primitive.attributes.at("TANGENT"));
+					if (tangents.size() != positions.size())
+						throw std::runtime_error("ResourceLoader: POSITION and TANGENT counts differ");
+					for (auto& tangent : tangents)
+					{
+						const glm::vec3 tangent_xyz(tangent);
+						if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y) || !std::isfinite(tangent.z) ||
+							!std::isfinite(tangent.w) || glm::length(tangent_xyz) < 0.00001f ||
+							std::abs(std::abs(tangent.w) - 1.0f) > 0.00001f)
+							throw std::runtime_error("ResourceLoader: primitive contains an invalid TANGENT");
+						tangent = glm::vec4(glm::normalize(tangent_xyz), tangent.w < 0.0f ? -1.0f : 1.0f);
+					}
+				}
+				else if (!options.generate_missing_tangents)
+					throw std::runtime_error("ResourceLoader: normal-mapped primitive is missing TANGENT");
+				else
+				{
+					add_warning(result, options, "ResourceLoader: generated missing tangents");
+					tangent_remap = GltfImport::generate_tangents(positions, normals, texcoords, indices);
+				}
+			}
 
 			Renderable renderable;
 			MeshPtr mesh;
@@ -242,23 +288,32 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			{
 				if (!GltfImport::has_attribute(primitive, "JOINTS_0") || !GltfImport::has_attribute(primitive, "WEIGHTS_0"))
 					throw std::runtime_error("ResourceLoader: skinned primitive is missing JOINTS_0 or WEIGHTS_0");
-				auto texcoords = has_texcoords
-					? GltfImport::read_vec2(model, primitive.attributes.at("TEXCOORD_0"))
-					: std::vector<glm::vec2>(positions.size(), glm::vec2(0.0f));
 				auto joints = GltfImport::read_vec4(model, primitive.attributes.at("JOINTS_0"), false);
 				auto weights = GltfImport::read_vec4(model, primitive.attributes.at("WEIGHTS_0"));
 				if (texcoords.size() != positions.size() || joints.size() != positions.size() || weights.size() != positions.size())
 					throw std::runtime_error("ResourceLoader: skinned vertex attribute counts differ");
-				mesh = std::make_unique<SkinnedMesh>(load_skinned_vertices(positions, normals, texcoords, joints, weights), std::move(indices));
+				if (tangent_remap.has_value())
+				{
+					mesh = std::make_unique<SkinnedMesh>(
+						load_skinned_vertices(positions, normals, texcoords, *tangent_remap, joints, weights),
+						std::move(tangent_remap->indices));
+				}
+				else
+					mesh = std::make_unique<SkinnedMesh>(
+						load_skinned_vertices(positions, normals, texcoords, tangents, joints, weights),
+						std::move(indices));
 				renderable.skeleton_id = skeleton;
 				renderable.pipeline_render_type = ERenderType::SKINNED;
 			}
 			else if (textured && has_texcoords)
 			{
-				auto texcoords = GltfImport::read_vec2(model, primitive.attributes.at("TEXCOORD_0"));
-				if (texcoords.size() != positions.size())
-					throw std::runtime_error("ResourceLoader: POSITION and TEXCOORD_0 counts differ");
-				mesh = std::make_unique<TexMesh>(load_tex_vertices(positions, normals, texcoords), std::move(indices));
+				if (tangent_remap.has_value())
+					mesh = std::make_unique<TexMesh>(
+						load_tex_vertices(positions, normals, texcoords, *tangent_remap),
+						std::move(tangent_remap->indices));
+				else
+					mesh = std::make_unique<TexMesh>(
+						load_tex_vertices(positions, normals, texcoords, tangents), std::move(indices));
 				renderable.pipeline_render_type = ERenderType::STANDARD;
 			}
 			else
@@ -269,7 +324,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				renderable.pipeline_render_type = ERenderType::COLOR;
 			}
 			renderable.mesh_id = MeshSystem::add(std::move(mesh));
-			renderable.material_ids = { material_id };
+			renderable.material_ids = material_ids;
 			loaded_mesh.renderables.push_back(renderable);
 		}
 		result.meshes.push_back(std::move(loaded_mesh));

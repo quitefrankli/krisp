@@ -693,8 +693,9 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 			{
 				VkDescriptorImageInfo image_info{};
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const TextureOnlyMatGroup texture_only_mat_group(renderable.material_ids);
-				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(texture_only_mat_group.texture_mat, ETextureSamplerType::ADDR_MODE_REPEAT);
+				const TexturedMatGroup textured_mat_group(renderable.material_ids);
+				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(
+					textured_mat_group.base_color_mat, ETextureSamplerType::ADDR_MODE_REPEAT);
 				image_info.imageView = texture.get_texture_image_view();
 				image_info.sampler = texture.get_texture_sampler();
 
@@ -706,6 +707,23 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				combined_image_sampler_descriptor_set.descriptorCount = 1;
 				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
 				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+
+				VkDescriptorImageInfo normal_image_info{};
+				normal_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				const GraphicsEngineTexture& normal_texture = textured_mat_group.normal_mat.has_value()
+					? get_texture_mgr().fetch_texture(*textured_mat_group.normal_mat, ETextureSamplerType::ADDR_MODE_REPEAT)
+					: get_texture_mgr().fetch_flat_normal_texture();
+				normal_image_info.imageView = normal_texture.get_texture_image_view();
+				normal_image_info.sampler = normal_texture.get_texture_sampler();
+
+				VkWriteDescriptorSet normal_sampler_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				normal_sampler_descriptor.dstSet = new_descriptor_set;
+				normal_sampler_descriptor.dstBinding = SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING;
+				normal_sampler_descriptor.dstArrayElement = 0;
+				normal_sampler_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				normal_sampler_descriptor.descriptorCount = 1;
+				normal_sampler_descriptor.pImageInfo = &normal_image_info;
+				descriptor_writes.push_back(normal_sampler_descriptor);
 
 				vkUpdateDescriptorSets(get_logical_device(),
 						static_cast<uint32_t>(descriptor_writes.size()), 

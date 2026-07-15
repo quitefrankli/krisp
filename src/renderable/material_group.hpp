@@ -4,6 +4,7 @@
 #include "identifications.hpp"
 
 #include <cassert>
+#include <optional>
 
 
 // This might not be necessary, can consider to be deleted
@@ -31,21 +32,27 @@ struct FlatMatGroup : public MaterialGroup
 	MaterialID color_mat;
 };
 
-struct TextureOnlyMatGroup : public MaterialGroup
+struct TexturedMatGroup : public MaterialGroup
 {
-	TextureOnlyMatGroup() = default;
-	TextureOnlyMatGroup(MatVec mats)
+	TexturedMatGroup() = default;
+	TexturedMatGroup(MatVec mats)
 	{
-		assert(mats.size() == 1);
-		texture_mat = mats[0];
+		assert(mats.size() == 1 || mats.size() == 2);
+		base_color_mat = mats[0];
+		if (mats.size() == 2)
+			normal_mat = mats[1];
 	}
 
 	MatVec get_materials() const
 	{
-		return { texture_mat };
+		MatVec materials{ base_color_mat };
+		if (normal_mat.has_value())
+			materials.push_back(*normal_mat);
+		return materials;
 	}
 
-	MaterialID texture_mat;
+	MaterialID base_color_mat;
+	std::optional<MaterialID> normal_mat;
 };
 
 struct CubeMapMatGroup : public MaterialGroup

@@ -8,6 +8,7 @@
 #include <quill/LogMacros.h>
 
 #include <unordered_map>
+#include <optional>
 #include <string>
 
 
@@ -19,6 +20,7 @@ public:
 
 	// automatically generates texture if requested texture does not exist
 	GraphicsEngineTexture& fetch_texture(MaterialID id, ETextureSamplerType sampler_type);
+	GraphicsEngineTexture& fetch_flat_normal_texture();
 	// automatically generates sampler if requested sampler type does not exist
 	VkSampler fetch_sampler(ETextureSamplerType sampler_type);
 
@@ -44,4 +46,5 @@ private:
 	// note that this is not deleted even when an object referencing this texture gets destroyed
 	std::unordered_map<MaterialID, GraphicsEngineTexture> texture_units;
 	std::unordered_map<ETextureSamplerType, VkSampler> samplers;
+	std::optional<GraphicsEngineTexture> flat_normal_texture;
 };

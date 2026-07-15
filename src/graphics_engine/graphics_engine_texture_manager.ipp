@@ -3,6 +3,8 @@
 #include "graphics_engine_texture_manager.hpp"
 #include "entity_component_system/material_system.hpp"
 
+#include <array>
+
 
 GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) : 
 	GraphicsEngineBaseModule(engine)
@@ -14,6 +16,9 @@ GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engin
 
 GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 {
+	if (flat_normal_texture.has_value())
+		flat_normal_texture->destroy(get_logical_device());
+
 	for (auto& [texture_id, texture_unit] : texture_units)
 	{
 		texture_unit.destroy(get_logical_device());
@@ -23,6 +28,29 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 	{
 		vkDestroySampler(get_logical_device(), sampler, nullptr);
 	}
+}
+
+GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_flat_normal_texture()
+{
+	if (!flat_normal_texture.has_value())
+	{
+		struct FlatNormalData : TextureData
+		{
+			std::array<std::byte, 4> pixels{
+				std::byte{128}, std::byte{128}, std::byte{255}, std::byte{255} };
+			std::byte* get() override { return pixels.data(); }
+		};
+
+		TextureMaterial material;
+		material.data = std::make_unique<FlatNormalData>();
+		material.data_len = 4;
+		material.width = 1;
+		material.height = 1;
+		material.channels = 4;
+		material.semantic = ETextureSemantic::NORMAL;
+		flat_normal_texture.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
+	}
+	return *flat_normal_texture;
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
@@ -114,12 +142,15 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	const TextureMaterial& material,
 	ETextureSamplerType sampler_type)
 {
+	const VkFormat format = material.semantic == ETextureSemantic::NORMAL
+		? VK_FORMAT_R8G8B8A8_UNORM
+		: VK_FORMAT_R8G8B8A8_SRGB;
 	VkImage texture_image;
 	VkDeviceMemory texture_image_memory;
 	const auto dim = create_texture_image(material, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
-		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
+		format,
 		VK_IMAGE_ASPECT_COLOR_BIT);
 	VkSampler texture_sampler = fetch_sampler(sampler_type);
 
@@ -142,7 +173,9 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	get_graphics_engine().create_image(
 		material.width, 
 		material.height, 
-		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB, for other maps such as normal and specular maps they should be linear
+		material.semantic == ETextureSemantic::NORMAL
+			? VK_FORMAT_R8G8B8A8_UNORM
+			: VK_FORMAT_R8G8B8A8_SRGB,
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,

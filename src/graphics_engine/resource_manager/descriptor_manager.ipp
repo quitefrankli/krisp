@@ -42,11 +42,11 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_material_binding()
 	return materials_layout_binding;
 }
 
-static constexpr VkDescriptorSetLayoutBinding get_generic_texture_binding()
+static constexpr VkDescriptorSetLayoutBinding get_generic_texture_binding(const uint32_t binding)
 {
 	VkDescriptorSetLayoutBinding sampler_layout_binding{};
 	sampler_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	sampler_layout_binding.binding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+	sampler_layout_binding.binding = binding;
 	sampler_layout_binding.descriptorCount = 1;
 	sampler_layout_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT; // defines which shader stage the descriptor is going to be referenced
 	sampler_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
@@ -311,7 +311,8 @@ void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 	per_obj_dset_layout = request_dset_layout({ get_generic_obj_ubo_binding(), get_generic_bone_binding() });
 	renderable_dset_layout = request_dset_layout({ 
 		get_generic_material_binding(), 
-		get_generic_texture_binding() });
+		get_generic_texture_binding(SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING),
+		get_generic_texture_binding(SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING) });
 	shadow_map_dset_layout = request_dset_layout({ get_generic_shadow_map_binding() });
 	mesh_data_dset_layout = request_dset_layout({ 
 		get_generic_mesh_data_buffer_map_binding(),

@@ -17,6 +17,9 @@ ECS& ECS::get()
 
 void ECS::remove_object(const ObjectID id) 
 {
+	// Stop skeletal animations before removing their skeletons. Otherwise the
+	// next animation tick retains a stale SkeletonID and accesses erased data.
+	SkeletalAnimationSystem::remove_entity(id);
 	SkeletalSystem::remove_entity(id);
 	AnimationSystem::remove_entity(id);
 	LightSystem::remove_entity(id);

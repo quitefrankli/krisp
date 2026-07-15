@@ -9,10 +9,12 @@ layout(location=1) in vec3 in_normal;
 layout(location=2) in vec2 in_tex_coord;
 layout(location=3) in vec4 bone_ids;
 layout(location=4) in vec4 bone_weights;
+layout(location=5) in vec4 in_tangent;
 
 layout(location=0) out vec2 frag_tex_coord;
 layout(location=1) out vec3 surface_normal;
 layout(location=2) out vec3 frag_pos;
+layout(location=3) out vec4 surface_tangent;
 
 layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
@@ -47,6 +49,7 @@ void main()
 	frag_pos = (skin_matrix * vec4(in_position, 1.0)).xyz;
 
     surface_normal = (skin_matrix * vec4(in_normal, 0.0)).xyz;
+	surface_tangent = vec4((skin_matrix * vec4(in_tangent.xyz, 0.0)).xyz, in_tangent.w);
 	frag_tex_coord = in_tex_coord;
     gl_Position = global_data.data.proj * global_data.data.view * vec4(frag_pos, 1.0);
 }

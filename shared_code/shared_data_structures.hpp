@@ -50,7 +50,7 @@ namespace std
 		{
 			return 
 				hash<glm::vec3>()(vertex.pos) ^ hash<glm::vec3>()(vertex.normal) ^ 
-				hash<glm::vec2>()(vertex.texCoord);
+				hash<glm::vec2>()(vertex.texCoord) ^ hash<glm::vec4>()(vertex.tangent);
 		}
 	};
 }

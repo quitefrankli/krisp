@@ -1,4 +1,4 @@
-project('krisp', 'cpp', version: '0.1.0')
+project('krisp', 'cpp', 'c', version: '0.1.0')
 
 install_dir = meson.build_root()/'bin'
 add_project_arguments(

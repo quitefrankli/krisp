@@ -5,6 +5,7 @@
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include <algorithm>
 #include <vector>
@@ -13,10 +14,14 @@
 template<typename VertexType>
 void transform_vertices(std::vector<VertexType>& vertices, const glm::mat4& transform)
 {
+	const glm::mat3 normal_matrix = glm::inverseTranspose(glm::mat3(transform));
 	for (auto& vertex : vertices)
 	{
 		vertex.pos = glm::vec3(transform * glm::vec4(vertex.pos, 1));
-		vertex.normal = glm::normalize(glm::vec3(transform * glm::vec4(vertex.normal, 1)));
+		vertex.normal = glm::normalize(normal_matrix * vertex.normal);
+		if constexpr (requires { vertex.tangent; })
+			vertex.tangent = glm::vec4(
+				glm::normalize(glm::mat3(transform) * glm::vec3(vertex.tangent)), vertex.tangent.w);
 	}
 }
 
@@ -27,6 +32,8 @@ void transform_vertices(std::vector<VertexType>& vertices, const glm::quat& quat
 	{
 		vertex.pos = quat * vertex.pos;
 		vertex.normal = glm::normalize(quat * vertex.normal);
+		if constexpr (requires { vertex.tangent; })
+			vertex.tangent = glm::vec4(glm::normalize(quat * glm::vec3(vertex.tangent)), vertex.tangent.w);
 	}
 }
 
@@ -170,4 +177,3 @@ template void concatenate_vertices<SDS::SkinnedVertex>(std::vector<SDS::SkinnedV
 													   std::vector<uint32_t>& indices,
 													   const std::vector<SDS::SkinnedVertex>& other_vertices,
 													   const std::vector<uint32_t>& other_indices);
-

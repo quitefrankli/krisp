@@ -321,7 +321,8 @@ MeshPtr generate_terrain_mesh(int grid_size, float scale, float height_scale, Ma
             vertices.emplace_back(SDS::TexVertex{
                 glm::vec3(static_cast<float>(x) - grid_size * 0.5f, y, static_cast<float>(z) - grid_size * 0.5f),
                 glm::vec3(0.0f, 1.0f, 0.0f), // Placeholder normal, will be calculated
-                glm::vec2(u, v)
+                glm::vec2(u, v),
+				glm::vec4(1.0f, 0.0f, 0.0f, -1.0f)
             });
         }
     }

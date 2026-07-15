@@ -90,19 +90,23 @@ private:
 
 	uint32_t _increment_owners(IDType id)
 	{
-		assert(owners.contains(id));
-		if (owners[id] == PERMANENTLY_OWNED)
+		auto it = owners.find(id);
+		if (it == owners.end())
+			throw std::runtime_error("CountableSystem::_increment_owners: id not found");
+		if (it->second == PERMANENTLY_OWNED)
 		{
 			return PERMANENTLY_OWNED;
 		}
 
-		return ++owners[id];
+		return ++it->second;
 	}
 
 	uint32_t _decrement_owners(IDType id)
 	{
-		assert(owners.contains(id));
-		const auto count = owners[id];
+		auto it = owners.find(id);
+		if (it == owners.end())
+			throw std::runtime_error("CountableSystem::_decrement_owners: id not found");
+		const auto count = it->second;
 		if (count == 0)
 		{
 			throw std::runtime_error("CountableSystem::_decrement_owners: count < 0");
@@ -116,7 +120,7 @@ private:
 			return 0;
 		} else
 		{
-			return --owners[id];
+			return --it->second;
 		}
 	}
 

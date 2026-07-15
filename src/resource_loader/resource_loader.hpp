@@ -53,6 +53,7 @@ public:
 	{
 		std::optional<int> scene_index;
 		bool generate_missing_normals = true;
+		bool generate_missing_tangents = false;
 		bool allow_non_triangle_primitives = true;
 		bool strict = false;
 	};
@@ -71,12 +72,11 @@ public:
 
 private:
 	MaterialID load_texture(const std::filesystem::path& file_path);
-	void load_all_materials(const tinygltf::Model& model);
-	MaterialID load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
+	MatVec load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
 
 private:
 	std::unordered_map<std::string, MaterialID> texture_name_to_mat_id;
-	std::unordered_map<int, MaterialID> gltf_material_to_mat_id;
+	std::unordered_map<int, MatVec> gltf_material_to_mat_ids;
 
 	static ResourceLoader global_resource_loader;
 };

@@ -201,12 +201,117 @@ TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses
 	const auto first_mat_id = model.meshes[0].renderables[0].material_ids[0];
 	const auto second_mat_id = model.meshes[0].renderables[1].material_ids[0];
 	ASSERT_EQ(first_mat_id, second_mat_id);
+	EXPECT_EQ(MaterialSystem::get_num_owners(first_mat_id), 2);
 
 	const auto& material = MaterialSystem::get(first_mat_id);
 	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
 	ASSERT_NE(tex_material, nullptr);
 	ASSERT_EQ(tex_material->width, 2);
 	ASSERT_EQ(tex_material->height, 2);
+}
+
+TEST(ResourceLoaderNormalMaps, missing_tangents_fail_by_default)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_missing_tangents.gltf";
+	EXPECT_THROW(ResourceLoader::load_model(path), std::runtime_error);
+}
+
+TEST(ResourceLoaderNormalMaps, missing_tangents_can_be_generated)
+{
+	ResourceLoader::LoadOptions options;
+	options.generate_missing_tangents = true;
+	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_missing_tangents.gltf";
+	const auto model = ResourceLoader::load_model(path, options);
+
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& renderable = model.meshes[0].renderables[0];
+	ASSERT_EQ(renderable.material_ids.size(), 2);
+	const auto& base_material = dynamic_cast<const TextureMaterial&>(
+		MaterialSystem::get(renderable.material_ids[0]));
+	const auto& normal_material = dynamic_cast<const TextureMaterial&>(
+		MaterialSystem::get(renderable.material_ids[1]));
+	EXPECT_EQ(base_material.semantic, ETextureSemantic::BASE_COLOR);
+	EXPECT_EQ(normal_material.semantic, ETextureSemantic::NORMAL);
+
+	const auto& mesh = dynamic_cast<const TexMesh&>(MeshSystem::get(renderable.mesh_id));
+	ASSERT_FALSE(mesh.get_vertices().empty());
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
+		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
+		EXPECT_TRUE(vertex.tangent.w == 1.0f || vertex.tangent.w == -1.0f);
+	}
+	ASSERT_EQ(model.warnings.size(), 1);
+	EXPECT_NE(model.warnings[0].message.find("generated missing tangents"), std::string::npos);
+}
+
+TEST(ResourceLoaderNormalMaps, authored_tangents_are_preserved_and_scale_warns)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_authored_tangents.gltf";
+	const auto model = ResourceLoader::load_model(path);
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(MeshSystem::get(renderable.mesh_id));
+	for (const auto& vertex : mesh.get_vertices())
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
+	ASSERT_EQ(model.warnings.size(), 1);
+	EXPECT_NE(model.warnings[0].message.find("normalTexture.scale"), std::string::npos);
+
+	ResourceLoader::LoadOptions strict_options;
+	strict_options.strict = true;
+	EXPECT_THROW(ResourceLoader::load_model(path, strict_options), std::runtime_error);
+}
+
+TEST(ResourceLoaderNormalMaps, shared_material_registers_all_texture_owners)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_shared_material.gltf";
+	const auto model = ResourceLoader::load_model(path);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
+	const auto& first_ids = model.meshes[0].renderables[0].material_ids;
+	const auto& second_ids = model.meshes[0].renderables[1].material_ids;
+	ASSERT_EQ(first_ids, second_ids);
+	ASSERT_EQ(first_ids.size(), 2);
+	EXPECT_EQ(MaterialSystem::get_num_owners(first_ids[0]), 2);
+	EXPECT_EQ(MaterialSystem::get_num_owners(first_ids[1]), 2);
+}
+
+TEST(ResourceLoaderNormalMaps, normal_map_without_base_color_is_rejected)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/normal_map_without_base_color.gltf";
+	EXPECT_THROW(ResourceLoader::load_model(path), std::runtime_error);
+}
+
+TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/skinned_normal_mapped.gltf";
+	const auto model = ResourceLoader::load_model(path);
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& renderable = model.meshes[0].renderables[0];
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
+	ASSERT_TRUE(renderable.skeleton_id.has_value());
+	ASSERT_EQ(renderable.material_ids.size(), 2);
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(MeshSystem::get(renderable.mesh_id));
+	ASSERT_EQ(mesh.get_vertices().size(), 3);
+	for (const auto& vertex : mesh.get_vertices())
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
+}
+
+TEST(ResourceLoaderNormalMaps, skinned_mesh_can_generate_missing_tangents)
+{
+	ResourceLoader::LoadOptions options;
+	options.generate_missing_tangents = true;
+	const auto path = Utility::get_top_level_path()/"test/data/skinned_normal_mapped_missing_tangents.gltf";
+	const auto model = ResourceLoader::load_model(path, options);
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(MeshSystem::get(renderable.mesh_id));
+	ASSERT_FALSE(mesh.get_vertices().empty());
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
+		EXPECT_EQ(vertex.bone_ids, glm::vec4(0.0f));
+		EXPECT_EQ(vertex.bone_weights, glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+	}
 }
 
 TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
