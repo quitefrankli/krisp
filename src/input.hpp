@@ -1,8 +1,6 @@
 #pragma once
 
 #include <bitset>
-#include <chrono>
-#include <optional>
 
 #include <glm/vec2.hpp>
 
@@ -70,7 +68,6 @@ public:
 	bool mmb_down = false;
 
 	bool update_pos_on_significant_offset(const float min_offset);
-	bool is_middle_double_click();
 	glm::vec2 update_pos();
 	glm::vec2 get_prev_offset();
 	glm::vec2 get_orig_offset();
@@ -78,7 +75,6 @@ public:
 	
 private:
 	App::Window* window = nullptr;
-	std::optional<std::chrono::steady_clock::time_point> last_middle_mouse_press;
 };
 
 struct KeyInput

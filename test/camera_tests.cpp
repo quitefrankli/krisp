@@ -102,17 +102,27 @@ TEST_F(CameraTests, camera_ray_cast)
 	ASSERT_TRUE(glm_equal(ray.direction, { 0.000000f, 0.382683f, 0.923880f }));
 }
 
-TEST_F(CameraTests, reset_roll_and_focal_length_preserves_view_direction)
+TEST_F(CameraTests, orbit_rotation_remains_roll_free)
 {
-	const glm::vec3 direction_before_reset = glm::normalize(camera.get_focus() - camera.get_position());
-	camera.focus_obj->set_rotation(glm::angleAxis(glm::half_pi<float>(), Maths::forward_vec) * camera.focus_obj->get_rotation());
-	camera.zoom_in(-1.0f);
-	ASSERT_NEAR(camera.get_focal_length(), 2.4f, 0.001f);
+	camera.rotate_camera({ 0.03f, -0.02f }, 0.1f);
+	camera.rotate_camera({ -0.01f, 0.04f }, 0.1f);
 
-	camera.reset_roll_and_focal_length();
-	ASSERT_NEAR(camera.get_focal_length(), 2.0f, 0.001f);
-	ASSERT_TRUE(glm_equal(glm::normalize(camera.get_focus() - camera.get_position()), direction_before_reset));
-	ASSERT_TRUE(glm_equal(camera.focus_obj->get_rotation() * Maths::up_vec, Maths::up_vec));
+	const glm::vec3 direction = glm::normalize(camera.get_focus() - camera.get_position());
+	const glm::vec3 expected_up = glm::normalize(
+		Maths::up_vec - glm::dot(Maths::up_vec, direction) * direction);
+	const glm::vec3 camera_up = camera.focus_obj->get_rotation() * Maths::up_vec;
+
+	EXPECT_TRUE(glm_equal(camera_up, expected_up));
+	EXPECT_NEAR(glm::dot(camera.focus_obj->get_rotation() * Maths::right_vec, Maths::up_vec), 0.0f, 0.00001f);
+}
+
+TEST_F(CameraTests, pitch_is_clamped_before_world_up_becomes_singular)
+{
+	camera.rotate_camera({ 0.0f, -10.0f }, 1.0f);
+
+	const glm::vec3 direction = glm::normalize(camera.get_focus() - camera.get_position());
+	EXPECT_LT(std::abs(glm::dot(direction, Maths::up_vec)), 1.0f);
+	EXPECT_TRUE(std::isfinite(camera.get_view()[0][0]));
 }
 
 TEST_F(CameraTests, orthographic_camera_rays_start_on_the_corresponding_near_plane_point)

@@ -60,6 +60,9 @@ struct TileSet
 	float cell_size = 1.0f;
 	std::unordered_map<TileCoord, Tile> tiles;
 	std::unordered_map<ObjectID, Tile*> object_to_tile;
+	std::unordered_map<ObjectID, TileCoord> object_to_coord;
+	std::unordered_map<TileCoord, ObjectID> coord_to_tile_object;
+	std::unordered_map<ObjectID, TileCoord> tile_object_to_coord;
 
 	void move_to_tile(const TileCoord& coord, Object& object);
 	void remove_object(const ObjectID& object_id);
@@ -84,6 +87,8 @@ public:
 
 	Tile* get_tile(const TileCoord& coord, const TileSetID& tileset_id = {});
 	const Tile* get_tile(const TileCoord& coord, const TileSetID& tileset_id = {}) const;
+	std::optional<TileCoord> get_tile_coord(const ObjectID& object_id, const TileSetID& tileset_id = {}) const;
+	std::optional<ObjectID> get_tile_object(const TileCoord& coord, const TileSetID& tileset_id = {}) const;
 
 	void remove_entity(const ObjectID& object_id);
 

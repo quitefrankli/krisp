@@ -119,10 +119,6 @@ void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_w
 	} else if (mouse_input.eq(LEFT, NONE, RELEASE)) {
 		mouse->lmb_down = false; 
 	} else if (mouse_input.eq(MIDDLE, NONE, PRESS)) {
-		if (mouse->is_middle_double_click())
-		{
-			camera->reset_roll_and_focal_length();
-		}
 		mouse->mmb_down = true;
 		mouse->update_pos();
 		mouse->orig_pos = mouse->curr_pos;

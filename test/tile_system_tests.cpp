@@ -101,6 +101,22 @@ TEST_F(TileSystemFixture, create_grid_scales_spawned_cube_to_tile_and_aligns_top
 	EXPECT_FLOAT_EQ(pos.x, 0.0f);
 	EXPECT_FLOAT_EQ(pos.y + scale.y * 0.5f, 0.0f);
 	EXPECT_FLOAT_EQ(pos.z, 0.0f);
+	ASSERT_EQ(ecs.get_tile_coord(spawned_tiles[0]->get_id()), TileCoord(0, 0));
+	ASSERT_EQ(ecs.get_tile_object({0, 0}), spawned_tiles[0]->get_id());
+}
+
+TEST_F(TileSystemFixture, tile_coordinates_track_moved_objects)
+{
+	set_tile_spawner();
+	ecs.spawn_tileset(2, 2, 1.0f);
+	ecs.move_to_tile({1, 0}, obj1.get_id());
+
+	ASSERT_EQ(ecs.get_tile_coord(obj1.get_id()), TileCoord(1, 0));
+	ecs.move_to_tile({0, 1}, obj1.get_id());
+	ASSERT_EQ(ecs.get_tile_coord(obj1.get_id()), TileCoord(0, 1));
+
+	ecs.TileSystem::remove_entity(obj1.get_id());
+	EXPECT_FALSE(ecs.get_tile_coord(obj1.get_id()).has_value());
 }
 
 TEST_F(TileSystemFixture, create_grid_centers_odd_sized_tileset_and_keeps_no_gaps)

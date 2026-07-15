@@ -10,6 +10,34 @@
 
 #include <iostream>
 
+namespace
+{
+struct CameraBasis
+{
+	glm::vec3 right;
+	glm::vec3 up;
+	glm::vec3 forward;
+};
+
+CameraBasis make_roll_free_basis(const glm::vec3& direction)
+{
+	const glm::vec3 forward = glm::normalize(direction);
+	glm::vec3 right = glm::cross(Maths::up_vec, forward);
+	if (glm::length2(right) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+		right = Maths::right_vec;
+	else
+		right = glm::normalize(right);
+
+	return {right, glm::normalize(glm::cross(forward, right)), forward};
+}
+
+glm::quat make_roll_free_orientation(const glm::vec3& direction)
+{
+	const auto basis = make_roll_free_basis(direction);
+	return glm::normalize(glm::quat_cast(glm::mat3(basis.right, basis.up, basis.forward)));
+}
+}
+
 
 Camera::Camera(Listener&& listener, float aspect_ratio) :
 	ITrackableObject(this),
@@ -62,7 +90,8 @@ Camera::~Camera() = default;
 
 glm::vec3 Camera::sync_to_camera(const glm::vec2& axis)
 {
-	return glm::normalize(focus_obj->get_rotation() * glm::vec3(axis, 0.0f));
+	const auto basis = make_roll_free_basis(get_focus() - get_position());
+	return glm::normalize(basis.right * axis.x + basis.up * axis.y);
 }
 
 Maths::Ray Camera::get_ray(const glm::vec2& screen) const
@@ -97,12 +126,13 @@ glm::mat4 Camera::get_projection() const
 
 glm::mat4 Camera::get_view() const
 {
-	return glm::lookAtLH(get_position(), get_focus(), focus_obj->get_rotation() * Maths::up_vec);
+	const auto basis = make_roll_free_basis(get_focus() - get_position());
+	return glm::lookAtLH(get_position(), get_focus(), basis.up);
 }
 
 void Camera::set_rotation(const glm::quat& rotation)
 {
-	Object::set_rotation(rotation);
+	Object::set_rotation(make_roll_free_orientation(rotation * Maths::forward_vec));
 }
 
 void Camera::toggle_projection()
@@ -137,10 +167,8 @@ void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 {
 	const glm::vec3 view_dir = glm::normalize(focus - from);
 	focus_obj->set_position(focus);
-	focus_obj->set_rotation(Maths::RotationBetweenVectors(Maths::forward_vec, view_dir));
+	focus_obj->set_rotation(make_roll_free_orientation(view_dir));
 	set_position(from);
-	if (default_focal_length <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
-		default_focal_length = glm::distance(focus, from);
 }
 
 void Camera::look_at(const glm::vec3& focus)
@@ -170,34 +198,6 @@ void Camera::pan(const glm::vec2& axis, const float magnitude)
 float Camera::get_focal_length()
 {
 	return glm::distance(get_focus(), get_position());
-}
-
-void Camera::reset_roll_and_focal_length()
-{
-	const glm::vec3 camera_position = get_position();
-	const glm::vec3 focus = get_focus();
-	const glm::vec3 view_direction = glm::normalize(focus - camera_position);
-	const float focal_length = default_focal_length > Maths::ACCEPTABLE_FLOATING_PT_DIFF
-		? default_focal_length
-		: get_focal_length();
-
-	// Level the camera by rotating only around its current view axis. Rebuilding
-	// the full orientation here would subtly alter yaw and pitch.
-	const glm::vec3 world_up = Maths::up_vec;
-	const glm::vec3 projected_up = world_up - glm::dot(world_up, view_direction) * view_direction;
-	if (glm::length2(projected_up) > Maths::ACCEPTABLE_FLOATING_PT_DIFF)
-	{
-		const glm::vec3 desired_up = glm::normalize(projected_up);
-		const glm::vec3 current_up = glm::normalize(focus_obj->get_rotation() * Maths::up_vec);
-		const float roll = std::atan2(
-			glm::dot(view_direction, glm::cross(current_up, desired_up)),
-			glm::dot(current_up, desired_up));
-		focus_obj->set_rotation(glm::angleAxis(roll, view_direction) * focus_obj->get_rotation());
-	}
-	if (mode == Mode::ORBIT)
-		set_position(focus - view_direction * focal_length);
-	else
-		focus_obj->set_position(camera_position + view_direction * focal_length);
 }
 
 void Camera::zoom_in(float length)
@@ -234,26 +234,31 @@ void Camera::toggle_visibility()
 void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 {
 	const float sensitivity = 200.0f;
-	const float magnitude = glm::length(offset) * delta_time * sensitivity;
+	const float rotation_scale = delta_time * sensitivity;
+	const glm::vec3 direction = glm::normalize(get_focus() - get_position());
+	const auto basis = make_roll_free_basis(direction);
 
-	// I did some mental maths and actually this checks out
-	// using left hand with thumb in direction of axis and fingers curling
-	// in direction of curling, one of the dimensions needs to have its sign flipped
-	// seems there are no bugs here
-	const glm::vec2 screen_axis(-offset.y, offset.x);
-	const glm::vec3 axis = sync_to_camera(screen_axis);
-	const glm::quat quaternion = glm::angleAxis(-magnitude, axis);
+	const float yaw = -offset.x * rotation_scale;
+	const glm::vec3 horizontal_forward = glm::normalize(glm::cross(basis.right, Maths::up_vec));
+	const glm::vec3 yawed_horizontal = glm::angleAxis(yaw, Maths::up_vec) * horizontal_forward;
+
+	constexpr float MAX_PITCH = glm::radians(89.0f);
+	const float current_pitch = std::asin(glm::clamp(glm::dot(direction, Maths::up_vec), -1.0f, 1.0f));
+	const float pitch = glm::clamp(current_pitch - offset.y * rotation_scale, -MAX_PITCH, MAX_PITCH);
+	const glm::vec3 new_direction = glm::normalize(
+		yawed_horizontal * std::cos(pitch) + Maths::up_vec * std::sin(pitch));
+	const glm::quat orientation = make_roll_free_orientation(new_direction);
 
 	switch (mode)
 	{
 		case Mode::ORBIT:
 		{
-			focus_obj->set_rotation(quaternion * focus_obj->get_rotation());
+			focus_obj->set_rotation(orientation);
 			break;
 		}
 		case Mode::FPV:
 		{
-			set_rotation(quaternion * get_rotation());
+			set_rotation(orientation);
 			break;
 		}
 		default:

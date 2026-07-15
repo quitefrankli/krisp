@@ -7,6 +7,7 @@ void TileSet::move_to_tile(const TileCoord& coord, Object& object)
 	auto& tile = tiles[coord];
 	tile.add_object(object.get_id());
 	object_to_tile[object.get_id()] = &tile;
+	object_to_coord[object.get_id()] = coord;
 
 	object.set_position(glm::vec3(coord.x * cell_size, object.get_position().y, coord.y * cell_size));
 }
@@ -20,6 +21,7 @@ void TileSet::remove_object(const ObjectID& object_id)
 	auto* tile = it->second;
 	tile->remove_object(object_id);
 	object_to_tile.erase(it);
+	object_to_coord.erase(object_id);
 }
 
 glm::vec3 TileSet::get_tile_center(const TileCoord & coord) const
@@ -40,6 +42,7 @@ void TileSystem::spawn_tileset(int rows, int cols, float cell_size, const TileSe
 	{
 		for (int col = 0; col < cols; ++col)
 		{
+			const TileCoord coord(col, row);
 			if (tile_spawner)
 			{
 				auto& tile = tile_spawner();
@@ -58,6 +61,8 @@ void TileSystem::spawn_tileset(int rows, int cols, float cell_size, const TileSe
 				get_ecs().add_hoverable_entity(tile.get_id());
 
 				all_tiles.insert(tile.get_id());
+				tileset.coord_to_tile_object[coord] = tile.get_id();
+				tileset.tile_object_to_coord[tile.get_id()] = coord;
 			}
 		}
 	}
@@ -66,7 +71,15 @@ void TileSystem::spawn_tileset(int rows, int cols, float cell_size, const TileSe
 void TileSystem::remove_entity(const ObjectID& object_id)
 {
 	for (auto& [_, tileset] : tilesets)
+	{
 		tileset.remove_object(object_id);
+		const auto tile_it = tileset.tile_object_to_coord.find(object_id);
+		if (tile_it != tileset.tile_object_to_coord.end())
+		{
+			tileset.coord_to_tile_object.erase(tile_it->second);
+			tileset.tile_object_to_coord.erase(tile_it);
+		}
+	}
 	all_tiles.erase(object_id);
 	if (prev_hovered && *prev_hovered == object_id)
 		prev_hovered.reset();
@@ -93,6 +106,38 @@ const Tile* TileSystem::get_tile(const TileCoord& coord, const TileSetID& tilese
 	if (tile_it == tileset_it->second.tiles.end())
 		return nullptr;
 	return &tile_it->second;
+}
+
+std::optional<TileCoord> TileSystem::get_tile_coord(
+	const ObjectID& object_id,
+	const TileSetID& tileset_id) const
+{
+	const auto tileset_it = tilesets.find(tileset_id);
+	if (tileset_it == tilesets.end())
+		return std::nullopt;
+
+	const auto& tileset = tileset_it->second;
+	if (const auto tile = tileset.tile_object_to_coord.find(object_id);
+		tile != tileset.tile_object_to_coord.end())
+		return tile->second;
+	if (const auto object = tileset.object_to_coord.find(object_id);
+		object != tileset.object_to_coord.end())
+		return object->second;
+	return std::nullopt;
+}
+
+std::optional<ObjectID> TileSystem::get_tile_object(
+	const TileCoord& coord,
+	const TileSetID& tileset_id) const
+{
+	const auto tileset_it = tilesets.find(tileset_id);
+	if (tileset_it == tilesets.end())
+		return std::nullopt;
+
+	const auto tile = tileset_it->second.coord_to_tile_object.find(coord);
+	return tile == tileset_it->second.coord_to_tile_object.end()
+		? std::nullopt
+		: std::optional<ObjectID>(tile->second);
 }
 
 void TileSystem::move_to_tile(const TileCoord& coord, const ObjectID& object_id, const TileSetID& tileset_id)
