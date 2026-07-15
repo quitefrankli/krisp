@@ -336,5 +336,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 
 ResourceLoader::LoadedModel ResourceLoader::load_model(std::filesystem::path file_path)
 {
-	return load_model(std::move(file_path), LoadOptions{});
+	LoadOptions options;
+	options.generate_missing_tangents = true;
+	return load_model(std::move(file_path), options);
 }

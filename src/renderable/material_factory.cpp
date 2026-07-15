@@ -66,6 +66,34 @@ MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
 			material.data.emissive = glm::vec3(0.0f, 1.0f, 1.0f);
 			material.data.shininess = 1.0f;
 			break;
+		case EMaterialPreset::GIZMO_X_AXIS:
+			material.data.ambient = Maths::zero_vec;
+			material.data.diffuse = Maths::zero_vec;
+			material.data.specular = Maths::zero_vec;
+			material.data.emissive = glm::vec3(1.0f, 0.0f, 0.0f);
+			material.data.shininess = 1.0f;
+			break;
+		case EMaterialPreset::GIZMO_Y_AXIS:
+			material.data.ambient = Maths::zero_vec;
+			material.data.diffuse = Maths::zero_vec;
+			material.data.specular = Maths::zero_vec;
+			material.data.emissive = glm::vec3(0.0f, 1.0f, 0.0f);
+			material.data.shininess = 1.0f;
+			break;
+		case EMaterialPreset::GIZMO_Z_AXIS:
+			material.data.ambient = Maths::zero_vec;
+			material.data.diffuse = Maths::zero_vec;
+			material.data.specular = Maths::zero_vec;
+			material.data.emissive = glm::vec3(0.0f, 0.45f, 1.0f);
+			material.data.shininess = 1.0f;
+			break;
+		case EMaterialPreset::GIZMO_UNIFORM_SCALE:
+			material.data.ambient = Maths::zero_vec;
+			material.data.diffuse = Maths::zero_vec;
+			material.data.specular = Maths::zero_vec;
+			material.data.emissive = glm::vec3(1.0f, 0.85f, 0.0f);
+			material.data.shininess = 1.0f;
+			break;
 		case EMaterialPreset::DEFAULT:
 		default:
 			break;

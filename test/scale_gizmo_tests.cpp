@@ -1,6 +1,7 @@
 #include "test_helper.hpp"
 
 #include <maths.hpp>
+#include <collision/bounding_box.hpp>
 
 #include <gtest/gtest.h>
 #include <glm/gtx/component_wise.hpp>
@@ -30,20 +31,33 @@ TEST(ScaleGizmoTests, drag_left_expands_and_drag_right_shrinks)
 	ASSERT_LT(compute_uniform_magnitude(side_view, origin, {0.0f, 0.0f, -0.5f}), 0.0f);
 }
 
-TEST(ScaleGizmoTests, centre_cube_collision_detection)
+TEST(ScaleGizmoTests, centre_handle_preserves_non_uniform_scale_proportions)
 {
-	constexpr float CUBE_RADIUS = 0.15f;
-	const glm::vec3 cube_pos(0.0f, 0.0f, 0.0f);
+	const glm::vec3 original_scale(2.0f, 3.0f, 4.0f);
+	const float drag_magnitude = 0.25f;
+	const glm::vec3 scaled = original_scale * (1.0f + drag_magnitude);
+
+	EXPECT_FLOAT_EQ(scaled.x, 2.5f);
+	EXPECT_FLOAT_EQ(scaled.y, 3.75f);
+	EXPECT_FLOAT_EQ(scaled.z, 5.0f);
+	EXPECT_FLOAT_EQ(scaled.y / scaled.x, original_scale.y / original_scale.x);
+	EXPECT_FLOAT_EQ(scaled.z / scaled.x, original_scale.z / original_scale.x);
+}
+
+TEST(ScaleGizmoTests, centre_cube_uses_aabb_collision_detection)
+{
+	constexpr float CUBE_HALF_SIZE = 0.15f;
+	const AABB cube_bounds(glm::vec3(-CUBE_HALF_SIZE), glm::vec3(CUBE_HALF_SIZE));
 
 	// ray that hits the centre cube
-	Maths::Ray hit_ray;
-	hit_ray.origin = glm::vec3(0.0f, 0.0f, 5.0f);
-	hit_ray.direction = glm::vec3(0.0f, 0.0f, -1.0f);
-	ASSERT_TRUE(Maths::check_spherical_collision(hit_ray, Maths::Sphere(cube_pos, CUBE_RADIUS)));
+	const Maths::Ray hit_ray(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	ASSERT_TRUE(cube_bounds.check_collision(hit_ray));
+
+	// This is inside the cube but outside its old spherical approximation.
+	const Maths::Ray corner_hit_ray(glm::vec3(0.14f, 0.14f, 5.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	ASSERT_TRUE(cube_bounds.check_collision(corner_hit_ray));
 
 	// ray that misses the centre cube
-	Maths::Ray miss_ray;
-	miss_ray.origin = glm::vec3(1.0f, 0.0f, 5.0f);
-	miss_ray.direction = glm::vec3(0.0f, 0.0f, -1.0f);
-	ASSERT_FALSE(Maths::check_spherical_collision(miss_ray, Maths::Sphere(cube_pos, CUBE_RADIUS)));
+	const Maths::Ray miss_ray(glm::vec3(1.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	ASSERT_FALSE(cube_bounds.check_collision(miss_ray));
 }
