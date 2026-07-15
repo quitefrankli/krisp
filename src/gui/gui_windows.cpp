@@ -72,6 +72,30 @@ void draw_resource_load_error(const std::optional<std::string>& error)
 	ImGui::PopStyleColor();
 }
 
+bool begin_italic_combo(const char* label, const char* preview)
+{
+	ImDrawList* draw_list = ImGui::GetWindowDrawList();
+	const int first_vertex = draw_list->VtxBuffer.Size;
+	const bool open = ImGui::BeginCombo(label, preview);
+	const ImVec2 white_pixel = ImGui::GetIO().Fonts->TexUvWhitePixel;
+
+	float baseline = 0.0f;
+	for (int i = first_vertex; i < draw_list->VtxBuffer.Size; ++i)
+	{
+		const auto& vertex = draw_list->VtxBuffer[i];
+		if (vertex.uv.x != white_pixel.x || vertex.uv.y != white_pixel.y)
+			baseline = std::max(baseline, vertex.pos.y);
+	}
+	for (int i = first_vertex; i < draw_list->VtxBuffer.Size; ++i)
+	{
+		auto& vertex = draw_list->VtxBuffer[i];
+		if (vertex.uv.x != white_pixel.x || vertex.uv.y != white_pixel.y)
+			vertex.pos.x += (baseline - vertex.pos.y) * 0.18f;
+	}
+
+	return open;
+}
+
 Object& get_or_spawn_collider_visual(GameEngine& engine,
 									 std::unordered_map<EntityID, ObjectID>& collider_visualiser_ids,
 									 EntityID collider_entity,
@@ -300,7 +324,6 @@ void GuiModelSpawner::refresh_models()
 			selected_model = static_cast<int>(std::distance(model_paths.begin(), selected));
 	}
 	selected_model.changed = true;
-	should_spawn = false;
 	load_error.reset();
 }
 
@@ -312,13 +335,10 @@ void GuiModelSpawner::process(GameEngine& engine)
 		refresh_models();
 	}
 
-	if (should_spawn)
+	if (model_to_spawn)
 	{
-		should_spawn = false;
-		if (selected_model.value < 0 || selected_model.value >= static_cast<int>(model_paths.size()))
-			return;
-
-		const auto model_path = model_paths[selected_model.value];
+		const auto model_path = std::move(*model_to_spawn);
+		model_to_spawn.reset();
 		ResourceLoader::LoadedModel loaded_model;
 		try
 		{
@@ -381,7 +401,12 @@ void GuiModelSpawner::draw()
 	if (begin())
 	{
 
-	if (!models.empty() && ImGui::BeginCombo("Model", models[selected_model.value].c_str()))
+	const bool dropdown_open = begin_italic_combo("##model", "(select model)");
+	if (dropdown_open && !model_dropdown_open)
+		should_refresh_models = true;
+	model_dropdown_open = dropdown_open;
+
+	if (dropdown_open)
 	{
 		for (int i = 0; i < static_cast<int>(models.size()); i++)
 		{
@@ -389,26 +414,12 @@ void GuiModelSpawner::draw()
 			{
 				selected_model = i;
 				selected_model.changed = true;
+				model_to_spawn = model_paths[i];
 			}
 		}
 		ImGui::EndCombo();
 	}
-	else if (models.empty())
-	{
-		ImGui::TextUnformatted("No models found");
-	}
 
-	if (ImGui::Button("Refresh Models"))
-		should_refresh_models = true;
-
-	if (models.empty())
-		ImGui::BeginDisabled();
-	if (ImGui::Button("Spawn"))
-	{
-		should_spawn = true;
-	}
-	if (models.empty())
-		ImGui::EndDisabled();
 	ImGui::Checkbox("Merge imported meshes into one object", &merge_imported_meshes.value);
 	draw_resource_load_error(load_error);
 
@@ -748,11 +759,37 @@ void GuiPhotoBase::draw()
 GuiPhoto::GuiPhoto() :
 	GuiWindow({ "texture_viewer", "Texture Viewer", GuiPanelDock::BOTTOM, false })
 {
+	refresh_textures();
+}
+
+void GuiPhoto::refresh_textures()
+{
+	std::optional<std::string> selected_path;
+	if (selected_image.value >= 0 && selected_image.value < static_cast<int>(photo_paths.size()))
+		selected_path = photo_paths[selected_image.value].lexically_normal().generic_string();
+
 	photo_paths = Utility::get_all_textures();
+	std::ranges::sort(photo_paths, [](const auto& lhs, const auto& rhs)
+	{
+		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
+	});
+
+	photos.clear();
+	photos.reserve(photo_paths.size());
 	std::ranges::transform(photo_paths, std::back_inserter(photos), [](const auto& path) { return path.filename().string(); });
 
 	selected_image = 0;
+	if (selected_path)
+	{
+		const auto selected = std::ranges::find_if(photo_paths, [&](const auto& path)
+		{
+			return path.lexically_normal().generic_string() == *selected_path;
+		});
+		if (selected != photo_paths.end())
+			selected_image = static_cast<int>(std::distance(photo_paths.begin(), selected));
+	}
 	selected_image.changed = true;
+	load_error.reset();
 }
 
 void GuiPhoto::init(std::function<void(const std::filesystem::path&)>&& texture_requester)
@@ -762,6 +799,11 @@ void GuiPhoto::init(std::function<void(const std::filesystem::path&)>&& texture_
 
 void GuiPhoto::process(GameEngine& engine)
 {
+	if (should_refresh_textures)
+	{
+		should_refresh_textures = false;
+		refresh_textures();
+	}
 }
 
 void GuiPhoto::draw()
@@ -769,15 +811,20 @@ void GuiPhoto::draw()
 	if (begin())
 	{
 
-	const std::string_view current_texture = selected_image < photos.size() ? photos[selected_image] : "N/A";
-	if (ImGui::BeginCombo("Texture", current_texture.data()))
+	const bool dropdown_open = begin_italic_combo("##texture", "(select texture)");
+	if (dropdown_open && !texture_dropdown_open)
+		should_refresh_textures = true;
+	texture_dropdown_open = dropdown_open;
+
+	if (dropdown_open)
 	{
-		for (int i = 0; i < photos.size(); i++)
+		for (int i = 0; i < static_cast<int>(photos.size()); i++)
 		{
-			if (ImGui::Selectable(photos[i].c_str(), i == selected_image))
+			if (ImGui::Selectable(photos[i].c_str(), i == selected_image.value))
 			{
 				selected_image = i;
 				selected_image.changed = true;
+				texture_to_show = photo_paths[i];
 			}
 		}
 		ImGui::EndCombo();
@@ -785,12 +832,12 @@ void GuiPhoto::draw()
 
 	ImGui::InputInt("width", &requested_width);
 
-	if (ImGui::Button("Show"))
+	if (texture_to_show)
 	{
-		if (selected_image.changed && selected_image.value >= 0 &&
-			selected_image.value < static_cast<int>(photo_paths.size()) && texture_requester)
+		const auto texture_path = std::move(*texture_to_show);
+		texture_to_show.reset();
+		if (texture_requester)
 		{
-			const auto texture_path = photo_paths[selected_image.value];
 			try
 			{
 				texture_requester(texture_path);
@@ -804,11 +851,9 @@ void GuiPhoto::draw()
 				should_show = false;
 			}
 		}
-		if (!load_error)
-			should_show = true;
+		should_show = !load_error;
 	}
 
-	ImGui::SameLine();
 	if (ImGui::Button("Hide"))
 	{
 		should_show = false;

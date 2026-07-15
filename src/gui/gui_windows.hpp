@@ -141,8 +141,9 @@ private:
 	std::vector<std::filesystem::path> model_paths;
 	GuiVar<int> selected_model = 0;
 	GuiVar<bool> merge_imported_meshes = false;
-	bool should_spawn = false;
+	std::optional<std::filesystem::path> model_to_spawn;
 	bool should_refresh_models = false;
+	bool model_dropdown_open = false;
 	std::optional<std::string> load_error;
 };
 
@@ -287,10 +288,15 @@ public:
 	virtual void draw() override;
 
 private:
+	void refresh_textures();
+
 	std::vector<std::string> photos;
 	std::vector<std::filesystem::path> photo_paths;
 	bool should_show = false;
+	bool should_refresh_textures = false;
+	bool texture_dropdown_open = false;
 	GuiVar<int> selected_image = 0;
+	std::optional<std::filesystem::path> texture_to_show;
 	std::function<void(const std::filesystem::path&)> texture_requester;
 	std::optional<std::string> load_error;
 };
