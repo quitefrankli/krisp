@@ -18,6 +18,7 @@
 #include <thread>
 #include <unordered_map>
 #include <queue>
+#include <stdexcept>
 
 
 class Camera;
@@ -68,7 +69,17 @@ public:
 		auto tmp_new_obj = std::make_shared<object_t>(std::forward<Args>(args)...);
 		auto id = tmp_new_obj->get_id();
 		auto result = objects.emplace(id, std::move(tmp_new_obj));
-		assert(result.second); // no duplicate ids
+		if (!result.second)
+			throw std::runtime_error("GameEngine::spawn_object: duplicate object id");
+		try
+		{
+			retain_renderable_resources(*result.first->second);
+		}
+		catch (...)
+		{
+			objects.erase(result.first);
+			throw;
+		}
 		Object& new_obj = *(result.first->second);
 		ecs.add_object(new_obj);
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
@@ -135,6 +146,8 @@ private:
 
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
+	std::unordered_map<MeshID, size_t> mesh_resource_references;
+	std::unordered_map<MaterialID, size_t> material_resource_references;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<IApplication> application;
 
@@ -145,6 +158,8 @@ private:
 	void init();
 	void shutdown_impl();
 	void process_objs_to_delete();
+	void retain_renderable_resources(const Object& object);
+	void release_renderable_resources(const Object& object, DestroyResourcesCmd& destroy_resources_cmd);
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;

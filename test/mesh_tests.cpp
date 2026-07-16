@@ -1,6 +1,7 @@
 #include "test_helper.hpp"
 
 #include <renderable/mesh_factory.hpp>
+#include <renderable/mesh_maths.hpp>
 #include <entity_component_system/mesh_system.hpp>
 
 #include <gtest/gtest.h>
@@ -65,4 +66,38 @@ TEST(MeshSystem, permanently_owned)
 {
 	const auto id1 = MeshFactory::circle_id();
 	ASSERT_EQ(MeshSystem::get_num_owners(id1), std::numeric_limits<uint32_t>::max());
+}
+
+TEST(MeshMaths, normal_generation_rejects_incomplete_triangles)
+{
+	ColorVertices vertices(3);
+	std::vector<uint32_t> indices{ 0, 1 };
+	EXPECT_THROW(generate_normals(vertices, indices), std::invalid_argument);
+}
+
+TEST(MeshMaths, normal_generation_rejects_out_of_range_indices)
+{
+	ColorVertices vertices(3);
+	std::vector<uint32_t> indices{ 0, 1, 3 };
+	EXPECT_THROW(generate_normals(vertices, indices), std::out_of_range);
+}
+
+TEST(MeshMaths, normal_generation_handles_sparse_and_degenerate_vertices)
+{
+	ColorVertices vertices(4);
+	vertices[0].pos = glm::vec3(0.0f);
+	vertices[1].pos = glm::vec3(0.0f);
+	vertices[2].pos = glm::vec3(0.0f);
+	vertices[3].pos = glm::vec3(2.0f, 0.0f, 0.0f);
+	std::vector<uint32_t> indices{ 0, 1, 2 };
+
+	generate_normals(vertices, indices);
+
+	for (const auto& vertex : vertices)
+	{
+		EXPECT_TRUE(std::isfinite(vertex.normal.x));
+		EXPECT_TRUE(std::isfinite(vertex.normal.y));
+		EXPECT_TRUE(std::isfinite(vertex.normal.z));
+		EXPECT_TRUE(glm_equal(vertex.normal, Maths::up_vec));
+	}
 }

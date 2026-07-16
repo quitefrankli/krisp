@@ -489,6 +489,15 @@ GuiMusic::GuiMusic(AudioSource&& audio_source) :
 
 GuiMusic::~GuiMusic() = default;
 
+std::optional<std::filesystem::path> GuiMusic::selected_path(
+	const std::vector<std::filesystem::path>& paths,
+	const int selected_index)
+{
+	if (selected_index < 0 || static_cast<size_t>(selected_index) >= paths.size())
+		return std::nullopt;
+	return paths[selected_index];
+}
+
 void GuiMusic::process(GameEngine& engine)
 {
 	audio_source->set_gain(gain);
@@ -504,7 +513,9 @@ void GuiMusic::draw()
 	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
-	if (!songs.empty() && ImGui::BeginCombo("Model", songs[selected_song].c_str()))
+	const auto selected = selected_path(songs_paths, selected_song);
+	const std::string preview = selected ? selected->filename().string() : "No audio files found";
+	if (!songs.empty() && ImGui::BeginCombo("Audio", preview.c_str()))
 	{
 		for (int i = 0; i < songs.size(); i++)
 		{
@@ -516,11 +527,13 @@ void GuiMusic::draw()
 		}
 		ImGui::EndCombo();
 	}
+	ImGui::BeginDisabled(!selected.has_value());
 	if (ImGui::Button("Play"))
 	{
-		audio_source->set_audio(songs_paths[selected_song].string());
+		audio_source->set_audio(selected->string());
 		audio_source->play();
 	}
+	ImGui::EndDisabled();
 
 	}
 	end();

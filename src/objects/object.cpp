@@ -21,10 +21,25 @@ Object::Object(Object&& other) noexcept :
 	parent(other.parent),
 	world_transform(std::move(other.world_transform)),
 	relative_transform(std::move(other.relative_transform)),
+	name(std::move(other.name)),
 	bVisible(other.bVisible),
 	aabb(std::move(other.aabb)),
-	bounding_sphere(std::move(other.bounding_sphere))
+	bounding_sphere(std::move(other.bounding_sphere)),
+	bounding_primitive_sphere(std::move(other.bounding_primitive_sphere)),
+	is_bounding_primitive_cached(other.is_bounding_primitive_cached)
 {
+	if (parent)
+		parent->children[id] = this;
+	for (auto& [_, child] : children)
+		child->parent = this;
+	other.parent = nullptr;
+	other.children.clear();
+}
+
+Object::~Object()
+{
+	detach_all_children();
+	detach_from();
 }
 
 void Object::sync_world_from_relative() const
@@ -184,16 +199,25 @@ void Object::detach_from()
 
 void Object::attach_to(Object* new_parent)
 {
+	if (!new_parent)
+	{
+		detach_from();
+		return;
+	}
+
 	if (new_parent == this)
 	{
 		LOG_ERROR(Utility::get_logger(), "ERROR: attempted to attach to itself!");
 		return;
 	}
 
-	if (new_parent->parent == this)
+	for (const Object* ancestor = new_parent; ancestor; ancestor = ancestor->parent)
 	{
-		LOG_ERROR(Utility::get_logger(), "ERROR: attempted to create cyclic parent-child relationship! Detach first!");
-		return;
+		if (ancestor == this)
+		{
+			LOG_ERROR(Utility::get_logger(), "ERROR: attempted to create cyclic parent-child relationship! Detach first!");
+			return;
+		}
 	}
 
 	if (parent)

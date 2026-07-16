@@ -1,5 +1,6 @@
 #include "gui/gui_windows.hpp"
 #include "gui/gui_manager.hpp"
+#include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <gtest/gtest.h>
 
@@ -61,4 +62,13 @@ TEST(GuiPanel, dynamically_spawned_panels_restore_saved_visibility)
 		GuiPanelInfo{ "dynamic_panel", "Dynamic Panel", GuiPanelDock::RIGHT, true });
 
 	EXPECT_FALSE(panel.is_visible());
+}
+
+TEST(GuiMusic, safely_selects_only_existing_songs)
+{
+	const std::vector<std::filesystem::path> songs{ "first.wav", "second.ogg" };
+	EXPECT_FALSE(GuiMusic::selected_path({}, 0));
+	EXPECT_FALSE(GuiMusic::selected_path(songs, -1));
+	EXPECT_FALSE(GuiMusic::selected_path(songs, 2));
+	EXPECT_EQ(GuiMusic::selected_path(songs, 1), songs[1]);
 }

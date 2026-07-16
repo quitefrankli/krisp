@@ -256,6 +256,17 @@ GameEngine::~GameEngine() = default;
 Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 {
 	auto it = objects.emplace(object->get_id(), std::move(object));
+	if (!it.second)
+		throw std::runtime_error("GameEngine::spawn_object: duplicate object id");
+	try
+	{
+		retain_renderable_resources(*it.first->second);
+	}
+	catch (...)
+	{
+		objects.erase(it.first);
+		throw;
+	}
 	Object& new_obj = *(it.first->second);
 	ecs.add_object(new_obj);
 
@@ -278,6 +289,61 @@ Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
 
 	return new_obj;
+}
+
+void GameEngine::retain_renderable_resources(const Object& object)
+{
+	for (const auto& renderable : object.renderables)
+	{
+		if (!MeshSystem::contains(renderable.mesh_id))
+			throw std::runtime_error("GameEngine::spawn_object: mesh not found");
+		for (const auto material_id : renderable.material_ids)
+		{
+			if (!MaterialSystem::contains(material_id))
+				throw std::runtime_error("GameEngine::spawn_object: material not found");
+		}
+	}
+
+	for (const auto& renderable : object.renderables)
+	{
+		const size_t mesh_references = ++mesh_resource_references[renderable.mesh_id];
+		if (MeshSystem::get_num_owners(renderable.mesh_id) < mesh_references)
+			MeshSystem::register_owner(renderable.mesh_id);
+
+		for (const auto material_id : renderable.material_ids)
+		{
+			const size_t material_references = ++material_resource_references[material_id];
+			if (MaterialSystem::get_num_owners(material_id) < material_references)
+				MaterialSystem::register_owner(material_id);
+		}
+	}
+}
+
+void GameEngine::release_renderable_resources(
+	const Object& object,
+	DestroyResourcesCmd& destroy_resources_cmd)
+{
+	for (const auto& renderable : object.renderables)
+	{
+		for (const auto material_id : renderable.material_ids)
+		{
+			auto reference = material_resource_references.find(material_id);
+			if (reference == material_resource_references.end() || reference->second == 0)
+				throw std::runtime_error("GameEngine::delete_object: untracked material reference");
+			if (--reference->second == 0)
+				material_resource_references.erase(reference);
+			if (MaterialSystem::unregister_owner(material_id) == 0)
+				destroy_resources_cmd.material_ids.push_back(material_id);
+		}
+
+		auto reference = mesh_resource_references.find(renderable.mesh_id);
+		if (reference == mesh_resource_references.end() || reference->second == 0)
+			throw std::runtime_error("GameEngine::delete_object: untracked mesh reference");
+		if (--reference->second == 0)
+			mesh_resource_references.erase(reference);
+		if (MeshSystem::unregister_owner(renderable.mesh_id) == 0)
+			destroy_resources_cmd.mesh_ids.push_back(renderable.mesh_id);
+	}
 }
 
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
@@ -325,24 +391,10 @@ void GameEngine::process_objs_to_delete()
 		
 		ecs.remove_clickable_entity(id);
 		const Object& object = *get_object(id);
-		for (const auto& renderable : object.renderables)
-		{
-			for (const auto& mat_id : renderable.material_ids)
-			{
-				if (MaterialSystem::unregister_owner(mat_id) == 0)
-				{
-					destroy_resources_cmd.material_ids.push_back(mat_id);
-				}
-			}
-			
-			if (MeshSystem::unregister_owner(renderable.mesh_id) == 0)
-			{
-				destroy_resources_cmd.mesh_ids.push_back(renderable.mesh_id);
-			}
-		}
+		release_renderable_resources(object, destroy_resources_cmd);
 
-		objects.erase(id);
 		ecs.remove_object(id);
+		objects.erase(id);
 		entity_deletion_queue.pop();
 	}
 	if (!destroy_resources_cmd.material_ids.empty() || !destroy_resources_cmd.mesh_ids.empty())

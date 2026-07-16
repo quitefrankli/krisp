@@ -82,6 +82,34 @@ TEST_F(OrbitalPhysicsTest, gravitational_force_magnitude)
 	ecs->remove_object(obj2.get_id());
 }
 
+TEST_F(OrbitalPhysicsTest, force_derived_acceleration_is_persisted)
+{
+	Object first, second;
+	first.set_position(glm::vec3(0.0f));
+	second.set_position(glm::vec3(10.0f, 0.0f, 0.0f));
+	ecs->add_object(first);
+	ecs->add_object(second);
+
+	PhysicsComponent first_physics;
+	first_physics.mass = 2.0f;
+	PhysicsComponent second_physics;
+	second_physics.mass = 4.0f;
+	ecs->add_physics_entity(first.get_id(), first_physics);
+	ecs->add_physics_entity(second.get_id(), second_physics);
+
+	ecs->process(0.01f);
+
+	const auto* updated = ecs->_get_physics_component(first.get_id());
+	ASSERT_NE(updated, nullptr);
+	const float expected = G * second_physics.mass / (100.0f + 0.01f);
+	EXPECT_NEAR(updated->acceleration.x, expected, 0.00001f);
+	EXPECT_NEAR(updated->acceleration.y, 0.0f, 0.00001f);
+	EXPECT_NEAR(updated->acceleration.z, 0.0f, 0.00001f);
+
+	ecs->remove_object(first.get_id());
+	ecs->remove_object(second.get_id());
+}
+
 TEST_F(OrbitalPhysicsTest, circular_orbit_stability)
 {
 	const float star_mass = 1000.0f;

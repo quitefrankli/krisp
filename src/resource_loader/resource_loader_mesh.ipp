@@ -10,6 +10,7 @@
 #include <cmath>
 #include <stdexcept>
 #include <unordered_map>
+#include <limits>
 
 namespace GltfImport
 {
@@ -51,6 +52,23 @@ struct AccessorReader
 		view(get_view(model, accessor)),
 		buffer(model.buffers.at(view.buffer))
 	{
+		const size_t packed = component_size(accessor.componentType) * component_count(accessor.type);
+		const size_t element_stride = stride();
+		if (element_stride < packed || element_stride % component_size(accessor.componentType) != 0)
+			throw ResourceLoadError("ResourceLoader: accessor has an invalid byte stride");
+		if (view.byteOffset > buffer.data.size() || view.byteLength > buffer.data.size() - view.byteOffset)
+			throw ResourceLoadError("ResourceLoader: buffer view is outside its buffer");
+		if (accessor.byteOffset > view.byteLength)
+			throw ResourceLoadError("ResourceLoader: accessor offset is outside its buffer view");
+		if (accessor.count > 0)
+		{
+			const size_t remaining = view.byteLength - accessor.byteOffset;
+			if (accessor.count - 1 > (std::numeric_limits<size_t>::max() - packed) / element_stride)
+				throw ResourceLoadError("ResourceLoader: accessor byte range overflows");
+			const size_t required = (accessor.count - 1) * element_stride + packed;
+			if (required > remaining)
+				throw ResourceLoadError("ResourceLoader: accessor data is outside its buffer view");
+		}
 	}
 
 	static const tinygltf::BufferView& get_view(const tinygltf::Model& model, const tinygltf::Accessor& accessor)

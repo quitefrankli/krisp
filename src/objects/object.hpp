@@ -36,6 +36,7 @@ public:
 	}
 	Object(const Object& object) = delete;
 	Object(Object&& object) noexcept;
+	virtual ~Object();
 
 	Object& operator=(const Object& object) = delete;
 

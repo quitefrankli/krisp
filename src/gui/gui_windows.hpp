@@ -175,6 +175,9 @@ public:
 	virtual ~GuiMusic() override;
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
+	static std::optional<std::filesystem::path> selected_path(
+		const std::vector<std::filesystem::path>& paths,
+		int selected_index);
 
 private:
 	std::unique_ptr<AudioSource> audio_source;

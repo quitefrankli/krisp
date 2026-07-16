@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <stdexcept>
 
 
 template<typename VertexType>
@@ -72,19 +73,27 @@ void concatenate_vertices(std::vector<VertexType>& vertices,
 template<typename VertexType>
 void generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& indices)
 {
+	if (indices.size() % 3 != 0)
+		throw std::invalid_argument("generate_normals: indices must describe complete triangles");
+	if (std::ranges::any_of(indices, [&vertices](const uint32_t index) { return index >= vertices.size(); }))
+		throw std::out_of_range("generate_normals: vertex index is out of range");
+
 	// zero all normals
 	std::for_each(vertices.begin(), vertices.end(), [](VertexType& vertex){vertex.normal = Maths::zero_vec;});
-	
+
 	// used for counting, after which we take the average of the normals
-	std::vector<uint32_t> counter(indices.size(), 0);
+	std::vector<uint32_t> counter(vertices.size(), 0);
 
 	// every offset of 3 is a new triangle, we generate the normal by taking
 	// the cross product of the sides
-	for (int i = 0; i < indices.size(); i+=3)
+	for (size_t i = 0; i < indices.size(); i += 3)
 	{
-		glm::vec3 v1 = vertices[indices[i+1]].pos - vertices[indices[i]].pos;
-		glm::vec3 v2 = vertices[indices[i+2]].pos - vertices[indices[i]].pos;
-		glm::vec3 normal = glm::normalize(glm::cross(v1, v2));
+		const glm::vec3 v1 = vertices[indices[i+1]].pos - vertices[indices[i]].pos;
+		const glm::vec3 v2 = vertices[indices[i+2]].pos - vertices[indices[i]].pos;
+		const glm::vec3 cross = glm::cross(v1, v2);
+		if (glm::dot(cross, cross) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+			continue;
+		const glm::vec3 normal = glm::normalize(cross);
 		vertices[indices[i]].normal += normal;
 		vertices[indices[i+1]].normal += normal;
 		vertices[indices[i+2]].normal += normal;
@@ -94,9 +103,13 @@ void generate_normals(std::vector<VertexType>& vertices, std::vector<uint32_t>& 
 	}
 
 	// 2nd pass we take the average
-	for (const uint32_t index : indices)
+	for (size_t index = 0; index < vertices.size(); ++index)
 	{
-		vertices[index].normal = glm::normalize(vertices[index].normal / (float)counter[index]);
+		const glm::vec3 accumulated = vertices[index].normal;
+		vertices[index].normal = counter[index] > 0
+			&& glm::dot(accumulated, accumulated) > Maths::ACCEPTABLE_FLOATING_PT_DIFF
+			? glm::normalize(accumulated / static_cast<float>(counter[index]))
+			: Maths::up_vec;
 	}
 }
 

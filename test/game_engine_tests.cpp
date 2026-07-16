@@ -132,6 +132,35 @@ TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 	ASSERT_EQ(get_mock_gfx().meshes_to_destroy[0], mesh_id);
 }
 
+TEST_F(GameEngineTests, shared_renderable_resources_are_retained_for_each_spawned_object)
+{
+	const auto mesh_id = MeshSystem::add(MeshFactory::icosahedron());
+	const auto material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	const Renderable renderable{
+		.mesh_id = mesh_id,
+		.material_ids = { material_id },
+	};
+	const auto first_id = engine.spawn_object<Object>(renderable).get_id();
+	const auto second_id = engine.spawn_object<Object>(renderable).get_id();
+
+	EXPECT_EQ(MeshSystem::get_num_owners(mesh_id), 2);
+	EXPECT_EQ(MaterialSystem::get_num_owners(material_id), 2);
+
+	engine.delete_object(first_id);
+	engine.main_loop(1.0f);
+	EXPECT_TRUE(MeshSystem::contains(mesh_id));
+	EXPECT_TRUE(MaterialSystem::contains(material_id));
+	EXPECT_TRUE(get_mock_gfx().meshes_to_destroy.empty());
+	EXPECT_TRUE(get_mock_gfx().materials_to_destroy.empty());
+
+	engine.delete_object(second_id);
+	engine.main_loop(1.0f);
+	EXPECT_FALSE(MeshSystem::contains(mesh_id));
+	EXPECT_FALSE(MaterialSystem::contains(material_id));
+	EXPECT_EQ(get_mock_gfx().meshes_to_destroy, (std::vector<MeshID>{ mesh_id }));
+	EXPECT_EQ(get_mock_gfx().materials_to_destroy, (std::vector<MaterialID>{ material_id }));
+}
+
 TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 {
 	std::vector<MeshID> mesh_ids;

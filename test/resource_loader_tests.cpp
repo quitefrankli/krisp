@@ -147,6 +147,31 @@ public:
 
 	std::filesystem::path path;
 };
+
+class MutatedGltf
+{
+public:
+	explicit MutatedGltf(const std::function<void(nlohmann::json&)>& mutate)
+	{
+		static uint32_t sequence = 0;
+		path = std::filesystem::temp_directory_path()
+			/ fmt::format("krisp_test_accessor_{}.gltf", sequence++);
+		std::ifstream input(Utility::get_top_level_path()/"test/data/static_mesh_textured.gltf");
+		nlohmann::json document;
+		input >> document;
+		mutate(document);
+		std::ofstream output(path);
+		output << document;
+	}
+
+	~MutatedGltf()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+};
 }
 
 TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
@@ -156,6 +181,24 @@ TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
 
 	EXPECT_THROW(ResourceLoader::load_model(missing_model), ResourceLoadError);
 	EXPECT_THROW(ResourceLoader::fetch_texture(missing_texture), ResourceLoadError);
+}
+
+TEST(ResourceLoaderErrors, rejects_accessor_data_outside_its_buffer_view)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["bufferViews"][0]["byteLength"] = 4;
+	});
+	EXPECT_THROW(ResourceLoader::load_model(resource.path), ResourceLoadError);
+}
+
+TEST(ResourceLoaderErrors, rejects_accessor_stride_smaller_than_its_element)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["bufferViews"][0]["byteStride"] = 4;
+	});
+	EXPECT_THROW(ResourceLoader::load_model(resource.path), ResourceLoadError);
 }
 
 // test loading .gltf file with bones into std::vector<Bone>

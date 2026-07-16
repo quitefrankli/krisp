@@ -21,6 +21,13 @@ public:
 	Object obj2;
 };
 
+class InspectableObject : public Object
+{
+public:
+	bool is_attached() const { return parent != nullptr; }
+	size_t child_count() const { return children.size(); }
+};
+
 TEST_F(ObjectTests, initialisation_test)
 {
 	ASSERT_TRUE(glm_equal(obj1.get_position(), Maths::zero_vec));
@@ -149,4 +156,58 @@ TEST(ObjectTestsMisc, attaching_preserves_original_transform)
 	ASSERT_TRUE(glm_equal(obj2.get_position(), Maths::zero_vec));
 	ASSERT_TRUE(glm_equal(obj2.get_rotation(), Maths::identity_quat));
 	ASSERT_TRUE(glm_equal(obj2.get_scale(), Maths::identity_vec));
+}
+
+TEST(ObjectTestsMisc, destroying_parent_detaches_children)
+{
+	auto parent = std::make_unique<InspectableObject>();
+	InspectableObject child;
+	child.set_position({ 1.0f, 2.0f, 3.0f });
+	child.attach_to(parent.get());
+	ASSERT_TRUE(child.is_attached());
+
+	parent.reset();
+
+	EXPECT_FALSE(child.is_attached());
+	EXPECT_TRUE(glm_equal(child.get_position(), glm::vec3(1.0f, 2.0f, 3.0f)));
+}
+
+TEST(ObjectTestsMisc, destroying_child_removes_it_from_parent)
+{
+	InspectableObject parent;
+	auto child = std::make_unique<InspectableObject>();
+	child->attach_to(&parent);
+	ASSERT_EQ(parent.child_count(), 1);
+
+	child.reset();
+
+	EXPECT_EQ(parent.child_count(), 0);
+}
+
+TEST(ObjectTestsMisc, rejects_cycles_through_any_descendant)
+{
+	InspectableObject root;
+	InspectableObject child;
+	InspectableObject grandchild;
+	child.attach_to(&root);
+	grandchild.attach_to(&child);
+
+	root.attach_to(&grandchild);
+
+	EXPECT_FALSE(root.is_attached());
+	EXPECT_EQ(grandchild.child_count(), 0);
+}
+
+TEST(ObjectTestsMisc, moving_parent_repairs_child_backlinks)
+{
+	InspectableObject original_parent;
+	InspectableObject child;
+	child.attach_to(&original_parent);
+
+	InspectableObject moved_parent(std::move(original_parent));
+	moved_parent.set_position({ 2.0f, 0.0f, 0.0f });
+
+	EXPECT_TRUE(child.is_attached());
+	EXPECT_EQ(moved_parent.child_count(), 1);
+	EXPECT_TRUE(glm_equal(child.get_position(), glm::vec3(2.0f, 0.0f, 0.0f)));
 }

@@ -43,6 +43,7 @@ void PhysicsSystem::process(const float delta_secs)
 		auto& object = ecs.get_object(id);
 		const glm::vec3 new_acceleration = physics_comp._net_force / physics_comp.mass;
 		physics_comp.velocity += 0.5f * (physics_comp.acceleration + new_acceleration) * delta_secs;
+		physics_comp.acceleration = new_acceleration;
 	}
 }
 
