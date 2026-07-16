@@ -23,9 +23,8 @@ GraphicsEnginePipelineManager::GraphicsEnginePipelineManager(GraphicsEngine& eng
 	const auto descriptor_set_layouts = get_rsrc_mgr().get_rasterization_descriptor_set_layouts();
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
-	const VkPushConstantRange push_constant_range = GraphicsEnginePipeline::get_raster_push_constant_range();
-	pipeline_layout_create_info.pushConstantRangeCount = 1;
-	pipeline_layout_create_info.pPushConstantRanges = &push_constant_range;
+	pipeline_layout_create_info.pushConstantRangeCount = 0;
+	pipeline_layout_create_info.pPushConstantRanges = nullptr;
 
 	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &generic_pipeline_layout) != VK_SUCCESS)
 	{

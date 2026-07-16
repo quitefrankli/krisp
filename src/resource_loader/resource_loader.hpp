@@ -92,7 +92,6 @@ private:
 	struct LoadedMaterial
 	{
 		MatVec ids;
-		TexturedMaterialProperties properties;
 	};
 
 	MaterialID load_texture(

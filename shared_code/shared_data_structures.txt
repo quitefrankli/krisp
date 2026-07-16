@@ -23,11 +23,6 @@ struct MaterialData
 	ALIGN(4) int texture_flags; // uses boolean packing
 };
 
-struct TexturedMaterialData
-{
-	ALIGN(16) VEC4 specular_color_strength;
-};
-
 // be vary of alignment issues
 struct ObjectData
 {

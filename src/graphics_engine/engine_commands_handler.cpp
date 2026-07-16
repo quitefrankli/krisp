@@ -134,7 +134,6 @@ void GraphicsEngine::handle_command(UpdateRenderableMaterialsCmd& cmd)
 	vkDeviceWaitIdle(get_logical_device());
 	const VkDescriptorSet descriptor_set =
 		object_it->second->get_renderable_dsets()[cmd.renderable_index];
-	object_it->second->set_textured_material(cmd.renderable_index, cmd.properties);
 	const auto sampler_type = ETextureSamplerType::ADDR_MODE_REPEAT;
 	const GraphicsEngineTexture& diffuse =
 		get_texture_mgr().fetch_texture(cmd.diffuse_material, sampler_type);

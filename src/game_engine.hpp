@@ -111,11 +111,6 @@ public:
 		size_t renderable_index,
 		ETextureSemantic semantic,
 		std::optional<std::filesystem::path> texture_path);
-	void set_renderable_specular(
-		ObjectID object_id,
-		size_t renderable_index,
-		float strength,
-		const glm::vec3& color);
 
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }

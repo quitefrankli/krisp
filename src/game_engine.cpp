@@ -486,42 +486,8 @@ void GameEngine::replace_renderable_texture(
 		normal,
 		specular_strength,
 		specular_color,
-		renderable.textured_material,
 		std::move(retired_materials)));
 }
-
-void GameEngine::set_renderable_specular(
-	const ObjectID object_id,
-	const size_t renderable_index,
-	const float strength,
-	const glm::vec3& color)
-{
-	Object* object = get_object(object_id);
-	if (!object)
-		throw std::runtime_error("GameEngine::set_renderable_specular: object not found");
-	if (renderable_index >= object->renderables.size())
-		throw std::runtime_error("GameEngine::set_renderable_specular: renderable index is out of range");
-	auto& renderable = object->renderables[renderable_index];
-	if (renderable.pipeline_render_type != ERenderType::STANDARD
-		&& renderable.pipeline_render_type != ERenderType::SKINNED)
-		throw std::runtime_error("GameEngine::set_renderable_specular: renderable does not support textures");
-	if (strength < 0.0f || strength > 1.0f
-		|| color.x < 0.0f || color.y < 0.0f || color.z < 0.0f)
-		throw std::runtime_error("GameEngine::set_renderable_specular: invalid factor");
-
-	renderable.textured_material = { color, strength };
-	const TexturedMatGroup materials(renderable.material_ids);
-	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
-		object_id,
-		renderable_index,
-		materials.base_color_mat,
-		materials.normal_mat,
-		materials.specular_strength_mat,
-		materials.specular_color_mat,
-		renderable.textured_material,
-		std::vector<MaterialID>{}));
-}
-
 
 GuiManager& GameEngine::get_gui_manager()
 {

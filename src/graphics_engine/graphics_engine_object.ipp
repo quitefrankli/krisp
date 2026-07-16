@@ -15,9 +15,6 @@ GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object&
 	GraphicsEngineBaseModule(engine),
 	per_frame_object_dsets(engine.get_num_swapchain_images(), nullptr)
 {
-	textured_materials.reserve(object.renderables.size());
-	for (const auto& renderable : object.renderables)
-		textured_materials.push_back(renderable.textured_material);
 }
 
 GraphicsEngineObject::~GraphicsEngineObject()

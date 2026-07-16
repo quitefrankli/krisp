@@ -1154,25 +1154,6 @@ void GuiMaterialEditor::process(GameEngine& engine)
 				"Material Editor failed to update material", ResourceLoadError(error.what()));
 		}
 	}
-	if (should_update_specular && target_object && !renderable_labels.empty())
-	{
-		should_update_specular = false;
-		try
-		{
-			engine.set_renderable_specular(
-				*target_object,
-				static_cast<size_t>(selected_renderable.value),
-				specular_strength,
-				specular_color);
-			load_error.reset();
-		}
-		catch (const std::runtime_error& error)
-		{
-			load_error = report_resource_load_error(
-				"Material Editor failed to update specular properties", ResourceLoadError(error.what()));
-		}
-	}
-
 	const auto previous_target = target_object;
 	target_object.reset();
 	renderable_labels.clear();
@@ -1242,8 +1223,6 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		specular_strength_label = material_label(*materials.specular_strength_mat);
 	if (materials.specular_color_mat)
 		specular_color_label = material_label(*materials.specular_color_mat);
-	specular_strength = renderable.textured_material.specular_strength;
-	specular_color = renderable.textured_material.specular_color;
 }
 
 void GuiMaterialEditor::draw_texture_section(
@@ -1307,13 +1286,6 @@ void GuiMaterialEditor::draw()
 			ETextureSemantic::SPECULAR_COLOR,
 			specular_color_label,
 			specular_color_dropdown_open);
-		if (ImGui::SliderFloat("Specular Strength", &specular_strength, 0.0f, 1.0f))
-			should_update_specular = true;
-		if (ImGui::ColorEdit3(
-			"Specular Color",
-			&specular_color.x,
-			ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float))
-			should_update_specular = true;
 		ImGui::EndDisabled();
 		draw_resource_load_error(load_error);
 	}

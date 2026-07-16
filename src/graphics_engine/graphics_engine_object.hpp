@@ -29,16 +29,6 @@ public:
 	bool get_visibility() const;
 
 	const std::vector<Renderable>& get_renderables() const;
-	const TexturedMaterialProperties& get_textured_material(size_t renderable_index) const
-	{
-		return textured_materials.at(renderable_index);
-	}
-	void set_textured_material(
-		size_t renderable_index,
-		const TexturedMaterialProperties& properties)
-	{
-		textured_materials.at(renderable_index) = properties;
-	}
 	std::optional<SkeletonID> get_skeleton_id() const;
 
 	void mark_for_delete() { marked_for_delete = true; }
@@ -54,7 +44,6 @@ private:
 	bool marked_for_delete = false;
 	std::vector<VkDescriptorSet> renderable_dsets; // i.e. mesh data
 	std::vector<VkDescriptorSet> per_frame_object_dsets; // i.e. uniform buffer
-	std::vector<TexturedMaterialProperties> textured_materials;
 };
 
 // this object derivation CAN be destroyed while graphics engine is running

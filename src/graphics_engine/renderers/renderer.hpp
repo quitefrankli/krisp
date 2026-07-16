@@ -52,7 +52,6 @@ public:
 							 	 const VkDescriptorSet& object_dset,
 							 	 const VkDescriptorSet& renderable_dset,
 							 	 EPipelineModifier pipeline_modifier,
-								 const TexturedMaterialProperties& textured_material,
 							 	 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
 
 protected:

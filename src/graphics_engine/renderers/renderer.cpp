@@ -41,7 +41,6 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							   const VkDescriptorSet& object_dset,
 							   const VkDescriptorSet& renderable_dset,
 						   	   EPipelineModifier pipeline_modifier,
-							   const TexturedMaterialProperties& textured_material,
 						   	   ERenderType primary_pipeline_override)
 {
 	const ERenderType primary_pipeline_type = primary_pipeline_override == ERenderType::UNASSIGNED ?
@@ -91,23 +90,6 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							&renderable_dset,
 							0,
 							nullptr);
-
-	if (pipeline_modifier == EPipelineModifier::NONE
-		&& (primary_pipeline_type == ERenderType::STANDARD
-			|| primary_pipeline_type == ERenderType::SKINNED))
-	{
-		SDS::TexturedMaterialData material_data{};
-		material_data.specular_color_strength = glm::vec4(
-			textured_material.specular_color,
-			textured_material.specular_strength);
-		vkCmdPushConstants(
-			command_buffer,
-			pipeline->pipeline_layout,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			0,
-			sizeof(material_data),
-			&material_data);
-	}
 
 	vkCmdDrawIndexed(command_buffer,
 					 mesh.get_num_vertex_indices(),

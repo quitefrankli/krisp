@@ -486,7 +486,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			}
 			renderable.mesh_id = MeshSystem::add(std::move(mesh));
 			renderable.material_ids = loaded_material.ids;
-			renderable.textured_material = loaded_material.properties;
 			loaded_mesh.renderables.push_back(renderable);
 		}
 		result.meshes.push_back(std::move(loaded_mesh));

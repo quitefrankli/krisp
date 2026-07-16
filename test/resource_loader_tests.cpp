@@ -554,7 +554,7 @@ TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
 	ASSERT_EQ(tex_material->height, 2);
 }
 
-TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps_and_factors)
+TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps)
 {
 	MutatedGltf resource([](nlohmann::json& document)
 	{
@@ -577,9 +577,6 @@ TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps_and_factors
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
 		MaterialSystem::get(*group.specular_color_mat)).semantic,
 		ETextureSemantic::SPECULAR_COLOR);
-	EXPECT_FLOAT_EQ(renderable.textured_material.specular_strength, 0.35f);
-	EXPECT_TRUE(glm_equal(
-		renderable.textured_material.specular_color, glm::vec3(0.25f, 0.5f, 0.75f)));
 }
 
 TEST(ResourceLoaderSpecularMaps, rejects_nonzero_specular_texcoord)

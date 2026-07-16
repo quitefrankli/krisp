@@ -142,7 +142,6 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 							graphics_object.get_obj_dset(frame_index), 
 							graphics_object.get_renderable_dsets()[renderable_idx], 
 							EPipelineModifier::NONE, 
-							graphics_object.get_textured_material(renderable_idx),
 							ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
 		}
 	}

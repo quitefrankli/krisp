@@ -23,7 +23,6 @@ public:
 		std::optional<MaterialID> normal;
 		std::optional<MaterialID> specular_strength;
 		std::optional<MaterialID> specular_color;
-		TexturedMaterialProperties properties;
 		std::vector<MaterialID> retired;
 	};
 
@@ -47,7 +46,6 @@ public:
 			cmd.normal_material,
 			cmd.specular_strength_material,
 			cmd.specular_color_material,
-			cmd.properties,
 			cmd.retired_materials,
 		});
 	}
@@ -294,7 +292,7 @@ TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 	EXPECT_FALSE(MaterialSystem::contains(diffuse));
 }
 
-TEST_F(GameEngineTests, replaces_specular_maps_and_updates_specular_factors)
+TEST_F(GameEngineTests, replaces_specular_maps)
 {
 	const auto diffuse = ResourceLoader::fetch_texture("texture2.jpg");
 	Renderable renderable;
@@ -309,18 +307,13 @@ TEST_F(GameEngineTests, replaces_specular_maps_and_updates_specular_factors)
 	engine.replace_renderable_texture(
 		object.get_id(), 0, ETextureSemantic::SPECULAR_COLOR,
 		Utility::get_texture("texture4.png"));
-	engine.set_renderable_specular(
-		object.get_id(), 0, 0.4f, glm::vec3(0.2f, 0.5f, 0.8f));
-
 	const TexturedMatGroup group(object.renderables[0].material_ids);
 	ASSERT_TRUE(group.specular_strength_mat);
 	ASSERT_TRUE(group.specular_color_mat);
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 3);
+	ASSERT_EQ(get_mock_gfx().material_updates.size(), 2);
 	const auto& update = get_mock_gfx().material_updates.back();
 	EXPECT_EQ(update.specular_strength, group.specular_strength_mat);
 	EXPECT_EQ(update.specular_color, group.specular_color_mat);
-	EXPECT_FLOAT_EQ(update.properties.specular_strength, 0.4f);
-	EXPECT_EQ(update.properties.specular_color, glm::vec3(0.2f, 0.5f, 0.8f));
 }
 
 TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)

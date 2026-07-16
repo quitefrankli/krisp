@@ -270,33 +270,6 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 			if (specular_extension_it != mat.extensions.end())
 			{
 				const tinygltf::Value& extension = specular_extension_it->second;
-				const auto read_number = [&](const char* name, const double fallback)
-				{
-					if (!extension.Has(name))
-						return fallback;
-					const auto& value = extension.Get(name);
-					if (!value.IsNumber())
-						throw ResourceLoadError(fmt::format(
-							"ResourceLoader: KHR_materials_specular.{} must be numeric", name));
-					return value.GetNumberAsDouble();
-				};
-				loaded.properties.specular_strength = static_cast<float>(read_number("specularFactor", 1.0));
-				if (loaded.properties.specular_strength < 0.0f || loaded.properties.specular_strength > 1.0f)
-					throw ResourceLoadError("ResourceLoader: specularFactor must be in [0, 1]");
-				if (extension.Has("specularColorFactor"))
-				{
-					const auto& value = extension.Get("specularColorFactor");
-					if (!value.IsArray() || value.ArrayLen() != 3)
-						throw ResourceLoadError("ResourceLoader: specularColorFactor must contain 3 numbers");
-					for (int channel = 0; channel < 3; ++channel)
-					{
-						const auto& component = value.Get(channel);
-						if (!component.IsNumber() || component.GetNumberAsDouble() < 0.0)
-							throw ResourceLoadError("ResourceLoader: specularColorFactor must be non-negative");
-						loaded.properties.specular_color[channel] =
-							static_cast<float>(component.GetNumberAsDouble());
-					}
-				}
 				const auto load_extension_texture = [&](const char* name, const ETextureSemantic semantic)
 				{
 					if (!extension.Has(name))
