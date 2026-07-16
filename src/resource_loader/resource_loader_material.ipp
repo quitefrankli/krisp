@@ -70,7 +70,7 @@ TextureMaterial load_dds_texture_data(
 	constexpr uint32_t DDSCAPS2_VOLUME = 0x00200000;
 
 	if (byte_count < 128)
-		throw std::runtime_error(fmt::format("ResourceLoader: DDS header is truncated: {}", source));
+		throw ResourceLoadError(fmt::format("ResourceLoader: DDS header is truncated: {}", source));
 	const auto read_u32 = [bytes](const size_t offset)
 	{
 		return static_cast<uint32_t>(bytes[offset])
@@ -79,11 +79,11 @@ TextureMaterial load_dds_texture_data(
 			| static_cast<uint32_t>(bytes[offset + 3]) << 24;
 	};
 	if (read_u32(0) != DDS_MAGIC || read_u32(4) != 124 || read_u32(76) != 32)
-		throw std::runtime_error(fmt::format("ResourceLoader: invalid DDS header: {}", source));
+		throw ResourceLoadError(fmt::format("ResourceLoader: invalid DDS header: {}", source));
 	if (read_u32(84) != FOURCC_DXT5)
-		throw std::runtime_error("ResourceLoader: only DXT5/BC3 DDS textures are supported");
+		throw ResourceLoadError("ResourceLoader: only DXT5/BC3 DDS textures are supported");
 	if (read_u32(112) & (DDSCAPS2_CUBEMAP | DDSCAPS2_VOLUME))
-		throw std::runtime_error("ResourceLoader: DDS cubemaps and volume textures are not supported");
+		throw ResourceLoadError("ResourceLoader: DDS cubemaps and volume textures are not supported");
 
 	TextureMaterial material;
 	material.width = read_u32(16);
@@ -92,13 +92,13 @@ TextureMaterial load_dds_texture_data(
 	material.format = ETextureFormat::BC3;
 	material.source = std::string(source);
 	if (material.width == 0 || material.height == 0)
-		throw std::runtime_error("ResourceLoader: DDS texture has invalid dimensions");
+		throw ResourceLoadError("ResourceLoader: DDS texture has invalid dimensions");
 
 	const uint32_t maximum_mips = 1 + static_cast<uint32_t>(std::floor(
 		std::log2(static_cast<double>(std::max(material.width, material.height)))));
 	const uint32_t mip_levels = read_u32(28) == 0 ? 1 : read_u32(28);
 	if (mip_levels > maximum_mips)
-		throw std::runtime_error("ResourceLoader: DDS texture has an invalid mip count");
+		throw ResourceLoadError("ResourceLoader: DDS texture has an invalid mip count");
 
 	material.mip_sizes.reserve(mip_levels);
 	uint32_t mip_width = material.width;
@@ -108,10 +108,10 @@ TextureMaterial load_dds_texture_data(
 		const size_t blocks_wide = (static_cast<size_t>(mip_width) + 3) / 4;
 		const size_t blocks_high = (static_cast<size_t>(mip_height) + 3) / 4;
 		if (blocks_wide > std::numeric_limits<size_t>::max() / blocks_high / 16)
-			throw std::runtime_error("ResourceLoader: DDS texture data size overflows address space");
+			throw ResourceLoadError("ResourceLoader: DDS texture data size overflows address space");
 		const size_t size = blocks_wide * blocks_high * 16;
 		if (size > byte_count - 128 - material.data_len)
-			throw std::runtime_error(fmt::format("ResourceLoader: DDS mip data is truncated: {}", source));
+			throw ResourceLoadError(fmt::format("ResourceLoader: DDS mip data is truncated: {}", source));
 		material.mip_sizes.push_back(size);
 		material.data_len += size;
 		mip_width = std::max(1u, mip_width / 2);
@@ -128,14 +128,14 @@ TextureMaterial load_dds_texture(const std::filesystem::path& filename)
 {
 	std::ifstream file(filename, std::ios::binary | std::ios::ate);
 	if (!file)
-		throw std::runtime_error(fmt::format("ResourceLoader: failed to open DDS texture: {}", filename.string()));
+		throw ResourceLoadError(fmt::format("ResourceLoader: failed to open DDS texture: {}", filename.string()));
 	const auto file_size = file.tellg();
 	if (file_size < 0)
-		throw std::runtime_error(fmt::format("ResourceLoader: failed to read DDS texture: {}", filename.string()));
+		throw ResourceLoadError(fmt::format("ResourceLoader: failed to read DDS texture: {}", filename.string()));
 	std::vector<unsigned char> bytes(static_cast<size_t>(file_size));
 	file.seekg(0);
 	if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
-		throw std::runtime_error(fmt::format("ResourceLoader: failed to read DDS texture: {}", filename.string()));
+		throw ResourceLoadError(fmt::format("ResourceLoader: failed to read DDS texture: {}", filename.string()));
 	return load_dds_texture_data(bytes.data(), bytes.size(), filename.string());
 }
 
@@ -187,11 +187,11 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
 		const auto& normal_texture = mat.normalTexture;
 		if (normal_texture.index >= 0 && color_texture.index < 0)
-			throw std::runtime_error(fmt::format(
+			throw ResourceLoadError(fmt::format(
 				"ResourceLoader: material {} has a normal texture but no base-color texture",
 				primitive.material));
 		if (normal_texture.index >= 0 && normal_texture.texCoord != 0)
-			throw std::runtime_error(fmt::format(
+			throw ResourceLoadError(fmt::format(
 				"ResourceLoader: material {} normal texture uses unsupported TEXCOORD_{}",
 				primitive.material, normal_texture.texCoord));
 
@@ -200,11 +200,11 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 			const auto load_gltf_texture = [&](const int texture_index, const ETextureSemantic semantic)
 			{
 				if (texture_index < 0 || texture_index >= static_cast<int>(model.textures.size()))
-					throw std::runtime_error(fmt::format(
+					throw ResourceLoadError(fmt::format(
 						"ResourceLoader: material {} references an invalid texture", primitive.material));
 				const auto& texture = model.textures[texture_index];
 				if (texture.source < 0 || texture.source >= static_cast<int>(model.images.size()))
-					throw std::runtime_error(fmt::format(
+					throw ResourceLoadError(fmt::format(
 						"ResourceLoader: texture {} references an invalid image", texture_index));
 				const tinygltf::Image& image = model.images[texture.source];
 				if (image.as_is && image.image.size() >= 4
@@ -219,11 +219,11 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 						std::make_unique<TextureMaterial>(std::move(texture_material)));
 				}
 				if (image.width <= 0 || image.height <= 0 || image.component < 1 || image.component > 4)
-					throw std::runtime_error(fmt::format(
+					throw ResourceLoadError(fmt::format(
 						"ResourceLoader: texture {} has unsupported image dimensions or channels", texture_index));
 				const size_t pixel_count = static_cast<size_t>(image.width) * image.height;
 				if (image.image.size() < pixel_count * static_cast<size_t>(image.component))
-					throw std::runtime_error(fmt::format(
+					throw ResourceLoadError(fmt::format(
 						"ResourceLoader: texture {} image data is truncated", texture_index));
 				std::vector<unsigned char> rgba(pixel_count * 4);
 				for (size_t pixel = 0; pixel < pixel_count; ++pixel)
@@ -284,7 +284,7 @@ MaterialID ResourceLoader::load_texture(
 {
 	if (!std::filesystem::exists(filename))
 	{
-		throw std::runtime_error(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", filename.string()));
+		throw ResourceLoadError(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", filename.string()));
 	}
 
 	if (filename.extension() == ".dds")
@@ -313,7 +313,7 @@ MaterialID ResourceLoader::load_texture(
 
 	if (!material.data->get())
 	{
-		throw std::runtime_error(fmt::format("failed to load texture image! {}", filename_str));
+		throw ResourceLoadError(fmt::format("failed to load texture image! {}", filename_str));
 	}
 	material.data_len = static_cast<size_t>(material.width) * material.height * material.channels;
 	material.mip_sizes = { material.data_len };

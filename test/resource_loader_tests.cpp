@@ -657,6 +657,20 @@ TEST(ResourceLoaderSkinnedColor, imports_color_material_without_texture_upload)
 	EXPECT_NE(dynamic_cast<const SkinnedMesh*>(&MeshSystem::get(renderable.mesh_id)), nullptr);
 }
 
+TEST(ResourceLoaderSkinning, rejects_more_than_four_bone_influences_per_vertex)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/skinned_too_many_influences.gltf";
+	try
+	{
+		ResourceLoader::load_model(path);
+		FAIL() << "Expected ResourceLoadError";
+	}
+	catch (const ResourceLoadError& error)
+	{
+		EXPECT_NE(std::string(error.what()).find("maximum of 4 bone influences"), std::string::npos);
+	}
+}
+
 TEST(ResourceLoaderNormalMaps, skinned_mesh_can_generate_missing_tangents)
 {
 	ResourceLoader::LoadOptions options;

@@ -1,3 +1,4 @@
+#include "resource_loader.hpp"
 #include "identifications.hpp"
 #include "entity_component_system/ecs.hpp"
 
@@ -51,34 +52,34 @@ SamplerData get_sampler_data(
 	else if (sampler.interpolation == "CUBICSPLINE")
 		retval.interpolation = BoneAnimation::Interpolation::CUBIC_SPLINE;
 	else
-		throw std::runtime_error("ResourceLoader: unsupported animation interpolation '" + sampler.interpolation + "'");
+		throw ResourceLoadError("ResourceLoader: unsupported animation interpolation '" + sampler.interpolation + "'");
 
 	if (sampler.input < 0 || sampler.input >= model.accessors.size())
 	{
-		throw std::runtime_error("ResourceLoader: invalid input accessor");
+		throw ResourceLoadError("ResourceLoader: invalid input accessor");
 	}
 
 	if (sampler.output < 0 || sampler.output >= model.accessors.size())
-		throw std::runtime_error("ResourceLoader: invalid output accessor");
+		throw ResourceLoadError("ResourceLoader: invalid output accessor");
 	const auto& input_accesor = model.accessors[sampler.input];
 	const auto& output_accessor = model.accessors[sampler.output];
 	
 	if (input_accesor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || input_accesor.type != TINYGLTF_TYPE_SCALAR)
 	{
-		throw std::runtime_error("ResourceLoader: only float scalar input accessors are supported");
+		throw ResourceLoadError("ResourceLoader: only float scalar input accessors are supported");
 	}
 
 	if (output_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || 
 		(output_accessor.type != TINYGLTF_TYPE_VEC3 && output_accessor.type != TINYGLTF_TYPE_VEC4))
 	{
-		throw std::runtime_error("ResourceLoader: only float vec3 and vec4 output accessors are supported");
+		throw ResourceLoadError("ResourceLoader: only float vec3 and vec4 output accessors are supported");
 	}
 
 	GltfImport::AccessorReader input_reader(model, sampler.input);
 	GltfImport::AccessorReader output_reader(model, sampler.output);
 	const size_t outputs_per_key = retval.interpolation == BoneAnimation::Interpolation::CUBIC_SPLINE ? 3 : 1;
 	if (output_accessor.count != input_accesor.count * outputs_per_key)
-		throw std::runtime_error("ResourceLoader: animation output count does not match its interpolation mode");
+		throw ResourceLoadError("ResourceLoader: animation output count does not match its interpolation mode");
 
 	retval.keys.reserve(input_accesor.count);
 	const auto read_value = [&](const size_t index)
@@ -117,7 +118,7 @@ static std::vector<ImportedAnimation> import_animations(
 {
 	const auto& skin = model.skins.at(skin_index);
 	if (source_joint_to_target.size() != skin.joints.size())
-		throw std::runtime_error("ResourceLoader: animation joint mapping size differs from source skin");
+		throw ResourceLoadError("ResourceLoader: animation joint mapping size differs from source skin");
 	std::vector<ImportedAnimation> final_animations;
 
 	const std::map<int, size_t> node_to_joint = [&skin, &source_joint_to_target] {
@@ -142,7 +143,7 @@ static std::vector<ImportedAnimation> import_animations(
 		{
 			if (channel.target_node < 0 || channel.target_node >= model.nodes.size())
 			{
-				throw std::runtime_error("ResourceLoader: invalid target node");
+				throw ResourceLoadError("ResourceLoader: invalid target node");
 			}
 
 			const auto node_it = node_to_joint.find(channel.target_node);
@@ -152,12 +153,12 @@ static std::vector<ImportedAnimation> import_animations(
 				continue;
 			}
 			if (channel.target_path != "rotation" && channel.target_path != "translation" && channel.target_path != "scale")
-				throw std::runtime_error("ResourceLoader: only rotation, translation and scale target paths are supported");
+				throw ResourceLoadError("ResourceLoader: only rotation, translation and scale target paths are supported");
 			has_joint_channels = true;
 			const auto joint_idx = node_it->second;
 			auto& bone_tkfs = bone_tkfss[joint_idx];
 			if (channel.sampler < 0 || channel.sampler >= animation.samplers.size())
-				throw std::runtime_error("ResourceLoader: invalid animation sampler");
+				throw ResourceLoadError("ResourceLoader: invalid animation sampler");
 
 			auto sampler_data = get_sampler_data(model, animation.samplers[channel.sampler]);
 			auto& bone_animation = new_bone_animations[joint_idx];

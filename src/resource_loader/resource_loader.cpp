@@ -15,8 +15,30 @@
 #include <filesystem>
 #include <functional>
 #include <numeric>
+#include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
+
+namespace
+{
+template<typename Resolver>
+std::filesystem::path resolve_resource_path(
+	std::filesystem::path file_path,
+	Resolver resolver)
+{
+	if (std::filesystem::exists(file_path))
+		return file_path;
+
+	try
+	{
+		return resolver(file_path.string());
+	}
+	catch (const std::runtime_error& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
+}
+}
 
 ResourceLoader ResourceLoader::global_resource_loader;
 
@@ -24,37 +46,21 @@ MaterialID ResourceLoader::fetch_texture(
 	std::filesystem::path file_path,
 	const ETextureSemantic semantic)
 {
-	try
-	{
-		if (!std::filesystem::exists(file_path))
-			file_path = Utility::get_texture(file_path.string());
+	file_path = resolve_resource_path(std::move(file_path), Utility::get_texture);
 
-		const auto file_str = file_path.lexically_normal().string();
-		const size_t semantic_index = semantic == ETextureSemantic::NORMAL ? 1 : 0;
-		auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
-		if (cached && MaterialSystem::contains(*cached))
-		{
-			MaterialSystem::register_owner(*cached);
-			return *cached;
-		}
-		cached.reset();
+	const auto file_str = file_path.lexically_normal().string();
+	const size_t semantic_index = semantic == ETextureSemantic::NORMAL ? 1 : 0;
+	auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
+	if (cached && MaterialSystem::contains(*cached))
+	{
+		MaterialSystem::register_owner(*cached);
+		return *cached;
+	}
+	cached.reset();
 
-		const auto material_id = global_resource_loader.load_texture(file_path, semantic);
-		MaterialSystem::register_owner(material_id);
-		return material_id;
-	}
-	catch (const ResourceLoadError&)
-	{
-		throw;
-	}
-	catch (const std::runtime_error& error)
-	{
-		throw ResourceLoadError(error.what());
-	}
-	catch (const std::out_of_range& error)
-	{
-		throw ResourceLoadError(error.what());
-	}
+	const auto material_id = global_resource_loader.load_texture(file_path, semantic);
+	MaterialSystem::register_owner(material_id);
+	return material_id;
 }
 
 namespace
@@ -69,7 +75,7 @@ GltfDocument load_gltf_document(const std::filesystem::path& file_path)
 {
 	const bool is_glb = file_path.extension() == ".glb";
 	if (!is_glb && file_path.extension() != ".gltf")
-		throw std::runtime_error(fmt::format(
+		throw ResourceLoadError(fmt::format(
 			"ResourceLoader: unsupported glTF file format: {}", file_path.string()));
 
 	GltfDocument document;
@@ -80,7 +86,7 @@ GltfDocument load_gltf_document(const std::filesystem::path& file_path)
 		? loader.LoadBinaryFromFile(&document.model, &error, &document.warning, file_path.string())
 		: loader.LoadASCIIFromFile(&document.model, &error, &document.warning, file_path.string());
 	if (!loaded)
-		throw std::runtime_error(fmt::format(
+		throw ResourceLoadError(fmt::format(
 			"ResourceLoader: failed to load '{}': {}", file_path.string(), error));
 	return document;
 }
@@ -123,12 +129,12 @@ std::unordered_map<std::string, size_t> require_named_target_bones(const std::ve
 	for (size_t index = 0; index < bones.size(); ++index)
 	{
 		if (bones[index].name.empty())
-			throw std::runtime_error("ResourceLoader: target skeleton contains an unnamed bone");
+			throw ResourceLoadError("ResourceLoader: target skeleton contains an unnamed bone");
 		if (!indices.emplace(bones[index].name, index).second)
-			throw std::runtime_error(fmt::format(
+			throw ResourceLoadError(fmt::format(
 				"ResourceLoader: target skeleton contains duplicate bone name '{}'", bones[index].name));
 		if (bones[index].parent_node != Bone::NO_PARENT && bones[index].parent_node >= bones.size())
-			throw std::runtime_error("ResourceLoader: target skeleton contains an invalid parent index");
+			throw ResourceLoadError("ResourceLoader: target skeleton contains an invalid parent index");
 	}
 	return indices;
 }
@@ -198,7 +204,7 @@ std::vector<Bone> load_bones(const tinygltf::Model& model, const int skin_index)
 {
 	const auto& skin = model.skins.at(skin_index);
 	if (skin.joints.empty())
-		throw std::runtime_error("ResourceLoader: skin has no joints");
+		throw ResourceLoadError("ResourceLoader: skin has no joints");
 
 	std::unordered_map<int, uint32_t> node_to_joint;
 	for (uint32_t joint = 0; joint < skin.joints.size(); ++joint)
@@ -211,7 +217,7 @@ std::vector<Bone> load_bones(const tinygltf::Model& model, const int skin_index)
 		if (matrices.accessor.type != TINYGLTF_TYPE_MAT4 ||
 			matrices.accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT ||
 			matrices.accessor.count != skin.joints.size())
-			throw std::runtime_error("ResourceLoader: inverse bind matrices must be float mat4 values matching joints");
+			throw ResourceLoadError("ResourceLoader: inverse bind matrices must be float mat4 values matching joints");
 		for (size_t joint = 0; joint < bones.size(); ++joint)
 		{
 			glm::mat4 matrix(1.0f);
@@ -253,7 +259,7 @@ std::vector<Bone> load_bones(const tinygltf::Model& model, const int skin_index)
 void add_warning(ResourceLoader::LoadedModel& result, const ResourceLoader::LoadOptions& options, std::string message)
 {
 	if (options.strict)
-		throw std::runtime_error(message);
+		throw ResourceLoadError(message);
 	result.warnings.push_back({ std::move(message) });
 }
 }
@@ -264,16 +270,15 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 {
 	try
 	{
-	if (!std::filesystem::exists(file_path))
-		file_path = Utility::get_model(file_path.string());
+	file_path = resolve_resource_path(std::move(file_path), Utility::get_model);
 	auto document = load_gltf_document(file_path);
 	auto& model = document.model;
 	if (model.scenes.empty())
-		throw std::runtime_error("ResourceLoader::load_model: model contains no scenes");
+		throw ResourceLoadError("ResourceLoader::load_model: model contains no scenes");
 
 	const int scene_index = options.scene_index.value_or(model.defaultScene >= 0 ? model.defaultScene : 0);
 	if (scene_index < 0 || scene_index >= static_cast<int>(model.scenes.size()))
-		throw std::runtime_error("ResourceLoader::load_model: requested scene is out of range");
+		throw ResourceLoadError("ResourceLoader::load_model: requested scene is out of range");
 
 	LoadedModel result;
 	if (!document.warning.empty())
@@ -294,7 +299,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	{
 		const auto& node = model.nodes.at(instance.node_index);
 		if (node.mesh < 0 || node.mesh >= static_cast<int>(model.meshes.size()))
-			throw std::runtime_error("ResourceLoader::load_model: node references an invalid mesh");
+			throw ResourceLoadError("ResourceLoader::load_model: node references an invalid mesh");
 
 		LoadedMesh loaded_mesh;
 		loaded_mesh.name = node.name.empty() ? model.meshes[node.mesh].name : node.name;
@@ -306,7 +311,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 		if (node.skin >= 0)
 		{
 			if (node.skin >= static_cast<int>(model.skins.size()))
-				throw std::runtime_error("ResourceLoader::load_model: node references an invalid skin");
+				throw ResourceLoadError("ResourceLoader::load_model: node references an invalid skin");
 			auto it = skins.find(node.skin);
 			if (it == skins.end())
 			{
@@ -339,7 +344,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 		{
 			const auto position_it = primitive.attributes.find("POSITION");
 			if (position_it == primitive.attributes.end())
-				throw std::runtime_error("ResourceLoader: primitive is missing POSITION");
+				throw ResourceLoadError("ResourceLoader: primitive is missing POSITION");
 			const auto positions = GltfImport::read_vec3(model, position_it->second);
 			auto indices = GltfImport::read_indices(model, primitive, positions.size());
 			if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
@@ -355,9 +360,9 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				normals = GltfImport::generate_normals(positions, indices);
 			}
 			else
-				throw std::runtime_error("ResourceLoader: primitive is missing NORMAL");
+				throw ResourceLoadError("ResourceLoader: primitive is missing NORMAL");
 			if (positions.size() != normals.size())
-				throw std::runtime_error("ResourceLoader: POSITION and NORMAL counts differ");
+				throw ResourceLoadError("ResourceLoader: POSITION and NORMAL counts differ");
 
 			const auto material_ids = global_resource_loader.load_material(primitive, model);
 			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");
@@ -366,13 +371,13 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			const bool normal_mapped = primitive.material >= 0 &&
 				model.materials.at(primitive.material).normalTexture.index >= 0;
 			if (normal_mapped && !has_texcoords)
-				throw std::runtime_error("ResourceLoader: normal-mapped primitive is missing TEXCOORD_0");
+				throw ResourceLoadError("ResourceLoader: normal-mapped primitive is missing TEXCOORD_0");
 
 			auto texcoords = has_texcoords
 				? GltfImport::read_vec2(model, primitive.attributes.at("TEXCOORD_0"))
 				: std::vector<glm::vec2>(positions.size(), glm::vec2(0.0f));
 			if (texcoords.size() != positions.size())
-				throw std::runtime_error("ResourceLoader: POSITION and TEXCOORD_0 counts differ");
+				throw ResourceLoadError("ResourceLoader: POSITION and TEXCOORD_0 counts differ");
 
 			std::vector<glm::vec4> tangents(positions.size(), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 			std::optional<GltfImport::TangentRemap> tangent_remap;
@@ -382,7 +387,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				{
 					tangents = GltfImport::read_vec4(model, primitive.attributes.at("TANGENT"));
 					if (tangents.size() != positions.size())
-						throw std::runtime_error("ResourceLoader: POSITION and TANGENT counts differ");
+						throw ResourceLoadError("ResourceLoader: POSITION and TANGENT counts differ");
 					const bool tangents_valid = std::all_of(
 						tangents.begin(), tangents.end(), [](const glm::vec4& tangent)
 					{
@@ -394,7 +399,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					if (!tangents_valid)
 					{
 						if (!options.generate_missing_tangents)
-							throw std::runtime_error("ResourceLoader: primitive contains an invalid TANGENT");
+							throw ResourceLoadError("ResourceLoader: primitive contains an invalid TANGENT");
 						add_warning(result, options, "ResourceLoader: regenerated invalid tangents");
 						tangent_remap = GltfImport::generate_tangents(positions, normals, texcoords, indices);
 					}
@@ -408,7 +413,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					}
 				}
 				else if (!options.generate_missing_tangents)
-					throw std::runtime_error("ResourceLoader: normal-mapped primitive is missing TANGENT");
+					throw ResourceLoadError("ResourceLoader: normal-mapped primitive is missing TANGENT");
 				else
 				{
 					add_warning(result, options, "ResourceLoader: generated missing tangents");
@@ -420,12 +425,22 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			MeshPtr mesh;
 			if (skeleton.has_value())
 			{
+				const bool has_additional_joint_set = std::any_of(
+					primitive.attributes.begin(), primitive.attributes.end(), [](const auto& attribute)
+				{
+					const auto& semantic = attribute.first;
+					return (semantic.starts_with("JOINTS_") && semantic != "JOINTS_0")
+						|| (semantic.starts_with("WEIGHTS_") && semantic != "WEIGHTS_0");
+				});
+				if (has_additional_joint_set)
+					throw ResourceLoadError(
+						"ResourceLoader: skinned primitive exceeds the maximum of 4 bone influences per vertex");
 				if (!GltfImport::has_attribute(primitive, "JOINTS_0") || !GltfImport::has_attribute(primitive, "WEIGHTS_0"))
-					throw std::runtime_error("ResourceLoader: skinned primitive is missing JOINTS_0 or WEIGHTS_0");
+					throw ResourceLoadError("ResourceLoader: skinned primitive is missing JOINTS_0 or WEIGHTS_0");
 				auto joints = GltfImport::read_vec4(model, primitive.attributes.at("JOINTS_0"), false);
 				auto weights = GltfImport::read_vec4(model, primitive.attributes.at("WEIGHTS_0"));
 				if (texcoords.size() != positions.size() || joints.size() != positions.size() || weights.size() != positions.size())
-					throw std::runtime_error("ResourceLoader: skinned vertex attribute counts differ");
+					throw ResourceLoadError("ResourceLoader: skinned vertex attribute counts differ");
 				if (tangent_remap.has_value())
 				{
 					mesh = std::make_unique<SkinnedMesh>(
@@ -467,17 +482,10 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 		add_warning(result, options, "ResourceLoader: selected scene contains no mesh nodes");
 	return result;
 	}
-	catch (const ResourceLoadError&)
-	{
-		throw;
-	}
-	catch (const std::runtime_error& error)
-	{
-		throw ResourceLoadError(error.what());
-	}
 	catch (const std::out_of_range& error)
 	{
-		throw ResourceLoadError(error.what());
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: resource contains an invalid index: {}", error.what()));
 	}
 }
 
@@ -494,15 +502,14 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 {
 	try
 	{
-		if (!std::filesystem::exists(file_path))
-			file_path = Utility::get_animation(file_path.string());
+		file_path = resolve_resource_path(std::move(file_path), Utility::get_animation);
 
 		auto document = load_gltf_document(file_path);
 		const auto& model = document.model;
 		if (model.animations.empty())
-			throw std::runtime_error("ResourceLoader: animation file contains no animations");
+			throw ResourceLoadError("ResourceLoader: animation file contains no animations");
 		if (model.skins.empty())
-			throw std::runtime_error("ResourceLoader: animation file contains no skins");
+			throw ResourceLoadError("ResourceLoader: animation file contains no skins");
 
 		const auto& target_bones = ECS::get().get_skeletal_component(target_skeleton).get_bones();
 		const auto target_by_name = require_named_target_bones(target_bones);
@@ -518,14 +525,14 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 			}
 		}
 		if (compatible_skins.empty())
-			throw std::runtime_error("ResourceLoader: animation file has no skin compatible with the target skeleton");
+			throw ResourceLoadError("ResourceLoader: animation file has no skin compatible with the target skeleton");
 		if (compatible_skins.size() > 1)
-			throw std::runtime_error("ResourceLoader: animation file has multiple skins compatible with the target skeleton");
+			throw ResourceLoadError("ResourceLoader: animation file has multiple skins compatible with the target skeleton");
 
 		auto imported = import_animations(
 			model, target_bones, compatible_skins.front().first, compatible_skins.front().second);
 		if (imported.empty())
-			throw std::runtime_error("ResourceLoader: animation file contains no clips for the compatible skin");
+			throw ResourceLoadError("ResourceLoader: animation file contains no clips for the compatible skin");
 		LoadedAnimations result;
 		if (!document.warning.empty())
 			result.warnings.push_back({ document.warning });
@@ -541,16 +548,9 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 		}
 		return result;
 	}
-	catch (const ResourceLoadError&)
-	{
-		throw;
-	}
-	catch (const std::runtime_error& error)
-	{
-		throw ResourceLoadError(error.what());
-	}
 	catch (const std::out_of_range& error)
 	{
-		throw ResourceLoadError(error.what());
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: resource contains an invalid index: {}", error.what()));
 	}
 }

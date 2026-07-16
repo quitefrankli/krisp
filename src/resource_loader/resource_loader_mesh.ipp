@@ -23,7 +23,7 @@ inline size_t component_size(const int component_type)
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: return 2;
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
 		case TINYGLTF_COMPONENT_TYPE_FLOAT: return 4;
-		default: throw std::runtime_error("ResourceLoader: unsupported accessor component type");
+		default: throw ResourceLoadError("ResourceLoader: unsupported accessor component type");
 	}
 }
 
@@ -36,7 +36,7 @@ inline size_t component_count(const int type)
 		case TINYGLTF_TYPE_VEC3: return 3;
 		case TINYGLTF_TYPE_VEC4: return 4;
 		case TINYGLTF_TYPE_MAT4: return 16;
-		default: throw std::runtime_error("ResourceLoader: unsupported accessor type");
+		default: throw ResourceLoadError("ResourceLoader: unsupported accessor type");
 	}
 }
 
@@ -56,7 +56,7 @@ struct AccessorReader
 	static const tinygltf::BufferView& get_view(const tinygltf::Model& model, const tinygltf::Accessor& accessor)
 	{
 		if (accessor.bufferView < 0)
-			throw std::runtime_error("ResourceLoader: sparse accessors are not supported");
+			throw ResourceLoadError("ResourceLoader: sparse accessors are not supported");
 		return model.bufferViews.at(accessor.bufferView);
 	}
 
@@ -110,7 +110,7 @@ struct AccessorReader
 				float value; std::memcpy(&value, ptr, sizeof(value));
 				return value;
 			}
-			default: throw std::runtime_error("ResourceLoader: unsupported accessor component type");
+			default: throw ResourceLoadError("ResourceLoader: unsupported accessor component type");
 		}
 	}
 };
@@ -123,7 +123,7 @@ inline const tinygltf::Accessor& find_accessor(
 	const auto it = primitive.attributes.find(semantic);
 	if (it == primitive.attributes.end())
 	{
-		throw std::runtime_error(std::string("ResourceLoader: primitive is missing ") + semantic);
+		throw ResourceLoadError(std::string("ResourceLoader: primitive is missing ") + semantic);
 	}
 	return model.accessors.at(it->second);
 }
@@ -137,7 +137,7 @@ inline std::vector<glm::vec2> read_vec2(const tinygltf::Model& model, const int 
 {
 	AccessorReader reader(model, index);
 	if (reader.accessor.type != TINYGLTF_TYPE_VEC2)
-		throw std::runtime_error("ResourceLoader: expected a vec2 accessor");
+		throw ResourceLoadError("ResourceLoader: expected a vec2 accessor");
 	std::vector<glm::vec2> values(reader.accessor.count);
 	for (size_t i = 0; i < values.size(); ++i)
 		values[i] = { reader.number(i, 0), reader.number(i, 1) };
@@ -148,7 +148,7 @@ inline std::vector<glm::vec3> read_vec3(const tinygltf::Model& model, const int 
 {
 	AccessorReader reader(model, index);
 	if (reader.accessor.type != TINYGLTF_TYPE_VEC3)
-		throw std::runtime_error("ResourceLoader: expected a vec3 accessor");
+		throw ResourceLoadError("ResourceLoader: expected a vec3 accessor");
 	std::vector<glm::vec3> values(reader.accessor.count);
 	for (size_t i = 0; i < values.size(); ++i)
 		values[i] = { reader.number(i, 0), reader.number(i, 1), reader.number(i, 2) };
@@ -159,7 +159,7 @@ inline std::vector<glm::vec4> read_vec4(const tinygltf::Model& model, const int 
 {
 	AccessorReader reader(model, index);
 	if (reader.accessor.type != TINYGLTF_TYPE_VEC4)
-		throw std::runtime_error("ResourceLoader: expected a vec4 accessor");
+		throw ResourceLoadError("ResourceLoader: expected a vec4 accessor");
 	std::vector<glm::vec4> values(reader.accessor.count);
 	for (size_t i = 0; i < values.size(); ++i)
 		values[i] = { reader.number(i, 0, normalize), reader.number(i, 1, normalize),
@@ -178,7 +178,7 @@ inline std::vector<uint32_t> read_indices(const tinygltf::Model& model, const ti
 
 	AccessorReader reader(model, primitive.indices);
 	if (reader.accessor.type != TINYGLTF_TYPE_SCALAR)
-		throw std::runtime_error("ResourceLoader: index accessor must be scalar");
+		throw ResourceLoadError("ResourceLoader: index accessor must be scalar");
 	std::vector<uint32_t> indices(reader.accessor.count);
 	for (size_t i = 0; i < indices.size(); ++i)
 		indices[i] = static_cast<uint32_t>(reader.number(i, 0, false));
@@ -193,7 +193,7 @@ inline std::vector<uint32_t> triangles_from(
 	if (primitive.mode == TINYGLTF_MODE_TRIANGLES)
 		return indices;
 	if (!allow_non_triangles)
-		throw std::runtime_error("ResourceLoader: only triangle primitives are enabled");
+		throw ResourceLoadError("ResourceLoader: only triangle primitives are enabled");
 
 	std::vector<uint32_t> triangles;
 	if (primitive.mode == TINYGLTF_MODE_TRIANGLE_STRIP)
@@ -211,7 +211,7 @@ inline std::vector<uint32_t> triangles_from(
 			triangles.insert(triangles.end(), { indices[0], indices[i - 1], indices[i] });
 		return triangles;
 	}
-	throw std::runtime_error("ResourceLoader: primitive mode is not supported");
+	throw ResourceLoadError("ResourceLoader: primitive mode is not supported");
 }
 
 inline std::vector<glm::vec3> generate_normals(
@@ -329,9 +329,9 @@ inline TangentRemap generate_tangents(
 	const std::vector<uint32_t>& indices)
 {
 	if (indices.empty() || indices.size() % 3 != 0)
-		throw std::runtime_error("ResourceLoader: tangent generation requires triangle indices");
+		throw ResourceLoadError("ResourceLoader: tangent generation requires triangle indices");
 	if (positions.size() != normals.size() || positions.size() != texcoords.size())
-		throw std::runtime_error("ResourceLoader: tangent-generation attribute counts differ");
+		throw ResourceLoadError("ResourceLoader: tangent-generation attribute counts differ");
 
 	TangentGenerationInput input{ positions, normals, texcoords, indices,
 		std::vector<glm::vec4>(indices.size(), glm::vec4(0.0f)) };
@@ -344,7 +344,7 @@ inline TangentRemap generate_tangents(
 	interface.m_setTSpaceBasic = set_tangent;
 	SMikkTSpaceContext context{ &interface, &input };
 	if (!genTangSpaceDefault(&context))
-		throw std::runtime_error("ResourceLoader: MikkTSpace tangent generation failed");
+		throw ResourceLoadError("ResourceLoader: MikkTSpace tangent generation failed");
 
 	TangentRemap result;
 	result.indices.reserve(indices.size());
@@ -359,7 +359,7 @@ inline TangentRemap generate_tangents(
 			const auto normal = normals.at(indices[corner]);
 			if (!std::isfinite(normal.x) || !std::isfinite(normal.y) || !std::isfinite(normal.z) ||
 				glm::length(normal) < 0.00001f)
-				throw std::runtime_error("ResourceLoader: cannot generate a tangent from an invalid normal");
+				throw ResourceLoadError("ResourceLoader: cannot generate a tangent from an invalid normal");
 			const auto normalized_normal = glm::normalize(normal);
 			const auto fallback_axis = std::abs(normalized_normal.x) < 0.9f
 				? glm::vec3(1.0f, 0.0f, 0.0f)
