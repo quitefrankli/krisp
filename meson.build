@@ -10,6 +10,7 @@ add_project_arguments(
 	'-DGLM_FORCE_DEPTH_ZERO_TO_ONE', # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 	'-DQUILL_FMT_EXTERNAL=ON',
 	'-DGLM_ENABLE_EXPERIMENTAL',
+	'-std=gnu++20',
 	language: 'cpp')
 if get_option('buildtype') == 'debug'
 	add_project_arguments('-D_DEBUG', '-UNDEBUG', language: 'cpp')
