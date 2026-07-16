@@ -45,10 +45,12 @@ TEST(GuiPanel, manager_applies_saved_visibility_and_resets_defaults)
 
 	EXPECT_FALSE(manager.debug.is_visible());
 	EXPECT_TRUE(manager.photo.is_visible());
+	EXPECT_FALSE(manager.material_editor.is_visible());
 
 	manager.reset_panel_visibility();
 	EXPECT_TRUE(manager.debug.is_visible());
 	EXPECT_FALSE(manager.photo.is_visible());
+	EXPECT_FALSE(manager.material_editor.is_visible());
 }
 
 TEST(GuiPanel, dynamically_spawned_panels_restore_saved_visibility)

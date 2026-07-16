@@ -412,6 +412,30 @@ TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material
 	const auto second = ResourceLoader::fetch_texture(texture_path);
 
 	ASSERT_EQ(first, second);
+	EXPECT_GE(MaterialSystem::get_num_owners(first), 2);
+}
+
+TEST(ResourceLoaderTextures, caches_texture_variants_by_semantic_and_recovers_stale_entries)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(4, 4, 1, DXT5);
+	const auto& texture_path = dds.path;
+	const auto base_color = ResourceLoader::fetch_texture(
+		texture_path, ETextureSemantic::BASE_COLOR);
+	const auto normal = ResourceLoader::fetch_texture(
+		texture_path, ETextureSemantic::NORMAL);
+	EXPECT_NE(base_color, normal);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(MaterialSystem::get(base_color)).semantic,
+		ETextureSemantic::BASE_COLOR);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(MaterialSystem::get(normal)).semantic,
+		ETextureSemantic::NORMAL);
+
+	EXPECT_EQ(MaterialSystem::unregister_owner(base_color), 0);
+	EXPECT_FALSE(MaterialSystem::contains(base_color));
+	const auto reloaded = ResourceLoader::fetch_texture(
+		texture_path, ETextureSemantic::BASE_COLOR);
+	EXPECT_NE(reloaded, base_color);
+	EXPECT_EQ(MaterialSystem::get_num_owners(reloaded), 1);
 }
 
 TEST(ResourceLoaderTextures, loads_generated_bc3_dds_with_complete_mip_chain)

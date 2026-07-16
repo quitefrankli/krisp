@@ -25,4 +25,5 @@ class MaterialFactory
 {
 public:
 	static MaterialID fetch_preset(EMaterialPreset preset);
+	static MaterialID fetch_white_texture();
 };

@@ -359,6 +359,60 @@ void GameEngine::unhighlight_object(const Object& object)
 	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object));
 }
 
+void GameEngine::replace_renderable_texture(
+	const ObjectID object_id,
+	const size_t renderable_index,
+	const ETextureSemantic semantic,
+	std::optional<std::filesystem::path> texture_path)
+{
+	Object* object = get_object(object_id);
+	if (!object)
+		throw std::runtime_error("GameEngine::replace_renderable_texture: object not found");
+	if (renderable_index >= object->renderables.size())
+		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable index is out of range");
+	auto& renderable = object->renderables[renderable_index];
+	if (renderable.pipeline_render_type != ERenderType::STANDARD
+		&& renderable.pipeline_render_type != ERenderType::SKINNED)
+		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable does not support textures");
+
+	const TexturedMatGroup current(renderable.material_ids);
+	MaterialID diffuse = current.base_color_mat;
+	std::optional<MaterialID> normal = current.normal_mat;
+	const MaterialID replacement = texture_path
+		? ResourceLoader::fetch_texture(*texture_path, semantic)
+		: semantic == ETextureSemantic::BASE_COLOR
+			? MaterialFactory::fetch_white_texture()
+			: MaterialID{};
+	const std::optional<MaterialID> old = semantic == ETextureSemantic::BASE_COLOR
+		? std::optional<MaterialID>(diffuse) : normal;
+
+	if (old && *old == replacement)
+	{
+		if (texture_path)
+			MaterialSystem::unregister_owner(replacement);
+		return;
+	}
+
+	if (semantic == ETextureSemantic::BASE_COLOR)
+		diffuse = replacement;
+	else
+		normal = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
+
+	std::vector<MaterialID> retired_materials;
+	if (old && MaterialSystem::unregister_owner(*old) == 0)
+		retired_materials.push_back(*old);
+	renderable.material_ids = { diffuse };
+	if (normal)
+		renderable.material_ids.push_back(*normal);
+
+	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
+		object_id,
+		renderable_index,
+		diffuse,
+		normal,
+		std::move(retired_materials)));
+}
+
 
 GuiManager& GameEngine::get_gui_manager()
 {

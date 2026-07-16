@@ -28,6 +28,7 @@ public:
 
 	VkImageView get_texture_image_view() const { return texture_image_view; }
 	VkSampler get_texture_sampler() const { return texture_sampler; }
+	void set_texture_sampler(VkSampler sampler) { texture_sampler = sampler; }
 
 	uint32_t get_width() const { return dimensions.x; }
 	uint32_t get_height() const { return dimensions.y; }

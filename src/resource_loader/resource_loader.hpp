@@ -14,6 +14,7 @@
 #include <optional>
 #include <filesystem>
 #include <stdexcept>
+#include <array>
 
 
 class Object;
@@ -79,17 +80,21 @@ public:
 		std::vector<ImportWarning> warnings;
 	};
 
-	static MaterialID fetch_texture(std::filesystem::path file_path);
+	static MaterialID fetch_texture(
+		std::filesystem::path file_path,
+		ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
 	static LoadedModel load_model(std::filesystem::path file_path);
 	static LoadedModel load_model(std::filesystem::path file_path, const LoadOptions& options);
 	static LoadedAnimations load_animations(std::filesystem::path file_path, SkeletonID target_skeleton);
 
 private:
-	MaterialID load_texture(const std::filesystem::path& file_path);
+	MaterialID load_texture(
+		const std::filesystem::path& file_path,
+		ETextureSemantic semantic);
 	MatVec load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
 
 private:
-	std::unordered_map<std::string, MaterialID> texture_name_to_mat_id;
+	std::unordered_map<std::string, std::array<std::optional<MaterialID>, 2>> texture_name_to_mat_id;
 	std::unordered_map<int, MatVec> gltf_material_to_mat_ids;
 
 	static ResourceLoader global_resource_loader;

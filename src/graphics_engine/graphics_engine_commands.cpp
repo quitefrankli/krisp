@@ -71,3 +71,22 @@ void DestroyResourcesCmd::process(GraphicsEngineBase* engine)
 {
 	engine->handle_command(*this);
 }
+
+UpdateRenderableMaterialsCmd::UpdateRenderableMaterialsCmd(
+	const ObjectID object_id,
+	const size_t renderable_index,
+	const MaterialID diffuse_material,
+	const std::optional<MaterialID> normal_material,
+	std::vector<MaterialID> retired_materials) :
+	object_id(object_id),
+	renderable_index(renderable_index),
+	diffuse_material(diffuse_material),
+	normal_material(normal_material),
+	retired_materials(std::move(retired_materials))
+{
+}
+
+void UpdateRenderableMaterialsCmd::process(GraphicsEngineBase* engine)
+{
+	engine->handle_command(*this);
+}

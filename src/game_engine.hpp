@@ -95,6 +95,11 @@ public:
 	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
+	void replace_renderable_texture(
+		ObjectID object_id,
+		size_t renderable_index,
+		ETextureSemantic semantic,
+		std::optional<std::filesystem::path> texture_path);
 
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }

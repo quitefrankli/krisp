@@ -90,6 +90,7 @@ TextureMaterial load_dds_texture_data(
 	material.height = read_u32(12);
 	material.channels = 4;
 	material.format = ETextureFormat::BC3;
+	material.source = std::string(source);
 	if (material.width == 0 || material.height == 0)
 		throw std::runtime_error("ResourceLoader: DDS texture has invalid dimensions");
 
@@ -246,6 +247,7 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 				texture_material.channels = 4;
 				texture_material.data_len = rgba.size();
 				texture_material.semantic = semantic;
+				texture_material.source = image.uri.empty() ? image.name : image.uri;
 				texture_material.data = std::make_unique<RawTextureDataGLTF>(std::move(rgba));
 				return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(texture_material)));
 			};
@@ -276,7 +278,9 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 	return { MaterialFactory::fetch_preset(EMaterialPreset::PLASTIC) };
 }
 
-MaterialID ResourceLoader::load_texture(const std::filesystem::path& filename)
+MaterialID ResourceLoader::load_texture(
+	const std::filesystem::path& filename,
+	const ETextureSemantic semantic)
 {
 	if (!std::filesystem::exists(filename))
 	{
@@ -286,12 +290,16 @@ MaterialID ResourceLoader::load_texture(const std::filesystem::path& filename)
 	if (filename.extension() == ".dds")
 	{
 		auto material = load_dds_texture(filename);
-		const auto mat_id = MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
-		texture_name_to_mat_id[filename.string()] = mat_id;
+		material.semantic = semantic;
+		const auto mat_id = MaterialSystem::add(
+			std::make_unique<TextureMaterial>(std::move(material)), false);
+		texture_name_to_mat_id[filename.lexically_normal().string()][semantic == ETextureSemantic::NORMAL ? 1 : 0] = mat_id;
 		return mat_id;
 	}
 
 	TextureMaterial material;
+	material.semantic = semantic;
+	material.source = filename.lexically_normal().string();
 	const auto filename_str = filename.string();
 	material.data = std::make_unique<RawTextureDataSTB>(stbi_load(
 		filename_str.c_str(),
@@ -310,7 +318,8 @@ MaterialID ResourceLoader::load_texture(const std::filesystem::path& filename)
 	material.data_len = static_cast<size_t>(material.width) * material.height * material.channels;
 	material.mip_sizes = { material.data_len };
 
-	const auto mat_id = MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
-	texture_name_to_mat_id[filename_str] = mat_id;
+	const auto mat_id = MaterialSystem::add(
+		std::make_unique<TextureMaterial>(std::move(material)), false);
+	texture_name_to_mat_id[filename.lexically_normal().string()][semantic == ETextureSemantic::NORMAL ? 1 : 0] = mat_id;
 	return mat_id;
 }

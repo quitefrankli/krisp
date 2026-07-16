@@ -184,6 +184,7 @@ public: // commands
 	void handle_command(UpdateRayTracingCmd& cmd) final;
 	void handle_command(PreviewObjectsCmd& cmd) final;
 	void handle_command(DestroyResourcesCmd& cmd) final;
+	void handle_command(UpdateRenderableMaterialsCmd& cmd) final;
 
 private:
 	void spawn_object_create_buffers(GraphicsEngineObject& obj);

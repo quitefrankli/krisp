@@ -74,7 +74,9 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 {
 	if (texture_units.contains(id))
 	{
-		return texture_units.at(id);
+		auto& texture = texture_units.at(id);
+		texture.set_texture_sampler(fetch_sampler(sampler_type));
+		return texture;
 	}
 
 	const auto& material = static_cast<TextureMaterial&>(MaterialSystem::get(id));

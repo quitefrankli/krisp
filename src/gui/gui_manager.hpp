@@ -23,7 +23,8 @@ public:
 		debug(spawn_gui<GuiDebug>()),
 		photo(spawn_gui<GuiPhoto>()),
 		render_slicer(spawn_gui<GuiRenderSlicer>()),
-		animation_selector(spawn_gui<GuiAnimationSelector>())
+		animation_selector(spawn_gui<GuiAnimationSelector>()),
+		material_editor(spawn_gui<GuiMaterialEditor>())
 	{
 	}
 
@@ -75,6 +76,7 @@ public:
 	GuiPhoto& photo;
 	GuiRenderSlicer& render_slicer;
 	GuiAnimationSelector& animation_selector;
+	GuiMaterialEditor& material_editor;
 
 public: // for GameEngine
 	void process(GameEngine& engine)

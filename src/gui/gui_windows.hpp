@@ -15,6 +15,7 @@
 
 
 class GameEngine;
+enum class ETextureSemantic;
 
 enum class GuiPanelDock
 {
@@ -350,4 +351,43 @@ private:
 	std::optional<std::string> load_error;
 	bool loop = false;
 	bool should_play = false;
+};
+
+class GuiMaterialEditor : public GuiWindow
+{
+public:
+	GuiMaterialEditor();
+	void process(GameEngine& engine) override;
+	void draw() override;
+
+private:
+	struct TextureChange
+	{
+		ObjectID object_id;
+		size_t renderable_index;
+		ETextureSemantic semantic;
+		std::optional<std::filesystem::path> path;
+	};
+
+	void refresh_textures();
+	void draw_texture_section(
+		const char* title,
+		ETextureSemantic semantic,
+		const std::string& current_label,
+		bool& dropdown_was_open);
+
+	std::vector<std::filesystem::path> texture_paths;
+	std::vector<std::string> texture_names;
+	std::vector<std::string> renderable_labels;
+	GuiVar<int> selected_renderable = 0;
+	std::optional<ObjectID> target_object;
+	std::optional<TextureChange> pending_change;
+	std::optional<std::string> load_error;
+	std::string target_status = "Select an object";
+	std::string diffuse_label = "(none)";
+	std::string normal_label = "(none)";
+	bool compatible = false;
+	bool should_refresh_textures = false;
+	bool diffuse_dropdown_open = false;
+	bool normal_dropdown_open = false;
 };

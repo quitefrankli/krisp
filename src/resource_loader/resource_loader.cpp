@@ -20,7 +20,9 @@
 
 ResourceLoader ResourceLoader::global_resource_loader;
 
-MaterialID ResourceLoader::fetch_texture(std::filesystem::path file_path)
+MaterialID ResourceLoader::fetch_texture(
+	std::filesystem::path file_path,
+	const ETextureSemantic semantic)
 {
 	try
 	{
@@ -28,10 +30,18 @@ MaterialID ResourceLoader::fetch_texture(std::filesystem::path file_path)
 			file_path = Utility::get_texture(file_path.string());
 
 		const auto file_str = file_path.lexically_normal().string();
-		if (global_resource_loader.texture_name_to_mat_id.contains(file_str))
-			return global_resource_loader.texture_name_to_mat_id.at(file_str);
+		const size_t semantic_index = semantic == ETextureSemantic::NORMAL ? 1 : 0;
+		auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
+		if (cached && MaterialSystem::contains(*cached))
+		{
+			MaterialSystem::register_owner(*cached);
+			return *cached;
+		}
+		cached.reset();
 
-		return global_resource_loader.load_texture(file_path);
+		const auto material_id = global_resource_loader.load_texture(file_path, semantic);
+		MaterialSystem::register_owner(material_id);
+		return material_id;
 	}
 	catch (const ResourceLoadError&)
 	{

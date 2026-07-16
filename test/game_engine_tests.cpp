@@ -15,6 +15,15 @@
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
 {
 public:
+	struct MaterialUpdate
+	{
+		ObjectID object_id;
+		size_t renderable_index;
+		MaterialID diffuse;
+		std::optional<MaterialID> normal;
+		std::vector<MaterialID> retired;
+	};
+
 	virtual void handle_command(DestroyResourcesCmd& cmd) override
 	{
 		for (const auto& mesh_id : cmd.mesh_ids)
@@ -26,9 +35,20 @@ public:
 			materials_to_destroy.push_back(material_id);
 		}
 	}
+	void handle_command(UpdateRenderableMaterialsCmd& cmd) override
+	{
+		material_updates.push_back({
+			cmd.object_id,
+			cmd.renderable_index,
+			cmd.diffuse_material,
+			cmd.normal_material,
+			cmd.retired_materials,
+		});
+	}
 
 	std::vector<MeshID> meshes_to_destroy;
 	std::vector<MaterialID> materials_to_destroy;
+	std::vector<MaterialUpdate> material_updates;
 };
 
 class TestableGameEngine : public GameEngine
@@ -172,4 +192,95 @@ TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 
 	engine.delete_object(object.get_id());
 	EXPECT_NO_THROW(engine.main_loop(0.1f));
+}
+
+TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slots)
+{
+	const auto old_diffuse = ResourceLoader::fetch_texture("texture5.jpg");
+	const auto old_normal = ResourceLoader::fetch_texture(
+		"texture6.jpg", ETextureSemantic::NORMAL);
+	Renderable first;
+	first.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
+	first.material_ids = { old_diffuse, old_normal };
+	first.pipeline_render_type = ERenderType::STANDARD;
+	Renderable second = first;
+	MaterialSystem::register_owner(old_diffuse);
+	MaterialSystem::register_owner(old_normal);
+	auto& object = engine.spawn_object<Object>(std::vector<Renderable>{ first, second });
+	const auto old_diffuse_owners = MaterialSystem::get_num_owners(old_diffuse);
+	engine.replace_renderable_texture(
+		object.get_id(), 0, ETextureSemantic::BASE_COLOR, Utility::get_texture("texture5.jpg"));
+	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
+	EXPECT_EQ(MaterialSystem::get_num_owners(old_diffuse), old_diffuse_owners);
+
+	engine.replace_renderable_texture(
+		object.get_id(), 1, ETextureSemantic::BASE_COLOR, Utility::get_texture("texture4.png"));
+
+	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
+	const auto& update = get_mock_gfx().material_updates[0];
+	EXPECT_EQ(update.object_id, object.get_id());
+	EXPECT_EQ(update.renderable_index, 1);
+	EXPECT_EQ(update.normal, old_normal);
+	EXPECT_TRUE(update.retired.empty());
+	EXPECT_EQ(object.renderables[0].material_ids, (MatVec{ old_diffuse, old_normal }));
+	ASSERT_EQ(object.renderables[1].material_ids.size(), 2);
+	EXPECT_EQ(object.renderables[1].material_ids[0], update.diffuse);
+	EXPECT_EQ(object.renderables[1].material_ids[1], old_normal);
+	EXPECT_NE(update.diffuse, old_diffuse);
+	const auto& replacement = dynamic_cast<const TextureMaterial&>(MaterialSystem::get(update.diffuse));
+	EXPECT_EQ(replacement.semantic, ETextureSemantic::BASE_COLOR);
+}
+
+TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
+{
+	const auto diffuse = ResourceLoader::fetch_texture("texture2.jpg");
+	const auto normal = ResourceLoader::fetch_texture("texture3.jpg", ETextureSemantic::NORMAL);
+	Renderable renderable;
+	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
+	renderable.material_ids = { diffuse, normal };
+	renderable.pipeline_render_type = ERenderType::STANDARD;
+	auto& object = engine.spawn_object<Object>(renderable);
+
+	engine.replace_renderable_texture(
+		object.get_id(), 0, ETextureSemantic::NORMAL, std::nullopt);
+	ASSERT_EQ(object.renderables[0].material_ids, (MatVec{ diffuse }));
+	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
+	EXPECT_FALSE(get_mock_gfx().material_updates[0].normal);
+	EXPECT_EQ(get_mock_gfx().material_updates[0].retired, (MatVec{ normal }));
+	EXPECT_FALSE(MaterialSystem::contains(normal));
+
+	engine.replace_renderable_texture(
+		object.get_id(), 0, ETextureSemantic::BASE_COLOR, std::nullopt);
+	const auto white = MaterialFactory::fetch_white_texture();
+	EXPECT_EQ(object.renderables[0].material_ids, (MatVec{ white }));
+	ASSERT_EQ(get_mock_gfx().material_updates.size(), 2);
+	EXPECT_EQ(get_mock_gfx().material_updates[1].diffuse, white);
+	EXPECT_EQ(get_mock_gfx().material_updates[1].retired, (MatVec{ diffuse }));
+	EXPECT_FALSE(MaterialSystem::contains(diffuse));
+}
+
+TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
+{
+	const auto material = ResourceLoader::fetch_texture("texture1.jpg");
+	Renderable textured;
+	textured.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
+	textured.material_ids = { material };
+	textured.pipeline_render_type = ERenderType::STANDARD;
+	auto& object = engine.spawn_object<Object>(textured);
+	const auto original = object.renderables[0].material_ids;
+
+	EXPECT_THROW(engine.replace_renderable_texture(
+		object.get_id(), 1, ETextureSemantic::BASE_COLOR, std::nullopt), std::runtime_error);
+	EXPECT_THROW(engine.replace_renderable_texture(
+		object.get_id(), 0, ETextureSemantic::BASE_COLOR,
+		Utility::get_top_level_path()/"test/data/does_not_exist.png"), ResourceLoadError);
+	EXPECT_EQ(object.renderables[0].material_ids, original);
+	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
+
+	Renderable colour = Renderable::make_default(
+		MeshFactory::cube_id(MeshFactory::EVertexType::COLOR));
+	auto& colour_object = engine.spawn_object<Object>(colour);
+	EXPECT_THROW(engine.replace_renderable_texture(
+		colour_object.get_id(), 0, ETextureSemantic::BASE_COLOR, std::nullopt), std::runtime_error);
+	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
 }

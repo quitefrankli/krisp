@@ -304,7 +304,7 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
 		texture_mat_id, 
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
-	MaterialSystem::register_owner(texture_mat_id); // there's a memory leak here, we need to unregister the owner
+	// TODO: release the acquired material owner when this ImGui texture is replaced.
 	
 	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
 	// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples

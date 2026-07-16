@@ -49,6 +49,11 @@ public:
 		return get_global()._get_num_owners(id);
 	}
 
+	static bool contains(IDType id)
+	{
+		return get_global().contents.contains(id);
+	}
+
 	// returns the new owner count
 	static uint32_t register_owner(IDType id)
 	{

@@ -3,6 +3,7 @@
 #include "identifications.hpp"
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 
@@ -90,4 +91,21 @@ struct DestroyResourcesCmd : public GraphicsEngineCommand
 	// std::vector<ObjectID> object_ids; // not needed for now
 	std::vector<MaterialID> material_ids;
 	std::vector<MeshID> mesh_ids;
+};
+
+struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand
+{
+	UpdateRenderableMaterialsCmd(
+		ObjectID object_id,
+		size_t renderable_index,
+		MaterialID diffuse_material,
+		std::optional<MaterialID> normal_material,
+		std::vector<MaterialID> retired_materials);
+	void process(GraphicsEngineBase* engine) override;
+
+	ObjectID object_id;
+	size_t renderable_index;
+	MaterialID diffuse_material;
+	std::optional<MaterialID> normal_material;
+	std::vector<MaterialID> retired_materials;
 };

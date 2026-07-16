@@ -65,6 +65,7 @@ struct TextureMaterial : public Material
 	uint32_t channels = 4; 
 	ETextureFormat format = ETextureFormat::RGBA8;
 	std::vector<size_t> mip_sizes;
+	std::string source;
 	uint32_t texture_id = 0;
 	ETextureSemantic semantic = ETextureSemantic::BASE_COLOR;
 };
