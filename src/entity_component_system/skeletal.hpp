@@ -24,15 +24,42 @@ struct Bone
 
 struct BoneAnimation
 {
+	enum class Interpolation
+	{
+		LINEAR,
+		STEP,
+		CUBIC_SPLINE,
+	};
+
+	template<typename T>
+	struct TrackKey
+	{
+		float animation_stage_secs = 0.0f;
+		T value{};
+		T in_tangent{};
+		T out_tangent{};
+	};
+
+	template<typename T>
+	struct Track
+	{
+		Interpolation interpolation = Interpolation::LINEAR;
+		std::vector<TrackKey<T>> keys;
+	};
+
 	struct KeyFrame 
 	{
 		Maths::Transform transform;
 		float animation_stage_secs;
 	};
 
-	float animation_start_secs = std::numeric_limits<float>::max();;
-	float animation_end_secs = std::numeric_limits<float>::min();;
+	float animation_start_secs = std::numeric_limits<float>::max();
+	float animation_end_secs = std::numeric_limits<float>::lowest();
 	std::vector<KeyFrame> key_frames;
+	Maths::Transform base_transform;
+	Track<glm::vec3> translation_track;
+	Track<glm::vec4> rotation_track;
+	Track<glm::vec3> scale_track;
 
 	// returns false if animation_stage_secs is out of range
 	bool get_transform(const float animation_stage_secs, Maths::Transform& out_transform) const;

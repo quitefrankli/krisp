@@ -170,7 +170,7 @@ std::vector<VkVertexInputBindingDescription> StencilPipeline<SkinnedPipeline>::g
 
 std::vector<VkVertexInputAttributeDescription> StencilPipeline<SkinnedPipeline>::get_attribute_descriptions() const
 {
-	return SkinnedPipeline::get_attribute_descriptions_();
+	return SkinnedPipeline::get_skinning_attribute_descriptions_();
 }
 
 VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline::get_depth_stencil_create_info() const
@@ -228,7 +228,7 @@ std::vector<VkVertexInputBindingDescription> WireframePipeline<SkinnedPipeline>:
 
 std::vector<VkVertexInputAttributeDescription> WireframePipeline<SkinnedPipeline>::get_attribute_descriptions() const
 {
-	return SkinnedPipeline::get_attribute_descriptions_();
+	return SkinnedPipeline::get_skinning_attribute_descriptions_();
 }
 
 void RaytracingPipeline::initialise()
@@ -382,6 +382,12 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_de
 	return {position_attr, texCoord_attr, normal_attr, bone_ids_attr, bone_weights_attr, tangent_attr};
 }
 
+std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_skinning_attribute_descriptions_()
+{
+	const auto attributes = get_attribute_descriptions_();
+	return { attributes[0], attributes[3], attributes[4] };
+}
+
 std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const
 {
 	return get_binding_descriptions_();
@@ -457,7 +463,7 @@ std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<SkinnedPipeline>:
 
 std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<SkinnedPipeline>::get_attribute_descriptions() const
 {
-	return SkinnedPipeline::get_attribute_descriptions_();
+	return SkinnedPipeline::get_skinning_attribute_descriptions_();
 }
 
 VkRenderPass QuadPipeline::get_render_pass()

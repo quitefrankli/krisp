@@ -7,6 +7,51 @@
 #include <functional>
 
 
+namespace
+{
+template<typename T>
+T cubic_spline(
+	const BoneAnimation::TrackKey<T>& first,
+	const BoneAnimation::TrackKey<T>& second,
+	const float t)
+{
+	const float duration = second.animation_stage_secs - first.animation_stage_secs;
+	const float t2 = t * t;
+	const float t3 = t2 * t;
+	return (2.0f * t3 - 3.0f * t2 + 1.0f) * first.value
+		+ (t3 - 2.0f * t2 + t) * duration * first.out_tangent
+		+ (-2.0f * t3 + 3.0f * t2) * second.value
+		+ (t3 - t2) * duration * second.in_tangent;
+}
+
+template<typename T, typename LinearInterpolator>
+T evaluate_track(
+	const BoneAnimation::Track<T>& track,
+	const float animation_stage_secs,
+	LinearInterpolator linear_interpolator)
+{
+	if (track.keys.size() == 1 || animation_stage_secs <= track.keys.front().animation_stage_secs)
+		return track.keys.front().value;
+	if (animation_stage_secs >= track.keys.back().animation_stage_secs)
+		return track.keys.back().value;
+
+	auto second = std::upper_bound(
+		track.keys.begin(), track.keys.end(), animation_stage_secs,
+		[](const float time, const auto& key){ return time < key.animation_stage_secs; });
+	const auto& first_key = *(second - 1);
+	const auto& second_key = *second;
+	if (track.interpolation == BoneAnimation::Interpolation::STEP)
+		return first_key.value;
+
+	const float duration = second_key.animation_stage_secs - first_key.animation_stage_secs;
+	const float t = (animation_stage_secs - first_key.animation_stage_secs) / duration;
+	if (track.interpolation == BoneAnimation::Interpolation::CUBIC_SPLINE)
+		return cubic_spline(first_key, second_key, t);
+	return linear_interpolator(first_key.value, second_key.value, t);
+}
+}
+
+
 std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 {
 	std::vector<SDS::Bone> final_bones_data(bones.size());
@@ -44,6 +89,38 @@ std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 
 bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Transform& out_transform) const
 {
+	const bool has_tracks = !translation_track.keys.empty() || !rotation_track.keys.empty() || !scale_track.keys.empty();
+	if (has_tracks)
+	{
+		if (animation_stage_secs > animation_end_secs)
+			return false;
+
+		out_transform = base_transform;
+		if (!translation_track.keys.empty())
+		{
+			out_transform.set_pos(evaluate_track(translation_track, animation_stage_secs,
+				[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
+		}
+		if (!rotation_track.keys.empty())
+		{
+			const glm::vec4 value = evaluate_track(rotation_track, animation_stage_secs,
+				[](const glm::vec4& a, const glm::vec4& b, const float t)
+				{
+					const glm::quat first(a.w, a.x, a.y, a.z);
+					const glm::quat second(b.w, b.x, b.y, b.z);
+					const glm::quat result = glm::slerp(first, second, t);
+					return glm::vec4(result.x, result.y, result.z, result.w);
+				});
+			out_transform.set_orient(glm::normalize(glm::quat(value.w, value.x, value.y, value.z)));
+		}
+		if (!scale_track.keys.empty())
+		{
+			out_transform.set_scale(evaluate_track(scale_track, animation_stage_secs,
+				[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
+		}
+		return true;
+	}
+
 	if (key_frames.empty())
 	{
 		return false;

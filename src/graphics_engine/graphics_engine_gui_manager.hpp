@@ -11,6 +11,8 @@
 
 #include <imgui.h>
 
+#include <string>
+
 
 class GraphicsEngineGuiManager : public GraphicsEngineBaseModule, public GuiManager
 {
@@ -38,6 +40,7 @@ public:
 
 private:
 	bool reset_layout_requested = false;
+	std::string imgui_ini_path;
 
 	using GuiManager::gui_windows;
 	using GuiManager::graphic_settings;

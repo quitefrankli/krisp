@@ -10,6 +10,7 @@
 #include <fmt/core.h>
 
 #include <ctime>
+#include <cstdlib>
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -95,6 +96,26 @@ std::filesystem::path Utility::get_config_path(std::string_view filename)
 		return app_config;
 	}
 	return get().top_level_dir / "configs" / filename;
+}
+
+std::filesystem::path Utility::get_user_config_path(std::string_view filename)
+{
+	std::filesystem::path config_root;
+	if (const char* xdg_config_home = std::getenv("XDG_CONFIG_HOME");
+		xdg_config_home && *xdg_config_home)
+	{
+		config_root = xdg_config_home;
+	}
+	else if (const char* home = std::getenv("HOME"); home && *home)
+	{
+		config_root = std::filesystem::path(home) / ".config";
+	}
+	else
+	{
+		config_root = std::filesystem::temp_directory_path();
+	}
+
+	return config_root / "krisp" / Config::get_project_name() / filename;
 }
 
 std::filesystem::path Utility::get_rsrc_path(bool use_default)

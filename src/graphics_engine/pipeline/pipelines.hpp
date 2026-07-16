@@ -77,6 +77,7 @@ public:
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::SkinnedVertex, pos); }
 	static std::vector<VkVertexInputBindingDescription> get_binding_descriptions_();
 	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions_();
+	static std::vector<VkVertexInputAttributeDescription> get_skinning_attribute_descriptions_();
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "skinned"; }

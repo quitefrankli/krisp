@@ -52,7 +52,6 @@ TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
 	EXPECT_THROW(ResourceLoader::fetch_texture(missing_texture), ResourceLoadError);
 }
 
-
 // test loading .gltf file with bones into std::vector<Bone>
 TEST_F(ResourceLoaderECS, load_bones)
 {
@@ -98,6 +97,9 @@ TEST_F(ResourceLoaderECS, animations)
 	ASSERT_EQ(model.animations.size(), 1);
 	std::vector<BoneAnimation> bone_animations = ECS::get().get_skeletal_animations().at(model.animations[0]).bone_animations;
 	ASSERT_EQ(bone_animations.size(), 5);
+	ASSERT_EQ(
+		bone_animations[0].translation_track.interpolation,
+		BoneAnimation::Interpolation::STEP);
 	for (const auto& bone_animation : bone_animations)
 	{
 		ASSERT_EQ(bone_animation.key_frames.size(), 4);
@@ -167,6 +169,33 @@ TEST_F(ResourceLoaderECS, animations)
 	// left bone
 	ASSERT_TRUE(pos_checker(bone_animations[4], Maths::up_vec));
 	ASSERT_TRUE(quat_checker(bone_animations[4], glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
+}
+
+TEST(BoneAnimationInterpolation, step_holds_and_cubic_spline_uses_tangents)
+{
+	BoneAnimation animation;
+	animation.animation_start_secs = 0.0f;
+	animation.animation_end_secs = 1.0f;
+	animation.base_transform.set_scale(glm::vec3(1.0f));
+	animation.translation_track.interpolation = BoneAnimation::Interpolation::CUBIC_SPLINE;
+	animation.translation_track.keys = {
+		{ 0.0f, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(2.0f, 0.0f, 0.0f) },
+		{ 1.0f, glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f) },
+	};
+	animation.scale_track.interpolation = BoneAnimation::Interpolation::STEP;
+	animation.scale_track.keys = {
+		{ 0.0f, glm::vec3(1.0f), glm::vec3(0.0f), glm::vec3(0.0f) },
+		{ 1.0f, glm::vec3(3.0f), glm::vec3(0.0f), glm::vec3(0.0f) },
+	};
+
+	Maths::Transform result;
+	ASSERT_TRUE(animation.get_transform(0.5f, result));
+	EXPECT_TRUE(glm_equal(result.get_pos(), glm::vec3(1.25f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(result.get_scale(), glm::vec3(1.0f)));
+
+	ASSERT_TRUE(animation.get_transform(1.0f, result));
+	EXPECT_TRUE(glm_equal(result.get_pos(), glm::vec3(2.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(result.get_scale(), glm::vec3(3.0f)));
 }
 
 TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material_id)

@@ -19,16 +19,33 @@ struct TempKeyFrame
 
 using TKFS = std::map<float, TempKeyFrame>;
 
-std::vector<std::pair<glm::vec4, float>> get_sampler_data(
+struct SamplerKey
+{
+	glm::vec4 value{0.0f};
+	glm::vec4 in_tangent{0.0f};
+	glm::vec4 out_tangent{0.0f};
+	float time = 0.0f;
+};
+
+struct SamplerData
+{
+	BoneAnimation::Interpolation interpolation = BoneAnimation::Interpolation::LINEAR;
+	std::vector<SamplerKey> keys;
+};
+
+SamplerData get_sampler_data(
 	const tinygltf::Model& model, 
 	const tinygltf::AnimationSampler& sampler)
 {
-	std::vector<std::pair<glm::vec4, float>> retval;
-
-	if (sampler.interpolation != "LINEAR")
-	{
-		throw std::runtime_error("ResourceLoader: only LINEAR interpolation is supported");
-	}
+	SamplerData retval;
+	if (sampler.interpolation.empty() || sampler.interpolation == "LINEAR")
+		retval.interpolation = BoneAnimation::Interpolation::LINEAR;
+	else if (sampler.interpolation == "STEP")
+		retval.interpolation = BoneAnimation::Interpolation::STEP;
+	else if (sampler.interpolation == "CUBICSPLINE")
+		retval.interpolation = BoneAnimation::Interpolation::CUBIC_SPLINE;
+	else
+		throw std::runtime_error("ResourceLoader: unsupported animation interpolation '" + sampler.interpolation + "'");
 
 	if (sampler.input < 0 || sampler.input >= model.accessors.size())
 	{
@@ -48,27 +65,39 @@ std::vector<std::pair<glm::vec4, float>> get_sampler_data(
 	if (output_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT || 
 		(output_accessor.type != TINYGLTF_TYPE_VEC3 && output_accessor.type != TINYGLTF_TYPE_VEC4))
 	{
-		throw std::runtime_error("ResourceLoader: only float vec3 output accessors are supported");
+		throw std::runtime_error("ResourceLoader: only float vec3 and vec4 output accessors are supported");
 	}
 
 	GltfImport::AccessorReader input_reader(model, sampler.input);
 	GltfImport::AccessorReader output_reader(model, sampler.output);
-	if (input_accesor.count != output_accessor.count)
-		throw std::runtime_error("ResourceLoader: animation input and output counts differ");
+	const size_t outputs_per_key = retval.interpolation == BoneAnimation::Interpolation::CUBIC_SPLINE ? 3 : 1;
+	if (output_accessor.count != input_accesor.count * outputs_per_key)
+		throw std::runtime_error("ResourceLoader: animation output count does not match its interpolation mode");
 
-	retval.reserve(input_accesor.count);
+	retval.keys.reserve(input_accesor.count);
+	const auto read_value = [&](const size_t index)
+	{
+		glm::vec4 value(0.0f);
+		const size_t components = output_accessor.type == TINYGLTF_TYPE_VEC3 ? 3 : 4;
+		for (size_t component = 0; component < components; ++component)
+			value[component] = output_reader.number(index, component);
+		return value;
+	};
 	for (size_t i = 0; i < input_accesor.count; ++i)
 	{
-		if (output_accessor.type == TINYGLTF_TYPE_VEC3)
+		SamplerKey key;
+		key.time = input_reader.number(i, 0);
+		if (retval.interpolation == BoneAnimation::Interpolation::CUBIC_SPLINE)
 		{
-			retval.push_back({ glm::vec4(output_reader.number(i, 0), output_reader.number(i, 1), output_reader.number(i, 2), 1.0f), input_reader.number(i, 0) });
-		} else
-		{
-			retval.push_back({
-				glm::vec4(output_reader.number(i, 0), output_reader.number(i, 1), output_reader.number(i, 2), output_reader.number(i, 3)),
-				input_reader.number(i, 0)
-			});
+			key.in_tangent = read_value(i * 3);
+			key.value = read_value(i * 3 + 1);
+			key.out_tangent = read_value(i * 3 + 2);
 		}
+		else
+		{
+			key.value = read_value(i);
+		}
+		retval.keys.push_back(key);
 	}
 
 	return retval;
@@ -96,6 +125,7 @@ static std::vector<AnimationID> load_animations(
 	{	
 		// An animation represents a collection of BoneAnimations, each of which is a collection of keyframes
 		std::vector<TKFS> bone_tkfss(skin.joints.size());
+		std::vector<BoneAnimation> new_bone_animations(skin.joints.size());
 
 		for (const auto& channel : animation.channels)
 		{
@@ -117,32 +147,50 @@ static std::vector<AnimationID> load_animations(
 			}
 			const auto joint_idx = node_it->second;
 			auto& bone_tkfs = bone_tkfss[joint_idx];
+			if (channel.sampler < 0 || channel.sampler >= animation.samplers.size())
+				throw std::runtime_error("ResourceLoader: invalid animation sampler");
 
 			auto sampler_data = get_sampler_data(model, animation.samplers[channel.sampler]);
-			for (auto& data : sampler_data)
+			auto& bone_animation = new_bone_animations[joint_idx];
+			for (const auto& data : sampler_data.keys)
 			{
-				auto& tkf = bone_tkfs.emplace(data.second, TempKeyFrame{}).first->second;
+				auto& tkf = bone_tkfs.emplace(data.time, TempKeyFrame{}).first->second;
 				
 				if (channel.target_path == "rotation")
 				{
-					tkf.orient = glm::quat(data.first.w, data.first.x, data.first.y, data.first.z);
+					tkf.orient = glm::quat(data.value.w, data.value.x, data.value.y, data.value.z);
 				} else if (channel.target_path == "translation")
 				{
-					tkf.pos = glm::vec3(data.first);
+					tkf.pos = glm::vec3(data.value);
 				} else if (channel.target_path == "scale")
 				{
-					tkf.scale = glm::vec3(data.first);
+					tkf.scale = glm::vec3(data.value);
 				}
+			}
+
+			if (channel.target_path == "rotation")
+			{
+				bone_animation.rotation_track.interpolation = sampler_data.interpolation;
+				for (const auto& key : sampler_data.keys)
+					bone_animation.rotation_track.keys.push_back({ key.time, key.value, key.in_tangent, key.out_tangent });
+			}
+			else
+			{
+				auto& track = channel.target_path == "translation"
+					? bone_animation.translation_track : bone_animation.scale_track;
+				track.interpolation = sampler_data.interpolation;
+				for (const auto& key : sampler_data.keys)
+					track.keys.push_back({ key.time, glm::vec3(key.value), glm::vec3(key.in_tangent), glm::vec3(key.out_tangent) });
 			}
 		}
 
 		// convert temporary key frames to proper key frames
-		std::vector<BoneAnimation> new_bone_animations;
 		for (int bone_idx = 0; bone_idx < bone_tkfss.size(); bone_idx++)
 		{
 			const auto& inital_bone = initial_bones.at(bone_idx);
 			auto& bone_tkfs = bone_tkfss[bone_idx];
-			auto& new_bone_animation = new_bone_animations.emplace_back();
+			auto& new_bone_animation = new_bone_animations[bone_idx];
+			new_bone_animation.base_transform = inital_bone.relative_transform;
 			for (auto& [timestamp, tkf] : bone_tkfs)
 			{
 				BoneAnimation::KeyFrame new_key_frame;

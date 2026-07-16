@@ -99,7 +99,7 @@ public:
 	// 100 is here to get around the min uniform buffer alignment requirement
 	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData) * CSTS::UPPERBOUND_SWAPCHAIN_IMAGES * 100;
 	static constexpr size_t MAPPING_BUFFER_CAPACITY = sizeof(SDS::BufferMapEntry) * NUM_EXPECTED_OBJECTS * 10;
-	static constexpr size_t BONE_BUFFER_CAPACITY = sizeof(SDS::Bone) * 500 * NUM_EXPECTED_FRAMES;
+	static constexpr size_t BONE_BUFFER_CAPACITY = sizeof(SDS::Bone) * 1e6 * NUM_EXPECTED_FRAMES;
 	static constexpr size_t INITIAL_STAGING_BUFFER_CAPACITY = 1e4; // staging buffer capacity dynamically grows
 
 private:

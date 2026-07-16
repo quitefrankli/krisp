@@ -27,6 +27,9 @@ GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
 
 GraphicsEngineGuiManager::~GraphicsEngineGuiManager()
 {
+	// Persist immediately on orderly shutdown, including sessions shorter than
+	// ImGui's periodic settings-save interval.
+	ImGui::SaveIniSettingsToDisk(imgui_ini_path.c_str());
 	ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -189,8 +192,11 @@ void GraphicsEngineGuiManager::setup_imgui()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-	static const std::string configs_path = Utility::get_config_path("imgui.ini").string();
-	io.IniFilename = configs_path.c_str();
+	const auto config_path = Utility::get_user_config_path("imgui.ini");
+	std::filesystem::create_directories(config_path.parent_path());
+	imgui_ini_path = config_path.string();
+	io.IniFilename = imgui_ini_path.c_str();
+	ImGui::LoadIniSettingsFromDisk(io.IniFilename);
 	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window().get_glfw_window(), true);
 	
 	ImGui_ImplVulkan_InitInfo init_info{};
