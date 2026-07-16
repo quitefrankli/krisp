@@ -723,40 +723,21 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				normal_sampler_descriptor.pImageInfo = &normal_image_info;
 				descriptor_writes.push_back(normal_sampler_descriptor);
 
-				VkDescriptorImageInfo specular_strength_info{};
-				specular_strength_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const GraphicsEngineTexture& specular_strength_texture =
-					textured_mat_group.specular_strength_mat
-						? get_texture_mgr().fetch_texture(
-							*textured_mat_group.specular_strength_mat, ETextureSamplerType::ADDR_MODE_REPEAT)
-						: get_texture_mgr().fetch_white_texture(ETextureSemantic::SPECULAR_STRENGTH);
-				specular_strength_info.imageView = specular_strength_texture.get_texture_image_view();
-				specular_strength_info.sampler = specular_strength_texture.get_texture_sampler();
-				VkWriteDescriptorSet specular_strength_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				specular_strength_descriptor.dstSet = new_descriptor_set;
-				specular_strength_descriptor.dstBinding =
-					SDS::RASTERIZATION_SPECULAR_STRENGTH_TEXTURE_DATA_BINDING;
-				specular_strength_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				specular_strength_descriptor.descriptorCount = 1;
-				specular_strength_descriptor.pImageInfo = &specular_strength_info;
-				descriptor_writes.push_back(specular_strength_descriptor);
-
-				VkDescriptorImageInfo specular_color_info{};
-				specular_color_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const GraphicsEngineTexture& specular_color_texture = textured_mat_group.specular_color_mat
+				VkDescriptorImageInfo specular_info{};
+				specular_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				const GraphicsEngineTexture& specular_texture = textured_mat_group.specular_mat
 					? get_texture_mgr().fetch_texture(
-						*textured_mat_group.specular_color_mat, ETextureSamplerType::ADDR_MODE_REPEAT)
-					: get_texture_mgr().fetch_white_texture(ETextureSemantic::SPECULAR_COLOR);
-				specular_color_info.imageView = specular_color_texture.get_texture_image_view();
-				specular_color_info.sampler = specular_color_texture.get_texture_sampler();
-				VkWriteDescriptorSet specular_color_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				specular_color_descriptor.dstSet = new_descriptor_set;
-				specular_color_descriptor.dstBinding =
-					SDS::RASTERIZATION_SPECULAR_COLOR_TEXTURE_DATA_BINDING;
-				specular_color_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				specular_color_descriptor.descriptorCount = 1;
-				specular_color_descriptor.pImageInfo = &specular_color_info;
-				descriptor_writes.push_back(specular_color_descriptor);
+						*textured_mat_group.specular_mat, ETextureSamplerType::ADDR_MODE_REPEAT)
+					: get_texture_mgr().fetch_white_texture();
+				specular_info.imageView = specular_texture.get_texture_image_view();
+				specular_info.sampler = specular_texture.get_texture_sampler();
+				VkWriteDescriptorSet specular_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				specular_descriptor.dstSet = new_descriptor_set;
+				specular_descriptor.dstBinding = SDS::RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING;
+				specular_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+				specular_descriptor.descriptorCount = 1;
+				specular_descriptor.pImageInfo = &specular_info;
+				descriptor_writes.push_back(specular_descriptor);
 
 				vkUpdateDescriptorSets(get_logical_device(),
 						static_cast<uint32_t>(descriptor_writes.size()), 

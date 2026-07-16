@@ -21,7 +21,7 @@ public:
 	// automatically generates texture if requested texture does not exist
 	GraphicsEngineTexture& fetch_texture(MaterialID id, ETextureSamplerType sampler_type);
 	GraphicsEngineTexture& fetch_flat_normal_texture();
-	GraphicsEngineTexture& fetch_white_texture(ETextureSemantic semantic);
+	GraphicsEngineTexture& fetch_white_texture();
 	// automatically generates sampler if requested sampler type does not exist
 	VkSampler fetch_sampler(ETextureSamplerType sampler_type);
 
@@ -48,6 +48,5 @@ private:
 	std::unordered_map<MaterialID, GraphicsEngineTexture> texture_units;
 	std::unordered_map<ETextureSamplerType, VkSampler> samplers;
 	std::optional<GraphicsEngineTexture> flat_normal_texture;
-	std::optional<GraphicsEngineTexture> white_linear_texture;
-	std::optional<GraphicsEngineTexture> white_srgb_texture;
+	std::optional<GraphicsEngineTexture> white_texture;
 };

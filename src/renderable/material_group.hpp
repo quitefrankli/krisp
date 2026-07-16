@@ -42,17 +42,14 @@ struct TexturedMatGroup : public MaterialGroup
 		MatVec materials{ base_color_mat };
 		if (normal_mat.has_value())
 			materials.push_back(*normal_mat);
-		if (specular_strength_mat.has_value())
-			materials.push_back(*specular_strength_mat);
-		if (specular_color_mat.has_value())
-			materials.push_back(*specular_color_mat);
+		if (specular_mat.has_value())
+			materials.push_back(*specular_mat);
 		return materials;
 	}
 
 	MaterialID base_color_mat;
 	std::optional<MaterialID> normal_mat;
-	std::optional<MaterialID> specular_strength_mat;
-	std::optional<MaterialID> specular_color_mat;
+	std::optional<MaterialID> specular_mat;
 };
 
 struct CubeMapMatGroup : public MaterialGroup

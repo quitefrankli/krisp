@@ -18,9 +18,7 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
 	binding=RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING) uniform sampler2D normal_sampler;
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
-	binding=RASTERIZATION_SPECULAR_STRENGTH_TEXTURE_DATA_BINDING) uniform sampler2D specular_strength_sampler;
-layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
-	binding=RASTERIZATION_SPECULAR_COLOR_TEXTURE_DATA_BINDING) uniform sampler2D specular_color_sampler;
+	binding=RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING) uniform sampler2D specular_sampler;
 
 layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, 
 	binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
@@ -51,9 +49,8 @@ void main()
 	// in phong model, specular can have value on the opposite face
 	// this is not good so we only emit specular is diffuse > 0
 	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, default_specular_factor) : 0.0;
-	const float specular_strength = texture(specular_strength_sampler, frag_tex_coord).a;
-	const vec3 specular_color = texture(specular_color_sampler, frag_tex_coord).rgb;
-	const vec3 specular = light_color * specular_color * specular_strength
+	const vec4 specular_sample = texture(specular_sampler, frag_tex_coord);
+	const vec3 specular = light_color * specular_sample.rgb * specular_sample.a
 		* (SPECULAR_STRENGTH * global_data.data.lighting_scalar * spec);
 
 	out_color = vec4(ambient + diffuse + specular, 1.0);

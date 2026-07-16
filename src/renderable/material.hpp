@@ -48,8 +48,7 @@ enum class ETextureSemantic
 {
 	BASE_COLOR,
 	NORMAL,
-	SPECULAR_STRENGTH,
-	SPECULAR_COLOR,
+	SPECULAR,
 	COUNT
 };
 

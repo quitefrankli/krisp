@@ -191,9 +191,35 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 		const auto specular_extension_it = mat.extensions.find("KHR_materials_specular");
 		if (specular_extension_it != mat.extensions.end() && !specular_extension_it->second.IsObject())
 			throw ResourceLoadError("ResourceLoader: KHR_materials_specular must be an object");
-		const bool has_specular_texture = specular_extension_it != mat.extensions.end()
-			&& (specular_extension_it->second.Has("specularTexture")
-				|| specular_extension_it->second.Has("specularColorTexture"));
+		std::optional<int> specular_texture_index;
+		if (specular_extension_it != mat.extensions.end())
+		{
+			const auto& extension = specular_extension_it->second;
+			const auto read_specular_texture = [&](const char* name)
+			{
+				if (!extension.Has(name))
+					return;
+				const auto& info = extension.Get(name);
+				if (!info.IsObject() || !info.Has("index") || !info.Get("index").IsNumber())
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: KHR_materials_specular.{} is invalid", name));
+				if (info.Has("texCoord") && !info.Get("texCoord").IsNumber())
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: KHR_materials_specular.{}.texCoord must be numeric", name));
+				const int tex_coord = info.Has("texCoord") ? info.Get("texCoord").GetNumberAsInt() : 0;
+				if (tex_coord != 0)
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: {} uses unsupported TEXCOORD_{}", name, tex_coord));
+				const int index = info.Get("index").GetNumberAsInt();
+				if (specular_texture_index && *specular_texture_index != index)
+					throw ResourceLoadError(
+						"ResourceLoader: only one packed specular texture is supported per material");
+				specular_texture_index = index;
+			};
+			read_specular_texture("specularTexture");
+			read_specular_texture("specularColorTexture");
+		}
+		const bool has_specular_texture = specular_texture_index.has_value();
 		if (normal_texture.index >= 0 && color_texture.index < 0)
 			throw ResourceLoadError(fmt::format(
 				"ResourceLoader: material {} has a normal texture but no base-color texture",
@@ -267,30 +293,8 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 			if (normal_texture.index >= 0)
 				loaded.ids.push_back(load_gltf_texture(normal_texture.index, ETextureSemantic::NORMAL));
 
-			if (specular_extension_it != mat.extensions.end())
-			{
-				const tinygltf::Value& extension = specular_extension_it->second;
-				const auto load_extension_texture = [&](const char* name, const ETextureSemantic semantic)
-				{
-					if (!extension.Has(name))
-						return;
-					const auto& info = extension.Get(name);
-					if (!info.IsObject() || !info.Has("index") || !info.Get("index").IsNumber())
-						throw ResourceLoadError(fmt::format(
-							"ResourceLoader: KHR_materials_specular.{} is invalid", name));
-					if (info.Has("texCoord") && !info.Get("texCoord").IsNumber())
-						throw ResourceLoadError(fmt::format(
-							"ResourceLoader: KHR_materials_specular.{}.texCoord must be numeric", name));
-					const int tex_coord = info.Has("texCoord")
-						? info.Get("texCoord").GetNumberAsInt() : 0;
-					if (tex_coord != 0)
-						throw ResourceLoadError(fmt::format(
-							"ResourceLoader: {} uses unsupported TEXCOORD_{}", name, tex_coord));
-					loaded.ids.push_back(load_gltf_texture(info.Get("index").GetNumberAsInt(), semantic));
-				};
-				load_extension_texture("specularTexture", ETextureSemantic::SPECULAR_STRENGTH);
-				load_extension_texture("specularColorTexture", ETextureSemantic::SPECULAR_COLOR);
-			}
+			if (specular_texture_index)
+				loaded.ids.push_back(load_gltf_texture(*specular_texture_index, ETextureSemantic::SPECULAR));
 			gltf_material_to_material[primitive.material] = loaded;
 			return loaded;
 		} else

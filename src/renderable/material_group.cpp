@@ -31,11 +31,8 @@ TexturedMatGroup::TexturedMatGroup(const MatVec& mats)
 		case ETextureSemantic::NORMAL:
 			set_optional(normal_mat);
 			break;
-		case ETextureSemantic::SPECULAR_STRENGTH:
-			set_optional(specular_strength_mat);
-			break;
-		case ETextureSemantic::SPECULAR_COLOR:
-			set_optional(specular_color_mat);
+		case ETextureSemantic::SPECULAR:
+			set_optional(specular_mat);
 			break;
 		case ETextureSemantic::COUNT:
 			throw std::runtime_error("TexturedMatGroup: invalid texture semantic");

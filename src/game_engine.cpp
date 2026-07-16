@@ -432,8 +432,7 @@ void GameEngine::replace_renderable_texture(
 	const TexturedMatGroup current(renderable.material_ids);
 	MaterialID diffuse = current.base_color_mat;
 	std::optional<MaterialID> normal = current.normal_mat;
-	std::optional<MaterialID> specular_strength = current.specular_strength_mat;
-	std::optional<MaterialID> specular_color = current.specular_color_mat;
+	std::optional<MaterialID> specular = current.specular_mat;
 	const MaterialID replacement = texture_path
 		? ResourceLoader::fetch_texture(*texture_path, semantic)
 		: semantic == ETextureSemantic::BASE_COLOR
@@ -445,8 +444,7 @@ void GameEngine::replace_renderable_texture(
 		{
 		case ETextureSemantic::BASE_COLOR: return diffuse;
 		case ETextureSemantic::NORMAL: return normal;
-		case ETextureSemantic::SPECULAR_STRENGTH: return specular_strength;
-		case ETextureSemantic::SPECULAR_COLOR: return specular_color;
+		case ETextureSemantic::SPECULAR: return specular;
 		case ETextureSemantic::COUNT: break;
 		}
 		throw std::runtime_error("GameEngine::replace_renderable_texture: invalid texture semantic");
@@ -463,10 +461,8 @@ void GameEngine::replace_renderable_texture(
 		diffuse = replacement;
 	else if (semantic == ETextureSemantic::NORMAL)
 		normal = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
-	else if (semantic == ETextureSemantic::SPECULAR_STRENGTH)
-		specular_strength = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
-	else if (semantic == ETextureSemantic::SPECULAR_COLOR)
-		specular_color = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
+	else if (semantic == ETextureSemantic::SPECULAR)
+		specular = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
 
 	std::vector<MaterialID> retired_materials;
 	if (old && MaterialSystem::unregister_owner(*old) == 0)
@@ -474,18 +470,15 @@ void GameEngine::replace_renderable_texture(
 	renderable.material_ids = { diffuse };
 	if (normal)
 		renderable.material_ids.push_back(*normal);
-	if (specular_strength)
-		renderable.material_ids.push_back(*specular_strength);
-	if (specular_color)
-		renderable.material_ids.push_back(*specular_color);
+	if (specular)
+		renderable.material_ids.push_back(*specular);
 
 	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
 		object_id,
 		renderable_index,
 		diffuse,
 		normal,
-		specular_strength,
-		specular_color,
+		specular,
 		std::move(retired_materials)));
 }
 

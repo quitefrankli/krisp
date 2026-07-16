@@ -37,15 +37,13 @@ TEST(Basics, TexturedMaterialGroupResolvesOptionalMapsBySemantic)
 		return MaterialSystem::add(std::move(texture));
 	};
 	const auto base = make_texture(ETextureSemantic::BASE_COLOR);
-	const auto strength = make_texture(ETextureSemantic::SPECULAR_STRENGTH);
-	const auto color = make_texture(ETextureSemantic::SPECULAR_COLOR);
+	const auto specular = make_texture(ETextureSemantic::SPECULAR);
 
-	const TexturedMatGroup group({ color, base, strength });
+	const TexturedMatGroup group({ specular, base });
 	EXPECT_EQ(group.base_color_mat, base);
 	EXPECT_FALSE(group.normal_mat);
-	EXPECT_EQ(group.specular_strength_mat, strength);
-	EXPECT_EQ(group.specular_color_mat, color);
-	EXPECT_EQ(group.get_materials(), (MatVec{ base, strength, color }));
+	EXPECT_EQ(group.specular_mat, specular);
+	EXPECT_EQ(group.get_materials(), (MatVec{ base, specular }));
 }
 
 TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)

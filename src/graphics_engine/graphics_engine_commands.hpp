@@ -101,8 +101,7 @@ struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand
 		size_t renderable_index,
 		MaterialID diffuse_material,
 		std::optional<MaterialID> normal_material,
-		std::optional<MaterialID> specular_strength_material,
-		std::optional<MaterialID> specular_color_material,
+		std::optional<MaterialID> specular_material,
 		std::vector<MaterialID> retired_materials);
 	void process(GraphicsEngineBase* engine) override;
 
@@ -110,7 +109,6 @@ struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand
 	size_t renderable_index;
 	MaterialID diffuse_material;
 	std::optional<MaterialID> normal_material;
-	std::optional<MaterialID> specular_strength_material;
-	std::optional<MaterialID> specular_color_material;
+	std::optional<MaterialID> specular_material;
 	std::vector<MaterialID> retired_materials;
 };

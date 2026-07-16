@@ -569,14 +569,10 @@ TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps)
 	const auto& renderable = model.meshes[0].renderables[0];
 	const TexturedMatGroup group(renderable.material_ids);
 
-	ASSERT_TRUE(group.specular_strength_mat);
-	ASSERT_TRUE(group.specular_color_mat);
+	ASSERT_TRUE(group.specular_mat);
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(*group.specular_strength_mat)).semantic,
-		ETextureSemantic::SPECULAR_STRENGTH);
-	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(*group.specular_color_mat)).semantic,
-		ETextureSemantic::SPECULAR_COLOR);
+		MaterialSystem::get(*group.specular_mat)).semantic,
+		ETextureSemantic::SPECULAR);
 }
 
 TEST(ResourceLoaderSpecularMaps, rejects_nonzero_specular_texcoord)
@@ -585,6 +581,19 @@ TEST(ResourceLoaderSpecularMaps, rejects_nonzero_specular_texcoord)
 	{
 		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
 			{ "specularTexture", { { "index", 0 }, { "texCoord", 1 } } },
+		};
+	});
+	EXPECT_THROW(ResourceLoader::load_model(resource.path), ResourceLoadError);
+}
+
+TEST(ResourceLoaderSpecularMaps, rejects_two_different_specular_files)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["textures"].push_back(document["textures"][0]);
+		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
+			{ "specularTexture", { { "index", 0 } } },
+			{ "specularColorTexture", { { "index", 1 } } },
 		};
 	});
 	EXPECT_THROW(ResourceLoader::load_model(resource.path), ResourceLoadError);
@@ -604,7 +613,7 @@ TEST(ResourceLoaderSpecularMaps, imports_specular_map_without_base_color_texture
 
 	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
 	const TexturedMatGroup group(renderable.material_ids);
-	EXPECT_TRUE(group.specular_strength_mat);
+	EXPECT_TRUE(group.specular_mat);
 	EXPECT_EQ(group.base_color_mat, MaterialFactory::fetch_white_texture());
 }
 

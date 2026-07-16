@@ -1160,8 +1160,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	compatible = false;
 	diffuse_label = "(none)";
 	normal_label = "(none)";
-	specular_strength_label = "(none)";
-	specular_color_label = "(none)";
+	specular_label = "(none)";
 	const Object* object = engine.get_gizmo().get_selected_object();
 	if (!object)
 	{
@@ -1219,10 +1218,8 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	diffuse_label = material_label(materials.base_color_mat);
 	if (materials.normal_mat)
 		normal_label = material_label(*materials.normal_mat);
-	if (materials.specular_strength_mat)
-		specular_strength_label = material_label(*materials.specular_strength_mat);
-	if (materials.specular_color_mat)
-		specular_color_label = material_label(*materials.specular_color_mat);
+	if (materials.specular_mat)
+		specular_label = material_label(*materials.specular_mat);
 }
 
 void GuiMaterialEditor::draw_texture_section(
@@ -1277,15 +1274,10 @@ void GuiMaterialEditor::draw()
 		draw_texture_section(
 			"Normal Map", ETextureSemantic::NORMAL, normal_label, normal_dropdown_open);
 		draw_texture_section(
-			"Specular Strength Map",
-			ETextureSemantic::SPECULAR_STRENGTH,
-			specular_strength_label,
-			specular_strength_dropdown_open);
-		draw_texture_section(
-			"Specular Color Map",
-			ETextureSemantic::SPECULAR_COLOR,
-			specular_color_label,
-			specular_color_dropdown_open);
+			"Specular Map",
+			ETextureSemantic::SPECULAR,
+			specular_label,
+			specular_dropdown_open);
 		ImGui::EndDisabled();
 		draw_resource_load_error(load_error);
 	}

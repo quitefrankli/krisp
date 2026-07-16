@@ -21,8 +21,7 @@ public:
 		size_t renderable_index;
 		MaterialID diffuse;
 		std::optional<MaterialID> normal;
-		std::optional<MaterialID> specular_strength;
-		std::optional<MaterialID> specular_color;
+		std::optional<MaterialID> specular;
 		std::vector<MaterialID> retired;
 	};
 
@@ -44,8 +43,7 @@ public:
 			cmd.renderable_index,
 			cmd.diffuse_material,
 			cmd.normal_material,
-			cmd.specular_strength_material,
-			cmd.specular_color_material,
+			cmd.specular_material,
 			cmd.retired_materials,
 		});
 	}
@@ -302,18 +300,13 @@ TEST_F(GameEngineTests, replaces_specular_maps)
 	auto& object = engine.spawn_object<Object>(renderable);
 
 	engine.replace_renderable_texture(
-		object.get_id(), 0, ETextureSemantic::SPECULAR_STRENGTH,
-		Utility::get_texture("texture3.jpg"));
-	engine.replace_renderable_texture(
-		object.get_id(), 0, ETextureSemantic::SPECULAR_COLOR,
+		object.get_id(), 0, ETextureSemantic::SPECULAR,
 		Utility::get_texture("texture4.png"));
 	const TexturedMatGroup group(object.renderables[0].material_ids);
-	ASSERT_TRUE(group.specular_strength_mat);
-	ASSERT_TRUE(group.specular_color_mat);
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 2);
+	ASSERT_TRUE(group.specular_mat);
+	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
 	const auto& update = get_mock_gfx().material_updates.back();
-	EXPECT_EQ(update.specular_strength, group.specular_strength_mat);
-	EXPECT_EQ(update.specular_color, group.specular_color_mat);
+	EXPECT_EQ(update.specular, group.specular_mat);
 }
 
 TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)

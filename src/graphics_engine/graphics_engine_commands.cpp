@@ -77,15 +77,13 @@ UpdateRenderableMaterialsCmd::UpdateRenderableMaterialsCmd(
 	const size_t renderable_index,
 	const MaterialID diffuse_material,
 	const std::optional<MaterialID> normal_material,
-	const std::optional<MaterialID> specular_strength_material,
-	const std::optional<MaterialID> specular_color_material,
+	const std::optional<MaterialID> specular_material,
 	std::vector<MaterialID> retired_materials) :
 	object_id(object_id),
 	renderable_index(renderable_index),
 	diffuse_material(diffuse_material),
 	normal_material(normal_material),
-	specular_strength_material(specular_strength_material),
-	specular_color_material(specular_color_material),
+	specular_material(specular_material),
 	retired_materials(std::move(retired_materials))
 {
 }

@@ -11,8 +11,7 @@ namespace
 {
 VkFormat texture_format(const TextureMaterial& material)
 {
-	const bool linear = material.semantic == ETextureSemantic::NORMAL
-		|| material.semantic == ETextureSemantic::SPECULAR_STRENGTH;
+	const bool linear = material.semantic == ETextureSemantic::NORMAL;
 	if (material.format == ETextureFormat::BC3)
 	{
 		return linear
@@ -46,10 +45,8 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 {
 	if (flat_normal_texture.has_value())
 		flat_normal_texture->destroy(get_logical_device());
-	if (white_linear_texture.has_value())
-		white_linear_texture->destroy(get_logical_device());
-	if (white_srgb_texture.has_value())
-		white_srgb_texture->destroy(get_logical_device());
+	if (white_texture.has_value())
+		white_texture->destroy(get_logical_device());
 
 	for (auto& [texture_id, texture_unit] : texture_units)
 	{
@@ -85,12 +82,9 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_flat_normal_texture()
 	return *flat_normal_texture;
 }
 
-GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_white_texture(
-	const ETextureSemantic semantic)
+GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_white_texture()
 {
-	const bool linear = semantic == ETextureSemantic::SPECULAR_STRENGTH;
-	auto& cached = linear ? white_linear_texture : white_srgb_texture;
-	if (!cached)
+	if (!white_texture)
 	{
 		struct WhiteData : TextureData
 		{
@@ -104,10 +98,10 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_white_texture(
 		material.width = 1;
 		material.height = 1;
 		material.channels = 4;
-		material.semantic = semantic;
-		cached.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
+		material.semantic = ETextureSemantic::SPECULAR;
+		white_texture.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
 	}
-	return *cached;
+	return *white_texture;
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
