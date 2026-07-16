@@ -13,7 +13,46 @@
 #include <imgui_internal.h>
 #include <fmt/core.h>
 
-#include <iostream>
+#include <cstdio>
+
+
+namespace
+{
+void panel_settings_read_init(ImGuiContext*, ImGuiSettingsHandler* handler)
+{
+	static_cast<GuiManager*>(handler->UserData)->clear_saved_panel_visibility();
+}
+
+void* panel_settings_read_open(
+	ImGuiContext*, ImGuiSettingsHandler* handler, const char* name)
+{
+	return &static_cast<GuiManager*>(handler->UserData)->get_or_create_saved_panel_visibility(name);
+}
+
+void panel_settings_read_line(
+	ImGuiContext*, ImGuiSettingsHandler*, void* entry, const char* line)
+{
+	int visible = 0;
+	if (std::sscanf(line, "Visible=%d", &visible) == 1)
+		*static_cast<bool*>(entry) = visible != 0;
+}
+
+void panel_settings_apply_all(ImGuiContext*, ImGuiSettingsHandler* handler)
+{
+	static_cast<GuiManager*>(handler->UserData)->apply_saved_panel_visibility();
+}
+
+void panel_settings_write_all(
+	ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* output)
+{
+	const auto& windows = static_cast<GuiManager*>(handler->UserData)->get_gui_windows();
+	for (const auto& window : windows)
+	{
+		output->appendf("[KrispPanel][%s]\n", window->get_panel_info().id.c_str());
+		output->appendf("Visible=%d\n\n", window->is_visible() ? 1 : 0);
+	}
+}
+}
 
 
 GraphicsEngineGuiManager::GraphicsEngineGuiManager(GraphicsEngine& engine) :
@@ -109,6 +148,7 @@ void GraphicsEngineGuiManager::draw_workspace()
 			if (ImGui::MenuItem("Reset Layout"))
 			{
 				reset_layout_requested = true;
+				reset_panel_visibility();
 			}
 			ImGui::EndMenu();
 		}
@@ -192,6 +232,16 @@ void GraphicsEngineGuiManager::setup_imgui()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	ImGuiSettingsHandler panel_settings_handler;
+	panel_settings_handler.TypeName = "KrispPanel";
+	panel_settings_handler.TypeHash = ImHashStr("KrispPanel");
+	panel_settings_handler.ReadInitFn = panel_settings_read_init;
+	panel_settings_handler.ReadOpenFn = panel_settings_read_open;
+	panel_settings_handler.ReadLineFn = panel_settings_read_line;
+	panel_settings_handler.ApplyAllFn = panel_settings_apply_all;
+	panel_settings_handler.WriteAllFn = panel_settings_write_all;
+	panel_settings_handler.UserData = static_cast<GuiManager*>(this);
+	ImGui::AddSettingsHandler(&panel_settings_handler);
 	const auto config_path = Utility::get_user_config_path("imgui.ini");
 	std::filesystem::create_directories(config_path.parent_path());
 	imgui_ini_path = config_path.string();

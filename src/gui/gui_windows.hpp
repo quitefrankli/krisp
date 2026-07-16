@@ -79,7 +79,9 @@ public:
 	const char* get_imgui_name() const { return imgui_name.c_str(); }
 	bool* get_visible_ptr() { return &visible; }
 	bool is_visible() const { return visible; }
-	void set_visible(bool value) { visible = value; }
+	void set_visible(bool value);
+	void restore_visibility(bool value) { visible = value; }
+	void reset_visibility() { set_visible(panel.initially_visible); }
 
 protected:
 	bool begin(int flags = 0);

@@ -1,4 +1,5 @@
 #include "gui/gui_windows.hpp"
+#include "gui/gui_manager.hpp"
 
 #include <gtest/gtest.h>
 
@@ -33,4 +34,29 @@ TEST(GuiPanel, visibility_can_be_restored_after_closing)
 	EXPECT_FALSE(panel.is_visible());
 	panel.set_visible(true);
 	EXPECT_TRUE(panel.is_visible());
+}
+
+TEST(GuiPanel, manager_applies_saved_visibility_and_resets_defaults)
+{
+	GuiManager manager;
+	manager.get_or_create_saved_panel_visibility("debug") = false;
+	manager.get_or_create_saved_panel_visibility("texture_viewer") = true;
+	manager.apply_saved_panel_visibility();
+
+	EXPECT_FALSE(manager.debug.is_visible());
+	EXPECT_TRUE(manager.photo.is_visible());
+
+	manager.reset_panel_visibility();
+	EXPECT_TRUE(manager.debug.is_visible());
+	EXPECT_FALSE(manager.photo.is_visible());
+}
+
+TEST(GuiPanel, dynamically_spawned_panels_restore_saved_visibility)
+{
+	GuiManager manager;
+	manager.get_or_create_saved_panel_visibility("dynamic_panel") = false;
+	auto& panel = manager.spawn_gui<TestGuiPanel>(
+		GuiPanelInfo{ "dynamic_panel", "Dynamic Panel", GuiPanelDock::RIGHT, true });
+
+	EXPECT_FALSE(panel.is_visible());
 }

@@ -4,12 +4,14 @@
 
 #include <vector>
 #include <memory>
+#include <unordered_map>
 
 
 class GuiManager
 {
 protected:
 	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
+	std::unordered_map<std::string, bool> saved_panel_visibility;
 
 public:
 	GuiManager() :
@@ -30,8 +32,33 @@ public:
 	{
 		gui_windows.push_back(std::make_unique<Gui_T>(std::forward<Args>(args)...));
 		auto& gui = gui_windows.back();
+		const auto saved = saved_panel_visibility.find(gui->get_panel_info().id);
+		if (saved != saved_panel_visibility.end())
+			gui->restore_visibility(saved->second);
 		return *static_cast<Gui_T*>(gui.get());
 	}
+
+	void clear_saved_panel_visibility() { saved_panel_visibility.clear(); }
+	bool& get_or_create_saved_panel_visibility(const std::string& id)
+	{
+		return saved_panel_visibility[id];
+	}
+	void apply_saved_panel_visibility()
+	{
+		for (auto& gui : gui_windows)
+		{
+			const auto saved = saved_panel_visibility.find(gui->get_panel_info().id);
+			if (saved != saved_panel_visibility.end())
+				gui->restore_visibility(saved->second);
+		}
+	}
+	void reset_panel_visibility()
+	{
+		saved_panel_visibility.clear();
+		for (auto& gui : gui_windows)
+			gui->reset_visibility();
+	}
+	const std::vector<std::unique_ptr<GuiWindow>>& get_gui_windows() const { return gui_windows; }
 
 	void update_buffer_capacities(const std::vector<std::pair<size_t, size_t>>& capacities)
 	{

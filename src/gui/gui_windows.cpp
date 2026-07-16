@@ -14,6 +14,7 @@
 #include "interface/gizmo.hpp"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <quill/LogMacros.h>
 #include <fmt/core.h>
@@ -119,12 +120,25 @@ Object& get_or_spawn_collider_visual(GameEngine& engine,
 
 bool GuiWindow::begin(int flags)
 {
-	return ImGui::Begin(get_imgui_name(), get_visible_ptr(), flags);
+	const bool was_visible = visible;
+	const bool expanded = ImGui::Begin(get_imgui_name(), get_visible_ptr(), flags);
+	if (visible != was_visible)
+		ImGui::MarkIniSettingsDirty();
+	return expanded;
 }
 
 void GuiWindow::end()
 {
 	ImGui::End();
+}
+
+void GuiWindow::set_visible(const bool value)
+{
+	if (visible == value)
+		return;
+	visible = value;
+	if (ImGui::GetCurrentContext())
+		ImGui::MarkIniSettingsDirty();
 }
 
 
