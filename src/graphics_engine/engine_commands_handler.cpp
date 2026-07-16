@@ -134,12 +134,19 @@ void GraphicsEngine::handle_command(UpdateRenderableMaterialsCmd& cmd)
 	vkDeviceWaitIdle(get_logical_device());
 	const VkDescriptorSet descriptor_set =
 		object_it->second->get_renderable_dsets()[cmd.renderable_index];
+	object_it->second->set_textured_material(cmd.renderable_index, cmd.properties);
 	const auto sampler_type = ETextureSamplerType::ADDR_MODE_REPEAT;
 	const GraphicsEngineTexture& diffuse =
 		get_texture_mgr().fetch_texture(cmd.diffuse_material, sampler_type);
 	const GraphicsEngineTexture& normal = cmd.normal_material
 		? get_texture_mgr().fetch_texture(*cmd.normal_material, sampler_type)
 		: get_texture_mgr().fetch_flat_normal_texture();
+	const GraphicsEngineTexture& specular_strength = cmd.specular_strength_material
+		? get_texture_mgr().fetch_texture(*cmd.specular_strength_material, sampler_type)
+		: get_texture_mgr().fetch_white_texture(ETextureSemantic::SPECULAR_STRENGTH);
+	const GraphicsEngineTexture& specular_color = cmd.specular_color_material
+		? get_texture_mgr().fetch_texture(*cmd.specular_color_material, sampler_type)
+		: get_texture_mgr().fetch_white_texture(ETextureSemantic::SPECULAR_COLOR);
 
 	VkDescriptorImageInfo diffuse_info{};
 	diffuse_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -149,8 +156,16 @@ void GraphicsEngine::handle_command(UpdateRenderableMaterialsCmd& cmd)
 	normal_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	normal_info.imageView = normal.get_texture_image_view();
 	normal_info.sampler = get_texture_mgr().fetch_sampler(sampler_type);
+	VkDescriptorImageInfo specular_strength_info{};
+	specular_strength_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	specular_strength_info.imageView = specular_strength.get_texture_image_view();
+	specular_strength_info.sampler = get_texture_mgr().fetch_sampler(sampler_type);
+	VkDescriptorImageInfo specular_color_info{};
+	specular_color_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	specular_color_info.imageView = specular_color.get_texture_image_view();
+	specular_color_info.sampler = get_texture_mgr().fetch_sampler(sampler_type);
 
-	std::array<VkWriteDescriptorSet, 2> writes{};
+	std::array<VkWriteDescriptorSet, 4> writes{};
 	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	writes[0].dstSet = descriptor_set;
 	writes[0].dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
@@ -163,6 +178,18 @@ void GraphicsEngine::handle_command(UpdateRenderableMaterialsCmd& cmd)
 	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	writes[1].descriptorCount = 1;
 	writes[1].pImageInfo = &normal_info;
+	writes[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[2].dstSet = descriptor_set;
+	writes[2].dstBinding = SDS::RASTERIZATION_SPECULAR_STRENGTH_TEXTURE_DATA_BINDING;
+	writes[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	writes[2].descriptorCount = 1;
+	writes[2].pImageInfo = &specular_strength_info;
+	writes[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	writes[3].dstSet = descriptor_set;
+	writes[3].dstBinding = SDS::RASTERIZATION_SPECULAR_COLOR_TEXTURE_DATA_BINDING;
+	writes[3].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	writes[3].descriptorCount = 1;
+	writes[3].pImageInfo = &specular_color_info;
 	vkUpdateDescriptorSets(
 		get_logical_device(), static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 

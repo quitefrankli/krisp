@@ -5,6 +5,7 @@
 #include <entity_component_system/ecs.hpp>
 #include <entity_component_system/material_system.hpp>
 #include <entity_component_system/mesh_system.hpp>
+#include <renderable/material_factory.hpp>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -551,6 +552,63 @@ TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
 	ASSERT_NE(tex_material, nullptr);
 	ASSERT_EQ(tex_material->width, 2);
 	ASSERT_EQ(tex_material->height, 2);
+}
+
+TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps_and_factors)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
+			{ "specularFactor", 0.35 },
+			{ "specularColorFactor", { 0.25, 0.5, 0.75 } },
+			{ "specularTexture", { { "index", 0 } } },
+			{ "specularColorTexture", { { "index", 0 } } },
+		};
+	});
+	const auto model = ResourceLoader::load_model(resource.path);
+	const auto& renderable = model.meshes[0].renderables[0];
+	const TexturedMatGroup group(renderable.material_ids);
+
+	ASSERT_TRUE(group.specular_strength_mat);
+	ASSERT_TRUE(group.specular_color_mat);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
+		MaterialSystem::get(*group.specular_strength_mat)).semantic,
+		ETextureSemantic::SPECULAR_STRENGTH);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
+		MaterialSystem::get(*group.specular_color_mat)).semantic,
+		ETextureSemantic::SPECULAR_COLOR);
+	EXPECT_FLOAT_EQ(renderable.textured_material.specular_strength, 0.35f);
+	EXPECT_TRUE(glm_equal(
+		renderable.textured_material.specular_color, glm::vec3(0.25f, 0.5f, 0.75f)));
+}
+
+TEST(ResourceLoaderSpecularMaps, rejects_nonzero_specular_texcoord)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
+			{ "specularTexture", { { "index", 0 }, { "texCoord", 1 } } },
+		};
+	});
+	EXPECT_THROW(ResourceLoader::load_model(resource.path), ResourceLoadError);
+}
+
+TEST(ResourceLoaderSpecularMaps, imports_specular_map_without_base_color_texture)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["materials"][0]["pbrMetallicRoughness"].erase("baseColorTexture");
+		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
+			{ "specularTexture", { { "index", 0 } } },
+		};
+	});
+	const auto model = ResourceLoader::load_model(resource.path);
+	const auto& renderable = model.meshes[0].renderables[0];
+
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
+	const TexturedMatGroup group(renderable.material_ids);
+	EXPECT_TRUE(group.specular_strength_mat);
+	EXPECT_EQ(group.base_color_mat, MaterialFactory::fetch_white_texture());
 }
 
 TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses_cached_material)

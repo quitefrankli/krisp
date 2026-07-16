@@ -46,10 +46,12 @@ MaterialID ResourceLoader::fetch_texture(
 	std::filesystem::path file_path,
 	const ETextureSemantic semantic)
 {
+	if (semantic == ETextureSemantic::COUNT)
+		throw ResourceLoadError("ResourceLoader::fetch_texture: invalid texture semantic");
 	file_path = resolve_resource_path(std::move(file_path), Utility::get_texture);
 
 	const auto file_str = file_path.lexically_normal().string();
-	const size_t semantic_index = semantic == ETextureSemantic::NORMAL ? 1 : 0;
+	const size_t semantic_index = static_cast<size_t>(semantic);
 	auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
 	if (cached && MaterialSystem::contains(*cached))
 	{
@@ -283,7 +285,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	LoadedModel result;
 	if (!document.warning.empty())
 		result.warnings.push_back({ document.warning });
-	global_resource_loader.gltf_material_to_mat_ids.clear();
+	global_resource_loader.gltf_material_to_material.clear();
 	for (size_t material_index = 0; material_index < model.materials.size(); ++material_index)
 	{
 		const auto& normal_texture = model.materials[material_index].normalTexture;
@@ -364,10 +366,20 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			if (positions.size() != normals.size())
 				throw ResourceLoadError("ResourceLoader: POSITION and NORMAL counts differ");
 
-			const auto material_ids = global_resource_loader.load_material(primitive, model);
+			const auto loaded_material = global_resource_loader.load_material(primitive, model);
 			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");
-			const bool textured = primitive.material >= 0 &&
-				model.materials.at(primitive.material).pbrMetallicRoughness.baseColorTexture.index >= 0;
+			const bool textured = [&]
+			{
+				if (primitive.material < 0)
+					return false;
+				const auto& material = model.materials.at(primitive.material);
+				if (material.pbrMetallicRoughness.baseColorTexture.index >= 0)
+					return true;
+				const auto extension = material.extensions.find("KHR_materials_specular");
+				return extension != material.extensions.end() && extension->second.IsObject()
+					&& (extension->second.Has("specularTexture")
+						|| extension->second.Has("specularColorTexture"));
+			}();
 			const bool normal_mapped = primitive.material >= 0 &&
 				model.materials.at(primitive.material).normalTexture.index >= 0;
 			if (normal_mapped && !has_texcoords)
@@ -473,7 +485,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				renderable.pipeline_render_type = ERenderType::COLOR;
 			}
 			renderable.mesh_id = MeshSystem::add(std::move(mesh));
-			renderable.material_ids = material_ids;
+			renderable.material_ids = loaded_material.ids;
+			renderable.textured_material = loaded_material.properties;
 			loaded_mesh.renderables.push_back(renderable);
 		}
 		result.meshes.push_back(std::move(loaded_mesh));

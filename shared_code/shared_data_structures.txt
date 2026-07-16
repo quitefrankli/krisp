@@ -23,6 +23,11 @@ struct MaterialData
 	ALIGN(4) int texture_flags; // uses boolean packing
 };
 
+struct TexturedMaterialData
+{
+	ALIGN(16) VEC4 specular_color_strength;
+};
+
 // be vary of alignment issues
 struct ObjectData
 {
@@ -63,6 +68,8 @@ const int RASTERIZATION_OBJECT_DATA_BINDING = 0;
 const int RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING = 1;
 const int RASTERIZATION_MATERIAL_DATA_BINDING = 2;
 const int RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING = 3;
+const int RASTERIZATION_SPECULAR_STRENGTH_TEXTURE_DATA_BINDING = 4;
+const int RASTERIZATION_SPECULAR_COLOR_TEXTURE_DATA_BINDING = 5;
 const int RASTERIZATION_BONE_DATA_BINDING = 1;
 const int RASTERIZATION_SHADOW_MAP_DATA_BINDING = 0;
 

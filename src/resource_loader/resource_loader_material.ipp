@@ -171,21 +171,29 @@ bool load_gltf_image_data(
 		user_data);
 }
 
-MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model)
+ResourceLoader::LoadedMaterial ResourceLoader::load_material(
+	const tinygltf::Primitive& primitive,
+	const tinygltf::Model& model)
 {
 	if (primitive.material >= 0)
 	{
-		if (gltf_material_to_mat_ids.contains(primitive.material))
+		if (gltf_material_to_material.contains(primitive.material))
 		{
-			const auto& material_ids = gltf_material_to_mat_ids.at(primitive.material);
-			for (const auto material_id : material_ids)
+			const auto& material = gltf_material_to_material.at(primitive.material);
+			for (const auto material_id : material.ids)
 				MaterialSystem::register_owner(material_id);
-			return material_ids;
+			return material;
 		}
 
 		const auto& mat = model.materials[primitive.material];
 		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
 		const auto& normal_texture = mat.normalTexture;
+		const auto specular_extension_it = mat.extensions.find("KHR_materials_specular");
+		if (specular_extension_it != mat.extensions.end() && !specular_extension_it->second.IsObject())
+			throw ResourceLoadError("ResourceLoader: KHR_materials_specular must be an object");
+		const bool has_specular_texture = specular_extension_it != mat.extensions.end()
+			&& (specular_extension_it->second.Has("specularTexture")
+				|| specular_extension_it->second.Has("specularColorTexture"));
 		if (normal_texture.index >= 0 && color_texture.index < 0)
 			throw ResourceLoadError(fmt::format(
 				"ResourceLoader: material {} has a normal texture but no base-color texture",
@@ -195,7 +203,7 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 				"ResourceLoader: material {} normal texture uses unsupported TEXCOORD_{}",
 				primitive.material, normal_texture.texCoord));
 
-		if (color_texture.index >= 0)
+		if (color_texture.index >= 0 || has_specular_texture)
 		{
 			const auto load_gltf_texture = [&](const int texture_index, const ETextureSemantic semantic)
 			{
@@ -252,11 +260,66 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 				return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(texture_material)));
 			};
 
-			MatVec material_ids{ load_gltf_texture(color_texture.index, ETextureSemantic::BASE_COLOR) };
+			LoadedMaterial loaded;
+			loaded.ids = { color_texture.index >= 0
+				? load_gltf_texture(color_texture.index, ETextureSemantic::BASE_COLOR)
+				: MaterialFactory::fetch_white_texture() };
 			if (normal_texture.index >= 0)
-				material_ids.push_back(load_gltf_texture(normal_texture.index, ETextureSemantic::NORMAL));
-			gltf_material_to_mat_ids[primitive.material] = material_ids;
-			return material_ids;
+				loaded.ids.push_back(load_gltf_texture(normal_texture.index, ETextureSemantic::NORMAL));
+
+			if (specular_extension_it != mat.extensions.end())
+			{
+				const tinygltf::Value& extension = specular_extension_it->second;
+				const auto read_number = [&](const char* name, const double fallback)
+				{
+					if (!extension.Has(name))
+						return fallback;
+					const auto& value = extension.Get(name);
+					if (!value.IsNumber())
+						throw ResourceLoadError(fmt::format(
+							"ResourceLoader: KHR_materials_specular.{} must be numeric", name));
+					return value.GetNumberAsDouble();
+				};
+				loaded.properties.specular_strength = static_cast<float>(read_number("specularFactor", 1.0));
+				if (loaded.properties.specular_strength < 0.0f || loaded.properties.specular_strength > 1.0f)
+					throw ResourceLoadError("ResourceLoader: specularFactor must be in [0, 1]");
+				if (extension.Has("specularColorFactor"))
+				{
+					const auto& value = extension.Get("specularColorFactor");
+					if (!value.IsArray() || value.ArrayLen() != 3)
+						throw ResourceLoadError("ResourceLoader: specularColorFactor must contain 3 numbers");
+					for (int channel = 0; channel < 3; ++channel)
+					{
+						const auto& component = value.Get(channel);
+						if (!component.IsNumber() || component.GetNumberAsDouble() < 0.0)
+							throw ResourceLoadError("ResourceLoader: specularColorFactor must be non-negative");
+						loaded.properties.specular_color[channel] =
+							static_cast<float>(component.GetNumberAsDouble());
+					}
+				}
+				const auto load_extension_texture = [&](const char* name, const ETextureSemantic semantic)
+				{
+					if (!extension.Has(name))
+						return;
+					const auto& info = extension.Get(name);
+					if (!info.IsObject() || !info.Has("index") || !info.Get("index").IsNumber())
+						throw ResourceLoadError(fmt::format(
+							"ResourceLoader: KHR_materials_specular.{} is invalid", name));
+					if (info.Has("texCoord") && !info.Get("texCoord").IsNumber())
+						throw ResourceLoadError(fmt::format(
+							"ResourceLoader: KHR_materials_specular.{}.texCoord must be numeric", name));
+					const int tex_coord = info.Has("texCoord")
+						? info.Get("texCoord").GetNumberAsInt() : 0;
+					if (tex_coord != 0)
+						throw ResourceLoadError(fmt::format(
+							"ResourceLoader: {} uses unsupported TEXCOORD_{}", name, tex_coord));
+					loaded.ids.push_back(load_gltf_texture(info.Get("index").GetNumberAsInt(), semantic));
+				};
+				load_extension_texture("specularTexture", ETextureSemantic::SPECULAR_STRENGTH);
+				load_extension_texture("specularColorTexture", ETextureSemantic::SPECULAR_COLOR);
+			}
+			gltf_material_to_material[primitive.material] = loaded;
+			return loaded;
 		} else
 		{
 			ColorMaterial new_material;
@@ -269,13 +332,13 @@ MatVec ResourceLoader::load_material(const tinygltf::Primitive& primitive, const
 			new_material.data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
 
 			const auto mat_id = MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(new_material)));
-			MatVec material_ids{ mat_id };
-			gltf_material_to_mat_ids[primitive.material] = material_ids;
-			return material_ids;
+			LoadedMaterial loaded{ .ids = { mat_id } };
+			gltf_material_to_material[primitive.material] = loaded;
+			return loaded;
 		}
 	}
 
-	return { MaterialFactory::fetch_preset(EMaterialPreset::PLASTIC) };
+	return { .ids = { MaterialFactory::fetch_preset(EMaterialPreset::PLASTIC) } };
 }
 
 MaterialID ResourceLoader::load_texture(
@@ -293,7 +356,7 @@ MaterialID ResourceLoader::load_texture(
 		material.semantic = semantic;
 		const auto mat_id = MaterialSystem::add(
 			std::make_unique<TextureMaterial>(std::move(material)), false);
-		texture_name_to_mat_id[filename.lexically_normal().string()][semantic == ETextureSemantic::NORMAL ? 1 : 0] = mat_id;
+		texture_name_to_mat_id[filename.lexically_normal().string()][static_cast<size_t>(semantic)] = mat_id;
 		return mat_id;
 	}
 
@@ -320,6 +383,6 @@ MaterialID ResourceLoader::load_texture(
 
 	const auto mat_id = MaterialSystem::add(
 		std::make_unique<TextureMaterial>(std::move(material)), false);
-	texture_name_to_mat_id[filename.lexically_normal().string()][semantic == ETextureSemantic::NORMAL ? 1 : 0] = mat_id;
+	texture_name_to_mat_id[filename.lexically_normal().string()][static_cast<size_t>(semantic)] = mat_id;
 	return mat_id;
 }

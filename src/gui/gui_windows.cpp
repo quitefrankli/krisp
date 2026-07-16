@@ -1154,6 +1154,24 @@ void GuiMaterialEditor::process(GameEngine& engine)
 				"Material Editor failed to update material", ResourceLoadError(error.what()));
 		}
 	}
+	if (should_update_specular && target_object && !renderable_labels.empty())
+	{
+		should_update_specular = false;
+		try
+		{
+			engine.set_renderable_specular(
+				*target_object,
+				static_cast<size_t>(selected_renderable.value),
+				specular_strength,
+				specular_color);
+			load_error.reset();
+		}
+		catch (const std::runtime_error& error)
+		{
+			load_error = report_resource_load_error(
+				"Material Editor failed to update specular properties", ResourceLoadError(error.what()));
+		}
+	}
 
 	const auto previous_target = target_object;
 	target_object.reset();
@@ -1161,6 +1179,8 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	compatible = false;
 	diffuse_label = "(none)";
 	normal_label = "(none)";
+	specular_strength_label = "(none)";
+	specular_color_label = "(none)";
 	const Object* object = engine.get_gizmo().get_selected_object();
 	if (!object)
 	{
@@ -1214,9 +1234,16 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		const std::filesystem::path source(texture->source);
 		return source.filename().empty() ? texture->source : source.filename().string();
 	};
-	diffuse_label = material_label(renderable.material_ids[0]);
-	if (renderable.material_ids.size() > 1)
-		normal_label = material_label(renderable.material_ids[1]);
+	const TexturedMatGroup materials(renderable.material_ids);
+	diffuse_label = material_label(materials.base_color_mat);
+	if (materials.normal_mat)
+		normal_label = material_label(*materials.normal_mat);
+	if (materials.specular_strength_mat)
+		specular_strength_label = material_label(*materials.specular_strength_mat);
+	if (materials.specular_color_mat)
+		specular_color_label = material_label(*materials.specular_color_mat);
+	specular_strength = renderable.textured_material.specular_strength;
+	specular_color = renderable.textured_material.specular_color;
 }
 
 void GuiMaterialEditor::draw_texture_section(
@@ -1270,6 +1297,23 @@ void GuiMaterialEditor::draw()
 			"Diffuse Texture", ETextureSemantic::BASE_COLOR, diffuse_label, diffuse_dropdown_open);
 		draw_texture_section(
 			"Normal Map", ETextureSemantic::NORMAL, normal_label, normal_dropdown_open);
+		draw_texture_section(
+			"Specular Strength Map",
+			ETextureSemantic::SPECULAR_STRENGTH,
+			specular_strength_label,
+			specular_strength_dropdown_open);
+		draw_texture_section(
+			"Specular Color Map",
+			ETextureSemantic::SPECULAR_COLOR,
+			specular_color_label,
+			specular_color_dropdown_open);
+		if (ImGui::SliderFloat("Specular Strength", &specular_strength, 0.0f, 1.0f))
+			should_update_specular = true;
+		if (ImGui::ColorEdit3(
+			"Specular Color",
+			&specular_color.x,
+			ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float))
+			should_update_specular = true;
 		ImGui::EndDisabled();
 		draw_resource_load_error(load_error);
 	}

@@ -176,7 +176,8 @@ void RasterizationRenderer::submit_draw_commands(
 							renderable,
 							graphics_object.get_obj_dset(frame_index),
 							graphics_object.get_renderable_dsets()[renderable_idx],
-							modifier);
+							modifier,
+							graphics_object.get_textured_material(renderable_idx));
 		}
 	}
 	
@@ -204,7 +205,8 @@ void RasterizationRenderer::submit_draw_commands(
 								renderable,
 								graphics_object.get_obj_dset(frame_index),
 								graphics_object.get_renderable_dsets()[renderable_idx],
-								EPipelineModifier::STENCIL);
+								EPipelineModifier::STENCIL,
+								graphics_object.get_textured_material(renderable_idx));
 			}	
 		}
 
@@ -228,7 +230,8 @@ void RasterizationRenderer::submit_draw_commands(
 								renderable,
 								graphics_object.get_obj_dset(frame_index),
 								graphics_object.get_renderable_dsets()[renderable_idx],
-								EPipelineModifier::POST_STENCIL);
+								EPipelineModifier::POST_STENCIL,
+								graphics_object.get_textured_material(renderable_idx));
 			}
 		}
 	}
@@ -268,7 +271,8 @@ void RasterizationRenderer::submit_draw_commands(
 								renderable,
 								graphics_object.get_obj_dset(frame_index),
 								graphics_object.get_renderable_dsets()[renderable_idx],
-								modifier);
+								modifier,
+								graphics_object.get_textured_material(renderable_idx));
 			}
 		}
 	}

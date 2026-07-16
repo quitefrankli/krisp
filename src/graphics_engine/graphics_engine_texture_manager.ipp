@@ -11,12 +11,14 @@ namespace
 {
 VkFormat texture_format(const TextureMaterial& material)
 {
+	const bool linear = material.semantic == ETextureSemantic::NORMAL
+		|| material.semantic == ETextureSemantic::SPECULAR_STRENGTH;
 	if (material.format == ETextureFormat::BC3)
 	{
-		return material.semantic == ETextureSemantic::NORMAL
+		return linear
 			? VK_FORMAT_BC3_UNORM_BLOCK : VK_FORMAT_BC3_SRGB_BLOCK;
 	}
-	return material.semantic == ETextureSemantic::NORMAL
+	return linear
 		? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 }
 
@@ -44,6 +46,10 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 {
 	if (flat_normal_texture.has_value())
 		flat_normal_texture->destroy(get_logical_device());
+	if (white_linear_texture.has_value())
+		white_linear_texture->destroy(get_logical_device());
+	if (white_srgb_texture.has_value())
+		white_srgb_texture->destroy(get_logical_device());
 
 	for (auto& [texture_id, texture_unit] : texture_units)
 	{
@@ -77,6 +83,31 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_flat_normal_texture()
 		flat_normal_texture.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
 	}
 	return *flat_normal_texture;
+}
+
+GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_white_texture(
+	const ETextureSemantic semantic)
+{
+	const bool linear = semantic == ETextureSemantic::SPECULAR_STRENGTH;
+	auto& cached = linear ? white_linear_texture : white_srgb_texture;
+	if (!cached)
+	{
+		struct WhiteData : TextureData
+		{
+			std::array<std::byte, 4> pixels{
+				std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255} };
+			std::byte* get() override { return pixels.data(); }
+		};
+		TextureMaterial material;
+		material.data = std::make_unique<WhiteData>();
+		material.data_len = 4;
+		material.width = 1;
+		material.height = 1;
+		material.channels = 4;
+		material.semantic = semantic;
+		cached.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
+	}
+	return *cached;
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(

@@ -3,6 +3,7 @@
 #include "graphics_engine/graphics_engine_base_module.hpp"
 #include "renderable/render_types.hpp"
 #include "pipeline_id.hpp"
+#include "shared_data_structures.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -18,6 +19,17 @@ public:
 
 	VkPipeline graphics_pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+
+	// Descriptor sets remain bound across compatible pipeline layout changes. Keep
+	// this range identical for every raster pipeline that shares the global set.
+	static VkPushConstantRange get_raster_push_constant_range()
+	{
+		VkPushConstantRange range{};
+		range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		range.offset = 0;
+		range.size = sizeof(SDS::TexturedMaterialData);
+		return range;
+	}
 
 protected:
 	GraphicsEnginePipeline(GraphicsEngine& engine);
@@ -39,7 +51,10 @@ protected:
 	virtual VkRenderPass get_render_pass();
 
 	virtual VkCullModeFlags get_cull_mode() const { return VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT; }
-	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const { return {}; }
+	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const
+	{
+		return { get_raster_push_constant_range() };
+	}
 
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const {}
 	virtual void mod_color_blend_attachment(VkPipelineColorBlendAttachmentState& color_blend_attachment) const {}

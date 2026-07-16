@@ -1,6 +1,7 @@
 #pragma once
 
 #include "identifications.hpp"
+#include "renderable/material.hpp"
 
 #include <memory>
 #include <optional>
@@ -100,6 +101,9 @@ struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand
 		size_t renderable_index,
 		MaterialID diffuse_material,
 		std::optional<MaterialID> normal_material,
+		std::optional<MaterialID> specular_strength_material,
+		std::optional<MaterialID> specular_color_material,
+		TexturedMaterialProperties properties,
 		std::vector<MaterialID> retired_materials);
 	void process(GraphicsEngineBase* engine) override;
 
@@ -107,5 +111,8 @@ struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand
 	size_t renderable_index;
 	MaterialID diffuse_material;
 	std::optional<MaterialID> normal_material;
+	std::optional<MaterialID> specular_strength_material;
+	std::optional<MaterialID> specular_color_material;
+	TexturedMaterialProperties properties;
 	std::vector<MaterialID> retired_materials;
 };

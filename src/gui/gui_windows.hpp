@@ -389,8 +389,15 @@ private:
 	std::string target_status = "Select an object";
 	std::string diffuse_label = "(none)";
 	std::string normal_label = "(none)";
+	std::string specular_strength_label = "(none)";
+	std::string specular_color_label = "(none)";
+	float specular_strength = 1.0f;
+	glm::vec3 specular_color{ 1.0f };
 	bool compatible = false;
+	bool should_update_specular = false;
 	bool should_refresh_textures = false;
 	bool diffuse_dropdown_open = false;
 	bool normal_dropdown_open = false;
+	bool specular_strength_dropdown_open = false;
+	bool specular_color_dropdown_open = false;
 };

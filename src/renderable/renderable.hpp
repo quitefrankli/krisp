@@ -13,6 +13,7 @@ struct Renderable
 {
 	MeshID mesh_id;
 	MatVec material_ids;
+	TexturedMaterialProperties textured_material;
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 	bool casts_shadow = true;
 	bool render_on_top = false;

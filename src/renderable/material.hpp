@@ -47,7 +47,16 @@ struct TextureData
 enum class ETextureSemantic
 {
 	BASE_COLOR,
-	NORMAL
+	NORMAL,
+	SPECULAR_STRENGTH,
+	SPECULAR_COLOR,
+	COUNT
+};
+
+struct TexturedMaterialProperties
+{
+	glm::vec3 specular_color{ 1.0f };
+	float specular_strength = 1.0f;
 };
 
 enum class ETextureFormat

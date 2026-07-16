@@ -35,24 +35,24 @@ struct FlatMatGroup : public MaterialGroup
 struct TexturedMatGroup : public MaterialGroup
 {
 	TexturedMatGroup() = default;
-	TexturedMatGroup(MatVec mats)
-	{
-		assert(mats.size() == 1 || mats.size() == 2);
-		base_color_mat = mats[0];
-		if (mats.size() == 2)
-			normal_mat = mats[1];
-	}
+	explicit TexturedMatGroup(const MatVec& mats);
 
 	MatVec get_materials() const
 	{
 		MatVec materials{ base_color_mat };
 		if (normal_mat.has_value())
 			materials.push_back(*normal_mat);
+		if (specular_strength_mat.has_value())
+			materials.push_back(*specular_strength_mat);
+		if (specular_color_mat.has_value())
+			materials.push_back(*specular_color_mat);
 		return materials;
 	}
 
 	MaterialID base_color_mat;
 	std::optional<MaterialID> normal_mat;
+	std::optional<MaterialID> specular_strength_mat;
+	std::optional<MaterialID> specular_color_mat;
 };
 
 struct CubeMapMatGroup : public MaterialGroup

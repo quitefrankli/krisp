@@ -426,17 +426,31 @@ void GameEngine::replace_renderable_texture(
 	if (renderable.pipeline_render_type != ERenderType::STANDARD
 		&& renderable.pipeline_render_type != ERenderType::SKINNED)
 		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable does not support textures");
+	if (semantic == ETextureSemantic::COUNT)
+		throw std::runtime_error("GameEngine::replace_renderable_texture: invalid texture semantic");
 
 	const TexturedMatGroup current(renderable.material_ids);
 	MaterialID diffuse = current.base_color_mat;
 	std::optional<MaterialID> normal = current.normal_mat;
+	std::optional<MaterialID> specular_strength = current.specular_strength_mat;
+	std::optional<MaterialID> specular_color = current.specular_color_mat;
 	const MaterialID replacement = texture_path
 		? ResourceLoader::fetch_texture(*texture_path, semantic)
 		: semantic == ETextureSemantic::BASE_COLOR
 			? MaterialFactory::fetch_white_texture()
 			: MaterialID{};
-	const std::optional<MaterialID> old = semantic == ETextureSemantic::BASE_COLOR
-		? std::optional<MaterialID>(diffuse) : normal;
+	const std::optional<MaterialID> old = [&]() -> std::optional<MaterialID>
+	{
+		switch (semantic)
+		{
+		case ETextureSemantic::BASE_COLOR: return diffuse;
+		case ETextureSemantic::NORMAL: return normal;
+		case ETextureSemantic::SPECULAR_STRENGTH: return specular_strength;
+		case ETextureSemantic::SPECULAR_COLOR: return specular_color;
+		case ETextureSemantic::COUNT: break;
+		}
+		throw std::runtime_error("GameEngine::replace_renderable_texture: invalid texture semantic");
+	}();
 
 	if (old && *old == replacement)
 	{
@@ -447,8 +461,12 @@ void GameEngine::replace_renderable_texture(
 
 	if (semantic == ETextureSemantic::BASE_COLOR)
 		diffuse = replacement;
-	else
+	else if (semantic == ETextureSemantic::NORMAL)
 		normal = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
+	else if (semantic == ETextureSemantic::SPECULAR_STRENGTH)
+		specular_strength = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
+	else if (semantic == ETextureSemantic::SPECULAR_COLOR)
+		specular_color = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
 
 	std::vector<MaterialID> retired_materials;
 	if (old && MaterialSystem::unregister_owner(*old) == 0)
@@ -456,13 +474,52 @@ void GameEngine::replace_renderable_texture(
 	renderable.material_ids = { diffuse };
 	if (normal)
 		renderable.material_ids.push_back(*normal);
+	if (specular_strength)
+		renderable.material_ids.push_back(*specular_strength);
+	if (specular_color)
+		renderable.material_ids.push_back(*specular_color);
 
 	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
 		object_id,
 		renderable_index,
 		diffuse,
 		normal,
+		specular_strength,
+		specular_color,
+		renderable.textured_material,
 		std::move(retired_materials)));
+}
+
+void GameEngine::set_renderable_specular(
+	const ObjectID object_id,
+	const size_t renderable_index,
+	const float strength,
+	const glm::vec3& color)
+{
+	Object* object = get_object(object_id);
+	if (!object)
+		throw std::runtime_error("GameEngine::set_renderable_specular: object not found");
+	if (renderable_index >= object->renderables.size())
+		throw std::runtime_error("GameEngine::set_renderable_specular: renderable index is out of range");
+	auto& renderable = object->renderables[renderable_index];
+	if (renderable.pipeline_render_type != ERenderType::STANDARD
+		&& renderable.pipeline_render_type != ERenderType::SKINNED)
+		throw std::runtime_error("GameEngine::set_renderable_specular: renderable does not support textures");
+	if (strength < 0.0f || strength > 1.0f
+		|| color.x < 0.0f || color.y < 0.0f || color.z < 0.0f)
+		throw std::runtime_error("GameEngine::set_renderable_specular: invalid factor");
+
+	renderable.textured_material = { color, strength };
+	const TexturedMatGroup materials(renderable.material_ids);
+	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
+		object_id,
+		renderable_index,
+		materials.base_color_mat,
+		materials.normal_mat,
+		materials.specular_strength_mat,
+		materials.specular_color_mat,
+		renderable.textured_material,
+		std::vector<MaterialID>{}));
 }
 
 

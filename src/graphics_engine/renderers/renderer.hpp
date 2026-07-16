@@ -5,6 +5,7 @@
 #include "constants.hpp"
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "renderable/render_types.hpp"
+#include "renderable/material.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -51,6 +52,7 @@ public:
 							 	 const VkDescriptorSet& object_dset,
 							 	 const VkDescriptorSet& renderable_dset,
 							 	 EPipelineModifier pipeline_modifier,
+								 const TexturedMaterialProperties& textured_material,
 							 	 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
 
 protected:

@@ -89,14 +89,21 @@ public:
 	static LoadedAnimations load_animations(std::filesystem::path file_path, SkeletonID target_skeleton);
 
 private:
+	struct LoadedMaterial
+	{
+		MatVec ids;
+		TexturedMaterialProperties properties;
+	};
+
 	MaterialID load_texture(
 		const std::filesystem::path& file_path,
 		ETextureSemantic semantic);
-	MatVec load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
+	LoadedMaterial load_material(const tinygltf::Primitive& primitive, const tinygltf::Model& model);
 
 private:
-	std::unordered_map<std::string, std::array<std::optional<MaterialID>, 2>> texture_name_to_mat_id;
-	std::unordered_map<int, MatVec> gltf_material_to_mat_ids;
+	static constexpr size_t texture_semantic_count = static_cast<size_t>(ETextureSemantic::COUNT);
+	std::unordered_map<std::string, std::array<std::optional<MaterialID>, texture_semantic_count>> texture_name_to_mat_id;
+	std::unordered_map<int, LoadedMaterial> gltf_material_to_material;
 
 	static ResourceLoader global_resource_loader;
 };
