@@ -6,6 +6,21 @@
 #include <array>
 
 
+namespace
+{
+VkFormat texture_format(const TextureMaterial& material)
+{
+	if (material.format == ETextureFormat::BC3)
+	{
+		return material.semantic == ETextureSemantic::NORMAL
+			? VK_FORMAT_BC3_UNORM_BLOCK : VK_FORMAT_BC3_SRGB_BLOCK;
+	}
+	return material.semantic == ETextureSemantic::NORMAL
+		? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+}
+}
+
+
 GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) : 
 	GraphicsEngineBaseModule(engine)
 {
@@ -63,6 +78,8 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 	}
 
 	const auto& material = static_cast<TextureMaterial&>(MaterialSystem::get(id));
+	// TODO: Release CPU-side texture data after a successful upload. Cubemap uploads
+	// currently depend on retaining their six source materials and must be handled first.
 	return texture_units.emplace(id, create_texture(material, sampler_type)).first->second;
 }
 
@@ -142,16 +159,21 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	const TextureMaterial& material,
 	ETextureSamplerType sampler_type)
 {
-	const VkFormat format = material.semantic == ETextureSemantic::NORMAL
-		? VK_FORMAT_R8G8B8A8_UNORM
-		: VK_FORMAT_R8G8B8A8_SRGB;
+	const VkFormat format = texture_format(material);
+	VkFormatProperties format_properties;
+	vkGetPhysicalDeviceFormatProperties(get_physical_device(), format, &format_properties);
+	if (!(format_properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT))
+		throw std::runtime_error("GraphicsEngineTextureManager: texture format is not supported by this device");
 	VkImage texture_image;
 	VkDeviceMemory texture_image_memory;
 	const auto dim = create_texture_image(material, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
 		texture_image, 
 		format,
-		VK_IMAGE_ASPECT_COLOR_BIT);
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_VIEW_TYPE_2D,
+		1,
+		material.mip_sizes.empty() ? 1 : static_cast<uint32_t>(material.mip_sizes.size()));
 	VkSampler texture_sampler = fetch_sampler(sampler_type);
 
 	return GraphicsEngineTexture(texture_image, texture_image_memory, texture_image_view, texture_sampler, dim);
@@ -162,8 +184,10 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
 {
-	assert(material.channels == 4); // only RGBA is currently supported atm
-	VkDeviceSize size = material.width * material.height * material.channels;
+	assert(material.channels == 4); // only RGBA and four-channel BC3 are currently supported
+	const VkDeviceSize size = material.data_len;
+	const uint32_t mip_levels = material.mip_sizes.empty()
+		? 1 : static_cast<uint32_t>(material.mip_sizes.size());
 
 	if (size == 0)
 	{
@@ -173,19 +197,22 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	get_graphics_engine().create_image(
 		material.width, 
 		material.height, 
-		material.semantic == ETextureSemantic::NORMAL
-			? VK_FORMAT_R8G8B8A8_UNORM
-			: VK_FORMAT_R8G8B8A8_SRGB,
+		texture_format(material),
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		texture_image,
-		texture_image_memory);
+		texture_image_memory,
+		VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
+		1,
+		0,
+		mip_levels);
 
 	// copy the staging buffer to the texture image,
 	// undefined image layout works because we don't care about the contents before performing copy
 	get_graphics_engine().transition_image_layout(
-		texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullptr, 1, mip_levels);
 
 	get_rsrc_mgr().stage_data_to_image(
 		texture_image, 
@@ -195,11 +222,14 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 		[&material, &size](std::byte* destination)
 		{
 			std::memcpy(destination, material.data->get(), static_cast<size_t>(size));
-		});
+		},
+		1,
+		material.mip_sizes);
 
 	// transition one more time for shader access
 	get_graphics_engine().transition_image_layout(
-		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		nullptr, 1, mip_levels);
 
 	return glm::uvec3(material.width, material.height, material.channels);
 }
@@ -303,7 +333,7 @@ VkSampler GraphicsEngineTextureManager::create_texture_sampler(ETextureSamplerTy
 	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //
 	sampler_info.mipLodBias = 0.0f;
 	sampler_info.minLod = 0.0f;
-	sampler_info.maxLod = 0.0f;
+	sampler_info.maxLod = VK_LOD_CLAMP_NONE;
 
 	VkSampler texture_sampler;
 	if (vkCreateSampler(get_logical_device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)

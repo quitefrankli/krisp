@@ -74,6 +74,10 @@ void GraphicsEngineDevice::pick_physical_device()
 		{
 			return false;
 		}
+		if (!deviceFeatures.textureCompressionBC)
+		{
+			return false;
+		}
 
 		return true;
 	};
@@ -238,6 +242,7 @@ VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 	device_features2.features.samplerAnisotropy = true;
 	device_features2.features.fillModeNonSolid = true;
 	device_features2.features.geometryShader = true;
+	device_features2.features.textureCompressionBC = true;
 
 	static VkPhysicalDeviceVulkan12Features device_features12{
 		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};

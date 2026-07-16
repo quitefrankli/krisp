@@ -7,6 +7,8 @@
 #include "identifications.hpp"
 #include "graphics_engine/graphics_engine_object.hpp"
 
+#include <vector>
+
 
 class Mesh;
 
@@ -84,7 +86,8 @@ public:
 		const uint32_t height,
 		const size_t size,
 		const std::function<void(std::byte*)>& write_function,
-		const uint32_t layer_count = 1); // for cubemaps
+		const uint32_t layer_count = 1,
+		const std::vector<size_t>& mip_sizes = {}); // for cubemaps and mipmapped images
 
 public:
 	static constexpr size_t NUM_EXPECTED_OBJECTS = 1e3;

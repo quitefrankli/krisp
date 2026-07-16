@@ -270,14 +270,15 @@ void GraphicsEngine::create_image(uint32_t width,
 											   VkDeviceMemory &image_memory,
 											   VkSampleCountFlagBits sample_count_flag,
 											   const uint32_t layer_count,
-											   const VkImageCreateFlags flags)
+											   const VkImageCreateFlags flags,
+											   const uint32_t mip_levels)
 {
 	VkImageCreateInfo image_info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 	image_info.imageType = VK_IMAGE_TYPE_2D; // 1D for array of data or gradient, 3D for voxels
 	image_info.extent.width = static_cast<uint32_t>(width);
 	image_info.extent.height = static_cast<uint32_t>(height);
 	image_info.extent.depth = 1;
-	image_info.mipLevels = 1; // mip mapping
+	image_info.mipLevels = mip_levels;
 	image_info.arrayLayers = layer_count; // for cube mapping
 	image_info.format = format;
 	image_info.tiling = tiling;							  // types include:
@@ -324,7 +325,8 @@ VkImageView GraphicsEngine::create_image_view(
 	VkFormat format,
 	VkImageAspectFlags aspect_flags,
 	VkImageViewType view_type,
-	const uint32_t layer_count)
+	const uint32_t layer_count,
+	const uint32_t mip_levels)
 {
 	VkImageViewCreateInfo create_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
 	create_info.image = image;
@@ -333,7 +335,7 @@ VkImageView GraphicsEngine::create_image_view(
 	create_info.format = format;
 	create_info.subresourceRange.aspectMask = aspect_flags; // describes image purpose and which part should be accessed
 	create_info.subresourceRange.baseMipLevel = 0;
-	create_info.subresourceRange.levelCount = 1;
+	create_info.subresourceRange.levelCount = mip_levels;
 	create_info.subresourceRange.baseArrayLayer = 0;
 	create_info.subresourceRange.layerCount = layer_count;
 
@@ -351,7 +353,8 @@ void GraphicsEngine::transition_image_layout(
 	VkImageLayout old_layout,
 	VkImageLayout new_layout,
 	VkCommandBuffer command_buffer,
-	const uint32_t layer_count)
+	const uint32_t layer_count,
+	const uint32_t mip_levels)
 {
 	const bool is_external_command_buffer = command_buffer != nullptr;
 	if (!command_buffer)
@@ -369,7 +372,7 @@ void GraphicsEngine::transition_image_layout(
 	// subresourceRange specifies what part of the image is affected
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseMipLevel = 0; // image is an array with no mip mapping
-	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.levelCount = mip_levels;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount = layer_count;
 	barrier.srcAccessMask = 0;

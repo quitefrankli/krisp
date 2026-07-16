@@ -65,6 +65,7 @@ GltfDocument load_gltf_document(const std::filesystem::path& file_path)
 	GltfDocument document;
 	std::string error;
 	tinygltf::TinyGLTF loader;
+	loader.SetImageLoader(load_gltf_image_data, nullptr);
 	const bool loaded = is_glb
 		? loader.LoadBinaryFromFile(&document.model, &error, &document.warning, file_path.string())
 		: loader.LoadASCIIFromFile(&document.model, &error, &document.warning, file_path.string());

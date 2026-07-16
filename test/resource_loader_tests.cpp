@@ -7,6 +7,9 @@
 #include <entity_component_system/mesh_system.hpp>
 
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
+
+#include <fstream>
 
 
 class ResourceLoaderECS : public testing::Test
@@ -42,6 +45,110 @@ public:
 	glm::vec3 v1 = {0.0f, 0.0f, 0.0f};
 	glm::vec3 v2 = {1.0f, 1.0f, 0.0f};
 };
+
+namespace
+{
+class GeneratedDDS
+{
+public:
+	GeneratedDDS(
+		const uint32_t width,
+		const uint32_t height,
+		const uint32_t mip_levels,
+		const uint32_t four_cc,
+		const std::optional<size_t> payload_size = std::nullopt)
+	{
+		static uint32_t sequence = 0;
+		path = std::filesystem::temp_directory_path()
+			/ fmt::format("krisp_test_{}.dds", sequence++);
+		std::vector<unsigned char> bytes(128, 0);
+		const auto write_u32 = [&bytes](const size_t offset, const uint32_t value)
+		{
+			for (size_t byte = 0; byte < 4; ++byte)
+				bytes[offset + byte] = static_cast<unsigned char>(value >> (byte * 8));
+		};
+		write_u32(0, 0x20534444); // "DDS "
+		write_u32(4, 124);
+		write_u32(8, 0x000A1007);
+		write_u32(12, height);
+		write_u32(16, width);
+		write_u32(28, mip_levels);
+		write_u32(76, 32);
+		write_u32(80, 0x4); // DDPF_FOURCC
+		write_u32(84, four_cc);
+		write_u32(108, 0x00401008);
+
+		size_t expected_payload = 0;
+		uint32_t mip_width = width;
+		uint32_t mip_height = height;
+		for (uint32_t mip = 0; mip < mip_levels; ++mip)
+		{
+			expected_payload += static_cast<size_t>((mip_width + 3) / 4)
+				* static_cast<size_t>((mip_height + 3) / 4) * 16;
+			mip_width = std::max(1u, mip_width / 2);
+			mip_height = std::max(1u, mip_height / 2);
+		}
+		bytes.resize(128 + payload_size.value_or(expected_payload), 0x7f);
+		std::ofstream output(path, std::ios::binary);
+		output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+	}
+
+	~GeneratedDDS()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+};
+
+class GeneratedGLBWithDDS
+{
+public:
+	explicit GeneratedGLBWithDDS(const std::filesystem::path& dds_path)
+	{
+		static uint32_t sequence = 0;
+		path = dds_path.parent_path() / fmt::format("krisp_test_dds_{}.glb", sequence++);
+
+		std::ifstream template_file(
+			Utility::get_top_level_path()/"test/data/static_mesh_textured.gltf");
+		nlohmann::json document;
+		template_file >> document;
+		document["images"] = nlohmann::json::array({ {
+			{ "uri", dds_path.filename().string() },
+			{ "name", "generated_dds" },
+		} });
+		document["materials"][0]["normalTexture"] = { { "index", 0 } };
+
+		std::string json = document.dump();
+		while (json.size() % 4 != 0)
+			json.push_back(' ');
+		std::vector<unsigned char> bytes(20 + json.size(), 0);
+		const auto write_u32 = [&bytes](const size_t offset, const uint32_t value)
+		{
+			for (size_t byte = 0; byte < 4; ++byte)
+				bytes[offset + byte] = static_cast<unsigned char>(value >> (byte * 8));
+		};
+		write_u32(0, 0x46546C67); // "glTF"
+		write_u32(4, 2);
+		write_u32(8, static_cast<uint32_t>(bytes.size()));
+		write_u32(12, static_cast<uint32_t>(json.size()));
+		write_u32(16, 0x4E4F534A); // "JSON"
+		std::copy(json.begin(), json.end(), bytes.begin() + 20);
+
+		std::ofstream output(path, std::ios::binary);
+		output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+	}
+
+	~GeneratedGLBWithDDS()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+};
+}
 
 TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
 {
@@ -305,6 +412,59 @@ TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material
 	const auto second = ResourceLoader::fetch_texture(texture_path);
 
 	ASSERT_EQ(first, second);
+}
+
+TEST(ResourceLoaderTextures, loads_generated_bc3_dds_with_complete_mip_chain)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(8, 8, 4, DXT5);
+	const auto material_id = ResourceLoader::fetch_texture(dds.path);
+	const auto& material = static_cast<const TextureMaterial&>(MaterialSystem::get(material_id));
+
+	EXPECT_EQ(material.width, 8);
+	EXPECT_EQ(material.height, 8);
+	EXPECT_EQ(material.channels, 4);
+	EXPECT_EQ(material.format, ETextureFormat::BC3);
+	EXPECT_EQ(material.data_len, 112);
+	EXPECT_EQ(material.mip_sizes, (std::vector<size_t>{ 64, 16, 16, 16 }));
+	ASSERT_NE(material.data, nullptr);
+	EXPECT_EQ(std::to_integer<unsigned char>(*material.data->get()), 0x7f);
+}
+
+TEST(ResourceLoaderTextures, rejects_unsupported_or_truncated_dds_files)
+{
+	constexpr uint32_t DXT1 = 0x31545844;
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS unsupported(4, 4, 1, DXT1);
+	GeneratedDDS truncated(8, 8, 4, DXT5, 111);
+
+	EXPECT_THROW(ResourceLoader::fetch_texture(unsupported.path), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::fetch_texture(truncated.path), ResourceLoadError);
+}
+
+TEST(ResourceLoaderTextures, loads_external_dds_references_from_generated_glb)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(8, 8, 4, DXT5);
+	GeneratedGLBWithDDS glb(dds.path);
+	ResourceLoader::LoadOptions options;
+	options.generate_missing_tangents = true;
+	const auto model = ResourceLoader::load_model(glb.path, options);
+
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& material_ids = model.meshes[0].renderables[0].material_ids;
+	ASSERT_EQ(material_ids.size(), 2);
+	const auto& base_color = dynamic_cast<const TextureMaterial&>(
+		MaterialSystem::get(material_ids[0]));
+	const auto& normal = dynamic_cast<const TextureMaterial&>(
+		MaterialSystem::get(material_ids[1]));
+	EXPECT_EQ(base_color.format, ETextureFormat::BC3);
+	EXPECT_EQ(base_color.semantic, ETextureSemantic::BASE_COLOR);
+	EXPECT_EQ(base_color.mip_sizes, (std::vector<size_t>{ 64, 16, 16, 16 }));
+	EXPECT_EQ(normal.format, ETextureFormat::BC3);
+	EXPECT_EQ(normal.semantic, ETextureSemantic::NORMAL);
+	EXPECT_EQ(normal.mip_sizes, base_color.mip_sizes);
 }
 
 TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)

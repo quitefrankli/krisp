@@ -1,6 +1,7 @@
 #include "graphics_buffer_manager.hpp"
 #include "renderable/mesh.hpp"
 
+#include <algorithm>
 #include <numeric>
 
 
@@ -276,7 +277,8 @@ void GraphicsBufferManager::stage_data_to_image(
 	const uint32_t height,
 	const size_t size,
 	const std::function<void(std::byte*)>& write_function,
-	const uint32_t layer_count)
+	const uint32_t layer_count,
+	const std::vector<size_t>& mip_sizes)
 {
 	// TODO: this can be optimised:
 	// 1. something about using different queues https://www.reddit.com/r/vulkan/comments/pnweh0/vkcmdcopybuffer_performance_worse_on_nvidia_than/
@@ -301,30 +303,34 @@ void GraphicsBufferManager::stage_data_to_image(
 	// issue the command to copy from staging to device
 	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
 
-	VkBufferImageCopy region{};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
-
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = layer_count;
-
-	region.imageOffset = {0, 0, 0};
-	region.imageExtent = {
-		width,
-		height,
-		1
-	};
+	std::vector<VkBufferImageCopy> regions;
+	const size_t region_count = mip_sizes.empty() ? 1 : mip_sizes.size();
+	regions.reserve(region_count);
+	VkDeviceSize offset = 0;
+	for (size_t mip = 0; mip < region_count; ++mip)
+	{
+		VkBufferImageCopy region{};
+		region.bufferOffset = offset;
+		region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		region.imageSubresource.mipLevel = static_cast<uint32_t>(mip);
+		region.imageSubresource.baseArrayLayer = 0;
+		region.imageSubresource.layerCount = layer_count;
+		region.imageExtent = {
+			std::max(1u, width >> mip),
+			std::max(1u, height >> mip),
+			1
+		};
+		regions.push_back(region);
+		offset += mip_sizes.empty() ? size : mip_sizes[mip];
+	}
 
 	vkCmdCopyBufferToImage(
 		command_buffer,
 		staging_buffer.get_buffer(),
 		destination_image,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1,
-		&region
+		static_cast<uint32_t>(regions.size()),
+		regions.data()
 	);
 
 	get_graphics_engine().end_single_time_commands(command_buffer);

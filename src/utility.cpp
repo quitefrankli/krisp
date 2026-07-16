@@ -214,7 +214,7 @@ std::vector<std::filesystem::path> Utility::collect_resources(std::string_view s
 
 std::vector<std::filesystem::path> Utility::get_all_textures()
 {
-	return collect_resources("textures", { ".jpg", ".jpeg", ".png", ".bmp", ".tga" });
+	return collect_resources("textures", { ".jpg", ".jpeg", ".png", ".bmp", ".tga", ".dds" });
 }
 
 std::vector<std::filesystem::path> Utility::get_all_models()
