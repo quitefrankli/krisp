@@ -183,10 +183,10 @@ TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.animations.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
-	const auto skeleton_id = model.meshes[0].renderables[0].skeleton_id;
+	const auto skeleton_id = model.meshes[0].skeleton_id;
 	ASSERT_TRUE(skeleton_id.has_value());
 
-	auto& object = engine.spawn_object<Object>(model.meshes[0].renderables);
+	auto& object = engine.spawn_object<Object>(model.meshes[0].renderables, skeleton_id);
 	engine.get_ecs().play_animation(*skeleton_id, model.animations[0], true);
 	engine.main_loop(0.1f);
 

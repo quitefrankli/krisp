@@ -187,12 +187,10 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 	{
 		EntityFrameID efid{id, frame_idx};
 		get_rsrc_mgr().free_uniform_buffer(efid);
-		std::ranges::for_each(obj.get_renderables(), [&](const Renderable& renderable) {
-			if (renderable.skeleton_id)
-			{
-				get_rsrc_mgr().free_buffer(SkeletonFrameID{*renderable.skeleton_id, frame_idx});
-			}
-		});
+		if (const auto skeleton_id = obj.get_skeleton_id())
+		{
+			get_rsrc_mgr().free_buffer(SkeletonFrameID{*skeleton_id, frame_idx});
+		}
 	}
 	objects.erase(id);
 	++num_objs_deleted;
@@ -510,6 +508,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
 	// per frame resource and therefore we only need 1 copy
 	auto& rsrc_mgr = get_rsrc_mgr();
+	const auto skeleton_id = graphics_object.get_skeleton_id();
 
 	for (const auto& renderable : graphics_object.get_renderables())
 	{
@@ -538,15 +537,11 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 		// allocate space for object uniform buffer
 		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{graphics_object.get_id(), frame_idx}, sizeof(SDS::ObjectData));
 
-		// allocate space for bone matrices if needed
-		for (const auto& renderable : graphics_object.get_renderables())
+		// allocate one set of bone matrices shared by all skinned renderables in the object
+		if (skeleton_id)
 		{
-			if (renderable.pipeline_render_type == ERenderType::SKINNED)
-			{
-				const auto skeleton_id = *renderable.skeleton_id;
-				const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(skeleton_id).size();
-				rsrc_mgr.reserve_buffer(SkeletonFrameID{skeleton_id, frame_idx}, bone_data_size);
-			}
+			const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(*skeleton_id).size();
+			rsrc_mgr.reserve_buffer(SkeletonFrameID{*skeleton_id, frame_idx}, bone_data_size);
 		}
 	}
 
@@ -568,6 +563,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	// currently the resources that are per obj just happen to be purely dynamic and so all of them need a separate
 	// buffer + dset for each frame
 	std::vector<VkDescriptorSet> object_dsets;
+	const auto skeleton_id = object.get_skeleton_id();
 	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
 		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());
@@ -587,17 +583,10 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
 		descriptor_writes.push_back(uniform_buffer_dset_write);
 
-		for (const auto& renderable : object.get_renderables())
+		if (skeleton_id)
 		{
-			if (renderable.pipeline_render_type != ERenderType::SKINNED)
-			{
-				continue;
-			}
-
-			// currently only supports single skinned renderable per object
-			assert(object.get_renderables().size() == 1);
 			const GraphicsBuffer::Slot bone_slot = 
-				get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*renderable.skeleton_id, frame_idx});
+				get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*skeleton_id, frame_idx});
 			VkDescriptorBufferInfo bone_buffer_info{};
 			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
 			bone_buffer_info.offset = bone_slot.offset;

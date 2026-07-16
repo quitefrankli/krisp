@@ -369,10 +369,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 		const auto model_name = model_path.stem().string();
 		const bool contains_skinned_mesh = std::ranges::any_of(loaded_model.meshes, [](const auto& loaded_mesh)
 		{
-			return std::ranges::any_of(loaded_mesh.renderables, [](const auto& renderable)
-			{
-				return renderable.skeleton_id.has_value();
-			});
+			return loaded_mesh.skeleton_id.has_value();
 		});
 		const bool merge_meshes = merge_imported_meshes.value && !contains_skinned_mesh;
 		if (merge_imported_meshes.value && contains_skinned_mesh)
@@ -400,7 +397,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 
 		for (const auto& loaded_mesh : loaded_model.meshes)
 		{
-			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
+			auto mesh = std::make_shared<Object>(loaded_mesh.renderables, loaded_mesh.skeleton_id);
 			mesh->set_transform(loaded_model.onload_transform.get_mat4() * loaded_mesh.transform.get_mat4());
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
@@ -953,24 +950,8 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	target_status = "Select a skinned object";
 	if (const auto* selected_object = engine.get_gizmo().get_selected_object())
 	{
-		bool multiple_skeletons = false;
-		for (const auto& renderable : selected_object->renderables)
-		{
-			if (!renderable.skeleton_id)
-				continue;
-			if (selected_skeleton && *selected_skeleton != *renderable.skeleton_id)
-			{
-				multiple_skeletons = true;
-				break;
-			}
-			selected_skeleton = renderable.skeleton_id;
-		}
-		if (multiple_skeletons)
-		{
-			selected_skeleton.reset();
-			target_status = "Selected object contains multiple skeletons";
-		}
-		else if (selected_skeleton)
+		selected_skeleton = selected_object->get_skeleton_id();
+		if (selected_skeleton)
 			target_status = "Target: " + selected_object->get_name();
 		else
 			target_status = "Selected object is not skinned";

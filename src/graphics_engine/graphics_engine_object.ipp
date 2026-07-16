@@ -2,6 +2,9 @@
 
 #include <fmt/format.h>
 
+#include <algorithm>
+#include <stdexcept>
+
 #include "graphics_engine_object.hpp"
 
 #include "objects/object.hpp"
@@ -23,6 +26,20 @@ GraphicsEngineObject::~GraphicsEngineObject()
 const std::vector<Renderable>& GraphicsEngineObject::get_renderables() const
 {
 	return get_game_object().renderables;
+}
+
+std::optional<SkeletonID> GraphicsEngineObject::get_skeleton_id() const
+{
+	const auto skeleton_id = get_game_object().get_skeleton_id();
+	const bool has_skinned_renderable = std::ranges::any_of(get_renderables(), [](const Renderable& renderable)
+	{
+		return renderable.pipeline_render_type == ERenderType::SKINNED;
+	});
+	if (has_skinned_renderable && !skeleton_id)
+	{
+		throw std::runtime_error("GraphicsEngineObject: object with skinned renderables has no skeleton");
+	}
+	return skeleton_id;
 }
 
 ObjectID GraphicsEngineObject::get_id() const

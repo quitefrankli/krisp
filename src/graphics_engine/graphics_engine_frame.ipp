@@ -326,19 +326,15 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
 		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
 
-		// if object contains skinned meshes update the bone matrices
-		for (const auto& renderable : graphics_object->get_renderables())
+		// All skinned renderables in an object share one skeleton and bone buffer.
+		const auto skeleton_id = graphics_object->get_skeleton_id();
+		if (skeleton_id)
 		{
-			if (renderable.pipeline_render_type != ERenderType::SKINNED)
-			{
-				continue;
-			}
-
-			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*renderable.skeleton_id);
+			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*skeleton_id);
 			std::ranges::for_each(bones, [transform=object_data.model](SDS::Bone& bone) {
 				bone.final_transform = transform * bone.final_transform;
 			});
-			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*renderable.skeleton_id, image_index), bones);
+			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*skeleton_id, image_index), bones);
 		}
 	}
 }

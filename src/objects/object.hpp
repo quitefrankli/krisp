@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <map>
+#include <optional>
 #include <string>
 
 
@@ -19,10 +20,18 @@ class Object
 {
 public:
 	Object() = default;
-	Object(const Renderable& renderable) : renderables({ renderable })
+	Object(
+		const Renderable& renderable,
+		std::optional<SkeletonID> skeleton_id = std::nullopt) :
+		renderables({ renderable }),
+		skeleton_id(skeleton_id)
 	{
 	}
-	Object(const std::vector<Renderable>& renderables) : renderables(renderables)
+	Object(
+		const std::vector<Renderable>& renderables,
+		std::optional<SkeletonID> skeleton_id = std::nullopt) :
+		renderables(renderables),
+		skeleton_id(skeleton_id)
 	{
 	}
 	Object(const Object& object) = delete;
@@ -31,6 +40,7 @@ public:
 	Object& operator=(const Object& object) = delete;
 
 	ObjectID get_id() const { return id; }
+	std::optional<SkeletonID> get_skeleton_id() const { return skeleton_id; }
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }
 	virtual void set_visibility(bool isVisible) { bVisible = isVisible; }
@@ -90,6 +100,7 @@ protected:
 	virtual void on_parent_detached(Object* old_parent) {}
 
 private:
+	std::optional<SkeletonID> skeleton_id;
 	const ObjectID id = ObjectID::generate_new_id();
 
 	// there's a lot of caching going on with the below 2 transforms hence the mutable

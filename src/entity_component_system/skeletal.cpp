@@ -205,12 +205,9 @@ SkeletonID SkeletalSystem::add_skeleton(const std::vector<Bone>& bones)
 
 void SkeletalSystem::remove_entity(Entity id)
 {
-	for (const auto& renderable : get_ecs().get_object(id).renderables)
+	if (const auto skeleton_id = get_ecs().get_object(id).get_skeleton_id())
 	{
-		if (renderable.skeleton_id)
-		{
-			skeletons.erase(*renderable.skeleton_id);
-		}
+		skeletons.erase(*skeleton_id);
 	}
 }
 
@@ -310,12 +307,9 @@ void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id,
 
 void SkeletalAnimationSystem::remove_entity(Entity id) 
 {
-	for (const auto& renderable : get_ecs().get_object(id).renderables)
+	if (const auto skeleton_id = get_ecs().get_object(id).get_skeleton_id())
 	{
-		if (renderable.skeleton_id)
-		{
-			active_animations.erase(*renderable.skeleton_id);
-			animation_states.erase(*renderable.skeleton_id);
-		}
+		active_animations.erase(*skeleton_id);
+		animation_states.erase(*skeleton_id);
 	}
 }

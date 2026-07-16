@@ -332,6 +332,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				result.animations.insert(result.animations.end(), animation_ids.begin(), animation_ids.end());
 			}
 			skeleton = ECS::get().add_skeleton(it->second);
+			loaded_mesh.skeleton_id = skeleton;
 		}
 
 		for (const auto& primitive : model.meshes[node.mesh].primitives)
@@ -421,7 +422,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					mesh = std::make_unique<SkinnedMesh>(
 						load_skinned_vertices(positions, normals, texcoords, tangents, joints, weights),
 						std::move(indices));
-				renderable.skeleton_id = skeleton;
 				renderable.pipeline_render_type = ERenderType::SKINNED;
 			}
 			else if (textured && has_texcoords)

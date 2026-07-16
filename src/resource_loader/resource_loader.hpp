@@ -47,6 +47,7 @@ public:
 	{
 		std::string name;
 		std::vector<Renderable> renderables;
+		std::optional<SkeletonID> skeleton_id;
 		Maths::Transform transform;
 		int source_node = -1;
 		int source_skin = -1;

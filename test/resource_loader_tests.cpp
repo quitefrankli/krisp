@@ -27,8 +27,7 @@ public:
 
 	const std::vector<Bone>& get_bones()
 	{
-		const auto& renderable = model.meshes[0].renderables[0];
-		const auto skeleton_id = renderable.skeleton_id.value();
+		const auto skeleton_id = model.meshes[0].skeleton_id.value();
 		const auto& skeleton = ECS::get().get_skeletal_component(skeleton_id);
 		return skeleton.get_bones();
 	}
@@ -166,7 +165,7 @@ TEST_F(ResourceLoaderECS, load_bones)
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& renderable = model.meshes[0].renderables[0];
 	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
-	const auto skeleton_id = renderable.skeleton_id.value();
+	const auto skeleton_id = model.meshes[0].skeleton_id.value();
 	const auto& skeleton = ECS::get().get_skeletal_component(skeleton_id);
 	ASSERT_EQ(skeleton.get_bones().size(), 5);
 }
@@ -280,7 +279,7 @@ TEST_F(ResourceLoaderECS, animations)
 
 TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_name)
 {
-	const auto skeleton_id = model.meshes[0].renderables[0].skeleton_id.value();
+	const auto skeleton_id = model.meshes[0].skeleton_id.value();
 	const auto path = Utility::get_top_level_path()/"test/data/standalone_animation.gltf";
 	const size_t animations_before = ECS::get().get_skeletal_animations().size();
 	const auto loaded = ResourceLoader::load_animations(path, skeleton_id);
@@ -321,7 +320,7 @@ TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_n
 
 TEST_F(ResourceLoaderECS, standalone_animation_rejects_incompatible_or_incomplete_rigs_atomically)
 {
-	const auto valid_skeleton = model.meshes[0].renderables[0].skeleton_id.value();
+	const auto valid_skeleton = model.meshes[0].skeleton_id.value();
 	const auto animation_path = Utility::get_top_level_path()/"test/data/standalone_animation.gltf";
 	const size_t animations_before = ECS::get().get_skeletal_animations().size();
 
@@ -344,7 +343,7 @@ TEST_F(ResourceLoaderECS, standalone_animation_rejects_incompatible_or_incomplet
 
 TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_clip)
 {
-	const auto skeleton_id = model.meshes[0].renderables[0].skeleton_id.value();
+	const auto skeleton_id = model.meshes[0].skeleton_id.value();
 	const auto loaded = ResourceLoader::load_animations(
 		Utility::get_top_level_path()/"test/data/standalone_animation.gltf", skeleton_id);
 	ASSERT_EQ(loaded.animations.size(), 2);
@@ -501,7 +500,7 @@ TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
 
 	const auto& renderable = model.meshes[0].renderables[0];
 	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
-	ASSERT_FALSE(renderable.skeleton_id.has_value());
+	ASSERT_FALSE(model.meshes[0].skeleton_id.has_value());
 
 	ASSERT_EQ(renderable.material_ids.size(), 1);
 	const auto& material = MaterialSystem::get(renderable.material_ids[0]);
@@ -611,7 +610,7 @@ TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& renderable = model.meshes[0].renderables[0];
 	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
-	ASSERT_TRUE(renderable.skeleton_id.has_value());
+	ASSERT_TRUE(model.meshes[0].skeleton_id.has_value());
 	ASSERT_EQ(renderable.material_ids.size(), 2);
 	const auto& mesh = dynamic_cast<const SkinnedMesh&>(MeshSystem::get(renderable.mesh_id));
 	ASSERT_EQ(mesh.get_vertices().size(), 3);
@@ -649,7 +648,7 @@ TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
 		for (const auto& renderable : mesh.renderables)
 		{
 			ASSERT_EQ(renderable.pipeline_render_type, ERenderType::COLOR);
-			ASSERT_FALSE(renderable.skeleton_id.has_value());
+			ASSERT_FALSE(mesh.skeleton_id.has_value());
 			ASSERT_EQ(renderable.material_ids.size(), 1);
 			const auto& material = MaterialSystem::get(renderable.material_ids[0]);
 			ASSERT_NE(dynamic_cast<const ColorMaterial*>(&material), nullptr);

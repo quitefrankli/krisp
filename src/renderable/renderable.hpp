@@ -5,16 +5,14 @@
 #include "renderable/material_group.hpp"
 
 #include <vector>
-#include <optional>
 
 
-// A renderable should encapsulate the minimum amount of information in order to be fully renderable
+// A renderable encapsulates per-draw information; object-level state such as the skeleton lives on Object.
 // There are multiple materials because we may need multiple maps i.e. texture, normal, uv maps
 struct Renderable
 {
 	MeshID mesh_id;
 	MatVec material_ids;
-	std::optional<SkeletonID> skeleton_id = std::nullopt;
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 	bool casts_shadow = true;
 	bool render_on_top = false;

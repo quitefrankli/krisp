@@ -29,6 +29,7 @@ public:
 	bool get_visibility() const;
 
 	const std::vector<Renderable>& get_renderables() const;
+	std::optional<SkeletonID> get_skeleton_id() const;
 
 	void mark_for_delete() { marked_for_delete = true; }
 	bool is_marked_for_delete() const { return marked_for_delete; }

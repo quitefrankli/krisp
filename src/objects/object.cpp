@@ -16,6 +16,7 @@
 Object::Object(Object&& other) noexcept :
 	id(other.id),
 	renderables(std::move(other.renderables)),
+	skeleton_id(other.skeleton_id),
 	children(std::move(other.children)),
 	parent(other.parent),
 	world_transform(std::move(other.world_transform)),
