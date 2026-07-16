@@ -11,6 +11,12 @@ enum class ERenderType
 	RAYTRACING,
 	LIGHTWEIGHT_OFFSCREEN_PIPELINE,
 	SKINNED, // for skinned meshes
+	SKINNED_COLOR, // skinned mesh with a colour material and no textures
 	QUAD,
 	PARTICLE, // billboard particles
 };
+
+constexpr bool is_skinned_render_type(const ERenderType type)
+{
+	return type == ERenderType::SKINNED || type == ERenderType::SKINNED_COLOR;
+}

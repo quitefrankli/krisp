@@ -520,10 +520,15 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 		switch (renderable.pipeline_render_type)
 		{
 			case ERenderType::COLOR:
+			case ERenderType::SKINNED_COLOR:
 			{
 				const FlatMatGroup flat_mat_group(renderable.material_ids);
-				const auto& material = static_cast<ColorMaterial&>(MaterialSystem::get(flat_mat_group.color_mat));
-				rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material.data);
+				const auto* material = dynamic_cast<const ColorMaterial*>(&MaterialSystem::get(flat_mat_group.color_mat));
+				if (!material)
+					throw std::runtime_error(fmt::format(
+						"GraphicsEngine: material {} is not a ColorMaterial",
+						flat_mat_group.color_mat.get_underlying()));
+				rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material->data);
 				break;
 			}
 			default:
@@ -623,7 +628,8 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		// TODO: after resolving above todo, need to move this within the below switch statement
 		const GraphicsBuffer::Slot mat_slot = [&]()
 		{
-			if (renderable.pipeline_render_type != ERenderType::COLOR)
+			if (renderable.pipeline_render_type != ERenderType::COLOR
+				&& renderable.pipeline_render_type != ERenderType::SKINNED_COLOR)
 			{
 				// TODO: this needs to be properly fixed
 				GraphicsBuffer::Slot slot;

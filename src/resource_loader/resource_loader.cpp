@@ -436,7 +436,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					mesh = std::make_unique<SkinnedMesh>(
 						load_skinned_vertices(positions, normals, texcoords, tangents, joints, weights),
 						std::move(indices));
-				renderable.pipeline_render_type = ERenderType::SKINNED;
+				renderable.pipeline_render_type = textured
+					? ERenderType::SKINNED : ERenderType::SKINNED_COLOR;
 			}
 			else if (textured && has_texcoords)
 			{

@@ -72,6 +72,9 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case ERenderType::SKINNED:
 		new_pipeline = create_pipeline<SkinnedPipeline>(id);
 		break;
+	case ERenderType::SKINNED_COLOR:
+		new_pipeline = create_pipeline<SkinnedColorPipeline>(id);
+		break;
 	case ERenderType::QUAD:
 		new_pipeline = create_pipeline<QuadPipeline>(id);
 		break;
@@ -104,7 +107,10 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case EPipelineModifier::NONE:
 		return std::make_unique<PrimaryPipelineType>(get_graphics_engine());
 	case EPipelineModifier::STENCIL:
-		if constexpr (Stencileable<PrimaryPipelineType>)
+		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+		{
+			return std::make_unique<StencilPipeline<SkinnedPipeline>>(get_graphics_engine());
+		} else if constexpr (Stencileable<PrimaryPipelineType>)
 		{
 			return std::make_unique<StencilPipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}
@@ -121,19 +127,28 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 			} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
 			{
 				return std::make_unique<PostStencilSkinnedPipeline>(get_graphics_engine());
+			} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+			{
+				return std::make_unique<PostStencilSkinnedColorPipeline>(get_graphics_engine());
 			} else {
 				throw std::runtime_error("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type for POST_STENCIL");
 			}
 		}
 		break;
 	case EPipelineModifier::WIREFRAME:
-		if constexpr (Wireframeable<PrimaryPipelineType>)
+		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+		{
+			return std::make_unique<WireframePipeline<SkinnedPipeline>>(get_graphics_engine());
+		} else if constexpr (Wireframeable<PrimaryPipelineType>)
 		{
 			return std::make_unique<WireframePipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
 	case EPipelineModifier::SHADOW_MAP:
-		if constexpr (ShadowMappable<PrimaryPipelineType>)
+		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+		{
+			return std::make_unique<ShadowMapPipeline<SkinnedPipeline>>(get_graphics_engine());
+		} else if constexpr (ShadowMappable<PrimaryPipelineType>)
 		{
 			return std::make_unique<ShadowMapPipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}

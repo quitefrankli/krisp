@@ -85,6 +85,15 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
+class SkinnedColorPipeline : public SkinnedPipeline
+{
+public:
+	SkinnedColorPipeline(GraphicsEngine& engine) : SkinnedPipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "skinned_color"; }
+};
+
 template<Wireframeable PrimaryPipelineType>
 class WireframePipeline : public GraphicsEnginePipeline
 {
@@ -212,6 +221,15 @@ class PostStencilSkinnedPipeline : public SkinnedPipeline
 {
 public:
 	PostStencilSkinnedPipeline(GraphicsEngine& engine) : SkinnedPipeline(engine) {}
+
+protected:
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+};
+
+class PostStencilSkinnedColorPipeline : public SkinnedColorPipeline
+{
+public:
+	PostStencilSkinnedColorPipeline(GraphicsEngine& engine) : SkinnedColorPipeline(engine) {}
 
 protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;

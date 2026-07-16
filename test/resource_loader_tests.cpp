@@ -641,6 +641,22 @@ TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
 		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
 }
 
+TEST(ResourceLoaderSkinnedColor, imports_color_material_without_texture_upload)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/skinned_color.gltf";
+	const auto model = ResourceLoader::load_model(path);
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& renderable = model.meshes[0].renderables[0];
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED_COLOR);
+	EXPECT_TRUE(model.meshes[0].skeleton_id.has_value());
+	ASSERT_EQ(renderable.material_ids.size(), 1);
+	const auto* material = dynamic_cast<const ColorMaterial*>(&MaterialSystem::get(renderable.material_ids[0]));
+	ASSERT_NE(material, nullptr);
+	EXPECT_TRUE(glm_equal(material->data.diffuse, glm::vec3(0.25f, 0.5f, 0.75f)));
+	EXPECT_NE(dynamic_cast<const SkinnedMesh*>(&MeshSystem::get(renderable.mesh_id)), nullptr);
+}
+
 TEST(ResourceLoaderNormalMaps, skinned_mesh_can_generate_missing_tangents)
 {
 	ResourceLoader::LoadOptions options;
