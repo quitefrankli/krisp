@@ -5,6 +5,7 @@
 #include <ranges>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 
 
 namespace
@@ -49,6 +50,35 @@ T evaluate_track(
 		return cubic_spline(first_key, second_key, t);
 	return linear_interpolator(first_key.value, second_key.value, t);
 }
+}
+
+
+SkeletalRigSignature make_skeletal_rig_signature(const std::vector<Bone>& bones)
+{
+	std::unordered_map<std::string, size_t> name_counts;
+	for (const auto& bone : bones)
+		if (!bone.name.empty())
+			++name_counts[bone.name];
+
+	std::vector<std::string> labels(bones.size());
+	for (size_t index = 0; index < bones.size(); ++index)
+	{
+		const auto& name = bones[index].name;
+		labels[index] = !name.empty() && name_counts[name] == 1
+			? name : "#" + std::to_string(index);
+	}
+
+	SkeletalRigSignature signature;
+	signature.reserve(bones.size());
+	for (size_t index = 0; index < bones.size(); ++index)
+	{
+		const auto parent = bones[index].parent_node;
+		if (parent != Bone::NO_PARENT && parent >= bones.size())
+			throw std::runtime_error("Skeletal rig contains an invalid parent index");
+		signature.push_back({ labels[index], parent == Bone::NO_PARENT ? std::string{} : labels[parent] });
+	}
+	std::ranges::sort(signature, {}, &SkeletalRigBone::name);
+	return signature;
 }
 
 
@@ -236,11 +266,16 @@ void SkeletalAnimationSystem::process(const float delta_secs)
 	});
 }
 
-AnimationID SkeletalAnimationSystem::add_skeletal_animation(const std::string& name,
-                                                     		std::vector<BoneAnimation>&& bone_animations)
+AnimationID SkeletalAnimationSystem::add_skeletal_animation(
+	const std::string& name,
+	std::vector<BoneAnimation>&& bone_animations,
+	SkeletalRigSignature rig_signature,
+	std::string source)
 {
 	SkeletalAnimation animation;
 	animation.name = name;
+	animation.source = std::move(source);
+	animation.rig_signature = std::move(rig_signature);
 	animation.bone_animations = std::move(bone_animations);
 	const auto id = AnimationID::generate_new_id();
 	animations.emplace(id, std::move(animation));
@@ -248,11 +283,25 @@ AnimationID SkeletalAnimationSystem::add_skeletal_animation(const std::string& n
 	return id;
 }
 
+bool SkeletalAnimationSystem::is_animation_compatible(
+	const SkeletonID skeleton_id,
+	const AnimationID animation_id) const
+{
+	const auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
+	const auto& animation = animations.at(animation_id);
+	return animation.bone_animations.size() == bones.size()
+		&& animation.rig_signature == make_skeletal_rig_signature(bones);
+}
+
 void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id, 
 											 AnimationID animation_id,
 											 bool loop) 
 {
-	active_animations.emplace(skeleton_id, animation_id);
+	if (!is_animation_compatible(skeleton_id, animation_id))
+		throw std::runtime_error("SkeletalAnimationSystem: animation is incompatible with the target skeleton");
+	for (auto& bone : get_ecs().get_skeletal_component(skeleton_id).get_bones())
+		bone.relative_transform = bone.original_transform;
+	active_animations.insert_or_assign(skeleton_id, animation_id);
 	AnimationState state;
 	state.should_loop = loop;
 	state.current_animation_elapsed_secs = 0.0f;

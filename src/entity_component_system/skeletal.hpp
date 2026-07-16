@@ -65,10 +65,23 @@ struct BoneAnimation
 	bool get_transform(const float animation_stage_secs, Maths::Transform& out_transform) const;
 };
 
+struct SkeletalRigBone
+{
+	std::string name;
+	std::string parent_name;
+	auto operator<=>(const SkeletalRigBone&) const = default;
+};
+
+using SkeletalRigSignature = std::vector<SkeletalRigBone>;
+
+SkeletalRigSignature make_skeletal_rig_signature(const std::vector<Bone>& bones);
+
 struct SkeletalAnimation
 {
 	std::vector<BoneAnimation> bone_animations;
 	std::string name;
+	std::string source;
+	SkeletalRigSignature rig_signature;
 };
 
 struct SkeletalComponent
@@ -93,6 +106,7 @@ public:
 	SkeletonID add_skeleton(const std::vector<Bone>& bones);
 	std::vector<SDS::Bone> get_bones(SkeletonID id) const { return skeletons.at(id).get_bones_data(); }
 	SkeletalComponent& get_skeletal_component(SkeletonID id) { return skeletons.at(id); }
+	const SkeletalComponent& get_skeletal_component(SkeletonID id) const { return skeletons.at(id); }
 
 protected:
 	void remove_entity(Entity id);
@@ -106,11 +120,17 @@ class SkeletalAnimationSystem
 {
 public:
 	virtual ECS& get_ecs() = 0;
+	virtual const ECS& get_ecs() const = 0;
 
 	void process(const float delta_secs);
 
-	AnimationID add_skeletal_animation(const std::string& name, std::vector<BoneAnimation>&& bone_animations);
+	AnimationID add_skeletal_animation(
+		const std::string& name,
+		std::vector<BoneAnimation>&& bone_animations,
+		SkeletalRigSignature rig_signature,
+		std::string source = {});
 	void play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
+	bool is_animation_compatible(SkeletonID skeleton_id, AnimationID animation_id) const;
 	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
 
 protected:

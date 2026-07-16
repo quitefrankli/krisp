@@ -171,6 +171,105 @@ TEST_F(ResourceLoaderECS, animations)
 	ASSERT_TRUE(quat_checker(bone_animations[4], glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
 }
 
+TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_name)
+{
+	const auto skeleton_id = model.meshes[0].renderables[0].skeleton_id.value();
+	const auto path = Utility::get_top_level_path()/"test/data/standalone_animation.gltf";
+	const size_t animations_before = ECS::get().get_skeletal_animations().size();
+	const auto loaded = ResourceLoader::load_animations(path, skeleton_id);
+	ASSERT_EQ(loaded.animations.size(), 2);
+	EXPECT_EQ(ECS::get().get_skeletal_animations().size(), animations_before + 2);
+
+	std::optional<AnimationID> root_move;
+	std::optional<AnimationID> mid_turn;
+	for (const auto id : loaded.animations)
+	{
+		const auto& animation = ECS::get().get_skeletal_animations().at(id);
+		EXPECT_EQ(animation.source, "standalone_animation.gltf");
+		EXPECT_TRUE(ECS::get().is_animation_compatible(skeleton_id, id));
+		if (animation.name == "RootMove") root_move = id;
+		if (animation.name == "MidTurn") mid_turn = id;
+	}
+	ASSERT_TRUE(root_move);
+	ASSERT_TRUE(mid_turn);
+
+	const auto& root_animation = ECS::get().get_skeletal_animations().at(*root_move);
+	ASSERT_EQ(root_animation.bone_animations[0].translation_track.keys.size(), 2);
+	EXPECT_TRUE(glm_equal(
+		root_animation.bone_animations[0].translation_track.keys.back().value,
+		glm::vec3(2.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(root_animation.bone_animations[1].translation_track.keys.empty());
+
+	const auto& mid_animation = ECS::get().get_skeletal_animations().at(*mid_turn);
+	EXPECT_EQ(
+		mid_animation.bone_animations[1].rotation_track.interpolation,
+		BoneAnimation::Interpolation::STEP);
+	EXPECT_TRUE(mid_animation.bone_animations[0].rotation_track.keys.empty());
+
+	const auto reloaded = ResourceLoader::load_animations(path, skeleton_id);
+	ASSERT_EQ(reloaded.animations.size(), 2);
+	EXPECT_NE(reloaded.animations[0], loaded.animations[0]);
+	EXPECT_EQ(ECS::get().get_skeletal_animations().size(), animations_before + 4);
+}
+
+TEST_F(ResourceLoaderECS, standalone_animation_rejects_incompatible_or_incomplete_rigs_atomically)
+{
+	const auto valid_skeleton = model.meshes[0].renderables[0].skeleton_id.value();
+	const auto animation_path = Utility::get_top_level_path()/"test/data/standalone_animation.gltf";
+	const size_t animations_before = ECS::get().get_skeletal_animations().size();
+
+	auto incompatible_bones = get_bones();
+	incompatible_bones[1].parent_node = Bone::NO_PARENT;
+	const auto incompatible_skeleton = ECS::get().add_skeleton(incompatible_bones);
+	EXPECT_THROW(ResourceLoader::load_animations(animation_path, incompatible_skeleton), ResourceLoadError);
+
+	auto duplicate_bones = get_bones();
+	duplicate_bones[1].name = duplicate_bones[0].name;
+	const auto duplicate_skeleton = ECS::get().add_skeleton(duplicate_bones);
+	EXPECT_THROW(ResourceLoader::load_animations(animation_path, duplicate_skeleton), ResourceLoadError);
+
+	EXPECT_THROW(ResourceLoader::load_animations(
+		Utility::get_top_level_path()/"test/data/standalone_animation_no_skin.gltf", valid_skeleton), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::load_animations(
+		Utility::get_top_level_path()/"test/data/standalone_animation_no_clips.gltf", valid_skeleton), ResourceLoadError);
+	EXPECT_EQ(ECS::get().get_skeletal_animations().size(), animations_before);
+}
+
+TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_clip)
+{
+	const auto skeleton_id = model.meshes[0].renderables[0].skeleton_id.value();
+	const auto loaded = ResourceLoader::load_animations(
+		Utility::get_top_level_path()/"test/data/standalone_animation.gltf", skeleton_id);
+	ASSERT_EQ(loaded.animations.size(), 2);
+
+	std::optional<AnimationID> root_move;
+	std::optional<AnimationID> mid_turn;
+	for (const auto id : loaded.animations)
+	{
+		const auto& animation = ECS::get().get_skeletal_animations().at(id);
+		if (animation.name == "RootMove") root_move = id;
+		if (animation.name == "MidTurn") mid_turn = id;
+	}
+	ASSERT_TRUE(root_move);
+	ASSERT_TRUE(mid_turn);
+	ECS::get().play_animation(skeleton_id, *root_move);
+	ECS::get().process(0.5f);
+	EXPECT_TRUE(glm_equal(
+		ECS::get().get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
+		glm::vec3(1.0f, 0.0f, 0.0f)));
+
+	ECS::get().play_animation(skeleton_id, *mid_turn);
+	EXPECT_TRUE(glm_equal(
+		ECS::get().get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
+		Maths::zero_vec));
+
+	auto incompatible_bones = get_bones();
+	incompatible_bones[0].name = "different-root";
+	const auto incompatible_skeleton = ECS::get().add_skeleton(incompatible_bones);
+	EXPECT_THROW(ECS::get().play_animation(incompatible_skeleton, *root_move), std::runtime_error);
+	ECS::get().process(2.0f);
+}
+
 TEST(BoneAnimationInterpolation, step_holds_and_cubic_spline_uses_tangents)
 {
 	BoneAnimation animation;

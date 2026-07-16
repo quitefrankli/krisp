@@ -138,6 +138,11 @@ std::filesystem::path Utility::get_model(std::string_view filename)
 	return resolve_resource("models", filename);
 }
 
+std::filesystem::path Utility::get_animation(std::string_view filename)
+{
+	return resolve_resource("animations", filename);
+}
+
 std::filesystem::path Utility::get_shader(std::string_view filename)
 {
 	auto app_path = get_rsrc_path() / "shaders" / filename;
@@ -215,6 +220,11 @@ std::vector<std::filesystem::path> Utility::get_all_textures()
 std::vector<std::filesystem::path> Utility::get_all_models()
 {
 	return collect_resources("models", { ".gltf", ".glb", ".obj", ".fbx" });
+}
+
+std::vector<std::filesystem::path> Utility::get_all_animations()
+{
+	return collect_resources("animations", { ".gltf", ".glb" });
 }
 
 std::vector<std::filesystem::path> Utility::get_all_audio()

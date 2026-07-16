@@ -14,7 +14,9 @@
 
 #include <filesystem>
 #include <functional>
+#include <numeric>
 #include <unordered_map>
+#include <unordered_set>
 
 ResourceLoader ResourceLoader::global_resource_loader;
 
@@ -47,6 +49,31 @@ MaterialID ResourceLoader::fetch_texture(std::filesystem::path file_path)
 
 namespace
 {
+struct GltfDocument
+{
+	tinygltf::Model model;
+	std::string warning;
+};
+
+GltfDocument load_gltf_document(const std::filesystem::path& file_path)
+{
+	const bool is_glb = file_path.extension() == ".glb";
+	if (!is_glb && file_path.extension() != ".gltf")
+		throw std::runtime_error(fmt::format(
+			"ResourceLoader: unsupported glTF file format: {}", file_path.string()));
+
+	GltfDocument document;
+	std::string error;
+	tinygltf::TinyGLTF loader;
+	const bool loaded = is_glb
+		? loader.LoadBinaryFromFile(&document.model, &error, &document.warning, file_path.string())
+		: loader.LoadASCIIFromFile(&document.model, &error, &document.warning, file_path.string());
+	if (!loaded)
+		throw std::runtime_error(fmt::format(
+			"ResourceLoader: failed to load '{}': {}", file_path.string(), error));
+	return document;
+}
+
 Maths::Transform node_transform(const tinygltf::Node& node)
 {
 	Maths::Transform transform;
@@ -77,6 +104,66 @@ std::vector<int> get_parent_nodes(const tinygltf::Model& model)
 		for (const int child : model.nodes[parent].children)
 			parents.at(child) = parent;
 	return parents;
+}
+
+std::unordered_map<std::string, size_t> require_named_target_bones(const std::vector<Bone>& bones)
+{
+	std::unordered_map<std::string, size_t> indices;
+	for (size_t index = 0; index < bones.size(); ++index)
+	{
+		if (bones[index].name.empty())
+			throw std::runtime_error("ResourceLoader: target skeleton contains an unnamed bone");
+		if (!indices.emplace(bones[index].name, index).second)
+			throw std::runtime_error(fmt::format(
+				"ResourceLoader: target skeleton contains duplicate bone name '{}'", bones[index].name));
+		if (bones[index].parent_node != Bone::NO_PARENT && bones[index].parent_node >= bones.size())
+			throw std::runtime_error("ResourceLoader: target skeleton contains an invalid parent index");
+	}
+	return indices;
+}
+
+std::optional<std::vector<size_t>> exact_joint_mapping(
+	const tinygltf::Model& model,
+	const tinygltf::Skin& skin,
+	const std::vector<Bone>& target_bones,
+	const std::unordered_map<std::string, size_t>& target_by_name,
+	const std::vector<int>& node_parents)
+{
+	if (skin.joints.size() != target_bones.size())
+		return std::nullopt;
+
+	std::unordered_map<int, size_t> source_joint_indices;
+	std::unordered_set<std::string> source_names;
+	std::vector<size_t> mapping;
+	mapping.reserve(skin.joints.size());
+	for (size_t source_index = 0; source_index < skin.joints.size(); ++source_index)
+	{
+		const int node_index = skin.joints[source_index];
+		if (node_index < 0 || node_index >= static_cast<int>(model.nodes.size()))
+			return std::nullopt;
+		const auto& name = model.nodes[node_index].name;
+		const auto target = target_by_name.find(name);
+		if (name.empty() || target == target_by_name.end() || !source_names.insert(name).second)
+			return std::nullopt;
+		source_joint_indices.emplace(node_index, source_index);
+		mapping.push_back(target->second);
+	}
+
+	for (size_t source_index = 0; source_index < skin.joints.size(); ++source_index)
+	{
+		int parent = node_parents.at(skin.joints[source_index]);
+		while (parent >= 0 && !source_joint_indices.contains(parent))
+			parent = node_parents.at(parent);
+
+		const auto target_index = mapping[source_index];
+		const auto target_parent = target_bones[target_index].parent_node;
+		const std::string source_parent_name = parent < 0 ? std::string{} : model.nodes[parent].name;
+		const std::string target_parent_name = target_parent == Bone::NO_PARENT
+			? std::string{} : target_bones[target_parent].name;
+		if (source_parent_name != target_parent_name)
+			return std::nullopt;
+	}
+	return mapping;
 }
 
 std::vector<NodeInstance> collect_mesh_nodes(const tinygltf::Model& model, const tinygltf::Scene& scene)
@@ -168,19 +255,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	{
 	if (!std::filesystem::exists(file_path))
 		file_path = Utility::get_model(file_path.string());
-	const bool is_glb = file_path.extension() == ".glb";
-	if (!is_glb && file_path.extension() != ".gltf")
-		throw std::runtime_error(fmt::format("ResourceLoader::load_model: unsupported file format: {}", file_path.string()));
-
-	tinygltf::Model model;
-	std::string err;
-	std::string warn;
-	tinygltf::TinyGLTF loader;
-	const bool loaded = is_glb
-		? loader.LoadBinaryFromFile(&model, &err, &warn, file_path.string())
-		: loader.LoadASCIIFromFile(&model, &err, &warn, file_path.string());
-	if (!loaded)
-		throw std::runtime_error(fmt::format("ResourceLoader::load_model: failed to load '{}': {}", file_path.string(), err));
+	auto document = load_gltf_document(file_path);
+	auto& model = document.model;
 	if (model.scenes.empty())
 		throw std::runtime_error("ResourceLoader::load_model: model contains no scenes");
 
@@ -189,8 +265,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 		throw std::runtime_error("ResourceLoader::load_model: requested scene is out of range");
 
 	LoadedModel result;
-	if (!warn.empty())
-		result.warnings.push_back({ warn });
+	if (!document.warning.empty())
+		result.warnings.push_back({ document.warning });
 	global_resource_loader.gltf_material_to_mat_ids.clear();
 	for (size_t material_index = 0; material_index < model.materials.size(); ++material_index)
 	{
@@ -225,7 +301,22 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			{
 				it = skins.emplace(node.skin, load_bones(model, node.skin)).first;
 				if (!model.animations.empty())
-					animations_by_skin[node.skin] = load_animations(model, it->second, node.skin);
+				{
+					std::vector<size_t> identity_mapping(it->second.size());
+					std::iota(identity_mapping.begin(), identity_mapping.end(), 0);
+					auto imported = import_animations(model, it->second, node.skin, identity_mapping);
+					auto& ids = animations_by_skin[node.skin];
+					ids.reserve(imported.size());
+					const auto signature = make_skeletal_rig_signature(it->second);
+					for (auto animation : imported)
+					{
+						ids.push_back(ECS::get().add_skeletal_animation(
+							animation.name,
+							std::move(animation.bone_animations),
+							signature,
+							file_path.filename().string()));
+					}
+				}
 				const auto& animation_ids = animations_by_skin[node.skin];
 				result.animations.insert(result.animations.end(), animation_ids.begin(), animation_ids.end());
 			}
@@ -369,4 +460,71 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(std::filesystem::path fil
 	LoadOptions options;
 	options.generate_missing_tangents = true;
 	return load_model(std::move(file_path), options);
+}
+
+ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
+	std::filesystem::path file_path,
+	const SkeletonID target_skeleton)
+{
+	try
+	{
+		if (!std::filesystem::exists(file_path))
+			file_path = Utility::get_animation(file_path.string());
+
+		auto document = load_gltf_document(file_path);
+		const auto& model = document.model;
+		if (model.animations.empty())
+			throw std::runtime_error("ResourceLoader: animation file contains no animations");
+		if (model.skins.empty())
+			throw std::runtime_error("ResourceLoader: animation file contains no skins");
+
+		const auto& target_bones = ECS::get().get_skeletal_component(target_skeleton).get_bones();
+		const auto target_by_name = require_named_target_bones(target_bones);
+		const auto node_parents = get_parent_nodes(model);
+
+		std::vector<std::pair<int, std::vector<size_t>>> compatible_skins;
+		for (int skin_index = 0; skin_index < static_cast<int>(model.skins.size()); ++skin_index)
+		{
+			if (auto mapping = exact_joint_mapping(
+				model, model.skins[skin_index], target_bones, target_by_name, node_parents))
+			{
+				compatible_skins.emplace_back(skin_index, std::move(*mapping));
+			}
+		}
+		if (compatible_skins.empty())
+			throw std::runtime_error("ResourceLoader: animation file has no skin compatible with the target skeleton");
+		if (compatible_skins.size() > 1)
+			throw std::runtime_error("ResourceLoader: animation file has multiple skins compatible with the target skeleton");
+
+		auto imported = import_animations(
+			model, target_bones, compatible_skins.front().first, compatible_skins.front().second);
+		if (imported.empty())
+			throw std::runtime_error("ResourceLoader: animation file contains no clips for the compatible skin");
+		LoadedAnimations result;
+		if (!document.warning.empty())
+			result.warnings.push_back({ document.warning });
+		result.animations.reserve(imported.size());
+		const auto signature = make_skeletal_rig_signature(target_bones);
+		for (auto& animation : imported)
+		{
+			result.animations.push_back(ECS::get().add_skeletal_animation(
+				animation.name,
+				std::move(animation.bone_animations),
+				signature,
+				file_path.filename().string()));
+		}
+		return result;
+	}
+	catch (const ResourceLoadError&)
+	{
+		throw;
+	}
+	catch (const std::runtime_error& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
+	catch (const std::out_of_range& error)
+	{
+		throw ResourceLoadError(error.what());
+	}
 }

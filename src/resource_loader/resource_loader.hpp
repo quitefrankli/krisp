@@ -73,9 +73,16 @@ public:
 		std::vector<ImportWarning> warnings;
 	};
 
+	struct LoadedAnimations
+	{
+		std::vector<AnimationID> animations;
+		std::vector<ImportWarning> warnings;
+	};
+
 	static MaterialID fetch_texture(std::filesystem::path file_path);
 	static LoadedModel load_model(std::filesystem::path file_path);
 	static LoadedModel load_model(std::filesystem::path file_path, const LoadOptions& options);
+	static LoadedAnimations load_animations(std::filesystem::path file_path, SkeletonID target_skeleton);
 
 private:
 	MaterialID load_texture(const std::filesystem::path& file_path);

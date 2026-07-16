@@ -34,11 +34,13 @@ public:
 
 	static std::filesystem::path get_texture(std::string_view filename);
 	static std::filesystem::path get_model(std::string_view filename);
+	static std::filesystem::path get_animation(std::string_view filename);
 	static std::filesystem::path get_shader(std::string_view filename);
 	static std::filesystem::path get_audio(std::string_view filename);
 
 	static std::vector<std::filesystem::path> get_all_textures();
 	static std::vector<std::filesystem::path> get_all_models();
+	static std::vector<std::filesystem::path> get_all_animations();
 	static std::vector<std::filesystem::path> get_all_audio();
 
 	static quill::Logger* get_logger() { return get().logger; }

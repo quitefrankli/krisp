@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 
@@ -332,8 +333,19 @@ public:
 	virtual void draw() override;
 
 private:
+	void refresh_animation_files();
+
+	std::vector<std::string> animation_files;
+	std::vector<std::filesystem::path> animation_paths;
+	bool should_refresh_animation_files = false;
+	bool animation_file_dropdown_open = false;
+	std::optional<std::filesystem::path> animation_to_load;
+	std::optional<SkeletonID> selected_skeleton;
+	std::unordered_set<AnimationID> compatible_animations;
 	std::optional<AnimationID> selected_animation;
-	std::string selected_animation_name = "";
+	std::string selected_animation_name = "(select clip)";
+	std::string target_status = "Select a skinned object";
+	std::optional<std::string> load_error;
 	bool loop = false;
 	bool should_play = false;
 };

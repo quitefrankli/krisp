@@ -33,6 +33,12 @@ struct SamplerData
 	std::vector<SamplerKey> keys;
 };
 
+struct ImportedAnimation
+{
+	std::string name;
+	std::vector<BoneAnimation> bone_animations;
+};
+
 SamplerData get_sampler_data(
 	const tinygltf::Model& model, 
 	const tinygltf::AnimationSampler& sampler)
@@ -103,37 +109,37 @@ SamplerData get_sampler_data(
 	return retval;
 }
 
-static std::vector<AnimationID> load_animations(
+static std::vector<ImportedAnimation> import_animations(
 	const tinygltf::Model& model,
 	const std::vector<Bone>& initial_bones,
-	const int skin_index)
+	const int skin_index,
+	const std::vector<size_t>& source_joint_to_target)
 {
 	const auto& skin = model.skins.at(skin_index);
-	std::vector<AnimationID> final_animations;
+	if (source_joint_to_target.size() != skin.joints.size())
+		throw std::runtime_error("ResourceLoader: animation joint mapping size differs from source skin");
+	std::vector<ImportedAnimation> final_animations;
 
-	const std::map<int, int> node_to_joint = [&skin] {
+	const std::map<int, size_t> node_to_joint = [&skin, &source_joint_to_target] {
 
-		std::map<int, int> retval;
-		for (int i = 0; i < skin.joints.size(); i++)
+		std::map<int, size_t> retval;
+		for (size_t i = 0; i < skin.joints.size(); i++)
 		{
-			retval[skin.joints[i]] = i;
+			retval[skin.joints[i]] = source_joint_to_target[i];
 		}
 		return retval;
 	}();
 
-	for (const auto& animation : model.animations)
+	for (size_t animation_index = 0; animation_index < model.animations.size(); ++animation_index)
 	{	
+		const auto& animation = model.animations[animation_index];
 		// An animation represents a collection of BoneAnimations, each of which is a collection of keyframes
-		std::vector<TKFS> bone_tkfss(skin.joints.size());
-		std::vector<BoneAnimation> new_bone_animations(skin.joints.size());
+		std::vector<TKFS> bone_tkfss(initial_bones.size());
+		std::vector<BoneAnimation> new_bone_animations(initial_bones.size());
+		bool has_joint_channels = false;
 
 		for (const auto& channel : animation.channels)
 		{
-			if (channel.target_path != "rotation" && channel.target_path != "translation" && channel.target_path != "scale")
-			{
-				throw std::runtime_error("ResourceLoader: only rotation, translation and scale target paths are supported");
-			}
-
 			if (channel.target_node < 0 || channel.target_node >= model.nodes.size())
 			{
 				throw std::runtime_error("ResourceLoader: invalid target node");
@@ -145,6 +151,9 @@ static std::vector<AnimationID> load_animations(
 				// glTF animations may also target helper nodes outside this skin.
 				continue;
 			}
+			if (channel.target_path != "rotation" && channel.target_path != "translation" && channel.target_path != "scale")
+				throw std::runtime_error("ResourceLoader: only rotation, translation and scale target paths are supported");
+			has_joint_channels = true;
 			const auto joint_idx = node_it->second;
 			auto& bone_tkfs = bone_tkfss[joint_idx];
 			if (channel.sampler < 0 || channel.sampler >= animation.samplers.size())
@@ -183,9 +192,11 @@ static std::vector<AnimationID> load_animations(
 					track.keys.push_back({ key.time, glm::vec3(key.value), glm::vec3(key.in_tangent), glm::vec3(key.out_tangent) });
 			}
 		}
+		if (!has_joint_channels)
+			continue;
 
 		// convert temporary key frames to proper key frames
-		for (int bone_idx = 0; bone_idx < bone_tkfss.size(); bone_idx++)
+		for (size_t bone_idx = 0; bone_idx < bone_tkfss.size(); bone_idx++)
 		{
 			const auto& inital_bone = initial_bones.at(bone_idx);
 			auto& bone_tkfs = bone_tkfss[bone_idx];
@@ -244,7 +255,10 @@ static std::vector<AnimationID> load_animations(
 			}
 		}
 
-		final_animations.push_back(ECS::get().add_skeletal_animation(animation.name, std::move(new_bone_animations)));
+		final_animations.push_back({
+			animation.name.empty() ? "Animation " + std::to_string(animation_index + 1) : animation.name,
+			std::move(new_bone_animations)
+		});
 	}
 
 	return final_animations;
