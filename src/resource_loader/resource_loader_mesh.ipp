@@ -352,10 +352,20 @@ inline TangentRemap generate_tangents(
 	for (size_t corner = 0; corner < indices.size(); ++corner)
 	{
 		auto tangent = input.corner_tangents[corner];
-		const glm::vec3 tangent_xyz(tangent);
+		auto tangent_xyz = glm::vec3(tangent);
 		if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y) || !std::isfinite(tangent.z) ||
 			glm::length(tangent_xyz) < 0.00001f)
-			throw std::runtime_error("ResourceLoader: cannot generate tangents for degenerate geometry or UVs");
+		{
+			const auto normal = normals.at(indices[corner]);
+			if (!std::isfinite(normal.x) || !std::isfinite(normal.y) || !std::isfinite(normal.z) ||
+				glm::length(normal) < 0.00001f)
+				throw std::runtime_error("ResourceLoader: cannot generate a tangent from an invalid normal");
+			const auto normalized_normal = glm::normalize(normal);
+			const auto fallback_axis = std::abs(normalized_normal.x) < 0.9f
+				? glm::vec3(1.0f, 0.0f, 0.0f)
+				: glm::vec3(0.0f, 1.0f, 0.0f);
+			tangent_xyz = glm::cross(fallback_axis, normalized_normal);
+		}
 		tangent = glm::vec4(glm::normalize(tangent_xyz), tangent.w < 0.0f ? -1.0f : 1.0f);
 		const TangentVertexKey key{ indices[corner], tangent };
 		auto [it, inserted] = remap.emplace(key, static_cast<uint32_t>(result.source_vertices.size()));

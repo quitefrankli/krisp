@@ -383,14 +383,28 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					tangents = GltfImport::read_vec4(model, primitive.attributes.at("TANGENT"));
 					if (tangents.size() != positions.size())
 						throw std::runtime_error("ResourceLoader: POSITION and TANGENT counts differ");
-					for (auto& tangent : tangents)
+					const bool tangents_valid = std::all_of(
+						tangents.begin(), tangents.end(), [](const glm::vec4& tangent)
 					{
 						const glm::vec3 tangent_xyz(tangent);
-						if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y) || !std::isfinite(tangent.z) ||
-							!std::isfinite(tangent.w) || glm::length(tangent_xyz) < 0.00001f ||
-							std::abs(std::abs(tangent.w) - 1.0f) > 0.00001f)
+						return std::isfinite(tangent.x) && std::isfinite(tangent.y) && std::isfinite(tangent.z) &&
+							std::isfinite(tangent.w) && glm::length(tangent_xyz) >= 0.00001f &&
+							std::abs(std::abs(tangent.w) - 1.0f) <= 0.00001f;
+					});
+					if (!tangents_valid)
+					{
+						if (!options.generate_missing_tangents)
 							throw std::runtime_error("ResourceLoader: primitive contains an invalid TANGENT");
-						tangent = glm::vec4(glm::normalize(tangent_xyz), tangent.w < 0.0f ? -1.0f : 1.0f);
+						add_warning(result, options, "ResourceLoader: regenerated invalid tangents");
+						tangent_remap = GltfImport::generate_tangents(positions, normals, texcoords, indices);
+					}
+					else
+					{
+						for (auto& tangent : tangents)
+						{
+							const glm::vec3 tangent_xyz(tangent);
+							tangent = glm::vec4(glm::normalize(tangent_xyz), tangent.w < 0.0f ? -1.0f : 1.0f);
+						}
 					}
 				}
 				else if (!options.generate_missing_tangents)

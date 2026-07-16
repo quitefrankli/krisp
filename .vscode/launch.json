@@ -11,11 +11,6 @@
 			"program": "${workspaceFolder}/build/applications/krisp/krisp",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"initCommands": [
-				"type category enable default",
-				"type category enable libcxx",
-				"type category enable gnu-libstdc++"
-			],
 			"preLaunchTask": "build krisp"
 		},
 		{
@@ -25,11 +20,6 @@
 			"program": "${workspaceFolder}/build/applications/space/space",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"initCommands": [
-				"type category enable default",
-				"type category enable libcxx",
-				"type category enable gnu-libstdc++"
-			],
 			"preLaunchTask": "build space"
 		},
 		{
@@ -39,11 +29,6 @@
 			"program": "${workspaceFolder}/build/applications/chess/chess",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"initCommands": [
-				"type category enable default",
-				"type category enable libcxx",
-				"type category enable gnu-libstdc++"
-			],
 			"preLaunchTask": "build chess"
 		},
 		{
@@ -53,11 +38,6 @@
 			"program": "${workspaceFolder}/build/applications/tetris/tetris",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"initCommands": [
-				"type category enable default",
-				"type category enable libcxx",
-				"type category enable gnu-libstdc++"
-			],
 			"preLaunchTask": "build tetris"
 		},
 		{
@@ -67,11 +47,6 @@
 			"program": "${workspaceFolder}/build/test/krisp_tests",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"initCommands": [
-				"type category enable default",
-				"type category enable libcxx",
-				"type category enable gnu-libstdc++"
-			],
 			"preLaunchTask": "build tests"
 		}
 	]

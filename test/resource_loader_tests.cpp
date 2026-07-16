@@ -567,6 +567,29 @@ TEST(ResourceLoaderNormalMaps, missing_tangents_can_be_generated)
 	EXPECT_NE(model.warnings[0].message.find("generated missing tangents"), std::string::npos);
 }
 
+TEST(ResourceLoaderNormalMaps, invalid_tangents_fail_when_generation_is_disabled)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_invalid_tangents.gltf";
+	const ResourceLoader::LoadOptions options;
+	EXPECT_THROW(ResourceLoader::load_model(path, options), ResourceLoadError);
+}
+
+TEST(ResourceLoaderNormalMaps, invalid_tangents_are_regenerated)
+{
+	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_invalid_tangents.gltf";
+	const auto model = ResourceLoader::load_model(path);
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(MeshSystem::get(renderable.mesh_id));
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
+		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
+		EXPECT_TRUE(vertex.tangent.w == 1.0f || vertex.tangent.w == -1.0f);
+	}
+	ASSERT_EQ(model.warnings.size(), 1);
+	EXPECT_NE(model.warnings[0].message.find("regenerated invalid tangents"), std::string::npos);
+}
+
 TEST(ResourceLoaderNormalMaps, authored_tangents_are_preserved_and_scale_warns)
 {
 	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_authored_tangents.gltf";
