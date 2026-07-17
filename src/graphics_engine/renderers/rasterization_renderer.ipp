@@ -156,7 +156,8 @@ void RasterizationRenderer::submit_draw_commands(
 		
 		// skip stenciled objects in main loop - they will be rendered with stencil effect later
 		// unless we're in wireframe mode, in which case we skip the stencil effect
-		if (stenciled_ids.find(id) != stenciled_ids.end() && !get_graphics_engine().is_wireframe_mode)
+		if (stenciled_ids.find(id) != stenciled_ids.end()
+			&& get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
 			continue;
 
 		// skip overlay objects - they will be rendered on top after depth clear
@@ -170,8 +171,10 @@ void RasterizationRenderer::submit_draw_commands(
 				continue;
 		}
 
-		const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ?
-			EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
+			const EPipelineModifier modifier = get_graphics_engine().render_mode == ERenderMode::WIREFRAME
+				? EPipelineModifier::WIREFRAME
+				: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
+					? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
 
 		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 		{
@@ -201,14 +204,18 @@ void RasterizationRenderer::submit_draw_commands(
 	for (const auto& [graphics_object, renderable_idx] : blended_renderables)
 	{
 		const auto& renderable = graphics_object->get_renderables()[renderable_idx];
+		const EPipelineModifier modifier = get_graphics_engine().render_mode == ERenderMode::WIREFRAME
+			? EPipelineModifier::WIREFRAME
+			: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
+				? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
 		draw_renderable(command_buffer, renderable,
 			graphics_object->get_obj_dset(frame_index),
-			graphics_object->get_renderable_dsets()[renderable_idx], EPipelineModifier::NONE);
+			graphics_object->get_renderable_dsets()[renderable_idx], modifier);
 	}
 	
 	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader
 	// skip stencil effect when in wireframe mode
-	if (!get_graphics_engine().is_wireframe_mode)
+	if (get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
 	{
 		for (const auto& id : stenciled_ids)
 		{
@@ -284,8 +291,10 @@ void RasterizationRenderer::submit_draw_commands(
 			if (!has_overlay)
 				continue;
 
-			const EPipelineModifier modifier = get_graphics_engine().is_wireframe_mode ?
-				EPipelineModifier::WIREFRAME : EPipelineModifier::NONE;
+		const EPipelineModifier modifier = get_graphics_engine().render_mode == ERenderMode::WIREFRAME
+			? EPipelineModifier::WIREFRAME
+			: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
+				? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
 
 			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 			{
@@ -300,7 +309,7 @@ void RasterizationRenderer::submit_draw_commands(
 	}
 
 	// Render particles within the same render pass (skip in wireframe mode)
-	if (!get_graphics_engine().is_wireframe_mode)
+	if (get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
 	{
 		auto& particle_renderer = static_cast<ParticleRenderer&>(
 			get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::PARTICLE));

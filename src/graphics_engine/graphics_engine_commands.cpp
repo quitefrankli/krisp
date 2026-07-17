@@ -42,7 +42,7 @@ void ShutdownCmd::process(GraphicsEngineBase* engine)
 	engine->handle_command(*this);
 }
 
-void ToggleWireFrameModeCmd::process(GraphicsEngineBase* engine)
+void SetRenderModeCmd::process(GraphicsEngineBase* engine)
 {
 	engine->handle_command(*this);
 }

@@ -5,6 +5,7 @@
 #include "renderers/renderers.hpp"
 #include "shared_data_structures.hpp"
 #include "entity_component_system/ecs.hpp"
+#include "config.hpp"
 
 
 void GraphicsEngine::handle_command(SpawnObjectCmd& cmd)
@@ -51,9 +52,18 @@ void GraphicsEngine::handle_command(ShutdownCmd& cmd)
 	shutdown();
 }
 
-void GraphicsEngine::handle_command(ToggleWireFrameModeCmd& cmd)
+void GraphicsEngine::handle_command(SetRenderModeCmd& cmd)
 {
-    is_wireframe_mode = !is_wireframe_mode;
+	if (render_mode == cmd.render_mode)
+		return;
+
+	render_mode = cmd.render_mode;
+	if (render_mode == ERenderMode::RAYTRACING && Config::is_raytracing_enabled())
+	{
+		raytracing_component.update_acceleration_structures();
+		static_cast<RaytracingRenderer&>(
+			renderer_mgr.get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
+	}
 	update_command_buffer();
 }
 

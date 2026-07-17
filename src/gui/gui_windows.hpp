@@ -2,6 +2,7 @@
 
 #include "maths.hpp"
 #include "identifications.hpp"
+#include "renderable/render_types.hpp"
 
 #include <map>
 #include <string>
@@ -105,9 +106,11 @@ public:
 
 public:
 	float light_strength = 1.0f;
-	GuiVar<bool> rtx_on = false;
 	GuiVar<int> selected_camera_projection = 0;
-	GuiVar<bool> wireframe_mode = false;
+	GuiVar<ERenderMode> render_mode = ERenderMode::RASTERIZED;
+
+	ERenderMode get_render_mode() const { return render_mode.value; }
+	bool select_render_mode(ERenderMode mode);
 
 private:
 	const std::vector<const char*> camera_projections = { "perspective", "orthographic" };
@@ -378,6 +381,7 @@ private:
 		size_t renderable_index;
 		ETextureSemantic semantic;
 		std::optional<std::filesystem::path> path;
+		bool matte = false;
 	};
 
 	void refresh_textures();
@@ -397,7 +401,7 @@ private:
 	std::string target_status = "Select an object";
 	std::string diffuse_label = "(none)";
 	std::string normal_label = "(none)";
-	std::string specular_label = "(none)";
+	std::string specular_label = "(glossy)";
 	bool compatible = false;
 	bool should_refresh_textures = false;
 	bool diffuse_dropdown_open = false;

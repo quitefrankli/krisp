@@ -23,10 +23,21 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 	GlobalData data;
 } global_data;
 
+layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform samplerCube shadow_map;
+
 layout(push_constant) uniform AlphaMaterialBuffer
 {
 	AlphaMaterialData data;
 } alpha_material;
+
+float compute_shadow_factor(const vec3 normal, const vec3 light_dir)
+{
+	const vec3 frag_to_light = frag_pos - global_data.data.light_pos;
+	const float current_depth = length(frag_to_light);
+	const float closest_depth = texture(shadow_map, frag_to_light).r * global_data.data.shadow_far_plane;
+	const float bias = max(0.03 * (1.0 - dot(normal, light_dir)), 0.003);
+	return (current_depth - bias) > closest_depth ? 0.05 : 1.0;
+}
 
 void main()
 {
@@ -59,5 +70,5 @@ void main()
 	const vec3 specular = light_color * specular_sample.rgb * specular_sample.a
 		* (SPECULAR_STRENGTH * global_data.data.lighting_scalar * spec);
 
-	out_color = vec4(ambient + diffuse + specular, alpha);
+	out_color = vec4(ambient + (diffuse + specular) * compute_shadow_factor(norm, lightDir), alpha);
 }

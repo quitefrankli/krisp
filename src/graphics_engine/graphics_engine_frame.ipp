@@ -124,12 +124,13 @@ void GraphicsEngineFrame::update_command_buffer()
 	{
 		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 	};
-	if (get_graphics_engine().get_gui_manager().graphic_settings.rtx_on)
+	if (get_graphics_engine().render_mode == ERenderMode::RAYTRACING)
 	{
 		submit_draw_commands(ERendererType::RAYTRACING);
 	} else
 	{
-		submit_draw_commands(ERendererType::SHADOW_MAP);
+		if (get_graphics_engine().render_mode != ERenderMode::UNLIT_BASE_COLOR)
+			submit_draw_commands(ERendererType::SHADOW_MAP);
 		submit_draw_commands(ERendererType::RASTERIZATION);
 		// Note: Particle rendering is now done within the RasterizationRenderer
 		submit_draw_commands(ERendererType::QUAD);

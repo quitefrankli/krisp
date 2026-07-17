@@ -37,7 +37,7 @@ public:
 	virtual void handle_command(StencilObjectCmd& cmd) override {}
 	virtual void handle_command(UnStencilObjectCmd& cmd) override {}
 	virtual void handle_command(ShutdownCmd& cmd) override {}
-	virtual void handle_command(ToggleWireFrameModeCmd& cmd) override {}
+	virtual void handle_command(SetRenderModeCmd& cmd) override {}
 	virtual void handle_command(UpdateCommandBufferCmd& cmd) override {}
 
 	virtual float get_fps() const override { return 1.0f; }

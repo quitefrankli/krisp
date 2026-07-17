@@ -21,6 +21,7 @@
 #include <fmt/core.h>
 
 #include <algorithm>
+#include <array>
 #include <unordered_set>
 #include "gui_windows.hpp"
 
@@ -167,8 +168,16 @@ void GuiGraphicsSettings::draw()
 	{
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
-	rtx_on.changed = ImGui::Checkbox("RTX", &rtx_on.value);
-	wireframe_mode.changed |= ImGui::Checkbox("wireframe", &wireframe_mode.value);
+	for (const auto& [label, mode] : std::array{
+		std::pair{ "Rasterized", ERenderMode::RASTERIZED },
+		std::pair{ "RTX", ERenderMode::RAYTRACING },
+		std::pair{ "Wireframe", ERenderMode::WIREFRAME },
+		std::pair{ "Unlit Base Color", ERenderMode::UNLIT_BASE_COLOR },
+	})
+	{
+		if (ImGui::RadioButton(label, render_mode.value == mode))
+			select_render_mode(mode);
+	}
 	ImGui::SetNextItemWidth(combo_width);
 	selected_camera_projection.changed |= ImGui::Combo(
 		"projection", 
@@ -179,6 +188,16 @@ void GuiGraphicsSettings::draw()
 	}
 	end();
 }
+
+bool GuiGraphicsSettings::select_render_mode(const ERenderMode mode)
+{
+	if (render_mode.value == mode)
+		return false;
+	render_mode.value = mode;
+	render_mode.changed = true;
+	return true;
+}
+
 void GuiGraphicsSettings::process(GameEngine& engine)
 {
 	if (selected_camera_projection.changed)
@@ -187,10 +206,11 @@ void GuiGraphicsSettings::process(GameEngine& engine)
 		selected_camera_projection.changed = false;
 	}
 
-	if (wireframe_mode.changed)
+	if (render_mode.changed)
 	{
-		engine.get_graphics_engine().enqueue_cmd(std::make_unique<ToggleWireFrameModeCmd>());
-		wireframe_mode.changed = false;
+		engine.get_graphics_engine().enqueue_cmd(
+			std::make_unique<SetRenderModeCmd>(render_mode.value));
+		render_mode.changed = false;
 	}
 }
 
@@ -1165,8 +1185,11 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		pending_change.reset();
 		try
 		{
-			engine.replace_renderable_texture(
-				change.object_id, change.renderable_index, change.semantic, std::move(change.path));
+			if (change.matte)
+				engine.set_renderable_specular_matte(change.object_id, change.renderable_index);
+			else
+				engine.replace_renderable_texture(
+					change.object_id, change.renderable_index, change.semantic, std::move(change.path));
 			load_error.reset();
 		}
 		catch (const ResourceLoadError& error)
@@ -1185,7 +1208,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	compatible = false;
 	diffuse_label = "(none)";
 	normal_label = "(none)";
-	specular_label = "(none)";
+	specular_label = "(glossy)";
 	const Object* object = engine.get_gizmo().get_selected_object();
 	if (!object)
 	{
@@ -1229,6 +1252,8 @@ void GuiMaterialEditor::process(GameEngine& engine)
 
 	const auto material_label = [](const MaterialID id)
 	{
+		if (id == MaterialFactory::fetch_black_texture())
+			return std::string("(matte)");
 		if (id == MaterialFactory::fetch_white_texture())
 			return std::string("(none)");
 		if (!MaterialSystem::contains(id))
@@ -1262,9 +1287,14 @@ void GuiMaterialEditor::draw_texture_section(
 	dropdown_was_open = dropdown_open;
 	if (dropdown_open)
 	{
-		if (ImGui::Selectable("(none)", current_label == "(none)"))
+		const char* glossy_label = semantic == ETextureSemantic::SPECULAR ? "(glossy)" : "(none)";
+		if (ImGui::Selectable(glossy_label, current_label == glossy_label))
 			pending_change = TextureChange{
 				*target_object, static_cast<size_t>(selected_renderable.value), semantic, std::nullopt };
+		if (semantic == ETextureSemantic::SPECULAR
+			&& ImGui::Selectable("(matte)", current_label == "(matte)"))
+			pending_change = TextureChange{
+				*target_object, static_cast<size_t>(selected_renderable.value), semantic, std::nullopt, true };
 		for (size_t index = 0; index < texture_paths.size(); ++index)
 		{
 			if (ImGui::Selectable(texture_names[index].c_str(), current_label == texture_names[index]))

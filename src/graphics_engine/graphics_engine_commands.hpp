@@ -59,9 +59,12 @@ struct ShutdownCmd : public GraphicsEngineCommand
 	virtual void process(GraphicsEngineBase* engine) override;
 };
 
-struct ToggleWireFrameModeCmd : public GraphicsEngineCommand
+struct SetRenderModeCmd : public GraphicsEngineCommand
 {
+	explicit SetRenderModeCmd(ERenderMode render_mode) : render_mode(render_mode) {}
 	virtual void process(GraphicsEngineBase* engine) override;
+
+	ERenderMode render_mode;
 };
 
 struct UpdateCommandBufferCmd : public GraphicsEngineCommand

@@ -45,7 +45,7 @@ public:
 	void shutdown() { should_shutdown = true; }
 
 public:
-	bool is_wireframe_mode = false;
+	ERenderMode render_mode = ERenderMode::RASTERIZED;
 
 public: // getters and setters
 	VkExtent2D get_extent();
@@ -179,7 +179,7 @@ public: // commands
 	void handle_command(StencilObjectCmd& cmd) final;
 	void handle_command(UnStencilObjectCmd& cmd) final;
 	void handle_command(ShutdownCmd& cmd) final;
-	void handle_command(ToggleWireFrameModeCmd& cmd) final;
+	void handle_command(SetRenderModeCmd& cmd) final;
 	void handle_command(UpdateCommandBufferCmd& cmd) final;
 	void handle_command(UpdateRayTracingCmd& cmd) final;
 	void handle_command(PreviewObjectsCmd& cmd) final;

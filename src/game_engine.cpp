@@ -485,6 +485,37 @@ void GameEngine::replace_renderable_texture(
 		std::move(retired_materials)));
 }
 
+void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const size_t renderable_index)
+{
+	Object* object = get_object(object_id);
+	if (!object || renderable_index >= object->renderables.size())
+		throw std::runtime_error("GameEngine::set_renderable_specular_matte: object or renderable not found");
+	auto& renderable = object->renderables[renderable_index];
+	if (renderable.pipeline_render_type != ERenderType::STANDARD
+		&& renderable.pipeline_render_type != ERenderType::SKINNED)
+		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable does not support textures");
+
+	const TexturedMatGroup current(renderable.material_ids);
+	const MaterialID matte = MaterialFactory::fetch_black_texture();
+	if (current.specular_mat && *current.specular_mat == matte)
+		return;
+
+	std::vector<MaterialID> retired_materials;
+	if (current.specular_mat && MaterialSystem::unregister_owner(*current.specular_mat) == 0)
+		retired_materials.push_back(*current.specular_mat);
+	renderable.material_ids = { current.base_color_mat, matte };
+	if (current.normal_mat)
+		renderable.material_ids.push_back(*current.normal_mat);
+
+	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
+		object_id,
+		renderable_index,
+		current.base_color_mat,
+		current.normal_mat,
+		matte,
+		std::move(retired_materials)));
+}
+
 GuiManager& GameEngine::get_gui_manager()
 {
 	return graphics_engine->get_gui_manager();

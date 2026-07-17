@@ -39,6 +39,18 @@ std::vector<VkVertexInputAttributeDescription> TexturePipeline::get_attribute_de
 	return {position_attr, texCoord_attr, normal_attr, tangent_attr};
 }
 
+std::vector<VkVertexInputAttributeDescription> UnlitTexturePipeline::get_attribute_descriptions() const
+{
+	const auto attributes = TexturePipeline::get_attribute_descriptions();
+	return { attributes[0], attributes[1] };
+}
+
+std::vector<VkVertexInputAttributeDescription> UnlitColorPipeline::get_attribute_descriptions() const
+{
+	const auto attributes = ColorPipeline::get_attribute_descriptions();
+	return { attributes[0] };
+}
+
 std::vector<VkVertexInputBindingDescription> CubemapPipeline::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
@@ -394,6 +406,17 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_skinning_att
 {
 	const auto attributes = get_attribute_descriptions_();
 	return { attributes[0], attributes[3], attributes[4] };
+}
+
+std::vector<VkVertexInputAttributeDescription> UnlitSkinnedPipeline::get_attribute_descriptions() const
+{
+	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
+	return { attributes[0], attributes[1], attributes[3], attributes[4] };
+}
+
+std::vector<VkVertexInputAttributeDescription> UnlitSkinnedColorPipeline::get_attribute_descriptions() const
+{
+	return SkinnedPipeline::get_skinning_attribute_descriptions_();
 }
 
 std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const

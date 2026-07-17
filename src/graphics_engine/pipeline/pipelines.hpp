@@ -94,6 +94,46 @@ protected:
 	virtual std::string_view get_shader_name() const override { return "skinned_color"; }
 };
 
+class UnlitTexturePipeline : public TexturePipeline
+{
+public:
+	UnlitTexturePipeline(GraphicsEngine& engine) : TexturePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "unlit_texture"; }
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+class UnlitColorPipeline : public ColorPipeline
+{
+public:
+	UnlitColorPipeline(GraphicsEngine& engine) : ColorPipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "unlit_color"; }
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+class UnlitSkinnedPipeline : public SkinnedPipeline
+{
+public:
+	UnlitSkinnedPipeline(GraphicsEngine& engine) : SkinnedPipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "unlit_skinned"; }
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+class UnlitSkinnedColorPipeline : public SkinnedColorPipeline
+{
+public:
+	UnlitSkinnedColorPipeline(GraphicsEngine& engine) : SkinnedColorPipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override { return "unlit_skinned_color"; }
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
 template<Wireframeable PrimaryPipelineType>
 class WireframePipeline : public GraphicsEnginePipeline
 {

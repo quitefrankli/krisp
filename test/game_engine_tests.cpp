@@ -310,6 +310,24 @@ TEST_F(GameEngineTests, replaces_specular_maps)
 	EXPECT_EQ(update.specular, group.specular_mat);
 }
 
+TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
+{
+	const auto diffuse = ResourceLoader::fetch_texture("texture2.jpg");
+	Renderable renderable;
+	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
+	renderable.material_ids = { diffuse };
+	renderable.pipeline_render_type = ERenderType::STANDARD;
+	auto& object = engine.spawn_object<Object>(renderable);
+
+	engine.set_renderable_specular_matte(object.get_id(), 0);
+
+	const TexturedMatGroup group(object.renderables[0].material_ids);
+	ASSERT_TRUE(group.specular_mat);
+	EXPECT_EQ(*group.specular_mat, MaterialFactory::fetch_black_texture());
+	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
+	EXPECT_EQ(get_mock_gfx().material_updates.back().specular, group.specular_mat);
+}
+
 TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
 {
 	const auto material = ResourceLoader::fetch_texture("texture1.jpg");

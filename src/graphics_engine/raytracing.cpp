@@ -104,22 +104,11 @@ void GraphicsEngineRayTracing::update_tlas2()
 
 void GraphicsEngineRayTracing::process()
 {
-	if (!is_enabled())
-	{
-		return;
-	}
-
-	if (get_graphics_engine().get_gui_manager().graphic_settings.rtx_on.changed)
-	{
-		update_acceleration_structures();
-		static_cast<RaytracingRenderer&>(get_graphics_engine().get_renderer_mgr().
-			get_renderer(ERendererType::RAYTRACING)).update_rt_dsets();
-	}
 }
 
 bool GraphicsEngineRayTracing::is_enabled()
 {
-	return get_graphics_engine().get_gui_manager().graphic_settings.rtx_on;
+	return Config::is_raytracing_enabled();
 }
 
 typename GraphicsEngineRayTracing::BlasInput GraphicsEngineRayTracing::object_to_blas(

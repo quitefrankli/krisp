@@ -16,6 +16,14 @@ enum class ERenderType
 	PARTICLE, // billboard particles
 };
 
+enum class ERenderMode
+{
+	RASTERIZED,
+	RAYTRACING,
+	WIREFRAME,
+	UNLIT_BASE_COLOR,
+};
+
 enum class EAlphaMode
 {
 	OPAQUE,

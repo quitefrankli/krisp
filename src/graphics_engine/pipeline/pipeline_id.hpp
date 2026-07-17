@@ -12,6 +12,7 @@ enum class EPipelineModifier
 	STENCIL,
 	POST_STENCIL,
 	WIREFRAME,
+	UNLIT_BASE_COLOR,
 	SHADOW_MAP
 };
 

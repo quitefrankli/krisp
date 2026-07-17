@@ -15,7 +15,7 @@ public:
 	virtual void handle_command(StencilObjectCmd& cmd) {}
 	virtual void handle_command(UnStencilObjectCmd& cmd) {}
 	virtual void handle_command(ShutdownCmd& cmd) {}
-	virtual void handle_command(ToggleWireFrameModeCmd& cmd) {}
+	virtual void handle_command(SetRenderModeCmd& cmd) {}
 	virtual void handle_command(UpdateCommandBufferCmd& cmd) {}
 	virtual void handle_command(UpdateRayTracingCmd& cmd) {}
 	virtual void handle_command(PreviewObjectsCmd& cmd) {}

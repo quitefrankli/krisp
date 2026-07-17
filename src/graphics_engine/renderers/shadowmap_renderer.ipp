@@ -91,7 +91,7 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
                                                                      VkImageView,
                                                                      uint32_t frame_index)
 {
-	if (get_graphics_engine().is_wireframe_mode)
+	if (get_graphics_engine().render_mode == ERenderMode::WIREFRAME)
 	{
 		return;
 	}

@@ -130,3 +130,28 @@ MaterialID MaterialFactory::fetch_white_texture()
 	}();
 	return material_id;
 }
+
+MaterialID MaterialFactory::fetch_black_texture()
+{
+	struct BlackTextureData : TextureData
+	{
+		std::array<std::byte, 4> pixels{
+			std::byte{0}, std::byte{0}, std::byte{0}, std::byte{255} };
+		std::byte* get() override { return pixels.data(); }
+	};
+
+	static const MaterialID material_id = []
+	{
+		auto material = std::make_unique<TextureMaterial>();
+		material->data = std::make_unique<BlackTextureData>();
+		material->data_len = 4;
+		material->width = 1;
+		material->height = 1;
+		material->channels = 4;
+		material->mip_sizes = { 4 };
+		material->source = "(matte)";
+		material->semantic = ETextureSemantic::SPECULAR;
+		return MaterialSystem::add_permanent(std::move(material));
+	}();
+	return material_id;
+}

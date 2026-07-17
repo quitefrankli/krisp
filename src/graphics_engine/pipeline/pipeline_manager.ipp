@@ -149,6 +149,24 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 			return std::make_unique<WireframePipeline<PrimaryPipelineType>>(get_graphics_engine());
 		}
 		break;
+	case EPipelineModifier::UNLIT_BASE_COLOR:
+		if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
+		{
+			return std::make_unique<UnlitTexturePipeline>(get_graphics_engine());
+		} else if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
+		{
+			return std::make_unique<UnlitColorPipeline>(get_graphics_engine());
+		} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
+		{
+			return std::make_unique<UnlitSkinnedPipeline>(get_graphics_engine());
+		} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+		{
+			return std::make_unique<UnlitSkinnedColorPipeline>(get_graphics_engine());
+		} else if constexpr (std::is_same_v<PrimaryPipelineType, CubemapPipeline>)
+		{
+			return std::make_unique<CubemapPipeline>(get_graphics_engine());
+		}
+		break;
 	case EPipelineModifier::SHADOW_MAP:
 		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
 		{
