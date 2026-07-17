@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <mutex>
 
 
 class GameEngine;
@@ -334,9 +335,12 @@ private:
 class GuiAnimationSelector : public GuiWindow
 {
 public:
+	using AnimationChoice = std::pair<AnimationID, std::string>;
+
 	GuiAnimationSelector();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
+	static std::vector<AnimationChoice> sort_unique_animation_choices(std::vector<AnimationChoice> choices);
 
 private:
 	void refresh_animation_files();
@@ -346,6 +350,7 @@ private:
 	bool should_refresh_animation_files = false;
 	bool animation_file_dropdown_open = false;
 	std::optional<std::filesystem::path> animation_to_load;
+	std::unordered_map<SkeletonID, std::unordered_map<std::string, std::vector<AnimationID>>> loaded_animation_files;
 	std::optional<SkeletonID> selected_skeleton;
 	std::unordered_set<AnimationID> compatible_animations;
 	std::optional<AnimationID> selected_animation;
@@ -354,6 +359,9 @@ private:
 	std::optional<std::string> load_error;
 	bool loop = false;
 	bool should_play = false;
+	// process() runs on the game thread while draw() runs on the graphics
+	// thread. All selector state, including the cached animation IDs, is shared.
+	std::mutex state_mutex;
 };
 
 class GuiMaterialEditor : public GuiWindow

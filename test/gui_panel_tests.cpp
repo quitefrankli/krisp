@@ -72,3 +72,16 @@ TEST(GuiMusic, safely_selects_only_existing_songs)
 	EXPECT_FALSE(GuiMusic::selected_path(songs, 2));
 	EXPECT_EQ(GuiMusic::selected_path(songs, 1), songs[1]);
 }
+
+TEST(GuiAnimationSelector, sorts_and_hides_duplicate_clip_labels)
+{
+	const std::vector<GuiAnimationSelector::AnimationChoice> choices{
+		{ AnimationID(3), "walk.glb: Walk" },
+		{ AnimationID(2), "idle.glb: Idle" },
+		{ AnimationID(1), "walk.glb: Walk" },
+	};
+	const auto unique = GuiAnimationSelector::sort_unique_animation_choices(choices);
+	ASSERT_EQ(unique.size(), 2u);
+	EXPECT_EQ(unique[0].second, "idle.glb: Idle");
+	EXPECT_EQ(unique[1].first, AnimationID(1));
+}
