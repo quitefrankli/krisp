@@ -29,6 +29,9 @@ namespace App {
 
 		GLFWwindow* get_glfw_window() { return window; }
 
+	protected:
+		explicit Window(bool create_window);
+
 	private:
 		static constexpr int INITIAL_WINDOW_WIDTH = 1400;
 		static constexpr int INITIAL_WINDOW_HEIGHT = 800;

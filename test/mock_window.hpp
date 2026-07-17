@@ -5,6 +5,11 @@
 class MockWindow : public App::Window
 {
 public:
+	MockWindow() :
+		Window(false)
+	{
+	}
+
 	virtual void setup_callbacks(IWindowCallbacks& callbacks) override
 	{
 	}

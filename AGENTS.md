@@ -10,7 +10,7 @@
 
 * Do test driven development, when unit tests are appropriate, first write the test that defines the expected behavior, then implement the code to pass the test.
 
-* Do not write superfluous tests, do write unit tests but make sure they are meaningful.
+* Do not write superfluous tests, write meaningful unit tests and prefer more end-to-end tests.
 
 * start every new session with "AGENTS.md read!"
 
@@ -20,6 +20,7 @@
 
 * IMPORTANT: never commit changes without the user's explicit approval.
 
+* IMPORTANT: limit number of concurrent build jobs to 6
+
 * Commit messages must use a descriptive imperative subject and, when the change is non-trivial, a wrapped body explaining the main behavior and important constraints.
 
-* limit number of concurrent build jobs to 6

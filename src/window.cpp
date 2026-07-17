@@ -123,8 +123,18 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 	}
 }
 
-App::Window::Window()
+App::Window::Window() :
+	Window(true)
 {
+}
+
+App::Window::Window(bool create_window)
+{
+	if (!create_window)
+	{
+		return;
+	}
+
 	const int x0 = Config::get_window_pos().first;
 	const int y0 = Config::get_window_pos().second;
 

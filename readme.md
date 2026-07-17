@@ -31,7 +31,7 @@ Always configure and compile in Debug mode during development and testing.
 
 ```bash
 meson setup build --reconfigure --buildtype=debug
-meson compile -C build krisp
+meson compile -C build -j 6 krisp
 build/applications/krisp/krisp
 ```
 

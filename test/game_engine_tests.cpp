@@ -73,6 +73,7 @@ public:
 
 TEST_F(GameEngineTests, Constructor)
 {
+	EXPECT_EQ(engine.get_window().get_glfw_window(), nullptr);
 }
 
 TEST_F(GameEngineTests, main_loop)
