@@ -1173,6 +1173,7 @@ void GuiMaterialEditor::refresh_textures()
 
 void GuiMaterialEditor::process(GameEngine& engine)
 {
+	const std::lock_guard lock(state_mutex);
 	if (should_refresh_textures)
 	{
 		should_refresh_textures = false;
@@ -1308,6 +1309,7 @@ void GuiMaterialEditor::draw_texture_section(
 
 void GuiMaterialEditor::draw()
 {
+	const std::lock_guard lock(state_mutex);
 	if (begin())
 	{
 		ImGui::TextWrapped("%s", target_status.c_str());

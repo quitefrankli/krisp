@@ -407,4 +407,6 @@ private:
 	bool diffuse_dropdown_open = false;
 	bool normal_dropdown_open = false;
 	bool specular_dropdown_open = false;
+	// process() runs on the game thread while draw() runs on the graphics thread.
+	std::mutex state_mutex;
 };
