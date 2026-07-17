@@ -14,6 +14,9 @@ struct Renderable
 	MeshID mesh_id;
 	MatVec material_ids;
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
+	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+	float alpha_cutoff = 0.5f;
+	float opacity = 1.0f;
 	bool casts_shadow = true;
 	bool render_on_top = false;
 

@@ -152,12 +152,15 @@ public:
 class MutatedGltf
 {
 public:
-	explicit MutatedGltf(const std::function<void(nlohmann::json&)>& mutate)
+	explicit MutatedGltf(
+		const std::function<void(nlohmann::json&)>& mutate,
+		const std::filesystem::path& template_path =
+			Utility::get_top_level_path()/"test/data/static_mesh_textured.gltf")
 	{
 		static uint32_t sequence = 0;
 		path = std::filesystem::temp_directory_path()
 			/ fmt::format("krisp_test_accessor_{}.gltf", sequence++);
-		std::ifstream input(Utility::get_top_level_path()/"test/data/static_mesh_textured.gltf");
+		std::ifstream input(template_path);
 		nlohmann::json document;
 		input >> document;
 		mutate(document);
@@ -200,6 +203,40 @@ TEST(ResourceLoaderErrors, rejects_accessor_stride_smaller_than_its_element)
 		document["bufferViews"][0]["byteStride"] = 4;
 	});
 	EXPECT_THROW(ResourceLoader::load_model(resource.path), ResourceLoadError);
+}
+
+TEST(ResourceLoaderMaterials, imports_gltf_alpha_modes_and_opacity)
+{
+	MutatedGltf masked([](nlohmann::json& document)
+	{
+		document["materials"][0]["alphaMode"] = "MASK";
+		document["materials"][0]["alphaCutoff"] = 0.25;
+		document["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"] = { 1.0, 1.0, 1.0, 0.6 };
+	});
+	const auto masked_model = ResourceLoader::load_model(masked.path);
+	const auto& masked_renderable = masked_model.meshes[0].renderables[0];
+	EXPECT_EQ(masked_renderable.alpha_mode, EAlphaMode::MASK);
+	EXPECT_FLOAT_EQ(masked_renderable.alpha_cutoff, 0.25f);
+	EXPECT_FLOAT_EQ(masked_renderable.opacity, 0.6f);
+
+	MutatedGltf blended([](nlohmann::json& document)
+	{
+		document["materials"][0]["alphaMode"] = "BLEND";
+	});
+	const auto blended_model = ResourceLoader::load_model(blended.path);
+	const auto& blended_renderable = blended_model.meshes[0].renderables[0];
+	EXPECT_EQ(blended_renderable.alpha_mode, EAlphaMode::BLEND);
+	EXPECT_FLOAT_EQ(blended_renderable.alpha_cutoff, 0.5f);
+	EXPECT_FLOAT_EQ(blended_renderable.opacity, 1.0f);
+
+	MutatedGltf skinned([](nlohmann::json& document)
+	{
+		document["materials"][0]["alphaMode"] = "MASK";
+	}, Utility::get_top_level_path()/"test/data/skinned_normal_mapped.gltf");
+	const auto skinned_model = ResourceLoader::load_model(skinned.path);
+	const auto& skinned_renderable = skinned_model.meshes[0].renderables[0];
+	EXPECT_EQ(skinned_renderable.pipeline_render_type, ERenderType::SKINNED);
+	EXPECT_EQ(skinned_renderable.alpha_mode, EAlphaMode::MASK);
 }
 
 // test loading .gltf file with bones into std::vector<Bone>

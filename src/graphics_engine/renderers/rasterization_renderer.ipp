@@ -4,8 +4,11 @@
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "graphics_engine/graphics_engine_object.hpp"
 #include "graphics_engine/graphics_engine.hpp"
+#include "camera.hpp"
 #include "objects/object.hpp"
 #include "particle_renderer.ipp"
+
+#include <algorithm>
 
 
 RasterizationRenderer::RasterizationRenderer(GraphicsEngine& engine) :
@@ -141,6 +144,7 @@ void RasterizationRenderer::submit_draw_commands(
 
 	const auto& graphics_objects = get_graphics_engine().get_objects();
 	const auto& stenciled_ids = get_graphics_engine().get_stenciled_object_ids();
+	std::vector<std::pair<const GraphicsEngineObject*, uint32_t>> blended_renderables;
 	for (const auto& [id, obj_ptr] : graphics_objects)
 	{
 		const auto& graphics_object = *obj_ptr;
@@ -172,12 +176,34 @@ void RasterizationRenderer::submit_draw_commands(
 		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 		{
 			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			if (renderable.alpha_mode == EAlphaMode::BLEND)
+			{
+				blended_renderables.emplace_back(&graphics_object, renderable_idx);
+				continue;
+			}
 			draw_renderable(command_buffer,
 							renderable,
 							graphics_object.get_obj_dset(frame_index),
 							graphics_object.get_renderable_dsets()[renderable_idx],
 							modifier);
 		}
+	}
+
+	const glm::vec3 camera_position = get_graphics_engine().get_camera()->get_position();
+	std::ranges::sort(blended_renderables, [&camera_position](const auto& lhs, const auto& rhs)
+	{
+		const glm::vec3 lhs_delta = lhs.first->get_game_object().get_position() - camera_position;
+		const glm::vec3 rhs_delta = rhs.first->get_game_object().get_position() - camera_position;
+		const float lhs_distance = glm::dot(lhs_delta, lhs_delta);
+		const float rhs_distance = glm::dot(rhs_delta, rhs_delta);
+		return lhs_distance > rhs_distance;
+	});
+	for (const auto& [graphics_object, renderable_idx] : blended_renderables)
+	{
+		const auto& renderable = graphics_object->get_renderables()[renderable_idx];
+		draw_renderable(command_buffer, renderable,
+			graphics_object->get_obj_dset(frame_index),
+			graphics_object->get_renderable_dsets()[renderable_idx], EPipelineModifier::NONE);
 	}
 	
 	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader

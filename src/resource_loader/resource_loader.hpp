@@ -92,6 +92,9 @@ private:
 	struct LoadedMaterial
 	{
 		MatVec ids;
+		EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+		float alpha_cutoff = 0.5f;
+		float opacity = 1.0f;
 	};
 
 	MaterialID load_texture(

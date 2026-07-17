@@ -26,9 +26,18 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
 	GlobalData data;
 } global_data;
 
+layout(push_constant) uniform AlphaMaterialBuffer
+{
+	AlphaMaterialData data;
+} alpha_material;
+
 void main()
 {
-	vec3 color = texture(tex_sampler, frag_tex_coord).rgb; // note that we lose alpha channel here
+	const vec4 base_color = texture(tex_sampler, frag_tex_coord);
+	const float alpha = base_color.a * alpha_material.data.opacity;
+	if (alpha < alpha_material.data.alpha_cutoff)
+		discard;
+	vec3 color = base_color.rgb;
 
 	// ambient
 	vec3 ambient = color * 0.03;
@@ -53,5 +62,5 @@ void main()
 	const vec3 specular = light_color * specular_sample.rgb * specular_sample.a
 		* (SPECULAR_STRENGTH * global_data.data.lighting_scalar * spec);
 
-	out_color = vec4(ambient + diffuse + specular, 1.0);
+	out_color = vec4(ambient + diffuse + specular, alpha);
 }

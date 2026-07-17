@@ -118,7 +118,7 @@ VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline::get_depth_stencil_
 {
 	VkPipelineDepthStencilStateCreateInfo depth_stencil_info{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 	depth_stencil_info.depthTestEnable = VK_TRUE; // whether or not new fragments should be compared to depth buffer for incineration
-	depth_stencil_info.depthWriteEnable = VK_TRUE; // if new depth of fragments that pass depth test should be written to depth buffer
+	depth_stencil_info.depthWriteEnable = alpha_mode == EAlphaMode::BLEND ? VK_FALSE : VK_TRUE;
 	depth_stencil_info.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL; // comparison, less = closer
 	depth_stencil_info.depthBoundsTestEnable = VK_FALSE; // optional bound test so instead of min/max depths we have both
 	depth_stencil_info.minDepthBounds = 0.0f;
@@ -139,6 +139,15 @@ VkPipelineDepthStencilStateCreateInfo GraphicsEnginePipeline::get_depth_stencil_
 std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline::get_expected_dset_layouts()
 {
 	return get_rsrc_mgr().get_rasterization_descriptor_set_layouts();
+}
+
+std::vector<VkPushConstantRange> GraphicsEnginePipeline::get_push_constant_ranges() const
+{
+	VkPushConstantRange range{};
+	range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	range.offset = 0;
+	range.size = sizeof(SDS::AlphaMaterialData);
+	return { range };
 }
 
 void GraphicsEnginePipeline::initialise()
@@ -265,6 +274,12 @@ void GraphicsEnginePipeline::initialise()
 	color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
 	color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
 	color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;
+	if (alpha_mode == EAlphaMode::BLEND)
+	{
+		color_blend_attachment.blendEnable = VK_TRUE;
+		color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+		color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	}
 	mod_color_blend_attachment(color_blend_attachment);
 
 	VkPipelineColorBlendStateCreateInfo color_blending_create_info{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};

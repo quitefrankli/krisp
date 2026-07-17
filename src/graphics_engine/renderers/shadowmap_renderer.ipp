@@ -144,6 +144,10 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 			{
 				continue;
 			}
+			if (renderable.alpha_mode == EAlphaMode::BLEND)
+			{
+				continue;
+			}
 			draw_renderable(command_buffer,
 							renderable,
 							graphics_object.get_obj_dset(frame_index),

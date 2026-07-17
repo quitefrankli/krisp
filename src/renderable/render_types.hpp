@@ -16,6 +16,13 @@ enum class ERenderType
 	PARTICLE, // billboard particles
 };
 
+enum class EAlphaMode
+{
+	OPAQUE,
+	MASK,
+	BLEND,
+};
+
 constexpr bool is_skinned_render_type(const ERenderType type)
 {
 	return type == ERenderType::SKINNED || type == ERenderType::SKINNED_COLOR;

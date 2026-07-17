@@ -18,6 +18,7 @@ public:
 
 	VkPipeline graphics_pipeline = VK_NULL_HANDLE;
 	VkPipelineLayout pipeline_layout = VK_NULL_HANDLE;
+	void set_alpha_mode(const EAlphaMode mode) { alpha_mode = mode; }
 
 protected:
 	GraphicsEnginePipeline(GraphicsEngine& engine);
@@ -39,10 +40,11 @@ protected:
 	virtual VkRenderPass get_render_pass();
 
 	virtual VkCullModeFlags get_cull_mode() const { return VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT; }
-	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const { return {}; }
+	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const;
 
 	virtual void mod_rasterization_state_info(VkPipelineRasterizationStateCreateInfo& rasterization_state_info) const {}
 	virtual void mod_color_blend_attachment(VkPipelineColorBlendAttachmentState& color_blend_attachment) const {}
+	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
 
 private:
 	friend GraphicsEnginePipelineManager;

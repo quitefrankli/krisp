@@ -46,7 +46,7 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 	const ERenderType primary_pipeline_type = primary_pipeline_override == ERenderType::UNASSIGNED ?
 		renderable.pipeline_render_type : primary_pipeline_override;
 	const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
-		primary_pipeline_type, pipeline_modifier });
+		primary_pipeline_type, pipeline_modifier, renderable.alpha_mode });
 	if (!pipeline)
 	{
 		return;
@@ -90,6 +90,16 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							&renderable_dset,
 							0,
 							nullptr);
+
+	if (primary_pipeline_type == ERenderType::STANDARD || primary_pipeline_type == ERenderType::SKINNED)
+	{
+		const SDS::AlphaMaterialData alpha_data{
+			.alpha_cutoff = renderable.alpha_mode == EAlphaMode::MASK ? renderable.alpha_cutoff : 0.0f,
+			.opacity = renderable.opacity,
+		};
+		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+			0, sizeof(alpha_data), &alpha_data);
+	}
 
 	vkCmdDrawIndexed(command_buffer,
 					 mesh.get_num_vertex_indices(),

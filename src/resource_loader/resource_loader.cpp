@@ -486,6 +486,9 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			}
 			renderable.mesh_id = MeshSystem::add(std::move(mesh));
 			renderable.material_ids = loaded_material.ids;
+			renderable.alpha_mode = loaded_material.alpha_mode;
+			renderable.alpha_cutoff = loaded_material.alpha_cutoff;
+			renderable.opacity = loaded_material.opacity;
 			loaded_mesh.renderables.push_back(renderable);
 		}
 		result.meshes.push_back(std::move(loaded_mesh));

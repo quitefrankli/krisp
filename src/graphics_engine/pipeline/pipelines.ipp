@@ -411,6 +411,16 @@ VkRenderPass ShadowMapBasePipeline::get_render_pass()
 	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
 }
 
+std::string_view ShadowMapBasePipeline::get_shader_name() const
+{
+	return alpha_mode == EAlphaMode::MASK ? "shadow_map_mask" : "shadow_map";
+}
+
+std::string_view ShadowMapPipeline<SkinnedPipeline>::get_shader_name() const
+{
+	return alpha_mode == EAlphaMode::MASK ? "shadow_map_skinned_mask" : "shadow_map_skinned";
+}
+
 VkExtent2D ShadowMapBasePipeline::get_extent()
 {
 	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_extent();
@@ -464,6 +474,25 @@ std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<PrimaryPipeline
 	return {position_attr};
 }
 
+template<>
+std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<TexturePipeline>::get_attribute_descriptions() const
+{
+	VkVertexInputAttributeDescription position_attr{};
+	position_attr.binding = 0;
+	position_attr.location = 0;
+	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	position_attr.offset = offsetof(SDS::TexVertex, pos);
+	if (alpha_mode != EAlphaMode::MASK)
+		return { position_attr };
+
+	VkVertexInputAttributeDescription tex_coord_attr{};
+	tex_coord_attr.binding = 0;
+	tex_coord_attr.location = 2;
+	tex_coord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	tex_coord_attr.offset = offsetof(SDS::TexVertex, texCoord);
+	return { position_attr, tex_coord_attr };
+}
+
 std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<SkinnedPipeline>::get_binding_descriptions() const
 {
 	return SkinnedPipeline::get_binding_descriptions_();
@@ -471,7 +500,10 @@ std::vector<VkVertexInputBindingDescription> ShadowMapPipeline<SkinnedPipeline>:
 
 std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<SkinnedPipeline>::get_attribute_descriptions() const
 {
-	return SkinnedPipeline::get_skinning_attribute_descriptions_();
+	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
+	if (alpha_mode == EAlphaMode::MASK)
+		return { attributes[0], attributes[1], attributes[3], attributes[4] };
+	return { attributes[0], attributes[3], attributes[4] };
 }
 
 VkRenderPass QuadPipeline::get_render_pass()

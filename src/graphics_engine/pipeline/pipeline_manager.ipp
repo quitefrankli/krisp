@@ -23,8 +23,12 @@ GraphicsEnginePipelineManager::GraphicsEnginePipelineManager(GraphicsEngine& eng
 	const auto descriptor_set_layouts = get_rsrc_mgr().get_rasterization_descriptor_set_layouts();
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
-	pipeline_layout_create_info.pushConstantRangeCount = 0;
-	pipeline_layout_create_info.pPushConstantRanges = nullptr;
+	VkPushConstantRange alpha_push_constant_range{};
+	alpha_push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	alpha_push_constant_range.offset = 0;
+	alpha_push_constant_range.size = sizeof(SDS::AlphaMaterialData);
+	pipeline_layout_create_info.pushConstantRangeCount = 1;
+	pipeline_layout_create_info.pPushConstantRanges = &alpha_push_constant_range;
 
 	if (vkCreatePipelineLayout(get_logical_device(), &pipeline_layout_create_info, nullptr, &generic_pipeline_layout) != VK_SUCCESS)
 	{
@@ -89,6 +93,7 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 
 	if (new_pipeline.get())
 	{
+		new_pipeline->set_alpha_mode(id.alpha_mode);
 		new_pipeline->initialise();
 	}
 

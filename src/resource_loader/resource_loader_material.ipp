@@ -186,6 +186,16 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 		}
 
 		const auto& mat = model.materials[primitive.material];
+		EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+		if (mat.alphaMode == "MASK")
+			alpha_mode = EAlphaMode::MASK;
+		else if (mat.alphaMode == "BLEND")
+			alpha_mode = EAlphaMode::BLEND;
+		else if (mat.alphaMode != "OPAQUE")
+			throw ResourceLoadError(fmt::format(
+				"ResourceLoader: material {} has unsupported alphaMode '{}'", primitive.material, mat.alphaMode));
+		const float alpha_cutoff = static_cast<float>(mat.alphaCutoff);
+		const float opacity = static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[3]);
 		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
 		const auto& normal_texture = mat.normalTexture;
 		const auto specular_extension_it = mat.extensions.find("KHR_materials_specular");
@@ -295,6 +305,9 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 
 			if (specular_texture_index)
 				loaded.ids.push_back(load_gltf_texture(*specular_texture_index, ETextureSemantic::SPECULAR));
+			loaded.alpha_mode = alpha_mode;
+			loaded.alpha_cutoff = alpha_cutoff;
+			loaded.opacity = opacity;
 			gltf_material_to_material[primitive.material] = loaded;
 			return loaded;
 		} else
@@ -309,7 +322,8 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 			new_material.data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
 
 			const auto mat_id = MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(new_material)));
-			LoadedMaterial loaded{ .ids = { mat_id } };
+			LoadedMaterial loaded{ .ids = { mat_id }, .alpha_mode = alpha_mode,
+				.alpha_cutoff = alpha_cutoff, .opacity = opacity };
 			gltf_material_to_material[primitive.material] = loaded;
 			return loaded;
 		}

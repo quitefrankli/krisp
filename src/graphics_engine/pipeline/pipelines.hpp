@@ -126,7 +126,7 @@ public:
 	ShadowMapBasePipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
-	virtual std::string_view get_shader_name() const override { return "shadow_map"; }
+	virtual std::string_view get_shader_name() const override;
 	virtual VkRenderPass get_render_pass() override;
 	virtual VkExtent2D get_extent() override;
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
@@ -152,7 +152,7 @@ public:
 	ShadowMapPipeline(GraphicsEngine& engine) : ShadowMapBasePipeline(engine) {}
 
 protected:
-	virtual std::string_view get_shader_name() const override { return "shadow_map_skinned"; }
+	virtual std::string_view get_shader_name() const override;
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };

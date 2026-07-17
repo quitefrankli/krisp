@@ -23,6 +23,12 @@ struct MaterialData
 	ALIGN(4) int texture_flags; // uses boolean packing
 };
 
+struct AlphaMaterialData
+{
+	ALIGN(4) float alpha_cutoff;
+	ALIGN(4) float opacity;
+};
+
 // be vary of alignment issues
 struct ObjectData
 {
