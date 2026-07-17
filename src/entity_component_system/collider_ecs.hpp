@@ -3,9 +3,11 @@
 #include "identifications.hpp"
 #include "collision/collider.hpp"
 #include "maths.hpp"
+#include "common.hpp"
 
 #include <unordered_map>
 #include <memory>
+#include <optional>
 
 
 struct ColliderComponent
@@ -26,6 +28,9 @@ public:
 	void remove_collider(EntityID id) { components.erase(id); }
 
 	const Collider* get_collider(EntityID id) const;
+	// Returns the nearest registered collider hit by the ray. The optional entity
+	// filter is used by character controllers so they do not hit themselves.
+	DetectedEntityCollision raycast(const Maths::Ray& ray, std::optional<EntityID> ignored = std::nullopt) const;
 	const std::unordered_map<EntityID, ColliderComponent>& get_all_colliders() const { return components; }
 
 protected:

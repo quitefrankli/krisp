@@ -40,6 +40,9 @@ public: // getters and setters
 	Gizmo& get_gizmo();
 	IApplication& get_application() { return *application; }
 	const IApplication& get_application() const { return *application; }
+	const Keyboard& get_keyboard() const { return keyboard; }
+	void set_camera_keyboard_navigation_enabled(bool enabled) { camera_keyboard_navigation_enabled = enabled; }
+	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }
 
 public:
 	template<typename AppT, typename... Args>
@@ -163,6 +166,8 @@ private:
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;
+	bool camera_keyboard_navigation_enabled = true;
+	bool camera_orbit_with_right_mouse = false;
 
 public: // callbacks
 	virtual void scroll_callback(double yoffset) override;

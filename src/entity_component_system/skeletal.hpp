@@ -92,6 +92,9 @@ public:
 
 	std::vector<Bone>& get_bones() { return bones; }
 	const std::vector<Bone>& get_bones() const { return bones; }
+	// Bone transforms after hierarchy composition, before inverse bind-pose
+	// multiplication. These are suitable for gameplay pose adjustments such as IK.
+	std::vector<glm::mat4> get_model_space_bone_transforms() const;
 	std::vector<SDS::Bone> get_bones_data() const;
 
 private:

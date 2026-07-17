@@ -117,6 +117,31 @@ std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 	return final_bones_data;
 }
 
+std::vector<glm::mat4> SkeletalComponent::get_model_space_bone_transforms() const
+{
+	std::vector<glm::mat4> transforms(bones.size());
+	std::vector<bool> resolved(bones.size(), false);
+	std::function<void(uint32_t)> resolve = [&](const uint32_t index)
+	{
+		if (resolved[index])
+			return;
+		const auto& bone = bones[index];
+		if (bone.parent_node != Bone::NO_PARENT)
+		{
+			if (bone.parent_node >= bones.size())
+				throw std::runtime_error("SkeletalComponent: invalid bone parent index");
+			resolve(bone.parent_node);
+			transforms[index] = transforms[bone.parent_node] * bone.relative_transform.get_mat4();
+		}
+		else
+			transforms[index] = bone.relative_transform.get_mat4();
+		resolved[index] = true;
+	};
+	for (uint32_t i = 0; i < bones.size(); ++i)
+		resolve(i);
+	return transforms;
+}
+
 bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Transform& out_transform) const
 {
 	const bool has_tracks = !translation_track.keys.empty() || !rotation_track.keys.empty() || !scale_track.keys.empty();

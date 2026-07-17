@@ -2,8 +2,11 @@
 #include "ecs.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "utility.hpp"
+#include "collision/collision_detector.hpp"
 
 #include <quill/LogMacros.h>
+
+#include <limits>
 
 
 void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider) 
@@ -63,4 +66,27 @@ const Collider* ColliderSystem::get_collider(EntityID id) const
 	collider->set_temporary_transform(get_ecs().get_object(id).get_maths_transform());
 
 	return collider;
+}
+
+DetectedEntityCollision ColliderSystem::raycast(const Maths::Ray& ray, const std::optional<EntityID> ignored) const
+{
+	DetectedEntityCollision result;
+	float closest_distance = std::numeric_limits<float>::infinity();
+	RayCollider ray_collider(ray);
+	for (const auto& [id, _] : components)
+	{
+		if (ignored && id == *ignored)
+			continue;
+		const Collider* collider = get_collider(id);
+		const CollisionResult hit = CollisionDetector::check_collision(&ray_collider, collider);
+		if (!hit.bCollided)
+			continue;
+		const float distance = glm::distance2(ray.origin, hit.intersection);
+		if (distance < closest_distance)
+		{
+			closest_distance = distance;
+			result = { true, id, hit.intersection };
+		}
+	}
+	return result;
 }

@@ -147,7 +147,7 @@ void GameEngine::main_loop(const float time_delta)
 	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
 	get_gui_manager().process(*this);
 
-	if (mouse->mmb_down)
+	if (mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
 	{
 		// if (window->is_shift_down())
 		if (false) // TODO: implement shift key tracking
@@ -191,7 +191,8 @@ void GameEngine::main_loop(const float time_delta)
 		}
 	}
 
-	process_camera_movement(time_delta);
+	if (camera_keyboard_navigation_enabled)
+		process_camera_movement(time_delta);
 	// I just realised there is a MUCH more efficient method of doing this
 	// all we need to do is find intersection point of ray with plane of tileset
 	// and check if that point is within bounds of tileset, then we can calculate hovered tile coord from that point
@@ -209,9 +210,11 @@ void GameEngine::main_loop(const float time_delta)
 
 	if (!paused)
 	{
+		application->on_pre_tick(*this, time_delta);
 		ecs.process(time_delta);
 		experimental->process(time_delta);
 		application->on_tick(*this, time_delta);
+		application->on_post_tick(*this, time_delta);
 	}
 }
 

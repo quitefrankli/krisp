@@ -8,6 +8,7 @@ sources = [
 	'resource_loader_tests.cpp',
 	'graphics_buffer_tests.cpp',
 	'camera_tests.cpp',
+	'game_objects_tests.cpp',
 	'math_tests.cpp',
 	'collider_tests.cpp',
 	'mock_graphics_engine.hpp',
