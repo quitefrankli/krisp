@@ -35,7 +35,7 @@ TEST(player_character_tests, input_is_projected_onto_the_horizontal_camera_plane
 
 TEST(character_tests, looping_animation_is_retained_until_the_clip_changes)
 {
-	ECS& ecs = ECS::get();
+	ECS ecs;
 	Bone root;
 	root.name = "Root";
 	root.original_transform = root.relative_transform;
@@ -57,7 +57,7 @@ TEST(character_tests, looping_animation_is_retained_until_the_clip_changes)
 
 TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 {
-	ECS& ecs = ECS::get();
+	ECS ecs;
 	Bone root;
 	root.name = "Root";
 	root.original_transform = root.relative_transform;
@@ -90,7 +90,7 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 
 TEST(gameplay_collision_tests, raycast_returns_nearest_hit_and_honours_exclusion)
 {
-	ECS& ecs = ECS::get();
+	ECS ecs;
 	Object near_object;
 	near_object.set_position({ 0.0f, 0.0f, 2.0f });
 	Object far_object;

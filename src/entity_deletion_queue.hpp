@@ -48,6 +48,12 @@ public:
 		return entities_to_delete.empty();
 	}
 
+	void clear()
+	{
+		entities_in_q.clear();
+		entities_to_delete = {};
+	}
+
 private:
 	std::unordered_set<ObjectID> entities_in_q;
 	std::queue<std::pair<ObjectID, DeletionCounter>> entities_to_delete;

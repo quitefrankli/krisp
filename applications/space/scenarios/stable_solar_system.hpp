@@ -16,7 +16,7 @@ inline void setup_orbital_system(GameEngine& engine)
 {
 	// Create the star (central body)
 
-	auto sun_model = ResourceLoader::load_model("sun.glb");
+	auto sun_model = ResourceLoader::load_model(engine.get_ecs(), "sun.glb");
 	auto& star_renderable = sun_model.meshes[0].renderables[0];
 	star_renderable.casts_shadow = false;
 	

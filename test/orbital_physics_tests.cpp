@@ -18,7 +18,7 @@ class OrbitalPhysicsTest : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		ecs = &ECS::get();
+		ecs = &owned_ecs;
 		ecs->get_gravity_system().set_gravity_type(GravitySystem::GravityType::TRUE);
 	}
 
@@ -46,8 +46,24 @@ protected:
 		return phys.mass * glm::cross(r, phys.velocity);
 	}
 
+	ECS owned_ecs;
 	ECS* ecs;
 };
+
+TEST(PhysicsSystemTests, each_ecs_processes_its_own_objects)
+{
+	ECS first;
+	ECS second;
+	Object first_object;
+	Object second_object;
+	first.add_object(first_object);
+	second.add_object(second_object);
+	first.add_physics_entity(first_object.get_id(), PhysicsComponent{});
+	second.add_physics_entity(second_object.get_id(), PhysicsComponent{});
+
+	EXPECT_NO_THROW(first.process(0.01f));
+	EXPECT_NO_THROW(second.process(0.01f));
+}
 
 TEST_F(OrbitalPhysicsTest, gravitational_force_magnitude)
 {

@@ -72,6 +72,11 @@ void DestroyResourcesCmd::process(GraphicsEngineBase* engine)
 	engine->handle_command(*this);
 }
 
+void ResetSceneCmd::process(GraphicsEngineBase* engine)
+{
+	engine->handle_command(*this);
+}
+
 UpdateRenderableMaterialsCmd::UpdateRenderableMaterialsCmd(
 	const ObjectID object_id,
 	const size_t renderable_index,

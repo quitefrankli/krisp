@@ -36,7 +36,6 @@ GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	graphics_engine(std::make_unique<GraphicsEngine>(*this)),
 	camera(std::make_unique<Camera>(Listener(),
 		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
-	ecs(ECS::get()),
 	application(std::move(app))
 {
 	init();
@@ -50,7 +49,6 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 	graphics_engine(std::move(gfx_engine)),
 	camera(std::make_unique<Camera>(Listener(),
 		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
-	ecs(ECS::get()),
 	application(std::move(app))
 {
 	init();
@@ -71,9 +69,14 @@ void GameEngine::init()
 	}, 1);
 	TPS_counter->text = "TPS Counter";
 
+	configure_ecs();
+}
+
+void GameEngine::configure_ecs()
+{
 	ecs.set_tile_spawner([this]() -> Object&
 	{
-		static Renderable renderable = []() -> Renderable
+		if (!tile_renderable || !MaterialSystem::contains(tile_renderable->material_ids.front()))
 		{
 			ColorMaterial mat{};
 			mat.data.ambient = glm::vec3(0.45f) / SDS::AMBIENT_STRENGTH;
@@ -82,14 +85,14 @@ void GameEngine::init()
 			mat.data.emissive = Maths::zero_vec;
 			mat.data.shininess = 0.0f;
 			
-			return Renderable{
+			tile_renderable = Renderable{
 				.mesh_id = MeshFactory::cube_id(),
 				.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(mat)) },
 				.pipeline_render_type = ERenderType::COLOR
 			};
-		}();
+		}
 
-		return spawn_object<Object>(renderable);
+		return spawn_object<Object>(*tile_renderable);
 	});
 }
 
@@ -402,6 +405,58 @@ void GameEngine::process_objs_to_delete()
 	}
 	if (!destroy_resources_cmd.material_ids.empty() || !destroy_resources_cmd.mesh_ids.empty())
 		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroy_resources_cmd)));
+}
+
+void GameEngine::reset_scene()
+{
+	gizmo->deselect();
+
+	std::vector<ObjectID> object_ids;
+	object_ids.reserve(objects.size());
+	for (const auto& [id, _] : objects)
+		object_ids.push_back(id);
+
+	auto reset_command = std::make_unique<ResetSceneCmd>(std::move(object_ids));
+	auto graphics_paused = reset_command->complete.get_future();
+	auto resume_graphics = reset_command->resume;
+	send_graphics_cmd(std::move(reset_command));
+	if (graphics_engine_thread.joinable())
+		graphics_paused.get();
+
+	bool graphics_resumed = false;
+	try
+	{
+		DestroyResourcesCmd destroyed_resources;
+		for (const auto& [_, object] : objects)
+			release_renderable_resources(*object, destroyed_resources);
+		for (const auto& [_, object] : objects)
+		{
+			object->detach_all_children();
+			object->detach_from();
+		}
+
+		ecs = ECS{};
+		objects.clear();
+		entity_deletion_queue.clear();
+		mesh_resource_references.clear();
+		material_resource_references.clear();
+		tile_renderable.reset();
+		configure_ecs();
+
+		camera->set_mode(Camera::Mode::ORBIT);
+		camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
+
+		resume_graphics->set_value();
+		graphics_resumed = true;
+		if (!destroyed_resources.mesh_ids.empty() || !destroyed_resources.material_ids.empty())
+			send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroyed_resources)));
+	}
+	catch (...)
+	{
+		if (!graphics_resumed)
+			resume_graphics->set_value();
+		throw;
+	}
 }
 
 void GameEngine::highlight_object(const Object& object)

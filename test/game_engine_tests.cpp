@@ -76,6 +76,47 @@ TEST_F(GameEngineTests, Constructor)
 	EXPECT_EQ(engine.get_window().get_glfw_window(), nullptr);
 }
 
+TEST(GameEngineOwnershipTests, engines_have_isolated_ecs_instances)
+{
+	TestableGameEngine first;
+	TestableGameEngine second;
+	first.get_ecs().add_light_source(ObjectID::generate_new_id(), LightComponent{});
+
+	EXPECT_NE(&first.get_ecs(), &second.get_ecs());
+	EXPECT_TRUE(first.get_ecs().has_light_source());
+	EXPECT_FALSE(second.get_ecs().has_light_source());
+}
+
+TEST_F(GameEngineTests, reset_scene_replaces_ecs_state_and_preserves_its_address)
+{
+	ECS* const original_ecs = &engine.get_ecs();
+	auto& object = engine.spawn_object<Object>();
+	const ObjectID object_id = object.get_id();
+	engine.get_ecs().add_light_source(object.get_id(), LightComponent{});
+	engine.get_ecs().add_collider(object.get_id(), std::make_unique<BoxCollider>());
+	engine.get_ecs().add_physics_entity(object.get_id(), PhysicsComponent{});
+	engine.get_ecs().spawn_particle_emitter(object.get_id(), ParticleEmitterConfig{});
+	Bone root;
+	root.name = "Root";
+	const SkeletonID skeleton = engine.get_ecs().add_skeleton({ root });
+	const auto rig = make_skeletal_rig_signature(engine.get_ecs().get_skeletal_component(skeleton).get_bones());
+	engine.get_ecs().add_skeletal_animation("Idle", { BoneAnimation{} }, rig);
+
+	engine.reset_scene();
+
+	EXPECT_EQ(&engine.get_ecs(), original_ecs);
+	EXPECT_EQ(engine.get_object(object_id), nullptr);
+	EXPECT_FALSE(engine.get_ecs().has_light_source());
+	EXPECT_TRUE(engine.get_ecs().get_all_colliders().empty());
+	EXPECT_TRUE(engine.get_ecs().get_skeletal_animations().empty());
+	EXPECT_EQ(engine.get_ecs()._get_physics_component(object_id), nullptr);
+	std::vector<SDS::ParticleInstanceData> particles;
+	engine.get_ecs().prepare_render_data(particles);
+	EXPECT_TRUE(particles.empty());
+	EXPECT_NO_THROW(engine.get_ecs().spawn_tileset(1, 1, 1.0f));
+	engine.reset_scene();
+}
+
 TEST_F(GameEngineTests, main_loop)
 {
     engine.main_loop(1.0f);
@@ -192,7 +233,7 @@ TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_safe)
 {
 	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_shared_material.gltf";
-	auto model = ResourceLoader::load_model(path);
+	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
 	const auto material_ids = model.meshes[0].renderables[0].material_ids;
@@ -211,7 +252,7 @@ TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_
 TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 {
 	const auto path = Utility::get_top_level_path()/"test/data/simple_test_model.gltf";
-	auto model = ResourceLoader::load_model(path);
+	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.animations.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);

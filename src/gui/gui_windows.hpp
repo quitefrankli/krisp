@@ -356,6 +356,7 @@ private:
 	std::unordered_map<SkeletonID, std::unordered_map<std::string, std::vector<AnimationID>>> loaded_animation_files;
 	std::optional<SkeletonID> selected_skeleton;
 	std::unordered_set<AnimationID> compatible_animations;
+	std::vector<AnimationChoice> animation_choices;
 	std::optional<AnimationID> selected_animation;
 	std::string selected_animation_name = "(select clip)";
 	std::string target_status = "Select a skinned object";

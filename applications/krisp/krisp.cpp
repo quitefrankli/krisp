@@ -35,7 +35,7 @@ class PlayerDemoApplication : public IApplication
 public:
 	void on_begin(GameEngine& engine) override
 	{
-		auto model = ResourceLoader::load_model(Utility::get_model(player_model));
+		auto model = ResourceLoader::load_model(engine.get_ecs(), Utility::get_model(player_model));
 		auto mesh = std::ranges::find_if(model.meshes, [](const auto& candidate)
 		{
 			return candidate.skeleton_id.has_value();

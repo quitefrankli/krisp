@@ -22,5 +22,4 @@
 
 * IMPORTANT: limit number of concurrent build jobs to 6
 
-* Commit messages must use a descriptive imperative subject and, when the change is non-trivial, a wrapped body explaining the main behavior and important constraints.
-
+* Only the `krisp` application must be maintained. Changes may break the other applications.

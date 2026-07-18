@@ -376,7 +376,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 		ResourceLoader::LoadedModel loaded_model;
 		try
 		{
-			loaded_model = ResourceLoader::load_model(model_path);
+			loaded_model = ResourceLoader::load_model(engine.get_ecs(), model_path);
 			load_error.reset();
 		}
 		catch (const ResourceLoadError& error)
@@ -997,6 +997,11 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	}
 
 	selected_skeleton.reset();
+	animation_choices.clear();
+	animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
+	for (const auto& [id, animation] : engine.get_ecs().get_skeletal_animations())
+		animation_choices.emplace_back(id, animation.source + ": " + animation.name);
+	animation_choices = sort_unique_animation_choices(std::move(animation_choices));
 	target_status = "Select a skinned object";
 	if (const auto* selected_object = engine.get_gizmo().get_selected_object())
 	{
@@ -1039,7 +1044,7 @@ void GuiAnimationSelector::process(GameEngine& engine)
 				auto loaded_it = cache.find(cache_key);
 				if (loaded_it == cache.end())
 				{
-					auto loaded = ResourceLoader::load_animations(path, *selected_skeleton);
+					auto loaded = ResourceLoader::load_animations(engine.get_ecs(), path, *selected_skeleton);
 					for (const auto& warning : loaded.warnings)
 						LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path.string(), warning.message);
 					loaded_it = cache.emplace(cache_key, std::move(loaded.animations)).first;
@@ -1109,15 +1114,7 @@ void GuiAnimationSelector::draw()
 
 	if (ImGui::BeginCombo("Animations", selected_animation_name.c_str()))
 	{
-		const auto& animations = ECS::get().get_skeletal_animations();
-		std::vector<AnimationChoice> animation_choices;
-		animation_choices.reserve(animations.size());
-		for (const auto& [id, _] : animations)
-		{
-			const auto& animation = animations.at(id);
-			animation_choices.emplace_back(id, animation.source + ": " + animation.name);
-		}
-		for (const auto& [id, label] : sort_unique_animation_choices(std::move(animation_choices)))
+		for (const auto& [id, label] : animation_choices)
 		{
 			const bool compatible = compatible_animations.contains(id);
 			const std::string id_string = std::to_string(id.get_underlying());

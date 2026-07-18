@@ -9,12 +9,6 @@ void ECS::process(const float delta_secs)
 	ParticleSystem::process(delta_secs);
 }
 
-ECS& ECS::get()
-{
-	static ECS ecs;
-	return ecs;
-}
-
 void ECS::remove_object(const ObjectID id) 
 {
 	// Stop skeletal animations before removing their skeletons. Otherwise the

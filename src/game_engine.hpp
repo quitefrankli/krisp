@@ -63,6 +63,7 @@ public:
 	void run();
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
+	void reset_scene();
 	
 	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 
@@ -140,18 +141,18 @@ public:
 private:
 	std::unique_ptr<App::Window> window;
 	AudioEnginePimpl audio_engine;
+	ECS ecs;
     std::unique_ptr<GraphicsEngineBase> graphics_engine;
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<Gizmo> gizmo;
 	std::unique_ptr<Mouse> mouse;
 	Keyboard keyboard;
-	ResourceLoader resource_loader;
-	ECS& ecs;
 
 	std::atomic<bool> should_shutdown = false;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
 	std::unordered_map<MeshID, size_t> mesh_resource_references;
 	std::unordered_map<MaterialID, size_t> material_resource_references;
+	std::optional<Renderable> tile_renderable;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<IApplication> application;
 
@@ -160,6 +161,7 @@ private:
 
 private:
 	void init();
+	void configure_ecs();
 	void shutdown_impl();
 	void process_objs_to_delete();
 	void retain_renderable_resources(const Object& object);

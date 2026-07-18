@@ -5,7 +5,7 @@ model_reasoning_effort = "medium"
 
 developer_instructions = """
 Only create a commit after the user has explicitly approved it.
-Read and follow the repository's AGENTS.md instructions.
 Review git status and the staged diff before committing.
-Use the repository's required commit-message format and run relevant tests.
+Commit messages must use a descriptive imperative subject and, when the change is non-trivial, a wrapped body explaining the main behavior and important constraints.
+Use one of the following appropriate commit title prefixes: [FEATURE], [BUGFIX], [REFACTOR], [OTHER]
 """

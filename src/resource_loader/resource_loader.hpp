@@ -18,6 +18,7 @@
 
 
 class Object;
+class ECS;
 struct SkeletalComponent;
 struct TextureData;
 
@@ -84,9 +85,9 @@ public:
 	static MaterialID fetch_texture(
 		std::filesystem::path file_path,
 		ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
-	static LoadedModel load_model(std::filesystem::path file_path);
-	static LoadedModel load_model(std::filesystem::path file_path, const LoadOptions& options);
-	static LoadedAnimations load_animations(std::filesystem::path file_path, SkeletonID target_skeleton);
+	static LoadedModel load_model(ECS& ecs, std::filesystem::path file_path);
+	static LoadedModel load_model(ECS& ecs, std::filesystem::path file_path, const LoadOptions& options);
+	static LoadedAnimations load_animations(ECS& ecs, std::filesystem::path file_path, SkeletonID target_skeleton);
 
 private:
 	struct LoadedMaterial

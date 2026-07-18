@@ -20,6 +20,7 @@ public:
 	virtual void handle_command(UpdateRayTracingCmd& cmd) {}
 	virtual void handle_command(PreviewObjectsCmd& cmd) {}
 	virtual void handle_command(DestroyResourcesCmd& cmd) {}
+	virtual void handle_command(ResetSceneCmd& cmd) { cmd.complete.set_value(); }
 	virtual void handle_command(UpdateRenderableMaterialsCmd& cmd) {}
 
 	virtual void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd) = 0;

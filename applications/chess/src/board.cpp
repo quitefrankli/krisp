@@ -4,13 +4,14 @@
 #include <utility.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <entity_component_system/material_system.hpp>
+#include <entity_component_system/ecs.hpp>
 
 #include <cassert>
 
 
-Board::Board(PieceSpawner spawner, TileSystem& tile_system)
+Board::Board(PieceSpawner spawner, ECS& ecs)
 {
-	auto loaded_model = ResourceLoader::load_model(Utility::get_model("chess_set_1k/chess_set_1k.gltf"));
+	auto loaded_model = ResourceLoader::load_model(ecs, Utility::get_model("chess_set_1k/chess_set_1k.gltf"));
 
 	struct PieceInfo {
 		Piece::Type type;
@@ -71,7 +72,7 @@ Board::Board(PieceSpawner spawner, TileSystem& tile_system)
 		auto& piece = spawner(loaded_model.meshes[i].renderables, info.type, info.side);
 		piece.set_name(loaded_model.meshes[i].name);
 		piece.set_scale(glm::vec3(100.0f));
-		tile_system.move_to_tile(TileCoord(info.x, info.y), piece.get_id());
+		ecs.move_to_tile(TileCoord(info.x, info.y), piece.get_id());
 
 		const float TILE_SIZE = 5.0f;
 		piece.set_position(glm::vec3((info.x-3.5f)*TILE_SIZE, 0, (info.y-3.5f)*TILE_SIZE));

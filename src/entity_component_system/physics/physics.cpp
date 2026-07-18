@@ -9,7 +9,7 @@ PhysicsSystem::PhysicsSystem()
 
 void PhysicsSystem::process(const float delta_secs)
 {
-	static auto& ecs = get_ecs();
+	auto& ecs = get_ecs();
 	prepare_components();
 
 	//
@@ -54,7 +54,7 @@ GravitySystem& PhysicsSystem::get_gravity_system()
 
 void PhysicsSystem::prepare_components()
 {
-	static auto& ecs = get_ecs();
+	auto& ecs = get_ecs();
 	for (auto& [id, physics_comp] : physics_entities)
 	{
 		physics_comp.position = ecs.get_object(id).get_position();

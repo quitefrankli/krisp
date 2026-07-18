@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
 	ground.set_scale({30.0f, 0.1f, 30.0f});
 
 	// Campfire model
-	auto campfire_model = ResourceLoader::load_model(Utility::get_model("campfire_rgba.glb"));
+	auto campfire_model = ResourceLoader::load_model(engine.get_ecs(), Utility::get_model("campfire_rgba.glb"));
 	for (auto& mesh : campfire_model.meshes)
 	{
 		auto& obj = engine.spawn_object<Object>(mesh.renderables);
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
 	engine.spawn_particle_emitter(embers);
 
 	// // Forest trees from tree model (CC0 by Kenney)
-	// auto tree_model = ResourceLoader::load_model(Utility::get_model("tree_uncompressed.glb"));
+	// auto tree_model = ResourceLoader::load_model(engine.get_ecs(), Utility::get_model("tree_uncompressed.glb"));
 	// const float tree_radius = 10.0f;
 	// const int num_trees = 8;
 	// for (int i = 0; i < num_trees; ++i)

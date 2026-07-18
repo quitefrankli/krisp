@@ -117,6 +117,21 @@ void GraphicsEngine::handle_command(DestroyResourcesCmd& cmd)
 	}
 }
 
+void GraphicsEngine::handle_command(ResetSceneCmd& cmd)
+{
+	vkDeviceWaitIdle(get_logical_device());
+	for (const ObjectID id : cmd.object_ids)
+	{
+		stenciled_objects.erase(id);
+		offscreen_rendering_objects.erase(id);
+		if (objects.contains(id))
+			cleanup_entity(id);
+	}
+	cmd.complete.set_value();
+	cmd.resume->get_future().wait();
+	update_command_buffer();
+}
+
 void GraphicsEngine::handle_command(UpdateRenderableMaterialsCmd& cmd)
 {
 	const auto free_retired_materials = [&]

@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <vector>
+#include <future>
 
 
 class Object;
@@ -95,6 +96,16 @@ struct DestroyResourcesCmd : public GraphicsEngineCommand
 	// std::vector<ObjectID> object_ids; // not needed for now
 	std::vector<MaterialID> material_ids;
 	std::vector<MeshID> mesh_ids;
+};
+
+struct ResetSceneCmd : public GraphicsEngineCommand
+{
+	explicit ResetSceneCmd(std::vector<ObjectID> object_ids) : object_ids(std::move(object_ids)) {}
+	void process(GraphicsEngineBase* engine) override;
+
+	std::vector<ObjectID> object_ids;
+	std::promise<void> complete;
+	std::shared_ptr<std::promise<void>> resume = std::make_shared<std::promise<void>>();
 };
 
 struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand

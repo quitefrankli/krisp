@@ -9,6 +9,7 @@
 class ForceSystem
 {
 public:
+	virtual ~ForceSystem() = default;
 	virtual void compute_forces(const float delta_secs, 
 								std::unordered_map<ObjectID, PhysicsComponent>& physics_entities) = 0;
 };

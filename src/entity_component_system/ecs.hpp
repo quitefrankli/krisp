@@ -28,12 +28,16 @@ class ECS :
 	public TileSystem
 {
 public:
+	ECS() = default;
+	ECS(const ECS&) = delete;
+	ECS& operator=(const ECS&) = delete;
+	ECS(ECS&&) = default;
+	ECS& operator=(ECS&&) = default;
+
 	void process(const float delta_secs);
 
 	virtual ECS& get_ecs() override { return *this; }
 	virtual const ECS& get_ecs() const override { return *this; }
-
-	static ECS& get();
 
 	// Used by GameEngine
 	void add_object(Object& object) { objects.emplace(object.get_id(), &object); }

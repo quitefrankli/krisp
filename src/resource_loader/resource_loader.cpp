@@ -267,6 +267,7 @@ void add_warning(ResourceLoader::LoadedModel& result, const ResourceLoader::Load
 }
 
 ResourceLoader::LoadedModel ResourceLoader::load_model(
+	ECS& ecs,
 	std::filesystem::path file_path,
 	const LoadOptions& options)
 {
@@ -328,7 +329,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					const auto signature = make_skeletal_rig_signature(it->second);
 					for (auto animation : imported)
 					{
-						ids.push_back(ECS::get().add_skeletal_animation(
+						ids.push_back(ecs.add_skeletal_animation(
 							animation.name,
 							std::move(animation.bone_animations),
 							signature,
@@ -338,7 +339,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				const auto& animation_ids = animations_by_skin[node.skin];
 				result.animations.insert(result.animations.end(), animation_ids.begin(), animation_ids.end());
 			}
-			skeleton = ECS::get().add_skeleton(it->second);
+			skeleton = ecs.add_skeleton(it->second);
 			loaded_mesh.skeleton_id = skeleton;
 		}
 
@@ -504,14 +505,15 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	}
 }
 
-ResourceLoader::LoadedModel ResourceLoader::load_model(std::filesystem::path file_path)
+ResourceLoader::LoadedModel ResourceLoader::load_model(ECS& ecs, std::filesystem::path file_path)
 {
 	LoadOptions options;
 	options.generate_missing_tangents = true;
-	return load_model(std::move(file_path), options);
+	return load_model(ecs, std::move(file_path), options);
 }
 
 ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
+	ECS& ecs,
 	std::filesystem::path file_path,
 	const SkeletonID target_skeleton)
 {
@@ -526,7 +528,7 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 		if (model.skins.empty())
 			throw ResourceLoadError("ResourceLoader: animation file contains no skins");
 
-		const auto& target_bones = ECS::get().get_skeletal_component(target_skeleton).get_bones();
+		const auto& target_bones = ecs.get_skeletal_component(target_skeleton).get_bones();
 		const auto target_by_name = require_named_target_bones(target_bones);
 		const auto node_parents = get_parent_nodes(model);
 
@@ -555,7 +557,7 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 		const auto signature = make_skeletal_rig_signature(target_bones);
 		for (auto& animation : imported)
 		{
-			result.animations.push_back(ECS::get().add_skeletal_animation(
+			result.animations.push_back(ecs.add_skeletal_animation(
 				animation.name,
 				std::move(animation.bone_animations),
 				signature,
