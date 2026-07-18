@@ -73,6 +73,8 @@ struct TileSet
 using TileSets = std::unordered_map<TileSetID, TileSet>;
 
 class ECS;
+class Serializer;
+class Deserializer;
 
 class TileSystem
 {
@@ -101,6 +103,8 @@ public:
 		std::optional<ObjectID> prev_hovered;
 	};
 	HoverResult process_hover(const Maths::Ray& ray);
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 	
 private:
 	TileObjectSpawner tile_spawner;

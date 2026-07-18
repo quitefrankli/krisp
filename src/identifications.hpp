@@ -26,6 +26,9 @@ public:
 		return GenericID(global_id++);
 	}
 
+	static uint64_t get_next_id() { return global_id; }
+	static void set_next_id(const uint64_t next_id) { global_id = next_id; }
+
 private:
 	uint64_t id;
 	static inline uint64_t global_id = 0;

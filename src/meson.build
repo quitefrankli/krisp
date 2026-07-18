@@ -10,6 +10,7 @@ graphics_sources = files('graphics_engine/video_recorder.cpp',
 						 'graphics_engine/submodules.cpp')
 
 ecs_sources = files('entity_component_system/animation.cpp',
+					'entity_component_system/skeletal_serialization.cpp',
 					'entity_component_system/light_source.cpp',
 					'entity_component_system/hoverable.cpp',
 					'entity_component_system/collider_ecs.cpp',

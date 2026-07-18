@@ -17,6 +17,10 @@ void ECS::serialize(Serializer& out) const
 	LightSystem::serialize(out);
 	ColliderSystem::serialize(out);
 	PhysicsSystem::serialize(out);
+	AnimationSystem::serialize(out);
+	SkeletalSystem::serialize(out);
+	SkeletalAnimationSystem::serialize(out);
+	TileSystem::serialize(out);
 }
 
 void ECS::deserialize(const Deserializer& in)
@@ -26,6 +30,10 @@ void ECS::deserialize(const Deserializer& in)
 	LightSystem::deserialize(in);
 	ColliderSystem::deserialize(in);
 	PhysicsSystem::deserialize(in);
+	AnimationSystem::deserialize(in);
+	SkeletalSystem::deserialize(in);
+	SkeletalAnimationSystem::deserialize(in);
+	TileSystem::deserialize(in);
 }
 
 void ECS::remove_object(const ObjectID id) 

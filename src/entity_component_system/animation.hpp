@@ -8,6 +8,8 @@
 
 class AnimationSystem;
 class ECS;
+class Serializer;
+class Deserializer;
 
 struct AnimationSequence
 {
@@ -37,6 +39,8 @@ public:
 	{ 
 		add_entity(id, sequence); 
 	}
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	virtual ECS& get_ecs() = 0;

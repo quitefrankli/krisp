@@ -1,4 +1,5 @@
 #include <serialization/serializer.hpp>
+#include <identifications.hpp>
 
 #include <gtest/gtest.h>
 
@@ -93,4 +94,13 @@ TEST(Serialization, ReportsPathsForInvalidOperations)
 		EXPECT_NE(std::string(error.what()).find("$.material_system[0].material_id"), std::string::npos);
 	}
 	EXPECT_THROW(Deserializer::parse("mapping: [unterminated"), SerializationError);
+}
+
+TEST(Serialization, GenericIdCounterCanBeSetExplicitly)
+{
+	using TestID = GenericID<class SerializationCounterTestTag>;
+	TestID::set_next_id(42);
+	EXPECT_EQ(TestID::get_next_id(), 42);
+	EXPECT_EQ(TestID::generate_new_id().get_underlying(), 42);
+	EXPECT_EQ(TestID::generate_new_id().get_underlying(), 43);
 }

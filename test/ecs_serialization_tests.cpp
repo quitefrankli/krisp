@@ -2,6 +2,7 @@
 #include <serialization/serializer.hpp>
 
 #include <gtest/gtest.h>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <limits>
 #include <memory>
@@ -56,6 +57,18 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	physics._net_force = { 10.0f, 11.0f, 12.0f };
 	source.add_physics_entity(ray_id, physics);
 	source.get_gravity_system().set_gravity_type(GravitySystem::GravityType::TRUE);
+	Object aggregate_object;
+	source.add_object(aggregate_object);
+	Maths::Transform animation_finish;
+	animation_finish.set_pos({ 5.0f, 0.0f, 0.0f });
+	source.animate(aggregate_object.get_id(), AnimationSequence(Maths::Transform{}, animation_finish, 2.0f));
+	source.spawn_tileset(0, 0, 2.0f, "aggregate");
+	source.move_to_tile({ 2, 3 }, aggregate_object.get_id(), "aggregate");
+	Bone aggregate_bone;
+	aggregate_bone.name = "aggregate_root";
+	const auto aggregate_skeleton = source.add_skeleton({ aggregate_bone });
+	const auto aggregate_animation = source.add_skeletal_animation(
+		"aggregate_idle", { BoneAnimation{} }, make_skeletal_rig_signature({ aggregate_bone }));
 
 	Serializer serializer;
 	source.serialize(serializer);
@@ -102,10 +115,14 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	EXPECT_EQ(restored_physics->acceleration, physics.acceleration);
 	EXPECT_EQ(restored_physics->_net_force, physics._net_force);
 	EXPECT_EQ(restored.get_gravity_system().get_gravity_type(), GravitySystem::GravityType::TRUE);
+	EXPECT_EQ(restored.get_skeletal_component(aggregate_skeleton).get_bones()[0].name, "aggregate_root");
+	EXPECT_TRUE(restored.get_skeletal_animations().contains(aggregate_animation));
+	EXPECT_EQ(restored.get_tile_coord(aggregate_object.get_id(), "aggregate"), TileCoord(2, 3));
 
 	Serializer restored_serializer;
 	restored.serialize(restored_serializer);
 	const auto restored_document = Deserializer::parse(restored_serializer.emit());
+	EXPECT_EQ(restored_document.child("animation_system").elements().size(), 1);
 	EXPECT_EQ(restored_document.child("clickable_system").elements()[0].read<std::uint64_t>("entity_id"),
 		clickable_id.get_underlying());
 	EXPECT_EQ(restored_document.child("hoverable_system").elements()[0].read<std::uint64_t>("entity_id"),
@@ -330,4 +347,170 @@ TEST(PhysicsSystemSerialization, unknown_force_fails_atomically_with_path)
 	ASSERT_NE(ecs._get_physics_component(EntityID(1)), nullptr);
 	EXPECT_FLOAT_EQ(ecs._get_physics_component(EntityID(1))->mass, 5.0f);
 	EXPECT_EQ(ecs.get_gravity_system().get_gravity_type(), GravitySystem::GravityType::TRUE);
+}
+
+TEST(AnimationSystemSerialization, resumes_elapsed_animation_after_round_trip)
+{
+	ECS source;
+	Object object;
+	source.add_object(object);
+	Maths::Transform start;
+	Maths::Transform finish;
+	finish.set_pos({ 8.0f, 0.0f, 0.0f });
+	source.animate(object.get_id(), AnimationSequence(start, finish, 2.0f));
+	source.process(0.5f);
+	Serializer serializer;
+	source.AnimationSystem::serialize(serializer);
+
+	object.set_position(Maths::zero_vec);
+	ECS restored;
+	restored.add_object(object);
+	restored.AnimationSystem::deserialize(Deserializer::parse(serializer.emit()));
+	restored.process(0.5f);
+	EXPECT_FLOAT_EQ(object.get_position().x, 4.0f);
+}
+
+TEST(AnimationSystemSerialization, malformed_state_fails_atomically)
+{
+	ECS source;
+	Object object;
+	source.add_object(object);
+	Maths::Transform finish;
+	finish.set_pos({ 2.0f, 0.0f, 0.0f });
+	source.animate(object.get_id(), AnimationSequence(Maths::Transform{}, finish, 1.0f));
+	Serializer serializer;
+	source.AnimationSystem::serialize(serializer);
+	std::string malformed = serializer.emit();
+	malformed.replace(malformed.find("duration_secs: 1"), std::string("duration_secs: 1").size(), "duration_secs: bad");
+	EXPECT_THROW(source.AnimationSystem::deserialize(Deserializer::parse(malformed)), SerializationError);
+	Serializer retained;
+	source.AnimationSystem::serialize(retained);
+	EXPECT_EQ(Deserializer::parse(retained.emit()).child("animation_system").elements().size(), 1);
+}
+
+TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
+{
+	ECS source;
+	Bone root;
+	root.name = "root";
+	root.inverse_bind_pose.set_mat4(glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 3.0f)));
+	Bone child;
+	child.name = "child";
+	child.parent_node = 0;
+	child.relative_transform.set_pos({ 0.0f, 4.0f, 0.0f });
+	const auto id = source.add_skeleton({ root, child });
+	Serializer serializer;
+	source.SkeletalSystem::serialize(serializer);
+
+	ECS restored;
+	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
+	const auto& bones = restored.get_skeletal_component(id).get_bones();
+	ASSERT_EQ(bones.size(), 2);
+	EXPECT_EQ(bones[1].parent_node, 0);
+	EXPECT_EQ(bones[1].name, "child");
+	EXPECT_EQ(bones[0].inverse_bind_pose.get_mat4(), root.inverse_bind_pose.get_mat4());
+}
+
+TEST(SkeletalSystemSerialization, invalid_parent_fails_atomically_with_path)
+{
+	ECS ecs;
+	Bone bone;
+	const auto id = ecs.add_skeleton({ bone });
+	Serializer serializer;
+	ecs.SkeletalSystem::serialize(serializer);
+	std::string malformed = serializer.emit();
+	malformed.replace(malformed.find("parent_index: ~"), std::string("parent_index: ~").size(), "parent_index: 9");
+	try {
+		ecs.SkeletalSystem::deserialize(Deserializer::parse(malformed));
+		FAIL() << "Expected invalid bone parent to fail";
+	} catch (const SerializationError& error) {
+		EXPECT_NE(std::string(error.what()).find("parent_index"), std::string::npos);
+	}
+	EXPECT_EQ(ecs.get_skeletal_component(id).get_bones().size(), 1);
+}
+
+TEST(SkeletalAnimationSystemSerialization, round_trips_tracks_and_active_playback)
+{
+	ECS source;
+	Bone bone;
+	bone.name = "root";
+	const auto skeleton_id = source.add_skeleton({ bone });
+	BoneAnimation animation;
+	animation.animation_start_secs = 0.0f;
+	animation.animation_end_secs = 1.0f;
+	animation.translation_track.keys = {
+		{ 0.0f, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.0f) },
+		{ 1.0f, glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f) }
+	};
+	const auto rig = make_skeletal_rig_signature({ bone });
+	const auto animation_id = source.add_skeletal_animation("walk", { animation }, rig, "model.glb");
+	source.play_animation(skeleton_id, animation_id, true);
+	source.SkeletalAnimationSystem::process(0.25f);
+	Serializer skeletons;
+	Serializer animations;
+	source.SkeletalSystem::serialize(skeletons);
+	source.SkeletalAnimationSystem::serialize(animations);
+
+	ECS restored;
+	restored.SkeletalSystem::deserialize(Deserializer::parse(skeletons.emit()));
+	restored.SkeletalAnimationSystem::deserialize(Deserializer::parse(animations.emit()));
+	ASSERT_TRUE(restored.get_skeletal_animations().contains(animation_id));
+	EXPECT_EQ(restored.get_skeletal_animations().at(animation_id).source, "model.glb");
+	restored.SkeletalAnimationSystem::process(0.25f);
+	EXPECT_FLOAT_EQ(restored.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x, 1.0f);
+}
+
+TEST(SkeletalAnimationSystemSerialization, unknown_interpolation_fails_atomically)
+{
+	ECS ecs;
+	Bone bone;
+	bone.name = "root";
+	BoneAnimation animation;
+	animation.translation_track.keys.push_back({});
+	const auto id = ecs.add_skeletal_animation("idle", { animation }, make_skeletal_rig_signature({ bone }));
+	Serializer serializer;
+	ecs.SkeletalAnimationSystem::serialize(serializer);
+	std::string malformed = serializer.emit();
+	malformed.replace(malformed.find("interpolation: linear"), std::string("interpolation: linear").size(),
+		"interpolation: unknown");
+	EXPECT_THROW(ecs.SkeletalAnimationSystem::deserialize(Deserializer::parse(malformed)), SerializationError);
+	EXPECT_TRUE(ecs.get_skeletal_animations().contains(id));
+}
+
+TEST(TileSystemSerialization, round_trips_topology_without_registered_objects)
+{
+	ECS source;
+	Object first;
+	Object second;
+	source.add_object(first);
+	source.add_object(second);
+	source.spawn_tileset(0, 0, 2.5f, "board");
+	source.move_to_tile({ 1, 2 }, first.get_id(), "board");
+	source.move_to_tile({ 3, 4 }, second.get_id(), "board");
+	Serializer serializer;
+	source.TileSystem::serialize(serializer);
+
+	ECS restored;
+	restored.TileSystem::deserialize(Deserializer::parse(serializer.emit()));
+	EXPECT_EQ(restored.get_tile_coord(first.get_id(), "board"), TileCoord(1, 2));
+	EXPECT_EQ(restored.get_tile_coord(second.get_id(), "board"), TileCoord(3, 4));
+	ASSERT_NE(restored.get_tile({ 1, 2 }, "board"), nullptr);
+	EXPECT_EQ(restored.get_tile({ 1, 2 }, "board")->get_objects()[0], first.get_id());
+}
+
+TEST(TileSystemSerialization, duplicate_tilesets_fail_atomically)
+{
+	ECS ecs;
+	Object existing;
+	ecs.add_object(existing);
+	ecs.spawn_tileset(0, 0, 3.0f, "existing");
+	ecs.move_to_tile({ 0, 0 }, existing.get_id(), "existing");
+	const auto malformed = Deserializer::parse(
+		"tile_system:\n"
+		"  previous_hovered: ~\n"
+		"  tilesets:\n"
+		"    - {tileset_id: duplicate, cell_size: 1, tiles: [], tile_objects: []}\n"
+		"    - {tileset_id: duplicate, cell_size: 1, tiles: [], tile_objects: []}\n");
+	EXPECT_THROW(ecs.TileSystem::deserialize(malformed), SerializationError);
+	EXPECT_NE(ecs.get_tile({ 0, 0 }, "existing"), nullptr);
 }

@@ -143,6 +143,7 @@ public:
 	[[nodiscard]] std::vector<Deserializer> elements() const;
 	[[nodiscard]] std::vector<std::string> keys() const;
 	[[nodiscard]] SerializationKind kind() const;
+	[[nodiscard]] const std::string& path() const { return path_; }
 
 private:
 	Deserializer(std::shared_ptr<YAML::Node> document, YAML::Node node, std::string path);

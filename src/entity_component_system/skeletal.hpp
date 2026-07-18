@@ -11,6 +11,8 @@
 using Entity = ObjectID;
 
 class ECS;
+class Serializer;
+class Deserializer;
 
 struct Bone
 {
@@ -110,12 +112,13 @@ public:
 	std::vector<SDS::Bone> get_bones(SkeletonID id) const { return skeletons.at(id).get_bones_data(); }
 	SkeletalComponent& get_skeletal_component(SkeletonID id) { return skeletons.at(id); }
 	const SkeletalComponent& get_skeletal_component(SkeletonID id) const { return skeletons.at(id); }
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	void remove_entity(Entity id);
 
 private:
-	std::unordered_map<MeshID, SkeletonID> mesh_to_skeleton;
 	std::unordered_map<SkeletonID, SkeletalComponent> skeletons;
 };
 
@@ -135,6 +138,8 @@ public:
 	void play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
 	bool is_animation_compatible(SkeletonID skeleton_id, AnimationID animation_id) const;
 	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	void remove_entity(Entity id);
