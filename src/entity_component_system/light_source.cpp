@@ -18,7 +18,7 @@ void LightSystem::serialize(Serializer& out) const
 		const auto& light = lights.at(id);
 		entry.write("entity_id", id.get_underlying());
 		entry.write("intensity", light.intensity);
-		EcsSerialization::write_vec3(entry, "color", light.color);
+		Serialization::write_vec3(entry, "color", light.color);
 	}
 }
 
@@ -31,7 +31,7 @@ void LightSystem::deserialize(const Deserializer& in)
 		const ObjectID id(entry.read<std::uint64_t>("entity_id"));
 		LightComponent light;
 		light.intensity = entry.read<float>("intensity");
-		light.color = EcsSerialization::read_vec3(entry, "color");
+		light.color = Serialization::read_vec3(entry, "color");
 		if (!restored.emplace(id, light).second) {
 			throw SerializationError("Duplicate light entity at $.light_system["
 				+ std::to_string(index) + "].entity_id");

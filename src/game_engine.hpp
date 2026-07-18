@@ -64,6 +64,10 @@ public:
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
 	void reset_scene();
+	void save_scene(const std::filesystem::path& path) const;
+	void load_scene(const std::filesystem::path& path);
+	void quick_save() const;
+	void quick_load();
 	
 	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 
@@ -91,6 +95,7 @@ public:
 	}
 
 	Object& spawn_object(std::shared_ptr<Object>&& object);
+	void spawn_cubemap();
 
 	Object& spawn_particle_emitter(const ParticleEmitterConfig& config);
 

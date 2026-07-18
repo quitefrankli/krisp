@@ -103,11 +103,11 @@ void PhysicsSystem::serialize(Serializer& out) const
 		auto entry = components_out.append_map();
 		entry.write("entity_id", id.get_underlying());
 		entry.write("mass", component.mass);
-		EcsSerialization::write_vec3(entry, "position", component.position);
-		EcsSerialization::write_vec3(entry, "velocity", component.velocity);
-		EcsSerialization::write_quat(entry, "angular_velocity", component.angular_velocity);
-		EcsSerialization::write_vec3(entry, "acceleration", component.acceleration);
-		EcsSerialization::write_vec3(entry, "net_force", component._net_force);
+		Serialization::write_vec3(entry, "position", component.position);
+		Serialization::write_vec3(entry, "velocity", component.velocity);
+		Serialization::write_quat(entry, "angular_velocity", component.angular_velocity);
+		Serialization::write_vec3(entry, "acceleration", component.acceleration);
+		Serialization::write_vec3(entry, "net_force", component._net_force);
 	}
 
 	auto forces_out = system.sequence("force_systems");
@@ -133,11 +133,11 @@ void PhysicsSystem::deserialize(const Deserializer& in)
 		const ObjectID id(entry.read<std::uint64_t>("entity_id"));
 		PhysicsComponent component;
 		component.mass = entry.read<float>("mass");
-		component.position = EcsSerialization::read_vec3(entry, "position");
-		component.velocity = EcsSerialization::read_vec3(entry, "velocity");
-		component.angular_velocity = EcsSerialization::read_quat(entry, "angular_velocity");
-		component.acceleration = EcsSerialization::read_vec3(entry, "acceleration");
-		component._net_force = EcsSerialization::read_vec3(entry, "net_force");
+		component.position = Serialization::read_vec3(entry, "position");
+		component.velocity = Serialization::read_vec3(entry, "velocity");
+		component.angular_velocity = Serialization::read_quat(entry, "angular_velocity");
+		component.acceleration = Serialization::read_vec3(entry, "acceleration");
+		component._net_force = Serialization::read_vec3(entry, "net_force");
 		if (!restored_components.emplace(id, component).second) {
 			throw SerializationError("Duplicate physics entity at $.physics_system.components["
 				+ std::to_string(index) + "].entity_id");

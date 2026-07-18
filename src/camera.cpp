@@ -4,6 +4,7 @@
 #include "objects/objects.hpp"
 #include "audio_engine/listener.hpp"
 #include "renderable/mesh_factory.hpp"
+#include "serialization/serialization_helpers.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -38,6 +39,26 @@ glm::quat make_roll_free_orientation(const glm::vec3& direction)
 }
 }
 
+void Camera::serialize(Serializer& out) const
+{
+	Serialization::write_vec3(out, "position", get_position());
+	Serialization::write_vec3(out, "focus", get_focus());
+	out.write("mode", static_cast<int>(mode));
+	out.write("perspective", projection_is_perspective);
+	Serialization::write_vec2(out, "orthographic_horizontal_span", orthographic_horizontal_span);
+}
+
+void Camera::deserialize(const Deserializer& in)
+{
+	look_at(
+		Serialization::read_vec3(in, "focus"),
+		Serialization::read_vec3(in, "position"));
+	set_orthographic_projection(Serialization::read_vec2(in, "orthographic_horizontal_span"));
+	if (projection_is_perspective != in.read<bool>("perspective"))
+		toggle_projection();
+	set_mode(static_cast<Mode>(in.read<int>("mode")));
+}
+
 
 Camera::Camera(Listener&& listener, float aspect_ratio) :
 	ITrackableObject(this),
@@ -45,7 +66,7 @@ Camera::Camera(Listener&& listener, float aspect_ratio) :
 	aspect_ratio(aspect_ratio)
 {
 	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
-	orthographic_matrix = glm::orthoLH(-aspect_ratio, aspect_ratio, -1.0f, 1.0f, near_clipping, far_clipping);
+	set_orthographic_projection({ -aspect_ratio, aspect_ratio });
 	focus_obj = std::make_shared<Object>(Renderable::make_default(MeshFactory::sphere_id()));
 	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
 	focus_obj->set_visibility(false);
@@ -142,6 +163,7 @@ void Camera::toggle_projection()
 
 void Camera::set_orthographic_projection(const glm::vec2& horizontal_span)
 {
+	orthographic_horizontal_span = horizontal_span;
 	orthographic_matrix = glm::orthoLH(
 		horizontal_span.x, 
 		horizontal_span.y, 
@@ -221,6 +243,7 @@ void Camera::zoom_in(float length)
 		length = Maths::absf(length);
 		orthographic_matrix = glm::orthoLH(
 			-aspect_ratio * length, aspect_ratio * length, -length, length, near_clipping, far_clipping);
+		orthographic_horizontal_span = { -aspect_ratio * length, aspect_ratio * length };
 	}
 }
 

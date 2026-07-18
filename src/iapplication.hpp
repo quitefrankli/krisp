@@ -18,6 +18,7 @@ public:
 	virtual void on_click(GameEngine& engine, Object& object) = 0;
 	virtual void on_begin(GameEngine& engine) = 0;
 	virtual void on_key_press(GameEngine& engine, const KeyInput& key_input) = 0;
+	virtual void on_scene_loaded(GameEngine&) {}
 };
 
 class DummyApplication : public IApplication

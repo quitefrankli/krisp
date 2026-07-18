@@ -34,6 +34,16 @@ void GameEngine::key_callback(const KeyInput& key_input)
 		shutdown();
 		return;
 	}
+	else if (key_input.eq(GLFW_KEY_F5, NONE, PRESS))
+	{
+		quick_save();
+		return;
+	}
+	else if (key_input.eq(GLFW_KEY_F9, NONE, PRESS))
+	{
+		quick_load();
+		return;
+	}
 	else if (key_input.eq(GLFW_KEY_X, NONE, PRESS))
 		experimental->process();
 	else if (key_input.eq(GLFW_KEY_R, SHIFT, PRESS))

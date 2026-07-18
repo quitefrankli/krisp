@@ -12,7 +12,7 @@
 #include <string_view>
 #include <string>
 
-namespace EcsSerialization
+namespace Serialization
 {
 inline void write_vec2(Serializer& out, const std::string_view key, const glm::vec2& value)
 {

@@ -1,10 +1,12 @@
 #pragma once
 
 #include "game_engine.hpp"
+#include "type_registry.hpp"
+#include "serialization/serializer.hpp"
+#include "utility.hpp"
 
 #include "camera.hpp"
 #include "objects/objects.hpp"
-#include "objects/cubemap.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility.hpp"
@@ -17,6 +19,7 @@
 #include "renderable/material_factory.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
+#include "serialization/serialization_helpers.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -25,10 +28,11 @@
 #include <fmt/color.h>
 
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <vector>
 #include <thread>
 #include <chrono>
-
 
 GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	window(std::make_unique<App::Window>()),
@@ -297,6 +301,17 @@ Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	return new_obj;
 }
 
+void GameEngine::spawn_cubemap()
+{
+	Renderable renderable;
+	renderable.pipeline_render_type = ERenderType::CUBEMAP;
+	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
+	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })
+		renderable.material_ids.push_back(
+			ResourceLoader::fetch_texture(Utility::get_texture(fmt::format("skybox/{}.jpg", texture_name))));
+	spawn_object<Object>(renderable);
+}
+
 void GameEngine::retain_renderable_resources(const Object& object)
 {
 	for (const auto& renderable : object.renderables)
@@ -523,8 +538,26 @@ void GameEngine::replace_renderable_texture(
 		specular = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
 
 	std::vector<MaterialID> retired_materials;
-	if (old && MaterialSystem::unregister_owner(*old) == 0)
-		retired_materials.push_back(*old);
+	const auto release_material = [&](const MaterialID material_id)
+	{
+		auto reference = material_resource_references.find(material_id);
+		if (reference == material_resource_references.end() || reference->second == 0)
+			throw std::runtime_error("GameEngine::replace_renderable_texture: untracked material reference");
+		if (--reference->second == 0)
+			material_resource_references.erase(reference);
+		if (MaterialSystem::unregister_owner(material_id) == 0)
+			retired_materials.push_back(material_id);
+	};
+	const auto retain_material = [&](const MaterialID material_id)
+	{
+		const size_t references = ++material_resource_references[material_id];
+		if (MaterialSystem::get_num_owners(material_id) < references)
+			MaterialSystem::register_owner(material_id);
+	};
+	if (old)
+		release_material(*old);
+	if (semantic == ETextureSemantic::BASE_COLOR || texture_path)
+		retain_material(replacement);
 	renderable.material_ids = { diffuse };
 	if (normal)
 		renderable.material_ids.push_back(*normal);
@@ -556,8 +589,19 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 		return;
 
 	std::vector<MaterialID> retired_materials;
-	if (current.specular_mat && MaterialSystem::unregister_owner(*current.specular_mat) == 0)
-		retired_materials.push_back(*current.specular_mat);
+	if (current.specular_mat)
+	{
+		auto reference = material_resource_references.find(*current.specular_mat);
+		if (reference == material_resource_references.end() || reference->second == 0)
+			throw std::runtime_error("GameEngine::set_renderable_specular_matte: untracked material reference");
+		if (--reference->second == 0)
+			material_resource_references.erase(reference);
+		if (MaterialSystem::unregister_owner(*current.specular_mat) == 0)
+			retired_materials.push_back(*current.specular_mat);
+	}
+	const size_t matte_references = ++material_resource_references[matte];
+	if (MaterialSystem::get_num_owners(matte) < matte_references)
+		MaterialSystem::register_owner(matte);
 	renderable.material_ids = { current.base_color_mat, matte };
 	if (current.normal_mat)
 		renderable.material_ids.push_back(*current.normal_mat);
@@ -604,3 +648,172 @@ void GameEngine::preview_objs_in_gui(
 }
 
 Gizmo& GameEngine::get_gizmo() { return *gizmo; }
+
+void GameEngine::save_scene(const std::filesystem::path& path) const
+{
+	gizmo->deselect();
+	Serializer document;
+	auto engine_state = document.map("engine");
+	engine_state.write("paused", paused);
+	engine_state.write("camera_keyboard_navigation", camera_keyboard_navigation_enabled);
+	engine_state.write("camera_orbit_with_right_mouse", camera_orbit_with_right_mouse);
+	auto saved_camera = document.map("camera");
+	camera->serialize(saved_camera);
+	std::unordered_map<MaterialID, bool> saved_material_ids;
+	for (const auto& [_, object] : objects)
+		for (const auto& renderable : object->renderables)
+			for (const auto material_id : renderable.material_ids)
+				saved_material_ids.emplace(material_id, true);
+	auto saved_materials = document.sequence("materials");
+	for (const auto& [material_id, _] : saved_material_ids)
+	{
+		const auto& material = MaterialSystem::get(material_id);
+		auto saved = saved_materials.append_map();
+		saved.write("id", material_id.get_underlying());
+		if (const auto* color = dynamic_cast<const ColorMaterial*>(&material))
+		{
+			saved.write("type", "color");
+			auto data = saved.map("data");
+			Serialization::write_vec3(data, "ambient", color->data.ambient);
+			Serialization::write_vec3(data, "diffuse", color->data.diffuse);
+			Serialization::write_vec3(data, "specular", color->data.specular);
+			Serialization::write_vec3(data, "emissive", color->data.emissive);
+			data.write("shininess", color->data.shininess);
+		}
+		else if (const auto* texture = dynamic_cast<const TextureMaterial*>(&material))
+		{
+			saved.write("type", "texture");
+			saved.write("source", texture->source);
+			saved.write("semantic", static_cast<int>(texture->semantic));
+		}
+		else
+			throw SerializationError("Unsupported material at $.materials");
+	}
+	auto saved_objects = document.sequence("objects");
+	for (const auto& [_, object] : objects)
+	{
+		if (!TypeRegistry::contains(object->serialization_type()))
+			throw SerializationError("Unsupported object type at $.objects: " + std::string(object->serialization_type()));
+		auto saved = saved_objects.append_map();
+		object->serialize(saved);
+	}
+	auto saved_ecs = document.map("ecs");
+	ecs.serialize(saved_ecs);
+
+	std::filesystem::create_directories(path.parent_path());
+	const auto temporary = path.string() + ".tmp";
+	{
+		std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
+		if (!stream)
+			throw SerializationError("Unable to open scene temporary file: " + temporary);
+		stream << document.emit();
+		if (!stream)
+			throw SerializationError("Unable to write scene temporary file: " + temporary);
+	}
+	std::filesystem::rename(temporary, path);
+}
+
+void GameEngine::load_scene(const std::filesystem::path& path)
+{
+	std::ifstream stream(path, std::ios::binary);
+	if (!stream)
+		throw SerializationError("Unable to open scene: " + path.string());
+	std::ostringstream contents;
+	contents << stream.rdbuf();
+	const auto document = Deserializer::parse(contents.str());
+
+	struct SavedObject { Deserializer data; std::optional<ObjectID> parent; };
+	std::vector<SavedObject> saved_objects;
+	std::unordered_map<ObjectID, bool> ids;
+	for (const auto& saved : document.child("objects").elements())
+	{
+		if (!TypeRegistry::contains(saved.read<std::string>("type")))
+			throw SerializationError("Unsupported object type at " + saved.path());
+		const ObjectID id(saved.read<uint64_t>("id"));
+		if (!ids.emplace(id, true).second)
+			throw SerializationError("Duplicate object id at " + saved.path());
+		const auto parent = saved.child("parent_id");
+		saved_objects.push_back({ saved, parent.kind() == SerializationKind::Null
+			? std::nullopt : std::optional<ObjectID>(ObjectID(parent.as<uint64_t>())) });
+	}
+	reset_scene();
+	std::unordered_map<MaterialID, MaterialID> material_remap;
+	for (const auto& saved : document.child("materials").elements())
+	{
+		const MaterialID saved_id(saved.read<uint64_t>("id"));
+		if (MaterialSystem::contains(saved_id))
+		{
+			material_remap.emplace(saved_id, saved_id);
+			continue;
+		}
+		const auto type = saved.read<std::string>("type");
+		if (type == "color")
+		{
+			ColorMaterial material;
+			const auto data = saved.child("data");
+			material.data.ambient = Serialization::read_vec3(data, "ambient");
+			material.data.diffuse = Serialization::read_vec3(data, "diffuse");
+			material.data.specular = Serialization::read_vec3(data, "specular");
+			material.data.emissive = Serialization::read_vec3(data, "emissive");
+			material.data.shininess = data.read<float>("shininess");
+			material_remap.emplace(saved_id, MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material)), false));
+		}
+		else if (type == "texture")
+		{
+			const auto loaded_id = ResourceLoader::fetch_texture(
+				saved.read<std::string>("source"),
+				static_cast<ETextureSemantic>(saved.read<int>("semantic")));
+			material_remap.emplace(saved_id, loaded_id);
+		}
+		else
+			throw SerializationError("Unsupported material type at " + saved.path());
+	}
+	for (auto& saved : saved_objects)
+	{
+		auto object = TypeRegistry::create(saved.data.read<std::string>("type"));
+		object->deserialize(saved.data);
+		for (auto& renderable : object->renderables)
+		{
+			if (!MeshSystem::contains(renderable.mesh_id))
+				throw SerializationError("Missing mesh resource at " + saved.data.path());
+			for (auto& material_id : renderable.material_ids)
+			{
+				const auto remapped = material_remap.find(material_id);
+				if (remapped == material_remap.end())
+					throw SerializationError("Missing material resource at " + saved.data.path());
+				material_id = remapped->second;
+			}
+		}
+		const auto id = object->get_id();
+		objects.emplace(id, object);
+		retain_renderable_resources(*object);
+		ecs.add_object(*object);
+		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
+	}
+	for (const auto& saved : saved_objects)
+		if (saved.parent)
+		{
+			Object* child = get_object(ObjectID(saved.data.read<uint64_t>("id")));
+			Object* parent = get_object(*saved.parent);
+			if (!parent)
+				throw SerializationError("Missing parent object at " + saved.data.path());
+			child->attach_to(parent);
+		}
+	ecs.deserialize(document.child("ecs"));
+	const auto engine_state = document.child("engine");
+	paused = engine_state.read<bool>("paused");
+	camera_keyboard_navigation_enabled = engine_state.read<bool>("camera_keyboard_navigation");
+	camera_orbit_with_right_mouse = engine_state.read<bool>("camera_orbit_with_right_mouse");
+	camera->deserialize(document.child("camera"));
+	application->on_scene_loaded(*this);
+}
+
+void GameEngine::quick_save() const
+{
+	save_scene(Utility::get_top_level_path() / ".saves" / "quicksave.yaml");
+}
+
+void GameEngine::quick_load()
+{
+	load_scene(Utility::get_top_level_path() / ".saves" / "quicksave.yaml");
+}

@@ -101,8 +101,8 @@ void ColliderSystem::serialize(Serializer& out) const
 				throw SerializationError("Invalid ray collider at " + collider_path(index, "type"));
 			entry.write("type", "ray");
 			const auto& ray = typed->get_local_data();
-			EcsSerialization::write_vec3(data, "origin", ray.origin);
-			EcsSerialization::write_vec3(data, "direction", ray.direction);
+			Serialization::write_vec3(data, "origin", ray.origin);
+			Serialization::write_vec3(data, "direction", ray.direction);
 			data.write("length", ray.length);
 			break;
 		}
@@ -112,7 +112,7 @@ void ColliderSystem::serialize(Serializer& out) const
 				throw SerializationError("Invalid sphere collider at " + collider_path(index, "type"));
 			entry.write("type", "sphere");
 			const auto& sphere = typed->get_local_data();
-			EcsSerialization::write_vec3(data, "origin", sphere.origin);
+			Serialization::write_vec3(data, "origin", sphere.origin);
 			data.write("radius", sphere.radius);
 			break;
 		}
@@ -122,9 +122,9 @@ void ColliderSystem::serialize(Serializer& out) const
 				throw SerializationError("Invalid quad collider at " + collider_path(index, "type"));
 			entry.write("type", "quad");
 			const auto& quad = typed->get_local_data();
-			EcsSerialization::write_vec3(data, "offset", quad.offset);
-			EcsSerialization::write_vec3(data, "normal", quad.normal);
-			EcsSerialization::write_vec2(data, "size", quad.size);
+			Serialization::write_vec3(data, "offset", quad.offset);
+			Serialization::write_vec3(data, "normal", quad.normal);
+			Serialization::write_vec2(data, "size", quad.size);
 			break;
 		}
 		case ECollider::BOX: {
@@ -133,8 +133,8 @@ void ColliderSystem::serialize(Serializer& out) const
 				throw SerializationError("Invalid box collider at " + collider_path(index, "type"));
 			entry.write("type", "box");
 			const auto& bounds = typed->get_local_data();
-			EcsSerialization::write_vec3(data, "minimum", bounds.min_bound);
-			EcsSerialization::write_vec3(data, "maximum", bounds.max_bound);
+			Serialization::write_vec3(data, "minimum", bounds.min_bound);
+			Serialization::write_vec3(data, "maximum", bounds.max_bound);
 			break;
 		}
 		case ECollider::MESH: {
@@ -165,22 +165,22 @@ void ColliderSystem::deserialize(const Deserializer& in)
 		std::unique_ptr<Collider> collider;
 		if (type == "ray") {
 			Maths::Ray ray(
-				EcsSerialization::read_vec3(data, "origin"),
-				EcsSerialization::read_vec3(data, "direction"));
+				Serialization::read_vec3(data, "origin"),
+				Serialization::read_vec3(data, "direction"));
 			ray.length = data.read<float>("length");
 			collider = std::make_unique<RayCollider>(ray);
 		} else if (type == "sphere") {
 			collider = std::make_unique<SphereCollider>(Maths::Sphere(
-				EcsSerialization::read_vec3(data, "origin"), data.read<float>("radius")));
+				Serialization::read_vec3(data, "origin"), data.read<float>("radius")));
 		} else if (type == "quad") {
 			collider = std::make_unique<QuadCollider>(
-				Maths::Plane(EcsSerialization::read_vec3(data, "offset"),
-					EcsSerialization::read_vec3(data, "normal")),
-				EcsSerialization::read_vec2(data, "size"));
+				Maths::Plane(Serialization::read_vec3(data, "offset"),
+					Serialization::read_vec3(data, "normal")),
+				Serialization::read_vec2(data, "size"));
 		} else if (type == "box") {
 			collider = std::make_unique<BoxCollider>(AABB(
-				EcsSerialization::read_vec3(data, "minimum"),
-				EcsSerialization::read_vec3(data, "maximum")));
+				Serialization::read_vec3(data, "minimum"),
+				Serialization::read_vec3(data, "maximum")));
 		} else if (type == "mesh") {
 			std::vector<MeshID> mesh_ids;
 			for (const auto& mesh_id : data.child("mesh_ids").elements())

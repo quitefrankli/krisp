@@ -16,6 +16,7 @@ collection_log/
 metadata/
 screenshots/
 recordings/
+.saves/
 
 vulkanSDKMacOS
 .DS_Store

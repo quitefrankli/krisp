@@ -9,7 +9,6 @@
 #include <utility.hpp>
 #include <camera.hpp>
 #include <config.hpp>
-#include <objects/cubemap.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -409,7 +408,7 @@ int main(int argc, char* argv[])
 	Config::init(PROJECT_NAME);
 	auto engine = GameEngine::create<Application>();
 	// Add skybox
-	engine.spawn_object<CubeMap>();
+	engine.spawn_cubemap();
 	
 	// Add light source
 	auto& light_source = engine.spawn_object<Object>(Renderable{

@@ -7,7 +7,6 @@
 #include <utility.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <renderable/material_factory.hpp>
-#include <objects/cubemap.hpp>
 #include <resource_loader/resource_loader.hpp>
 #include <game_objects/player_character.hpp>
 #include <entity_component_system/collider_ecs.hpp>
@@ -98,7 +97,7 @@ int main(int argc, char* argv[])
 	Config::init(PROJECT_NAME);
 	// auto engine = GameEngine::create<PlayerDemoApplication>();
 	auto engine = GameEngine::create<DummyApplication>();
-	engine.spawn_object<CubeMap>(); // background/horizon
+	engine.spawn_cubemap(); // background/horizon
 	Renderable floor_renderable;
 	floor_renderable.pipeline_render_type = ERenderType::COLOR;
 	floor_renderable.mesh_id = MeshFactory::cube_id();

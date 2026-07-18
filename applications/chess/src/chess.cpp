@@ -7,7 +7,6 @@
 #include <utility.hpp>
 #include <iapplication.hpp>
 #include <camera.hpp>
-#include <objects/cubemap.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <renderable/material_factory.hpp>
 #include <entity_component_system/light_source.hpp>
@@ -186,7 +185,7 @@ int main(int argc, char* argv[])
 	auto& ecs = engine.get_ecs();
 
 	// Add skybox
-	engine.spawn_object<CubeMap>();
+	engine.spawn_cubemap();
 
 	// Add light source
 	auto& light_source = engine.spawn_object<Object>(Renderable{

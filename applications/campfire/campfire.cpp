@@ -2,7 +2,6 @@
 #include <iapplication.hpp>
 #include <config.hpp>
 #include <utility.hpp>
-#include <objects/cubemap.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <renderable/material_factory.hpp>
 #include <resource_loader/resource_loader.hpp>
@@ -19,7 +18,7 @@ int main(int argc, char* argv[])
 	Config::init(PROJECT_NAME);
 	auto engine = GameEngine::create<DummyApplication>();
 
-	engine.spawn_object<CubeMap>();
+	engine.spawn_cubemap();
 
 	// Ground
 	ColorMaterial ground_mat{};

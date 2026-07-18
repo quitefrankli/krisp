@@ -1,6 +1,7 @@
 #include "test_helper.hpp"
 
 #include <objects/object.hpp>
+#include <serialization/serializer.hpp>
 
 #include <gtest/gtest.h>
 #include <glm/gtx/string_cast.hpp>
@@ -210,4 +211,33 @@ TEST(ObjectTestsMisc, moving_parent_repairs_child_backlinks)
 	EXPECT_TRUE(child.is_attached());
 	EXPECT_EQ(moved_parent.child_count(), 1);
 	EXPECT_TRUE(glm_equal(child.get_position(), glm::vec3(2.0f, 0.0f, 0.0f)));
+}
+
+TEST(ObjectSerialization, round_trips_common_state_and_exact_id)
+{
+	Object source;
+	source.set_name("saved object");
+	source.set_visibility(false);
+	source.set_relative_position({ 1.0f, 2.0f, 3.0f });
+	source.set_relative_scale({ 2.0f, 3.0f, 4.0f });
+	source.set_aabb(AABB({ -1.0f, -2.0f, -3.0f }, { 4.0f, 5.0f, 6.0f }));
+	source.renderables.push_back(Renderable{
+		MeshID(41), { MaterialID(42), MaterialID(43) }, ERenderType::STANDARD,
+		EAlphaMode::MASK, 0.25f, 0.75f, false, true });
+
+	Serializer serializer;
+	source.serialize(serializer);
+	Object restored;
+	restored.deserialize(Deserializer::parse(serializer.emit()));
+
+	EXPECT_EQ(restored.get_id(), source.get_id());
+	EXPECT_EQ(restored.get_name(), "saved object");
+	EXPECT_FALSE(restored.get_visibility());
+	EXPECT_TRUE(glm_equal(restored.get_relative_position(), glm::vec3(1.0f, 2.0f, 3.0f)));
+	EXPECT_EQ(restored.renderables.size(), 1);
+	EXPECT_EQ(restored.renderables[0].mesh_id, MeshID(41));
+	EXPECT_EQ(restored.renderables[0].material_ids, (MatVec{ MaterialID(42), MaterialID(43) }));
+	EXPECT_EQ(restored.renderables[0].alpha_mode, EAlphaMode::MASK);
+	EXPECT_FALSE(restored.renderables[0].casts_shadow);
+	EXPECT_TRUE(restored.renderables[0].render_on_top);
 }

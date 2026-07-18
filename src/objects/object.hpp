@@ -15,10 +15,13 @@
 
 
 class ResourceLoader;
+class Serializer;
+class Deserializer;
 
 class Object
 {
 public:
+	static constexpr std::string_view serialization_type_name = "Object";
 	Object() = default;
 	Object(
 		const Renderable& renderable,
@@ -41,6 +44,9 @@ public:
 	Object& operator=(const Object& object) = delete;
 
 	ObjectID get_id() const { return id; }
+	virtual std::string_view serialization_type() const { return serialization_type_name; }
+	virtual void serialize(Serializer& out) const;
+	virtual void deserialize(const Deserializer& in);
 	std::optional<SkeletonID> get_skeleton_id() const { return skeleton_id; }
 
 	virtual void toggle_visibility() { bVisible = !bVisible; }
@@ -102,7 +108,7 @@ protected:
 
 private:
 	std::optional<SkeletonID> skeleton_id;
-	const ObjectID id = ObjectID::generate_new_id();
+	ObjectID id = ObjectID::generate_new_id();
 
 	// there's a lot of caching going on with the below 2 transforms hence the mutable
 	mutable Maths::Transform world_transform;

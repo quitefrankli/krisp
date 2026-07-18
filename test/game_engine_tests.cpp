@@ -1,6 +1,9 @@
 #include <game_engine.hpp>
+#include <camera.hpp>
 #include <iapplication.hpp>
+#include <interface/gizmo.hpp>
 
+#include "test_helper.hpp"
 #include "mock_graphics_engine.hpp"
 #include "mock_window.hpp"
 #include "renderable/mesh_factory.hpp"
@@ -10,6 +13,8 @@
 #include "utility.hpp"
 
 #include <gtest/gtest.h>
+
+#include <filesystem>
 
 
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
@@ -74,6 +79,97 @@ public:
 TEST_F(GameEngineTests, Constructor)
 {
 	EXPECT_EQ(engine.get_window().get_glfw_window(), nullptr);
+}
+
+TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
+{
+	engine.spawn_cubemap();
+
+	ASSERT_EQ(engine.get_objects().size(), 1);
+	const auto& object = engine.get_objects().begin()->second;
+	ASSERT_EQ(object->renderables.size(), 1);
+	EXPECT_EQ(object->renderables.front().pipeline_render_type, ERenderType::CUBEMAP);
+	EXPECT_EQ(object->renderables.front().material_ids.size(), 6);
+}
+
+TEST_F(GameEngineTests, scene_load_remaps_released_color_materials)
+{
+	ColorMaterial color;
+	color.data.diffuse = { 0.2f, 0.3f, 0.4f };
+	const MaterialID original_material = MaterialSystem::add(std::make_unique<ColorMaterial>(color));
+	auto& object = engine.spawn_object<Object>(Renderable{
+		MeshFactory::cube_id(), { original_material }, ERenderType::COLOR });
+	const ObjectID object_id = object.get_id();
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_material_test.yaml";
+
+	engine.save_scene(path);
+	engine.load_scene(path);
+	std::filesystem::remove(path);
+
+	const auto* restored = engine.get_object(object_id);
+	ASSERT_NE(restored, nullptr);
+	ASSERT_EQ(restored->renderables.size(), 1);
+	EXPECT_NE(restored->renderables[0].material_ids.front(), original_material);
+	EXPECT_TRUE(MaterialSystem::contains(restored->renderables[0].material_ids.front()));
+}
+
+TEST_F(GameEngineTests, scene_load_remaps_released_texture_materials)
+{
+	const MaterialID original_material = ResourceLoader::fetch_texture("texture1.jpg");
+	auto& object = engine.spawn_object<Object>(Renderable{
+		MeshFactory::cube_id(), { original_material }, ERenderType::STANDARD });
+	const ObjectID object_id = object.get_id();
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_texture_test.yaml";
+
+	engine.save_scene(path);
+	engine.load_scene(path);
+	std::filesystem::remove(path);
+
+	const auto* restored = engine.get_object(object_id);
+	ASSERT_NE(restored, nullptr);
+	EXPECT_TRUE(MaterialSystem::contains(restored->renderables[0].material_ids.front()));
+}
+
+TEST_F(GameEngineTests, scene_load_restores_camera_state)
+{
+	auto& camera = engine.get_camera();
+	camera.look_at({ 1.0f, 2.0f, 3.0f }, { -4.0f, 5.0f, -6.0f });
+	camera.set_mode(Camera::Mode::FPV);
+	camera.set_orthographic_projection({ -3.0f, 7.0f });
+	camera.toggle_projection();
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_camera_test.yaml";
+
+	engine.save_scene(path);
+	camera.look_at(Maths::zero_vec, { 0.0f, 3.0f, -3.0f });
+	camera.set_mode(Camera::Mode::ORBIT);
+	camera.toggle_projection();
+	engine.load_scene(path);
+	std::filesystem::remove(path);
+
+	EXPECT_TRUE(glm_equal(camera.get_position(), glm::vec3(-4.0f, 5.0f, -6.0f)));
+	EXPECT_TRUE(glm_equal(camera.get_focus(), glm::vec3(1.0f, 2.0f, 3.0f)));
+	EXPECT_EQ(camera.get_mode(), Camera::Mode::FPV);
+	EXPECT_GT(glm::distance(camera.get_ray({ 0.0f, 0.0f }).origin, camera.get_position()), 0.01f);
+}
+
+TEST_F(GameEngineTests, scene_load_ignores_transient_gizmo_parent)
+{
+	auto& object = engine.spawn_object<Object>();
+	object.set_position({ 2.0f, 3.0f, 4.0f });
+	const ObjectID object_id = object.get_id();
+	engine.get_gizmo().init();
+	engine.get_gizmo().select_object(&object);
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_gizmo_test.yaml";
+
+	engine.save_scene(path);
+	EXPECT_FALSE(engine.get_gizmo().is_active());
+	EXPECT_NO_THROW(engine.load_scene(path));
+	std::filesystem::remove(path);
+
+	const auto* restored = engine.get_object(object_id);
+	ASSERT_NE(restored, nullptr);
+	EXPECT_TRUE(glm_equal(restored->get_position(), glm::vec3(2.0f, 3.0f, 4.0f)));
+	EXPECT_FALSE(engine.get_gizmo().is_active());
 }
 
 TEST(GameEngineOwnershipTests, engines_have_isolated_ecs_instances)
@@ -302,6 +398,24 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 	EXPECT_NE(update.diffuse, old_diffuse);
 	const auto& replacement = dynamic_cast<const TextureMaterial&>(MaterialSystem::get(update.diffuse));
 	EXPECT_EQ(replacement.semantic, ETextureSemantic::BASE_COLOR);
+}
+
+TEST_F(GameEngineTests, texture_replacement_keeps_scene_resource_references_in_sync)
+{
+	const auto diffuse = ResourceLoader::fetch_texture("texture2.jpg");
+	Renderable renderable;
+	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
+	renderable.material_ids = { diffuse };
+	renderable.pipeline_render_type = ERenderType::STANDARD;
+	auto& object = engine.spawn_object<Object>(renderable);
+
+	engine.replace_renderable_texture(
+		object.get_id(), 0, ETextureSemantic::BASE_COLOR, Utility::get_texture("texture4.png"));
+
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_replaced_texture_test.yaml";
+	engine.save_scene(path);
+	EXPECT_NO_THROW(engine.load_scene(path));
+	std::filesystem::remove(path);
 }
 
 TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)

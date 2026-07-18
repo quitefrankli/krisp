@@ -62,8 +62,8 @@ void AnimationSystem::serialize(Serializer& out) const
 		const auto& sequence = entities.at(id);
 		auto entry = entries.append_map();
 		entry.write("entity_id", id.get_underlying());
-		EcsSerialization::write_transform(entry, "initial_transform", sequence.initial_transform);
-		EcsSerialization::write_transform(entry, "final_transform", sequence.final_transform);
+		Serialization::write_transform(entry, "initial_transform", sequence.initial_transform);
+		Serialization::write_transform(entry, "final_transform", sequence.final_transform);
 		entry.write("duration_secs", sequence.duration_secs);
 		entry.write("is_relative", sequence.is_relative);
 		entry.write("elapsed_secs", sequence.elapsed_secs);
@@ -78,8 +78,8 @@ void AnimationSystem::deserialize(const Deserializer& in)
 		const auto& entry = entries[index];
 		const ObjectID id(entry.read<std::uint64_t>("entity_id"));
 		AnimationSequence sequence(
-			EcsSerialization::read_transform(entry, "initial_transform"),
-			EcsSerialization::read_transform(entry, "final_transform"),
+			Serialization::read_transform(entry, "initial_transform"),
+			Serialization::read_transform(entry, "final_transform"),
 			entry.read<float>("duration_secs"), entry.read<bool>("is_relative"));
 		sequence.elapsed_secs = entry.read<float>("elapsed_secs");
 		if (!restored.emplace(id, std::move(sequence)).second) {

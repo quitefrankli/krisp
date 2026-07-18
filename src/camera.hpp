@@ -15,6 +15,8 @@
 class Camera : public Object, public ITrackableObject
 {
 public:
+	void serialize(Serializer& out) const override;
+	void deserialize(const Deserializer& in) override;
 	Camera(Listener&& listener, float aspect_ratio);
 	~Camera();
 
@@ -82,6 +84,7 @@ private:
 
 	static constexpr float panning_sensitivity = 0.2f;
 	bool projection_is_perspective = true;
+	glm::vec2 orthographic_horizontal_span;
 	const float aspect_ratio;
 	const float fov = Maths::deg2rad(45.0f);
 	const float near_clipping = 0.1f;

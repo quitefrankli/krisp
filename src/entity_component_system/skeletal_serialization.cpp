@@ -102,9 +102,9 @@ void SkeletalSystem::serialize(Serializer& out) const
 			bone_out.write("name", bone.name);
 			if (bone.parent_node == Bone::NO_PARENT) bone_out.write_null("parent_index");
 			else bone_out.write("parent_index", bone.parent_node);
-			EcsSerialization::write_transform(bone_out, "original_transform", bone.original_transform);
-			EcsSerialization::write_transform(bone_out, "relative_transform", bone.relative_transform);
-			EcsSerialization::write_transform(bone_out, "inverse_bind_pose", bone.inverse_bind_pose);
+			Serialization::write_transform(bone_out, "original_transform", bone.original_transform);
+			Serialization::write_transform(bone_out, "relative_transform", bone.relative_transform);
+			Serialization::write_transform(bone_out, "inverse_bind_pose", bone.inverse_bind_pose);
 		}
 	}
 }
@@ -123,9 +123,9 @@ void SkeletalSystem::deserialize(const Deserializer& in)
 			bone.name = bone_in.read<std::string>("name");
 			const auto parent = bone_in.child("parent_index");
 			bone.parent_node = parent.kind() == SerializationKind::Null ? Bone::NO_PARENT : parent.as<std::uint32_t>();
-			bone.original_transform = EcsSerialization::read_transform(bone_in, "original_transform");
-			bone.relative_transform = EcsSerialization::read_transform(bone_in, "relative_transform");
-			bone.inverse_bind_pose = EcsSerialization::read_transform(bone_in, "inverse_bind_pose");
+			bone.original_transform = Serialization::read_transform(bone_in, "original_transform");
+			bone.relative_transform = Serialization::read_transform(bone_in, "relative_transform");
+			bone.inverse_bind_pose = Serialization::read_transform(bone_in, "inverse_bind_pose");
 			bones.push_back(std::move(bone));
 		}
 		validate_bones(bones, "$.skeletal_system[" + std::to_string(index) + "].bones");
@@ -167,16 +167,16 @@ void SkeletalAnimationSystem::serialize(Serializer& out) const
 			auto bone_out = bone_animations.append_map();
 			bone_out.write("animation_start_secs", bone.animation_start_secs);
 			bone_out.write("animation_end_secs", bone.animation_end_secs);
-			EcsSerialization::write_transform(bone_out, "base_transform", bone.base_transform);
+			Serialization::write_transform(bone_out, "base_transform", bone.base_transform);
 			auto frames = bone_out.sequence("key_frames");
 			for (const auto& frame : bone.key_frames) {
 				auto frame_out = frames.append_map();
 				frame_out.write("time", frame.animation_stage_secs);
-				EcsSerialization::write_transform(frame_out, "transform", frame.transform);
+				Serialization::write_transform(frame_out, "transform", frame.transform);
 			}
-			write_track(bone_out, "translation_track", bone.translation_track, EcsSerialization::write_vec3);
-			write_track(bone_out, "rotation_track", bone.rotation_track, EcsSerialization::write_vec4);
-			write_track(bone_out, "scale_track", bone.scale_track, EcsSerialization::write_vec3);
+			write_track(bone_out, "translation_track", bone.translation_track, Serialization::write_vec3);
+			write_track(bone_out, "rotation_track", bone.rotation_track, Serialization::write_vec4);
+			write_track(bone_out, "scale_track", bone.scale_track, Serialization::write_vec3);
 		}
 	}
 
@@ -215,12 +215,12 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in)
 			BoneAnimation bone;
 			bone.animation_start_secs = bone_in.read<float>("animation_start_secs");
 			bone.animation_end_secs = bone_in.read<float>("animation_end_secs");
-			bone.base_transform = EcsSerialization::read_transform(bone_in, "base_transform");
+			bone.base_transform = Serialization::read_transform(bone_in, "base_transform");
 			for (const auto& frame_in : bone_in.child("key_frames").elements())
-				bone.key_frames.push_back({ EcsSerialization::read_transform(frame_in, "transform"), frame_in.read<float>("time") });
-			bone.translation_track = read_track<glm::vec3>(bone_in, "translation_track", EcsSerialization::read_vec3);
-			bone.rotation_track = read_track<glm::vec4>(bone_in, "rotation_track", EcsSerialization::read_vec4);
-			bone.scale_track = read_track<glm::vec3>(bone_in, "scale_track", EcsSerialization::read_vec3);
+				bone.key_frames.push_back({ Serialization::read_transform(frame_in, "transform"), frame_in.read<float>("time") });
+			bone.translation_track = read_track<glm::vec3>(bone_in, "translation_track", Serialization::read_vec3);
+			bone.rotation_track = read_track<glm::vec4>(bone_in, "rotation_track", Serialization::read_vec4);
+			bone.scale_track = read_track<glm::vec3>(bone_in, "scale_track", Serialization::read_vec3);
 			animation.bone_animations.push_back(std::move(bone));
 		}
 		if (!restored_animations.emplace(id, std::move(animation)).second)

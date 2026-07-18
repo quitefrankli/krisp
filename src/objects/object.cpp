@@ -1,4 +1,6 @@
 #include "object.hpp"
+#include "serialization/serializer.hpp"
+#include "serialization/serialization_helpers.hpp"
 
 #include "maths.hpp"
 #include "resource_loader/resource_loader.hpp"
@@ -9,6 +11,7 @@
 #include <quill/LogMacros.h>
 
 #include <iostream>
+#include <algorithm>
 #include <numeric>
 #include <limits>
 
@@ -271,5 +274,70 @@ bool Object::check_collision(const Maths::Ray& ray, glm::vec3& intersection) con
 	} else 
 	{
 		return false;
+	}
+}
+void Object::serialize(Serializer& out) const
+{
+	out.write("type", serialization_type());
+	out.write("id", id.get_underlying());
+	out.write("name", name);
+	out.write("visible", bVisible);
+	if (skeleton_id)
+		out.write("skeleton_id", skeleton_id->get_underlying());
+	else
+		out.write_null("skeleton_id");
+	Serialization::write_transform(out, "world_transform", get_maths_transform());
+	Serialization::write_transform(out, "relative_transform", relative_transform);
+	auto bounds = out.map("aabb");
+	Serialization::write_vec3(bounds, "min", aabb.min_bound);
+	Serialization::write_vec3(bounds, "max", aabb.max_bound);
+	if (parent)
+		out.write("parent_id", parent->get_id().get_underlying());
+	else
+		out.write_null("parent_id");
+	auto saved_renderables = out.sequence("renderables");
+	for (const auto& renderable : renderables)
+	{
+		auto saved = saved_renderables.append_map();
+		saved.write("mesh_id", renderable.mesh_id.get_underlying());
+		auto materials = saved.sequence("material_ids");
+		for (const auto material : renderable.material_ids)
+			materials.append(material.get_underlying());
+		saved.write("render_type", static_cast<int>(renderable.pipeline_render_type));
+		saved.write("alpha_mode", static_cast<int>(renderable.alpha_mode));
+		saved.write("alpha_cutoff", renderable.alpha_cutoff);
+		saved.write("opacity", renderable.opacity);
+		saved.write("casts_shadow", renderable.casts_shadow);
+		saved.write("render_on_top", renderable.render_on_top);
+	}
+}
+
+void Object::deserialize(const Deserializer& in)
+{
+	id = ObjectID(in.read<uint64_t>("id"));
+	ObjectID::set_next_id(std::max(ObjectID::get_next_id(), id.get_underlying() + 1));
+	name = in.read<std::string>("name");
+	bVisible = in.read<bool>("visible");
+	const auto saved_skeleton = in.child("skeleton_id");
+	skeleton_id = saved_skeleton.kind() == SerializationKind::Null
+		? std::nullopt : std::optional<SkeletonID>(SkeletonID(saved_skeleton.as<uint64_t>()));
+	world_transform = Serialization::read_transform(in, "world_transform");
+	relative_transform = Serialization::read_transform(in, "relative_transform");
+	const auto bounds = in.child("aabb");
+	aabb = AABB(Serialization::read_vec3(bounds, "min"), Serialization::read_vec3(bounds, "max"));
+	renderables.clear();
+	for (const auto& saved : in.child("renderables").elements())
+	{
+		Renderable renderable;
+		renderable.mesh_id = MeshID(saved.read<uint64_t>("mesh_id"));
+		for (const auto& material : saved.child("material_ids").elements())
+			renderable.material_ids.emplace_back(material.as<uint64_t>());
+		renderable.pipeline_render_type = static_cast<ERenderType>(saved.read<int>("render_type"));
+		renderable.alpha_mode = static_cast<EAlphaMode>(saved.read<int>("alpha_mode"));
+		renderable.alpha_cutoff = saved.read<float>("alpha_cutoff");
+		renderable.opacity = saved.read<float>("opacity");
+		renderable.casts_shadow = saved.read<bool>("casts_shadow");
+		renderable.render_on_top = saved.read<bool>("render_on_top");
+		renderables.push_back(std::move(renderable));
 	}
 }
