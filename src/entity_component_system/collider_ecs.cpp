@@ -3,10 +3,21 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "utility.hpp"
 #include "collision/collision_detector.hpp"
+#include "serialization/serialization_helpers.hpp"
 
 #include <quill/LogMacros.h>
 
 #include <limits>
+#include <algorithm>
+#include <vector>
+
+namespace
+{
+std::string collider_path(const std::size_t index, const std::string_view field)
+{
+	return "$.collider_system[" + std::to_string(index) + "]." + std::string(field);
+}
+}
 
 
 void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider) 
@@ -66,6 +77,123 @@ const Collider* ColliderSystem::get_collider(EntityID id) const
 	collider->set_temporary_transform(get_ecs().get_object(id).get_maths_transform());
 
 	return collider;
+}
+
+void ColliderSystem::serialize(Serializer& out) const
+{
+	std::vector<EntityID> ids;
+	ids.reserve(components.size());
+	for (const auto& [id, _] : components)
+		ids.push_back(id);
+	std::ranges::sort(ids);
+
+	auto entries = out.sequence("collider_system");
+	for (std::size_t index = 0; index < ids.size(); ++index) {
+		const auto id = ids[index];
+		const Collider* collider = components.at(id).collider.get();
+		auto entry = entries.append_map();
+		entry.write("entity_id", id.get_underlying());
+		auto data = entry.map("data");
+		switch (collider->get_type()) {
+		case ECollider::RAY: {
+			const auto* typed = dynamic_cast<const RayCollider*>(collider);
+			if (!typed)
+				throw SerializationError("Invalid ray collider at " + collider_path(index, "type"));
+			entry.write("type", "ray");
+			const auto& ray = typed->get_local_data();
+			EcsSerialization::write_vec3(data, "origin", ray.origin);
+			EcsSerialization::write_vec3(data, "direction", ray.direction);
+			data.write("length", ray.length);
+			break;
+		}
+		case ECollider::SPHERE: {
+			const auto* typed = dynamic_cast<const SphereCollider*>(collider);
+			if (!typed)
+				throw SerializationError("Invalid sphere collider at " + collider_path(index, "type"));
+			entry.write("type", "sphere");
+			const auto& sphere = typed->get_local_data();
+			EcsSerialization::write_vec3(data, "origin", sphere.origin);
+			data.write("radius", sphere.radius);
+			break;
+		}
+		case ECollider::QUAD: {
+			const auto* typed = dynamic_cast<const QuadCollider*>(collider);
+			if (!typed)
+				throw SerializationError("Invalid quad collider at " + collider_path(index, "type"));
+			entry.write("type", "quad");
+			const auto& quad = typed->get_local_data();
+			EcsSerialization::write_vec3(data, "offset", quad.offset);
+			EcsSerialization::write_vec3(data, "normal", quad.normal);
+			EcsSerialization::write_vec2(data, "size", quad.size);
+			break;
+		}
+		case ECollider::BOX: {
+			const auto* typed = dynamic_cast<const BoxCollider*>(collider);
+			if (!typed)
+				throw SerializationError("Invalid box collider at " + collider_path(index, "type"));
+			entry.write("type", "box");
+			const auto& bounds = typed->get_local_data();
+			EcsSerialization::write_vec3(data, "minimum", bounds.min_bound);
+			EcsSerialization::write_vec3(data, "maximum", bounds.max_bound);
+			break;
+		}
+		case ECollider::MESH: {
+			const auto* typed = dynamic_cast<const MeshCollider*>(collider);
+			if (!typed)
+				throw SerializationError("Invalid mesh collider at " + collider_path(index, "type"));
+			entry.write("type", "mesh");
+			auto mesh_ids = data.sequence("mesh_ids");
+			for (const auto mesh_id : typed->get_mesh_ids())
+				mesh_ids.append(mesh_id.get_underlying());
+			break;
+		}
+		default:
+			throw SerializationError("Unsupported collider type at " + collider_path(index, "type"));
+		}
+	}
+}
+
+void ColliderSystem::deserialize(const Deserializer& in)
+{
+	std::unordered_map<EntityID, ColliderComponent> restored;
+	const auto entries = in.child("collider_system").elements();
+	for (std::size_t index = 0; index < entries.size(); ++index) {
+		const auto& entry = entries[index];
+		const EntityID id(entry.read<std::uint64_t>("entity_id"));
+		const auto type = entry.read<std::string>("type");
+		const auto data = entry.child("data");
+		std::unique_ptr<Collider> collider;
+		if (type == "ray") {
+			Maths::Ray ray(
+				EcsSerialization::read_vec3(data, "origin"),
+				EcsSerialization::read_vec3(data, "direction"));
+			ray.length = data.read<float>("length");
+			collider = std::make_unique<RayCollider>(ray);
+		} else if (type == "sphere") {
+			collider = std::make_unique<SphereCollider>(Maths::Sphere(
+				EcsSerialization::read_vec3(data, "origin"), data.read<float>("radius")));
+		} else if (type == "quad") {
+			collider = std::make_unique<QuadCollider>(
+				Maths::Plane(EcsSerialization::read_vec3(data, "offset"),
+					EcsSerialization::read_vec3(data, "normal")),
+				EcsSerialization::read_vec2(data, "size"));
+		} else if (type == "box") {
+			collider = std::make_unique<BoxCollider>(AABB(
+				EcsSerialization::read_vec3(data, "minimum"),
+				EcsSerialization::read_vec3(data, "maximum")));
+		} else if (type == "mesh") {
+			std::vector<MeshID> mesh_ids;
+			for (const auto& mesh_id : data.child("mesh_ids").elements())
+				mesh_ids.emplace_back(mesh_id.as<std::uint64_t>());
+			collider = std::make_unique<MeshCollider>(std::move(mesh_ids));
+		} else {
+			throw SerializationError("Unsupported collider type at " + collider_path(index, "type"));
+		}
+		ColliderComponent component{ .collider = std::move(collider) };
+		if (!restored.emplace(id, std::move(component)).second)
+			throw SerializationError("Duplicate collider entity at " + collider_path(index, "entity_id"));
+	}
+	components = std::move(restored);
 }
 
 DetectedEntityCollision ColliderSystem::raycast(const Maths::Ray& ray, const std::optional<EntityID> ignored) const

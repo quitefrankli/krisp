@@ -32,6 +32,8 @@ public:
 	// filter is used by character controllers so they do not hit themselves.
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::optional<EntityID> ignored = std::nullopt) const;
 	const std::unordered_map<EntityID, ColliderComponent>& get_all_colliders() const { return components; }
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	void remove_entity(EntityID id) { components.erase(id); }

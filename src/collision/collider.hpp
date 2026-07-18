@@ -50,6 +50,7 @@ struct RayCollider : public Collider
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
 	virtual void update_debug_object(Object& object) const override;
 	Maths::Ray get_data() const;
+	const Maths::Ray& get_local_data() const { return data; }
 
 private:
 	Maths::Ray data;
@@ -64,6 +65,7 @@ struct QuadCollider : public Collider
 	virtual void update_debug_object(Object& object) const override;
 
 	Maths::Quad get_data() const;
+	const Maths::Quad& get_local_data() const { return data; }
 	bool check_collision(const RayCollider& ray) const;
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
 
@@ -81,6 +83,7 @@ struct SphereCollider : public Collider
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
 	virtual void update_debug_object(Object& object) const override;
 	Maths::Sphere get_data() const;
+	const Maths::Sphere& get_local_data() const { return data; }
 
 private:
 	Maths::Sphere data;
@@ -98,6 +101,7 @@ struct BoxCollider : public Collider
 	virtual void update_debug_object(Object& object) const override;
 
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
+	const AABB& get_local_data() const { return data; }
 
 private:
 	AABB data{ glm::vec3(-0.5f), glm::vec3(0.5f) };
@@ -114,6 +118,7 @@ struct MeshCollider : public Collider
 	virtual void update_debug_object(Object& object) const override;
 
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
+	const std::vector<MeshID>& get_mesh_ids() const { return mesh_ids; }
 
 private:
 	std::vector<MeshID> mesh_ids;

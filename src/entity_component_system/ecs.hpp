@@ -47,6 +47,9 @@ public:
 	Object& get_object(const ObjectID id);
 	const Object& get_object(const ObjectID id) const;
 
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
+
 private:
 	std::unordered_map<ObjectID, Object*> objects;
 };

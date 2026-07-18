@@ -18,6 +18,9 @@ sources = [
 	'tile_system_tests.cpp',
 	'scale_gizmo_tests.cpp']
 
+sources += ['serializer_tests.cpp']
+sources += ['ecs_serialization_tests.cpp']
+
 exec = executable(
 	'krisp_tests',
 	sources,

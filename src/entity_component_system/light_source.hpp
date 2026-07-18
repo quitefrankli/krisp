@@ -1,6 +1,7 @@
 #pragma once
 
 #include "identifications.hpp"
+#include "common.hpp"
 
 #include <glm/vec3.hpp>
 
@@ -34,6 +35,9 @@ public:
 		auto comp = lights.find(id);
 		return comp == lights.end() ? nullptr : &comp->second;
 	}
+
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	void remove_entity(const ObjectID id) { lights.erase(id); }

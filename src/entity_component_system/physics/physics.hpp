@@ -10,6 +10,8 @@
 
 
 class ECS;
+class Serializer;
+class Deserializer;
 
 class PhysicsSystem
 {
@@ -34,6 +36,10 @@ public:
 	}
 
 	GravitySystem& get_gravity_system();
+	const GravitySystem& get_gravity_system() const;
+
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 	// for unit tests
 	const PhysicsComponent* _get_physics_component(const ObjectID id) const

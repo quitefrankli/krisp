@@ -73,6 +73,7 @@ Maths::Ray RayCollider::get_data() const
 
 	ray.origin = transform.get_mat4() * glm::vec4(data.origin, 1.0f);
 	ray.direction = glm::normalize(transform.get_orient() * data.direction);
+	ray.length = data.length;
 
 	return ray;
 }

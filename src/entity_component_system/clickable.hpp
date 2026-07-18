@@ -20,6 +20,8 @@ public:
 	void remove_clickable_entity(EntityID id) { clickable_entities.erase(id); }
 
 	DetectedEntityCollision check_any_entity_clicked(const Maths::Ray& ray) const;
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	void remove_entity(EntityID id) { clickable_entities.erase(id); }

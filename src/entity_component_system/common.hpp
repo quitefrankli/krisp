@@ -141,3 +141,5 @@ private:
 };
 
 class ECS;
+class Serializer;
+class Deserializer;

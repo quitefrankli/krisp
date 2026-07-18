@@ -20,6 +20,8 @@ public:
 	void remove_hoverable_entity(EntityID id) { hoverable_entities.erase(id); }
 
 	DetectedEntityCollision check_any_entity_hovered(const Maths::Ray& ray) const;
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
 
 protected:
 	void remove_entity(EntityID id) { hoverable_entities.erase(id); }

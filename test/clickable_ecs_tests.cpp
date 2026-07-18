@@ -1,10 +1,14 @@
 #include "test_helper.hpp"
 
 #include <entity_component_system/ecs.hpp>
+#include <serialization/serializer.hpp>
 
 #include <gtest/gtest.h>
 
+#include <cstdint>
+#include <limits>
 #include <vector>
+#include <unordered_set>
 
 
 class ClickableECSFixture : public testing::Test
@@ -82,4 +86,48 @@ TEST_F(ClickableECSFixture, hit_both)
 	ASSERT_TRUE(res.bCollided);
 	ASSERT_EQ(res.id, object2.get_id());
 	ASSERT_TRUE(glm_equal(res.intersection, 1.0f + 0.5f * glm::normalize(glm::vec3(1.0f))));
+}
+
+TEST_F(ClickableECSFixture, serialization_round_trip_replaces_existing_state)
+{
+	Serializer serializer;
+	ecs.ClickableSystem::serialize(serializer);
+
+	const auto serialized = Deserializer::parse(serializer.emit());
+	const auto entries = serialized.child("clickable_system").elements();
+	ASSERT_EQ(entries.size(), 2);
+	std::unordered_set<std::uint64_t> ids;
+	for (const auto& entry : entries)
+		ids.insert(entry.read<std::uint64_t>("entity_id"));
+	EXPECT_EQ(ids, (std::unordered_set<std::uint64_t>{
+		object1.get_id().get_underlying(), object2.get_id().get_underlying() }));
+
+	ECS restored;
+	restored.add_clickable_entity(EntityID(std::numeric_limits<std::uint64_t>::max()));
+	restored.ClickableSystem::deserialize(serialized);
+
+	Serializer restored_serializer;
+	restored.ClickableSystem::serialize(restored_serializer);
+	const auto restored_entries = Deserializer::parse(restored_serializer.emit())
+		.child("clickable_system").elements();
+	ASSERT_EQ(restored_entries.size(), 2);
+	for (const auto& entry : restored_entries)
+		EXPECT_TRUE(ids.contains(entry.read<std::uint64_t>("entity_id")));
+}
+
+TEST_F(ClickableECSFixture, deserialization_reports_field_path_and_preserves_state)
+{
+	const auto malformed = Deserializer::parse(
+		"clickable_system:\n"
+		"  - entity_id: invalid\n");
+	try {
+		ecs.ClickableSystem::deserialize(malformed);
+		FAIL() << "Expected invalid entity ID to fail";
+	} catch (const SerializationError& error) {
+		EXPECT_NE(std::string(error.what()).find("$.clickable_system[0].entity_id"), std::string::npos);
+	}
+
+	Serializer serializer;
+	ecs.ClickableSystem::serialize(serializer);
+	EXPECT_EQ(Deserializer::parse(serializer.emit()).child("clickable_system").elements().size(), 2);
 }

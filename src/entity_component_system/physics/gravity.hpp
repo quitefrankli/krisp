@@ -24,6 +24,7 @@ public:
 	};
 
 	void set_gravity_type(const GravityType type) { gravity_type = type; }
+	GravityType get_gravity_type() const { return gravity_type; }
 
 private:
 	void process_simplified_gravity(const float delta_secs, 

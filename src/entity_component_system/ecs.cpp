@@ -1,4 +1,5 @@
 #include "ecs.hpp"
+#include "serialization/serializer.hpp"
 
 
 void ECS::process(const float delta_secs)
@@ -7,6 +8,24 @@ void ECS::process(const float delta_secs)
 	SkeletalAnimationSystem::process(delta_secs);
 	PhysicsSystem::process(delta_secs);
 	ParticleSystem::process(delta_secs);
+}
+
+void ECS::serialize(Serializer& out) const
+{
+	ClickableSystem::serialize(out);
+	HoverableSystem::serialize(out);
+	LightSystem::serialize(out);
+	ColliderSystem::serialize(out);
+	PhysicsSystem::serialize(out);
+}
+
+void ECS::deserialize(const Deserializer& in)
+{
+	ClickableSystem::deserialize(in);
+	HoverableSystem::deserialize(in);
+	LightSystem::deserialize(in);
+	ColliderSystem::deserialize(in);
+	PhysicsSystem::deserialize(in);
 }
 
 void ECS::remove_object(const ObjectID id) 
