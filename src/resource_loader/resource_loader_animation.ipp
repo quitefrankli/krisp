@@ -38,6 +38,7 @@ struct ImportedAnimation
 {
 	std::string name;
 	std::vector<BoneAnimation> bone_animations;
+	int source_index = -1;
 };
 
 SamplerData get_sampler_data(
@@ -258,7 +259,7 @@ static std::vector<ImportedAnimation> import_animations(
 
 		final_animations.push_back({
 			animation.name.empty() ? "Animation " + std::to_string(animation_index + 1) : animation.name,
-			std::move(new_bone_animations)
+			std::move(new_bone_animations), static_cast<int>(animation_index)
 		});
 	}
 

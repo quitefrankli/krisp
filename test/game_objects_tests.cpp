@@ -43,8 +43,9 @@ TEST(character_tests, looping_animation_is_retained_until_the_clip_changes)
 	const auto rig = make_skeletal_rig_signature(ecs.get_skeletal_component(skeleton).get_bones());
 	const AnimationID idle = ecs.add_skeletal_animation("Idle", { BoneAnimation{} }, rig);
 	const AnimationID walk = ecs.add_skeletal_animation("Walk", { BoneAnimation{} }, rig);
-	Character character({}, skeleton);
+	Character character({});
 	ecs.add_object(character);
+	ecs.attach_skeleton(character.get_id(), skeleton);
 
 	character.play_looping_animation(ecs, idle);
 	character.play_looping_animation(ecs, idle);
@@ -69,8 +70,9 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 	definition.idle_animation = idle;
 	definition.walk_animation = walk;
 	definition.movement_speed = 2.0f;
-	PlayerCharacter player({}, skeleton, definition);
+	PlayerCharacter player({}, definition);
 	ecs.add_object(player);
+	ecs.attach_skeleton(player.get_id(), skeleton);
 
 	Camera camera(Listener{}, 1.0f);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));

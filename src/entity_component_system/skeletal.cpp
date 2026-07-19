@@ -228,12 +228,35 @@ SkeletonID SkeletalSystem::add_skeleton(const std::vector<Bone>& bones)
 	return id;
 }
 
+void SkeletalSystem::attach_skeleton(const Entity id, const SkeletonID skeleton_id)
+{
+	if (!skeletons.contains(skeleton_id))
+		throw std::out_of_range("SkeletalSystem::attach_skeleton: skeleton not found");
+	entity_skeletons.insert_or_assign(id, skeleton_id);
+}
+
+std::optional<SkeletonID> SkeletalSystem::get_skeleton_id(const Entity id) const
+{
+	const auto it = entity_skeletons.find(id);
+	return it == entity_skeletons.end() ? std::nullopt : std::optional<SkeletonID>(it->second);
+}
+
+std::vector<SkeletonID> SkeletalSystem::get_skeleton_ids() const
+{
+	std::vector<SkeletonID> ids;
+	ids.reserve(skeletons.size());
+	for (const auto& [id, _] : skeletons)
+		ids.push_back(id);
+	return ids;
+}
+
 void SkeletalSystem::remove_entity(Entity id)
 {
-	if (const auto skeleton_id = get_ecs().get_object(id).get_skeleton_id())
-	{
-		skeletons.erase(*skeleton_id);
-	}
+	const auto it = entity_skeletons.find(id);
+	if (it == entity_skeletons.end())
+		return;
+	skeletons.erase(it->second);
+	entity_skeletons.erase(it);
 }
 
 // void SkeletalSystem::add_bone_visualisers(Entity id, const std::vector<Entity>& bones)
@@ -332,7 +355,7 @@ void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id,
 
 void SkeletalAnimationSystem::remove_entity(Entity id) 
 {
-	if (const auto skeleton_id = get_ecs().get_object(id).get_skeleton_id())
+	if (const auto skeleton_id = get_ecs().get_skeleton_id(id))
 	{
 		active_animations.erase(*skeleton_id);
 		animation_states.erase(*skeleton_id);

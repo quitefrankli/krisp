@@ -10,7 +10,7 @@ class ECS;
 class Character : public Object
 {
 public:
-	Character(std::vector<Renderable> renderables, SkeletonID skeleton_id);
+	Character(std::vector<Renderable> renderables);
 
 	void play_looping_animation(ECS& ecs, AnimationID animation);
 	AnimationID get_active_animation() const { return active_animation; }

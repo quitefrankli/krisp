@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <fstream>
 
 
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
@@ -122,12 +123,92 @@ TEST_F(GameEngineTests, scene_load_remaps_released_texture_materials)
 	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_texture_test.yaml";
 
 	engine.save_scene(path);
+	std::ifstream yaml(path);
+	const std::string contents((std::istreambuf_iterator<char>(yaml)), {});
+	EXPECT_NE(contents.find("source: texture1.jpg"), std::string::npos);
+	EXPECT_EQ(contents.find(Utility::get_top_level_path().string()), std::string::npos);
 	engine.load_scene(path);
 	std::filesystem::remove(path);
 
 	const auto* restored = engine.get_object(object_id);
 	ASSERT_NE(restored, nullptr);
 	EXPECT_TRUE(MaterialSystem::contains(restored->renderables[0].material_ids.front()));
+}
+
+TEST_F(GameEngineTests, scene_round_trips_imported_mesh_and_embedded_material_by_provenance)
+{
+	const auto model_path = Utility::get_top_level_path() / "test/data/static_mesh_textured.gltf";
+	auto model = ResourceLoader::load_model(engine.get_ecs(), model_path);
+	ASSERT_EQ(model.meshes.size(), 1);
+	auto& object = engine.spawn_object<Object>(model.meshes.front().renderables);
+	const ObjectID object_id = object.get_id();
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_imported_resource_test.yaml";
+
+	engine.save_scene(path);
+	std::ifstream yaml(path);
+	const std::string contents((std::istreambuf_iterator<char>(yaml)), {});
+	EXPECT_NE(contents.find("mesh_source:"), std::string::npos);
+	EXPECT_EQ(contents.find("mesh_id:"), std::string::npos);
+	EXPECT_EQ(contents.find("source: image"), std::string::npos);
+
+	EXPECT_NO_THROW(engine.load_scene(path));
+	std::filesystem::remove(path);
+	const auto* restored = engine.get_object(object_id);
+	ASSERT_NE(restored, nullptr);
+	ASSERT_EQ(restored->renderables.size(), 1);
+	EXPECT_TRUE(MeshSystem::contains(restored->renderables.front().mesh_id));
+	EXPECT_TRUE(MaterialSystem::contains(restored->renderables.front().material_ids.front()));
+}
+
+TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_provenance)
+{
+	auto model = ResourceLoader::load_model(
+		engine.get_ecs(), Utility::get_top_level_path() / "test/data/simple_test_model.gltf");
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
+	ASSERT_FALSE(model.animations.empty());
+	auto& object = engine.spawn_object<Object>(model.meshes.front().renderables);
+	engine.get_ecs().attach_skeleton(object.get_id(), *model.meshes.front().skeleton_id);
+	const ObjectID object_id = object.get_id();
+	engine.get_ecs().play_animation(*model.meshes.front().skeleton_id, model.animations.front(), true);
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_imported_animation_test.yaml";
+
+	engine.save_scene(path);
+	std::ifstream yaml(path);
+	const std::string contents((std::istreambuf_iterator<char>(yaml)), {});
+	EXPECT_NE(contents.find("imported_source:"), std::string::npos);
+	EXPECT_EQ(contents.find("key_frames:"), std::string::npos);
+
+	EXPECT_NO_THROW(engine.load_scene(path));
+	std::filesystem::remove(path);
+	const auto* restored = engine.get_object(object_id);
+	ASSERT_NE(restored, nullptr);
+	const auto restored_skeleton = engine.get_ecs().get_skeleton_id(restored->get_id());
+	ASSERT_TRUE(restored_skeleton.has_value());
+	EXPECT_NO_THROW(engine.get_ecs().get_skeletal_component(*restored_skeleton));
+}
+
+TEST_F(GameEngineTests, scene_round_trips_looping_standalone_animation_by_provenance)
+{
+	auto model = ResourceLoader::load_model(
+		engine.get_ecs(), Utility::get_top_level_path() / "test/data/simple_test_model.gltf");
+	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
+	auto& object = engine.spawn_object<Object>(model.meshes.front().renderables);
+	const ObjectID object_id = object.get_id();
+	engine.get_ecs().attach_skeleton(object.get_id(), *model.meshes.front().skeleton_id);
+	const auto imported = ResourceLoader::load_animations(
+		engine.get_ecs(), Utility::get_top_level_path() / "test/data/standalone_animation.gltf",
+		*model.meshes.front().skeleton_id);
+	ASSERT_FALSE(imported.animations.empty());
+	engine.get_ecs().play_animation(*model.meshes.front().skeleton_id, imported.animations.front(), true);
+	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_standalone_animation_test.yaml";
+
+	engine.save_scene(path);
+	EXPECT_NO_THROW(engine.load_scene(path));
+	std::filesystem::remove(path);
+	const auto restored_skeleton = engine.get_ecs().get_skeleton_id(object_id);
+	ASSERT_TRUE(restored_skeleton.has_value());
+	EXPECT_NO_THROW(engine.get_ecs().process(0.1f));
 }
 
 TEST_F(GameEngineTests, scene_load_restores_camera_state)
@@ -355,7 +436,8 @@ TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 	const auto skeleton_id = model.meshes[0].skeleton_id;
 	ASSERT_TRUE(skeleton_id.has_value());
 
-	auto& object = engine.spawn_object<Object>(model.meshes[0].renderables, skeleton_id);
+	auto& object = engine.spawn_object<Object>(model.meshes[0].renderables);
+	engine.get_ecs().attach_skeleton(object.get_id(), *skeleton_id);
 	engine.get_ecs().play_animation(*skeleton_id, model.animations[0], true);
 	engine.main_loop(0.1f);
 

@@ -10,9 +10,8 @@
 
 PlayerCharacter::PlayerCharacter(
 	std::vector<Renderable> renderables,
-	const SkeletonID skeleton_id,
 	PlayerDefinition definition) :
-	Character(renderables, skeleton_id),
+	Character(renderables),
 	definition(std::move(definition))
 {
 }
@@ -101,7 +100,7 @@ void PlayerCharacter::solve_leg_ik(ECS& ecs, const PlayerLegDefinition& leg)
 {
 	if (leg.hip_bone.empty() || leg.knee_bone.empty() || leg.foot_bone.empty())
 		return;
-	const auto skeleton_id = get_skeleton_id();
+	const auto skeleton_id = ecs.get_skeleton_id(get_id());
 	if (!skeleton_id)
 		return;
 	auto& component = ecs.get_skeletal_component(*skeleton_id);

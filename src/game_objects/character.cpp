@@ -4,8 +4,8 @@
 
 #include <stdexcept>
 
-Character::Character(std::vector<Renderable> renderables, const SkeletonID skeleton_id) :
-	Object(renderables, skeleton_id)
+Character::Character(std::vector<Renderable> renderables) :
+	Object(renderables)
 {
 }
 
@@ -13,7 +13,7 @@ void Character::play_looping_animation(ECS& ecs, const AnimationID animation)
 {
 	if (has_animation && active_animation == animation)
 		return;
-	const auto skeleton = get_skeleton_id();
+	const auto skeleton = ecs.get_skeleton_id(get_id());
 	if (!skeleton)
 		throw std::runtime_error("Character requires a skeleton");
 	ecs.play_animation(*skeleton, animation, true);

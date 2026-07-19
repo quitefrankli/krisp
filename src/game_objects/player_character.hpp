@@ -36,7 +36,7 @@ struct PlayerDefinition
 class PlayerCharacter : public Character
 {
 public:
-	PlayerCharacter(std::vector<Renderable> renderables, SkeletonID skeleton_id, PlayerDefinition definition);
+	PlayerCharacter(std::vector<Renderable> renderables, PlayerDefinition definition);
 
 	static glm::vec3 movement_direction(
 		bool forward, bool backward, bool right, bool left,

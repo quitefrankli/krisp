@@ -30,7 +30,8 @@ const std::vector<Renderable>& GraphicsEngineObject::get_renderables() const
 
 std::optional<SkeletonID> GraphicsEngineObject::get_skeleton_id() const
 {
-	const auto skeleton_id = get_game_object().get_skeleton_id();
+	const auto skeleton_id = const_cast<GraphicsEngineObject*>(this)->get_graphics_engine()
+		.get_ecs().get_skeleton_id(get_game_object().get_id());
 	const bool has_skinned_renderable = std::ranges::any_of(get_renderables(), [](const Renderable& renderable)
 	{
 		return is_skinned_render_type(renderable.pipeline_render_type);

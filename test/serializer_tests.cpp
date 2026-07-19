@@ -1,5 +1,10 @@
 #include <serialization/serializer.hpp>
+#include <serialization/resource_provenance.hpp>
 #include <identifications.hpp>
+#include <objects/object.hpp>
+#include <entity_component_system/mesh_system.hpp>
+#include <entity_component_system/material_system.hpp>
+#include <renderable/material.hpp>
 
 #include <gtest/gtest.h>
 
@@ -103,4 +108,57 @@ TEST(Serialization, GenericIdCounterCanBeSetExplicitly)
 	EXPECT_EQ(TestID::get_next_id(), 42);
 	EXPECT_EQ(TestID::generate_new_id().get_underlying(), 42);
 	EXPECT_EQ(TestID::generate_new_id().get_underlying(), 43);
+}
+
+TEST(Serialization, ImportedRenderableUsesOnlyStableSourceSelectors)
+{
+	const MeshID mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(
+		ColorVertices{ SDS::ColorVertex{} }, VertexIndices{ 0 }));
+	const MaterialID material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	const ImportedResourceProvenance mesh_origin{
+		.source = "characters/robot.glb", .scene = 2, .node = 7, .primitive = 3, .skin = 1 };
+	const ImportedResourceProvenance material_origin{
+		.source = "characters/robot.glb", .scene = 2, .node = 7, .primitive = 3, .material = 4 };
+	ResourceProvenance::register_mesh(mesh_id, mesh_origin);
+	ResourceProvenance::register_material(material_id, material_origin);
+
+	Object source(Renderable{ mesh_id, { material_id }, ERenderType::STANDARD });
+	Serializer serializer;
+	source.serialize(serializer);
+	const std::string yaml = serializer.emit();
+	const auto document = Deserializer::parse(yaml);
+	const auto saved = document.child("renderables").elements().front();
+
+	EXPECT_EQ(saved.keys(), (std::vector<std::string>{
+		"mesh_source", "material_ids", "render_type", "alpha_mode", "alpha_cutoff", "opacity", "casts_shadow", "render_on_top" }));
+	const auto mesh_source = saved.child("mesh_source");
+	EXPECT_EQ(mesh_source.read<std::string>("path"), "characters/robot.glb");
+	EXPECT_EQ(mesh_source.read<int>("scene"), 2);
+	EXPECT_EQ(mesh_source.read<int>("node"), 7);
+	EXPECT_EQ(mesh_source.read<int>("primitive"), 3);
+	const auto material_source = saved.child("material_ids").elements().front();
+	EXPECT_EQ(material_source.read<std::string>("path"), "characters/robot.glb");
+	EXPECT_EQ(material_source.read<int>("primitive"), 3);
+	EXPECT_EQ(yaml.find("mesh_id:"), std::string::npos);
+
+	ResourceProvenance::clear();
+	EXPECT_EQ(MeshSystem::unregister_owner(mesh_id), 0);
+	EXPECT_EQ(MaterialSystem::unregister_owner(material_id), 0);
+}
+
+TEST(Serialization, ImportedRenderableDeserializerDefersResourceResolution)
+{
+	const MeshID placeholder{};
+	ResourceProvenance::register_mesh(placeholder, { .source = "robot.glb", .scene = 0, .node = 1, .primitive = 2 });
+	Object source(Renderable{ placeholder, {}, ERenderType::STANDARD });
+	Serializer serializer;
+	source.serialize(serializer);
+	const auto document = Deserializer::parse(serializer.emit());
+
+	Object restored;
+	EXPECT_NO_THROW(restored.deserialize(document));
+	ASSERT_EQ(restored.renderables.size(), 1);
+	EXPECT_EQ(restored.renderables.front().mesh_id, MeshID{});
+	EXPECT_TRUE(restored.renderables.front().material_ids.empty());
+	ResourceProvenance::clear();
 }

@@ -187,7 +187,7 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 	{
 		EntityFrameID efid{id, frame_idx};
 		get_rsrc_mgr().free_uniform_buffer(efid);
-		if (const auto skeleton_id = obj.get_skeleton_id())
+		if (const auto skeleton_id = get_ecs().get_skeleton_id(obj.get_id()))
 		{
 			get_rsrc_mgr().free_buffer(SkeletonFrameID{*skeleton_id, frame_idx});
 		}
@@ -568,7 +568,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	// currently the resources that are per obj just happen to be purely dynamic and so all of them need a separate
 	// buffer + dset for each frame
 	std::vector<VkDescriptorSet> object_dsets;
-	const auto skeleton_id = object.get_skeleton_id();
+	const auto skeleton_id = get_ecs().get_skeleton_id(object.get_id());
 	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
 		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());

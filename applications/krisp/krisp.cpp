@@ -58,7 +58,8 @@ public:
 		// Set these to the supplied rig's leg chain names to enable foot placement.
 		definition.left_leg = { "LeftUpLeg", "LeftLeg", "LeftFoot" };
 		definition.right_leg = { "RightUpLeg", "RightLeg", "RightFoot" };
-		player = &engine.spawn_object<PlayerCharacter>(mesh->renderables, *mesh->skeleton_id, definition);
+		player = &engine.spawn_object<PlayerCharacter>(mesh->renderables, definition);
+		engine.get_ecs().attach_skeleton(player->get_id(), *mesh->skeleton_id);
 		player->set_transform(model.onload_transform.get_mat4() * mesh->transform.get_mat4());
 		player->set_name("Player");
 

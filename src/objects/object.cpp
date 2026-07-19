@@ -4,6 +4,7 @@
 
 #include "maths.hpp"
 #include "resource_loader/resource_loader.hpp"
+#include "serialization/resource_provenance.hpp"
 #include "utility.hpp"
 
 #include <glm/ext.hpp>
@@ -12,6 +13,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <ranges>
 #include <numeric>
 #include <limits>
 
@@ -19,7 +21,6 @@
 Object::Object(Object&& other) noexcept :
 	id(other.id),
 	renderables(std::move(other.renderables)),
-	skeleton_id(other.skeleton_id),
 	children(std::move(other.children)),
 	parent(other.parent),
 	world_transform(std::move(other.world_transform)),
@@ -282,10 +283,6 @@ void Object::serialize(Serializer& out) const
 	out.write("id", id.get_underlying());
 	out.write("name", name);
 	out.write("visible", bVisible);
-	if (skeleton_id)
-		out.write("skeleton_id", skeleton_id->get_underlying());
-	else
-		out.write_null("skeleton_id");
 	Serialization::write_transform(out, "world_transform", get_maths_transform());
 	Serialization::write_transform(out, "relative_transform", relative_transform);
 	auto bounds = out.map("aabb");
@@ -299,10 +296,30 @@ void Object::serialize(Serializer& out) const
 	for (const auto& renderable : renderables)
 	{
 		auto saved = saved_renderables.append_map();
-		saved.write("mesh_id", renderable.mesh_id.get_underlying());
+		if (const auto* origin = ResourceProvenance::mesh(renderable.mesh_id))
+		{
+			auto source = saved.map("mesh_source");
+			source.write("path", origin->source);
+			source.write("scene", origin->scene);
+			source.write("node", origin->node);
+			source.write("primitive", origin->primitive);
+		}
+		else
+			saved.write("mesh_id", renderable.mesh_id.get_underlying());
 		auto materials = saved.sequence("material_ids");
 		for (const auto material : renderable.material_ids)
-			materials.append(material.get_underlying());
+		{
+			if (const auto* origin = ResourceProvenance::material(material))
+			{
+				auto source = materials.append_map();
+				source.write("path", origin->source);
+				source.write("scene", origin->scene);
+				source.write("node", origin->node);
+				source.write("primitive", origin->primitive);
+			}
+			else
+				materials.append(material.get_underlying());
+		}
 		saved.write("render_type", static_cast<int>(renderable.pipeline_render_type));
 		saved.write("alpha_mode", static_cast<int>(renderable.alpha_mode));
 		saved.write("alpha_cutoff", renderable.alpha_cutoff);
@@ -318,9 +335,6 @@ void Object::deserialize(const Deserializer& in)
 	ObjectID::set_next_id(std::max(ObjectID::get_next_id(), id.get_underlying() + 1));
 	name = in.read<std::string>("name");
 	bVisible = in.read<bool>("visible");
-	const auto saved_skeleton = in.child("skeleton_id");
-	skeleton_id = saved_skeleton.kind() == SerializationKind::Null
-		? std::nullopt : std::optional<SkeletonID>(SkeletonID(saved_skeleton.as<uint64_t>()));
 	world_transform = Serialization::read_transform(in, "world_transform");
 	relative_transform = Serialization::read_transform(in, "relative_transform");
 	const auto bounds = in.child("aabb");
@@ -329,9 +343,12 @@ void Object::deserialize(const Deserializer& in)
 	for (const auto& saved : in.child("renderables").elements())
 	{
 		Renderable renderable;
-		renderable.mesh_id = MeshID(saved.read<uint64_t>("mesh_id"));
+		const auto keys = saved.keys();
+		const bool imported_mesh = std::ranges::find(keys, "mesh_source") != keys.end();
+		renderable.mesh_id = imported_mesh ? MeshID{} : MeshID(saved.read<uint64_t>("mesh_id"));
 		for (const auto& material : saved.child("material_ids").elements())
-			renderable.material_ids.emplace_back(material.as<uint64_t>());
+			if (material.kind() == SerializationKind::Scalar)
+				renderable.material_ids.emplace_back(material.as<uint64_t>());
 		renderable.pipeline_render_type = static_cast<ERenderType>(saved.read<int>("render_type"));
 		renderable.alpha_mode = static_cast<EAlphaMode>(saved.read<int>("alpha_mode"));
 		renderable.alpha_cutoff = saved.read<float>("alpha_cutoff");

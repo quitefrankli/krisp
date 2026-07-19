@@ -328,7 +328,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
 
 		// All skinned renderables in an object share one skeleton and bone buffer.
-		const auto skeleton_id = graphics_object->get_skeleton_id();
+		const auto skeleton_id = get_graphics_engine().get_ecs().get_skeleton_id(graphics_object->get_id());
 		if (skeleton_id)
 		{
 			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*skeleton_id);

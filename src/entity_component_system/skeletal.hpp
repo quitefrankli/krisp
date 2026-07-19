@@ -109,6 +109,9 @@ public:
 	virtual ECS& get_ecs() = 0;
 
 	SkeletonID add_skeleton(const std::vector<Bone>& bones);
+	void attach_skeleton(Entity id, SkeletonID skeleton_id);
+	std::optional<SkeletonID> get_skeleton_id(Entity id) const;
+	std::vector<SkeletonID> get_skeleton_ids() const;
 	std::vector<SDS::Bone> get_bones(SkeletonID id) const { return skeletons.at(id).get_bones_data(); }
 	SkeletalComponent& get_skeletal_component(SkeletonID id) { return skeletons.at(id); }
 	const SkeletalComponent& get_skeletal_component(SkeletonID id) const { return skeletons.at(id); }
@@ -120,6 +123,7 @@ protected:
 
 private:
 	std::unordered_map<SkeletonID, SkeletalComponent> skeletons;
+	std::unordered_map<Entity, SkeletonID> entity_skeletons;
 };
 
 class SkeletalAnimationSystem

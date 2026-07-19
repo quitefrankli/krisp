@@ -16,10 +16,10 @@
 
 * refer to readme.md for build instructions
 
-* IMPORTANT: always use a DEBUG build for all development, compilations, and testing. Run `meson setup build --reconfigure --buildtype=debug` initially, then `meson compile -C build $TARGET` for targeted builds.
-
-* IMPORTANT: never commit changes without the user's explicit approval.
+* IMPORTANT: always use a DEBUG build for all development, compilations, and testing. Run `meson setup build --reconfigure --buildtype=debug` initially, then `meson compile -C build -j 6 $TARGET` for targeted builds.
 
 * IMPORTANT: limit number of concurrent build jobs to 6
+
+* IMPORTANT: never commit changes without the user's explicit approval.
 
 * Only the `krisp` application must be maintained. Changes may break the other applications.

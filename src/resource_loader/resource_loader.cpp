@@ -6,6 +6,7 @@
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/material_factory.hpp"
+#include "serialization/resource_provenance.hpp"
 #include "utility.hpp"
 
 #include <tiny_gltf.h>
@@ -21,6 +22,30 @@
 
 namespace
 {
+std::string model_resource_path(const std::filesystem::path& path)
+{
+	const auto normal = path.lexically_normal();
+	auto marker = std::find(normal.begin(), normal.end(), std::filesystem::path("models"));
+	if (marker == normal.end())
+		return normal.generic_string();
+	std::filesystem::path relative;
+	for (++marker; marker != normal.end(); ++marker)
+		relative /= *marker;
+	return relative.generic_string();
+}
+
+std::string texture_resource_path(const std::filesystem::path& path)
+{
+	const auto normal = path.lexically_normal();
+	auto marker = std::find(normal.begin(), normal.end(), std::filesystem::path("textures"));
+	if (marker == normal.end())
+		return normal.generic_string();
+	std::filesystem::path relative;
+	for (++marker; marker != normal.end(); ++marker)
+		relative /= *marker;
+	return relative.generic_string();
+}
+
 template<typename Resolver>
 std::filesystem::path resolve_resource_path(
 	std::filesystem::path file_path,
@@ -61,6 +86,8 @@ MaterialID ResourceLoader::fetch_texture(
 	cached.reset();
 
 	const auto material_id = global_resource_loader.load_texture(file_path, semantic);
+	if (auto* texture = dynamic_cast<TextureMaterial*>(&MaterialSystem::get(material_id)))
+		texture->source = texture_resource_path(file_path);
 	MaterialSystem::register_owner(material_id);
 	return material_id;
 }
@@ -274,6 +301,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	try
 	{
 	file_path = resolve_resource_path(std::move(file_path), Utility::get_model);
+	const std::string provenance_source = model_resource_path(file_path);
 	auto document = load_gltf_document(file_path);
 	auto& model = document.model;
 	if (model.scenes.empty())
@@ -329,22 +357,29 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					const auto signature = make_skeletal_rig_signature(it->second);
 					for (auto animation : imported)
 					{
-						ids.push_back(ecs.add_skeletal_animation(
+						const auto animation_id = ecs.add_skeletal_animation(
 							animation.name,
 							std::move(animation.bone_animations),
 							signature,
-							file_path.filename().string()));
+							provenance_source);
+						ResourceProvenance::register_animation(animation_id, {
+							.source = provenance_source, .skin = node.skin,
+							.animation = animation.source_index });
+						ids.push_back(animation_id);
 					}
 				}
 				const auto& animation_ids = animations_by_skin[node.skin];
 				result.animations.insert(result.animations.end(), animation_ids.begin(), animation_ids.end());
 			}
 			skeleton = ecs.add_skeleton(it->second);
+			ResourceProvenance::register_skeleton(*skeleton, {
+				.source = provenance_source, .scene = scene_index, .node = instance.node_index, .skin = node.skin });
 			loaded_mesh.skeleton_id = skeleton;
 		}
 
-		for (const auto& primitive : model.meshes[node.mesh].primitives)
+		for (size_t primitive_index = 0; primitive_index < model.meshes[node.mesh].primitives.size(); ++primitive_index)
 		{
+			const auto& primitive = model.meshes[node.mesh].primitives[primitive_index];
 			const auto position_it = primitive.attributes.find("POSITION");
 			if (position_it == primitive.attributes.end())
 				throw ResourceLoadError("ResourceLoader: primitive is missing POSITION");
@@ -486,6 +521,13 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				renderable.pipeline_render_type = ERenderType::COLOR;
 			}
 			renderable.mesh_id = MeshSystem::add(std::move(mesh));
+			ResourceProvenance::register_mesh(renderable.mesh_id, {
+				.source = provenance_source, .scene = scene_index, .node = instance.node_index,
+				.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
+			for (const auto material_id : loaded_material.ids)
+				ResourceProvenance::register_material(material_id, {
+					.source = provenance_source, .scene = scene_index, .node = instance.node_index,
+					.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
 			renderable.material_ids = loaded_material.ids;
 			renderable.alpha_mode = loaded_material.alpha_mode;
 			renderable.alpha_cutoff = loaded_material.alpha_cutoff;
@@ -520,6 +562,7 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 	try
 	{
 		file_path = resolve_resource_path(std::move(file_path), Utility::get_animation);
+		const std::string provenance_source = file_path.lexically_normal().string();
 
 		auto document = load_gltf_document(file_path);
 		const auto& model = document.model;
@@ -557,11 +600,15 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 		const auto signature = make_skeletal_rig_signature(target_bones);
 		for (auto& animation : imported)
 		{
-			result.animations.push_back(ecs.add_skeletal_animation(
+			const auto animation_id = ecs.add_skeletal_animation(
 				animation.name,
 				std::move(animation.bone_animations),
 				signature,
-				file_path.filename().string()));
+				file_path.filename().string());
+			ResourceProvenance::register_animation(animation_id, {
+				.source = provenance_source, .skin = compatible_skins.front().first,
+				.animation = animation.source_index });
+			result.animations.push_back(animation_id);
 		}
 		return result;
 	}

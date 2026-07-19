@@ -6,6 +6,7 @@
 #include <entity_component_system/material_system.hpp>
 #include <entity_component_system/mesh_system.hpp>
 #include <renderable/material_factory.hpp>
+#include <serialization/resource_provenance.hpp>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -606,6 +607,14 @@ TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
 	ASSERT_NE(tex_material, nullptr);
 	ASSERT_EQ(tex_material->width, 2);
 	ASSERT_EQ(tex_material->height, 2);
+	const auto* mesh_origin = ResourceProvenance::mesh(renderable.mesh_id);
+	ASSERT_NE(mesh_origin, nullptr);
+	EXPECT_EQ(std::filesystem::path(mesh_origin->source).filename(), "static_mesh_textured.gltf");
+	EXPECT_EQ(mesh_origin->node, 0);
+	EXPECT_EQ(mesh_origin->primitive, 0);
+	const auto* material_origin = ResourceProvenance::material(renderable.material_ids[0]);
+	ASSERT_NE(material_origin, nullptr);
+	EXPECT_EQ(std::filesystem::path(material_origin->source).filename(), "static_mesh_textured.gltf");
 }
 
 TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps)

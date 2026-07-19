@@ -399,6 +399,8 @@ TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
 	child.parent_node = 0;
 	child.relative_transform.set_pos({ 0.0f, 4.0f, 0.0f });
 	const auto id = source.add_skeleton({ root, child });
+	const ObjectID entity(987);
+	source.attach_skeleton(entity, id);
 	Serializer serializer;
 	source.SkeletalSystem::serialize(serializer);
 
@@ -409,6 +411,7 @@ TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
 	EXPECT_EQ(bones[1].parent_node, 0);
 	EXPECT_EQ(bones[1].name, "child");
 	EXPECT_EQ(bones[0].inverse_bind_pose.get_mat4(), root.inverse_bind_pose.get_mat4());
+	EXPECT_EQ(restored.get_skeleton_id(entity), id);
 }
 
 TEST(SkeletalSystemSerialization, invalid_parent_fails_atomically_with_path)

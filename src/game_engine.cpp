@@ -20,6 +20,7 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "serialization/serialization_helpers.hpp"
+#include "serialization/resource_provenance.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -28,6 +29,7 @@
 #include <fmt/color.h>
 
 #include <iostream>
+#include <ranges>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -455,6 +457,7 @@ void GameEngine::reset_scene()
 		entity_deletion_queue.clear();
 		mesh_resource_references.clear();
 		material_resource_references.clear();
+		ResourceProvenance::clear();
 		tile_renderable.reset();
 		configure_ecs();
 
@@ -667,6 +670,11 @@ void GameEngine::save_scene(const std::filesystem::path& path) const
 	auto saved_materials = document.sequence("materials");
 	for (const auto& [material_id, _] : saved_material_ids)
 	{
+		// Imported glTF materials are restored together with the mesh primitive
+		// that owns them.  Writing TextureMaterial::source here loses embedded
+		// GLB image provenance, so deliberately omit them from this legacy table.
+		if (ResourceProvenance::material(material_id))
+			continue;
 		const auto& material = MaterialSystem::get(material_id);
 		auto saved = saved_materials.append_map();
 		saved.write("id", material_id.get_underlying());
@@ -768,12 +776,47 @@ void GameEngine::load_scene(const std::filesystem::path& path)
 		else
 			throw SerializationError("Unsupported material type at " + saved.path());
 	}
+	std::unordered_map<std::string, ResourceLoader::LoadedModel> imported_models;
+	const auto load_imported_model = [&](const Deserializer& source) -> const ResourceLoader::LoadedModel&
+	{
+		const auto path = source.read<std::string>("path");
+		const auto scene = source.read<int>("scene");
+		const auto cache_key = path + "#" + std::to_string(scene);
+		if (const auto it = imported_models.find(cache_key); it != imported_models.end())
+			return it->second;
+		ResourceLoader::LoadOptions options;
+		if (scene >= 0)
+			options.scene_index = scene;
+		options.generate_missing_tangents = true;
+		return imported_models.emplace(cache_key, ResourceLoader::load_model(ecs, path, options)).first->second;
+	};
 	for (auto& saved : saved_objects)
 	{
 		auto object = TypeRegistry::create(saved.data.read<std::string>("type"));
 		object->deserialize(saved.data);
-		for (auto& renderable : object->renderables)
+		const auto saved_renderables = saved.data.child("renderables").elements();
+		for (size_t renderable_index = 0; renderable_index < object->renderables.size(); ++renderable_index)
 		{
+			auto& renderable = object->renderables[renderable_index];
+			const auto& saved_renderable = saved_renderables.at(renderable_index);
+			const auto fields = saved_renderable.keys();
+			if (std::ranges::find(fields, "mesh_source") != fields.end())
+			{
+				const auto source = saved_renderable.child("mesh_source");
+				const auto& model = load_imported_model(source);
+				const int node = source.read<int>("node");
+				const int primitive = source.read<int>("primitive");
+				const auto loaded_mesh = std::ranges::find_if(model.meshes, [node](const auto& mesh) {
+					return mesh.source_node == node;
+				});
+				if (loaded_mesh == model.meshes.end() || primitive < 0
+					|| primitive >= static_cast<int>(loaded_mesh->renderables.size()))
+					throw SerializationError("Invalid imported mesh reference at " + saved_renderable.path());
+				renderable = loaded_mesh->renderables[primitive];
+				if (loaded_mesh->skeleton_id)
+					ecs.attach_skeleton(object->get_id(), *loaded_mesh->skeleton_id);
+				continue;
+			}
 			if (!MeshSystem::contains(renderable.mesh_id))
 				throw SerializationError("Missing mesh resource at " + saved.data.path());
 			for (auto& material_id : renderable.material_ids)

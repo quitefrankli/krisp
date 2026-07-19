@@ -417,10 +417,12 @@ void GuiModelSpawner::process(GameEngine& engine)
 
 		for (const auto& loaded_mesh : loaded_model.meshes)
 		{
-			auto mesh = std::make_shared<Object>(loaded_mesh.renderables, loaded_mesh.skeleton_id);
+			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
 			mesh->set_transform(loaded_model.onload_transform.get_mat4() * loaded_mesh.transform.get_mat4());
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
+			if (loaded_mesh.skeleton_id)
+				engine.get_ecs().attach_skeleton(object.get_id(), *loaded_mesh.skeleton_id);
 			engine.get_ecs().add_mesh_collider(object.get_id());
 			engine.get_ecs().add_clickable_entity(object.get_id());
 		}
@@ -1005,7 +1007,7 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	target_status = "Select a skinned object";
 	if (const auto* selected_object = engine.get_gizmo().get_selected_object())
 	{
-		selected_skeleton = selected_object->get_skeleton_id();
+		selected_skeleton = engine.get_ecs().get_skeleton_id(selected_object->get_id());
 		if (selected_skeleton)
 			target_status = "Target: " + selected_object->get_name();
 		else
