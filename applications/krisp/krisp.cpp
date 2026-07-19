@@ -116,8 +116,8 @@ int main(int argc, char* argv[])
 	auto& floating_obj1 = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
 	floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
 	floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-	engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
 	engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<BoxCollider>());
+	engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
 
 	auto& light_source = engine.spawn_object<Object>(Renderable{
 		.mesh_id = MeshFactory::sphere_id(),
@@ -130,8 +130,8 @@ int main(int argc, char* argv[])
 		.color = { 1.0f, 0.9f, 0.2f }
 	};
 	engine.get_ecs().add_light_source(light_source.get_id(), light_component);
-	engine.get_ecs().add_clickable_entity(light_source.get_id());
 	engine.get_ecs().add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
+	engine.get_ecs().add_clickable_entity(light_source.get_id());
 
 	engine.run();
 }

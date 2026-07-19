@@ -95,11 +95,10 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	{
 		new_pipeline->set_alpha_mode(id.alpha_mode);
 		new_pipeline->initialise();
+		LOG_INFO(Utility::get_logger(), "created pipeline with id: {} {}",
+			magic_enum::enum_name(id.primary_pipeline_type),
+			magic_enum::enum_name(id.pipeline_modifier));
 	}
-
-	LOG_INFO(Utility::get_logger(), "created pipeline with id: {} {}", 
-		magic_enum::enum_name(id.primary_pipeline_type),
-		magic_enum::enum_name(id.pipeline_modifier));
 
 	return new_pipeline;
 }

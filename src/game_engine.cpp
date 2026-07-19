@@ -307,6 +307,7 @@ void GameEngine::spawn_cubemap()
 {
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
+	renderable.casts_shadow = false;
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
 	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })
 		renderable.material_ids.push_back(

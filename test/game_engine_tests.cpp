@@ -91,6 +91,7 @@ TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 	ASSERT_EQ(object->renderables.size(), 1);
 	EXPECT_EQ(object->renderables.front().pipeline_render_type, ERenderType::CUBEMAP);
 	EXPECT_EQ(object->renderables.front().material_ids.size(), 6);
+	EXPECT_FALSE(object->renderables.front().casts_shadow);
 }
 
 TEST_F(GameEngineTests, scene_load_remaps_released_color_materials)
