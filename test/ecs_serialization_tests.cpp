@@ -284,6 +284,37 @@ TEST(ColliderSystemSerialization, round_trip_replaces_local_geometry)
 	EXPECT_FLOAT_EQ(sphere->get_local_data().radius, 4.0f);
 }
 
+TEST(ColliderSystemSerialization, transient_colliders_are_not_serialized)
+{
+	ECS ecs;
+	ecs.add_collider(EntityID(1), std::make_unique<BoxCollider>());
+	ecs.add_collider(EntityID(2), std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
+	Serializer serializer;
+	ecs.ColliderSystem::serialize(serializer);
+
+	ECS restored;
+	restored.ColliderSystem::deserialize(Deserializer::parse(serializer.emit()));
+	EXPECT_TRUE(restored.get_all_colliders().contains(EntityID(1)));
+	EXPECT_FALSE(restored.get_all_colliders().contains(EntityID(2)));
+}
+
+TEST(ColliderSystemSerialization, deserialization_preserves_transient_colliders)
+{
+	ECS source;
+	source.add_collider(EntityID(2), std::make_unique<SphereCollider>());
+	Serializer serializer;
+	source.ColliderSystem::serialize(serializer);
+
+	ECS restored;
+	restored.add_collider(EntityID(1), std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
+	restored.add_collider(EntityID(3), std::make_unique<BoxCollider>());
+	restored.ColliderSystem::deserialize(Deserializer::parse(serializer.emit()));
+
+	EXPECT_TRUE(restored.get_all_colliders().contains(EntityID(1)));
+	EXPECT_TRUE(restored.get_all_colliders().contains(EntityID(2)));
+	EXPECT_FALSE(restored.get_all_colliders().contains(EntityID(3)));
+}
+
 TEST(ColliderSystemSerialization, duplicate_ids_fail_atomically_with_path)
 {
 	ECS ecs;

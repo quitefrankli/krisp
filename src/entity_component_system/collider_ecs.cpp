@@ -28,14 +28,21 @@ void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& colli
 void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider, 
 								  const Maths::Transform& offset) 
 {
+	add_collider(id, std::move(collider), offset, ColliderPersistence::Persistent);
+}
+
+void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider,
+	const Maths::Transform& offset, const ColliderPersistence persistence)
+{
 	ColliderComponent new_component;
 	new_component.collider = std::move(collider);
+	new_component.persistence = persistence;
 	new_component.collider->apply_transform(offset);
 
 	components.emplace(id, std::move(new_component));
 }
 
-void ColliderSystem::add_mesh_collider(const EntityID id)
+void ColliderSystem::add_mesh_collider(const EntityID id, const ColliderPersistence persistence)
 {
 	std::vector<MeshID> mesh_ids;
 	bool has_triangles = false;
@@ -58,9 +65,9 @@ void ColliderSystem::add_mesh_collider(const EntityID id)
 	}
 
 	if (has_triangles)
-		add_collider(id, std::make_unique<MeshCollider>(std::move(mesh_ids)));
+		add_collider(id, std::make_unique<MeshCollider>(std::move(mesh_ids)), {}, persistence);
 	else if (has_bounds)
-		add_collider(id, std::make_unique<BoxCollider>(combined_bounds));
+		add_collider(id, std::make_unique<BoxCollider>(combined_bounds), {}, persistence);
 	else
 		LOG_WARNING(Utility::get_logger(), "ColliderSystem: Entity {} has no pickable mesh geometry", id.get_underlying());
 }
@@ -83,8 +90,9 @@ void ColliderSystem::serialize(Serializer& out) const
 {
 	std::vector<EntityID> ids;
 	ids.reserve(components.size());
-	for (const auto& [id, _] : components)
-		ids.push_back(id);
+	for (const auto& [id, component] : components)
+		if (component.persistence == ColliderPersistence::Persistent)
+			ids.push_back(id);
 	std::ranges::sort(ids);
 
 	auto entries = out.sequence("collider_system");
@@ -193,6 +201,18 @@ void ColliderSystem::deserialize(const Deserializer& in)
 		if (!restored.emplace(id, std::move(component)).second)
 			throw SerializationError("Duplicate collider entity at " + collider_path(index, "entity_id"));
 	}
+	for (const auto& [id, component] : components)
+	{
+		if (component.persistence == ColliderPersistence::Transient && restored.contains(id))
+			throw SerializationError("Persistent collider conflicts with transient entity "
+				+ std::to_string(id.get_underlying()));
+	}
+	for (auto& [id, component] : components)
+	{
+		if (component.persistence != ColliderPersistence::Transient)
+			continue;
+		restored.emplace(id, std::move(component));
+	}
 	components = std::move(restored);
 }
 
@@ -201,11 +221,37 @@ DetectedEntityCollision ColliderSystem::raycast(const Maths::Ray& ray, const std
 	DetectedEntityCollision result;
 	float closest_distance = std::numeric_limits<float>::infinity();
 	RayCollider ray_collider(ray);
-	for (const auto& [id, _] : components)
+	for (const auto& [id, component] : components)
 	{
+		if (component.persistence == ColliderPersistence::Transient)
+			continue;
 		if (ignored && id == *ignored)
 			continue;
 		const Collider* collider = get_collider(id);
+		const CollisionResult hit = CollisionDetector::check_collision(&ray_collider, collider);
+		if (!hit.bCollided)
+			continue;
+		const float distance = glm::distance2(ray.origin, hit.intersection);
+		if (distance < closest_distance)
+		{
+			closest_distance = distance;
+			result = { true, id, hit.intersection };
+		}
+	}
+	return result;
+}
+
+DetectedEntityCollision ColliderSystem::raycast(
+	const Maths::Ray& ray, const std::span<const EntityID> candidates) const
+{
+	DetectedEntityCollision result;
+	float closest_distance = std::numeric_limits<float>::infinity();
+	RayCollider ray_collider(ray);
+	for (const EntityID id : candidates)
+	{
+		const Collider* collider = get_collider(id);
+		if (!collider)
+			continue;
 		const CollisionResult hit = CollisionDetector::check_collision(&ray_collider, collider);
 		if (!hit.bCollided)
 			continue;

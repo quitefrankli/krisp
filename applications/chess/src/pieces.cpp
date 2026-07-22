@@ -10,11 +10,6 @@ Piece::Piece(std::vector<Renderable> renderables, Type type, Side side) :
 	side(side)
 {}
 
-bool Piece::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
-{
-	return (get_aabb()+get_position()).check_collision(ray, intersection);
-}
-
 std::vector<TileCoord> Piece::get_move_set(Type desired_type, const TileCoord& current_pos)
 {
 	std::vector<TileCoord> move_set;

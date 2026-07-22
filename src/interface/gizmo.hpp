@@ -3,7 +3,6 @@
 #include "objects/objects.hpp"
 #include "maths.hpp"
 #include "objects.hpp"
-#include "objects/object_interfaces/clickable.hpp"
 
 #include <array>
 
@@ -18,8 +17,8 @@ public:
 
 	virtual void init() = 0;
 	virtual void set_visibility(bool) override;
-	virtual bool check_collision(const Maths::Ray& ray) override { return false; };
 	void clear_active_axis() { active_axis = nullptr; }
+	virtual void register_colliders();
 	
 protected:
 	Object* get_closest_clicked_axis(const Maths::Ray& ray) const;
@@ -30,6 +29,7 @@ protected:
 	virtual bool is_essential_child(Object* child);
 	Maths::Transform reference_transform;
 	std::array<Object*, 3> axes;
+	std::array<EntityID, 3> axis_entities;
 	Object* active_axis = nullptr; // when axis is clicked on
 	Maths::Plane plane; // plane of interaction
 	glm::vec3 p1; // point on plane for first intersection
@@ -40,7 +40,7 @@ class TranslationGizmo : public GizmoBase
 public:
 	using GizmoBase::GizmoBase;
 	virtual void init() override;
-	virtual bool check_collision(const Maths::Ray& ray) override;
+	bool check_collision(const Maths::Ray& ray);
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	
 private:
@@ -57,7 +57,7 @@ public:
 	using GizmoBase::GizmoBase;
 	virtual void init() override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
-	virtual bool check_collision(const Maths::Ray& ray) override;
+	bool check_collision(const Maths::Ray& ray);
 
 private:
 	friend Gizmo;
@@ -75,7 +75,8 @@ public:
 
 	virtual void init() override;
 	virtual void set_visibility(bool) override;
-	virtual bool check_collision(const Maths::Ray& ray) override;
+	bool check_collision(const Maths::Ray& ray);
+	void register_colliders() override;
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
 	
 private:
@@ -85,12 +86,13 @@ private:
 	ScaleGizmoObj yAxis;
 	ScaleGizmoObj zAxis;
 	Object uniformCube;
+	EntityID uniform_cube_entity;
 
 	const float minimum_scale = 0.1f;
 	bool uniform_scaling = false;
 };
 
-class Gizmo : public Object, public OnClickDispatchers::IBaseDispatcher
+class Gizmo : public Object
 {
 public:
 	Gizmo(GameEngine& engine);
@@ -100,8 +102,8 @@ public:
 	bool is_active() { return isActive; }
 	// r1 is first mouse pos, and r2 is second mouse pos
 	void process(const Maths::Ray& r1, const Maths::Ray& r2);
-	virtual bool check_collision(const Maths::Ray& ray) override;
-	virtual void dispatch_on_click(Object& object, const Maths::Ray& ray, const glm::vec3& intersection) override;
+	bool check_collision(const Maths::Ray& ray);
+	void register_colliders();
 	void delete_object();
 	Object* get_selected_object() { return selected_object; }
 	virtual void set_scale(const glm::vec3& new_scale) override;
@@ -117,5 +119,6 @@ private:
 	// GizmoBase* active_gizmo = nullptr;
 	bool isActive = false; // when gizmo is selected
 	GameEngine& engine;
+	bool initialized = false;
 	friend ScaleGizmo;
 };

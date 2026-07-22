@@ -1,7 +1,6 @@
 #include "test_helper.hpp"
 
 #include <maths.hpp>
-#include <collision/bounding_box.hpp>
 
 #include <gtest/gtest.h>
 #include <glm/gtx/component_wise.hpp>
@@ -42,22 +41,4 @@ TEST(ScaleGizmoTests, centre_handle_preserves_non_uniform_scale_proportions)
 	EXPECT_FLOAT_EQ(scaled.z, 5.0f);
 	EXPECT_FLOAT_EQ(scaled.y / scaled.x, original_scale.y / original_scale.x);
 	EXPECT_FLOAT_EQ(scaled.z / scaled.x, original_scale.z / original_scale.x);
-}
-
-TEST(ScaleGizmoTests, centre_cube_uses_aabb_collision_detection)
-{
-	constexpr float CUBE_HALF_SIZE = 0.15f;
-	const AABB cube_bounds(glm::vec3(-CUBE_HALF_SIZE), glm::vec3(CUBE_HALF_SIZE));
-
-	// ray that hits the centre cube
-	const Maths::Ray hit_ray(glm::vec3(0.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-	ASSERT_TRUE(cube_bounds.check_collision(hit_ray));
-
-	// This is inside the cube but outside its old spherical approximation.
-	const Maths::Ray corner_hit_ray(glm::vec3(0.14f, 0.14f, 5.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-	ASSERT_TRUE(cube_bounds.check_collision(corner_hit_ray));
-
-	// ray that misses the centre cube
-	const Maths::Ray miss_ray(glm::vec3(1.0f, 0.0f, 5.0f), glm::vec3(0.0f, 0.0f, -1.0f));
-	ASSERT_FALSE(cube_bounds.check_collision(miss_ray));
 }

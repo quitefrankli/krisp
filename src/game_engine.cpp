@@ -463,6 +463,7 @@ void GameEngine::reset_scene()
 		ResourceProvenance::clear();
 		tile_renderable.reset();
 		configure_ecs();
+		gizmo->register_colliders();
 
 		camera->set_mode(Camera::Mode::ORBIT);
 		camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));

@@ -49,29 +49,3 @@ void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)
 	set_rotation(rot);
 	set_position(start);
 }
-
-bool ScaleGizmoObj::check_collision(const Maths::Ray& ray)
-{
-	assert(glm::epsilonEqual(get_scale().x, get_scale().y, 0.001f));
-	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
-	const float length = get_scale().z;
-	const float radius = INITIAL_RADIUS * get_scale().x;
-	return Maths::check_ray_rod_collision(ray, 
-										  get_position(), 
-										  get_position() + axis * length, 
-										  radius);
-}
-
-bool ScaleGizmoObj::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
-{
-	assert(glm::epsilonEqual(get_scale().x, get_scale().y, 0.001f));
-	const glm::vec3 axis = get_rotation() * Maths::forward_vec;
-	const float length = get_scale().z;
-	const float radius = INITIAL_RADIUS * get_scale().x;
-	return Maths::check_ray_rod_collision(ray,
-										  get_position(),
-										  get_position() + axis * length,
-										  radius,
-										  intersection);
-}
-

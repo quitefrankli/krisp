@@ -9,6 +9,8 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+
 TEST(player_character_tests, camera_relative_input_is_normalized)
 {
 	const glm::vec3 direction = PlayerCharacter::movement_direction(
@@ -108,6 +110,41 @@ TEST(gameplay_collision_tests, raycast_returns_nearest_hit_and_honours_exclusion
 
 	ecs.remove_object(near_object.get_id());
 	ecs.remove_object(far_object.get_id());
+}
+
+TEST(gameplay_collision_tests, candidate_raycast_only_considers_supplied_entities)
+{
+	ECS ecs;
+	Object excluded_near;
+	excluded_near.set_position({ 0.0f, 0.0f, 1.0f });
+	Object included_near;
+	included_near.set_position({ 0.0f, 0.0f, 3.0f });
+	Object included_far;
+	included_far.set_position({ 0.0f, 0.0f, 6.0f });
+	for (Object* object : { &excluded_near, &included_near, &included_far })
+	{
+		ecs.add_object(*object);
+		ecs.add_collider(object->get_id(), std::make_unique<BoxCollider>());
+	}
+
+	const std::array candidates = { included_far.get_id(), included_near.get_id() };
+	const auto hit = ecs.raycast(Maths::Ray(Maths::zero_vec, Maths::forward_vec), candidates);
+	ASSERT_TRUE(hit.bCollided);
+	EXPECT_EQ(hit.id, included_near.get_id());
+}
+
+TEST(gameplay_collision_tests, transient_colliders_require_an_explicit_candidate_raycast)
+{
+	ECS ecs;
+	Object object;
+	object.set_position({ 0.0f, 0.0f, 2.0f });
+	const EntityID transient_id = ecs.add_transient_object(object);
+	ecs.add_collider(transient_id, std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
+	const Maths::Ray ray(Maths::zero_vec, Maths::forward_vec);
+
+	EXPECT_FALSE(ecs.raycast(ray).bCollided);
+	const std::array candidates = { transient_id };
+	EXPECT_EQ(ecs.raycast(ray, candidates).id, transient_id);
 }
 
 TEST(skeletal_component_tests, model_space_transforms_compose_parent_hierarchy)

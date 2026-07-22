@@ -62,23 +62,17 @@ void GizmoBase::set_visibility(bool visibility)
 
 Object* GizmoBase::get_closest_clicked_axis(const Maths::Ray& ray) const
 {
-	float closest_distance = std::numeric_limits<float>::infinity();
-	Object* closest_axis = nullptr;
-	for (auto* axis : axes)
-	{	
-		glm::vec3 intersection;
-		if (axis->check_collision(ray, intersection))
-		{
-			const float distance = glm::distance(ray.origin, intersection);
-			if (distance < closest_distance)
-			{
-				closest_distance = distance;
-				closest_axis = axis;
-			}
-		}
-	}
+	const auto hit = engine.get_ecs().raycast(ray, axis_entities);
+	return hit.bCollided ? &engine.get_ecs().get_object(hit.id) : nullptr;
+}
 
-	return closest_axis;
+void GizmoBase::register_colliders()
+{
+	for (std::size_t i = 0; i < axes.size(); ++i)
+	{
+		axis_entities[i] = engine.get_ecs().add_transient_object(*axes[i]);
+		engine.get_ecs().add_mesh_collider(axis_entities[i], ColliderPersistence::Transient);
+	}
 }
 
 //
@@ -265,14 +259,8 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	// assume active_axis has been cleared already
 	uniform_scaling = false;
 
-	// Check the actual cube bounds first: a sphere misses selectable cube corners.
-	constexpr float UNIFORM_CUBE_HALF_SIZE = 0.15f;
-	BoxCollider uniform_cube_collider(AABB(
-		glm::vec3(-UNIFORM_CUBE_HALF_SIZE),
-		glm::vec3(UNIFORM_CUBE_HALF_SIZE)));
-	uniform_cube_collider.set_temporary_transform(uniformCube.get_maths_transform());
-	glm::vec3 cube_intersection;
-	if (uniform_cube_collider.check_collision(RayCollider(ray), cube_intersection))
+	const std::array uniform_candidate = { uniform_cube_entity };
+	if (engine.get_ecs().raycast(ray, uniform_candidate).bCollided)
 	{
 		active_axis = &uniformCube;
 		uniform_scaling = true;
@@ -297,6 +285,13 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	}
 
 	return active_axis;
+}
+
+void ScaleGizmo::register_colliders()
+{
+	GizmoBase::register_colliders();
+	uniform_cube_entity = engine.get_ecs().add_transient_object(uniformCube);
+	engine.get_ecs().add_mesh_collider(uniform_cube_entity, ColliderPersistence::Transient);
 }
 
 void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
@@ -350,9 +345,13 @@ Gizmo::Gizmo(GameEngine& engine) :
 
 void Gizmo::init()
 {
+	if (initialized)
+		return;
 	translation.init();
 	rotation.init();
 	scale.init();
+	initialized = true;
+	register_colliders();
 }
 
 void Gizmo::select_object(Object* obj)
@@ -421,9 +420,13 @@ bool Gizmo::check_collision(const Maths::Ray& ray)
 	return translation.check_collision(ray) || rotation.check_collision(ray) || scale.check_collision(ray);
 }
 
-void Gizmo::dispatch_on_click(Object& object, const Maths::Ray& ray, const glm::vec3& intersection)
+void Gizmo::register_colliders()
 {
-	select_object(&object);
+	if (!initialized)
+		return;
+	translation.register_colliders();
+	rotation.register_colliders();
+	scale.register_colliders();
 }
 
 void Gizmo::delete_object()

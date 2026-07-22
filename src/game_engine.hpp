@@ -3,7 +3,6 @@
 #include "input.hpp"
 #include "objects/object.hpp"
 #include "objects/objects.hpp"
-#include "objects/object_interfaces/clickable.hpp"
 #include "resource_loader/resource_loader.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"

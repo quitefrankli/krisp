@@ -28,9 +28,7 @@ Object::Object(Object&& other) noexcept :
 	name(std::move(other.name)),
 	bVisible(other.bVisible),
 	aabb(std::move(other.aabb)),
-	bounding_sphere(std::move(other.bounding_sphere)),
-	bounding_primitive_sphere(std::move(other.bounding_primitive_sphere)),
-	is_bounding_primitive_cached(other.is_bounding_primitive_cached)
+	bounding_sphere(std::move(other.bounding_sphere))
 {
 	if (parent)
 		parent->children[id] = this;
@@ -254,29 +252,6 @@ void Object::detach_all_children()
 	}
 }
 
-bool Object::check_collision(const Maths::Ray& ray)
-{
-	if (!get_visibility())
-		return false;
-
-	const float radius = 0.5f; // this doesn't really work for non-unit objects, but will leave for now
-	return Maths::check_spherical_collision(ray, Maths::Sphere(get_position(), radius));
-}
-
-bool Object::check_collision(const Maths::Ray& ray, glm::vec3& intersection) const
-{
-	// assume unit sphere
-	const std::optional<glm::vec3> x = Maths::ray_sphere_collision(
-		Maths::Sphere(get_position(), 1.0f), ray);
-	if (x)
-	{
-		intersection = x.value();
-		return true;
-	} else 
-	{
-		return false;
-	}
-}
 void Object::serialize(Serializer& out) const
 {
 	out.write("type", serialization_type());

@@ -114,14 +114,4 @@ private:
 	Maths::Sphere bounding_sphere;
 
 	bool bVisible = true;
-protected:
-	//
-	// collision
-	//
-	Maths::Sphere bounding_primitive_sphere;
-	bool is_bounding_primitive_cached = false;
-
-public:
- 	virtual bool check_collision(const Maths::Ray& ray);
-	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const;
 };

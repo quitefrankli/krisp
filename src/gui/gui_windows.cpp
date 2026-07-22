@@ -909,8 +909,10 @@ void GuiDebug::sync_collider_visualisers(GameEngine& engine)
 {
 	std::unordered_set<EntityID> seen;
 
-	for (const auto& [entity_id, _] : engine.get_ecs().get_all_colliders())
+	for (const auto& [entity_id, component] : engine.get_ecs().get_all_colliders())
 	{
+		if (component.persistence == ColliderPersistence::Transient)
+			continue;
 		seen.insert(entity_id);
 
 		const Collider* collider = engine.get_ecs().get_collider(entity_id);

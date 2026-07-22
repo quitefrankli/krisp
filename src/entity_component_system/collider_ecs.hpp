@@ -8,11 +8,18 @@
 #include <unordered_map>
 #include <memory>
 #include <optional>
+#include <span>
 
+enum class ColliderPersistence
+{
+	Persistent,
+	Transient,
+};
 
 struct ColliderComponent
 {
 	std::unique_ptr<Collider> collider;
+	ColliderPersistence persistence = ColliderPersistence::Persistent;
 };
 
 class ECS;
@@ -24,13 +31,16 @@ public:
 
 	void add_collider(EntityID id, std::unique_ptr<Collider>&& collider);
 	void add_collider(EntityID id, std::unique_ptr<Collider>&& collider, const Maths::Transform& offset);
-	void add_mesh_collider(EntityID id);
+	void add_collider(EntityID id, std::unique_ptr<Collider>&& collider,
+		const Maths::Transform& offset, ColliderPersistence persistence);
+	void add_mesh_collider(EntityID id, ColliderPersistence persistence = ColliderPersistence::Persistent);
 	void remove_collider(EntityID id) { components.erase(id); }
 
 	const Collider* get_collider(EntityID id) const;
 	// Returns the nearest registered collider hit by the ray. The optional entity
 	// filter is used by character controllers so they do not hit themselves.
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::optional<EntityID> ignored = std::nullopt) const;
+	DetectedEntityCollision raycast(const Maths::Ray& ray, std::span<const EntityID> candidates) const;
 	const std::unordered_map<EntityID, ColliderComponent>& get_all_colliders() const { return components; }
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);

@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -270,6 +271,47 @@ TEST_F(GameEngineTests, scene_load_ignores_transient_gizmo_parent)
 	ASSERT_NE(restored, nullptr);
 	EXPECT_TRUE(glm_equal(restored->get_position(), glm::vec3(2.0f, 3.0f, 4.0f)));
 	EXPECT_FALSE(engine.get_gizmo().is_active());
+}
+
+TEST_F(GameEngineTests, reset_scene_reregisters_transient_gizmo_colliders)
+{
+	engine.get_gizmo().init();
+	const auto count_transient = [this]() {
+		return std::ranges::count_if(engine.get_ecs().get_all_colliders(), [](const auto& entry) {
+			return entry.second.persistence == ColliderPersistence::Transient;
+		});
+	};
+
+	EXPECT_EQ(count_transient(), 10);
+	engine.reset_scene();
+	EXPECT_EQ(count_transient(), 10);
+}
+
+TEST_F(GameEngineTests, gizmo_hit_testing_uses_registered_ecs_colliders)
+{
+	auto& object = engine.spawn_object<Object>();
+	auto& gizmo = engine.get_gizmo();
+	gizmo.init();
+	gizmo.select_object(&object);
+	const Maths::Ray ray({ 0.0f, 0.0f, -2.0f }, Maths::forward_vec);
+
+	EXPECT_TRUE(gizmo.check_collision(ray));
+}
+
+TEST_F(GameEngineTests, centre_cube_ecs_collider_preserves_corner_hit_region)
+{
+	auto& object = engine.spawn_object<Object>();
+	auto& gizmo = engine.get_gizmo();
+	gizmo.init();
+	gizmo.select_object(&object);
+	gizmo.select_object(&object); // switch to scale mode
+
+	EXPECT_TRUE(gizmo.check_collision(Maths::Ray(
+		{ 0.0f, 0.0f, -2.0f }, Maths::forward_vec)));
+	EXPECT_TRUE(gizmo.check_collision(Maths::Ray(
+		{ 0.14f, 0.14f, -2.0f }, Maths::forward_vec)));
+	EXPECT_FALSE(gizmo.check_collision(Maths::Ray(
+		{ 0.5f, 0.5f, -2.0f }, Maths::forward_vec)));
 }
 
 TEST(GameEngineOwnershipTests, engines_have_isolated_ecs_instances)

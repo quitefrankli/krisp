@@ -112,15 +112,11 @@ void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_w
 	} else if (mouse_input.eq(LEFT, SHIFT, PRESS)) {
 		mouse->update_pos();
 		const Maths::Ray ray = camera->get_ray(mouse->curr_pos);
-		OnClickDispatchers::IBaseDispatcher& on_click_dispatcher = *gizmo;
 		auto clicked_entity = ecs.check_any_entity_clicked(ray);
 		
 		if (clicked_entity.bCollided)
 		{
-			on_click_dispatcher.dispatch_on_click(
-				ecs.get_object(clicked_entity.id), 
-				ray, 
-				clicked_entity.intersection);
+			gizmo->select_object(&ecs.get_object(clicked_entity.id));
 		} else
 		{
 			// no objects detected deselect everything

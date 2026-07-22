@@ -29,8 +29,6 @@ public:
 	Type type;
 	Side side;
 
-	virtual bool check_collision(const Maths::Ray& ray, glm::vec3& intersection) const override;
-
 	std::vector<TileCoord> get_move_set(const TileCoord& current_pos) { return get_move_set(type, current_pos); }
 
 private:
