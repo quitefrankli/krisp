@@ -26,6 +26,14 @@ TEST(GuiPanel, stores_stable_docking_metadata)
 	EXPECT_FALSE(panel.is_visible());
 }
 
+TEST(GuiPanel, save_manager_is_registered_and_visible_by_default)
+{
+	GuiManager manager;
+	EXPECT_EQ(manager.save_manager.get_panel_info().id, "save_manager");
+	EXPECT_EQ(manager.save_manager.get_panel_info().title, "Save Manager");
+	EXPECT_TRUE(manager.save_manager.is_visible());
+}
+
 TEST(GuiPanel, visibility_can_be_restored_after_closing)
 {
 	TestGuiPanel panel({ "debug", "Debug", GuiPanelDock::RIGHT });

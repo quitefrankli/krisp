@@ -143,6 +143,126 @@ void GuiWindow::set_visible(const bool value)
 		ImGui::MarkIniSettingsDirty();
 }
 
+GuiSaveManager::GuiSaveManager() :
+	GuiWindow({ "save_manager", "Save Manager", GuiPanelDock::LEFT }),
+	store(Utility::get_saves_path())
+{
+}
+
+void GuiSaveManager::queue(const Action action, const std::string& name)
+{
+	if (!pending)
+		pending = Request{ action, name };
+}
+
+void GuiSaveManager::draw()
+{
+	const std::lock_guard lock(state_mutex);
+	if (begin())
+	{
+		if (ImGui::BeginTable("SaveFiles", 2,
+			ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY,
+			ImVec2(0.0f, 220.0f)))
+		{
+			ImGui::TableSetupColumn("Name");
+			ImGui::TableSetupColumn("Modified");
+			ImGui::TableHeadersRow();
+			for (const auto& entry : entries)
+			{
+				ImGui::TableNextRow();
+				ImGui::TableSetColumnIndex(0);
+				if (ImGui::Selectable(entry.name.c_str(), selected == entry.name,
+					ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick))
+				{
+					selected = entry.name;
+					const auto length = std::min(entry.name.size(), name_buffer.size() - 1);
+					std::ranges::copy_n(entry.name.begin(), length, name_buffer.begin());
+					name_buffer[length] = '\0';
+					if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+						queue(Action::LOAD, entry.name);
+				}
+				ImGui::TableSetColumnIndex(1);
+				ImGui::TextUnformatted(entry.modified_label.c_str());
+			}
+			ImGui::EndTable();
+		}
+
+		ImGui::InputText("Save name", name_buffer.data(), name_buffer.size());
+		ImGui::BeginDisabled(pending.has_value());
+		if (ImGui::Button("Save"))
+			queue(Action::SAVE, name_buffer.data());
+		ImGui::EndDisabled();
+		ImGui::SameLine();
+		ImGui::BeginDisabled(!selected || pending.has_value());
+		if (ImGui::Button("Delete"))
+			queue(Action::DELETE_SAVE, *selected);
+		ImGui::EndDisabled();
+
+		if (!status.empty())
+		{
+			if (status_is_error)
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.25f, 0.25f, 1.0f));
+			ImGui::TextWrapped("%s", status.c_str());
+			if (status_is_error)
+				ImGui::PopStyleColor();
+		}
+	}
+	end();
+}
+
+void GuiSaveManager::process(GameEngine& engine)
+{
+	std::optional<Request> request;
+	bool refresh = false;
+	{
+		const std::lock_guard lock(state_mutex);
+		request = std::move(pending);
+		pending.reset();
+		refresh = std::exchange(refresh_requested, false);
+	}
+	if (!request && !refresh)
+		return;
+
+	try
+	{
+		std::string result;
+		if (request)
+		{
+			switch (request->action)
+			{
+				case Action::SAVE:
+					engine.save_scene(request->name);
+					result = "Saved '" + request->name + "'.";
+					break;
+				case Action::LOAD:
+					engine.load_scene(request->name);
+					result = "Loaded '" + request->name + "'.";
+					break;
+				case Action::DELETE_SAVE:
+					if (!store.remove(request->name))
+						throw std::runtime_error("Save no longer exists");
+					result = "Deleted '" + request->name + "'.";
+					break;
+			}
+		}
+		const auto refreshed = store.list();
+		const std::lock_guard lock(state_mutex);
+		entries = refreshed;
+		status = std::move(result);
+		status_is_error = false;
+		if (request && request->action == Action::DELETE_SAVE)
+			selected.reset();
+		else if (request)
+			selected = request->name;
+	}
+	catch (const std::exception& error)
+	{
+		const std::lock_guard lock(state_mutex);
+		status = error.what();
+		status_is_error = true;
+	}
+}
+
 
 GuiGraphicsSettings::GuiGraphicsSettings() :
 	GuiWindow({ "graphics_settings", "Graphics Settings", GuiPanelDock::RIGHT })

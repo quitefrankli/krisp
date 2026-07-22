@@ -15,6 +15,7 @@ protected:
 
 public:
 	GuiManager() :
+		save_manager(spawn_gui<GuiSaveManager>()),
 		graphic_settings(spawn_gui<GuiGraphicsSettings>()),
 		object_spawner(spawn_gui<GuiObjectSpawner>()),
 		model_spawner(spawn_gui<GuiModelSpawner>()),
@@ -67,6 +68,7 @@ public:
 	}
 
 	// references the GuiManager::gui_windows
+	GuiSaveManager& save_manager;
 	GuiGraphicsSettings& graphic_settings;
 	GuiObjectSpawner& object_spawner;
 	GuiModelSpawner& model_spawner;

@@ -3,6 +3,7 @@
 #include "maths.hpp"
 #include "identifications.hpp"
 #include "renderable/render_types.hpp"
+#include "save_file_store.hpp"
 
 #include <map>
 #include <string>
@@ -14,6 +15,7 @@
 #include <unordered_set>
 #include <utility>
 #include <mutex>
+#include <array>
 
 
 class GameEngine;
@@ -114,6 +116,30 @@ public:
 
 private:
 	const std::vector<const char*> camera_projections = { "perspective", "orthographic" };
+};
+
+class GuiSaveManager : public GuiWindow
+{
+public:
+	GuiSaveManager();
+	void draw() override;
+	void process(GameEngine& engine) override;
+
+private:
+	enum class Action { SAVE, LOAD, DELETE_SAVE };
+	struct Request { Action action; std::string name; };
+
+	void queue(Action action, const std::string& name);
+
+	SaveFileStore store;
+	std::vector<SaveFileEntry> entries;
+	std::optional<std::string> selected;
+	std::optional<Request> pending;
+	std::string status;
+	bool status_is_error = false;
+	bool refresh_requested = true;
+	std::array<char, 128> name_buffer{};
+	std::mutex state_mutex;
 };
 
 class GuiObjectSpawner : public GuiWindow

@@ -64,10 +64,8 @@ public:
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
 	void reset_scene();
-	void save_scene(const std::filesystem::path& path) const;
-	void load_scene(const std::filesystem::path& path);
-	void quick_save() const;
-	void quick_load();
+	void save_scene(std::string_view save_name) const;
+	void load_scene(std::string_view save_name);
 	
 	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
 

@@ -21,6 +21,7 @@
 #include "renderable/mesh_factory.hpp"
 #include "serialization/serialization_helpers.hpp"
 #include "serialization/resource_provenance.hpp"
+#include "save_file_store.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -653,8 +654,9 @@ void GameEngine::preview_objs_in_gui(
 
 Gizmo& GameEngine::get_gizmo() { return *gizmo; }
 
-void GameEngine::save_scene(const std::filesystem::path& path) const
+void GameEngine::save_scene(const std::string_view save_name) const
 {
+	const auto path = SaveFileStore(Utility::get_saves_path()).path_for_overwrite(save_name);
 	gizmo->deselect();
 	Serializer document;
 	auto engine_state = document.map("engine");
@@ -722,8 +724,9 @@ void GameEngine::save_scene(const std::filesystem::path& path) const
 	std::filesystem::rename(temporary, path);
 }
 
-void GameEngine::load_scene(const std::filesystem::path& path)
+void GameEngine::load_scene(const std::string_view save_name)
 {
+	const auto path = SaveFileStore(Utility::get_saves_path()).path_for_overwrite(save_name);
 	std::ifstream stream(path, std::ios::binary);
 	if (!stream)
 		throw SerializationError("Unable to open scene: " + path.string());
@@ -850,14 +853,4 @@ void GameEngine::load_scene(const std::filesystem::path& path)
 	camera_orbit_with_right_mouse = engine_state.read<bool>("camera_orbit_with_right_mouse");
 	camera->deserialize(document.child("camera"));
 	application->on_scene_loaded(*this);
-}
-
-void GameEngine::quick_save() const
-{
-	save_scene(Utility::get_top_level_path() / ".saves" / "quicksave.yaml");
-}
-
-void GameEngine::quick_load()
-{
-	load_scene(Utility::get_top_level_path() / ".saves" / "quicksave.yaml");
 }

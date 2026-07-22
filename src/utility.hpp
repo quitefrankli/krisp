@@ -29,6 +29,7 @@ public:
 	static const std::filesystem::path& get_top_level_path() { return get().top_level_dir; }
 	static const std::filesystem::path& get_build_path() { return get().build; };
 	static const std::filesystem::path& get_binary_path() { return get().binary; };
+	static std::filesystem::path get_saves_path() { return get().top_level_dir / ".saves"; }
 	static std::filesystem::path get_config_path(std::string_view filename);
 	static std::filesystem::path get_user_config_path(std::string_view filename);
 

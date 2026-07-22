@@ -36,12 +36,12 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	}
 	else if (key_input.eq(GLFW_KEY_F5, NONE, PRESS))
 	{
-		quick_save();
+		save_scene("quicksave");
 		return;
 	}
 	else if (key_input.eq(GLFW_KEY_F9, NONE, PRESS))
 	{
-		quick_load();
+		load_scene("quicksave");
 		return;
 	}
 	else if (key_input.eq(GLFW_KEY_X, NONE, PRESS))

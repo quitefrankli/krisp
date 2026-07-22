@@ -5,6 +5,7 @@ sources = [
 	'clickable_ecs_tests.cpp',
 	'common_tests.cpp',
 	'gui_panel_tests.cpp',
+	'save_file_store_tests.cpp',
 	'graphics_settings_tests.cpp',
 	'resource_loader_tests.cpp',
 	'graphics_buffer_tests.cpp',
