@@ -33,6 +33,19 @@ meson compile -C build -j 6 krisp
 build/applications/krisp/krisp
 ```
 
+## Hot reload (Linux)
+
+While `krisp` is running, press `Shift+R` to rebuild and reload the shared
+library. Hot reload runs the equivalent of:
+
+```bash
+meson compile -C build -j 6 shared_lib
+```
+
+Each reload copies the module to a new versioned file in `build/bin` before
+loading it, for example `libshared_lib1.so`. No separate reload script is
+required.
+
 ## Testing
 
 `meson test -C build`

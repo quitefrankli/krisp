@@ -17,7 +17,8 @@ if get_option('buildtype') == 'debug'
 endif
 
 additional_include_directories = [
-	include_directories('shared_code')
+	include_directories('shared_code'),
+	include_directories('shared_lib/src')
 ]
 
 conan_dependencies = [
@@ -49,5 +50,6 @@ conan_dependencies += ffmpeg_deps
 subdir('shaders')
 subdir('third_party')
 subdir('src')
+subdir('shared_lib')
 subdir('test')
 subdir('applications')

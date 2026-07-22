@@ -9,49 +9,16 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include <windows.h>
+#define SHARED_LIB_EXPORT __attribute__((visibility("default")))
 
-BOOL WINAPI DllMain(
-    HINSTANCE hinstDLL,  // handle to DLL module
-    DWORD fdwReason,     // reason for calling function
-    LPVOID lpReserved )  // reserved
-{
-    // Perform actions based on the reason for calling.
-    switch( fdwReason ) 
-    { 
-        case DLL_PROCESS_ATTACH:
-         // Initialize once for each new process.
-         // Return FALSE to fail DLL load.
-		 std::cout << "process attach\n";
-            break;
-
-        case DLL_THREAD_ATTACH:
-         // Do thread-specific initialization.
-		 std::cout << "thread attach\n";
-            break;
-
-        case DLL_THREAD_DETACH:
-         // Do thread-specific cleanup.
-		 std::cout << "thread detach\n";
-            break;
-
-        case DLL_PROCESS_DETACH:
-		 std::cout << "process detach\n";
-         // Perform any necessary cleanup.
-            break;
-    }
-    return TRUE;  // Successful DLL_PROCESS_ATTACH.
-}
-
-// compilers will by default mangle c++ objects i.e. Foo -> "?Foo@@YAHH@Z"
-// extern C tells the compiler not to do that, that way when we GetProcAddress we don't need to use a mangled name
+// Keep exported symbol names stable for dlsym.
 extern "C" {
-	__declspec(dllexport) void __cdecl load_check()
+	SHARED_LIB_EXPORT void load_check()
 	{
 		std::cout << "shared_library loaded successfully!\n";
 	}
 
-	__declspec(dllexport) bool __cdecl screen_to_world(glm::mat4& transform, glm::mat4 view, glm::mat4 proj, glm::vec2 screen)
+	SHARED_LIB_EXPORT bool screen_to_world(glm::mat4& transform, glm::mat4 view, glm::mat4 proj, glm::vec2 screen)
 	{
 		proj[1][1] *= -1.0f;
 		auto proj_view_mat = glm::inverse(proj * view);
@@ -82,7 +49,7 @@ extern "C" {
 		return true;
 	}
 
-	__declspec(dllexport) bool __cdecl simple_collision_detection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& obj, float radius)
+	SHARED_LIB_EXPORT bool simple_collision_detection(const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec3& obj, float radius)
 	{
 		// assuming unit box, uses a sphere for efficiency
 		glm::vec3 v1 = obj - rayOrigin;
@@ -94,19 +61,19 @@ extern "C" {
 		return distance < radius;
 	}
 
-	__declspec(dllexport) void __cdecl point_arrow(Arrow& v1)
+	SHARED_LIB_EXPORT void point_arrow(Arrow& v1)
 	{
 		std::cout << "SharedLibrary " << __FUNCTION__ << '\n';
 		v1.point(glm::vec3(0.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	}
 
-	__declspec(dllexport) void __cdecl gen_vec(glm::vec3& vec)
+	SHARED_LIB_EXPORT void gen_vec(glm::vec3& vec)
 	{
 		// vec = {0.0f, 1.0f, 0.0f};
 		vec = {0.0f, 0.0f, 1.0f};
 	}
 
-	__declspec(dllexport)SharedLibFuncPtrs shared_lib_func_ptrs {
+	SHARED_LIB_EXPORT SharedLibFuncPtrs shared_lib_func_ptrs {
 		&load_check,
 		&point_arrow,
 		&gen_vec

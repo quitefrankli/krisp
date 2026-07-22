@@ -8,14 +8,12 @@ class HotReload
 public:
 	static HotReload& get();
 
-	// calls generate_new_dll() followed by load_dll()
+	// Builds and loads a new version of the shared library.
 	void reload();
 
 	SharedLibFuncPtrs* slfp = nullptr;
 
 private:
-	bool generate_new_dll(bool throw_on_fail=true);
-	bool load_dll(bool throw_on_no_runtime_lib=true);
+	bool generate_new_library(bool throw_on_fail=true);
+	bool load_library(bool throw_on_no_runtime_lib=true);
 };
-
-extern HotReload hot_reload;

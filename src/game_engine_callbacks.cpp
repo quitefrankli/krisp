@@ -7,7 +7,7 @@
 #include "graphics_engine/graphics_engine.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "analytics.hpp"
-// #include "hot_reload.hpp"
+#include "hot_reload.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
 #include "interface/gizmo.hpp"
@@ -48,7 +48,7 @@ void GameEngine::key_callback(const KeyInput& key_input)
 		experimental->process();
 	else if (key_input.eq(GLFW_KEY_R, SHIFT, PRESS))
 	{
-		// HotReload::get().reload();
+		HotReload::get().reload();
 	}
 	else if (key_input.eq(GLFW_KEY_BACKSPACE, NONE, PRESS) ||
 			 key_input.eq(GLFW_KEY_DELETE, NONE, PRESS))

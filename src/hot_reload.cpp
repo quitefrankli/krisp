@@ -1,25 +1,26 @@
 #include "hot_reload.hpp"
 #include "utility.hpp"
 
+#include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <string>
 #include <iostream>
 #include <regex>
 
-#ifdef __WIN32
-#include <windows.h>
+#include <dlfcn.h>
 
 static HotReload hot_reload;
-static HMODULE handle = nullptr;
+static void* handle = nullptr;
 
 HotReload& HotReload::get() 
 { 
 	// hasn't been loaded yet
 	if (!hot_reload.slfp)
 	{
-		if (!hot_reload.load_dll(false))
+		if (!hot_reload.load_library(false))
 		{
-			std::cout << "HotReload: no dll found, attempting to generate dll...\n";
+			std::cout << "HotReload: no shared library found, attempting to generate one...\n";
 			hot_reload.reload();
 		}
 	}
@@ -29,37 +30,61 @@ HotReload& HotReload::get()
 
 void HotReload::reload()
 {
-	generate_new_dll();
-	load_dll();
+	generate_new_library();
+	load_library();
 }
 
-bool HotReload::generate_new_dll(bool throw_on_fail)
+bool HotReload::generate_new_library(bool throw_on_fail)
 {
-	std::string cmd = "sh " + Utility::get_top_level_path().string() + "/hot_reload.sh";
+	const auto& build_path = Utility::get_build_path();
+	const auto& binary_path = Utility::get_binary_path();
+	const std::string cmd = "meson compile -C \"" + build_path.string()
+		+ "\" -j 6 shared_lib";
 	if (system(cmd.c_str()) != 0)
 	{
 		if (throw_on_fail)
 		{
-			throw std::runtime_error("HotReload: script failed");
+			throw std::runtime_error("HotReload: shared library build failed");
 		}
 		return false;
 	}
 
+	const auto source_library = build_path / "shared_lib/libshared_lib.so";
+	if (!std::filesystem::exists(source_library))
+	{
+		if (throw_on_fail)
+			throw std::runtime_error("HotReload: built shared library not found");
+		return false;
+	}
+
+	std::filesystem::create_directories(binary_path);
+	int next_version = 1;
+	for (const auto& entry : std::filesystem::directory_iterator(binary_path))
+	{
+		const std::string filename = entry.path().filename().string();
+		if (!std::regex_match(filename, std::regex("libshared_lib[0-9]+\\.so")))
+			continue;
+		const int version = std::stoi(std::regex_replace(
+			filename, std::regex("[^0-9]*([0-9]+).*"), "$1"));
+		next_version = std::max(next_version, version + 1);
+	}
+
+	const auto versioned_library = binary_path
+		/ ("libshared_lib" + std::to_string(next_version) + ".so");
+	std::filesystem::copy_file(source_library, versioned_library);
+	std::cout << "HotReload: created " << versioned_library.string() << '\n';
 	return true;
 }
 
-bool HotReload::load_dll(bool throw_on_no_runtime_lib)
+bool HotReload::load_library(bool throw_on_no_runtime_lib)
 {
 	int max_ver = 0;
 	std::filesystem::path library;
 	for (auto& p : std::filesystem::directory_iterator(Utility::get_binary_path()))
 	{
 		std::string filename = p.path().filename().generic_string();
-		if (std::regex_match(filename, std::regex("shared_lib.*dll")))
+		if (std::regex_match(filename, std::regex("libshared_lib[0-9]+\\.so")))
 		{
-			if (filename == "shared_lib.dll")
-				continue;
-
 			// removes non digits
 			std::string output = std::regex_replace(
 				filename,
@@ -84,46 +109,29 @@ bool HotReload::load_dll(bool throw_on_no_runtime_lib)
 		return false;
 	}
 
-	// only works for windows
-	if (handle)
-		FreeLibrary(handle);
+	SharedLibFuncPtrs* new_slfp = nullptr;
 	std::cout << "HotReload: loading " << library.string() << '\n';
-	handle = LoadLibrary(library.string().c_str());
-	if (!handle)
-		throw std::runtime_error("HotReload: invalid handle");
-
-	slfp = (SharedLibFuncPtrs*)GetProcAddress(handle, "shared_lib_func_ptrs");
-	if (!slfp)
+	void* new_handle = dlopen(library.c_str(), RTLD_NOW | RTLD_LOCAL);
+	if (!new_handle)
+		throw std::runtime_error(std::string("HotReload: ") + dlerror());
+	dlerror();
+	new_slfp = reinterpret_cast<SharedLibFuncPtrs*>(dlsym(new_handle, "shared_lib_func_ptrs"));
+	if (const char* error = dlerror())
+	{
+		dlclose(new_handle);
+		throw std::runtime_error(std::string("HotReload: ") + error);
+	}
+	if (handle)
+		dlclose(handle);
+	handle = new_handle;
+	if (!new_slfp)
 	{
 		std::cout << "HotReload: load error\n";
 		return false;
 	}
+	slfp = new_slfp;
 
 	slfp->load_check();
 
 	return true;
 }
-
-#else
-HotReload& HotReload::get() 
-{ 
-	throw std::runtime_error("HotReload is unsupported for current platform!");
-}
-
-void HotReload::reload()
-{
-	throw std::runtime_error("HotReload is unsupported for current platform!");
-}
-
-bool HotReload::generate_new_dll(bool throw_on_fail)
-{
-	throw std::runtime_error("HotReload is unsupported for current platform!");
-	return true;
-}
-
-bool HotReload::load_dll(bool throw_on_no_runtime_lib)
-{
-	throw std::runtime_error("HotReload is unsupported for current platform!");
-	return true;
-}
-#endif
