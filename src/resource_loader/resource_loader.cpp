@@ -22,41 +22,12 @@
 
 namespace
 {
-std::string mesh_resource_path(const std::filesystem::path& path)
-{
-	const auto normal = path.lexically_normal();
-	auto marker = std::find(normal.begin(), normal.end(), std::filesystem::path("meshes"));
-	if (marker == normal.end())
-		return normal.generic_string();
-	std::filesystem::path relative;
-	for (++marker; marker != normal.end(); ++marker)
-		relative /= *marker;
-	return relative.generic_string();
-}
-
-std::string texture_resource_path(const std::filesystem::path& path)
-{
-	const auto normal = path.lexically_normal();
-	auto marker = std::find(normal.begin(), normal.end(), std::filesystem::path("textures"));
-	if (marker == normal.end())
-		return normal.generic_string();
-	std::filesystem::path relative;
-	for (++marker; marker != normal.end(); ++marker)
-		relative /= *marker;
-	return relative.generic_string();
-}
-
 template<typename Resolver>
-std::filesystem::path resolve_resource_path(
-	std::filesystem::path file_path,
-	Resolver resolver)
+std::filesystem::path resolve_resource_filename(std::string_view filename, Resolver resolver)
 {
-	if (std::filesystem::exists(file_path))
-		return file_path;
-
 	try
 	{
-		return resolver(file_path.string());
+		return resolver(filename);
 	}
 	catch (const std::runtime_error& error)
 	{
@@ -68,12 +39,12 @@ std::filesystem::path resolve_resource_path(
 ResourceLoader ResourceLoader::global_resource_loader;
 
 MaterialID ResourceLoader::fetch_texture(
-	std::filesystem::path file_path,
+	const std::string_view filename,
 	const ETextureSemantic semantic)
 {
 	if (semantic == ETextureSemantic::COUNT)
 		throw ResourceLoadError("ResourceLoader::fetch_texture: invalid texture semantic");
-	file_path = resolve_resource_path(std::move(file_path), Utility::get_texture);
+	const auto file_path = resolve_resource_filename(filename, Utility::get_texture);
 
 	const auto file_str = file_path.lexically_normal().string();
 	const size_t semantic_index = static_cast<size_t>(semantic);
@@ -87,7 +58,7 @@ MaterialID ResourceLoader::fetch_texture(
 
 	const auto material_id = global_resource_loader.load_texture(file_path, semantic);
 	if (auto* texture = dynamic_cast<TextureMaterial*>(&MaterialSystem::get(material_id)))
-		texture->source = texture_resource_path(file_path);
+		texture->source = filename;
 	MaterialSystem::register_owner(material_id);
 	return material_id;
 }
@@ -295,13 +266,13 @@ void add_warning(ResourceLoader::LoadedModel& result, const ResourceLoader::Load
 
 ResourceLoader::LoadedModel ResourceLoader::load_model(
 	ECS& ecs,
-	std::filesystem::path file_path,
+	const std::string_view filename,
 	const LoadOptions& options)
 {
 	try
 	{
-	file_path = resolve_resource_path(std::move(file_path), Utility::get_model);
-	const std::string provenance_source = mesh_resource_path(file_path);
+	const auto file_path = resolve_resource_filename(filename, Utility::get_model);
+	const std::string provenance_source(filename);
 	auto document = load_gltf_document(file_path);
 	auto& model = document.model;
 	if (model.scenes.empty())
@@ -314,6 +285,9 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	LoadedModel result;
 	if (!document.warning.empty())
 		result.warnings.push_back({ document.warning });
+	if (!model.animations.empty())
+		add_warning(result, options,
+			"ResourceLoader::load_model: animations were ignored; use ResourceLoader::load_animations to load them explicitly");
 	global_resource_loader.gltf_material_to_material.clear();
 	for (size_t material_index = 0; material_index < model.materials.size(); ++material_index)
 	{
@@ -325,7 +299,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	}
 
 	std::unordered_map<int, std::vector<Bone>> skins;
-	std::unordered_map<int, std::vector<AnimationID>> animations_by_skin;
 	for (const NodeInstance& instance : collect_mesh_nodes(model, model.scenes[scene_index]))
 	{
 		const auto& node = model.nodes.at(instance.node_index);
@@ -345,32 +318,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				throw ResourceLoadError("ResourceLoader::load_model: node references an invalid skin");
 			auto it = skins.find(node.skin);
 			if (it == skins.end())
-			{
 				it = skins.emplace(node.skin, load_bones(model, node.skin)).first;
-				if (!model.animations.empty())
-				{
-					std::vector<size_t> identity_mapping(it->second.size());
-					std::iota(identity_mapping.begin(), identity_mapping.end(), 0);
-					auto imported = import_animations(model, it->second, node.skin, identity_mapping);
-					auto& ids = animations_by_skin[node.skin];
-					ids.reserve(imported.size());
-					const auto signature = make_skeletal_rig_signature(it->second);
-					for (auto animation : imported)
-					{
-						const auto animation_id = ecs.add_skeletal_animation(
-							animation.name,
-							std::move(animation.bone_animations),
-							signature,
-							provenance_source);
-						ResourceProvenance::register_animation(animation_id, {
-							.source = provenance_source, .skin = node.skin,
-							.animation = animation.source_index });
-						ids.push_back(animation_id);
-					}
-				}
-				const auto& animation_ids = animations_by_skin[node.skin];
-				result.animations.insert(result.animations.end(), animation_ids.begin(), animation_ids.end());
-			}
 			skeleton = ecs.add_skeleton(it->second);
 			ResourceProvenance::register_skeleton(*skeleton, {
 				.source = provenance_source, .scene = scene_index, .node = instance.node_index, .skin = node.skin });
@@ -547,22 +495,22 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	}
 }
 
-ResourceLoader::LoadedModel ResourceLoader::load_model(ECS& ecs, std::filesystem::path file_path)
+ResourceLoader::LoadedModel ResourceLoader::load_model(ECS& ecs, const std::string_view filename)
 {
 	LoadOptions options;
 	options.generate_missing_tangents = true;
-	return load_model(ecs, std::move(file_path), options);
+	return load_model(ecs, filename, options);
 }
 
 ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 	ECS& ecs,
-	std::filesystem::path file_path,
+	const std::string_view filename,
 	const SkeletonID target_skeleton)
 {
 	try
 	{
-		file_path = resolve_resource_path(std::move(file_path), Utility::get_animation);
-		const std::string provenance_source = file_path.lexically_normal().string();
+		const auto file_path = resolve_resource_filename(filename, Utility::get_animation);
+		const std::string provenance_source(filename);
 
 		auto document = load_gltf_document(file_path);
 		const auto& model = document.model;
@@ -604,7 +552,7 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 				animation.name,
 				std::move(animation.bone_animations),
 				signature,
-				file_path.filename().string());
+				provenance_source);
 			ResourceProvenance::register_animation(animation_id, {
 				.source = provenance_source, .skin = compatible_skins.front().first,
 				.animation = animation.source_index });

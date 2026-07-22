@@ -7,6 +7,7 @@
 #include <glm/mat4x4.hpp>
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <unordered_map>
 #include <cstddef>
@@ -71,7 +72,6 @@ public:
 	struct LoadedModel
 	{
 		std::vector<LoadedMesh> meshes;
-		std::vector<AnimationID> animations;
 		Maths::Transform onload_transform;
 		std::vector<ImportWarning> warnings;
 	};
@@ -83,11 +83,11 @@ public:
 	};
 
 	static MaterialID fetch_texture(
-		std::filesystem::path file_path,
+		std::string_view filename,
 		ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
-	static LoadedModel load_model(ECS& ecs, std::filesystem::path file_path);
-	static LoadedModel load_model(ECS& ecs, std::filesystem::path file_path, const LoadOptions& options);
-	static LoadedAnimations load_animations(ECS& ecs, std::filesystem::path file_path, SkeletonID target_skeleton);
+	static LoadedModel load_model(ECS& ecs, std::string_view filename);
+	static LoadedModel load_model(ECS& ecs, std::string_view filename, const LoadOptions& options);
+	static LoadedAnimations load_animations(ECS& ecs, std::string_view filename, SkeletonID target_skeleton);
 
 private:
 	struct LoadedMaterial

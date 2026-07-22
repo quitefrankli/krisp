@@ -146,10 +146,10 @@ private:
 	void refresh_models();
 
 	std::vector<std::string> models;
-	std::vector<std::filesystem::path> model_paths;
+	std::vector<std::string> model_paths;
 	GuiVar<int> selected_model = 0;
 	GuiVar<bool> merge_imported_meshes = false;
-	std::optional<std::filesystem::path> model_to_spawn;
+	std::optional<std::string> model_to_spawn;
 	bool should_refresh_models = false;
 	bool model_dropdown_open = false;
 	std::optional<std::string> load_error;
@@ -179,8 +179,8 @@ public:
 	virtual ~GuiMusic() override;
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
-	static std::optional<std::filesystem::path> selected_path(
-		const std::vector<std::filesystem::path>& paths,
+	static std::optional<std::string> selected_path(
+		const std::vector<std::string>& paths,
 		int selected_index);
 
 private:
@@ -190,7 +190,7 @@ private:
 	glm::vec3 position{};
 	GuiVar<int> selected_song = 0;
 	std::vector<std::string> songs;
-	std::vector<std::filesystem::path> songs_paths;
+	std::vector<std::string> songs_paths;
 };
 
 class GuiStatistics : public GuiWindow
@@ -293,7 +293,7 @@ class GuiPhoto : public GuiWindow, public GuiPhotoBase
 public:
 	GuiPhoto();
 
-	void init(std::function<void(const std::filesystem::path&)>&& texture_requester);
+	void init(std::function<void(std::string_view)>&& texture_requester);
 
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
@@ -302,13 +302,13 @@ private:
 	void refresh_textures();
 
 	std::vector<std::string> photos;
-	std::vector<std::filesystem::path> photo_paths;
+	std::vector<std::string> photo_paths;
 	bool should_show = false;
 	bool should_refresh_textures = false;
 	bool texture_dropdown_open = false;
 	GuiVar<int> selected_image = 0;
-	std::optional<std::filesystem::path> texture_to_show;
-	std::function<void(const std::filesystem::path&)> texture_requester;
+	std::optional<std::string> texture_to_show;
+	std::function<void(std::string_view)> texture_requester;
 	std::optional<std::string> load_error;
 };
 
@@ -348,7 +348,7 @@ public:
 private:
 	void refresh_animation_files();
 
-	std::vector<std::filesystem::path> animation_paths;
+	std::vector<std::string> animation_paths;
 	std::unordered_map<SkeletonID, std::unordered_map<std::string, std::vector<AnimationID>>> loaded_animation_files;
 	std::optional<SkeletonID> selected_skeleton;
 	std::unordered_set<AnimationID> compatible_animations;
@@ -377,7 +377,7 @@ private:
 		ObjectID object_id;
 		size_t renderable_index;
 		ETextureSemantic semantic;
-		std::optional<std::filesystem::path> path;
+		std::optional<std::string> path;
 		bool matte = false;
 	};
 
@@ -388,7 +388,7 @@ private:
 		const std::string& current_label,
 		bool& dropdown_was_open);
 
-	std::vector<std::filesystem::path> texture_paths;
+	std::vector<std::string> texture_paths;
 	std::vector<std::string> texture_names;
 	std::vector<std::string> renderable_labels;
 	GuiVar<int> selected_renderable = 0;

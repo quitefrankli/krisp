@@ -34,20 +34,22 @@ class PlayerDemoApplication : public IApplication
 public:
 	void on_begin(GameEngine& engine) override
 	{
-		auto model = ResourceLoader::load_model(engine.get_ecs(), Utility::get_model(player_model));
+		auto model = ResourceLoader::load_model(engine.get_ecs(), player_model);
 		auto mesh = std::ranges::find_if(model.meshes, [](const auto& candidate)
 		{
 			return candidate.skeleton_id.has_value();
 		});
 		if (mesh == model.meshes.end())
 			throw std::runtime_error("Player model must contain a skinned mesh");
+		auto animations = ResourceLoader::load_animations(
+			engine.get_ecs(), player_model, *mesh->skeleton_id);
 		const auto find_clip = [&](std::string_view name)
 		{
-			auto clip = std::ranges::find_if(model.animations, [&](const AnimationID id)
+			auto clip = std::ranges::find_if(animations.animations, [&](const AnimationID id)
 			{
 				return engine.get_ecs().get_skeletal_animations().at(id).name == name;
 			});
-			if (clip == model.animations.end())
+			if (clip == animations.animations.end())
 				throw std::runtime_error("Player model is missing required animation clip: " + std::string(name));
 			return *clip;
 		};

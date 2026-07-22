@@ -66,7 +66,7 @@ TEST(GuiPanel, dynamically_spawned_panels_restore_saved_visibility)
 
 TEST(GuiMusic, safely_selects_only_existing_songs)
 {
-	const std::vector<std::filesystem::path> songs{ "first.wav", "second.ogg" };
+	const std::vector<std::string> songs{ "first.wav", "second.ogg" };
 	EXPECT_FALSE(GuiMusic::selected_path({}, 0));
 	EXPECT_FALSE(GuiMusic::selected_path(songs, -1));
 	EXPECT_FALSE(GuiMusic::selected_path(songs, 2));

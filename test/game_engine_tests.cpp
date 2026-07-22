@@ -138,7 +138,7 @@ TEST_F(GameEngineTests, scene_load_remaps_released_texture_materials)
 
 TEST_F(GameEngineTests, scene_round_trips_imported_mesh_and_embedded_material_by_provenance)
 {
-	const auto model_path = Utility::get_top_level_path() / "test/data/static_mesh_textured.gltf";
+	const auto model_path = "static_mesh_textured.gltf";
 	auto model = ResourceLoader::load_model(engine.get_ecs(), model_path);
 	ASSERT_EQ(model.meshes.size(), 1);
 	auto& object = engine.spawn_object<Object>(model.meshes.front().renderables);
@@ -164,14 +164,17 @@ TEST_F(GameEngineTests, scene_round_trips_imported_mesh_and_embedded_material_by
 TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_provenance)
 {
 	auto model = ResourceLoader::load_model(
-		engine.get_ecs(), Utility::get_top_level_path() / "test/data/simple_test_model.gltf");
+		engine.get_ecs(), "simple_test_model.gltf");
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
-	ASSERT_FALSE(model.animations.empty());
+	const auto animations = ResourceLoader::load_animations(
+		engine.get_ecs(), "standalone_animation.gltf",
+		*model.meshes.front().skeleton_id);
+	ASSERT_FALSE(animations.animations.empty());
 	auto& object = engine.spawn_object<Object>(model.meshes.front().renderables);
 	engine.get_ecs().attach_skeleton(object.get_id(), *model.meshes.front().skeleton_id);
 	const ObjectID object_id = object.get_id();
-	engine.get_ecs().play_animation(*model.meshes.front().skeleton_id, model.animations.front(), true);
+	engine.get_ecs().play_animation(*model.meshes.front().skeleton_id, animations.animations.front(), true);
 	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_imported_animation_test.yaml";
 
 	engine.save_scene(path);
@@ -192,13 +195,13 @@ TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_pro
 TEST_F(GameEngineTests, scene_round_trips_looping_standalone_animation_by_provenance)
 {
 	auto model = ResourceLoader::load_model(
-		engine.get_ecs(), Utility::get_top_level_path() / "test/data/simple_test_model.gltf");
+		engine.get_ecs(), "simple_test_model.gltf");
 	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
 	auto& object = engine.spawn_object<Object>(model.meshes.front().renderables);
 	const ObjectID object_id = object.get_id();
 	engine.get_ecs().attach_skeleton(object.get_id(), *model.meshes.front().skeleton_id);
 	const auto imported = ResourceLoader::load_animations(
-		engine.get_ecs(), Utility::get_top_level_path() / "test/data/standalone_animation.gltf",
+		engine.get_ecs(), "standalone_animation.gltf",
 		*model.meshes.front().skeleton_id);
 	ASSERT_FALSE(imported.animations.empty());
 	engine.get_ecs().play_animation(*model.meshes.front().skeleton_id, imported.animations.front(), true);
@@ -410,7 +413,7 @@ TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 
 TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_safe)
 {
-	const auto path = Utility::get_top_level_path()/"test/data/normal_mapped_shared_material.gltf";
+	const auto path = "normal_mapped_shared_material.gltf";
 	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
@@ -429,17 +432,19 @@ TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_
 
 TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 {
-	const auto path = Utility::get_top_level_path()/"test/data/simple_test_model.gltf";
+	const auto path = "simple_test_model.gltf";
 	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
-	ASSERT_EQ(model.animations.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto skeleton_id = model.meshes[0].skeleton_id;
 	ASSERT_TRUE(skeleton_id.has_value());
+	const auto animations = ResourceLoader::load_animations(
+		engine.get_ecs(), "standalone_animation.gltf", *skeleton_id);
+	ASSERT_EQ(animations.animations.size(), 2);
 
 	auto& object = engine.spawn_object<Object>(model.meshes[0].renderables);
 	engine.get_ecs().attach_skeleton(object.get_id(), *skeleton_id);
-	engine.get_ecs().play_animation(*skeleton_id, model.animations[0], true);
+	engine.get_ecs().play_animation(*skeleton_id, animations.animations[0], true);
 	engine.main_loop(0.1f);
 
 	engine.delete_object(object.get_id());
@@ -461,12 +466,12 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 	auto& object = engine.spawn_object<Object>(std::vector<Renderable>{ first, second });
 	const auto old_diffuse_owners = MaterialSystem::get_num_owners(old_diffuse);
 	engine.replace_renderable_texture(
-		object.get_id(), 0, ETextureSemantic::BASE_COLOR, Utility::get_texture("texture5.jpg"));
+		object.get_id(), 0, ETextureSemantic::BASE_COLOR, "texture5.jpg");
 	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
 	EXPECT_EQ(MaterialSystem::get_num_owners(old_diffuse), old_diffuse_owners);
 
 	engine.replace_renderable_texture(
-		object.get_id(), 1, ETextureSemantic::BASE_COLOR, Utility::get_texture("texture4.png"));
+		object.get_id(), 1, ETextureSemantic::BASE_COLOR, "texture4.png");
 
 	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
 	const auto& update = get_mock_gfx().material_updates[0];
@@ -493,7 +498,7 @@ TEST_F(GameEngineTests, texture_replacement_keeps_scene_resource_references_in_s
 	auto& object = engine.spawn_object<Object>(renderable);
 
 	engine.replace_renderable_texture(
-		object.get_id(), 0, ETextureSemantic::BASE_COLOR, Utility::get_texture("texture4.png"));
+		object.get_id(), 0, ETextureSemantic::BASE_COLOR, "texture4.png");
 
 	const auto path = std::filesystem::temp_directory_path() / "krisp_scene_replaced_texture_test.yaml";
 	engine.save_scene(path);
@@ -540,7 +545,7 @@ TEST_F(GameEngineTests, replaces_specular_maps)
 
 	engine.replace_renderable_texture(
 		object.get_id(), 0, ETextureSemantic::SPECULAR,
-		Utility::get_texture("texture4.png"));
+		"texture4.png");
 	const TexturedMatGroup group(object.renderables[0].material_ids);
 	ASSERT_TRUE(group.specular_mat);
 	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
@@ -580,7 +585,7 @@ TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
 		object.get_id(), 1, ETextureSemantic::BASE_COLOR, std::nullopt), std::runtime_error);
 	EXPECT_THROW(engine.replace_renderable_texture(
 		object.get_id(), 0, ETextureSemantic::BASE_COLOR,
-		Utility::get_top_level_path()/"test/data/does_not_exist.png"), ResourceLoadError);
+		"does_not_exist.png"), ResourceLoadError);
 	EXPECT_EQ(object.renderables[0].material_ids, original);
 	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
 

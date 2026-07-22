@@ -6,8 +6,6 @@
 
 * Match verbosity to task complexity: Routine ops (merge, deploy, simple file edits) need minimal commentary. Save detailed explanations for complex logic, architectural decisions, or when asked.
 
-* Don't add any readme.md files or other documentation files without first prompting the user.
-
 * Do test driven development, when unit tests are appropriate, first write the test that defines the expected behavior, then implement the code to pass the test.
 
 * Do not write superfluous tests, write meaningful unit tests and prefer more end-to-end tests.

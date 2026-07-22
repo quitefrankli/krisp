@@ -38,10 +38,11 @@ public:
 	static std::filesystem::path get_shader(std::string_view filename);
 	static std::filesystem::path get_audio(std::string_view filename);
 
-	static std::vector<std::filesystem::path> get_all_textures();
-	static std::vector<std::filesystem::path> get_all_models();
-	static std::vector<std::filesystem::path> get_all_animations();
-	static std::vector<std::filesystem::path> get_all_audio();
+	static std::vector<std::string> get_all_textures();
+	static std::vector<std::string> get_all_models();
+	static std::vector<std::string> get_all_animations();
+	static std::vector<std::string> get_all_audio();
+	static void set_test_mode() { get().test_mode = true; }
 
 	static quill::Logger* get_logger() { return get().logger; }
 
@@ -56,10 +57,13 @@ private:
 	static Utility& get();
 	static std::filesystem::path get_rsrc_path(bool use_default = false);
 	static std::filesystem::path resolve_resource(std::string_view subdir, std::string_view filename);
-	static std::vector<std::filesystem::path> collect_resources(std::string_view subdir, const std::unordered_set<std::string_view>& extensions);
+	static std::vector<std::string> collect_resources(
+		std::string_view subdir,
+		const std::unordered_set<std::string_view>& extensions);
 
 	quill::Logger* logger;
 	std::filesystem::path top_level_dir;
 	std::filesystem::path build;
 	std::filesystem::path binary;
+	bool test_mode = false;
 };

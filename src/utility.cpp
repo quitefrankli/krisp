@@ -15,6 +15,7 @@
 #include <chrono>
 #include <thread>
 #include <random>
+#include <algorithm>
 
 
 Utility::Utility()
@@ -70,13 +71,28 @@ Utility& Utility::get()
 
 std::filesystem::path Utility::resolve_resource(std::string_view subdir, std::string_view filename)
 {
-	auto app_path = get_rsrc_path() / subdir / filename;
+	const std::filesystem::path resource_name(filename);
+	if (resource_name.empty() || resource_name.is_absolute()
+		|| std::ranges::find(resource_name, std::filesystem::path("..")) != resource_name.end())
+	{
+		throw std::runtime_error(fmt::format(
+			"Utility::resolve_resource: expected a resource-relative filename: '{}'", filename));
+	}
+
+	if (get().test_mode)
+	{
+		auto test_path = get().top_level_dir / "test/data" / resource_name;
+		if (std::filesystem::exists(test_path))
+			return test_path;
+	}
+
+	auto app_path = get_rsrc_path() / subdir / resource_name;
 	if (std::filesystem::exists(app_path))
 	{
 		return app_path;
 	}
 
-	auto default_path = get_rsrc_path(true) / subdir / filename;
+	auto default_path = get_rsrc_path(true) / subdir / resource_name;
 	if (std::filesystem::exists(default_path))
 	{
 		return default_path;
@@ -184,11 +200,12 @@ void Utility::sleep(std::chrono::milliseconds duration, bool precise)
 	}
 }
 
-std::vector<std::filesystem::path> Utility::collect_resources(std::string_view subdir,
-                                                              const std::unordered_set<std::string_view>& extensions)
+std::vector<std::string> Utility::collect_resources(
+	std::string_view subdir,
+	const std::unordered_set<std::string_view>& extensions)
 {
 	std::unordered_set<std::string> seen_filenames;
-	std::vector<std::filesystem::path> files;
+	std::vector<std::string> files;
 
 	auto collect_from = [&](const std::filesystem::path& dir) {
 		if (!std::filesystem::exists(dir)) return;
@@ -197,11 +214,8 @@ std::vector<std::filesystem::path> Utility::collect_resources(std::string_view s
 			if (entry.is_regular_file() && extensions.contains(entry.path().extension().string()))
 			{
 				auto filename = entry.path().filename().string();
-				if (!seen_filenames.contains(filename))
-				{
-					seen_filenames.insert(filename);
-					files.push_back(entry);
-				}
+				if (seen_filenames.insert(filename).second)
+					files.push_back(std::move(filename));
 			}
 		}
 	};
@@ -212,22 +226,22 @@ std::vector<std::filesystem::path> Utility::collect_resources(std::string_view s
 	return files;
 }
 
-std::vector<std::filesystem::path> Utility::get_all_textures()
+std::vector<std::string> Utility::get_all_textures()
 {
 	return collect_resources("textures", { ".jpg", ".jpeg", ".png", ".bmp", ".tga", ".dds" });
 }
 
-std::vector<std::filesystem::path> Utility::get_all_models()
+std::vector<std::string> Utility::get_all_models()
 {
 	return collect_resources("meshes", { ".gltf", ".glb", ".obj", ".fbx" });
 }
 
-std::vector<std::filesystem::path> Utility::get_all_animations()
+std::vector<std::string> Utility::get_all_animations()
 {
 	return collect_resources("animations", { ".gltf", ".glb" });
 }
 
-std::vector<std::filesystem::path> Utility::get_all_audio()
+std::vector<std::string> Utility::get_all_audio()
 {
 	return collect_resources("sound", { ".wav", ".ogg", ".mp3", ".flac" });
 }

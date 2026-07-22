@@ -5,8 +5,36 @@
 #include <renderable/material_group.hpp>
 #include <renderable/render_types.hpp>
 #include <entity_component_system/material_system.hpp>
+#include <utility.hpp>
 
 #include <gtest/gtest.h>
+#include <algorithm>
+
+TEST(UtilityResources, test_mode_resolves_test_data_before_application_resources)
+{
+	EXPECT_EQ(
+		Utility::get_model("simple_test_model.gltf"),
+		Utility::get_top_level_path()/"test/data/simple_test_model.gltf");
+	EXPECT_EQ(
+		Utility::get_texture("texture.jpg"),
+		Utility::get_top_level_path()/"resources/applications/default/textures/texture.jpg");
+}
+
+TEST(UtilityResources, resource_names_reject_absolute_paths_and_parent_traversal)
+{
+	EXPECT_THROW(Utility::get_model("/tmp/model.glb"), std::runtime_error);
+	EXPECT_THROW(Utility::get_model("../model.glb"), std::runtime_error);
+}
+
+TEST(UtilityResources, collected_resources_are_filenames)
+{
+	const auto textures = Utility::get_all_textures();
+	EXPECT_NE(std::ranges::find(textures, "texture.jpg"), textures.end());
+	EXPECT_TRUE(std::ranges::all_of(textures, [](const std::string& filename)
+	{
+		return !std::filesystem::path(filename).is_absolute();
+	}));
+}
 
 
 TEST(Basics, MaterialMoveCtor)

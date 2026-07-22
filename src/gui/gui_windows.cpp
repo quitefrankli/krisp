@@ -332,28 +332,17 @@ void GuiModelSpawner::refresh_models()
 {
 	std::optional<std::string> selected_path;
 	if (selected_model.value >= 0 && selected_model.value < static_cast<int>(model_paths.size()))
-		selected_path = model_paths[selected_model.value].lexically_normal().generic_string();
+		selected_path = model_paths[selected_model.value];
 
 	model_paths = Utility::get_all_models();
-	std::ranges::sort(model_paths, [](const auto& lhs, const auto& rhs)
-	{
-		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
-	});
+	std::ranges::sort(model_paths);
 
-	models.clear();
-	models.reserve(model_paths.size());
-	std::ranges::transform(
-		model_paths,
-		std::back_inserter(models),
-		[](const auto& path) { return path.filename().string(); });
+	models = model_paths;
 
 	selected_model = 0;
 	if (selected_path)
 	{
-		const auto selected = std::ranges::find_if(model_paths, [&](const auto& path)
-		{
-			return path.lexically_normal().generic_string() == *selected_path;
-		});
+		const auto selected = std::ranges::find(model_paths, *selected_path);
 		if (selected != model_paths.end())
 			selected_model = static_cast<int>(std::distance(model_paths.begin(), selected));
 	}
@@ -382,11 +371,11 @@ void GuiModelSpawner::process(GameEngine& engine)
 		catch (const ResourceLoadError& error)
 		{
 			load_error = report_resource_load_error(
-				fmt::format("Model Spawner failed to load '{}'", model_path.string()), error);
+				fmt::format("Model Spawner failed to load '{}'", model_path), error);
 			return;
 		}
 
-		const auto model_name = model_path.stem().string();
+		const auto model_name = std::filesystem::path(model_path).stem().string();
 		const bool contains_skinned_mesh = std::ranges::any_of(loaded_model.meshes, [](const auto& loaded_mesh)
 		{
 			return loaded_mesh.skeleton_id.has_value();
@@ -506,13 +495,13 @@ GuiMusic::GuiMusic(AudioSource&& audio_source) :
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
 	songs_paths = Utility::get_all_audio();
-	std::ranges::transform(songs_paths, std::back_inserter(songs), [](const auto& path) { return path.filename().string(); });
+	songs = songs_paths;
 }
 
 GuiMusic::~GuiMusic() = default;
 
-std::optional<std::filesystem::path> GuiMusic::selected_path(
-	const std::vector<std::filesystem::path>& paths,
+std::optional<std::string> GuiMusic::selected_path(
+	const std::vector<std::string>& paths,
 	const int selected_index)
 {
 	if (selected_index < 0 || static_cast<size_t>(selected_index) >= paths.size())
@@ -536,7 +525,7 @@ void GuiMusic::draw()
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
 	const auto selected = selected_path(songs_paths, selected_song);
-	const std::string preview = selected ? selected->filename().string() : "No audio files found";
+	const std::string preview = selected.value_or("No audio files found");
 	if (!songs.empty() && ImGui::BeginCombo("Audio", preview.c_str()))
 	{
 		for (int i = 0; i < songs.size(); i++)
@@ -552,7 +541,7 @@ void GuiMusic::draw()
 	ImGui::BeginDisabled(!selected.has_value());
 	if (ImGui::Button("Play"))
 	{
-		audio_source->set_audio(selected->string());
+		audio_source->set_audio(Utility::get_audio(*selected).string());
 		audio_source->play();
 	}
 	ImGui::EndDisabled();
@@ -812,25 +801,17 @@ void GuiPhoto::refresh_textures()
 {
 	std::optional<std::string> selected_path;
 	if (selected_image.value >= 0 && selected_image.value < static_cast<int>(photo_paths.size()))
-		selected_path = photo_paths[selected_image.value].lexically_normal().generic_string();
+		selected_path = photo_paths[selected_image.value];
 
 	photo_paths = Utility::get_all_textures();
-	std::ranges::sort(photo_paths, [](const auto& lhs, const auto& rhs)
-	{
-		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
-	});
+	std::ranges::sort(photo_paths);
 
-	photos.clear();
-	photos.reserve(photo_paths.size());
-	std::ranges::transform(photo_paths, std::back_inserter(photos), [](const auto& path) { return path.filename().string(); });
+	photos = photo_paths;
 
 	selected_image = 0;
 	if (selected_path)
 	{
-		const auto selected = std::ranges::find_if(photo_paths, [&](const auto& path)
-		{
-			return path.lexically_normal().generic_string() == *selected_path;
-		});
+		const auto selected = std::ranges::find(photo_paths, *selected_path);
 		if (selected != photo_paths.end())
 			selected_image = static_cast<int>(std::distance(photo_paths.begin(), selected));
 	}
@@ -838,7 +819,7 @@ void GuiPhoto::refresh_textures()
 	load_error.reset();
 }
 
-void GuiPhoto::init(std::function<void(const std::filesystem::path&)>&& texture_requester)
+void GuiPhoto::init(std::function<void(std::string_view)>&& texture_requester)
 {
 	this->texture_requester = std::move(texture_requester);
 }
@@ -893,7 +874,7 @@ void GuiPhoto::draw()
 			catch (const ResourceLoadError& error)
 			{
 				load_error = report_resource_load_error(
-					fmt::format("Texture Viewer failed to load '{}'", texture_path.string()), error);
+					fmt::format("Texture Viewer failed to load '{}'", texture_path), error);
 				should_show = false;
 			}
 		}
@@ -963,10 +944,7 @@ GuiAnimationSelector::GuiAnimationSelector() :
 void GuiAnimationSelector::refresh_animation_files()
 {
 	animation_paths = Utility::get_all_animations();
-	std::ranges::sort(animation_paths, [](const auto& lhs, const auto& rhs)
-	{
-		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
-	});
+	std::ranges::sort(animation_paths);
 }
 
 std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_unique_animation_choices(
@@ -1021,20 +999,20 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		auto& cache = loaded_animation_files[*selected_skeleton];
 		for (const auto& path : animation_paths)
 		{
-			const std::string cache_key = path.lexically_normal().generic_string();
+			const std::string cache_key = path;
 			if (cache.contains(cache_key))
 				continue;
 			try
 			{
 				auto loaded = ResourceLoader::load_animations(engine.get_ecs(), path, *selected_skeleton);
 				for (const auto& warning : loaded.warnings)
-					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path.string(), warning.message);
+					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path, warning.message);
 				cache.emplace(cache_key, std::move(loaded.animations));
 			}
 			catch (const ResourceLoadError& error)
 			{
 				cache.emplace(cache_key, std::vector<AnimationID>{});
-				LOG_WARNING(Utility::get_logger(), "Animation Selector skipped '{}': {}", path.string(), error.what());
+				LOG_WARNING(Utility::get_logger(), "Animation Selector skipped '{}': {}", path, error.what());
 			}
 		}
 		rebuild_compatible_animations();
@@ -1118,14 +1096,8 @@ GuiMaterialEditor::GuiMaterialEditor() :
 void GuiMaterialEditor::refresh_textures()
 {
 	texture_paths = Utility::get_all_textures();
-	std::ranges::sort(texture_paths, [](const auto& lhs, const auto& rhs)
-	{
-		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
-	});
-	texture_names.clear();
-	texture_names.reserve(texture_paths.size());
-	std::ranges::transform(texture_paths, std::back_inserter(texture_names),
-		[](const auto& path){ return path.filename().string(); });
+	std::ranges::sort(texture_paths);
+	texture_names = texture_paths;
 }
 
 void GuiMaterialEditor::process(GameEngine& engine)

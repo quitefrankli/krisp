@@ -272,7 +272,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 
 void GraphicsEngineGuiManager::setup_gui_windows()
 {
-	this->photo.init([&](const std::filesystem::path& picture)
+	this->photo.init([&](const std::string_view picture)
 	{
 		compose_texture_for_gui_window(picture, this->photo);
 	});
@@ -297,10 +297,10 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 }
 
 void GraphicsEngineGuiManager::compose_texture_for_gui_window(
-	const std::filesystem::path& texture_path,
+	const std::string_view texture_filename,
 	GuiPhotoBase& gui_photo)
 {
-	const auto texture_mat_id = ResourceLoader::fetch_texture(texture_path);
+	const auto texture_mat_id = ResourceLoader::fetch_texture(texture_filename);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
 		texture_mat_id, 
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);

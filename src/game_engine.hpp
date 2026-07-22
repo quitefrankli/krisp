@@ -119,7 +119,7 @@ public:
 		ObjectID object_id,
 		size_t renderable_index,
 		ETextureSemantic semantic,
-		std::optional<std::filesystem::path> texture_path);
+		std::optional<std::string> texture_filename);
 	void set_renderable_specular_matte(ObjectID object_id, size_t renderable_index);
 
 	ECS& get_ecs() { return ecs; }

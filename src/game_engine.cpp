@@ -311,7 +311,7 @@ void GameEngine::spawn_cubemap()
 	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
 	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })
 		renderable.material_ids.push_back(
-			ResourceLoader::fetch_texture(Utility::get_texture(fmt::format("skybox/{}.jpg", texture_name))));
+			ResourceLoader::fetch_texture(fmt::format("skybox/{}.jpg", texture_name)));
 	spawn_object<Object>(renderable);
 }
 
@@ -492,7 +492,7 @@ void GameEngine::replace_renderable_texture(
 	const ObjectID object_id,
 	const size_t renderable_index,
 	const ETextureSemantic semantic,
-	std::optional<std::filesystem::path> texture_path)
+	std::optional<std::string> texture_filename)
 {
 	Object* object = get_object(object_id);
 	if (!object)
@@ -510,8 +510,8 @@ void GameEngine::replace_renderable_texture(
 	MaterialID diffuse = current.base_color_mat;
 	std::optional<MaterialID> normal = current.normal_mat;
 	std::optional<MaterialID> specular = current.specular_mat;
-	const MaterialID replacement = texture_path
-		? ResourceLoader::fetch_texture(*texture_path, semantic)
+	const MaterialID replacement = texture_filename
+		? ResourceLoader::fetch_texture(*texture_filename, semantic)
 		: semantic == ETextureSemantic::BASE_COLOR
 			? MaterialFactory::fetch_white_texture()
 			: MaterialID{};
@@ -529,7 +529,7 @@ void GameEngine::replace_renderable_texture(
 
 	if (old && *old == replacement)
 	{
-		if (texture_path)
+		if (texture_filename)
 			MaterialSystem::unregister_owner(replacement);
 		return;
 	}
@@ -537,9 +537,9 @@ void GameEngine::replace_renderable_texture(
 	if (semantic == ETextureSemantic::BASE_COLOR)
 		diffuse = replacement;
 	else if (semantic == ETextureSemantic::NORMAL)
-		normal = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
+		normal = texture_filename ? std::optional<MaterialID>(replacement) : std::nullopt;
 	else if (semantic == ETextureSemantic::SPECULAR)
-		specular = texture_path ? std::optional<MaterialID>(replacement) : std::nullopt;
+		specular = texture_filename ? std::optional<MaterialID>(replacement) : std::nullopt;
 
 	std::vector<MaterialID> retired_materials;
 	const auto release_material = [&](const MaterialID material_id)
@@ -560,7 +560,7 @@ void GameEngine::replace_renderable_texture(
 	};
 	if (old)
 		release_material(*old);
-	if (semantic == ETextureSemantic::BASE_COLOR || texture_path)
+	if (semantic == ETextureSemantic::BASE_COLOR || texture_filename)
 		retain_material(replacement);
 	renderable.material_ids = { diffuse };
 	if (normal)
