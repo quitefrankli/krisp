@@ -348,11 +348,7 @@ public:
 private:
 	void refresh_animation_files();
 
-	std::vector<std::string> animation_files;
 	std::vector<std::filesystem::path> animation_paths;
-	bool should_refresh_animation_files = false;
-	bool animation_file_dropdown_open = false;
-	std::optional<std::filesystem::path> animation_to_load;
 	std::unordered_map<SkeletonID, std::unordered_map<std::string, std::vector<AnimationID>>> loaded_animation_files;
 	std::optional<SkeletonID> selected_skeleton;
 	std::unordered_set<AnimationID> compatible_animations;

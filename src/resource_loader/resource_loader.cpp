@@ -22,10 +22,10 @@
 
 namespace
 {
-std::string model_resource_path(const std::filesystem::path& path)
+std::string mesh_resource_path(const std::filesystem::path& path)
 {
 	const auto normal = path.lexically_normal();
-	auto marker = std::find(normal.begin(), normal.end(), std::filesystem::path("models"));
+	auto marker = std::find(normal.begin(), normal.end(), std::filesystem::path("meshes"));
 	if (marker == normal.end())
 		return normal.generic_string();
 	std::filesystem::path relative;
@@ -301,7 +301,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	try
 	{
 	file_path = resolve_resource_path(std::move(file_path), Utility::get_model);
-	const std::string provenance_source = model_resource_path(file_path);
+	const std::string provenance_source = mesh_resource_path(file_path);
 	auto document = load_gltf_document(file_path);
 	auto& model = document.model;
 	if (model.scenes.empty())

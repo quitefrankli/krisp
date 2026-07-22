@@ -967,10 +967,6 @@ void GuiAnimationSelector::refresh_animation_files()
 	{
 		return lhs.lexically_normal().generic_string() < rhs.lexically_normal().generic_string();
 	});
-	animation_files.clear();
-	animation_files.reserve(animation_paths.size());
-	std::ranges::transform(animation_paths, std::back_inserter(animation_files),
-		[](const auto& path){ return path.filename().string(); });
 }
 
 std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_unique_animation_choices(
@@ -992,12 +988,6 @@ std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_un
 void GuiAnimationSelector::process(GameEngine& engine)
 {
 	const std::lock_guard lock(state_mutex);
-	if (should_refresh_animation_files)
-	{
-		should_refresh_animation_files = false;
-		refresh_animation_files();
-	}
-
 	selected_skeleton.reset();
 	animation_choices.clear();
 	animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
@@ -1026,46 +1016,28 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		}
 	};
 	rebuild_compatible_animations();
-
-	if (animation_to_load)
+	if (selected_skeleton)
 	{
-		const auto path = std::move(*animation_to_load);
-		animation_to_load.reset();
-		if (!selected_skeleton)
+		auto& cache = loaded_animation_files[*selected_skeleton];
+		for (const auto& path : animation_paths)
 		{
-			load_error = report_resource_load_error(
-				fmt::format("Animation Selector failed to load '{}'", path.string()),
-				ResourceLoadError(target_status));
-		}
-		else
-		{
+			const std::string cache_key = path.lexically_normal().generic_string();
+			if (cache.contains(cache_key))
+				continue;
 			try
 			{
-				const std::string cache_key = path.lexically_normal().generic_string();
-				auto& cache = loaded_animation_files[*selected_skeleton];
-				auto loaded_it = cache.find(cache_key);
-				if (loaded_it == cache.end())
-				{
-					auto loaded = ResourceLoader::load_animations(engine.get_ecs(), path, *selected_skeleton);
-					for (const auto& warning : loaded.warnings)
-						LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path.string(), warning.message);
-					loaded_it = cache.emplace(cache_key, std::move(loaded.animations)).first;
-				}
-				load_error.reset();
-				rebuild_compatible_animations();
-				if (!loaded_it->second.empty())
-				{
-					selected_animation = loaded_it->second.front();
-					const auto& animation = engine.get_ecs().get_skeletal_animations().at(*selected_animation);
-					selected_animation_name = animation.source + ": " + animation.name;
-				}
+				auto loaded = ResourceLoader::load_animations(engine.get_ecs(), path, *selected_skeleton);
+				for (const auto& warning : loaded.warnings)
+					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path.string(), warning.message);
+				cache.emplace(cache_key, std::move(loaded.animations));
 			}
 			catch (const ResourceLoadError& error)
 			{
-				load_error = report_resource_load_error(
-					fmt::format("Animation Selector failed to load '{}'", path.string()), error);
+				cache.emplace(cache_key, std::vector<AnimationID>{});
+				LOG_WARNING(Utility::get_logger(), "Animation Selector skipped '{}': {}", path.string(), error.what());
 			}
 		}
+		rebuild_compatible_animations();
 	}
 
 	if (selected_animation && !compatible_animations.contains(*selected_animation))
@@ -1098,20 +1070,6 @@ void GuiAnimationSelector::draw()
 	const std::lock_guard lock(state_mutex);
 	if (begin())
 	{
-	const bool file_dropdown_open = begin_italic_combo("##animation_file", "(select animation file)");
-	if (file_dropdown_open && !animation_file_dropdown_open)
-		should_refresh_animation_files = true;
-	animation_file_dropdown_open = file_dropdown_open;
-	if (file_dropdown_open)
-	{
-		for (size_t index = 0; index < animation_files.size(); ++index)
-		{
-			if (ImGui::Selectable(animation_files[index].c_str()))
-				animation_to_load = animation_paths[index];
-		}
-		ImGui::EndCombo();
-	}
-
 	ImGui::TextWrapped("%s", target_status.c_str());
 
 	if (ImGui::BeginCombo("Animations", selected_animation_name.c_str()))
