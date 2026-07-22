@@ -21,3 +21,5 @@
 * IMPORTANT: never commit changes without the user's explicit approval.
 
 * Only the `krisp` application must be maintained. Changes may break the other applications.
+
+* When commiting, refer to `.codex/agents/commit.toml` for spawning a subagent
