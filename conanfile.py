@@ -24,7 +24,6 @@ class vulkan_conan(ConanFile):
         "tinygltf/2.5.0",
         "quill/10.0.1",
         "miniaudio/0.11.22",
-        "libsndfile/1.0.31", # to be removed after audio refactor
         "fmt/11.2.0",
         # Docking is used by the shared editor workspace. Keep this on a
         # docking release and update the bundled GLFW/Vulkan backends with it.

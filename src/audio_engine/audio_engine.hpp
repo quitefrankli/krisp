@@ -1,21 +1,27 @@
 #pragma once
 
-#include "audio_source.hpp"
-#include "SoundDevice.hpp"
-#include "SoundBuffer.hpp"
+#include <miniaudio.h>
 
-#include <unordered_map>
-
+#include <glm/vec3.hpp>
 
 class AudioEngine
 {
 public:
-	AudioEngine();
+	explicit AudioEngine(bool enable_output);
+	~AudioEngine();
 
-	uint32_t get_buffer(const std::string& filename);
+	AudioEngine(const AudioEngine&) = delete;
+	AudioEngine& operator=(const AudioEngine&) = delete;
+
+	bool has_output() const { return output_available; }
+	ma_engine& native() { return engine; }
+	void set_listener_transform(
+		const glm::vec3& position,
+		const glm::vec3& direction,
+		const glm::vec3& up);
 
 private:
-	SoundDevice device;
-	// std::unordered_map<uint32_t, AudioSource> sources;
-	std::unordered_map<std::string, SoundBuffer> buffers;
+	ma_engine engine{};
+	bool initialized = false;
+	bool output_available = false;
 };

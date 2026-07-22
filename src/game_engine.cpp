@@ -41,7 +41,7 @@ GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	window(std::make_unique<App::Window>()),
 	mouse(std::make_unique<Mouse>(*window)),
 	graphics_engine(std::make_unique<GraphicsEngine>(*this)),
-	camera(std::make_unique<Camera>(Listener(),
+	camera(std::make_unique<Camera>(Listener(audio_engine),
 		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
 	application(std::move(app))
 {
@@ -54,7 +54,7 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 	window(std::move(win)),
 	mouse(std::make_unique<Mouse>(*window)),
 	graphics_engine(std::move(gfx_engine)),
-	camera(std::make_unique<Camera>(Listener(),
+	camera(std::make_unique<Camera>(Listener(audio_engine),
 		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
 	application(std::move(app))
 {
@@ -226,6 +226,7 @@ void GameEngine::main_loop(const float time_delta)
 		application->on_tick(*this, time_delta);
 		application->on_post_tick(*this, time_delta);
 	}
+	camera->sync_audio_listener();
 }
 
 void GameEngine::process_camera_movement(float time_delta)

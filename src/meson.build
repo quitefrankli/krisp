@@ -24,7 +24,6 @@ ecs_sources = files('entity_component_system/animation.cpp',
 
 audio_sources = files('audio_engine/audio_engine.cpp',
 					  'audio_engine/audio_engine_pimpl.cpp',
-					  'audio_engine/SoundBuffer.cpp',
 					  'audio_engine/audio_source.cpp',
 					  'audio_engine/listener.cpp')
 
@@ -44,7 +43,6 @@ sources = files('collision/collider.cpp',
 				'game_engine_callbacks.cpp',
 				'analytics.cpp',
 				'objects/object.cpp',
-				'audio_engine/audio_engine_pimpl.cpp',
 				'objects/objects.cpp',
 				'game_objects/character.cpp',
 				'game_objects/player_character.cpp',
@@ -63,7 +61,7 @@ sources = files('collision/collider.cpp',
 				'experimental.cpp',
 				'resource_loader/resource_loader.cpp')
 
-all_sources = sources + graphics_sources + ecs_sources #+ audio_sources
+all_sources = sources + graphics_sources + ecs_sources + audio_sources
 
 krisp_libs = static_library(
 	'krisp_libs', 

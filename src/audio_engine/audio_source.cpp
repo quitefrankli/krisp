@@ -1,136 +1,103 @@
 #include "audio_source.hpp"
+
 #include "audio_engine.hpp"
-#include "utility.hpp"
 
-#include "openal_include.hpp"
+#include <miniaudio.h>
 
-#include <iostream>
+#include <stdexcept>
+#include <string>
 
+namespace
+{
+void require_success(const char* operation, const ma_result result)
+{
+	if (result != MA_SUCCESS)
+		throw std::runtime_error(std::string(operation) + ": " + ma_result_description(result));
+}
+}
+
+class AudioSource::Impl
+{
+public:
+	explicit Impl(AudioEngine& engine) : engine(engine) {}
+	~Impl()
+	{
+		if (sound)
+			ma_sound_uninit(sound.get());
+	}
+
+	AudioEngine& engine;
+	std::unique_ptr<ma_sound> sound;
+	float gain = 1.0f;
+	float pitch = 1.0f;
+	glm::vec3 position{};
+	bool loop = false;
+};
 
 AudioSource::AudioSource(AudioEngine& audio_engine) :
-	audio_engine(audio_engine)
+	impl(std::make_unique<Impl>(audio_engine))
 {
-	alGenSources(1, &p_Source);
-	alSourcef(p_Source, AL_PITCH, p_Pitch);
-	alSourcef(p_Source, AL_GAIN, p_Gain);
-	alSource3f(p_Source, AL_POSITION, position[0], position[1], position[2]);
-	alSource3f(p_Source, AL_VELOCITY, velocity[0], velocity[1], velocity[2]);
-	alSourcei(p_Source, AL_LOOPING, p_LoopSound);
-	alSourcei(p_Source, AL_BUFFER, p_Buffer);
-	// alSourcei(p_Source, AL_SOURCE_RELATIVE, 0); // allows to work with listener
-	alSourcef(p_Source, AL_ROLLOFF_FACTOR, 0.2f); // default = 1
 }
 
-AudioSource::AudioSource(AudioSource&& other) noexcept : audio_engine(other.audio_engine)
+AudioSource::AudioSource(AudioSource&& other) noexcept = default;
+AudioSource& AudioSource::operator=(AudioSource&& other) noexcept = default;
+AudioSource::~AudioSource() = default;
+
+void AudioSource::set_audio(const std::string_view filename, const AudioLoadMode mode)
 {
-	p_Source = other.p_Source;
-	p_Pitch = other.p_Pitch;
-	p_Gain = other.p_Gain;
-	position = other.position;
-	velocity = other.velocity;
-	p_LoopSound = other.p_LoopSound;
-	p_Buffer = other.p_Buffer;
-
-	other.should_destroy = false;
-}
-
-AudioSource::~AudioSource()
-{
-	if (!should_destroy)
-	{
-		return;
-	}
-	alDeleteSources(1, &p_Source);
-}
-
-void AudioSource::set_audio(const std::string_view filename)
-{
-	if (std::string(filename.data()).find(".wav") == std::string::npos)
-	{
-		throw std::runtime_error("AudioSource::set_audio: only wav files are supported");
-	}
-
-	set_audio_buffer(audio_engine.get_buffer(filename.data()));
-}
-
-void AudioSource::set_audio_buffer(const uint32_t buffer)
-{
-	ALint state = AL_PLAYING;
-	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
-	if (state == AL_PLAYING || state == AL_PAUSED)
-	{
-		alSourceStop(p_Source);
-	}
-
-	if (buffer != p_Buffer)
-	{
-		p_Buffer = buffer;
-		alSourcei(p_Source, AL_BUFFER, (ALint)p_Buffer);
-	}
+	const std::string path(filename);
+	auto replacement = std::make_unique<ma_sound>();
+	const ma_uint32 flags = mode == AudioLoadMode::STREAM
+		? MA_SOUND_FLAG_STREAM : MA_SOUND_FLAG_DECODE;
+	require_success("Failed to load audio",
+		ma_sound_init_from_file(&impl->engine.native(), path.c_str(), flags, nullptr, nullptr, replacement.get()));
+	ma_sound_set_volume(replacement.get(), impl->gain);
+	ma_sound_set_pitch(replacement.get(), impl->pitch);
+	ma_sound_set_position(replacement.get(), impl->position.x, impl->position.y, impl->position.z);
+	ma_sound_set_looping(replacement.get(), impl->loop ? MA_TRUE : MA_FALSE);
+	if (impl->sound)
+		ma_sound_uninit(impl->sound.get());
+	impl->sound = std::move(replacement);
 }
 
 void AudioSource::play()
 {
-	ALint state;
-	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
-	if (state == AL_PLAYING)
-	{
-		std::cout << "AudioSource::play: warning attempted to play while something was already playing\n";
-		return;
-	}
-
-	alSourcePlay(p_Source);
-	// std::cout << "playing sound\n";
-	// while (state == AL_PLAYING && alGetError() == AL_NO_ERROR)
-	// {
-	// 	std::cout << "currently playing sound\n";
-	// 	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
-	// }
-	// std::cout << "done playing sound\n";
+	if (!impl->sound)
+		throw std::runtime_error("Cannot play audio before loading a file");
+	require_success("Failed to rewind audio", ma_sound_seek_to_pcm_frame(impl->sound.get(), 0));
+	require_success("Failed to play audio", ma_sound_start(impl->sound.get()));
 }
 
 void AudioSource::stop()
 {
-	ALint state;
-	alGetSourcei(p_Source, AL_SOURCE_STATE, &state);
-	if (state == AL_STOPPED)
-	{
-		return;
-	}
-
-	alSourceStop(p_Source);
+	if (impl->sound)
+		require_success("Failed to stop audio", ma_sound_stop(impl->sound.get()));
 }
 
-void AudioSource::set_gain(float gain)
+void AudioSource::set_gain(const float gain)
 {
-	if (gain == p_Gain)
-		return;
-	p_Gain = gain;
-	alSourcef(p_Source, AL_GAIN, gain);
+	impl->gain = gain;
+	if (impl->sound)
+		ma_sound_set_volume(impl->sound.get(), gain);
 }
 
-void AudioSource::set_pitch(float pitch)
+void AudioSource::set_pitch(const float pitch)
 {
-	if (pitch == p_Pitch)
-		return;
-	p_Pitch = pitch;
-	// pitch seems quite sensitive
-	const float true_pitch = 1.0f + (pitch - 1.0f) * 0.2f;
-	alSourcef(p_Source, AL_PITCH, true_pitch);
+	impl->pitch = pitch;
+	if (impl->sound)
+		ma_sound_set_pitch(impl->sound.get(), pitch);
 }
 
 void AudioSource::set_position(const glm::vec3& position)
 {
-	if (position == this->position)
-		return;
-	this->position = position;
-	alSource3f(p_Source, AL_POSITION, position.x, position.y, position.z);
+	impl->position = position;
+	if (impl->sound)
+		ma_sound_set_position(impl->sound.get(), position.x, position.y, position.z);
 }
 
-void AudioSource::set_loop(bool loop) 
+void AudioSource::set_loop(const bool loop)
 {
-	if (loop == p_LoopSound)
-		return;
-	p_LoopSound = loop;
-	alSourcei(p_Source, AL_LOOPING, loop);
+	impl->loop = loop;
+	if (impl->sound)
+		ma_sound_set_looping(impl->sound.get(), loop ? MA_TRUE : MA_FALSE);
 }

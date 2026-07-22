@@ -31,6 +31,7 @@ public:
 	Maths::Ray get_ray(const glm::vec2& screen) const;
 
 	glm::vec3 get_focus() const;
+	void sync_audio_listener();
 
 	float get_focal_length();
 	void zoom_in(float length);

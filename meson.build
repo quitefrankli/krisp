@@ -27,7 +27,6 @@ conan_dependencies = [
     dependency('tinygltf', required: true),
 	dependency('vulkan', required: true),
     dependency('quill', required: true),
-    dependency('sndfile', required: true), # from libsndfile
     dependency('fmt', required: true),
     dependency('imgui', required: true),
     dependency('gtest', required: true),

@@ -1,37 +1,68 @@
+#include <extras/stb_vorbis.c>
+#undef L
+#undef C
+#undef R
+#define MINIAUDIO_IMPLEMENTATION
 #include "audio_engine.hpp"
 
-// #include <AL/al.h>
-// #include <AL/alc.h>
-#include <sndfile.h>
+#include "utility.hpp"
+
+#include <quill/LogMacros.h>
 
 #include <stdexcept>
-#include <iostream>
 
-
-AudioEngine::AudioEngine()
+namespace
 {
-	// uint32_t /*ALuint*/ sound1 = SoundBuffer::get()->addSoundEffect("../resources/sound/spell.ogg");
-	// uint32_t /*ALuint*/ sound2 = SoundBuffer::get()->addSoundEffect("../resources/sound/magicfail.ogg");
-
-	// SoundBuffer* buffer= new SoundBuffer("../resources/sound/wav1.wav");
-	// auto id = buffer->get_id();
-	// // buffers.emplace(id, std::move(buffer));
-	// AudioSource* source = new AudioSource(*this);
-
-	// // mySpeaker->Play(sound1);
-	// // mySpeaker->Play(sound2);
-	// source->set_audio_buffer(id);
-	// source->play();
-
-	// std::cout << "got here\n";
+std::runtime_error audio_error(const char* operation, const ma_result result)
+{
+	return std::runtime_error(std::string(operation) + ": " + ma_result_description(result));
+}
 }
 
-uint32_t AudioEngine::get_buffer(const std::string& filename)
+AudioEngine::AudioEngine(const bool enable_output)
 {
-	auto retval = buffers.emplace(filename, filename);
-	if (retval.second)
+	ma_result result = MA_ERROR;
+	if (enable_output)
 	{
-		std::cout << "AudioEngine::get_buffer: new buffer created for " << filename << '\n';
+		result = ma_engine_init(nullptr, &engine);
+		if (result == MA_SUCCESS)
+		{
+			initialized = true;
+			const ma_device* device = ma_engine_get_device(&engine);
+			output_available = device && device->pContext
+				&& device->pContext->backend != ma_backend_null;
+			if (!output_available)
+				LOG_WARNING(Utility::get_logger(),
+					"No physical audio output is available; using miniaudio's null backend");
+			return;
+		}
+		LOG_WARNING(Utility::get_logger(),
+			"Audio output unavailable ({}); continuing without a device",
+			ma_result_description(result));
 	}
-	return retval.first->second.get_id();
+
+	auto config = ma_engine_config_init();
+	config.noDevice = MA_TRUE;
+	config.channels = 2;
+	config.sampleRate = 48000;
+	result = ma_engine_init(&config, &engine);
+	if (result != MA_SUCCESS)
+		throw audio_error("Failed to initialize miniaudio", result);
+	initialized = true;
+}
+
+AudioEngine::~AudioEngine()
+{
+	if (initialized)
+		ma_engine_uninit(&engine);
+}
+
+void AudioEngine::set_listener_transform(
+	const glm::vec3& position,
+	const glm::vec3& direction,
+	const glm::vec3& up)
+{
+	ma_engine_listener_set_position(&engine, 0, position.x, position.y, position.z);
+	ma_engine_listener_set_direction(&engine, 0, direction.x, direction.y, direction.z);
+	ma_engine_listener_set_world_up(&engine, 0, up.x, up.y, up.z);
 }

@@ -208,15 +208,20 @@ public:
 	static std::optional<std::string> selected_path(
 		const std::vector<std::string>& paths,
 		int selected_index);
+	static std::vector<std::string> sort_paths(std::vector<std::string> paths);
 
 private:
 	std::unique_ptr<AudioSource> audio_source;
 	float gain = 1.0f;
 	float pitch = 1.0f;
 	glm::vec3 position{};
+	bool loop = false;
 	GuiVar<int> selected_song = 0;
 	std::vector<std::string> songs;
 	std::vector<std::string> songs_paths;
+	std::optional<std::string> audio_to_play;
+	std::optional<std::string> load_error;
+	std::mutex state_mutex;
 };
 
 class GuiStatistics : public GuiWindow

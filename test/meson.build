@@ -2,6 +2,7 @@ sources = [
 	'test_main.cpp',
 	'mesh_tests.cpp',
 	'game_engine_tests.cpp',
+	'audio_engine_tests.cpp',
 	'clickable_ecs_tests.cpp',
 	'common_tests.cpp',
 	'gui_panel_tests.cpp',

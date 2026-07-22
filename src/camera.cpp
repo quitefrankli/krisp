@@ -185,6 +185,12 @@ glm::vec3 Camera::get_focus() const
 	return focus_obj->get_position();
 }
 
+void Camera::sync_audio_listener()
+{
+	const auto basis = make_roll_free_basis(get_focus() - get_position());
+	listener.set_transform(get_position(), basis.forward, basis.up);
+}
+
 void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 {
 	const glm::vec3 view_dir = glm::normalize(focus - from);

@@ -12,8 +12,6 @@
 #include "renderable/material_factory.hpp"
 
 #include <fmt/core.h>
-#define MINIAUDIO_IMPLEMENTATION
-#include <miniaudio.h>
 #include <quill/LogMacros.h>
 
 #include <cmath>
@@ -393,13 +391,12 @@ void Experimental::process()
              terrain_obj.get_position().y, 
              terrain_obj.get_position().z);
 
-    ma_engine audio_engine;
-    ma_engine_init(nullptr, &audio_engine);
+    auto audio_source = engine.get_audio_engine().create_source();
     auto audio_file = Utility::get_audio("wav2.wav");
-    ma_engine_play_sound(&audio_engine, audio_file.string().c_str(), nullptr);
+    audio_source.set_audio(audio_file.string());
+    audio_source.play();
     spawn_test_particles(this->engine);
     std::this_thread::sleep_for(std::chrono::seconds(2));
-    ma_engine_uninit(&audio_engine);
 }
 
 void Experimental::process(float time_delta)

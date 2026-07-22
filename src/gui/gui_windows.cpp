@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <unordered_set>
 #include "gui_windows.hpp"
 
@@ -614,7 +615,7 @@ GuiMusic::GuiMusic(AudioSource&& audio_source) :
 	GuiWindow({ "audio", "Audio", GuiPanelDock::RIGHT, false }),
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
-	songs_paths = Utility::get_all_audio();
+	songs_paths = sort_paths(Utility::get_all_audio());
 	songs = songs_paths;
 }
 
@@ -629,21 +630,71 @@ std::optional<std::string> GuiMusic::selected_path(
 	return paths[selected_index];
 }
 
-void GuiMusic::process(GameEngine& engine)
+std::vector<std::string> GuiMusic::sort_paths(std::vector<std::string> paths)
 {
-	audio_source->set_gain(gain);
-	audio_source->set_pitch(pitch);
-	audio_source->set_position(position);
+	std::ranges::sort(paths, [](const std::string& lhs, const std::string& rhs) {
+		const bool precedes = std::lexicographical_compare(
+			lhs.begin(), lhs.end(), rhs.begin(), rhs.end(), [](const unsigned char left, const unsigned char right) {
+				return std::tolower(left) < std::tolower(right);
+			});
+		const bool follows = std::lexicographical_compare(
+			rhs.begin(), rhs.end(), lhs.begin(), lhs.end(), [](const unsigned char left, const unsigned char right) {
+				return std::tolower(left) < std::tolower(right);
+			});
+		return precedes || (!follows && lhs < rhs);
+	});
+	return paths;
+}
+
+void GuiMusic::process(GameEngine&)
+{
+	std::optional<std::string> requested_audio;
+	float requested_gain;
+	float requested_pitch;
+	glm::vec3 requested_position;
+	bool requested_loop;
+	{
+		const std::lock_guard lock(state_mutex);
+		requested_audio = std::move(audio_to_play);
+		audio_to_play.reset();
+		requested_gain = gain;
+		requested_pitch = pitch;
+		requested_position = position;
+		requested_loop = loop;
+	}
+
+	try
+	{
+		audio_source->set_gain(requested_gain);
+		audio_source->set_pitch(requested_pitch);
+		audio_source->set_position(requested_position);
+		audio_source->set_loop(requested_loop);
+		if (requested_audio)
+		{
+			audio_source->set_audio(
+				Utility::get_audio(*requested_audio).string(), AudioLoadMode::STREAM);
+			audio_source->play();
+			const std::lock_guard lock(state_mutex);
+			load_error.reset();
+		}
+	}
+	catch (const std::exception& error)
+	{
+		const std::lock_guard lock(state_mutex);
+		load_error = error.what();
+	}
 }
 
 void GuiMusic::draw()
 {
+	const std::lock_guard lock(state_mutex);
 	if (begin())
 	{
 
-	ImGui::SliderFloat("Gain", &gain, 0.0f, 1.0f);
+	ImGui::SliderFloat("Gain", &gain, 0.0f, 3.0f);
 	ImGui::SliderFloat("Pitch", &pitch, 0.0f, 2.0f);
 	ImGui::SliderFloat3("Position", glm::value_ptr(position), -40.0f, 40.0f);
+	ImGui::Checkbox("Loop", &loop);
 	const auto selected = selected_path(songs_paths, selected_song);
 	const std::string preview = selected.value_or("No audio files found");
 	if (!songs.empty() && ImGui::BeginCombo("Audio", preview.c_str()))
@@ -660,11 +711,9 @@ void GuiMusic::draw()
 	}
 	ImGui::BeginDisabled(!selected.has_value());
 	if (ImGui::Button("Play"))
-	{
-		audio_source->set_audio(Utility::get_audio(*selected).string());
-		audio_source->play();
-	}
+		audio_to_play = *selected;
 	ImGui::EndDisabled();
+	draw_resource_load_error(load_error);
 
 	}
 	end();

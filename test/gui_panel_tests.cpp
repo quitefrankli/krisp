@@ -81,6 +81,12 @@ TEST(GuiMusic, safely_selects_only_existing_songs)
 	EXPECT_EQ(GuiMusic::selected_path(songs, 1), songs[1]);
 }
 
+TEST(GuiMusic, sorts_audio_paths_alphabetically)
+{
+	const auto paths = GuiMusic::sort_paths({ "Zulu.wav", "alpha.wav", "middle.wav" });
+	EXPECT_EQ(paths, (std::vector<std::string>{ "alpha.wav", "middle.wav", "Zulu.wav" }));
+}
+
 TEST(GuiAnimationSelector, sorts_and_hides_duplicate_clip_labels)
 {
 	const std::vector<GuiAnimationSelector::AnimationChoice> choices{
