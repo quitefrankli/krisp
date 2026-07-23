@@ -58,6 +58,20 @@ float animation_duration(const SkeletalAnimation& animation)
 		duration_secs = std::max(duration_secs, bone_animation.animation_end_secs);
 	return duration_secs;
 }
+
+void align_rotation_track_hemisphere(BoneAnimation::Track<glm::vec4>& track)
+{
+	for (size_t index = 1; index < track.keys.size(); ++index)
+	{
+		auto& previous = track.keys[index - 1];
+		auto& current = track.keys[index];
+		if (glm::dot(previous.value, current.value) >= 0.0f)
+			continue;
+		current.value = -current.value;
+		current.in_tangent = -current.in_tangent;
+		current.out_tangent = -current.out_tangent;
+	}
+}
 }
 
 
@@ -327,6 +341,9 @@ AnimationID SkeletalAnimationSystem::add_skeletal_animation(
 	SkeletalRigSignature rig_signature,
 	std::string source)
 {
+	for (auto& bone_animation : bone_animations)
+		align_rotation_track_hemisphere(bone_animation.rotation_track);
+
 	SkeletalAnimation animation;
 	animation.name = name;
 	animation.source = std::move(source);

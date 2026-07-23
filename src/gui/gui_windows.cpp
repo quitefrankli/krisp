@@ -1347,7 +1347,7 @@ void GuiAnimationSelector::draw()
 
 	ImGui::SameLine();
 	ImGui::SetNextItemWidth(80.0f);
-	if (ImGui::InputFloat("Speed", &playback_speed, 0.0f, 0.0f, "%.1f"))
+	if (ImGui::InputFloat("Speed", &playback_speed, 0.0f, 0.0f, "%.2f"))
 	{
 		if (playback_active)
 			speed_request = playback_speed;

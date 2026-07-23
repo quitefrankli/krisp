@@ -97,3 +97,41 @@ TEST(SkeletalAnimationSystem, supports_unrestricted_playback_speed)
 	fixture.ecs.set_animation_speed(fixture.skeleton_id, 0.0f);
 	EXPECT_FLOAT_EQ(fixture.ecs.get_animation_playback(fixture.skeleton_id)->speed, 0.0f);
 }
+
+TEST(SkeletalAnimationSystem, aligns_cubic_rotation_keys_and_tangents_to_one_hemisphere)
+{
+	ECS ecs;
+	Bone bone;
+	bone.name = "root";
+	const auto skeleton_id = ecs.add_skeleton({ bone });
+
+	BoneAnimation animation;
+	animation.animation_start_secs = 0.0f;
+	animation.animation_end_secs = 1.0f;
+	animation.rotation_track.interpolation = BoneAnimation::Interpolation::CUBIC_SPLINE;
+	// q and -q represent the same orientation, but cubic interpolation between
+	// opposite signs approaches a zero quaternion unless the key and its tangents are flipped.
+	animation.rotation_track.keys = {
+		{ 0.0f, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), {}, {} },
+		{ 1.0f, glm::vec4(0.0f, 0.0f, 0.0f, -1.0f),
+			glm::vec4(0.25f, 0.0f, 0.0f, 0.0f),
+			glm::vec4(0.5f, 0.0f, 0.0f, 0.0f) },
+	};
+	const auto animation_id = ecs.add_skeletal_animation(
+		"antipodal", { std::move(animation) }, make_skeletal_rig_signature({ bone }));
+
+	const auto& keys = ecs.get_skeletal_animations().at(animation_id).bone_animations[0].rotation_track.keys;
+	ASSERT_EQ(keys.size(), 2u);
+	EXPECT_FLOAT_EQ(keys[1].value.w, 1.0f);
+	EXPECT_FLOAT_EQ(keys[1].in_tangent.x, -0.25f);
+	EXPECT_FLOAT_EQ(keys[1].out_tangent.x, -0.5f);
+
+	ecs.play_animation(skeleton_id, animation_id);
+	ecs.seek_animation(skeleton_id, 0.5f);
+	const auto orientation =
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_orient();
+	EXPECT_TRUE(std::isfinite(orientation.x));
+	EXPECT_TRUE(std::isfinite(orientation.y));
+	EXPECT_TRUE(std::isfinite(orientation.z));
+	EXPECT_TRUE(std::isfinite(orientation.w));
+}
