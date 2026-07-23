@@ -5,6 +5,7 @@
 
 // keep in mind that some types such as dvec3 uses 2 slots therefore we need the next layout location to be 2 indices after
 layout(location=0) in vec3 in_position;
+layout(location=1) in vec3 in_normal;
 layout(location=3) in vec4 bone_ids;
 layout(location=4) in vec4 bone_weights;
 
@@ -39,8 +40,9 @@ void main()
 		get_bone_matrix(bone_ids.y) * bone_weights.y + 
 		get_bone_matrix(bone_ids.z) * bone_weights.z + 
 		get_bone_matrix(bone_ids.w) * bone_weights.w;
-	const vec3 vertex_offset = normalize(in_position) * STENCIL_OFFSET;
-	const vec3 frag_pos = (skin_matrix * vec4(in_position + vertex_offset, 1.0)).xyz;
+	const vec3 frag_pos = (skin_matrix * vec4(in_position, 1.0)).xyz;
+	const vec3 skinned_normal = normalize(transpose(inverse(mat3(skin_matrix))) * in_normal);
 
-    gl_Position = global_data.data.proj * global_data.data.view * vec4(frag_pos, 1.0);
+    gl_Position = global_data.data.proj * global_data.data.view
+		* vec4(frag_pos + skinned_normal * STENCIL_OFFSET, 1.0);
 }

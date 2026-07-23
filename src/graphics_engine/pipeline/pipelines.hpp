@@ -11,6 +11,7 @@ public:
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::TexVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::TexVertex, pos); }
+	static uint32_t get_vertex_normal_offset() { return offsetof(SDS::TexVertex, normal); }
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "texture"; }
@@ -25,6 +26,7 @@ public:
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::ColorVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::ColorVertex, pos); }
+	static uint32_t get_vertex_normal_offset() { return offsetof(SDS::ColorVertex, normal); }
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "color"; }
@@ -75,6 +77,7 @@ public:
 
 	static uint32_t get_vertex_stride() { return sizeof(SDS::SkinnedVertex); }
 	static uint32_t get_vertex_pos_offset() { return offsetof(SDS::SkinnedVertex, pos); }
+	static uint32_t get_vertex_normal_offset() { return offsetof(SDS::SkinnedVertex, normal); }
 	static std::vector<VkVertexInputBindingDescription> get_binding_descriptions_();
 	static std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions_();
 	static std::vector<VkVertexInputAttributeDescription> get_skinning_attribute_descriptions_();
@@ -222,6 +225,7 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil"; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_FRONT_BIT; }
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
@@ -235,6 +239,7 @@ public:
 protected:
 	virtual std::string_view get_shader_name() const override { return "stencil_skinned"; }
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_FRONT_BIT; }
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };

@@ -7,6 +7,7 @@ concept has_vertex_pos_info = requires(T t)
 {
 	{ T::get_vertex_stride() } -> std::convertible_to<uint32_t>;
 	{ T::get_vertex_pos_offset() } -> std::convertible_to<uint32_t>;
+	{ T::get_vertex_normal_offset() } -> std::convertible_to<uint32_t>;
 };
 
 template<typename T>

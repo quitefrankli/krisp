@@ -86,33 +86,16 @@ template<Stencileable PrimaryPipelineType>
 VkPipelineDepthStencilStateCreateInfo StencilPipeline<PrimaryPipelineType>::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	// render all objects twice
-	// on first render always succeed and write 1 to stencil buffer
-	// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
-	info.front.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
-	info.front.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-	info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-	info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-	info.depthTestEnable = VK_FALSE;
-
-	info.front = [&]() {
-		VkStencilOpState stencil_op_state{};
-		stencil_op_state.compareMask = UINT32_MAX;
-		stencil_op_state.writeMask = UINT32_MAX;
-		stencil_op_state.reference = UINT32_MAX;
-
-		// render all objects twice
-		// on first render always succeed and write 1 to stencil buffer
-		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
-		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
-		stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
-		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
-		stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-		stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-		stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-
-		return stencil_op_state;
-	}();
+	info.stencilTestEnable = VK_TRUE;
+	info.depthWriteEnable = VK_FALSE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_NOT_EQUAL;
+	info.front.passOp = VK_STENCIL_OP_KEEP;
+	info.front.failOp = VK_STENCIL_OP_KEEP;
+	info.front.depthFailOp = VK_STENCIL_OP_KEEP;
+	info.back = info.front;
 
 	return info;
 }
@@ -132,45 +115,34 @@ template<Stencileable PrimaryPipelineType>
 std::vector<VkVertexInputAttributeDescription> 
 StencilPipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 {
-	VkVertexInputAttributeDescription position_attr;
+	VkVertexInputAttributeDescription position_attr{};
 	position_attr.binding = 0;
 	position_attr.location = 0; // specify in shader
 	position_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
 	position_attr.offset = PrimaryPipelineType::get_vertex_pos_offset();
 
-	return {position_attr};
+	VkVertexInputAttributeDescription normal_attr{};
+	normal_attr.binding = 0;
+	normal_attr.location = 1;
+	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
+	normal_attr.offset = PrimaryPipelineType::get_vertex_normal_offset();
+
+	return {position_attr, normal_attr};
 }
 
 VkPipelineDepthStencilStateCreateInfo StencilPipeline<SkinnedPipeline>::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	// render all objects twice
-	// on first render always succeed and write 1 to stencil buffer
-	// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
-	info.front.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
-	info.front.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-	info.front.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-	info.front.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-	info.depthTestEnable = VK_FALSE;
-
-	info.front = [&]() {
-		VkStencilOpState stencil_op_state{};
-		stencil_op_state.compareMask = UINT32_MAX;
-		stencil_op_state.writeMask = UINT32_MAX;
-		stencil_op_state.reference = UINT32_MAX;
-
-		// render all objects twice
-		// on first render always succeed and write 1 to stencil buffer
-		// on second render only render if stencil buffer DOES NOT have 1 and don't write to buffer
-		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_ALWAYS;
-		stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_NOT_EQUAL;
-		// stencil_op_state.compareOp = VkCompareOp::VK_COMPARE_OP_EQUAL;
-		stencil_op_state.passOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-		stencil_op_state.failOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-		stencil_op_state.depthFailOp = VkStencilOp::VK_STENCIL_OP_KEEP;
-
-		return stencil_op_state;
-	}();
+	info.stencilTestEnable = VK_TRUE;
+	info.depthWriteEnable = VK_FALSE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_NOT_EQUAL;
+	info.front.passOp = VK_STENCIL_OP_KEEP;
+	info.front.failOp = VK_STENCIL_OP_KEEP;
+	info.front.depthFailOp = VK_STENCIL_OP_KEEP;
+	info.back = info.front;
 
 	return info;
 }
@@ -182,13 +154,20 @@ std::vector<VkVertexInputBindingDescription> StencilPipeline<SkinnedPipeline>::g
 
 std::vector<VkVertexInputAttributeDescription> StencilPipeline<SkinnedPipeline>::get_attribute_descriptions() const
 {
-	return SkinnedPipeline::get_skinning_attribute_descriptions_();
+	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
+	return { attributes[0], attributes[2], attributes[3], attributes[4] };
 }
 
 VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.depthTestEnable = VK_TRUE;
+	info.stencilTestEnable = VK_TRUE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0xff;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
+	info.front.passOp = VK_STENCIL_OP_REPLACE;
+	info.back = info.front;
 
 	return info;
 }
@@ -196,7 +175,13 @@ VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline::get_depth_stenci
 VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.depthTestEnable = VK_TRUE;
+	info.stencilTestEnable = VK_TRUE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0xff;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
+	info.front.passOp = VK_STENCIL_OP_REPLACE;
+	info.back = info.front;
 
 	return info;
 }
@@ -204,7 +189,13 @@ VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline::get_depth_sten
 VkPipelineDepthStencilStateCreateInfo PostStencilSkinnedPipeline::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.depthTestEnable = VK_TRUE;
+	info.stencilTestEnable = VK_TRUE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0xff;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
+	info.front.passOp = VK_STENCIL_OP_REPLACE;
+	info.back = info.front;
 
 	return info;
 }
@@ -212,7 +203,13 @@ VkPipelineDepthStencilStateCreateInfo PostStencilSkinnedPipeline::get_depth_sten
 VkPipelineDepthStencilStateCreateInfo PostStencilSkinnedColorPipeline::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.depthTestEnable = VK_TRUE;
+	info.stencilTestEnable = VK_TRUE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0xff;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
+	info.front.passOp = VK_STENCIL_OP_REPLACE;
+	info.back = info.front;
 
 	return info;
 }

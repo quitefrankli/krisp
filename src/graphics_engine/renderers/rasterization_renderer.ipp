@@ -217,6 +217,7 @@ void RasterizationRenderer::submit_draw_commands(
 	// skip stencil effect when in wireframe mode
 	if (get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
 	{
+		// Draw the object normally first and mark its pixels in the stencil buffer.
 		for (const auto& id : stenciled_ids)
 		{
 			const auto it_obj = graphics_objects.find(id);
@@ -237,10 +238,11 @@ void RasterizationRenderer::submit_draw_commands(
 								renderable,
 								graphics_object.get_obj_dset(frame_index),
 								graphics_object.get_renderable_dsets()[renderable_idx],
-								EPipelineModifier::STENCIL);
+								EPipelineModifier::POST_STENCIL);
 			}	
 		}
 
+		// Draw the expanded shell only outside the marked object pixels.
 		for (const auto& id : stenciled_ids)
 		{
 			const auto it_obj = graphics_objects.find(id);
@@ -261,7 +263,7 @@ void RasterizationRenderer::submit_draw_commands(
 								renderable,
 								graphics_object.get_obj_dset(frame_index),
 								graphics_object.get_renderable_dsets()[renderable_idx],
-								EPipelineModifier::POST_STENCIL);
+								EPipelineModifier::STENCIL);
 			}
 		}
 	}
