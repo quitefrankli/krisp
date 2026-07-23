@@ -134,4 +134,6 @@ TEST(SkeletalAnimationSystem, aligns_cubic_rotation_keys_and_tangents_to_one_hem
 	EXPECT_TRUE(std::isfinite(orientation.y));
 	EXPECT_TRUE(std::isfinite(orientation.z));
 	EXPECT_TRUE(std::isfinite(orientation.w));
+	EXPECT_NEAR(orientation.x, 0.0f, 0.0001f);
+	EXPECT_NEAR(std::abs(orientation.w), 1.0f, 0.0001f);
 }

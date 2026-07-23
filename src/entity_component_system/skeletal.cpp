@@ -51,6 +51,34 @@ T evaluate_track(
 	return linear_interpolator(first_key.value, second_key.value, t);
 }
 
+glm::quat evaluate_rotation_track(
+	const BoneAnimation::Track<glm::vec4>& track,
+	const float animation_stage_secs)
+{
+	const auto to_quaternion = [](const glm::vec4& value)
+	{
+		return glm::normalize(glm::quat(value.w, value.x, value.y, value.z));
+	};
+	if (track.keys.size() == 1 || animation_stage_secs <= track.keys.front().animation_stage_secs)
+		return to_quaternion(track.keys.front().value);
+	if (animation_stage_secs >= track.keys.back().animation_stage_secs)
+		return to_quaternion(track.keys.back().value);
+
+	const auto second = std::upper_bound(
+		track.keys.begin(), track.keys.end(), animation_stage_secs,
+		[](const float time, const auto& key){ return time < key.animation_stage_secs; });
+	const auto& first_key = *(second - 1);
+	const auto& second_key = *second;
+	if (track.interpolation == BoneAnimation::Interpolation::STEP)
+		return to_quaternion(first_key.value);
+
+	const float duration = second_key.animation_stage_secs - first_key.animation_stage_secs;
+	const float t = (animation_stage_secs - first_key.animation_stage_secs) / duration;
+	// Cubic quaternion tangents can introduce visible normalized-Hermite overshoot.
+	// Use shortest-path spherical interpolation for smooth rotation tracks.
+	return glm::slerp(to_quaternion(first_key.value), to_quaternion(second_key.value), t);
+}
+
 float animation_duration(const SkeletalAnimation& animation)
 {
 	float duration_secs = 0.0f;
@@ -179,17 +207,7 @@ bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Trans
 				[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
 		}
 		if (!rotation_track.keys.empty())
-		{
-			const glm::vec4 value = evaluate_track(rotation_track, animation_stage_secs,
-				[](const glm::vec4& a, const glm::vec4& b, const float t)
-				{
-					const glm::quat first(a.w, a.x, a.y, a.z);
-					const glm::quat second(b.w, b.x, b.y, b.z);
-					const glm::quat result = glm::slerp(first, second, t);
-					return glm::vec4(result.x, result.y, result.z, result.w);
-				});
-			out_transform.set_orient(glm::normalize(glm::quat(value.w, value.x, value.y, value.z)));
-		}
+			out_transform.set_orient(evaluate_rotation_track(rotation_track, animation_stage_secs));
 		if (!scale_track.keys.empty())
 		{
 			out_transform.set_scale(evaluate_track(scale_track, animation_stage_secs,
