@@ -45,6 +45,10 @@ public:
 		ZERO_XZ,   // per mesh center moved to (0,y,0) and bottom of mesh is at y=0
 	};
 
+	// One mesh-node instance from the selected model scene. It groups the
+	// node's primitive draw records with its transform and optional skeleton.
+	// Multiple LoadedMeshes may reference different instances of the same
+	// source glTF mesh.
 	struct LoadedMesh
 	{
 		std::string name;
@@ -69,6 +73,9 @@ public:
 		bool strict = false;
 	};
 
+	// Complete result of importing one model scene. It owns the imported
+	// mesh-node instances, a model-wide placement transform, and any
+	// non-fatal diagnostics produced during import.
 	struct LoadedModel
 	{
 		std::vector<LoadedMesh> meshes;
