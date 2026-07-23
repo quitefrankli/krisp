@@ -1530,6 +1530,8 @@ void GuiMaterialEditor::draw_texture_section(
 		return;
 	ImGui::PushID(title);
 	const bool dropdown_open = ImGui::BeginCombo("##texture", current_label.c_str());
+	if (ImGui::IsItemHovered())
+		ImGui::SetTooltip("%s", current_label.c_str());
 	if (dropdown_open && !dropdown_was_open)
 		should_refresh_textures = true;
 	dropdown_was_open = dropdown_open;
@@ -1548,6 +1550,8 @@ void GuiMaterialEditor::draw_texture_section(
 			if (ImGui::Selectable(texture_names[index].c_str(), current_label == texture_names[index]))
 				pending_change = TextureChange{
 					*target_object, static_cast<size_t>(selected_renderable.value), semantic, texture_paths[index] };
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("%s", texture_names[index].c_str());
 		}
 		ImGui::EndCombo();
 	}
