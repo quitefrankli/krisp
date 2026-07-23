@@ -10,7 +10,7 @@
 
 * Do not write superfluous tests, write meaningful unit tests and prefer more end-to-end tests.
 
-* start every new session with "AGENTS.md read!"
+* Start new chat sessions with "AGENTS.md read!"
 
 * refer to readme.md for build instructions
 

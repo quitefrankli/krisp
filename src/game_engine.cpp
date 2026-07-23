@@ -429,6 +429,17 @@ void GameEngine::process_objs_to_delete()
 
 void GameEngine::reset_scene()
 {
+	[[maybe_unused]] auto graphics_pause = reset_scene_and_pause_graphics();
+}
+
+GameEngine::SceneResetPause::~SceneResetPause() noexcept
+{
+	if (resume)
+		resume->set_value();
+}
+
+GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
+{
 	gizmo->deselect();
 
 	std::vector<ObjectID> object_ids;
@@ -439,46 +450,36 @@ void GameEngine::reset_scene()
 	auto reset_command = std::make_unique<ResetSceneCmd>(std::move(object_ids));
 	auto graphics_paused = reset_command->complete.get_future();
 	auto resume_graphics = reset_command->resume;
+	SceneResetPause graphics_pause(resume_graphics);
 	send_graphics_cmd(std::move(reset_command));
 	if (graphics_engine_thread.joinable())
 		graphics_paused.get();
 
-	bool graphics_resumed = false;
-	try
+	DestroyResourcesCmd destroyed_resources;
+	for (const auto& [_, object] : objects)
+		release_renderable_resources(*object, destroyed_resources);
+	for (const auto& [_, object] : objects)
 	{
-		DestroyResourcesCmd destroyed_resources;
-		for (const auto& [_, object] : objects)
-			release_renderable_resources(*object, destroyed_resources);
-		for (const auto& [_, object] : objects)
-		{
-			object->detach_all_children();
-			object->detach_from();
-		}
-
-		ecs = ECS{};
-		objects.clear();
-		entity_deletion_queue.clear();
-		mesh_resource_references.clear();
-		material_resource_references.clear();
-		ResourceProvenance::clear();
-		tile_renderable.reset();
-		configure_ecs();
-		gizmo->register_colliders();
-
-		camera->set_mode(Camera::Mode::ORBIT);
-		camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
-
-		resume_graphics->set_value();
-		graphics_resumed = true;
-		if (!destroyed_resources.mesh_ids.empty() || !destroyed_resources.material_ids.empty())
-			send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroyed_resources)));
+		object->detach_all_children();
+		object->detach_from();
 	}
-	catch (...)
-	{
-		if (!graphics_resumed)
-			resume_graphics->set_value();
-		throw;
-	}
+
+	ecs = ECS{};
+	objects.clear();
+	entity_deletion_queue.clear();
+	mesh_resource_references.clear();
+	material_resource_references.clear();
+	ResourceProvenance::clear();
+	tile_renderable.reset();
+	configure_ecs();
+	gizmo->register_colliders();
+
+	camera->set_mode(Camera::Mode::ORBIT);
+	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
+
+	if (!destroyed_resources.mesh_ids.empty() || !destroyed_resources.material_ids.empty())
+		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroyed_resources)));
+	return graphics_pause;
 }
 
 void GameEngine::highlight_object(const Object& object)
@@ -750,7 +751,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 		saved_objects.push_back({ saved, parent.kind() == SerializationKind::Null
 			? std::nullopt : std::optional<ObjectID>(ObjectID(parent.as<uint64_t>())) });
 	}
-	reset_scene();
+	[[maybe_unused]] auto graphics_pause = reset_scene_and_pause_graphics();
 	std::unordered_map<MaterialID, MaterialID> material_remap;
 	for (const auto& saved : document.child("materials").elements())
 	{
@@ -770,7 +771,8 @@ void GameEngine::load_scene(const std::string_view save_name)
 			material.data.specular = Serialization::read_vec3(data, "specular");
 			material.data.emissive = Serialization::read_vec3(data, "emissive");
 			material.data.shininess = data.read<float>("shininess");
-			material_remap.emplace(saved_id, MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material)), false));
+			material_remap.emplace(saved_id, MaterialSystem::add(
+				std::make_unique<ColorMaterial>(std::move(material)), false));
 		}
 		else if (type == "texture")
 		{
@@ -794,7 +796,8 @@ void GameEngine::load_scene(const std::string_view save_name)
 		if (scene >= 0)
 			options.scene_index = scene;
 		options.generate_missing_tangents = true;
-		return imported_models.emplace(cache_key, ResourceLoader::load_model(ecs, path, options)).first->second;
+		return imported_models.emplace(
+			cache_key, ResourceLoader::load_model(ecs, path, options)).first->second;
 	};
 	for (auto& saved : saved_objects)
 	{
@@ -837,7 +840,6 @@ void GameEngine::load_scene(const std::string_view save_name)
 		objects.emplace(id, object);
 		retain_renderable_resources(*object);
 		ecs.add_object(*object);
-		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	}
 	for (const auto& saved : saved_objects)
 		if (saved.parent)
@@ -854,5 +856,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 	camera_keyboard_navigation_enabled = engine_state.read<bool>("camera_keyboard_navigation");
 	camera_orbit_with_right_mouse = engine_state.read<bool>("camera_orbit_with_right_mouse");
 	camera->deserialize(document.child("camera"));
+	for (const auto& [_, object] : objects)
+		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	application->on_scene_loaded(*this);
 }

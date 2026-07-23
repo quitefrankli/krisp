@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 
 
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
@@ -43,6 +44,11 @@ public:
 			materials_to_destroy.push_back(material_id);
 		}
 	}
+	void handle_command(SpawnObjectCmd& cmd) override
+	{
+		if (on_spawn)
+			on_spawn(cmd);
+	}
 	void handle_command(UpdateRenderableMaterialsCmd& cmd) override
 	{
 		material_updates.push_back({
@@ -58,6 +64,7 @@ public:
 	std::vector<MeshID> meshes_to_destroy;
 	std::vector<MaterialID> materials_to_destroy;
 	std::vector<MaterialUpdate> material_updates;
+	std::function<void(SpawnObjectCmd&)> on_spawn;
 };
 
 class TestableGameEngine : public GameEngine
@@ -123,6 +130,31 @@ TEST_F(GameEngineTests, scene_load_remaps_released_color_materials)
 	ASSERT_EQ(restored->renderables.size(), 1);
 	EXPECT_NE(restored->renderables[0].material_ids.front(), original_material);
 	EXPECT_TRUE(MaterialSystem::contains(restored->renderables[0].material_ids.front()));
+}
+
+TEST_F(GameEngineTests, scene_load_restores_ecs_before_spawning_graphics_objects)
+{
+	auto& object = engine.spawn_object<Object>();
+	const ObjectID object_id = object.get_id();
+	engine.get_ecs().add_collider(object_id, std::make_unique<BoxCollider>());
+	const std::string save_name = "krisp_scene_spawn_after_ecs_test";
+	const auto path = save_path(save_name);
+	engine.save_scene(save_name);
+
+	bool observed_spawn = false;
+	get_mock_gfx().on_spawn = [&](SpawnObjectCmd& cmd)
+	{
+		if (cmd.object && cmd.object->get_id() == object_id)
+		{
+			observed_spawn = true;
+			EXPECT_NE(engine.get_ecs().get_collider(object_id), nullptr);
+		}
+	};
+
+	engine.load_scene(save_name);
+	std::filesystem::remove(path);
+
+	EXPECT_TRUE(observed_spawn);
 }
 
 TEST_F(GameEngineTests, scene_load_remaps_released_texture_materials)

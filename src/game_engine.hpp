@@ -162,8 +162,24 @@ private:
 	EntityDeletionQueue entity_deletion_queue;	
 
 private:
+	class SceneResetPause
+	{
+	public:
+		explicit SceneResetPause(std::shared_ptr<std::promise<void>> resume) :
+			resume(std::move(resume)) {}
+		SceneResetPause(SceneResetPause&&) noexcept = default;
+		SceneResetPause& operator=(SceneResetPause&&) = delete;
+		SceneResetPause(const SceneResetPause&) = delete;
+		SceneResetPause& operator=(const SceneResetPause&) = delete;
+		~SceneResetPause() noexcept;
+
+	private:
+		std::shared_ptr<std::promise<void>> resume;
+	};
+
 	void init();
 	void configure_ecs();
+	[[nodiscard]] SceneResetPause reset_scene_and_pause_graphics();
 	void shutdown_impl();
 	void process_objs_to_delete();
 	void retain_renderable_resources(const Object& object);

@@ -123,13 +123,18 @@ void GraphicsEngine::run() {
 
 			analytics.start();
 
-			ge_cmd_q_mutex.lock();
-			while (!ge_cmd_q.empty())
+			while (true)
 			{
-				ge_cmd_q.front()->process(this);
-				ge_cmd_q.pop();
+				std::unique_ptr<GraphicsEngineCommand> command;
+				{
+					std::lock_guard lock(ge_cmd_q_mutex);
+					if (ge_cmd_q.empty())
+						break;
+					command = std::move(ge_cmd_q.front());
+					ge_cmd_q.pop();
+				}
+				command->process(this);
 			}
-			ge_cmd_q_mutex.unlock();
 
 			gui_manager.draw();
 

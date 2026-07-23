@@ -114,19 +114,14 @@ int main(int argc, char* argv[])
 	obstacle.set_position({ 2.0f, 0.5f, 2.0f });
 	obstacle.set_scale({ 1.0f, 1.0f, 1.0f });
 	engine.get_ecs().add_collider(obstacle.get_id(), std::make_unique<BoxCollider>());
-
-	auto& floating_obj1 = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
-	floating_obj1.set_position(glm::vec3(0.0f, 1.5f, 0.0f));
-	floating_obj1.set_rotation(glm::angleAxis(glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
-	engine.get_ecs().add_collider(floating_obj1.get_id(), std::make_unique<BoxCollider>());
-	engine.get_ecs().add_clickable_entity(floating_obj1.get_id());
+	engine.get_ecs().add_clickable_entity(obstacle.get_id());
 
 	auto& light_source = engine.spawn_object<Object>(Renderable{
 		.mesh_id = MeshFactory::sphere_id(),
 		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
 		.pipeline_render_type = ERenderType::COLOR
 	});
-	light_source.set_position(glm::vec3(0.0f, 30.0f, 0.0f));
+	light_source.set_position(glm::vec3(0.5f, 6.0f, -3.0f));
 	LightComponent light_component{
 		.intensity = 1.0f,
 		.color = { 1.0f, 0.9f, 0.2f }
