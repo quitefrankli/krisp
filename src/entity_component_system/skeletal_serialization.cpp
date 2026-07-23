@@ -266,6 +266,7 @@ void SkeletalAnimationSystem::serialize(Serializer& out) const
 			entry.write("skeleton_id", skeleton_id.get_underlying());
 		entry.write("animation_id", active_animations.at(skeleton_id).get_underlying());
 		entry.write("should_loop", state->second.should_loop);
+		entry.write("playback_speed", state->second.playback_speed);
 		entry.write("elapsed_secs", state->second.current_animation_elapsed_secs);
 	}
 	if (animation_states.size() != active_animations.size())
@@ -367,6 +368,9 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in)
 		}
 		AnimationState state;
 		state.should_loop = entry.read<bool>("should_loop");
+		state.playback_speed = std::ranges::find(fields, "playback_speed") != fields.end()
+			? entry.read<float>("playback_speed")
+			: DEFAULT_PLAYBACK_SPEED;
 		state.current_animation_elapsed_secs = entry.read<float>("elapsed_secs");
 		if (!restored_active.emplace(skeleton_id, animation_id).second)
 			throw SerializationError("Duplicate active skeleton at $.skeletal_animation_system.active_animations["

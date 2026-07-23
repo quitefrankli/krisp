@@ -28,6 +28,8 @@
 
 namespace
 {
+constexpr float ANIMATION_FRAME_STEP_SECS = 1.0f / 30.0f;
+
 template<typename MeshType>
 MeshID bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
 {
@@ -1137,6 +1139,7 @@ std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_un
 void GuiAnimationSelector::process(GameEngine& engine)
 {
 	const std::lock_guard lock(state_mutex);
+	const auto previous_skeleton = selected_skeleton;
 	selected_skeleton.reset();
 	animation_choices.clear();
 	animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
@@ -1151,6 +1154,11 @@ void GuiAnimationSelector::process(GameEngine& engine)
 			target_status = "Target: " + selected_object->get_name();
 		else
 			target_status = "Selected object is not skinned";
+	}
+	if (selected_skeleton != previous_skeleton)
+	{
+		playback_active = false;
+		paused = false;
 	}
 
 	const auto rebuild_compatible_animations = [&]
@@ -1193,6 +1201,8 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	{
 		selected_animation.reset();
 		selected_animation_name = "(select clip)";
+		playback_active = false;
+		paused = false;
 	}
 
 	if (should_play)
@@ -1204,13 +1214,88 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		try
 		{
 			engine.get_ecs().play_animation(*selected_skeleton, *selected_animation, loop);
+			engine.get_ecs().set_animation_speed(*selected_skeleton, playback_speed);
 			load_error.reset();
+			playback_active = true;
 		}
 		catch (const std::runtime_error& error)
 		{
 			load_error = report_resource_load_error(
 				"Animation Selector failed to play animation", ResourceLoadError(error.what()));
 		}
+	}
+
+	if (should_stop)
+	{
+		should_stop = false;
+		if (selected_skeleton)
+			engine.get_ecs().stop_animation(*selected_skeleton);
+	}
+
+	if (pause_request)
+	{
+		if (selected_skeleton)
+			engine.get_ecs().set_animation_paused(*selected_skeleton, *pause_request);
+		pause_request.reset();
+	}
+
+	if (loop_request)
+	{
+		if (selected_skeleton)
+			engine.get_ecs().set_animation_looping(*selected_skeleton, *loop_request);
+		loop_request.reset();
+	}
+
+	if (speed_request)
+	{
+		if (selected_skeleton)
+			engine.get_ecs().set_animation_speed(*selected_skeleton, *speed_request);
+		speed_request.reset();
+	}
+
+	if (pending_step_secs != 0.0f)
+	{
+		if (selected_skeleton)
+			engine.get_ecs().step_animation(*selected_skeleton, pending_step_secs);
+		pending_step_secs = 0.0f;
+	}
+
+	if (seek_request_secs)
+	{
+		if (selected_skeleton)
+			engine.get_ecs().seek_animation(*selected_skeleton, *seek_request_secs);
+		seek_request_secs.reset();
+	}
+
+	const auto playback = selected_skeleton
+		? engine.get_ecs().get_animation_playback(*selected_skeleton)
+		: std::nullopt;
+	playback_active = playback.has_value();
+	if (playback)
+	{
+		selected_animation = playback->animation_id;
+		loop = playback->looping;
+		paused = playback->paused;
+		elapsed_secs = playback->elapsed_secs;
+		duration_secs = playback->duration_secs;
+		playback_speed = playback->speed;
+		for (const auto& [id, label] : animation_choices)
+		{
+			if (id == playback->animation_id)
+			{
+				selected_animation_name = label;
+				break;
+			}
+		}
+	}
+	else
+	{
+		paused = false;
+		elapsed_secs = 0.0f;
+		duration_secs = selected_animation
+			&& engine.get_ecs().get_skeletal_animations().contains(*selected_animation)
+			? engine.get_ecs().get_animation_duration(*selected_animation)
+			: 0.0f;
 	}
 }
 
@@ -1233,6 +1318,8 @@ void GuiAnimationSelector::draw()
 			{
 				selected_animation_name = label;
 				selected_animation = id;
+				should_play = true;
+				paused = false;
 			}
 			ImGui::EndDisabled();
 			ImGui::PopID();
@@ -1240,15 +1327,75 @@ void GuiAnimationSelector::draw()
 		ImGui::EndCombo();
 	}
 
-	ImGui::Checkbox("Loop", &loop);
+	ImGui::Text("%.2f / %.2f s", elapsed_secs, duration_secs);
+	const bool can_seek = selected_skeleton && selected_animation
+		&& compatible_animations.contains(*selected_animation) && duration_secs > 0.0f;
+	ImGui::BeginDisabled(!can_seek);
+	if (ImGui::SliderFloat(
+		"##AnimationTimeline", &elapsed_secs, 0.0f, duration_secs, "%.2f s"))
+	{
+		if (!playback_active)
+			should_play = true;
+		paused = true;
+		pause_request = true;
+		seek_request_secs = elapsed_secs;
+	}
+	ImGui::EndDisabled();
+
+	if (ImGui::Checkbox("Loop", &loop) && playback_active)
+		loop_request = loop;
 
 	ImGui::SameLine();
-
-	const bool can_play = selected_skeleton && selected_animation && compatible_animations.contains(*selected_animation);
-	ImGui::BeginDisabled(!can_play);
-	if (ImGui::Button("Play"))
+	ImGui::SetNextItemWidth(80.0f);
+	if (ImGui::InputFloat("Speed", &playback_speed, 0.0f, 0.0f, "%.1f"))
 	{
-		should_play = true;
+		if (playback_active)
+			speed_request = playback_speed;
+	}
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!playback_active);
+	if (ImGui::Button("Stop"))
+	{
+		should_stop = true;
+		playback_active = false;
+		paused = false;
+	}
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	const bool can_play = selected_skeleton && selected_animation
+		&& compatible_animations.contains(*selected_animation);
+	ImGui::BeginDisabled(!playback_active && !can_play);
+	if (ImGui::Button(playback_active && !paused ? "Pause" : "Play"))
+	{
+		if (playback_active)
+		{
+			paused = !paused;
+			pause_request = paused;
+		}
+		else
+		{
+			should_play = true;
+			paused = false;
+		}
+	}
+	ImGui::EndDisabled();
+
+	ImGui::SameLine();
+	ImGui::BeginDisabled(!playback_active);
+	if (ImGui::ArrowButton("##PreviousAnimationFrame", ImGuiDir_Left))
+	{
+		paused = true;
+		pause_request = true;
+		pending_step_secs -= ANIMATION_FRAME_STEP_SECS * playback_speed;
+	}
+	ImGui::SameLine();
+	if (ImGui::ArrowButton("##NextAnimationFrame", ImGuiDir_Right))
+	{
+		paused = true;
+		pause_request = true;
+		pending_step_secs += ANIMATION_FRAME_STEP_SECS * playback_speed;
 	}
 	ImGui::EndDisabled();
 

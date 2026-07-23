@@ -2,6 +2,7 @@
 
 #include "maths.hpp"
 #include "identifications.hpp"
+#include "entity_component_system/skeletal.hpp"
 #include "renderable/render_types.hpp"
 #include "save_file_store.hpp"
 
@@ -390,6 +391,17 @@ private:
 	std::optional<std::string> load_error;
 	bool loop = false;
 	bool should_play = false;
+	bool should_stop = false;
+	std::optional<bool> loop_request;
+	std::optional<bool> pause_request;
+	std::optional<float> speed_request;
+	std::optional<float> seek_request_secs;
+	float pending_step_secs = 0.0f;
+	float elapsed_secs = 0.0f;
+	float duration_secs = 0.0f;
+	float playback_speed = SkeletalAnimationSystem::DEFAULT_PLAYBACK_SPEED;
+	bool paused = false;
+	bool playback_active = false;
 	// process() runs on the game thread while draw() runs on the graphics
 	// thread. All selector state, including the cached animation IDs, is shared.
 	std::mutex state_mutex;

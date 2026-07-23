@@ -474,11 +474,60 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 	}
 	ASSERT_TRUE(root_move);
 	ASSERT_TRUE(mid_turn);
-	ecs.play_animation(skeleton_id, *root_move);
+	ecs.play_animation(skeleton_id, *root_move, true);
+	ASSERT_TRUE(ecs.get_animation_playback(skeleton_id));
+	EXPECT_EQ(ecs.get_animation_playback(skeleton_id)->animation_id, *root_move);
+	EXPECT_TRUE(ecs.get_animation_playback(skeleton_id)->looping);
 	ecs.process(0.5f);
+	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 0.5f);
+	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->duration_secs, 1.0f);
 	EXPECT_TRUE(glm_equal(
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
 		glm::vec3(1.0f, 0.0f, 0.0f)));
+
+	ecs.set_animation_paused(skeleton_id, true);
+	EXPECT_TRUE(ecs.get_animation_playback(skeleton_id)->paused);
+	ecs.seek_animation(skeleton_id, 0.25f);
+	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 0.25f);
+	EXPECT_NEAR(
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x,
+		0.5f, 0.0001f);
+	ecs.seek_animation(skeleton_id, -1.0f);
+	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 0.0f);
+	ecs.seek_animation(skeleton_id, 2.0f);
+	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 1.0f);
+	ecs.seek_animation(skeleton_id, 0.5f);
+	ecs.process(0.25f);
+	EXPECT_TRUE(glm_equal(
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
+		glm::vec3(1.0f, 0.0f, 0.0f)));
+	ecs.step_animation(skeleton_id, 1.0f / 30.0f);
+	const float stepped_forward =
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x;
+	EXPECT_GT(stepped_forward, 1.0f);
+	ecs.step_animation(skeleton_id, -1.0f / 30.0f);
+	EXPECT_NEAR(
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x,
+		1.0f, 0.0001f);
+
+	ecs.set_animation_looping(skeleton_id, false);
+	ecs.set_animation_paused(skeleton_id, false);
+	ecs.process(1.0f);
+	EXPECT_TRUE(glm_equal(
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
+		Maths::zero_vec));
+
+	ecs.play_animation(skeleton_id, *root_move);
+	ecs.process(0.5f);
+	ecs.stop_animation(skeleton_id);
+	EXPECT_FALSE(ecs.get_animation_playback(skeleton_id));
+	EXPECT_TRUE(glm_equal(
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
+		Maths::zero_vec));
+	ecs.process(0.5f);
+	EXPECT_TRUE(glm_equal(
+		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
+		Maths::zero_vec));
 
 	ecs.play_animation(skeleton_id, *mid_turn);
 	EXPECT_TRUE(glm_equal(

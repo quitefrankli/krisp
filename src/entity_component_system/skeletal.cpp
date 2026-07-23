@@ -50,6 +50,14 @@ T evaluate_track(
 		return cubic_spline(first_key, second_key, t);
 	return linear_interpolator(first_key.value, second_key.value, t);
 }
+
+float animation_duration(const SkeletalAnimation& animation)
+{
+	float duration_secs = 0.0f;
+	for (const auto& bone_animation : animation.bone_animations)
+		duration_secs = std::max(duration_secs, bone_animation.animation_end_secs);
+	return duration_secs;
+}
 }
 
 
@@ -275,10 +283,12 @@ void SkeletalAnimationSystem::process(const float delta_secs)
 	for (const auto& [skeleton_id, animation_id] : active_animations)
 	{
 		AnimationState& state = animation_states[skeleton_id];
+		if (state.paused)
+			continue;
 		SkeletalAnimation& animation = animations[animation_id];
 		auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
 
-		state.current_animation_elapsed_secs += delta_secs;
+		state.current_animation_elapsed_secs += delta_secs * state.playback_speed;
 
 		bool still_animating = false;
 		for (int bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
@@ -351,6 +361,79 @@ void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id,
 	state.should_loop = loop;
 	state.current_animation_elapsed_secs = 0.0f;
 	animation_states[skeleton_id] = state;
+}
+
+void SkeletalAnimationSystem::stop_animation(const SkeletonID skeleton_id)
+{
+	for (auto& bone : get_ecs().get_skeletal_component(skeleton_id).get_bones())
+		bone.relative_transform = bone.original_transform;
+	active_animations.erase(skeleton_id);
+	animation_states.erase(skeleton_id);
+}
+
+void SkeletalAnimationSystem::set_animation_looping(const SkeletonID skeleton_id, const bool looping)
+{
+	if (const auto state = animation_states.find(skeleton_id); state != animation_states.end())
+		state->second.should_loop = looping;
+}
+
+void SkeletalAnimationSystem::set_animation_paused(const SkeletonID skeleton_id, const bool paused)
+{
+	if (const auto state = animation_states.find(skeleton_id); state != animation_states.end())
+		state->second.paused = paused;
+}
+
+void SkeletalAnimationSystem::set_animation_speed(const SkeletonID skeleton_id, const float speed)
+{
+	if (const auto state = animation_states.find(skeleton_id); state != animation_states.end())
+		state->second.playback_speed = speed;
+}
+
+void SkeletalAnimationSystem::step_animation(const SkeletonID skeleton_id, const float delta_secs)
+{
+	const auto active = active_animations.find(skeleton_id);
+	const auto state = animation_states.find(skeleton_id);
+	if (active == active_animations.end() || state == animation_states.end())
+		return;
+	seek_animation(skeleton_id, state->second.current_animation_elapsed_secs + delta_secs);
+}
+
+void SkeletalAnimationSystem::seek_animation(const SkeletonID skeleton_id, const float elapsed_secs)
+{
+	const auto active = active_animations.find(skeleton_id);
+	const auto state = animation_states.find(skeleton_id);
+	if (active == active_animations.end() || state == animation_states.end())
+		return;
+	auto& animation = animations.at(active->second);
+	state->second.current_animation_elapsed_secs = std::clamp(
+		elapsed_secs, 0.0f, animation_duration(animation));
+
+	auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
+	for (int bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
+		animation.bone_animations[bone_idx].get_transform(
+			state->second.current_animation_elapsed_secs, bones[bone_idx].relative_transform);
+}
+
+float SkeletalAnimationSystem::get_animation_duration(const AnimationID animation_id) const
+{
+	return animation_duration(animations.at(animation_id));
+}
+
+std::optional<SkeletalAnimationSystem::AnimationPlayback>
+SkeletalAnimationSystem::get_animation_playback(const SkeletonID skeleton_id) const
+{
+	const auto active = active_animations.find(skeleton_id);
+	const auto state = animation_states.find(skeleton_id);
+	if (active == active_animations.end() || state == animation_states.end())
+		return std::nullopt;
+	return AnimationPlayback{
+		.animation_id = active->second,
+		.looping = state->second.should_loop,
+		.paused = state->second.paused,
+		.elapsed_secs = state->second.current_animation_elapsed_secs,
+		.duration_secs = animation_duration(animations.at(active->second)),
+		.speed = state->second.playback_speed,
+	};
 }
 
 void SkeletalAnimationSystem::remove_entity(Entity id) 

@@ -479,6 +479,7 @@ TEST(SkeletalAnimationSystemSerialization, round_trips_tracks_and_active_playbac
 	const auto rig = make_skeletal_rig_signature({ bone });
 	const auto animation_id = source.add_skeletal_animation("walk", { animation }, rig, "model.glb");
 	source.play_animation(skeleton_id, animation_id, true);
+	source.set_animation_speed(skeleton_id, 0.5f);
 	source.SkeletalAnimationSystem::process(0.25f);
 	Serializer skeletons;
 	Serializer animations;
@@ -490,8 +491,10 @@ TEST(SkeletalAnimationSystemSerialization, round_trips_tracks_and_active_playbac
 	restored.SkeletalAnimationSystem::deserialize(Deserializer::parse(animations.emit()));
 	ASSERT_TRUE(restored.get_skeletal_animations().contains(animation_id));
 	EXPECT_EQ(restored.get_skeletal_animations().at(animation_id).source, "model.glb");
+	ASSERT_TRUE(restored.get_animation_playback(skeleton_id));
+	EXPECT_FLOAT_EQ(restored.get_animation_playback(skeleton_id)->speed, 0.5f);
 	restored.SkeletalAnimationSystem::process(0.25f);
-	EXPECT_FLOAT_EQ(restored.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x, 1.0f);
+	EXPECT_FLOAT_EQ(restored.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x, 0.5f);
 }
 
 TEST(SkeletalAnimationSystemSerialization, unknown_interpolation_fails_atomically)

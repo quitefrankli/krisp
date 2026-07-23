@@ -129,6 +129,18 @@ private:
 class SkeletalAnimationSystem
 {
 public:
+	static constexpr float DEFAULT_PLAYBACK_SPEED = 1.0f;
+
+	struct AnimationPlayback
+	{
+		AnimationID animation_id;
+		bool looping = false;
+		bool paused = false;
+		float elapsed_secs = 0.0f;
+		float duration_secs = 0.0f;
+		float speed = DEFAULT_PLAYBACK_SPEED;
+	};
+
 	virtual ECS& get_ecs() = 0;
 	virtual const ECS& get_ecs() const = 0;
 
@@ -140,6 +152,14 @@ public:
 		SkeletalRigSignature rig_signature,
 		std::string source = {});
 	void play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
+	void stop_animation(SkeletonID skeleton_id);
+	void set_animation_looping(SkeletonID skeleton_id, bool looping);
+	void set_animation_paused(SkeletonID skeleton_id, bool paused);
+	void set_animation_speed(SkeletonID skeleton_id, float speed);
+	void step_animation(SkeletonID skeleton_id, float delta_secs);
+	void seek_animation(SkeletonID skeleton_id, float elapsed_secs);
+	float get_animation_duration(AnimationID animation_id) const;
+	std::optional<AnimationPlayback> get_animation_playback(SkeletonID skeleton_id) const;
 	bool is_animation_compatible(SkeletonID skeleton_id, AnimationID animation_id) const;
 	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
 	void serialize(Serializer& out) const;
@@ -152,6 +172,8 @@ private:
 	struct AnimationState
 	{
 		bool should_loop = false;
+		bool paused = false;
+		float playback_speed = DEFAULT_PLAYBACK_SPEED;
 		float current_animation_elapsed_secs = 0.0f;
 	};
 
