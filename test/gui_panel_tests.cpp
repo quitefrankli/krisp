@@ -87,15 +87,16 @@ TEST(GuiMusic, sorts_audio_paths_alphabetically)
 	EXPECT_EQ(paths, (std::vector<std::string>{ "alpha.wav", "middle.wav", "Zulu.wav" }));
 }
 
-TEST(GuiAnimationSelector, sorts_and_hides_duplicate_clip_labels)
+TEST(GuiAnimationSelector, sorts_and_keeps_all_animation_choices)
 {
 	const std::vector<GuiAnimationSelector::AnimationChoice> choices{
 		{ AnimationID(3), "walk.glb: Walk" },
 		{ AnimationID(2), "idle.glb: Idle" },
 		{ AnimationID(1), "walk.glb: Walk" },
 	};
-	const auto unique = GuiAnimationSelector::sort_unique_animation_choices(choices);
-	ASSERT_EQ(unique.size(), 2u);
-	EXPECT_EQ(unique[0].second, "idle.glb: Idle");
-	EXPECT_EQ(unique[1].first, AnimationID(1));
+	const auto sorted = GuiAnimationSelector::sort_animation_choices(choices);
+	ASSERT_EQ(sorted.size(), 3u);
+	EXPECT_EQ(sorted[0].second, "idle.glb: Idle");
+	EXPECT_EQ(sorted[1].first, AnimationID(1));
+	EXPECT_EQ(sorted[2].first, AnimationID(3));
 }

@@ -375,7 +375,7 @@ public:
 	GuiAnimationSelector();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
-	static std::vector<AnimationChoice> sort_unique_animation_choices(std::vector<AnimationChoice> choices);
+	static std::vector<AnimationChoice> sort_animation_choices(std::vector<AnimationChoice> choices);
 
 private:
 	void refresh_animation_files();

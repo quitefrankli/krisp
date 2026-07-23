@@ -209,11 +209,11 @@ std::vector<std::string> Utility::collect_resources(
 
 	auto collect_from = [&](const std::filesystem::path& dir) {
 		if (!std::filesystem::exists(dir)) return;
-		for (const auto& entry : std::filesystem::directory_iterator(dir))
+		for (const auto& entry : std::filesystem::recursive_directory_iterator(dir))
 		{
 			if (entry.is_regular_file() && extensions.contains(entry.path().extension().string()))
 			{
-				auto filename = entry.path().filename().string();
+				auto filename = entry.path().lexically_relative(dir).generic_string();
 				if (seen_filenames.insert(filename).second)
 					files.push_back(std::move(filename));
 			}

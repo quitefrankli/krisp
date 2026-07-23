@@ -1120,18 +1120,12 @@ void GuiAnimationSelector::refresh_animation_files()
 	std::ranges::sort(animation_paths);
 }
 
-std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_unique_animation_choices(
+std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_animation_choices(
 	std::vector<AnimationChoice> choices)
 {
 	std::ranges::sort(choices, [](const auto& lhs, const auto& rhs)
 	{
 		return std::tie(lhs.second, lhs.first) < std::tie(rhs.second, rhs.first);
-	});
-	std::erase_if(choices, [previous = std::string{}](const AnimationChoice& choice) mutable
-	{
-		const bool duplicate = choice.second == previous;
-		previous = choice.second;
-		return duplicate;
 	});
 	return choices;
 }
@@ -1145,7 +1139,7 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
 	for (const auto& [id, animation] : engine.get_ecs().get_skeletal_animations())
 		animation_choices.emplace_back(id, animation.source + ": " + animation.name);
-	animation_choices = sort_unique_animation_choices(std::move(animation_choices));
+	animation_choices = sort_animation_choices(std::move(animation_choices));
 	target_status = "Select a skinned object";
 	if (const auto* selected_object = engine.get_gizmo().get_selected_object())
 	{
@@ -1188,28 +1182,30 @@ void GuiAnimationSelector::process(GameEngine& engine)
 					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path, warning.message);
 				cache.emplace(cache_key, std::move(loaded.animations));
 			}
-			catch (const ResourceLoadError& error)
+			catch (const ResourceLoadError&)
 			{
 				cache.emplace(cache_key, std::vector<AnimationID>{});
-				LOG_WARNING(Utility::get_logger(), "Animation Selector skipped '{}': {}", path, error.what());
 			}
 		}
 		rebuild_compatible_animations();
 	}
 
-	if (selected_animation && !compatible_animations.contains(*selected_animation))
+	if (selected_animation)
 	{
-		selected_animation.reset();
-		selected_animation_name = "(select clip)";
-		playback_active = false;
-		paused = false;
+		for (const auto& [id, label] : animation_choices)
+		{
+			if (id == *selected_animation)
+			{
+				selected_animation_name = label;
+				break;
+			}
+		}
 	}
 
 	if (should_play)
 	{
 		should_play = false;
-		if (!selected_skeleton || !selected_animation ||
-			!compatible_animations.contains(*selected_animation))
+		if (!selected_skeleton || !selected_animation)
 			return;
 		try
 		{
@@ -1281,11 +1277,11 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		playback_speed = playback->speed;
 		for (const auto& [id, label] : animation_choices)
 		{
-			if (id == playback->animation_id)
-			{
-				selected_animation_name = label;
-				break;
-			}
+				if (id == playback->animation_id)
+				{
+					selected_animation_name = label;
+					break;
+				}
 		}
 	}
 	else
@@ -1306,22 +1302,40 @@ void GuiAnimationSelector::draw()
 	{
 	ImGui::TextWrapped("%s", target_status.c_str());
 
-	if (ImGui::BeginCombo("Animations", selected_animation_name.c_str()))
+	const auto compatibility_color = [](const bool compatible)
+	{
+		return compatible
+			? ImVec4(0.3f, 1.0f, 0.3f, 1.0f)
+			: ImVec4(1.0f, 0.35f, 0.35f, 1.0f);
+	};
+	bool combo_open;
+	if (selected_animation)
+	{
+		ImGui::PushStyleColor(
+			ImGuiCol_Text, compatibility_color(compatible_animations.contains(*selected_animation)));
+		combo_open = ImGui::BeginCombo("Animations", selected_animation_name.c_str());
+		ImGui::PopStyleColor();
+	}
+	else
+	{
+		combo_open = ImGui::BeginCombo("Animations", selected_animation_name.c_str());
+	}
+	if (combo_open)
 	{
 		for (const auto& [id, label] : animation_choices)
 		{
 			const bool compatible = compatible_animations.contains(id);
 			const std::string id_string = std::to_string(id.get_underlying());
 			ImGui::PushID(id_string.c_str());
-			ImGui::BeginDisabled(!compatible);
-			if (ImGui::Selectable(label.c_str(), selected_animation == id) && compatible)
+			ImGui::PushStyleColor(ImGuiCol_Text, compatibility_color(compatible));
+			if (ImGui::Selectable(label.c_str(), selected_animation == id))
 			{
 				selected_animation_name = label;
 				selected_animation = id;
 				should_play = true;
 				paused = false;
 			}
-			ImGui::EndDisabled();
+			ImGui::PopStyleColor();
 			ImGui::PopID();
 		}
 		ImGui::EndCombo();
@@ -1364,8 +1378,7 @@ void GuiAnimationSelector::draw()
 	ImGui::EndDisabled();
 
 	ImGui::SameLine();
-	const bool can_play = selected_skeleton && selected_animation
-		&& compatible_animations.contains(*selected_animation);
+	const bool can_play = selected_skeleton && selected_animation;
 	ImGui::BeginDisabled(!playback_active && !can_play);
 	if (ImGui::Button(playback_active && !paused ? "Pause" : "Play"))
 	{

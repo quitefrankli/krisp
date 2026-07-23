@@ -30,6 +30,7 @@ TEST(UtilityResources, collected_resources_are_filenames)
 {
 	const auto textures = Utility::get_all_textures();
 	EXPECT_NE(std::ranges::find(textures, "texture.jpg"), textures.end());
+	EXPECT_NE(std::ranges::find(textures, "skybox/front.jpg"), textures.end());
 	EXPECT_TRUE(std::ranges::all_of(textures, [](const std::string& filename)
 	{
 		return !std::filesystem::path(filename).is_absolute();
