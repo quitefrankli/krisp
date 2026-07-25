@@ -4,7 +4,6 @@
 
 void ECS::process(const float delta_secs)
 {
-	AnimationSystem::process(delta_secs);
 	SkeletalAnimationSystem::process(delta_secs);
 	PhysicsSystem::process(delta_secs);
 	ParticleSystem::process(delta_secs);
@@ -17,7 +16,6 @@ void ECS::serialize(Serializer& out) const
 	LightSystem::serialize(out);
 	ColliderSystem::serialize(out);
 	PhysicsSystem::serialize(out);
-	AnimationSystem::serialize(out);
 	SkeletalSystem::serialize(out);
 	SkeletalAnimationSystem::serialize(out);
 	TileSystem::serialize(out);
@@ -30,7 +28,6 @@ void ECS::deserialize(const Deserializer& in)
 	LightSystem::deserialize(in);
 	ColliderSystem::deserialize(in);
 	PhysicsSystem::deserialize(in);
-	AnimationSystem::deserialize(in);
 	SkeletalSystem::deserialize(in);
 	SkeletalAnimationSystem::deserialize(in);
 	TileSystem::deserialize(in);
@@ -42,7 +39,6 @@ void ECS::remove_object(const ObjectID id)
 	// next animation tick retains a stale SkeletonID and accesses erased data.
 	SkeletalAnimationSystem::remove_entity(id);
 	SkeletalSystem::remove_entity(id);
-	AnimationSystem::remove_entity(id);
 	LightSystem::remove_entity(id);
 	ColliderSystem::remove_entity(id);
 	ClickableSystem::remove_entity(id);

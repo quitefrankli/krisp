@@ -59,9 +59,6 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	source.get_gravity_system().set_gravity_type(GravitySystem::GravityType::TRUE);
 	Object aggregate_object;
 	source.add_object(aggregate_object);
-	Maths::Transform animation_finish;
-	animation_finish.set_pos({ 5.0f, 0.0f, 0.0f });
-	source.animate(aggregate_object.get_id(), AnimationSequence(Maths::Transform{}, animation_finish, 2.0f));
 	source.spawn_tileset(0, 0, 2.0f, "aggregate");
 	source.move_to_tile({ 2, 3 }, aggregate_object.get_id(), "aggregate");
 	Bone aggregate_bone;
@@ -122,7 +119,6 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	Serializer restored_serializer;
 	restored.serialize(restored_serializer);
 	const auto restored_document = Deserializer::parse(restored_serializer.emit());
-	EXPECT_EQ(restored_document.child("animation_system").elements().size(), 1);
 	EXPECT_EQ(restored_document.child("clickable_system").elements()[0].read<std::uint64_t>("entity_id"),
 		clickable_id.get_underlying());
 	EXPECT_EQ(restored_document.child("hoverable_system").elements()[0].read<std::uint64_t>("entity_id"),
@@ -378,45 +374,6 @@ TEST(PhysicsSystemSerialization, unknown_force_fails_atomically_with_path)
 	ASSERT_NE(ecs._get_physics_component(EntityID(1)), nullptr);
 	EXPECT_FLOAT_EQ(ecs._get_physics_component(EntityID(1))->mass, 5.0f);
 	EXPECT_EQ(ecs.get_gravity_system().get_gravity_type(), GravitySystem::GravityType::TRUE);
-}
-
-TEST(AnimationSystemSerialization, resumes_elapsed_animation_after_round_trip)
-{
-	ECS source;
-	Object object;
-	source.add_object(object);
-	Maths::Transform start;
-	Maths::Transform finish;
-	finish.set_pos({ 8.0f, 0.0f, 0.0f });
-	source.animate(object.get_id(), AnimationSequence(start, finish, 2.0f));
-	source.process(0.5f);
-	Serializer serializer;
-	source.AnimationSystem::serialize(serializer);
-
-	object.set_position(Maths::zero_vec);
-	ECS restored;
-	restored.add_object(object);
-	restored.AnimationSystem::deserialize(Deserializer::parse(serializer.emit()));
-	restored.process(0.5f);
-	EXPECT_FLOAT_EQ(object.get_position().x, 4.0f);
-}
-
-TEST(AnimationSystemSerialization, malformed_state_fails_atomically)
-{
-	ECS source;
-	Object object;
-	source.add_object(object);
-	Maths::Transform finish;
-	finish.set_pos({ 2.0f, 0.0f, 0.0f });
-	source.animate(object.get_id(), AnimationSequence(Maths::Transform{}, finish, 1.0f));
-	Serializer serializer;
-	source.AnimationSystem::serialize(serializer);
-	std::string malformed = serializer.emit();
-	malformed.replace(malformed.find("duration_secs: 1"), std::string("duration_secs: 1").size(), "duration_secs: bad");
-	EXPECT_THROW(source.AnimationSystem::deserialize(Deserializer::parse(malformed)), SerializationError);
-	Serializer retained;
-	source.AnimationSystem::serialize(retained);
-	EXPECT_EQ(Deserializer::parse(retained.emit()).child("animation_system").elements().size(), 1);
 }
 
 TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
