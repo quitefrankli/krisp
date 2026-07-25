@@ -29,6 +29,9 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	using enum EKeyModifier;
 	using enum EInputAction;
 
+	if (get_gui_manager().handle_key_input(key_input))
+		return;
+
 	if (key_input.eq(GLFW_KEY_ESCAPE, NONE, PRESS))
 	{
 		shutdown();

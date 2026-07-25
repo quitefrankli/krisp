@@ -20,6 +20,7 @@
 
 
 class GameEngine;
+struct KeyInput;
 enum class ETextureSemantic;
 
 enum class GuiPanelDock
@@ -375,7 +376,12 @@ public:
 	GuiAnimationSelector();
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
+	bool handle_key_input(const KeyInput& input);
 	static std::vector<AnimationChoice> sort_animation_choices(std::vector<AnimationChoice> choices);
+	static std::optional<AnimationID> cycle_animation_choice(
+		const std::vector<AnimationChoice>& choices,
+		std::optional<AnimationID> current,
+		int direction);
 
 private:
 	struct AnimationFileLoadRequest

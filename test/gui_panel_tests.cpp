@@ -100,3 +100,24 @@ TEST(GuiAnimationSelector, sorts_and_keeps_all_animation_choices)
 	EXPECT_EQ(sorted[1].first, AnimationID(1));
 	EXPECT_EQ(sorted[2].first, AnimationID(3));
 }
+
+TEST(GuiAnimationSelector, cycles_animation_choices_with_wraparound)
+{
+	const std::vector<GuiAnimationSelector::AnimationChoice> choices{
+		{ AnimationID(1), "Idle" },
+		{ AnimationID(2), "Walk" },
+		{ AnimationID(3), "Run" },
+	};
+
+	EXPECT_EQ(
+		GuiAnimationSelector::cycle_animation_choice(choices, AnimationID(2), 1), AnimationID(3));
+	EXPECT_EQ(
+		GuiAnimationSelector::cycle_animation_choice(choices, AnimationID(3), 1), AnimationID(1));
+	EXPECT_EQ(
+		GuiAnimationSelector::cycle_animation_choice(choices, AnimationID(1), -1), AnimationID(3));
+	EXPECT_EQ(
+		GuiAnimationSelector::cycle_animation_choice(choices, std::nullopt, 1), AnimationID(1));
+	EXPECT_EQ(
+		GuiAnimationSelector::cycle_animation_choice(choices, std::nullopt, -1), AnimationID(3));
+	EXPECT_FALSE(GuiAnimationSelector::cycle_animation_choice({}, std::nullopt, 1));
+}

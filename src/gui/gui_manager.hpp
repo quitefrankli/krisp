@@ -66,6 +66,10 @@ public:
 	{
 		statistics.update_buffer_capacities(capacities);
 	}
+	bool handle_key_input(const KeyInput& input)
+	{
+		return animation_selector.handle_key_input(input);
+	}
 
 	// references the GuiManager::gui_windows
 	GuiSaveManager& save_manager;

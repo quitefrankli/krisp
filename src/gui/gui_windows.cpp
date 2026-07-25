@@ -16,6 +16,7 @@
 
 #include <imgui.h>
 #include <imgui_internal.h>
+#include <GLFW/glfw3.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <quill/LogMacros.h>
 #include <fmt/core.h>
@@ -1128,6 +1129,51 @@ std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_an
 		return std::tie(lhs.second, lhs.first) < std::tie(rhs.second, rhs.first);
 	});
 	return choices;
+}
+
+std::optional<AnimationID> GuiAnimationSelector::cycle_animation_choice(
+	const std::vector<AnimationChoice>& choices,
+	const std::optional<AnimationID> current,
+	const int direction)
+{
+	if (choices.empty())
+		return std::nullopt;
+	const auto current_choice = current
+		? std::ranges::find(choices, *current, &AnimationChoice::first) : choices.end();
+	if (current_choice == choices.end())
+		return direction < 0 ? choices.back().first : choices.front().first;
+	const auto current_index = std::distance(choices.begin(), current_choice);
+	const auto next_index = direction < 0
+		? (current_index + choices.size() - 1) % choices.size()
+		: (current_index + 1) % choices.size();
+	return choices[next_index].first;
+}
+
+bool GuiAnimationSelector::handle_key_input(const KeyInput& input)
+{
+	using enum EInputAction;
+	using enum EKeyModifier;
+
+	const std::lock_guard lock(state_mutex);
+	if (!is_visible() || !selected_skeleton || animation_choices.empty()
+		|| input.modifier != NONE
+		|| (input.key != GLFW_KEY_LEFT && input.key != GLFW_KEY_RIGHT))
+		return false;
+	if (input.action == PRESS || input.action == REPEAT)
+	{
+		const int direction = input.key == GLFW_KEY_LEFT ? -1 : 1;
+		selected_animation = cycle_animation_choice(
+			animation_choices, selected_animation, direction);
+		for (const auto& [id, label] : animation_choices)
+			if (selected_animation == id)
+			{
+				selected_animation_name = label;
+				break;
+			}
+		should_play = true;
+		paused = false;
+	}
+	return true;
 }
 
 void GuiAnimationSelector::process(GameEngine& engine)
