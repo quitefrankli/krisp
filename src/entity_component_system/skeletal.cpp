@@ -1,5 +1,6 @@
 #include "skeletal.hpp"
 #include "ecs.hpp"
+#include "serialization/resource_provenance.hpp"
 
 #include <stdexcept>
 #include <ranges>
@@ -194,70 +195,20 @@ std::vector<glm::mat4> SkeletalComponent::get_model_space_bone_transforms() cons
 
 bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Transform& out_transform) const
 {
-	const bool has_tracks = !translation_track.keys.empty() || !rotation_track.keys.empty() || !scale_track.keys.empty();
-	if (has_tracks)
-	{
-		if (animation_stage_secs > animation_end_secs)
-			return false;
-
-		out_transform = base_transform;
-		if (!translation_track.keys.empty())
-		{
-			out_transform.set_pos(evaluate_track(translation_track, animation_stage_secs,
-				[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
-		}
-		if (!rotation_track.keys.empty())
-			out_transform.set_orient(evaluate_rotation_track(rotation_track, animation_stage_secs));
-		if (!scale_track.keys.empty())
-		{
-			out_transform.set_scale(evaluate_track(scale_track, animation_stage_secs,
-				[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
-		}
-		return true;
-	}
-
-	if (key_frames.empty())
-	{
+	if (translation_track.keys.empty() && rotation_track.keys.empty() && scale_track.keys.empty())
 		return false;
-	}
-
-	if (key_frames.size() == 1) // shouldn't really be possible
-	{
-		out_transform = key_frames[0].transform;
-		return true;
-	}
-
-	if (animation_stage_secs < animation_start_secs)
-	{
-		return true;
-	}
-	
 	if (animation_stage_secs > animation_end_secs)
-	{
 		return false;
-	}
 
-	// find the key frames that the time is between
-	// As an optimisation, we can use binary search for animations with many key frames
-	uint32_t key_frame_index = 0;
-	for (; key_frame_index < key_frames.size() - 1; ++key_frame_index)
-	{
-		if (animation_stage_secs >= key_frames[key_frame_index].animation_stage_secs &&
-			animation_stage_secs < key_frames[key_frame_index + 1].animation_stage_secs)
-		{
-			break;
-		}
-	}
-
-	const auto& key_frame_0 = key_frames[key_frame_index];
-	const auto& key_frame_1 = key_frames[key_frame_index + 1];
-	const float time_between_frames = key_frame_1.animation_stage_secs - key_frame_0.animation_stage_secs;
-	const float blend_factor = (animation_stage_secs - key_frame_0.animation_stage_secs) / time_between_frames;
-
-	out_transform.set_pos(glm::mix(key_frame_0.transform.get_pos(), key_frame_1.transform.get_pos(), blend_factor));
-	out_transform.set_orient(glm::slerp(key_frame_0.transform.get_orient(), key_frame_1.transform.get_orient(), blend_factor));
-	out_transform.set_scale(glm::mix(key_frame_0.transform.get_scale(), key_frame_1.transform.get_scale(), blend_factor));
-
+	out_transform = base_transform;
+	if (!translation_track.keys.empty())
+		out_transform.set_pos(evaluate_track(translation_track, animation_stage_secs,
+			[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
+	if (!rotation_track.keys.empty())
+		out_transform.set_orient(evaluate_rotation_track(rotation_track, animation_stage_secs));
+	if (!scale_track.keys.empty())
+		out_transform.set_scale(evaluate_track(scale_track, animation_stage_secs,
+			[](const glm::vec3& a, const glm::vec3& b, const float t){ return glm::mix(a, b, t); }));
 	return true;
 }
 
@@ -383,12 +334,31 @@ bool SkeletalAnimationSystem::is_animation_compatible(
 		&& animation.rig_signature == make_skeletal_rig_signature(bones);
 }
 
-void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id, 
-											 AnimationID animation_id,
-											 bool loop) 
+bool SkeletalAnimationSystem::remove_skeletal_animation(const AnimationID animation_id)
 {
-	if (!is_animation_compatible(skeleton_id, animation_id))
-		throw std::runtime_error("SkeletalAnimationSystem: animation is incompatible with the target skeleton");
+	if (!animations.contains(animation_id))
+		return false;
+
+	std::vector<SkeletonID> affected_skeletons;
+	for (const auto& [skeleton_id, active_animation] : active_animations)
+		if (active_animation == animation_id)
+			affected_skeletons.push_back(skeleton_id);
+	for (const auto skeleton_id : affected_skeletons)
+		stop_animation(skeleton_id);
+
+	animations.erase(animation_id);
+	ResourceProvenance::erase_animation(animation_id);
+	return true;
+}
+
+bool SkeletalAnimationSystem::play_animation(
+	const SkeletonID skeleton_id,
+	const AnimationID animation_id,
+	const bool loop)
+{
+	if (!get_ecs().has_skeleton(skeleton_id) || !animations.contains(animation_id)
+		|| !is_animation_compatible(skeleton_id, animation_id))
+		return false;
 	for (auto& bone : get_ecs().get_skeletal_component(skeleton_id).get_bones())
 		bone.relative_transform = bone.original_transform;
 	active_animations.insert_or_assign(skeleton_id, animation_id);
@@ -396,6 +366,7 @@ void SkeletalAnimationSystem::play_animation(SkeletonID skeleton_id,
 	state.should_loop = loop;
 	state.current_animation_elapsed_secs = 0.0f;
 	animation_states[skeleton_id] = state;
+	return true;
 }
 
 void SkeletalAnimationSystem::stop_animation(const SkeletonID skeleton_id)

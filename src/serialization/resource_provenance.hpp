@@ -39,5 +39,6 @@ public:
 
 	static void erase_mesh(MeshID id);
 	static void erase_material(MaterialID id);
+	static void erase_animation(AnimationID id);
 	static void clear();
 };

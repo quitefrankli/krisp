@@ -322,43 +322,38 @@ TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 	ASSERT_EQ(
 		bone_animations[0].translation_track.interpolation,
 		BoneAnimation::Interpolation::STEP);
-	for (const auto& bone_animation : bone_animations)
-	{
-		ASSERT_EQ(bone_animation.key_frames.size(), 4);
-	}
-
 	// check animation scale is never modified
 	for (const auto& bone_animation : bone_animations)
 	{
-		for (const auto& key_frame : bone_animation.key_frames)
-		{
-			ASSERT_TRUE(glm_equal(key_frame.transform.get_scale(), Maths::identity_vec));
-		}
+		ASSERT_TRUE(glm_equal(bone_animation.base_transform.get_scale(), Maths::identity_vec));
+		for (const auto& key : bone_animation.scale_track.keys)
+			ASSERT_TRUE(glm_equal(key.value, Maths::identity_vec));
 	}
 
-	// check pos is the same for all key frames
+	// check positions preserve the base pose and per-channel values
 	const auto pos_checker = [](const BoneAnimation& animation, const glm::vec3& expected_pos)
 	{
-		for (const auto& key_frame : animation.key_frames)
-		{
-			if (!glm_equal(key_frame.transform.get_pos(), expected_pos))
-			{
+		if (!glm_equal(animation.base_transform.get_pos(), expected_pos))
+			return false;
+		for (const auto& key : animation.translation_track.keys)
+			if (!glm_equal(key.value, expected_pos))
 				return false;
-			}
-		}
 		return true;
 	};
 
-	// check quat is the same for all key frames
+	const auto key_quat = [](const BoneAnimation::TrackKey<glm::vec4>& key)
+	{
+		return glm::quat(key.value.w, key.value.x, key.value.y, key.value.z);
+	};
+
+	// check rotations preserve the base pose and per-channel values
 	const auto quat_checker = [](const BoneAnimation& animation, const glm::quat& expected_quat)
 	{
-		for (const auto& key_frame : animation.key_frames)
-		{
-			if (!glm_equal(key_frame.transform.get_orient(), expected_quat))
-			{
+		if (!glm_equal(animation.base_transform.get_orient(), expected_quat))
+			return false;
+		for (const auto& key : animation.rotation_track.keys)
+			if (!glm_equal(glm::quat(key.value.w, key.value.x, key.value.y, key.value.z), expected_quat))
 				return false;
-			}
-		}
 		return true;
 	};
 
@@ -368,21 +363,23 @@ TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 
 	// mid bone
 	ASSERT_TRUE(pos_checker(bone_animations[1], Maths::up_vec));
-	ASSERT_TRUE(glm_equal(bone_animations[1].key_frames[0].transform.get_orient(), Maths::identity_quat));
-	ASSERT_TRUE(glm_equal(bone_animations[1].key_frames[1].transform.get_orient(), 
+	ASSERT_EQ(bone_animations[1].rotation_track.keys.size(), 4);
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[0]), Maths::identity_quat));
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[1]),
 		glm::angleAxis(Maths::PI/4.0f, Maths::forward_vec)));
-	ASSERT_TRUE(glm_equal(bone_animations[1].key_frames[2].transform.get_orient(),
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[2]),
 		glm::angleAxis(-Maths::PI/4.0f, Maths::forward_vec)));
-	ASSERT_TRUE(glm_equal(bone_animations[1].key_frames[3].transform.get_orient(), Maths::identity_quat));
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[3]), Maths::identity_quat));
 		
 	// tip bone
 	ASSERT_TRUE(pos_checker(bone_animations[2], Maths::up_vec));
-	ASSERT_TRUE(glm_equal(bone_animations[2].key_frames[0].transform.get_orient(), Maths::identity_quat));
-	ASSERT_TRUE(glm_equal(bone_animations[2].key_frames[1].transform.get_orient(), 
+	ASSERT_EQ(bone_animations[2].rotation_track.keys.size(), 4);
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[0]), Maths::identity_quat));
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[1]),
 		glm::angleAxis(Maths::PI/8.0f, Maths::forward_vec)));
-	ASSERT_TRUE(glm_equal(bone_animations[2].key_frames[2].transform.get_orient(), 
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[2]),
 		glm::angleAxis(-Maths::PI/8.0f, Maths::forward_vec)));
-	ASSERT_TRUE(glm_equal(bone_animations[2].key_frames[3].transform.get_orient(), Maths::identity_quat));
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[3]), Maths::identity_quat));
 
 	// right bone
 	ASSERT_TRUE(pos_checker(bone_animations[3], Maths::up_vec));
@@ -537,7 +534,7 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 	auto incompatible_bones = get_bones();
 	incompatible_bones[0].name = "different-root";
 	const auto incompatible_skeleton = ecs.add_skeleton(incompatible_bones);
-	EXPECT_THROW(ecs.play_animation(incompatible_skeleton, *root_move), std::runtime_error);
+	EXPECT_FALSE(ecs.play_animation(incompatible_skeleton, *root_move));
 	ecs.process(2.0f);
 }
 

@@ -1,4 +1,5 @@
 #include <entity_component_system/ecs.hpp>
+#include <serialization/resource_provenance.hpp>
 
 #include <gtest/gtest.h>
 
@@ -38,7 +39,7 @@ struct SkeletalAnimationFixture
 TEST(SkeletalAnimationSystem, pauses_seeks_and_steps_within_clip_bounds)
 {
 	SkeletalAnimationFixture fixture;
-	fixture.ecs.play_animation(fixture.skeleton_id, fixture.animation_id);
+	EXPECT_TRUE(fixture.ecs.play_animation(fixture.skeleton_id, fixture.animation_id));
 	fixture.ecs.process(0.25f);
 
 	auto playback = fixture.ecs.get_animation_playback(fixture.skeleton_id);
@@ -59,6 +60,43 @@ TEST(SkeletalAnimationSystem, pauses_seeks_and_steps_within_clip_bounds)
 	fixture.ecs.step_animation(fixture.skeleton_id, -2.0f);
 	EXPECT_FLOAT_EQ(fixture.ecs.get_animation_playback(fixture.skeleton_id)->elapsed_secs, 0.0f);
 	EXPECT_FLOAT_EQ(fixture.bone_x(), 0.0f);
+}
+
+TEST(SkeletalAnimationSystem, rejects_invalid_play_requests_without_changing_playback)
+{
+	SkeletalAnimationFixture fixture;
+	ASSERT_TRUE(fixture.ecs.play_animation(fixture.skeleton_id, fixture.animation_id, true));
+
+	Bone incompatible_bone;
+	incompatible_bone.name = "other";
+	const auto incompatible_animation = fixture.ecs.add_skeletal_animation(
+		"incompatible", { BoneAnimation{} }, make_skeletal_rig_signature({ incompatible_bone }));
+
+	EXPECT_FALSE(fixture.ecs.play_animation(fixture.skeleton_id, incompatible_animation));
+	EXPECT_FALSE(fixture.ecs.play_animation(fixture.skeleton_id, AnimationID(999999)));
+	EXPECT_FALSE(fixture.ecs.play_animation(SkeletonID(999999), fixture.animation_id));
+
+	const auto playback = fixture.ecs.get_animation_playback(fixture.skeleton_id);
+	ASSERT_TRUE(playback);
+	EXPECT_EQ(playback->animation_id, fixture.animation_id);
+	EXPECT_TRUE(playback->looping);
+}
+
+TEST(SkeletalAnimationSystem, removes_animation_and_stops_active_playback)
+{
+	SkeletalAnimationFixture fixture;
+	ResourceProvenance::register_animation(
+		fixture.animation_id, { .source = "move.glb", .skin = 0, .animation = 0 });
+	ASSERT_TRUE(fixture.ecs.play_animation(fixture.skeleton_id, fixture.animation_id));
+	fixture.ecs.process(0.5f);
+	ASSERT_NE(fixture.bone_x(), 0.0f);
+
+	EXPECT_TRUE(fixture.ecs.remove_skeletal_animation(fixture.animation_id));
+	EXPECT_FALSE(fixture.ecs.get_skeletal_animations().contains(fixture.animation_id));
+	EXPECT_FALSE(fixture.ecs.get_animation_playback(fixture.skeleton_id));
+	EXPECT_FLOAT_EQ(fixture.bone_x(), 0.0f);
+	EXPECT_EQ(ResourceProvenance::animation(fixture.animation_id), nullptr);
+	EXPECT_FALSE(fixture.ecs.remove_skeletal_animation(fixture.animation_id));
 }
 
 TEST(SkeletalAnimationSystem, applies_loop_changes_to_active_playback)

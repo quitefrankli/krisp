@@ -236,12 +236,6 @@ void SkeletalAnimationSystem::serialize(Serializer& out) const
 			bone_out.write("animation_start_secs", bone.animation_start_secs);
 			bone_out.write("animation_end_secs", bone.animation_end_secs);
 			Serialization::write_transform(bone_out, "base_transform", bone.base_transform);
-			auto frames = bone_out.sequence("key_frames");
-			for (const auto& frame : bone.key_frames) {
-				auto frame_out = frames.append_map();
-				frame_out.write("time", frame.animation_stage_secs);
-				Serialization::write_transform(frame_out, "transform", frame.transform);
-			}
 			write_track(bone_out, "translation_track", bone.translation_track, Serialization::write_vec3);
 			write_track(bone_out, "rotation_track", bone.rotation_track, Serialization::write_vec4);
 			write_track(bone_out, "scale_track", bone.scale_track, Serialization::write_vec3);
@@ -318,8 +312,6 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in)
 			bone.animation_start_secs = bone_in.read<float>("animation_start_secs");
 			bone.animation_end_secs = bone_in.read<float>("animation_end_secs");
 			bone.base_transform = Serialization::read_transform(bone_in, "base_transform");
-			for (const auto& frame_in : bone_in.child("key_frames").elements())
-				bone.key_frames.push_back({ Serialization::read_transform(frame_in, "transform"), frame_in.read<float>("time") });
 			bone.translation_track = read_track<glm::vec3>(bone_in, "translation_track", Serialization::read_vec3);
 			bone.rotation_track = read_track<glm::vec4>(bone_in, "rotation_track", Serialization::read_vec4);
 			bone.scale_track = read_track<glm::vec3>(bone_in, "scale_track", Serialization::read_vec3);

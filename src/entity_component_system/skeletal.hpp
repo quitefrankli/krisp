@@ -49,15 +49,8 @@ struct BoneAnimation
 		std::vector<TrackKey<T>> keys;
 	};
 
-	struct KeyFrame 
-	{
-		Maths::Transform transform;
-		float animation_stage_secs;
-	};
-
 	float animation_start_secs = std::numeric_limits<float>::max();
 	float animation_end_secs = std::numeric_limits<float>::lowest();
-	std::vector<KeyFrame> key_frames;
 	Maths::Transform base_transform;
 	Track<glm::vec3> translation_track;
 	Track<glm::vec4> rotation_track;
@@ -112,6 +105,7 @@ public:
 	void attach_skeleton(Entity id, SkeletonID skeleton_id);
 	std::optional<SkeletonID> get_skeleton_id(Entity id) const;
 	std::vector<SkeletonID> get_skeleton_ids() const;
+	bool has_skeleton(SkeletonID id) const { return skeletons.contains(id); }
 	std::vector<SDS::Bone> get_bones(SkeletonID id) const { return skeletons.at(id).get_bones_data(); }
 	SkeletalComponent& get_skeletal_component(SkeletonID id) { return skeletons.at(id); }
 	const SkeletalComponent& get_skeletal_component(SkeletonID id) const { return skeletons.at(id); }
@@ -151,7 +145,8 @@ public:
 		std::vector<BoneAnimation>&& bone_animations,
 		SkeletalRigSignature rig_signature,
 		std::string source = {});
-	void play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
+	bool remove_skeletal_animation(AnimationID animation_id);
+	bool play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
 	void stop_animation(SkeletonID skeleton_id);
 	void set_animation_looping(SkeletonID skeleton_id, bool looping);
 	void set_animation_paused(SkeletonID skeleton_id, bool paused);

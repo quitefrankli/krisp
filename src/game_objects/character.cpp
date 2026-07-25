@@ -16,7 +16,9 @@ void Character::play_looping_animation(ECS& ecs, const AnimationID animation)
 	const auto skeleton = ecs.get_skeleton_id(get_id());
 	if (!skeleton)
 		throw std::runtime_error("Character requires a skeleton");
-	ecs.play_animation(*skeleton, animation, true);
-	active_animation = animation;
-	has_animation = true;
+	if (ecs.play_animation(*skeleton, animation, true))
+	{
+		active_animation = animation;
+		has_animation = true;
+	}
 }

@@ -40,6 +40,7 @@ std::optional<AnimationID> ResourceProvenance::find_animation(const ImportedReso
 }
 void ResourceProvenance::erase_mesh(MeshID id) { meshes.erase(id); }
 void ResourceProvenance::erase_material(MaterialID id) { materials.erase(id); }
+void ResourceProvenance::erase_animation(AnimationID id) { animations.erase(id); }
 void ResourceProvenance::clear()
 {
 	meshes.clear();

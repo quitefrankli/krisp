@@ -378,13 +378,22 @@ public:
 	static std::vector<AnimationChoice> sort_animation_choices(std::vector<AnimationChoice> choices);
 
 private:
+	struct AnimationFileLoadRequest
+	{
+		SkeletonID skeleton;
+		std::string path;
+	};
+
 	void refresh_animation_files();
 
 	std::vector<std::string> animation_paths;
-	std::unordered_map<SkeletonID, std::unordered_map<std::string, std::vector<AnimationID>>> loaded_animation_files;
+	std::map<SkeletalRigSignature, std::unordered_map<std::string, std::vector<AnimationID>>>
+		loaded_animation_files;
 	std::optional<SkeletonID> selected_skeleton;
-	std::unordered_set<AnimationID> compatible_animations;
 	std::vector<AnimationChoice> animation_choices;
+	std::optional<AnimationFileLoadRequest> pending_animation_file;
+	int selected_animation_path = -1;
+	bool should_refresh_animation_files = false;
 	std::optional<AnimationID> selected_animation;
 	std::string selected_animation_name = "(select clip)";
 	std::string target_status = "Select a skinned object";

@@ -1133,13 +1133,16 @@ std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_an
 void GuiAnimationSelector::process(GameEngine& engine)
 {
 	const std::lock_guard lock(state_mutex);
+	if (should_refresh_animation_files)
+	{
+		should_refresh_animation_files = false;
+		refresh_animation_files();
+		if (selected_animation_path >= static_cast<int>(animation_paths.size()))
+			selected_animation_path = -1;
+	}
+
 	const auto previous_skeleton = selected_skeleton;
 	selected_skeleton.reset();
-	animation_choices.clear();
-	animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
-	for (const auto& [id, animation] : engine.get_ecs().get_skeletal_animations())
-		animation_choices.emplace_back(id, animation.source + ": " + animation.name);
-	animation_choices = sort_animation_choices(std::move(animation_choices));
 	target_status = "Select a skinned object";
 	if (const auto* selected_object = engine.get_gizmo().get_selected_object())
 	{
@@ -1155,39 +1158,62 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		paused = false;
 	}
 
-	const auto rebuild_compatible_animations = [&]
+	if (pending_animation_file)
 	{
-		compatible_animations.clear();
-		if (!selected_skeleton)
-			return;
-		for (const auto& [id, _] : engine.get_ecs().get_skeletal_animations())
+		auto request = std::move(*pending_animation_file);
+		pending_animation_file.reset();
+		bool animation_choices_changed = false;
+		if (!engine.get_ecs().has_skeleton(request.skeleton))
 		{
-			if (engine.get_ecs().is_animation_compatible(*selected_skeleton, id))
-				compatible_animations.insert(id);
+			load_error = report_resource_load_error(
+				"Animation Selector failed to load animation file",
+				ResourceLoadError("Selected skeleton no longer exists"));
 		}
-	};
-	rebuild_compatible_animations();
-	if (selected_skeleton)
-	{
-		auto& cache = loaded_animation_files[*selected_skeleton];
-		for (const auto& path : animation_paths)
+		else
 		{
-			const std::string cache_key = path;
-			if (cache.contains(cache_key))
-				continue;
+			const auto rig_signature = make_skeletal_rig_signature(
+				engine.get_ecs().get_skeletal_component(request.skeleton).get_bones());
+			auto& rig_cache = loaded_animation_files[rig_signature];
+			if (const auto loaded = rig_cache.find(request.path); loaded != rig_cache.end())
+			{
+				for (const auto animation_id : loaded->second)
+				{
+					if (selected_animation == animation_id)
+					{
+						selected_animation.reset();
+						selected_animation_name = "(select clip)";
+						playback_active = false;
+						paused = false;
+					}
+					animation_choices_changed |= engine.get_ecs().remove_skeletal_animation(animation_id);
+				}
+				rig_cache.erase(loaded);
+			}
 			try
 			{
-				auto loaded = ResourceLoader::load_animations(engine.get_ecs(), path, *selected_skeleton);
+				auto loaded = ResourceLoader::load_animations(
+					engine.get_ecs(), request.path, request.skeleton);
 				for (const auto& warning : loaded.warnings)
-					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}", path, warning.message);
-				cache.emplace(cache_key, std::move(loaded.animations));
+					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}",
+						request.path, warning.message);
+				rig_cache.emplace(request.path, std::move(loaded.animations));
+				animation_choices_changed = true;
+				load_error.reset();
 			}
-			catch (const ResourceLoadError&)
+			catch (const ResourceLoadError& error)
 			{
-				cache.emplace(cache_key, std::vector<AnimationID>{});
+				load_error = report_resource_load_error(
+					"Animation Selector failed to load animation file", error);
 			}
 		}
-		rebuild_compatible_animations();
+		if (animation_choices_changed)
+		{
+			animation_choices.clear();
+			animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
+			for (const auto& [id, animation] : engine.get_ecs().get_skeletal_animations())
+				animation_choices.emplace_back(id, animation.source + ": " + animation.name);
+			animation_choices = sort_animation_choices(std::move(animation_choices));
+		}
 	}
 
 	if (selected_animation)
@@ -1207,17 +1233,18 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		should_play = false;
 		if (!selected_skeleton || !selected_animation)
 			return;
-		try
+		if (engine.get_ecs().play_animation(*selected_skeleton, *selected_animation, loop))
 		{
-			engine.get_ecs().play_animation(*selected_skeleton, *selected_animation, loop);
 			engine.get_ecs().set_animation_speed(*selected_skeleton, playback_speed);
 			load_error.reset();
 			playback_active = true;
 		}
-		catch (const std::runtime_error& error)
+		else
 		{
 			load_error = report_resource_load_error(
-				"Animation Selector failed to play animation", ResourceLoadError(error.what()));
+				"Animation Selector failed to play animation",
+				ResourceLoadError("Animation is missing or incompatible with the selected skeleton"));
+			playback_active = false;
 		}
 	}
 
@@ -1302,32 +1329,34 @@ void GuiAnimationSelector::draw()
 	{
 	ImGui::TextWrapped("%s", target_status.c_str());
 
-	const auto compatibility_color = [](const bool compatible)
+	if (ImGui::Button("Refresh animation files"))
+		should_refresh_animation_files = true;
+	const char* selected_file_name = selected_animation_path >= 0
+		&& selected_animation_path < static_cast<int>(animation_paths.size())
+		? animation_paths[selected_animation_path].c_str() : "(select file)";
+	if (ImGui::BeginCombo("Animation files", selected_file_name))
 	{
-		return compatible
-			? ImVec4(0.3f, 1.0f, 0.3f, 1.0f)
-			: ImVec4(1.0f, 0.35f, 0.35f, 1.0f);
-	};
-	bool combo_open;
-	if (selected_animation)
-	{
-		ImGui::PushStyleColor(
-			ImGuiCol_Text, compatibility_color(compatible_animations.contains(*selected_animation)));
-		combo_open = ImGui::BeginCombo("Animations", selected_animation_name.c_str());
-		ImGui::PopStyleColor();
+		for (int index = 0; index < static_cast<int>(animation_paths.size()); ++index)
+		{
+			const bool selected = selected_animation_path == index;
+			if (ImGui::Selectable(animation_paths[index].c_str(), selected))
+			{
+				selected_animation_path = index;
+				if (selected_skeleton)
+					pending_animation_file = AnimationFileLoadRequest{
+						.skeleton = *selected_skeleton, .path = animation_paths[index] };
+			}
+		}
+		ImGui::EndCombo();
 	}
-	else
-	{
-		combo_open = ImGui::BeginCombo("Animations", selected_animation_name.c_str());
-	}
+
+	const bool combo_open = ImGui::BeginCombo("Animations", selected_animation_name.c_str());
 	if (combo_open)
 	{
 		for (const auto& [id, label] : animation_choices)
 		{
-			const bool compatible = compatible_animations.contains(id);
 			const std::string id_string = std::to_string(id.get_underlying());
 			ImGui::PushID(id_string.c_str());
-			ImGui::PushStyleColor(ImGuiCol_Text, compatibility_color(compatible));
 			if (ImGui::Selectable(label.c_str(), selected_animation == id))
 			{
 				selected_animation_name = label;
@@ -1335,7 +1364,6 @@ void GuiAnimationSelector::draw()
 				should_play = true;
 				paused = false;
 			}
-			ImGui::PopStyleColor();
 			ImGui::PopID();
 		}
 		ImGui::EndCombo();
@@ -1343,7 +1371,7 @@ void GuiAnimationSelector::draw()
 
 	ImGui::Text("%.2f / %.2f s", elapsed_secs, duration_secs);
 	const bool can_seek = selected_skeleton && selected_animation
-		&& compatible_animations.contains(*selected_animation) && duration_secs > 0.0f;
+		&& duration_secs > 0.0f;
 	ImGui::BeginDisabled(!can_seek);
 	if (ImGui::SliderFloat(
 		"##AnimationTimeline", &elapsed_secs, 0.0f, duration_secs, "%.2f s"))
