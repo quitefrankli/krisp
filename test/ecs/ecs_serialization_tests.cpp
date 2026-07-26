@@ -33,6 +33,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	const EntityID quad_id(12);
 	const EntityID box_id(13);
 	const EntityID mesh_id(14);
+	const EntityID capsule_id(15);
 	const EntityID clickable_id(100);
 	const EntityID hoverable_id(101);
 
@@ -44,6 +45,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 		Maths::Plane({ 7.0f, 8.0f, 9.0f }, { 0.0f, 0.0f, 1.0f }), glm::vec2(3.0f, 4.0f)));
 	source.add_collider(box_id, std::make_unique<BoxCollider>(AABB({ -2.0f, -3.0f, -4.0f }, { 2.0f, 3.0f, 4.0f })));
 	source.add_collider(mesh_id, std::make_unique<MeshCollider>(std::vector<MeshID>{ MeshID(21), MeshID(22) }));
+	source.add_collider(capsule_id, std::make_unique<CapsuleCollider>(0.4f, 1.8f));
 	source.add_clickable_entity(clickable_id);
 	source.add_hoverable_entity(hoverable_id);
 	source.add_light_source(mesh_id, LightComponent{ .intensity = 3.5f, .color = { 0.1f, 0.2f, 0.3f } });
@@ -71,7 +73,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	source.serialize(serializer);
 	const auto serialized = Deserializer::parse(serializer.emit());
 	const auto serialized_colliders = serialized.child("collider_system").elements();
-	ASSERT_EQ(serialized_colliders.size(), 5);
+	ASSERT_EQ(serialized_colliders.size(), 6);
 	for (std::size_t index = 0; index < serialized_colliders.size(); ++index)
 		EXPECT_EQ(serialized_colliders[index].read<std::uint64_t>("entity_id"), 10 + index);
 
@@ -86,7 +88,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	EXPECT_EQ(restored.get_light_component(EntityID(99)), nullptr);
 
 	const auto& colliders = restored.get_all_colliders();
-	ASSERT_EQ(colliders.size(), 5);
+	ASSERT_EQ(colliders.size(), 6);
 	const auto restored_ray = dynamic_cast<const RayCollider*>(colliders.at(ray_id).collider.get())->get_local_data();
 	EXPECT_EQ(restored_ray.origin, ray.origin);
 	EXPECT_EQ(restored_ray.direction, ray.direction);
@@ -102,6 +104,11 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	EXPECT_EQ(restored_box.max_bound, glm::vec3(2.0f, 3.0f, 4.0f));
 	EXPECT_EQ(dynamic_cast<const MeshCollider*>(colliders.at(mesh_id).collider.get())->get_mesh_ids(),
 		(std::vector<MeshID>{ MeshID(21), MeshID(22) }));
+	const auto* restored_capsule =
+		dynamic_cast<const CapsuleCollider*>(colliders.at(capsule_id).collider.get());
+	ASSERT_NE(restored_capsule, nullptr);
+	EXPECT_FLOAT_EQ(restored_capsule->get_radius(), 0.4f);
+	EXPECT_FLOAT_EQ(restored_capsule->get_height(), 1.8f);
 
 	const auto* restored_physics = restored._get_physics_component(ray_id);
 	ASSERT_NE(restored_physics, nullptr);
@@ -169,7 +176,7 @@ TEST(EcsSerialization, rejects_unsupported_polymorphic_types)
 	}
 	const auto unknown_collider = Deserializer::parse(
 		"collider_system:\n"
-		"  - {entity_id: 2, type: capsule, data: {}}\n");
+		"  - {entity_id: 2, type: cone, data: {}}\n");
 	try {
 		ecs.ColliderSystem::deserialize(unknown_collider);
 		FAIL() << "Expected unknown collider type to fail";

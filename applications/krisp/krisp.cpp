@@ -39,15 +39,22 @@ public:
 			throw std::runtime_error("Player model must contain a skinned mesh");
 
 		PlayerDefinition definition;
-		auto& spawned_player = engine.spawn_object<PlayerCharacter>(mesh->renderables, definition);
-		engine.get_ecs().attach_skeleton(spawned_player.get_id(), *mesh->skeleton_id);
-		spawned_player.set_transform(model.onload_transform.get_mat4() * mesh->transform.get_mat4());
+		auto& spawned_player = engine.spawn_object<PlayerCharacter>(
+			std::vector<Renderable>{}, definition);
+		auto& player_visual = engine.spawn_object<Object>(mesh->renderables);
+		player_visual.set_transform(model.onload_transform.get_mat4() * mesh->transform.get_mat4());
+		player_visual.attach_to(&spawned_player);
+		engine.get_ecs().attach_skeleton(player_visual.get_id(), *mesh->skeleton_id);
+		player_visual.set_name("Player Visual");
+		engine.get_ecs().add_collider(spawned_player.get_id(), std::make_unique<CapsuleCollider>(
+			definition.capsule_radius, definition.capsule_height));
+		engine.get_ecs().add_clickable_entity(spawned_player.get_id());
 		spawned_player.set_name("Player");
 
 		auto& camera = engine.get_camera();
 		camera.look_at(spawned_player.get_position() + definition.camera_focus_offset,
 			spawned_player.get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
-		engine.set_game_mode(EGameMode::NORMAL);
+		// engine.set_game_mode(EGameMode::NORMAL);
 		engine.set_camera_orbit_with_right_mouse(true);
 	}
 

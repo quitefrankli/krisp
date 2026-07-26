@@ -39,6 +39,16 @@ CollisionDetector::CollisionDetector()
 		};
 	});
 
+	CollisionType ray_capsule{ ECollider::RAY, ECollider::CAPSULE };
+	detectors.emplace(ray_capsule, [](const Collider* collider1, const Collider* collider2) -> CollisionResult
+	{
+		const auto* ray = static_cast<const RayCollider*>(collider1);
+		const auto* capsule = static_cast<const CapsuleCollider*>(collider2);
+		glm::vec3 intersection{};
+		const bool collided = capsule->check_collision(*ray, intersection);
+		return { collided, intersection };
+	});
+
 	CollisionType ray_quad{ ECollider::RAY, ECollider::QUAD };
 	detectors.emplace(ray_quad, [](const Collider* collider1, const Collider* collider2) -> CollisionResult
 	{

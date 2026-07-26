@@ -21,6 +21,15 @@ TEST(MeshFactory, cube)
 	ASSERT_EQ(cube->get_num_vertex_indices(), 42);
 }
 
+TEST(MeshFactory, capsule_is_y_aligned_and_rests_at_zero)
+{
+	auto capsule = MeshFactory::capsule(0.5f, 2.0f, 16, 4);
+	const AABB& bounds = capsule->get_pick_data().get_bounds();
+
+	EXPECT_TRUE(glm_equal(bounds.min_bound, { -0.5f, 0.0f, -0.5f }));
+	EXPECT_TRUE(glm_equal(bounds.max_bound, { 0.5f, 2.0f, 0.5f }));
+}
+
 TEST(MeshFactory, check_no_duplicate_generation)
 {
 	const auto cube1_id = MeshFactory::cube_id();

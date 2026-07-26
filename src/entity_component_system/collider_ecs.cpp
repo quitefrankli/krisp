@@ -124,6 +124,15 @@ void ColliderSystem::serialize(Serializer& out) const
 			data.write("radius", sphere.radius);
 			break;
 		}
+		case ECollider::CAPSULE: {
+			const auto* typed = dynamic_cast<const CapsuleCollider*>(collider);
+			if (!typed)
+				throw SerializationError("Invalid capsule collider at " + collider_path(index, "type"));
+			entry.write("type", "capsule");
+			data.write("radius", typed->get_radius());
+			data.write("height", typed->get_height());
+			break;
+		}
 		case ECollider::QUAD: {
 			const auto* typed = dynamic_cast<const QuadCollider*>(collider);
 			if (!typed)
@@ -180,6 +189,9 @@ void ColliderSystem::deserialize(const Deserializer& in)
 		} else if (type == "sphere") {
 			collider = std::make_unique<SphereCollider>(Maths::Sphere(
 				Serialization::read_vec3(data, "origin"), data.read<float>("radius")));
+		} else if (type == "capsule") {
+			collider = std::make_unique<CapsuleCollider>(
+				data.read<float>("radius"), data.read<float>("height"));
 		} else if (type == "quad") {
 			collider = std::make_unique<QuadCollider>(
 				Maths::Plane(Serialization::read_vec3(data, "offset"),

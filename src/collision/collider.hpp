@@ -15,8 +15,7 @@ enum class ECollider
 {
 	RAY,
 	SPHERE,
-	// BOX,
-	// CAPSULE,
+	CAPSULE,
 	QUAD,
 	BOX,
 	MESH,
@@ -87,6 +86,24 @@ struct SphereCollider : public Collider
 
 private:
 	Maths::Sphere data;
+};
+
+// A Y-axis capsule whose bottom rests at local y=0. Height includes both
+// hemispherical caps.
+struct CapsuleCollider : public Collider
+{
+	CapsuleCollider(float radius, float height);
+	virtual ECollider get_type() const override { return ECollider::CAPSULE; }
+	virtual Object& spawn_debug_object(GameEngine& engine) const override;
+	virtual void update_debug_object(Object& object) const override;
+
+	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
+	float get_radius() const { return radius; }
+	float get_height() const { return height; }
+
+private:
+	float radius;
+	float height;
 };
 
 // An oriented box in world space, represented by an axis-aligned box in the

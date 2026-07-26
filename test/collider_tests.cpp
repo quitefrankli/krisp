@@ -88,6 +88,36 @@ TEST(collider_tests, box_collider_handles_parallel_ray_axes_and_inside_origins)
     ASSERT_TRUE(glm_equal(intersection, glm::vec3(0.0f)));
 }
 
+TEST(collider_tests, capsule_collider_hits_side_and_caps)
+{
+    const CapsuleCollider capsule(0.5f, 2.0f);
+
+    RayCollider ray(Maths::Ray({ 0.0f, 1.0f, -2.0f }, Maths::forward_vec));
+    CollisionResult result = CollisionDetector::check_collision(&ray, &capsule);
+    ASSERT_TRUE(result.bCollided);
+    EXPECT_TRUE(glm_equal(result.intersection, { 0.0f, 1.0f, -0.5f }));
+
+    ray = RayCollider(Maths::Ray({ 0.0f, 3.0f, 0.0f }, -Maths::up_vec));
+    result = CollisionDetector::check_collision(&ray, &capsule);
+    ASSERT_TRUE(result.bCollided);
+    EXPECT_TRUE(glm_equal(result.intersection, { 0.0f, 2.0f, 0.0f }));
+
+    ray = RayCollider(Maths::Ray({ 0.6f, 1.0f, -2.0f }, Maths::forward_vec));
+    result = CollisionDetector::check_collision(&ray, &capsule);
+    EXPECT_FALSE(result.bCollided);
+}
+
+TEST(collider_tests, capsule_collider_bottom_rests_at_local_y_zero)
+{
+    const CapsuleCollider capsule(0.5f, 2.0f);
+    const RayCollider ray(Maths::Ray({ 0.0f, -1.0f, 0.0f }, Maths::up_vec));
+
+    const CollisionResult result = CollisionDetector::check_collision(&ray, &capsule);
+
+    ASSERT_TRUE(result.bCollided);
+    EXPECT_TRUE(glm_equal(result.intersection, Maths::zero_vec));
+}
+
 TEST(collider_tests, mesh_collider_rejects_aabb_hits_outside_the_mesh_triangles)
 {
     const MeshID mesh_id = add_test_mesh({

@@ -6,7 +6,9 @@
 
 #include <glm/gtx/quaternion.hpp>
 
+#include <cmath>
 #include <limits>
+#include <stdexcept>
 
 namespace
 {
@@ -184,6 +186,99 @@ void SphereCollider::update_debug_object(Object& obj) const
 	obj.set_position(sphere.origin);
 	obj.set_rotation(Maths::identity_quat);
 	obj.set_scale(glm::vec3(sphere.radius * 2.0f));
+}
+
+CapsuleCollider::CapsuleCollider(const float radius, const float height) :
+	radius(radius),
+	height(height)
+{
+	if (radius <= 0.0f || height < radius * 2.0f)
+		throw std::invalid_argument("CapsuleCollider requires radius > 0 and height >= 2 * radius");
+}
+
+bool CapsuleCollider::check_collision(const RayCollider& ray, glm::vec3& out_intersection) const
+{
+	const auto ray_data = ray.get_data();
+	const glm::mat4& transform = get_temporary_transform().get_mat4();
+	if (Maths::absf(glm::determinant(transform)) <= std::numeric_limits<float>::epsilon())
+		return false;
+
+	const glm::mat4 inverse_transform = glm::inverse(transform);
+	const glm::vec3 origin = inverse_transform * glm::vec4(ray_data.origin, 1.0f);
+	const glm::vec3 local_direction = inverse_transform * glm::vec4(ray_data.direction, 0.0f);
+	if (glm::length2(local_direction) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+		return false;
+	const glm::vec3 direction = glm::normalize(local_direction);
+	const glm::vec3 bottom(0.0f, radius, 0.0f);
+	const glm::vec3 top(0.0f, height - radius, 0.0f);
+	const glm::vec3 segment = top - bottom;
+	const float segment_length_sq = glm::dot(segment, segment);
+
+	const float projection = segment_length_sq <= Maths::ACCEPTABLE_FLOATING_PT_DIFF
+		? 0.0f : glm::clamp(glm::dot(origin - bottom, segment) / segment_length_sq, 0.0f, 1.0f);
+	if (glm::length2(origin - (bottom + projection * segment)) <= radius * radius)
+	{
+		out_intersection = ray_data.origin;
+		return true;
+	}
+
+	float closest_t = std::numeric_limits<float>::infinity();
+	if (segment_length_sq > Maths::ACCEPTABLE_FLOATING_PT_DIFF)
+	{
+		const glm::vec3 offset = origin - bottom;
+		const float segment_dot_ray = glm::dot(segment, direction);
+		const float segment_dot_offset = glm::dot(segment, offset);
+		const float ray_dot_offset = glm::dot(direction, offset);
+		const float offset_length_sq = glm::dot(offset, offset);
+		const float a = segment_length_sq - segment_dot_ray * segment_dot_ray;
+		const float b = segment_length_sq * ray_dot_offset - segment_dot_offset * segment_dot_ray;
+		const float c = segment_length_sq * offset_length_sq
+			- segment_dot_offset * segment_dot_offset - radius * radius * segment_length_sq;
+		const float discriminant = b * b - a * c;
+		if (Maths::absf(a) > Maths::ACCEPTABLE_FLOATING_PT_DIFF && discriminant >= 0.0f)
+		{
+			const float t = (-b - std::sqrt(discriminant)) / a;
+			const float y = segment_dot_offset + t * segment_dot_ray;
+			if (t >= 0.0f && y > 0.0f && y < segment_length_sq)
+				closest_t = t;
+		}
+	}
+
+	for (const glm::vec3 centre : { bottom, top })
+	{
+		const glm::vec3 offset = origin - centre;
+		const float b = glm::dot(offset, direction);
+		const float discriminant = b * b - (glm::dot(offset, offset) - radius * radius);
+		if (discriminant < 0.0f)
+			continue;
+		const float t = -b - std::sqrt(discriminant);
+		if (t >= 0.0f)
+			closest_t = std::min(closest_t, t);
+	}
+
+	if (!std::isfinite(closest_t))
+		return false;
+	const glm::vec3 local_intersection = origin + closest_t * direction;
+	out_intersection = transform * glm::vec4(local_intersection, 1.0f);
+	return true;
+}
+
+Object& CapsuleCollider::spawn_debug_object(GameEngine& engine) const
+{
+	Object& obj = engine.spawn_object<Object>(Renderable{
+		.mesh_id = MeshFactory::capsule_id(radius, height),
+		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
+		.pipeline_render_type = ERenderType::COLOR,
+		.casts_shadow = false,
+	});
+	obj.set_name("Collider Visual");
+	update_debug_object(obj);
+	return obj;
+}
+
+void CapsuleCollider::update_debug_object(Object& obj) const
+{
+	obj.set_transform(get_temporary_transform().get_mat4());
 }
 
 bool BoxCollider::check_collision(const RayCollider& ray, glm::vec3& out_intersection) const

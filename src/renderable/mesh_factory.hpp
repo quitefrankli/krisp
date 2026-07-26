@@ -29,6 +29,7 @@ public:
 		EVertexType vertex_type = EVertexType::COLOR, 
 		GenerationMethod method = GenerationMethod::UV_SPHERE, 
 		int nVertices = 512);
+	static MeshID capsule_id(float radius, float height, uint32_t nSegments = 32, uint32_t nHemisphereRings = 8);
 	static MeshID cone_id(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
 	static MeshID cylinder_id(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
 	static MeshID arrow_id(float radius = 0.05f, uint32_t nVertices = 8);
@@ -44,6 +45,7 @@ public:
 		EVertexType vertex_type = EVertexType::COLOR, 
 		GenerationMethod method = GenerationMethod::UV_SPHERE, 
 		int nVertices = 512);
+	static MeshPtr capsule(float radius, float height, uint32_t nSegments = 32, uint32_t nHemisphereRings = 8);
 	static MeshPtr cone(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
 	static MeshPtr cylinder(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
 	static MeshPtr arrow(float radius = 0.05f, uint32_t nVertices = 8);

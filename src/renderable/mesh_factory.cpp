@@ -8,6 +8,7 @@
 #include <optional>
 #include <algorithm>
 #include <map>
+#include <tuple>
 
 
 //
@@ -78,6 +79,17 @@ MeshID MeshFactory::sphere_id(EVertexType vertex_type, GenerationMethod method, 
 	}
 
 	return cached_color_sphere[pair];
+}
+
+MeshID MeshFactory::capsule_id(
+	const float radius, const float height, const uint32_t nSegments, const uint32_t nHemisphereRings)
+{
+	using Key = std::tuple<float, float, uint32_t, uint32_t>;
+	static std::map<Key, MeshID> cached_capsules;
+	const Key key(radius, height, nSegments, nHemisphereRings);
+	if (!cached_capsules.contains(key))
+		cached_capsules[key] = MeshSystem::add_permanent(capsule(radius, height, nSegments, nHemisphereRings));
+	return cached_capsules[key];
 }
 
 MeshID MeshFactory::cone_id(EVertexType vertex_type, uint32_t nVertices)
@@ -336,6 +348,65 @@ MeshPtr MeshFactory::sphere(EVertexType vertex_type, GenerationMethod method, in
 	default:
 		throw std::runtime_error("MeshFactory::sphere: unknown GenerationMethod");
 	}
+}
+
+MeshPtr MeshFactory::capsule(
+	const float radius, const float height, const uint32_t nSegments, const uint32_t nHemisphereRings)
+{
+	if (radius <= 0.0f || height < radius * 2.0f)
+		throw std::invalid_argument("MeshFactory::capsule requires radius > 0 and height >= 2 * radius");
+	if (nSegments < 3 || nHemisphereRings < 1)
+		throw std::invalid_argument("MeshFactory::capsule requires at least 3 segments and 1 hemisphere ring");
+
+	ColorVertices vertices;
+	VertexIndices indices;
+	const uint32_t ring_count = nHemisphereRings * 2 + 2;
+	vertices.reserve(ring_count * nSegments);
+	indices.reserve((ring_count - 1) * nSegments * 6);
+
+	const auto add_ring = [&](const float centre_y, const float angle)
+	{
+		const float ring_radius = radius * Maths::cosf(angle);
+		const float y = centre_y + radius * Maths::sinf(angle);
+		for (uint32_t segment = 0; segment < nSegments; ++segment)
+		{
+			const float azimuth = static_cast<float>(segment) / nSegments * Maths::PI * 2.0f;
+			vertices.push_back({ .pos = {
+				ring_radius * Maths::cosf(azimuth),
+				y,
+				ring_radius * Maths::sinf(azimuth)
+			} });
+		}
+	};
+
+	for (uint32_t ring = 0; ring <= nHemisphereRings; ++ring)
+	{
+		const float angle = -Maths::PI * 0.5f
+			+ static_cast<float>(ring) / nHemisphereRings * Maths::PI * 0.5f;
+		add_ring(radius, angle);
+	}
+	for (uint32_t ring = 0; ring <= nHemisphereRings; ++ring)
+	{
+		const float angle = static_cast<float>(ring) / nHemisphereRings * Maths::PI * 0.5f;
+		add_ring(height - radius, angle);
+	}
+
+	for (uint32_t ring = 0; ring + 1 < ring_count; ++ring)
+	{
+		for (uint32_t segment = 0; segment < nSegments; ++segment)
+		{
+			const uint32_t next = (segment + 1) % nSegments;
+			const uint32_t lower = ring * nSegments;
+			const uint32_t upper = (ring + 1) * nSegments;
+			indices.insert(indices.end(), {
+				lower + segment, upper + segment, upper + next,
+				lower + segment, upper + next, lower + next
+			});
+		}
+	}
+
+	generate_normals(vertices, indices);
+	return std::make_unique<ColorMesh>(std::move(vertices), std::move(indices));
 }
 
 MeshPtr MeshFactory::cone(EVertexType vertex_type, uint32_t nVertices)
