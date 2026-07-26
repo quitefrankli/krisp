@@ -142,8 +142,10 @@ void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_w
 	}
 }
 
-void GameEngine::scroll_callback(double yoffset)
+void GameEngine::scroll_callback(const double yoffset, const bool gui_wants_input)
 {
+	if (gui_wants_input && game_mode != EGameMode::NORMAL)
+		return;
 	camera->zoom_in(yoffset);
 	static const glm::vec3 scale_factor(0.238f);
 	gizmo->set_scale(scale_factor * camera->get_focal_length());

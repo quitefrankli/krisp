@@ -26,6 +26,48 @@ glm::vec3 PlayerCharacter::movement_direction(
 		? Maths::zero_vec : glm::normalize(result);
 }
 
+PlayerLocomotionDirection PlayerCharacter::locomotion_direction(
+	const bool forward, const bool backward, const bool right, const bool left)
+{
+	const int longitudinal = static_cast<int>(forward) - static_cast<int>(backward);
+	const int lateral = static_cast<int>(right) - static_cast<int>(left);
+	if (longitudinal > 0 && lateral > 0) return PlayerLocomotionDirection::FORWARD_RIGHT;
+	if (longitudinal > 0 && lateral < 0) return PlayerLocomotionDirection::FORWARD_LEFT;
+	if (longitudinal < 0 && lateral > 0) return PlayerLocomotionDirection::BACKWARD_RIGHT;
+	if (longitudinal < 0 && lateral < 0) return PlayerLocomotionDirection::BACKWARD_LEFT;
+	if (longitudinal > 0) return PlayerLocomotionDirection::FORWARD;
+	if (longitudinal < 0) return PlayerLocomotionDirection::BACKWARD;
+	if (lateral > 0) return PlayerLocomotionDirection::RIGHT;
+	if (lateral < 0) return PlayerLocomotionDirection::LEFT;
+	return PlayerLocomotionDirection::IDLE;
+}
+
+void PlayerCharacter::configure_locomotion(
+	const SkeletonID skeleton,
+	PlayerLocomotionAnimations animations)
+{
+	animation_skeleton = skeleton;
+	locomotion_animations = std::move(animations);
+}
+
+AnimationID PlayerCharacter::animation_for(const PlayerLocomotionDirection direction) const
+{
+	const auto& animations = *locomotion_animations;
+	switch (direction)
+	{
+		case PlayerLocomotionDirection::IDLE: return animations.idle;
+		case PlayerLocomotionDirection::FORWARD: return animations.walk_forward;
+		case PlayerLocomotionDirection::BACKWARD: return animations.walk_backward;
+		case PlayerLocomotionDirection::LEFT: return animations.walk_left;
+		case PlayerLocomotionDirection::RIGHT: return animations.walk_right;
+		case PlayerLocomotionDirection::FORWARD_LEFT: return animations.walk_forward_left;
+		case PlayerLocomotionDirection::FORWARD_RIGHT: return animations.walk_forward_right;
+		case PlayerLocomotionDirection::BACKWARD_LEFT: return animations.walk_backward_left;
+		case PlayerLocomotionDirection::BACKWARD_RIGHT: return animations.walk_backward_right;
+	}
+	return animations.idle;
+}
+
 void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera, ECS& ecs, const float delta_secs)
 {
 	glm::vec3 forward = camera.get_focus() - camera.get_position();
@@ -35,14 +77,23 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 	else
 		forward = glm::normalize(forward);
 	const glm::vec3 right = glm::normalize(glm::cross(Maths::up_vec, forward));
+	const bool forward_pressed = keyboard.w_pressed();
+	const bool backward_pressed = keyboard.s_pressed();
+	const bool right_pressed = keyboard.d_pressed();
+	const bool left_pressed = keyboard.a_pressed();
 	const glm::vec3 direction = movement_direction(
-		keyboard.w_pressed(), keyboard.s_pressed(), keyboard.d_pressed(), keyboard.a_pressed(), forward, right);
+		forward_pressed, backward_pressed, right_pressed, left_pressed, forward, right);
 	moving = glm::length2(direction) > Maths::ACCEPTABLE_FLOATING_PT_DIFF;
 	if (moving)
 	{
-		set_rotation(Maths::Vec2Rot(direction));
+		set_rotation(Maths::Vec2Rot(forward));
 		resolve_horizontal_movement(ecs, direction * definition.movement_speed * delta_secs);
 	}
+	if (animation_skeleton && locomotion_animations)
+		play_looping_animation(ecs, *animation_skeleton,
+			animation_for(locomotion_direction(
+				forward_pressed, backward_pressed, right_pressed, left_pressed)),
+			definition.animation_transition_secs);
 	snap_to_ground(ecs);
 }
 

@@ -19,11 +19,30 @@
 #include <iomanip>
 #include <ranges>
 #include <stdexcept>
+#include <string>
+
+#include <glm/gtc/matrix_transform.hpp>
 
 
 namespace
 {
 constexpr std::string_view player_model = "npc.glb";
+constexpr std::string_view player_animations = "movement_animations.glb";
+
+AnimationID require_animation(
+	const ECS& ecs,
+	const ResourceLoader::LoadedAnimations& imported,
+	const std::string_view name)
+{
+	const auto& animations = ecs.get_skeletal_animations();
+	const auto found = std::ranges::find_if(imported.animations, [&](const AnimationID id)
+	{
+		return animations.at(id).name == name;
+	});
+	if (found == imported.animations.end())
+		throw std::runtime_error("Missing required player animation: " + std::string(name));
+	return *found;
+}
 
 class PlayerDemoApplication : public IApplication
 {
@@ -37,14 +56,32 @@ public:
 		});
 		if (mesh == model.meshes.end())
 			throw std::runtime_error("Player model must contain a skinned mesh");
+		const SkeletonID skeleton = *mesh->skeleton_id;
+		const auto imported_animations =
+			ResourceLoader::load_animations(engine.get_ecs(), player_animations, skeleton);
+		const PlayerLocomotionAnimations locomotion{
+			.idle = require_animation(engine.get_ecs(), imported_animations, "idle"),
+			.walk_backward = require_animation(engine.get_ecs(), imported_animations, "walkbackward"),
+			.walk_backward_left = require_animation(engine.get_ecs(), imported_animations, "walkbackwardleft"),
+			.walk_backward_right = require_animation(engine.get_ecs(), imported_animations, "walkbackwardright"),
+			.walk_forward = require_animation(engine.get_ecs(), imported_animations, "walkforward"),
+			.walk_forward_left = require_animation(engine.get_ecs(), imported_animations, "walkforwardleft"),
+			.walk_forward_right = require_animation(engine.get_ecs(), imported_animations, "walkforwardright"),
+			.walk_left = require_animation(engine.get_ecs(), imported_animations, "walkleft"),
+			.walk_right = require_animation(engine.get_ecs(), imported_animations, "walkright"),
+		};
 
 		PlayerDefinition definition;
 		auto& spawned_player = engine.spawn_object<PlayerCharacter>(
 			std::vector<Renderable>{}, definition);
 		auto& player_visual = engine.spawn_object<Object>(mesh->renderables);
-		player_visual.set_transform(model.onload_transform.get_mat4() * mesh->transform.get_mat4());
+		const glm::mat4 facing_correction =
+			glm::rotate(Maths::identity_mat, Maths::PI, Maths::up_vec);
+		player_visual.set_transform(
+			facing_correction * model.onload_transform.get_mat4() * mesh->transform.get_mat4());
 		player_visual.attach_to(&spawned_player);
-		engine.get_ecs().attach_skeleton(player_visual.get_id(), *mesh->skeleton_id);
+		engine.get_ecs().attach_skeleton(player_visual.get_id(), skeleton);
+		spawned_player.configure_locomotion(skeleton, locomotion);
 		player_visual.set_name("Player Visual");
 		engine.get_ecs().add_collider(spawned_player.get_id(), std::make_unique<CapsuleCollider>(
 			definition.capsule_radius, definition.capsule_height));
@@ -54,7 +91,7 @@ public:
 		auto& camera = engine.get_camera();
 		camera.look_at(spawned_player.get_position() + definition.camera_focus_offset,
 			spawned_player.get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
-		// engine.set_game_mode(EGameMode::NORMAL);
+		engine.set_game_mode(EGameMode::NORMAL);
 		engine.set_camera_orbit_with_right_mouse(true);
 	}
 

@@ -79,6 +79,33 @@ TEST_F(CameraTests, panning_after_orbit_preserves_view_direction)
 	EXPECT_NEAR(camera.get_focal_length(), focal_length_before_pan, 0.001f);
 }
 
+TEST_F(CameraTests, following_can_frame_target_to_the_left_with_a_horizontal_focus_offset)
+{
+	Object target;
+	target.set_position({ 4.0f, 2.0f, 3.0f });
+
+	camera.follow(target, { 0.0f, 1.0f, 0.0f }, 1.25f);
+
+	EXPECT_TRUE(glm_equal(camera.get_focus(), { 5.25f, 3.0f, 3.0f }));
+	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(target.get_position(), 1.0f);
+	EXPECT_NEAR(target_in_camera_space.x, -1.25f, 0.001f);
+}
+
+TEST_F(CameraTests, horizontal_follow_framing_remains_camera_relative_after_orbiting)
+{
+	Object target;
+	target.set_position({ 4.0f, 2.0f, 3.0f });
+	camera.follow(target, { 0.0f, 1.0f, 0.0f }, 1.25f);
+
+	camera.rotate_camera({ 0.03f, -0.02f }, 0.1f);
+	const glm::vec3 camera_right = camera.focus_obj->get_rotation() * Maths::right_vec;
+	camera.update_follow();
+
+	EXPECT_TRUE(glm_equal(camera.get_focus(), target.get_position() + glm::vec3(0.0f, 1.0f, 0.0f) + camera_right * 1.25f));
+	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(target.get_position(), 1.0f);
+	EXPECT_NEAR(target_in_camera_space.x, -1.25f, 0.001f);
+}
+
 TEST_F(CameraTests, camera_ray_cast)
 {
 	auto ray = camera.get_ray({ 0.0f, 0.0f });

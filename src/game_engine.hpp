@@ -201,7 +201,7 @@ private:
 	bool camera_orbit_with_right_mouse = false;
 
 public: // callbacks
-	virtual void scroll_callback(double yoffset) override;
+	virtual void scroll_callback(double yoffset, bool gui_wants_input = false) override;
 	virtual void key_callback(const KeyInput& key_input) override;
 	virtual void mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input) override;
 	// void pause();

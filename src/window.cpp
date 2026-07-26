@@ -48,16 +48,14 @@ const EInputAction get_input_action(int action)
 
 static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	if (ImGui::GetIO().WantCaptureMouse)
-	{
+	const bool gui_wants_input = ImGui::GetIO().WantCaptureMouse;
+	if (gui_wants_input)
 		ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
-		return;
-	}
 
 	try
 	{
 		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->scroll_callback(yoffset);
+		window_callback->scroll_callback(yoffset, gui_wants_input);
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());

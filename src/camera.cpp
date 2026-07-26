@@ -234,11 +234,12 @@ void Camera::process_keyboard_movement(const Keyboard& keyboard, const float del
 		pan(offset, 1.0f);
 }
 
-void Camera::follow(Object& target, const glm::vec3& focus_offset)
+void Camera::follow(Object& target, const glm::vec3& focus_offset, const float horizontal_focus_offset)
 {
 	focus_obj->detach_from();
 	follow_target = &target;
 	follow_offset = focus_offset;
+	follow_horizontal_offset = horizontal_focus_offset;
 	update_follow();
 }
 
@@ -250,7 +251,12 @@ void Camera::stop_follow()
 void Camera::update_follow()
 {
 	if (follow_target)
-		pan(follow_target->get_position() + follow_offset - get_focus(), 1.0f);
+	{
+		const auto basis = make_roll_free_basis(get_focus() - get_position());
+		const glm::vec3 desired_focus = follow_target->get_position()
+			+ follow_offset + basis.right * follow_horizontal_offset;
+		pan(desired_focus - get_focus(), 1.0f);
+	}
 }
 
 void Camera::pan(const glm::vec2& axis, const float magnitude)

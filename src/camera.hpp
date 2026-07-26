@@ -69,7 +69,7 @@ public: // object
 	void pan(const glm::vec3& relative_axis, const float magnitude);
 	void pan(const glm::vec2& axis, const float magnitude);
 	void process_keyboard_movement(const Keyboard& keyboard, float delta_secs);
-	void follow(Object& target, const glm::vec3& focus_offset);
+	void follow(Object& target, const glm::vec3& focus_offset, float horizontal_focus_offset = 0.0f);
 	void stop_follow();
 	void update_follow();
 
@@ -97,6 +97,7 @@ private:
 	const float far_clipping = 250.0f;
 	Object* follow_target = nullptr;
 	glm::vec3 follow_offset{ 0.0f };
+	float follow_horizontal_offset = 0.0f;
 
 	class CameraTests;
 	friend CameraTests;

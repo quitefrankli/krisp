@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <ranges>
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <unordered_map>
 
@@ -268,33 +269,30 @@ void SkeletalAnimationSystem::process(const float delta_secs)
 		AnimationState& state = animation_states[skeleton_id];
 		if (state.paused)
 			continue;
-		SkeletalAnimation& animation = animations[animation_id];
-		auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
-
 		state.current_animation_elapsed_secs += delta_secs * state.playback_speed;
-
-		bool still_animating = false;
-		for (int bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
+		const float duration_secs = animation_duration(animations.at(animation_id));
+		if (state.should_loop && duration_secs > 0.0f)
 		{
-			still_animating |= animation.bone_animations[bone_idx].get_transform(
-				state.current_animation_elapsed_secs, 
-				bones[bone_idx].relative_transform);
+			state.current_animation_elapsed_secs = std::fmod(
+				state.current_animation_elapsed_secs, duration_secs);
+			if (state.current_animation_elapsed_secs < 0.0f)
+				state.current_animation_elapsed_secs += duration_secs;
+		}
+		else if (state.current_animation_elapsed_secs > duration_secs)
+		{
+			for (auto& bone : get_ecs().get_skeletal_component(skeleton_id).get_bones())
+				bone.relative_transform = bone.original_transform;
+			skeletons_to_remove.push_back(skeleton_id);
+			continue;
 		}
 
-		if (!still_animating)
+		if (state.fade)
 		{
-			if (state.should_loop)
-			{
-				state.current_animation_elapsed_secs = 0;
-			} else 
-			{
-				for (auto& bone : bones)
-				{
-					bone.relative_transform = bone.original_transform;
-				}
-				skeletons_to_remove.push_back(skeleton_id);
-			}
+			state.fade->elapsed_secs += std::abs(delta_secs * state.playback_speed);
 		}
+		apply_animation_pose(skeleton_id);
+		if (state.fade && state.fade->elapsed_secs >= state.fade->duration_secs)
+			state.fade.reset();
 	}
 
 	std::ranges::for_each(skeletons_to_remove, [this](SkeletonID id) 
@@ -302,6 +300,44 @@ void SkeletalAnimationSystem::process(const float delta_secs)
 		active_animations.erase(id);
 		animation_states.erase(id);
 	});
+}
+
+void SkeletalAnimationSystem::apply_animation_pose(const SkeletonID skeleton_id)
+{
+	const auto animation_id = active_animations.at(skeleton_id);
+	const auto& animation = animations.at(animation_id);
+	auto& state = animation_states.at(skeleton_id);
+	auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
+	std::vector<Maths::Transform> target_pose;
+	target_pose.reserve(bones.size());
+	for (const auto& bone : bones)
+		target_pose.push_back(bone.original_transform);
+	for (size_t bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
+		animation.bone_animations[bone_idx].get_transform(
+			state.current_animation_elapsed_secs, target_pose[bone_idx]);
+
+	if (!state.fade)
+	{
+		for (size_t bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
+			bones[bone_idx].relative_transform = target_pose[bone_idx];
+		return;
+	}
+
+	const float blend = std::clamp(
+		state.fade->elapsed_secs / state.fade->duration_secs, 0.0f, 1.0f);
+	for (size_t bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
+	{
+		auto& result = bones[bone_idx].relative_transform;
+		const auto& source = state.fade->source_pose[bone_idx];
+		const auto& target = target_pose[bone_idx];
+		result.set_pos(glm::mix(source.get_pos(), target.get_pos(), blend));
+		result.set_scale(glm::mix(source.get_scale(), target.get_scale(), blend));
+		auto target_orientation = target.get_orient();
+		if (glm::dot(source.get_orient(), target_orientation) < 0.0f)
+			target_orientation = -target_orientation;
+		result.set_orient(glm::normalize(glm::slerp(
+			source.get_orient(), target_orientation, blend)));
+	}
 }
 
 AnimationID SkeletalAnimationSystem::add_skeletal_animation(
@@ -369,6 +405,33 @@ bool SkeletalAnimationSystem::play_animation(
 	return true;
 }
 
+bool SkeletalAnimationSystem::crossfade_animation(
+	const SkeletonID skeleton_id,
+	const AnimationID animation_id,
+	const float transition_secs,
+	const bool loop)
+{
+	if (transition_secs <= 0.0f)
+		return play_animation(skeleton_id, animation_id, loop);
+	if (!get_ecs().has_skeleton(skeleton_id) || !animations.contains(animation_id)
+		|| !is_animation_compatible(skeleton_id, animation_id))
+		return false;
+
+	AnimationState::Fade fade;
+	fade.duration_secs = transition_secs;
+	const auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
+	fade.source_pose.reserve(bones.size());
+	for (const auto& bone : bones)
+		fade.source_pose.push_back(bone.relative_transform);
+
+	active_animations.insert_or_assign(skeleton_id, animation_id);
+	AnimationState state;
+	state.should_loop = loop;
+	state.fade = std::move(fade);
+	animation_states[skeleton_id] = std::move(state);
+	return true;
+}
+
 void SkeletalAnimationSystem::stop_animation(const SkeletonID skeleton_id)
 {
 	for (auto& bone : get_ecs().get_skeletal_component(skeleton_id).get_bones())
@@ -414,10 +477,7 @@ void SkeletalAnimationSystem::seek_animation(const SkeletonID skeleton_id, const
 	state->second.current_animation_elapsed_secs = std::clamp(
 		elapsed_secs, 0.0f, animation_duration(animation));
 
-	auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
-	for (int bone_idx = 0; bone_idx < bones.size(); ++bone_idx)
-		animation.bone_animations[bone_idx].get_transform(
-			state->second.current_animation_elapsed_secs, bones[bone_idx].relative_transform);
+	apply_animation_pose(skeleton_id);
 }
 
 float SkeletalAnimationSystem::get_animation_duration(const AnimationID animation_id) const

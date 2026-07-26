@@ -145,6 +145,23 @@ TEST_F(GameEngineTests, normal_mode_captures_the_cursor_and_editor_mode_releases
 	EXPECT_FALSE(engine.get_window().is_cursor_captured());
 }
 
+TEST_F(GameEngineTests, normal_mode_scroll_zooms_even_when_gui_wants_the_mouse)
+{
+	engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+	engine.get_camera().look_at(Maths::zero_vec, { 0.0f, 2.0f, -5.0f });
+	engine.set_game_mode(EGameMode::NORMAL);
+	const float normal_focal_length = engine.get_camera().get_focal_length();
+
+	engine.scroll_callback(1.0, true);
+	EXPECT_LT(engine.get_camera().get_focal_length(), normal_focal_length);
+
+	engine.set_game_mode(EGameMode::EDITOR);
+	const float editor_focal_length = engine.get_camera().get_focal_length();
+	engine.scroll_callback(1.0, true);
+	EXPECT_FLOAT_EQ(engine.get_camera().get_focal_length(), editor_focal_length);
+}
+
 TEST_F(GameEngineTests, normal_mode_routes_movement_to_the_active_player)
 {
 	PlayerDefinition definition;
@@ -158,9 +175,12 @@ TEST_F(GameEngineTests, normal_mode_routes_movement_to_the_active_player)
 	engine.main_loop(0.5f);
 
 	EXPECT_TRUE(glm_equal(player.get_position(), Maths::forward_vec));
+	const glm::vec3 camera_right =
+		engine.get_camera().focus_obj->get_rotation() * Maths::right_vec;
 	EXPECT_TRUE(glm_equal(
 		engine.get_camera().get_focus(),
-		player.get_position() + definition.camera_focus_offset));
+		player.get_position() + definition.camera_focus_offset
+			+ camera_right * definition.camera_horizontal_offset));
 }
 
 TEST_F(GameEngineTests, player_rotation_does_not_rotate_the_follow_camera)

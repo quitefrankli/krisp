@@ -270,7 +270,10 @@ void GameEngine::set_game_mode(const EGameMode mode)
 		window->set_cursor_captured(false);
 		return;
 	}
-	camera->follow(*active_player, active_player->get_definition().camera_focus_offset);
+	camera->follow(
+		*active_player,
+		active_player->get_definition().camera_focus_offset,
+		active_player->get_definition().camera_horizontal_offset);
 	window->set_cursor_captured(true);
 	mouse->update_pos();
 }

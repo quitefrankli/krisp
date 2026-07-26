@@ -11,6 +11,22 @@
 
 #include <array>
 
+TEST(player_character_tests, maps_resolved_input_to_all_walking_directions)
+{
+	using Direction = PlayerLocomotionDirection;
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(false, false, false, false), Direction::IDLE);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(true, false, false, false), Direction::FORWARD);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(false, true, false, false), Direction::BACKWARD);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(false, false, true, false), Direction::RIGHT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(false, false, false, true), Direction::LEFT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(true, false, true, false), Direction::FORWARD_RIGHT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(true, false, false, true), Direction::FORWARD_LEFT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(false, true, true, false), Direction::BACKWARD_RIGHT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(false, true, false, true), Direction::BACKWARD_LEFT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(true, true, true, false), Direction::RIGHT);
+	EXPECT_EQ(PlayerCharacter::locomotion_direction(true, false, true, true), Direction::FORWARD);
+}
+
 TEST(player_character_tests, camera_relative_input_is_normalized)
 {
 	const glm::vec3 direction = PlayerCharacter::movement_direction(
@@ -78,6 +94,48 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 	player.pre_update(keyboard, camera, ecs, 0.5f);
 	EXPECT_FALSE(player.is_moving());
 	EXPECT_TRUE(glm_equal(player.get_position(), Maths::forward_vec));
+
+	ecs.remove_object(player.get_id());
+}
+
+TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relative_walk_clips)
+{
+	ECS ecs;
+	Bone root;
+	root.name = "Root";
+	root.original_transform = root.relative_transform;
+	const SkeletonID skeleton = ecs.add_skeleton({ root });
+	const auto rig = make_skeletal_rig_signature(ecs.get_skeletal_component(skeleton).get_bones());
+	const auto clip = [&ecs, &rig](const char* name)
+	{
+		return ecs.add_skeletal_animation(name, { BoneAnimation{} }, rig);
+	};
+	PlayerLocomotionAnimations animations{
+		.idle = clip("idle"),
+		.walk_backward = clip("walkbackward"),
+		.walk_backward_left = clip("walkbackwardleft"),
+		.walk_backward_right = clip("walkbackwardright"),
+		.walk_forward = clip("walkforward"),
+		.walk_forward_left = clip("walkforwardleft"),
+		.walk_forward_right = clip("walkforwardright"),
+		.walk_left = clip("walkleft"),
+		.walk_right = clip("walkright"),
+	};
+	PlayerCharacter player({}, PlayerDefinition{});
+	ecs.add_object(player);
+	player.configure_locomotion(skeleton, animations);
+
+	Camera camera(Listener{}, 1.0f);
+	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
+	Keyboard keyboard;
+	player.pre_update(keyboard, camera, ecs, 0.01f);
+	EXPECT_EQ(player.get_active_animation(), animations.idle);
+
+	keyboard.update_key({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	keyboard.update_key({ GLFW_KEY_D, EKeyModifier::NONE, EInputAction::PRESS });
+	player.pre_update(keyboard, camera, ecs, 0.01f);
+	EXPECT_EQ(player.get_active_animation(), animations.walk_forward_right);
+	EXPECT_TRUE(glm_equal(player.get_rotation() * Maths::forward_vec, Maths::forward_vec));
 
 	ecs.remove_object(player.get_id());
 }

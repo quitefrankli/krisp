@@ -147,6 +147,8 @@ public:
 		std::string source = {});
 	bool remove_skeletal_animation(AnimationID animation_id);
 	bool play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
+	bool crossfade_animation(SkeletonID skeleton_id, AnimationID animation_id,
+		float transition_secs, bool loop = false);
 	void stop_animation(SkeletonID skeleton_id);
 	void set_animation_looping(SkeletonID skeleton_id, bool looping);
 	void set_animation_paused(SkeletonID skeleton_id, bool paused);
@@ -166,11 +168,21 @@ protected:
 private:
 	struct AnimationState
 	{
+		struct Fade
+		{
+			std::vector<Maths::Transform> source_pose;
+			float elapsed_secs = 0.0f;
+			float duration_secs = 0.0f;
+		};
+
 		bool should_loop = false;
 		bool paused = false;
 		float playback_speed = DEFAULT_PLAYBACK_SPEED;
 		float current_animation_elapsed_secs = 0.0f;
+		std::optional<Fade> fade;
 	};
+
+	void apply_animation_pose(SkeletonID skeleton_id);
 
 	std::unordered_map<AnimationID, SkeletalAnimation> animations;
 	std::unordered_map<SkeletonID, AnimationID> active_animations;

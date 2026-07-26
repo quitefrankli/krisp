@@ -33,3 +33,10 @@ skinned-color, and skinned-texture pipelines.
   be avoided without reintroducing artifacts.
 
 No GPU timing measurements have been recorded yet.
+
+## Skeletal animation cross-fades
+
+Cross-fades retain one local transform snapshot per bone for the transition and
+evaluate the target pose into a temporary per-bone pose each update. This adds
+linear CPU work and temporary storage proportional to bone count only while a
+fade is active. No measurements have been recorded.
