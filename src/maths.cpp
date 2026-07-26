@@ -315,8 +315,19 @@ namespace Maths
 		return transform;
 	}
 
+	void Transform::update_components_from_mat4() const
+	{
+		if (!is_old(0b0001))
+		{
+			get_pos();
+			get_scale();
+			get_orient();
+		}
+	}
+
 	void Transform::set_pos(const glm::vec3& new_pos)
 	{
+		update_components_from_mat4();
 		position = new_pos;
 		is_up_to_date_flags |= 0b1000;
 		is_up_to_date_flags &= 0b1110;
@@ -324,6 +335,7 @@ namespace Maths
 
 	void Transform::set_scale(const glm::vec3& new_scale)
 	{
+		update_components_from_mat4();
 		scale = new_scale;
 		is_up_to_date_flags |= 0b0100;
 		is_up_to_date_flags &= 0b1110;
@@ -331,6 +343,7 @@ namespace Maths
 
 	void Transform::set_orient(const glm::quat& new_orient)
 	{
+		update_components_from_mat4();
 		orientation = new_orient;
 		is_up_to_date_flags |= 0b0010;
 		is_up_to_date_flags &= 0b1110;

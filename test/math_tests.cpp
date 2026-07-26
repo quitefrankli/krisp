@@ -68,3 +68,22 @@ TEST(math_tests, ray_plane_intersections_plane_orthogonal_to_ray)
     ray.origin = plane.offset;
     ASSERT_EQ(Maths::check_ray_plane_intersection(ray, plane), true);
 }
+
+TEST(math_tests, updating_component_of_matrix_transform_preserves_other_components)
+{
+    const glm::vec3 original_scale(2.0f, 3.0f, 4.0f);
+    const glm::quat original_orientation =
+        glm::angleAxis(glm::radians(30.0f), glm::normalize(glm::vec3(1.0f, 2.0f, 3.0f)));
+    const glm::mat4 original =
+        glm::translate(glm::mat4(1.0f), glm::vec3(1.0f, 2.0f, 3.0f)) *
+        glm::mat4_cast(original_orientation) *
+        glm::scale(glm::mat4(1.0f), original_scale);
+
+    Maths::Transform transform(original);
+    transform.set_pos(glm::vec3(4.0f, 5.0f, 6.0f));
+
+    const glm::mat4& updated = transform.get_mat4();
+    EXPECT_TRUE(Maths::is_vec3_equal(glm::vec3(updated[3]), glm::vec3(4.0f, 5.0f, 6.0f)));
+    EXPECT_TRUE(Maths::is_vec3_equal(transform.get_scale(), original_scale));
+    EXPECT_NEAR(glm::abs(glm::dot(transform.get_orient(), original_orientation)), 1.0f, 0.0001f);
+}

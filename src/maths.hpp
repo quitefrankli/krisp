@@ -112,6 +112,7 @@ namespace Maths
 		// 1 means it's up to date 0 means it's old
 		mutable uint8_t is_up_to_date_flags = 0b1111;
 
+		void update_components_from_mat4() const;
 		void set_not_old(uint8_t bitmask) const { is_up_to_date_flags |= bitmask; }
 		bool is_old(uint8_t bitmask) const { return !(is_up_to_date_flags & bitmask); }
 	};
