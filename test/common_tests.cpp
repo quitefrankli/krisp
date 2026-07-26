@@ -9,6 +9,20 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <chrono>
+#include <thread>
+
+TEST(UtilityLoopSleeper, elapsed_work_counts_towards_loop_period)
+{
+	Utility::LoopSleeper sleeper(std::chrono::milliseconds(40));
+	std::this_thread::sleep_for(std::chrono::milliseconds(45));
+
+	const auto before_sleep = std::chrono::steady_clock::now();
+	sleeper();
+	const auto sleep_time = std::chrono::steady_clock::now() - before_sleep;
+
+	EXPECT_LT(sleep_time, std::chrono::milliseconds(20));
+}
 
 TEST(UtilityResources, test_mode_resolves_test_data_before_application_resources)
 {

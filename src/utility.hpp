@@ -23,7 +23,7 @@ public:
 
 	private:
 		const std::chrono::milliseconds loop_period;
-		std::chrono::system_clock::time_point start = std::chrono::system_clock::now();
+		std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	};
 
 	static const std::filesystem::path& get_top_level_path() { return get().top_level_dir; }

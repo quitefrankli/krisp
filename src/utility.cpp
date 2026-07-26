@@ -248,16 +248,16 @@ std::vector<std::string> Utility::get_all_audio()
 
 void Utility::LoopSleeper::operator()()
 {
-	const auto start = std::chrono::system_clock::now();
 	const auto margin_of_error = std::chrono::milliseconds(1); // system can only sleep longer than requested
 
 	while (true)
 	{
-		const auto elapsed = std::chrono::system_clock::now() - start;
+		const auto elapsed = std::chrono::steady_clock::now() - start;
 		if (elapsed > (loop_period - margin_of_error))
 		{
 			break;
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
+	start = std::chrono::steady_clock::now();
 }
