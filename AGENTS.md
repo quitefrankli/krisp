@@ -12,7 +12,7 @@
 
 * Start new chat sessions with "AGENTS.md read!"
 
-* refer to readme.md for build instructions
+* refer to README.md for build instructions
 
 * IMPORTANT: always use a DEBUG build for all development, compilations, and testing. Run `meson setup build --reconfigure --buildtype=debug` initially, then `meson compile -C build -j 6 $TARGET` for targeted builds.
 
