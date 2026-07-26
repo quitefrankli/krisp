@@ -37,6 +37,11 @@ void GameEngine::key_callback(const KeyInput& key_input)
 		shutdown();
 		return;
 	}
+	else if (key_input.eq(GLFW_KEY_TAB, NONE, PRESS))
+	{
+		toggle_game_mode();
+		return;
+	}
 	else if (key_input.eq(GLFW_KEY_F5, NONE, PRESS))
 	{
 		save_scene("quicksave");

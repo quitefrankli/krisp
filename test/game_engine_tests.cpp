@@ -2,6 +2,7 @@
 #include <camera.hpp>
 #include <iapplication.hpp>
 #include <interface/gizmo.hpp>
+#include <game_objects/player_character.hpp>
 
 #include "test_helper.hpp"
 #include "mock_graphics_engine.hpp"
@@ -13,6 +14,7 @@
 #include "utility.hpp"
 
 #include <gtest/gtest.h>
+#include <GLFW/glfw3.h>
 
 #include <algorithm>
 #include <filesystem>
@@ -76,6 +78,11 @@ public:
 				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
 	{
 	}
+
+	MockWindow& get_mock_window()
+	{
+		return static_cast<MockWindow&>(get_window());
+	}
 };
 
 class GameEngineTests : public testing::Test
@@ -96,6 +103,102 @@ std::filesystem::path save_path(const std::string_view name)
 TEST_F(GameEngineTests, Constructor)
 {
 	EXPECT_EQ(engine.get_window().get_glfw_window(), nullptr);
+}
+
+TEST_F(GameEngineTests, tab_does_not_leave_editor_mode_without_a_player)
+{
+	EXPECT_EQ(engine.get_game_mode(), EGameMode::EDITOR);
+
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	EXPECT_EQ(engine.get_game_mode(), EGameMode::EDITOR);
+	EXPECT_EQ(engine.get_active_player(), nullptr);
+}
+
+TEST_F(GameEngineTests, tab_toggles_modes_and_cycles_available_players)
+{
+	auto& first = engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+	auto& second = engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	EXPECT_EQ(engine.get_game_mode(), EGameMode::NORMAL);
+	EXPECT_EQ(engine.get_active_player(), &first);
+
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	EXPECT_EQ(engine.get_game_mode(), EGameMode::EDITOR);
+
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	EXPECT_EQ(engine.get_game_mode(), EGameMode::NORMAL);
+	EXPECT_EQ(engine.get_active_player(), &second);
+}
+
+TEST_F(GameEngineTests, normal_mode_captures_the_cursor_and_editor_mode_releases_it)
+{
+	engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+
+	engine.set_game_mode(EGameMode::NORMAL);
+	EXPECT_TRUE(engine.get_window().is_cursor_captured());
+
+	engine.set_game_mode(EGameMode::EDITOR);
+	EXPECT_FALSE(engine.get_window().is_cursor_captured());
+}
+
+TEST_F(GameEngineTests, normal_mode_routes_movement_to_the_active_player)
+{
+	PlayerDefinition definition;
+	definition.movement_speed = 2.0f;
+	auto& player = engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, definition);
+	engine.get_camera().look_at(Maths::forward_vec, { 0.0f, 0.0f, -2.0f });
+	engine.set_game_mode(EGameMode::NORMAL);
+
+	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.main_loop(0.5f);
+
+	EXPECT_TRUE(glm_equal(player.get_position(), Maths::forward_vec));
+	EXPECT_TRUE(glm_equal(
+		engine.get_camera().get_focus(),
+		player.get_position() + definition.camera_focus_offset));
+}
+
+TEST_F(GameEngineTests, player_rotation_does_not_rotate_the_follow_camera)
+{
+	auto& player = engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+	engine.get_camera().look_at(Maths::zero_vec, { 0.0f, 2.0f, -5.0f });
+	engine.set_game_mode(EGameMode::NORMAL);
+	const glm::vec3 initial_direction = glm::normalize(
+		engine.get_camera().get_focus() - engine.get_camera().get_position());
+
+	engine.key_callback({ GLFW_KEY_A, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.main_loop(0.5f);
+
+	const glm::vec3 moved_direction = glm::normalize(
+		engine.get_camera().get_focus() - engine.get_camera().get_position());
+	EXPECT_TRUE(glm_equal(moved_direction, initial_direction));
+}
+
+TEST_F(GameEngineTests, normal_mode_orbits_camera_without_a_mouse_button)
+{
+	engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+	engine.get_camera().look_at(Maths::zero_vec, { 0.0f, 2.0f, -5.0f });
+	engine.get_mock_window().set_cursor_pos(Maths::zero_vec);
+	engine.set_game_mode(EGameMode::NORMAL);
+	const glm::vec3 initial_direction = glm::normalize(
+		engine.get_camera().get_focus() - engine.get_camera().get_position());
+
+	engine.get_mock_window().set_cursor_pos({ 0.02f, 0.0f });
+	engine.main_loop(0.1f);
+
+	const glm::vec3 rotated_direction = glm::normalize(
+		engine.get_camera().get_focus() - engine.get_camera().get_position());
+	EXPECT_FALSE(glm_equal(rotated_direction, initial_direction));
+	EXPECT_GT(rotated_direction.x, 0.0f);
+	EXPECT_LT(std::acos(glm::clamp(
+		glm::dot(rotated_direction, initial_direction), -1.0f, 1.0f)), 0.2f);
 }
 
 TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)

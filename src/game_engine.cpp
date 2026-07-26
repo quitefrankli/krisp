@@ -15,6 +15,7 @@
 #include "gui/gui_manager.hpp"
 #include "experimental.hpp"
 #include "iapplication.hpp"
+#include "game_objects/player_character.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "renderable/material_factory.hpp"
 #include "entity_component_system/mesh_system.hpp"
@@ -157,7 +158,8 @@ void GameEngine::main_loop(const float time_delta)
 	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
 	get_gui_manager().process(*this);
 
-	if (mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
+	if (game_mode == EGameMode::NORMAL
+		|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
 	{
 		// if (window->is_shift_down())
 		if (false) // TODO: implement shift key tracking
@@ -180,7 +182,10 @@ void GameEngine::main_loop(const float time_delta)
 			float magnitude = glm::length(offset);
 			if (magnitude > min_threshold)
 			{
-				camera->rotate_camera(offset, time_delta);
+				constexpr float NORMAL_LOOK_SENSITIVITY = 0.25f;
+				const glm::vec2 rotation_offset = game_mode == EGameMode::NORMAL
+					? -offset * NORMAL_LOOK_SENSITIVITY : offset;
+				camera->rotate_camera(rotation_offset, time_delta);
 			}
 		}
 	} else if (mouse->lmb_down)
@@ -201,8 +206,8 @@ void GameEngine::main_loop(const float time_delta)
 		}
 	}
 
-	if (camera_keyboard_navigation_enabled)
-		process_camera_movement(time_delta);
+	if (game_mode == EGameMode::EDITOR)
+		camera->process_keyboard_movement(keyboard, time_delta);
 	// I just realised there is a MUCH more efficient method of doing this
 	// all we need to do is find intersection point of ray with plane of tileset
 	// and check if that point is within bounds of tileset, then we can calculate hovered tile coord from that point
@@ -220,6 +225,11 @@ void GameEngine::main_loop(const float time_delta)
 
 	if (!paused)
 	{
+		if (game_mode == EGameMode::NORMAL)
+		{
+			active_player->pre_update(keyboard, *camera, ecs, time_delta);
+			camera->update_follow();
+		}
 		application->on_pre_tick(*this, time_delta);
 		ecs.process(time_delta);
 		experimental->process(time_delta);
@@ -229,29 +239,46 @@ void GameEngine::main_loop(const float time_delta)
 	camera->sync_audio_listener();
 }
 
-void GameEngine::process_camera_movement(float time_delta)
+void GameEngine::set_game_mode(const EGameMode mode)
 {
-	const float move_speed = 1.5f * camera->get_focal_length();
-	glm::vec3 offset = Maths::zero_vec;
-	
-	// Get camera's forward direction (from rotation)
-	const glm::vec3 up = camera->get_rotation() * Maths::up_vec;
-	const glm::vec3 right = camera->get_rotation() * Maths::right_vec;
-	
-	// W/S: move up/down along camera's up direction
-	if (keyboard.w_pressed())
-		offset += up * move_speed * time_delta;
-	if (keyboard.s_pressed())
-		offset -= up * move_speed * time_delta;
-	
-	// A/D: move left/right along camera's right direction
-	if (keyboard.a_pressed())
-		offset -= right * move_speed * time_delta;
-	if (keyboard.d_pressed())
-		offset += right * move_speed * time_delta;
-	
-	if (offset != Maths::zero_vec)
-		camera->pan(offset, 1.0f);
+	if (game_mode == mode)
+		return;
+	if (mode == EGameMode::NORMAL)
+	{
+		std::vector<PlayerCharacter*> players;
+		for (const auto& [_, object] : objects)
+			if (auto* player = dynamic_cast<PlayerCharacter*>(object.get()))
+				players.push_back(player);
+		std::ranges::sort(players, {}, [](const PlayerCharacter* player)
+		{
+			return player->get_id().get_underlying();
+		});
+		if (players.empty())
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"Cannot enter normal game mode without a PlayerCharacter");
+			return;
+		}
+		const auto current = std::ranges::find(players, active_player);
+		active_player = current == players.end() || std::next(current) == players.end()
+			? players.front() : *std::next(current);
+	}
+	game_mode = mode;
+	if (game_mode == EGameMode::EDITOR)
+	{
+		camera->stop_follow();
+		window->set_cursor_captured(false);
+		return;
+	}
+	camera->follow(*active_player, active_player->get_definition().camera_focus_offset);
+	window->set_cursor_captured(true);
+	mouse->update_pos();
+}
+
+void GameEngine::toggle_game_mode()
+{
+	set_game_mode(game_mode == EGameMode::EDITOR
+		? EGameMode::NORMAL : EGameMode::EDITOR);
 }
 
 void GameEngine::shutdown_impl()
@@ -417,6 +444,11 @@ void GameEngine::process_objs_to_delete()
 		
 		ecs.remove_clickable_entity(id);
 		const Object& object = *get_object(id);
+		if (&object == active_player)
+		{
+			set_game_mode(EGameMode::EDITOR);
+			active_player = nullptr;
+		}
 		release_renderable_resources(object, destroy_resources_cmd);
 
 		ecs.remove_object(id);
@@ -464,8 +496,11 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 		object->detach_from();
 	}
 
+	camera->stop_follow();
 	ecs = ECS{};
 	objects.clear();
+	active_player = nullptr;
+	game_mode = EGameMode::EDITOR;
 	entity_deletion_queue.clear();
 	mesh_resource_references.clear();
 	material_resource_references.clear();
@@ -664,7 +699,7 @@ void GameEngine::save_scene(const std::string_view save_name) const
 	Serializer document;
 	auto engine_state = document.map("engine");
 	engine_state.write("paused", paused);
-	engine_state.write("camera_keyboard_navigation", camera_keyboard_navigation_enabled);
+	engine_state.write("game_mode", static_cast<int>(game_mode));
 	engine_state.write("camera_orbit_with_right_mouse", camera_orbit_with_right_mouse);
 	auto saved_camera = document.map("camera");
 	camera->serialize(saved_camera);
@@ -853,9 +888,10 @@ void GameEngine::load_scene(const std::string_view save_name)
 	ecs.deserialize(document.child("ecs"));
 	const auto engine_state = document.child("engine");
 	paused = engine_state.read<bool>("paused");
-	camera_keyboard_navigation_enabled = engine_state.read<bool>("camera_keyboard_navigation");
+	const auto saved_game_mode = static_cast<EGameMode>(engine_state.read<int>("game_mode"));
 	camera_orbit_with_right_mouse = engine_state.read<bool>("camera_orbit_with_right_mouse");
 	camera->deserialize(document.child("camera"));
+	set_game_mode(saved_game_mode);
 	for (const auto& [_, object] : objects)
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	application->on_scene_loaded(*this);

@@ -26,7 +26,13 @@ class Experimental;
 class Gizmo;
 class IApplication;
 class Analytics;
+class PlayerCharacter;
 
+enum class EGameMode
+{
+	EDITOR,
+	NORMAL,
+};
 
 class GameEngine : public IWindowCallbacks
 {
@@ -40,7 +46,10 @@ public: // getters and setters
 	IApplication& get_application() { return *application; }
 	const IApplication& get_application() const { return *application; }
 	const Keyboard& get_keyboard() const { return keyboard; }
-	void set_camera_keyboard_navigation_enabled(bool enabled) { camera_keyboard_navigation_enabled = enabled; }
+	EGameMode get_game_mode() const { return game_mode; }
+	PlayerCharacter* get_active_player() const { return active_player; }
+	void set_game_mode(EGameMode mode);
+	void toggle_game_mode();
 	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }
 
 public:
@@ -187,7 +196,8 @@ private:
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;
-	bool camera_keyboard_navigation_enabled = true;
+	EGameMode game_mode = EGameMode::EDITOR;
+	PlayerCharacter* active_player = nullptr;
 	bool camera_orbit_with_right_mouse = false;
 
 public: // callbacks
@@ -196,9 +206,6 @@ public: // callbacks
 	virtual void mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input) override;
 	// void pause();
 
-private:
-	void process_camera_movement(float time_delta);
-	
 private: // friends
 	friend Experimental;
 };

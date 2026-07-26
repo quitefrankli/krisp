@@ -3,6 +3,7 @@
 #include "maths.hpp"
 #include "objects/objects.hpp"
 #include "audio_engine/listener.hpp"
+#include "input.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "serialization/serialization_helpers.hpp"
 
@@ -213,6 +214,43 @@ void Camera::pan(const glm::vec3& relative_axis, const float magnitude)
 	const glm::vec3 camera_position = get_position();
 	focus_obj->set_position(get_focus() + offset);
 	Object::set_position(camera_position + offset);
+}
+
+void Camera::process_keyboard_movement(const Keyboard& keyboard, const float delta_secs)
+{
+	const float move_speed = 1.5f * get_focal_length();
+	glm::vec3 offset = Maths::zero_vec;
+	const glm::vec3 up = get_rotation() * Maths::up_vec;
+	const glm::vec3 right = get_rotation() * Maths::right_vec;
+	if (keyboard.w_pressed())
+		offset += up * move_speed * delta_secs;
+	if (keyboard.s_pressed())
+		offset -= up * move_speed * delta_secs;
+	if (keyboard.a_pressed())
+		offset -= right * move_speed * delta_secs;
+	if (keyboard.d_pressed())
+		offset += right * move_speed * delta_secs;
+	if (offset != Maths::zero_vec)
+		pan(offset, 1.0f);
+}
+
+void Camera::follow(Object& target, const glm::vec3& focus_offset)
+{
+	focus_obj->detach_from();
+	follow_target = &target;
+	follow_offset = focus_offset;
+	update_follow();
+}
+
+void Camera::stop_follow()
+{
+	follow_target = nullptr;
+}
+
+void Camera::update_follow()
+{
+	if (follow_target)
+		pan(follow_target->get_position() + follow_offset - get_focus(), 1.0f);
 }
 
 void Camera::pan(const glm::vec2& axis, const float magnitude)

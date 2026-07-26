@@ -26,6 +26,8 @@ namespace App {
 		// returns position of cursor relative to window [-1:1]
 		// top left corner = {x:-1, y:1}
 		virtual glm::vec2 get_cursor_pos();
+		virtual void set_cursor_captured(bool captured);
+		bool is_cursor_captured() const { return cursor_captured; }
 
 		GLFWwindow* get_glfw_window() { return window; }
 
@@ -36,5 +38,6 @@ namespace App {
 		static constexpr int INITIAL_WINDOW_WIDTH = 1400;
 		static constexpr int INITIAL_WINDOW_HEIGHT = 800;
 		GLFWwindow* window = nullptr;
+		bool cursor_captured = false;
 	};
 }

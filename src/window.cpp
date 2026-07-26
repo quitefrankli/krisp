@@ -220,11 +220,19 @@ glm::vec2 App::Window::get_cursor_pos()
 {
 	double pixel_x, pixel_y;
 	glfwGetCursorPos(window, &pixel_x, &pixel_y);
-	return {
-		std::clamp( 2.0f * static_cast<float>(pixel_x) / static_cast<float>(get_width())  - 1.0f, -1.0f, 1.0f),
+	const glm::vec2 position{
+		 2.0f * static_cast<float>(pixel_x) / static_cast<float>(get_width())  - 1.0f,
 		// glfw has top->down as negative but our coordinate system is Y+ up
-		std::clamp(-2.0f * static_cast<float>(pixel_y) / static_cast<float>(get_height()) + 1.0f, -1.0f, 1.0f)
+		-2.0f * static_cast<float>(pixel_y) / static_cast<float>(get_height()) + 1.0f
 	};
+	return cursor_captured ? position : glm::clamp(position, glm::vec2(-1.0f), glm::vec2(1.0f));
+}
+
+void App::Window::set_cursor_captured(const bool captured)
+{
+	cursor_captured = captured;
+	if (window)
+		glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
 }
 
 void App::Window::poll_events()

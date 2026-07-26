@@ -3,10 +3,7 @@
 #include "camera.hpp"
 #include "entity_component_system/ecs.hpp"
 
-#include <glm/gtx/quaternion.hpp>
-
 #include <algorithm>
-#include <unordered_map>
 
 PlayerCharacter::PlayerCharacter(
 	std::vector<Renderable> renderables,
@@ -47,7 +44,6 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 		resolve_horizontal_movement(ecs, direction * definition.movement_speed * delta_secs);
 	}
 	snap_to_ground(ecs);
-	play_looping_animation(ecs, moving ? definition.walk_animation : definition.idle_animation);
 }
 
 void PlayerCharacter::resolve_horizontal_movement(ECS& ecs, glm::vec3 displacement)
@@ -88,71 +84,4 @@ void PlayerCharacter::snap_to_ground(ECS& ecs)
 		position.y = hit.intersection.y;
 		set_position(position);
 	}
-}
-
-void PlayerCharacter::post_animation_update(ECS& ecs)
-{
-	solve_leg_ik(ecs, definition.left_leg);
-	solve_leg_ik(ecs, definition.right_leg);
-}
-
-void PlayerCharacter::solve_leg_ik(ECS& ecs, const PlayerLegDefinition& leg)
-{
-	if (leg.hip_bone.empty() || leg.knee_bone.empty() || leg.foot_bone.empty())
-		return;
-	const auto skeleton_id = ecs.get_skeleton_id(get_id());
-	if (!skeleton_id)
-		return;
-	auto& component = ecs.get_skeletal_component(*skeleton_id);
-	auto& bones = component.get_bones();
-	std::unordered_map<std::string, size_t> indices;
-	for (size_t i = 0; i < bones.size(); ++i)
-		indices.emplace(bones[i].name, i);
-	const auto hip = indices.find(leg.hip_bone);
-	const auto knee = indices.find(leg.knee_bone);
-	const auto foot = indices.find(leg.foot_bone);
-	if (hip == indices.end() || knee == indices.end() || foot == indices.end())
-		return;
-
-	auto transforms = component.get_model_space_bone_transforms();
-	const glm::vec3 foot_world = glm::vec3(get_transform() * transforms[foot->second] * glm::vec4(0, 0, 0, 1));
-	Maths::Ray ray(foot_world + Maths::up_vec * definition.ground_snap_distance, -Maths::up_vec);
-	ray.length = definition.ground_snap_distance * 2.0f;
-	const auto hit = ecs.raycast(ray, get_id());
-	if (!hit.bCollided || glm::distance(ray.origin, hit.intersection) > ray.length)
-		return;
-
-	const glm::vec3 target = glm::vec3(glm::inverse(get_transform()) * glm::vec4(hit.intersection, 1.0f));
-	const glm::vec3 hip_pos = glm::vec3(transforms[hip->second][3]);
-	const glm::vec3 foot_pos = glm::vec3(transforms[foot->second][3]);
-	const glm::vec3 current = foot_pos - hip_pos;
-	const glm::vec3 desired = target - hip_pos;
-	if (glm::length2(current) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF ||
-		glm::length2(desired) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
-		return;
-	// First CCD pass at the hip. The subsequent knee pass preserves the animated
-	// bone lengths while placing the foot as close as its reachable chain allows.
-	const glm::quat model_delta = glm::rotation(glm::normalize(current), glm::normalize(desired));
-	const uint32_t parent = bones[hip->second].parent_node;
-	const glm::quat parent_rotation = parent == Bone::NO_PARENT
-		? Maths::identity_quat : glm::quat_cast(transforms[parent]);
-	const glm::quat local_delta = glm::inverse(parent_rotation) * model_delta * parent_rotation;
-	bones[hip->second].relative_transform.set_orient(
-		glm::normalize(local_delta * bones[hip->second].relative_transform.get_orient()));
-
-	transforms = component.get_model_space_bone_transforms();
-	const glm::vec3 knee_pos = glm::vec3(transforms[knee->second][3]);
-	const glm::vec3 adjusted_foot = glm::vec3(transforms[foot->second][3]);
-	const glm::vec3 knee_current = adjusted_foot - knee_pos;
-	const glm::vec3 knee_desired = target - knee_pos;
-	if (glm::length2(knee_current) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF ||
-		glm::length2(knee_desired) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
-		return;
-	const glm::quat knee_model_delta = glm::rotation(glm::normalize(knee_current), glm::normalize(knee_desired));
-	const uint32_t knee_parent = bones[knee->second].parent_node;
-	const glm::quat knee_parent_rotation = knee_parent == Bone::NO_PARENT
-		? Maths::identity_quat : glm::quat_cast(transforms[knee_parent]);
-	const glm::quat knee_local_delta = glm::inverse(knee_parent_rotation) * knee_model_delta * knee_parent_rotation;
-	bones[knee->second].relative_transform.set_orient(
-		glm::normalize(knee_local_delta * bones[knee->second].relative_transform.get_orient()));
 }

@@ -23,11 +23,7 @@
 
 namespace
 {
-// These names are the only asset-specific part of the demo. Update them to
-// match the supplied glTF character before running the application.
-constexpr std::string_view player_model = "player.glb";
-constexpr std::string_view idle_clip = "Idle";
-constexpr std::string_view walk_clip = "Walk";
+constexpr std::string_view player_model = "npc.glb";
 
 class PlayerDemoApplication : public IApplication
 {
@@ -41,56 +37,24 @@ public:
 		});
 		if (mesh == model.meshes.end())
 			throw std::runtime_error("Player model must contain a skinned mesh");
-		auto animations = ResourceLoader::load_animations(
-			engine.get_ecs(), player_model, *mesh->skeleton_id);
-		const auto find_clip = [&](std::string_view name)
-		{
-			auto clip = std::ranges::find_if(animations.animations, [&](const AnimationID id)
-			{
-				return engine.get_ecs().get_skeletal_animations().at(id).name == name;
-			});
-			if (clip == animations.animations.end())
-				throw std::runtime_error("Player model is missing required animation clip: " + std::string(name));
-			return *clip;
-		};
 
 		PlayerDefinition definition;
-		definition.idle_animation = find_clip(idle_clip);
-		definition.walk_animation = find_clip(walk_clip);
-		// Set these to the supplied rig's leg chain names to enable foot placement.
-		definition.left_leg = { "LeftUpLeg", "LeftLeg", "LeftFoot" };
-		definition.right_leg = { "RightUpLeg", "RightLeg", "RightFoot" };
-		player = &engine.spawn_object<PlayerCharacter>(mesh->renderables, definition);
-		engine.get_ecs().attach_skeleton(player->get_id(), *mesh->skeleton_id);
-		player->set_transform(model.onload_transform.get_mat4() * mesh->transform.get_mat4());
-		player->set_name("Player");
+		auto& spawned_player = engine.spawn_object<PlayerCharacter>(mesh->renderables, definition);
+		engine.get_ecs().attach_skeleton(spawned_player.get_id(), *mesh->skeleton_id);
+		spawned_player.set_transform(model.onload_transform.get_mat4() * mesh->transform.get_mat4());
+		spawned_player.set_name("Player");
 
 		auto& camera = engine.get_camera();
-		camera.look_at(player->get_position() + definition.camera_focus_offset,
-			player->get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
-		camera.focus_obj->attach_to(player);
-		camera.focus_obj->set_relative_position(definition.camera_focus_offset);
-		engine.set_camera_keyboard_navigation_enabled(false);
+		camera.look_at(spawned_player.get_position() + definition.camera_focus_offset,
+			spawned_player.get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
+		engine.set_game_mode(EGameMode::NORMAL);
 		engine.set_camera_orbit_with_right_mouse(true);
-	}
-
-	void on_pre_tick(GameEngine& engine, float delta) override
-	{
-		player->pre_update(engine.get_keyboard(), engine.get_camera(), engine.get_ecs(), delta);
 	}
 
 	void on_tick(GameEngine&, float) override {}
 
-	void on_post_tick(GameEngine& engine, float) override
-	{
-		player->post_animation_update(engine.get_ecs());
-	}
-
 	void on_click(GameEngine&, Object&) override {}
 	void on_key_press(GameEngine&, const KeyInput&) override {}
-
-private:
-	PlayerCharacter* player = nullptr;
 };
 }
 
@@ -98,8 +62,7 @@ private:
 int main(int argc, char* argv[])
 {
 	Config::init(PROJECT_NAME);
-	// auto engine = GameEngine::create<PlayerDemoApplication>();
-	auto engine = GameEngine::create<DummyApplication>();
+	auto engine = GameEngine::create<PlayerDemoApplication>();
 	engine.spawn_cubemap(); // background/horizon
 	Renderable floor_renderable;
 	floor_renderable.pipeline_render_type = ERenderType::COLOR;

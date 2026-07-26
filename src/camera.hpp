@@ -11,6 +11,7 @@
 
 #include "maths.hpp"
 
+class Keyboard;
 
 class Camera : public Object, public ITrackableObject
 {
@@ -67,6 +68,10 @@ public: // object
 	// pans both camera and focus in a direction
 	void pan(const glm::vec3& relative_axis, const float magnitude);
 	void pan(const glm::vec2& axis, const float magnitude);
+	void process_keyboard_movement(const Keyboard& keyboard, float delta_secs);
+	void follow(Object& target, const glm::vec3& focus_offset);
+	void stop_follow();
+	void update_follow();
 
 	virtual void toggle_visibility() override;
 
@@ -90,6 +95,8 @@ private:
 	const float fov = Maths::deg2rad(45.0f);
 	const float near_clipping = 0.1f;
 	const float far_clipping = 250.0f;
+	Object* follow_target = nullptr;
+	glm::vec3 follow_offset{ 0.0f };
 
 	class CameraTests;
 	friend CameraTests;

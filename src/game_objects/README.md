@@ -1,8 +1,9 @@
 # Game objects
 
 `Character` and `PlayerCharacter` currently provide a small object-oriented
-bridge for the Krisp playable-character demo. They own no global gameplay
-state beyond an object's skeleton and active looping animation.
+bridge for the Krisp playable-character demo. `PlayerCharacter` provides
+camera-relative movement, collision sliding, and ground snapping. Animation
+integration is intentionally deferred.
 
 ## TODO: move character behaviour to ECS
 
