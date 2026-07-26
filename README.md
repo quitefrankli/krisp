@@ -15,23 +15,23 @@
 
 ## Building
 
-```bash
-conan build . -bf=build -pr=conan_clang_profile
-build/bin/krisp
-```
-
-For initial setup these flags might come in handy
-```bash
-conan build . -bf=build -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True --build=missing -pr:a=conan_clang_profile
-```
-
-During development for debug build
+Use the following sequence for development. It installs missing Conan
+dependencies with the Clang profile, configures a debug build using Conan's
+generated Meson native file, and builds only the `krisp` target:
 
 ```bash
-meson setup build --reconfigure --buildtype=debug
+conan install . -pr=conan_clang_profile --build=missing
+meson setup build --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug
 meson compile -C build -j 6 krisp
+```
+
+Run the application with:
+
+```bash
 build/applications/krisp/krisp
 ```
+
+(during initial setup these flags can be useful -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True)
 
 ## Hot reload (Linux)
 

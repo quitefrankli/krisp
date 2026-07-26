@@ -13,7 +13,7 @@
 		{
 			"label": "build krisp",
 			"type": "shell",
-			"command": "meson compile -C build krisp",
+			"command": "meson compile -C build -j 6 krisp",
 			"group": {
 				"kind": "build",
 				"isDefault": false

@@ -12,9 +12,14 @@
 
 * Start new chat sessions with "AGENTS.md read!"
 
-* refer to README.md for build instructions
+* Refer to README.md for build instructions.
 
-* IMPORTANT: always use a DEBUG build for all development, compilations, and testing. Run `meson setup build --reconfigure --buildtype=debug` initially, then `meson compile -C build -j 6 $TARGET` for targeted builds.
+* IMPORTANT: always use the following sequence to set up dependencies and configure a DEBUG Clang build:
+  1. `conan install . -pr=conan_clang_profile --build=missing`
+  2. `meson setup build --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug`
+  3. `meson compile -C build -j 6 krisp`
+
+* For subsequent targeted builds, run `meson compile -C build -j 6 $TARGET`.
 
 * IMPORTANT: limit number of concurrent build jobs to 6
 
