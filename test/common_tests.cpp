@@ -24,14 +24,14 @@ TEST(UtilityLoopSleeper, elapsed_work_counts_towards_loop_period)
 	EXPECT_LT(sleep_time, std::chrono::milliseconds(20));
 }
 
-TEST(UtilityResources, test_mode_resolves_test_data_before_application_resources)
+TEST(UtilityResources, test_mode_resolves_test_data_before_project_resources)
 {
 	EXPECT_EQ(
 		Utility::get_model("simple_test_model.gltf"),
 		Utility::get_top_level_path()/"test/data/simple_test_model.gltf");
 	EXPECT_EQ(
 		Utility::get_texture("texture.jpg"),
-		Utility::get_top_level_path()/"resources/applications/default/textures/texture.jpg");
+		Utility::get_top_level_path()/"resources/default/textures/texture.jpg");
 }
 
 TEST(UtilityResources, resource_names_reject_absolute_paths_and_parent_traversal)

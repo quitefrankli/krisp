@@ -35,7 +35,7 @@ int main(int argc, char* argv[])
 	ground.set_scale({30.0f, 0.1f, 30.0f});
 
 	// Campfire model
-	auto campfire_model = ResourceLoader::load_model(engine.get_ecs(), Utility::get_model("campfire_rgba.glb"));
+	auto campfire_model = ResourceLoader::load_model(engine.get_ecs(), "campfire_rgba.glb");
 	for (auto& mesh : campfire_model.meshes)
 	{
 		auto& obj = engine.spawn_object<Object>(mesh.renderables);

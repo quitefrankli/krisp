@@ -138,10 +138,10 @@ std::filesystem::path Utility::get_rsrc_path(bool use_default)
 {
 	if (use_default)
 	{
-		return get().top_level_dir / "resources/applications/default";
+		return get().top_level_dir / "resources/default";
 	}
 
-	return get().top_level_dir / "resources/applications" / Config::get_project_name();
+	return get().top_level_dir / "resources" / Config::get_project_name();
 }
 
 std::filesystem::path Utility::get_texture(std::string_view filename)

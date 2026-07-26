@@ -11,7 +11,7 @@
 
 Board::Board(PieceSpawner spawner, ECS& ecs)
 {
-	auto loaded_model = ResourceLoader::load_model(ecs, Utility::get_model("chess_set_1k/chess_set_1k.gltf"));
+	auto loaded_model = ResourceLoader::load_model(ecs, "chess_set_1k/chess_set_1k.gltf");
 
 	struct PieceInfo {
 		Piece::Type type;

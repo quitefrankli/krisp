@@ -56,7 +56,6 @@ sources = files('collision/collider.cpp',
 				'renderable/material_group.cpp',
 				'renderable/renderable.cpp',
 				'renderable/mesh_factory.cpp',
-				'vertex.cpp',
 				'experimental.cpp',
 				'resource_loader/resource_loader.cpp')
 
