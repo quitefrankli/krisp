@@ -26,11 +26,8 @@ float compute_shadow_factor(vec3 normal, vec3 lightDir)
 {
 	const vec3 frag_to_light = frag_pos - global_data.data.light_pos;
 	// The cubemap faces are rendered using the same left-handed world directions.
-	const vec3 shadow_lookup_dir = frag_to_light;
-	const float current_depth = length(frag_to_light);
-	const float closest_depth = texture(shadow_map, shadow_lookup_dir).r * global_data.data.shadow_far_plane;
-	const float bias = max(0.03 * (1.0 - dot(normal, lightDir)), 0.003);
-	return (current_depth - bias) > closest_depth ? 0.05 : 1.0;
+	return get_point_shadow_factor(
+		shadow_map, frag_to_light, normal, lightDir, global_data.data.shadow_far_plane);
 }
 
 void main()

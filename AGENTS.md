@@ -22,4 +22,6 @@
 
 * Only the `krisp` application must be maintained. Changes may break the other applications.
 
+* When making performance-relevant changes, add or update the relevant notes in `docs/PERFORMANCE.md`.
+
 * When commiting, refer to `.codex/agents/commit.toml` for spawning a subagent
