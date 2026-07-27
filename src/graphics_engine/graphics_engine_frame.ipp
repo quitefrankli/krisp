@@ -317,24 +317,27 @@ void GraphicsEngineFrame::update_uniform_buffer()
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(image_index, gubo);
 
-	// update per object uniforms
+	// Update the precomputed object × renderable-local transform for each draw.
 	SDS::ObjectData object_data{};
 	for (const auto& [id, graphics_object] : get_graphics_engine().get_objects())
 	{
-		EntityFrameID efid{graphics_object->get_id(), image_index};
-		object_data.model = graphics_object->get_game_object().get_transform();
-		object_data.mvp = gubo.proj * gubo.view * object_data.model;
-		object_data.rot_mat = glm::mat4_cast(graphics_object->get_game_object().get_rotation());
-		get_rsrc_mgr().write_to_uniform_buffer(efid, object_data);
+		const glm::mat4 gameplay_transform = graphics_object->get_game_object().get_transform();
+		for (uint32_t renderable_idx = 0; renderable_idx < graphics_object->get_renderables().size(); ++renderable_idx)
+		{
+			object_data.model =
+				graphics_object->get_renderables()[renderable_idx].get_model_transform(gameplay_transform);
+			object_data.mvp = gubo.proj * gubo.view * object_data.model;
+			object_data.rot_mat = glm::mat3(object_data.model);
+			get_rsrc_mgr().write_to_buffer(
+				ObjectRenderableFrameID{graphics_object->get_id(), renderable_idx, image_index},
+				object_data);
+		}
 
 		// All skinned renderables in an object share one skeleton and bone buffer.
 		const auto skeleton_id = get_graphics_engine().get_ecs().get_skeleton_id(graphics_object->get_id());
 		if (skeleton_id)
 		{
 			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*skeleton_id);
-			std::ranges::for_each(bones, [transform=object_data.model](SDS::Bone& bone) {
-				bone.final_transform = transform * bone.final_transform;
-			});
 			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*skeleton_id, image_index), bones);
 		}
 	}

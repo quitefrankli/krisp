@@ -75,7 +75,7 @@ GraphicsBufferManager::~GraphicsBufferManager()
 	staging_buffer.destroy(get_logical_device());
 }
 
-void GraphicsBufferManager::write_to_uniform_buffer(EntityFrameID id, const SDS::ObjectData& ubos)
+void GraphicsBufferManager::write_to_buffer(ObjectRenderableFrameID id, const SDS::ObjectData& ubos)
 {
 	std::byte* mapped_memory = uniform_buffer.map_slot(id.get_underlying(), get_logical_device());
 	*reinterpret_cast<SDS::ObjectData*>(mapped_memory) = ubos;

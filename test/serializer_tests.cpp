@@ -130,7 +130,8 @@ TEST(Serialization, ImportedRenderableUsesOnlyStableSourceSelectors)
 	const auto saved = document.child("renderables").elements().front();
 
 	EXPECT_EQ(saved.keys(), (std::vector<std::string>{
-		"mesh_source", "material_ids", "render_type", "alpha_mode", "alpha_cutoff", "opacity", "casts_shadow", "render_on_top" }));
+		"mesh_source", "material_ids", "render_type", "alpha_mode", "alpha_cutoff", "opacity", "casts_shadow",
+		"render_on_top", "local_transform" }));
 	const auto mesh_source = saved.child("mesh_source");
 	EXPECT_EQ(mesh_source.read<std::string>("path"), "characters/robot.glb");
 	EXPECT_EQ(mesh_source.read<int>("scene"), 2);

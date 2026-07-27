@@ -247,7 +247,7 @@ std::vector<Bone> load_bones(const tinygltf::Model& model, const int skin_index)
 			parent = parents.at(parent);
 		}
 		// A scene node above a skeleton places the whole model; it is represented by
-		// LoadedMesh::transform and must not become part of the root bone.  Helper
+		// Renderable::local_transform and must not become part of the root bone. Helper
 		// nodes between two joints, however, are part of the skeleton hierarchy.
 		if (parent >= 0)
 		{
@@ -312,7 +312,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 
 		LoadedMesh loaded_mesh;
 		loaded_mesh.name = node.name.empty() ? model.meshes[node.mesh].name : node.name;
-		loaded_mesh.transform.set_mat4(instance.world_transform);
 		loaded_mesh.source_node = instance.node_index;
 		loaded_mesh.source_skin = node.skin;
 
@@ -485,6 +484,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			renderable.alpha_mode = loaded_material.alpha_mode;
 			renderable.alpha_cutoff = loaded_material.alpha_cutoff;
 			renderable.opacity = loaded_material.opacity;
+			renderable.local_transform.set_mat4(instance.world_transform);
 			loaded_mesh.renderables.push_back(renderable);
 		}
 		result.meshes.push_back(std::move(loaded_mesh));

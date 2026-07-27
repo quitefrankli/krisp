@@ -186,7 +186,7 @@ void RasterizationRenderer::submit_draw_commands(
 			}
 			draw_renderable(command_buffer,
 							renderable,
-							graphics_object.get_obj_dset(frame_index),
+							graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
 							graphics_object.get_renderable_dsets()[renderable_idx],
 							modifier);
 		}
@@ -209,7 +209,7 @@ void RasterizationRenderer::submit_draw_commands(
 			: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
 				? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
 		draw_renderable(command_buffer, renderable,
-			graphics_object->get_obj_dset(frame_index),
+			graphics_object->get_renderable_frame_dset(frame_index, renderable_idx),
 			graphics_object->get_renderable_dsets()[renderable_idx], modifier);
 	}
 	
@@ -236,7 +236,7 @@ void RasterizationRenderer::submit_draw_commands(
 				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
 				draw_renderable(command_buffer,
 								renderable,
-								graphics_object.get_obj_dset(frame_index),
+								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
 								graphics_object.get_renderable_dsets()[renderable_idx],
 								EPipelineModifier::POST_STENCIL);
 			}	
@@ -261,7 +261,7 @@ void RasterizationRenderer::submit_draw_commands(
 				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
 				draw_renderable(command_buffer,
 								renderable,
-								graphics_object.get_obj_dset(frame_index),
+								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
 								graphics_object.get_renderable_dsets()[renderable_idx],
 								EPipelineModifier::STENCIL);
 			}
@@ -303,7 +303,7 @@ void RasterizationRenderer::submit_draw_commands(
 				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
 				draw_renderable(command_buffer,
 								renderable,
-								graphics_object.get_obj_dset(frame_index),
+								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
 								graphics_object.get_renderable_dsets()[renderable_idx],
 								modifier);
 			}

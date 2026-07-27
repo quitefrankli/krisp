@@ -73,16 +73,9 @@ public:
 
 		PlayerDefinition definition;
 		auto& spawned_player = engine.spawn_object<PlayerCharacter>(
-			std::vector<Renderable>{}, definition);
-		auto& player_visual = engine.spawn_object<Object>(mesh->renderables);
-		const glm::mat4 facing_correction =
-			glm::rotate(Maths::identity_mat, Maths::PI, Maths::up_vec);
-		player_visual.set_transform(
-			facing_correction * model.onload_transform.get_mat4() * mesh->transform.get_mat4());
-		player_visual.attach_to(&spawned_player);
-		engine.get_ecs().attach_skeleton(player_visual.get_id(), skeleton);
+			mesh->renderables, definition);
 		spawned_player.configure_locomotion(skeleton, locomotion);
-		player_visual.set_name("Player Visual");
+		engine.get_ecs().attach_skeleton(spawned_player.get_id(), skeleton);
 		engine.get_ecs().add_collider(spawned_player.get_id(), std::make_unique<CapsuleCollider>(
 			definition.capsule_radius, definition.capsule_height));
 		engine.get_ecs().add_clickable_entity(spawned_player.get_id());

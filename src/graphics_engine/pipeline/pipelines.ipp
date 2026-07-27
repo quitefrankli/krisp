@@ -455,7 +455,7 @@ std::vector<VkDescriptorSetLayout> ShadowMapBasePipeline::get_expected_dset_layo
 {
 	return { 
 		get_rsrc_mgr().get_low_freq_dset_layout(),
-		get_rsrc_mgr().get_per_obj_dset_layout(),
+		get_rsrc_mgr().get_per_renderable_frame_dset_layout(),
 		get_rsrc_mgr().get_renderable_dset_layout() 
 	};
 }

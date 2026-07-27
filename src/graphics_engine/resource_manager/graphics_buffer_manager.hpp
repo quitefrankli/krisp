@@ -20,17 +20,16 @@ public:
 	GraphicsBufferManager(GraphicsEngine& engine);
 	virtual ~GraphicsBufferManager() override;
 
-	void reserve_uniform_buffer(EntityFrameID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
+	void reserve_buffer(ObjectRenderableFrameID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
 	void reserve_buffer(SkeletonFrameID id, size_t size) { reserve_buffer(bone_buffer, id.get_underlying(), size); }
 
-	void free_uniform_buffer(EntityFrameID id) { free_buffer(uniform_buffer, id.get_underlying()); }
+	void free_buffer(ObjectRenderableFrameID id) { free_buffer(uniform_buffer, id.get_underlying()); }
 	void free_buffer(MeshID id) { free_buffer(vertex_buffer, id.get_underlying()); free_buffer(index_buffer, id.get_underlying()); }
 	void free_buffer(MaterialID id) { free_buffer(materials_buffer, id.get_underlying()); }
 	void free_buffer(SkeletonFrameID id) { free_buffer(bone_buffer, id.get_underlying()); }
 
 	size_t get_vertex_buffer_offset(MeshID id) const { return vertex_buffer.get_offset(id.get_underlying()); }
 	size_t get_index_buffer_offset(MeshID id) const { return index_buffer.get_offset(id.get_underlying()); }
-	size_t get_uniform_buffer_offset(EntityFrameID id) const { return uniform_buffer.get_offset(id.get_underlying()); }
 	size_t get_buffer_offset(MaterialID id) const { return materials_buffer.get_offset(id.get_underlying()); }
 	size_t get_buffer_offset(SkeletonFrameID id) const { return bone_buffer.get_offset(id.get_underlying()); }
 	size_t get_global_uniform_buffer_offset(uint32_t id) const { return global_uniform_buffer.get_offset(id); }
@@ -49,13 +48,13 @@ public:
 	void write_to_buffer(MeshID id, const Mesh& mesh);
 	void write_to_buffer(MaterialID id, const SDS::MaterialData& material);
 	void write_to_buffer(SkeletonFrameID id, const std::vector<SDS::Bone>& bones);
-	void write_to_uniform_buffer(EntityFrameID id, const SDS::ObjectData& ubos);
+	void write_to_buffer(ObjectRenderableFrameID id, const SDS::ObjectData& ubos);
 	void write_to_global_uniform_buffer(uint32_t id, const SDS::GlobalData& ubo);
 	void write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry);
 
 	GraphicsBuffer::Slot get_vertex_buffer_slot(MeshID id) const { return vertex_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_index_buffer_slot(MeshID id) const { return index_buffer.get_slot(id.get_underlying()); }
-	GraphicsBuffer::Slot get_uniform_buffer_slot(EntityFrameID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
+	GraphicsBuffer::Slot get_buffer_slot(ObjectRenderableFrameID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_buffer_slot(MaterialID id) const { return materials_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_buffer_slot(SkeletonFrameID id) const { return bone_buffer.get_slot(id.get_underlying()); }
 
@@ -97,7 +96,7 @@ public:
 	// in bytes, takes average size different vertex types
 	static constexpr size_t VERTEX_BUFFER_CAPACITY = (sizeof(SDS::ColorVertex) + sizeof(SDS::TexVertex)) * 1e6;
 	static constexpr size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e7;
-	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS * NUM_EXPECTED_FRAMES;
+	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_RENDERABLES * NUM_EXPECTED_FRAMES;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_RENDERABLES;
 	// 100 is here to get around the min uniform buffer alignment requirement
 	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData) * CSTS::UPPERBOUND_SWAPCHAIN_IMAGES * 100;

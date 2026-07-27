@@ -18,7 +18,7 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_global_binding()
 	return gubo_layout_binding;
 }
 
-static constexpr VkDescriptorSetLayoutBinding get_generic_obj_ubo_binding()
+static constexpr VkDescriptorSetLayoutBinding get_renderable_frame_transform_binding()
 {
 	VkDescriptorSetLayoutBinding ubo_layout_binding{};
 	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -289,7 +289,7 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 {
 	return { 
 		low_freq_dset_layout,
-		per_obj_dset_layout,
+		per_renderable_frame_dset_layout,
 		renderable_dset_layout, 
 		shadow_map_dset_layout
 	};
@@ -308,7 +308,8 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 {
 	low_freq_dset_layout = request_dset_layout({ get_generic_global_binding() });
-	per_obj_dset_layout = request_dset_layout({ get_generic_obj_ubo_binding(), get_generic_bone_binding() });
+	per_renderable_frame_dset_layout =
+		request_dset_layout({ get_renderable_frame_transform_binding(), get_generic_bone_binding() });
 	renderable_dset_layout = request_dset_layout({ 
 		get_generic_material_binding(), 
 		get_generic_texture_binding(SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING),

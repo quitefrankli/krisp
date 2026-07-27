@@ -50,7 +50,7 @@ struct GlobalData
 
 // in glsl this refers to the set index in the layout, in c++ this refers to the descriptor set offset
 const int RASTERIZATION_LOW_FREQ_SET_OFFSET = 0;
-const int RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET = 1;
+const int RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET = 1;
 const int RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET = 2;
 const int RASTERIZATION_SHADOW_MAP_SET_OFFSET = 3;
 

@@ -34,6 +34,21 @@ skinned-color, and skinned-texture pipelines.
 
 No GPU timing measurements have been recorded yet.
 
+## Renderable-local transforms
+
+Rasterization keeps imported asset-node transforms separate from gameplay
+object transforms. Each frame, the CPU precomputes `gameplay * local` into one
+uniform-buffer slot per renderable. Static vertex shaders retain their previous
+matrix workload.
+
+Skinned bone buffers now remain in model space so they can be shared by
+renderables. Skinned vertex shaders apply the combined model matrix after
+skinning, adding one matrix-vector transform for positions and equivalent work
+for normals/tangents in lit passes. This is an expected cost; no GPU timing
+measurements have been recorded. The transform separation also increases
+per-frame uniform storage and descriptor-set use in proportion to renderable
+count rather than object count.
+
 ## Skeletal animation cross-fades
 
 Cross-fades retain one local transform snapshot per bone for the transition and

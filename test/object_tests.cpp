@@ -224,6 +224,7 @@ TEST(ObjectSerialization, round_trips_common_state_and_exact_id)
 	source.renderables.push_back(Renderable{
 		MeshID(41), { MaterialID(42), MaterialID(43) }, ERenderType::STANDARD,
 		EAlphaMode::MASK, 0.25f, 0.75f, false, true });
+	source.renderables[0].local_transform.set_pos({ 7.0f, 8.0f, 9.0f });
 
 	Serializer serializer;
 	source.serialize(serializer);
@@ -240,4 +241,30 @@ TEST(ObjectSerialization, round_trips_common_state_and_exact_id)
 	EXPECT_EQ(restored.renderables[0].alpha_mode, EAlphaMode::MASK);
 	EXPECT_FALSE(restored.renderables[0].casts_shadow);
 	EXPECT_TRUE(restored.renderables[0].render_on_top);
+	EXPECT_TRUE(glm_equal(
+		restored.renderables[0].local_transform.get_mat4(),
+		source.renderables[0].local_transform.get_mat4()));
+}
+
+TEST(RenderableTransform, composes_gameplay_before_asset_local_transform)
+{
+	Renderable renderable;
+	renderable.local_transform.set_pos({ 0.0f, 0.0f, 2.0f });
+	const glm::mat4 gameplay = glm::rotate(
+		Maths::identity_mat, Maths::deg2rad(90.0f), Maths::up_vec);
+
+	const glm::vec3 world = glm::vec3(
+		renderable.get_model_transform(gameplay) * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+	EXPECT_TRUE(glm_equal(world, glm::vec3(2.0f, 0.0f, 0.0f)));
+}
+
+TEST(ObjectRenderableFrameID, packs_without_cross_object_collision)
+{
+	const ObjectRenderableFrameID last_for_first_object(
+		ObjectID(1), CSTS::MAX_RENDERABLES_PER_OBJECT - 1, CSTS::UPPERBOUND_SWAPCHAIN_IMAGES - 1);
+	const ObjectRenderableFrameID first_for_next_object(ObjectID(2), 0, 0);
+	EXPECT_EQ(
+		last_for_first_object.get_underlying() + 1,
+		first_for_next_object.get_underlying());
 }

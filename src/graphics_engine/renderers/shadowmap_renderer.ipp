@@ -150,7 +150,7 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 			}
 			draw_renderable(command_buffer,
 							renderable,
-							graphics_object.get_obj_dset(frame_index),
+							graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
 							graphics_object.get_renderable_dsets()[renderable_idx],
 							EPipelineModifier::SHADOW_MAP);
 		}

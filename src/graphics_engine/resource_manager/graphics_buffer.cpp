@@ -194,7 +194,7 @@ std::byte* GraphicsBuffer::map_slot(uint32_t id, VkDevice device)
 		0, 
 		reinterpret_cast<void**>(&mapped_memory)) != VK_SUCCESS || !mapped_memory)
 	{
-		throw std::runtime_error("GraphicsEngine::write_to_uniform_buffer: failed to map memory!");
+		throw std::runtime_error("GraphicsBuffer::map_slot: failed to map memory!");
 	}
 
 	return mapped_memory;

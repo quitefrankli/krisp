@@ -190,8 +190,8 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 
 	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
-		EntityFrameID efid{id, frame_idx};
-		get_rsrc_mgr().free_uniform_buffer(efid);
+		for (uint32_t renderable_idx = 0; renderable_idx < obj.get_renderables().size(); ++renderable_idx)
+			get_rsrc_mgr().free_buffer(ObjectRenderableFrameID{id, renderable_idx, frame_idx});
 		if (const auto skeleton_id = get_ecs().get_skeleton_id(obj.get_id()))
 		{
 			get_rsrc_mgr().free_buffer(SkeletonFrameID{*skeleton_id, frame_idx});
@@ -544,8 +544,10 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	// these buffers are dynamic (changing between frames) and therefore requires duplicate buffers per swapchain image
 	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
-		// allocate space for object uniform buffer
-		rsrc_mgr.reserve_uniform_buffer(EntityFrameID{graphics_object.get_id(), frame_idx}, sizeof(SDS::ObjectData));
+		for (uint32_t renderable_idx = 0; renderable_idx < graphics_object.get_renderables().size(); ++renderable_idx)
+			rsrc_mgr.reserve_buffer(
+				ObjectRenderableFrameID{graphics_object.get_id(), renderable_idx, frame_idx},
+				sizeof(SDS::ObjectData));
 
 		// allocate one set of bone matrices shared by all skinned renderables in the object
 		if (skeleton_id)
@@ -562,25 +564,26 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	// // this is currently hardcoded to always use the first frame's uniform buffer
 	// // since the buffer map is only used for raytracing it's ignored for now
 	// // TODO: fix this
-	// buffer_map.uniform_offset = rsrc_mgr.get_uniform_buffer_offset(EntityFrameID{id, 0});
-
 	// rsrc_mgr.write_to_mapping_buffer(id, buffer_map);
 }
 
 void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 {
-	// per object descriptor set
-	// currently the resources that are per obj just happen to be purely dynamic and so all of them need a separate
-	// buffer + dset for each frame
-	std::vector<VkDescriptorSet> object_dsets;
+	// Each renderable gets a per-frame transform set; skinned renderables also
+	// reference the skeleton buffer shared by their owning object.
+	std::vector<std::vector<VkDescriptorSet>> renderable_frame_dsets(object.get_renderables().size());
 	const auto skeleton_id = get_ecs().get_skeleton_id(object.get_id());
-	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
+	for (uint32_t renderable_idx = 0; renderable_idx < object.get_renderables().size(); ++renderable_idx)
 	{
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_obj_dset_layout());
-		std::vector<VkWriteDescriptorSet> descriptor_writes;
+		for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
+		{
+			VkDescriptorSet new_descriptor_set =
+				get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_renderable_frame_dset_layout());
+			std::vector<VkWriteDescriptorSet> descriptor_writes;
 
-		VkDescriptorBufferInfo buffer_info{};
-		const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_uniform_buffer_slot(EntityFrameID{object.get_id(), frame_idx});
+			VkDescriptorBufferInfo buffer_info{};
+			const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_buffer_slot(
+				ObjectRenderableFrameID{object.get_id(), renderable_idx, frame_idx});
 		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
 		buffer_info.offset = buffer_slot.offset;
 		buffer_info.range = buffer_slot.size;
@@ -593,32 +596,33 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
 		descriptor_writes.push_back(uniform_buffer_dset_write);
 
-		if (skeleton_id)
-		{
-			const GraphicsBuffer::Slot bone_slot = 
-				get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*skeleton_id, frame_idx});
-			VkDescriptorBufferInfo bone_buffer_info{};
-			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
-			bone_buffer_info.offset = bone_slot.offset;
-			bone_buffer_info.range = bone_slot.size;
-			VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-			bone_buffer_dset_write.dstSet = new_descriptor_set;
-			bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
-			bone_buffer_dset_write.dstArrayElement = 0;
-			bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			bone_buffer_dset_write.descriptorCount = 1;
-			bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
-			descriptor_writes.push_back(bone_buffer_dset_write);
-		}
+			if (skeleton_id)
+			{
+				const GraphicsBuffer::Slot bone_slot =
+					get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*skeleton_id, frame_idx});
+				VkDescriptorBufferInfo bone_buffer_info{};
+				bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
+				bone_buffer_info.offset = bone_slot.offset;
+				bone_buffer_info.range = bone_slot.size;
+				VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				bone_buffer_dset_write.dstSet = new_descriptor_set;
+				bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
+				bone_buffer_dset_write.dstArrayElement = 0;
+				bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				bone_buffer_dset_write.descriptorCount = 1;
+				bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
+				descriptor_writes.push_back(bone_buffer_dset_write);
+			}
 
-		vkUpdateDescriptorSets(get_logical_device(), 
-							descriptor_writes.size(), 
-							descriptor_writes.data(), 
-							0, 
-							nullptr);
-		object_dsets.push_back(new_descriptor_set);
+			vkUpdateDescriptorSets(get_logical_device(),
+				descriptor_writes.size(),
+				descriptor_writes.data(),
+				0,
+				nullptr);
+			renderable_frame_dsets[renderable_idx].push_back(new_descriptor_set);
+		}
 	}
-	object.set_obj_dsets(object_dsets);
+	object.set_renderable_frame_dsets(std::move(renderable_frame_dsets));
 
 	// per renderable descriptor set
 	// TODO: we need to cache the dsets for each material/texture

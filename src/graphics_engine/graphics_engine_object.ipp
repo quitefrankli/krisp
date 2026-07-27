@@ -12,15 +12,23 @@
 
 
 GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object& object) :
-	GraphicsEngineBaseModule(engine),
-	per_frame_object_dsets(engine.get_num_swapchain_images(), nullptr)
+	GraphicsEngineBaseModule(engine)
 {
+	if (object.renderables.size() > CSTS::MAX_RENDERABLES_PER_OBJECT)
+	{
+		throw std::runtime_error(fmt::format(
+			"GraphicsEngineObject: object {} has {} renderables; maximum is {}",
+			object.get_id().get_underlying(),
+			object.renderables.size(),
+			CSTS::MAX_RENDERABLES_PER_OBJECT));
+	}
 }
 
 GraphicsEngineObject::~GraphicsEngineObject()
 {
 	get_rsrc_mgr().free_dsets(renderable_dsets);
-	get_rsrc_mgr().free_dsets(per_frame_object_dsets);
+	for (auto& dsets : renderable_frame_dsets)
+		get_rsrc_mgr().free_dsets(dsets);
 }
 
 const std::vector<Renderable>& GraphicsEngineObject::get_renderables() const

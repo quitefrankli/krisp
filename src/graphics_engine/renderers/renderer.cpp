@@ -60,7 +60,7 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 	vkCmdBindDescriptorSets(command_buffer,
 							VK_PIPELINE_BIND_POINT_GRAPHICS,
 							pipeline->pipeline_layout,
-							SDS::RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET,	// see SDS for more info
+							SDS::RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET,	// see SDS for more info
 							1,
 							&object_dset,
 							0,

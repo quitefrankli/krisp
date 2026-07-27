@@ -1,6 +1,7 @@
 #pragma once
 
 #include "identifications.hpp"
+#include "maths.hpp"
 #include "renderable/render_types.hpp"
 #include "renderable/material_group.hpp"
 
@@ -19,6 +20,13 @@ struct Renderable
 	float opacity = 1.0f;
 	bool casts_shadow = true;
 	bool render_on_top = false;
+	// Asset-local placement, kept separate from the owning object's gameplay transform.
+	Maths::Transform local_transform;
+
+	glm::mat4 get_model_transform(const glm::mat4& gameplay_transform) const
+	{
+		return gameplay_transform * local_transform.get_mat4();
+	}
 
 	static Renderable make_default();
 	static Renderable make_default(MeshID mesh_id);

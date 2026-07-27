@@ -949,8 +949,14 @@ TEST(ResourceLoaderVariants, scene_nodes_create_distinct_mesh_instances)
 	ASSERT_EQ(model.meshes.size(), 2);
 	EXPECT_EQ(model.meshes[0].name, "Right instance");
 	EXPECT_EQ(model.meshes[1].name, "Left instance");
-	EXPECT_TRUE(glm_equal(model.meshes[0].transform.get_pos(), glm::vec3(3.0f, 0.0f, 0.0f)));
-	EXPECT_TRUE(glm_equal(model.meshes[1].transform.get_pos(), glm::vec3(-1.0f, 2.0f, 0.0f)));
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	ASSERT_EQ(model.meshes[1].renderables.size(), 1);
+	EXPECT_TRUE(glm_equal(
+		model.meshes[0].renderables[0].local_transform.get_pos(),
+		glm::vec3(3.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(
+		model.meshes[1].renderables[0].local_transform.get_pos(),
+		glm::vec3(-1.0f, 2.0f, 0.0f)));
 }
 
 TEST(ResourceLoaderVariants, explicit_scene_selection_uses_requested_scene)
@@ -962,7 +968,10 @@ TEST(ResourceLoaderVariants, explicit_scene_selection_uses_requested_scene)
 	ASSERT_EQ(model.meshes.size(), 1);
 	EXPECT_EQ(model.meshes[0].name, "Alternate scene mesh");
 	EXPECT_EQ(model.meshes[0].source_node, 2);
-	EXPECT_TRUE(glm_equal(model.meshes[0].transform.get_pos(), glm::vec3(0.0f, 4.0f, 0.0f)));
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	EXPECT_TRUE(glm_equal(
+		model.meshes[0].renderables[0].local_transform.get_pos(),
+		glm::vec3(0.0f, 4.0f, 0.0f)));
 }
 
 TEST(ResourceLoaderVariants, generates_normals_for_non_indexed_interleaved_triangle_strip)

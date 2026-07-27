@@ -515,10 +515,11 @@ void GuiModelSpawner::process(GameEngine& engine)
 			object->set_transform(loaded_model.onload_transform.get_mat4());
 			for (auto& loaded_mesh : loaded_model.meshes)
 			{
-				const glm::mat4 transform = loaded_mesh.transform.get_mat4();
 				for (auto renderable : loaded_mesh.renderables)
 				{
-					renderable.mesh_id = bake_mesh_transform(renderable.mesh_id, transform);
+					renderable.mesh_id = bake_mesh_transform(
+						renderable.mesh_id, renderable.local_transform.get_mat4());
+					renderable.local_transform = {};
 					object->renderables.push_back(std::move(renderable));
 				}
 			}
@@ -531,7 +532,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 		for (const auto& loaded_mesh : loaded_model.meshes)
 		{
 			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
-			mesh->set_transform(loaded_model.onload_transform.get_mat4() * loaded_mesh.transform.get_mat4());
+			mesh->set_transform(loaded_model.onload_transform.get_mat4());
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
 			if (loaded_mesh.skeleton_id)

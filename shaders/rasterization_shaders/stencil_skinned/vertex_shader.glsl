@@ -9,12 +9,12 @@ layout(location=1) in vec3 in_normal;
 layout(location=3) in vec4 bone_ids;
 layout(location=4) in vec4 bone_weights;
 
-layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
+layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
 	ObjectData data;
 } object_data;
 
-layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_BONE_DATA_BINDING) buffer BoneDataBuffer
+layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_BONE_DATA_BINDING) buffer BoneDataBuffer
 {
 	Bone data[];
 } bone_data;
@@ -40,8 +40,9 @@ void main()
 		get_bone_matrix(bone_ids.y) * bone_weights.y + 
 		get_bone_matrix(bone_ids.z) * bone_weights.z + 
 		get_bone_matrix(bone_ids.w) * bone_weights.w;
-	const vec3 frag_pos = (skin_matrix * vec4(in_position, 1.0)).xyz;
-	const vec3 skinned_normal = normalize(transpose(inverse(mat3(skin_matrix))) * in_normal);
+	const mat4 model_skin = object_data.data.model * skin_matrix;
+	const vec3 frag_pos = (model_skin * vec4(in_position, 1.0)).xyz;
+	const vec3 skinned_normal = normalize(transpose(inverse(mat3(model_skin))) * in_normal);
 
     gl_Position = global_data.data.proj * global_data.data.view
 		* vec4(frag_pos + skinned_normal * STENCIL_OFFSET, 1.0);

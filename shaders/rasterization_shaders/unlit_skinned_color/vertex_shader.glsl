@@ -6,7 +6,12 @@ layout(location = 0) in vec3 in_position;
 layout(location = 3) in vec4 bone_ids;
 layout(location = 4) in vec4 bone_weights;
 
-layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_BONE_DATA_BINDING) buffer BoneDataBuffer
+layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
+{
+	ObjectData data;
+} object_data;
+
+layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_BONE_DATA_BINDING) buffer BoneDataBuffer
 {
 	Bone data[];
 } bone_data;
@@ -23,5 +28,6 @@ void main()
 		bone_data.data[int(bone_ids.y)].final_transform * bone_weights.y +
 		bone_data.data[int(bone_ids.z)].final_transform * bone_weights.z +
 		bone_data.data[int(bone_ids.w)].final_transform * bone_weights.w;
-	gl_Position = global_data.data.proj * global_data.data.view * skin_matrix * vec4(in_position, 1.0);
+	gl_Position = global_data.data.proj * global_data.data.view
+		* object_data.data.model * skin_matrix * vec4(in_position, 1.0);
 }

@@ -29,7 +29,10 @@ public:
 public: // accessors for specific descriptors/layouts
 	const VkDescriptorSetLayout& get_low_freq_dset_layout() const { return low_freq_dset_layout; }
 	const VkDescriptorSetLayout& get_shadow_map_dset_layout() const { return shadow_map_dset_layout; }
-	const VkDescriptorSetLayout& get_per_obj_dset_layout() const { return per_obj_dset_layout; }
+	const VkDescriptorSetLayout& get_per_renderable_frame_dset_layout() const
+	{
+		return per_renderable_frame_dset_layout;
+	}
 	const VkDescriptorSetLayout& get_renderable_dset_layout() const { return renderable_dset_layout; }
 	const VkDescriptorSetLayout& get_mesh_data_dset_layout() const { return mesh_data_dset_layout; }
 	const VkDescriptorSetLayout& get_raytracing_tlas_dset_layout() const { return raytracing_tlas_dset_layout; }
@@ -46,10 +49,10 @@ private:
 	void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
 
 	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
-	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 1000; // for objects i.e. model + texture
+	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 8000; // per-frame renderable transforms + materials/textures
 	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000; // for ray tracing
 	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
-	static constexpr int MAX_STORAGE_BUFFER_DESCRIPTOR_SETS = 1000;
+	static constexpr int MAX_STORAGE_BUFFER_DESCRIPTOR_SETS = 8000;
 
 	// i.e. sphere uses 1 uniform while cube uses 6 per descriptor set
 	static constexpr int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;
@@ -57,7 +60,7 @@ private:
 	static constexpr int MAX_IMGUI_DESCRIPTOR_SETS = 50;
 
 	// upper bound for descriptor sets, statically checked
-	static constexpr int MAX_DESCRIPTOR_SETS = 5000;
+	static constexpr int MAX_DESCRIPTOR_SETS = 10000;
 
 	static_assert(
 		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
@@ -69,7 +72,7 @@ private:
 	std::vector<VkDescriptorSetLayout> all_dset_layouts;
 	VkDescriptorSetLayout low_freq_dset_layout;
 	VkDescriptorSetLayout shadow_map_dset_layout;
-	VkDescriptorSetLayout per_obj_dset_layout;
+	VkDescriptorSetLayout per_renderable_frame_dset_layout;
 	VkDescriptorSetLayout renderable_dset_layout;
 	VkDescriptorSetLayout mesh_data_dset_layout;
 	VkDescriptorSetLayout raytracing_tlas_dset_layout;

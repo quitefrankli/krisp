@@ -13,7 +13,7 @@ layout(location=1) out vec3 surface_normal;
 layout(location=2) out vec3 frag_pos;
 layout(location=3) out vec4 surface_tangent;
 
-layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
+layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
 	ObjectData data;
 } object_data;

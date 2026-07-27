@@ -301,6 +301,7 @@ void Object::serialize(Serializer& out) const
 		saved.write("opacity", renderable.opacity);
 		saved.write("casts_shadow", renderable.casts_shadow);
 		saved.write("render_on_top", renderable.render_on_top);
+		Serialization::write_transform(saved, "local_transform", renderable.local_transform);
 	}
 }
 
@@ -330,6 +331,8 @@ void Object::deserialize(const Deserializer& in)
 		renderable.opacity = saved.read<float>("opacity");
 		renderable.casts_shadow = saved.read<bool>("casts_shadow");
 		renderable.render_on_top = saved.read<bool>("render_on_top");
+		if (std::ranges::find(keys, "local_transform") != keys.end())
+			renderable.local_transform = Serialization::read_transform(saved, "local_transform");
 		renderables.push_back(std::move(renderable));
 	}
 }

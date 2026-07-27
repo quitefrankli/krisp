@@ -7,7 +7,7 @@ layout(location = 2) in vec2 in_tex_coord;
 
 layout(location = 0) out vec2 frag_tex_coord;
 
-layout(set=RASTERIZATION_HIGH_FREQ_PER_OBJ_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
+layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_OBJECT_DATA_BINDING) uniform ObjectDataBuffer
 {
 	ObjectData data;
 } object_data;

@@ -139,7 +139,7 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 
 			draw_renderable(command_buffer, 
 							renderable, 
-							graphics_object.get_obj_dset(frame_index), 
+							graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
 							graphics_object.get_renderable_dsets()[renderable_idx], 
 							EPipelineModifier::NONE, 
 							ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
