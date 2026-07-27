@@ -1,6 +1,7 @@
 #pragma once
 
 #include "identifications.hpp"
+#include "maths.hpp"
 #include "renderable/render_types.hpp"
 #include "renderable/material_group.hpp"
 
@@ -12,6 +13,7 @@
 struct Renderable
 {
 	MeshID mesh_id;
+	Maths::Transform transform;
 	MatVec material_ids;
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;

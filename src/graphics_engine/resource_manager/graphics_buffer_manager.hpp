@@ -97,7 +97,9 @@ public:
 	// in bytes, takes average size different vertex types
 	static constexpr size_t VERTEX_BUFFER_CAPACITY = (sizeof(SDS::ColorVertex) + sizeof(SDS::TexVertex)) * 1e6;
 	static constexpr size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e7;
-	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS * NUM_EXPECTED_FRAMES;
+	static constexpr size_t UNIFORM_BUFFER_CAPACITY =
+		(sizeof(SDS::ObjectData) * NUM_EXPECTED_OBJECTS
+			+ sizeof(SDS::RenderableTransformData) * NUM_EXPECTED_RENDERABLES) * NUM_EXPECTED_FRAMES;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_RENDERABLES;
 	// 100 is here to get around the min uniform buffer alignment requirement
 	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData) * CSTS::UPPERBOUND_SWAPCHAIN_IMAGES * 100;

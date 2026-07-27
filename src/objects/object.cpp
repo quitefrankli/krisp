@@ -281,6 +281,7 @@ void Object::serialize(Serializer& out) const
 		}
 		else
 			saved.write("mesh_id", renderable.mesh_id.get_underlying());
+		Serialization::write_transform(saved, "transform", renderable.transform);
 		auto materials = saved.sequence("material_ids");
 		for (const auto material : renderable.material_ids)
 		{
@@ -321,6 +322,8 @@ void Object::deserialize(const Deserializer& in)
 		const auto keys = saved.keys();
 		const bool imported_mesh = std::ranges::find(keys, "mesh_source") != keys.end();
 		renderable.mesh_id = imported_mesh ? MeshID{} : MeshID(saved.read<uint64_t>("mesh_id"));
+		if (std::ranges::find(keys, "transform") != keys.end())
+			renderable.transform = Serialization::read_transform(saved, "transform");
 		for (const auto& material : saved.child("material_ids").elements())
 			if (material.kind() == SerializationKind::Scalar)
 				renderable.material_ids.emplace_back(material.as<uint64_t>());
