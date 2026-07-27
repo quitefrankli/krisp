@@ -3,9 +3,10 @@
 #include "entity_component_system/ecs.hpp"
 
 #include <stdexcept>
+#include <utility>
 
 Character::Character(std::vector<Renderable> renderables) :
-	Object(renderables)
+	Object(std::move(renderables))
 {
 }
 

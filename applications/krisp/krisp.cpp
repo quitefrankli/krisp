@@ -20,6 +20,7 @@
 #include <ranges>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -72,8 +73,15 @@ public:
 		};
 
 		PlayerDefinition definition;
+		for (auto& renderable : mesh->renderables)
+		{
+			const glm::mat4 face_gameplay_forward =
+				glm::rotate(Maths::identity_mat, Maths::PI, Maths::up_vec);
+			renderable.local_transform.set_mat4(
+				face_gameplay_forward * renderable.local_transform.get_mat4());
+		}
 		auto& spawned_player = engine.spawn_object<PlayerCharacter>(
-			mesh->renderables, definition);
+			std::move(mesh->renderables), definition);
 		spawned_player.configure_locomotion(skeleton, locomotion);
 		engine.get_ecs().attach_skeleton(spawned_player.get_id(), skeleton);
 		engine.get_ecs().add_collider(spawned_player.get_id(), std::make_unique<CapsuleCollider>(

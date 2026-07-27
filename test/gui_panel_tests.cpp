@@ -101,6 +101,33 @@ TEST(GuiAnimationSelector, sorts_and_keeps_all_animation_choices)
 	EXPECT_EQ(sorted[2].first, AnimationID(3));
 }
 
+TEST(GuiAnimationSelector, discovers_only_animations_for_the_selected_rig)
+{
+	const SkeletalRigSignature selected_rig{ { .name = "root" } };
+	const SkeletalRigSignature other_rig{ { .name = "other" } };
+	const std::unordered_map<AnimationID, SkeletalAnimation> animations{
+		{ AnimationID(1), { .name = "Walk", .source = "movement.glb",
+			.rig_signature = selected_rig } },
+		{ AnimationID(2), { .name = "Idle", .source = "movement.glb",
+			.rig_signature = selected_rig } },
+		{ AnimationID(3), { .name = "Walk", .source = "movement.glb",
+			.rig_signature = other_rig } },
+	};
+
+	const auto choices =
+		GuiAnimationSelector::animation_choices_for_rig(animations, selected_rig);
+
+	ASSERT_EQ(choices.size(), 2u);
+	EXPECT_EQ(choices[0], GuiAnimationSelector::AnimationChoice(
+		AnimationID(2), "movement.glb: Idle"));
+	EXPECT_EQ(choices[1], GuiAnimationSelector::AnimationChoice(
+		AnimationID(1), "movement.glb: Walk"));
+	EXPECT_TRUE(GuiAnimationSelector::animation_source_is_loaded(
+		animations, selected_rig, "movement.glb"));
+	EXPECT_FALSE(GuiAnimationSelector::animation_source_is_loaded(
+		animations, other_rig, "missing.glb"));
+}
+
 TEST(GuiAnimationSelector, cycles_animation_choices_with_wraparound)
 {
 	const std::vector<GuiAnimationSelector::AnimationChoice> choices{

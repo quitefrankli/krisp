@@ -1132,6 +1132,30 @@ std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_an
 	return choices;
 }
 
+std::vector<GuiAnimationSelector::AnimationChoice>
+GuiAnimationSelector::animation_choices_for_rig(
+	const std::unordered_map<AnimationID, SkeletalAnimation>& animations,
+	const SkeletalRigSignature& rig_signature)
+{
+	std::vector<AnimationChoice> choices;
+	for (const auto& [id, animation] : animations)
+		if (animation.rig_signature == rig_signature)
+			choices.emplace_back(id, animation.source + ": " + animation.name);
+	return sort_animation_choices(std::move(choices));
+}
+
+bool GuiAnimationSelector::animation_source_is_loaded(
+	const std::unordered_map<AnimationID, SkeletalAnimation>& animations,
+	const SkeletalRigSignature& rig_signature,
+	const std::string_view source)
+{
+	return std::ranges::any_of(animations, [&](const auto& entry)
+	{
+		const auto& animation = entry.second;
+		return animation.rig_signature == rig_signature && animation.source == source;
+	});
+}
+
 std::optional<AnimationID> GuiAnimationSelector::cycle_animation_choice(
 	const std::vector<AnimationChoice>& choices,
 	const std::optional<AnimationID> current,
@@ -1203,6 +1227,22 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	{
 		playback_active = false;
 		paused = false;
+		if (selected_skeleton)
+		{
+			const auto rig_signature = make_skeletal_rig_signature(
+				engine.get_ecs().get_skeletal_component(*selected_skeleton).get_bones());
+			animation_choices = animation_choices_for_rig(
+				engine.get_ecs().get_skeletal_animations(), rig_signature);
+		}
+		else
+			animation_choices.clear();
+		if (selected_animation
+			&& std::ranges::find(animation_choices, *selected_animation, &AnimationChoice::first)
+				== animation_choices.end())
+		{
+			selected_animation.reset();
+			selected_animation_name = "(select clip)";
+		}
 	}
 
 	if (pending_animation_file)
@@ -1220,30 +1260,19 @@ void GuiAnimationSelector::process(GameEngine& engine)
 		{
 			const auto rig_signature = make_skeletal_rig_signature(
 				engine.get_ecs().get_skeletal_component(request.skeleton).get_bones());
-			auto& rig_cache = loaded_animation_files[rig_signature];
-			if (const auto loaded = rig_cache.find(request.path); loaded != rig_cache.end())
+			const auto& animations = engine.get_ecs().get_skeletal_animations();
+			if (animation_source_is_loaded(animations, rig_signature, request.path))
 			{
-				for (const auto animation_id : loaded->second)
-				{
-					if (selected_animation == animation_id)
-					{
-						selected_animation.reset();
-						selected_animation_name = "(select clip)";
-						playback_active = false;
-						paused = false;
-					}
-					animation_choices_changed |= engine.get_ecs().remove_skeletal_animation(animation_id);
-				}
-				rig_cache.erase(loaded);
+				load_error.reset();
+				animation_choices_changed = true;
 			}
-			try
+			else try
 			{
 				auto loaded = ResourceLoader::load_animations(
 					engine.get_ecs(), request.path, request.skeleton);
 				for (const auto& warning : loaded.warnings)
 					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}",
 						request.path, warning.message);
-				rig_cache.emplace(request.path, std::move(loaded.animations));
 				animation_choices_changed = true;
 				load_error.reset();
 			}
@@ -1253,13 +1282,12 @@ void GuiAnimationSelector::process(GameEngine& engine)
 					"Animation Selector failed to load animation file", error);
 			}
 		}
-		if (animation_choices_changed)
+		if (animation_choices_changed && selected_skeleton == request.skeleton)
 		{
-			animation_choices.clear();
-			animation_choices.reserve(engine.get_ecs().get_skeletal_animations().size());
-			for (const auto& [id, animation] : engine.get_ecs().get_skeletal_animations())
-				animation_choices.emplace_back(id, animation.source + ": " + animation.name);
-			animation_choices = sort_animation_choices(std::move(animation_choices));
+			const auto rig_signature = make_skeletal_rig_signature(
+				engine.get_ecs().get_skeletal_component(request.skeleton).get_bones());
+			animation_choices = animation_choices_for_rig(
+				engine.get_ecs().get_skeletal_animations(), rig_signature);
 		}
 	}
 

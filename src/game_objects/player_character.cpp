@@ -3,12 +3,31 @@
 #include "camera.hpp"
 #include "entity_component_system/ecs.hpp"
 
-#include <algorithm>
+#include <stdexcept>
+#include <utility>
+
+namespace
+{
+struct MovementAxes
+{
+	int longitudinal;
+	int lateral;
+};
+
+MovementAxes movement_axes(
+	const bool forward, const bool backward, const bool right, const bool left)
+{
+	return {
+		static_cast<int>(forward) - static_cast<int>(backward),
+		static_cast<int>(right) - static_cast<int>(left),
+	};
+}
+}
 
 PlayerCharacter::PlayerCharacter(
 	std::vector<Renderable> renderables,
 	PlayerDefinition definition) :
-	Character(renderables),
+	Character(std::move(renderables)),
 	definition(std::move(definition))
 {
 }
@@ -17,10 +36,10 @@ glm::vec3 PlayerCharacter::movement_direction(
 	const bool forward, const bool backward, const bool right, const bool left,
 	const glm::vec3& camera_forward, const glm::vec3& camera_right)
 {
-	glm::vec3 result = (forward ? camera_forward : Maths::zero_vec) -
-		(backward ? camera_forward : Maths::zero_vec) +
-		(right ? camera_right : Maths::zero_vec) -
-		(left ? camera_right : Maths::zero_vec);
+	const auto [longitudinal, lateral] = movement_axes(forward, backward, right, left);
+	glm::vec3 result =
+		static_cast<float>(longitudinal) * camera_forward +
+		static_cast<float>(lateral) * camera_right;
 	result.y = 0.0f;
 	return glm::length2(result) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF
 		? Maths::zero_vec : glm::normalize(result);
@@ -29,8 +48,7 @@ glm::vec3 PlayerCharacter::movement_direction(
 PlayerLocomotionDirection PlayerCharacter::locomotion_direction(
 	const bool forward, const bool backward, const bool right, const bool left)
 {
-	const int longitudinal = static_cast<int>(forward) - static_cast<int>(backward);
-	const int lateral = static_cast<int>(right) - static_cast<int>(left);
+	const auto [longitudinal, lateral] = movement_axes(forward, backward, right, left);
 	if (longitudinal > 0 && lateral > 0) return PlayerLocomotionDirection::FORWARD_RIGHT;
 	if (longitudinal > 0 && lateral < 0) return PlayerLocomotionDirection::FORWARD_LEFT;
 	if (longitudinal < 0 && lateral > 0) return PlayerLocomotionDirection::BACKWARD_RIGHT;
@@ -65,7 +83,7 @@ AnimationID PlayerCharacter::animation_for(const PlayerLocomotionDirection direc
 		case PlayerLocomotionDirection::BACKWARD_LEFT: return animations.walk_backward_left;
 		case PlayerLocomotionDirection::BACKWARD_RIGHT: return animations.walk_backward_right;
 	}
-	return animations.idle;
+	throw std::logic_error("Unhandled player locomotion direction");
 }
 
 void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera, ECS& ecs, const float delta_secs)
@@ -103,17 +121,19 @@ void PlayerCharacter::resolve_horizontal_movement(ECS& ecs, glm::vec3 displaceme
 	if (distance <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
 		return;
 	const glm::vec3 direction = displacement / distance;
+	const glm::vec3 position = get_position();
 	// Three probes approximate the controller capsule's lower, middle, and upper
 	// sections. A blocked move is projected along the contact normal for sliding.
 	for (const float height : { definition.capsule_radius, definition.capsule_height * 0.5f,
 		definition.capsule_height - definition.capsule_radius })
 	{
-		Maths::Ray ray(get_position() + Maths::up_vec * height, direction);
+		const glm::vec3 probe_origin = position + Maths::up_vec * height;
+		Maths::Ray ray(probe_origin, direction);
 		ray.length = distance + definition.capsule_radius;
 		const auto hit = ecs.raycast(ray, get_id());
-		if (!hit.bCollided || glm::distance(get_position() + Maths::up_vec * height, hit.intersection) > ray.length)
+		if (!hit.bCollided || glm::distance(probe_origin, hit.intersection) > ray.length)
 			continue;
-		glm::vec3 normal = get_position() - hit.intersection;
+		glm::vec3 normal = position - hit.intersection;
 		normal.y = 0.0f;
 		if (glm::length2(normal) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
 			return;
@@ -121,7 +141,7 @@ void PlayerCharacter::resolve_horizontal_movement(ECS& ecs, glm::vec3 displaceme
 		displacement -= normal * glm::dot(displacement, normal);
 		break;
 	}
-	set_position(get_position() + displacement);
+	set_position(position + displacement);
 }
 
 void PlayerCharacter::snap_to_ground(ECS& ecs)

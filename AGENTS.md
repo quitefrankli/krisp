@@ -16,7 +16,7 @@
 
 * Do not write superfluous tests, write meaningful unit tests and prefer more end-to-end tests.
 
-* Start new chat sessions with "AGENTS.md read!"
+* Start new chat sessions with "AGENTS.md read!" but only do this once.
 
 * Refer to README.md for build instructions.
 

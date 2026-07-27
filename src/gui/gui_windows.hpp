@@ -378,6 +378,13 @@ public:
 	virtual void draw() override;
 	bool handle_key_input(const KeyInput& input);
 	static std::vector<AnimationChoice> sort_animation_choices(std::vector<AnimationChoice> choices);
+	static std::vector<AnimationChoice> animation_choices_for_rig(
+		const std::unordered_map<AnimationID, SkeletalAnimation>& animations,
+		const SkeletalRigSignature& rig_signature);
+	static bool animation_source_is_loaded(
+		const std::unordered_map<AnimationID, SkeletalAnimation>& animations,
+		const SkeletalRigSignature& rig_signature,
+		std::string_view source);
 	static std::optional<AnimationID> cycle_animation_choice(
 		const std::vector<AnimationChoice>& choices,
 		std::optional<AnimationID> current,
@@ -393,8 +400,6 @@ private:
 	void refresh_animation_files();
 
 	std::vector<std::string> animation_paths;
-	std::map<SkeletalRigSignature, std::unordered_map<std::string, std::vector<AnimationID>>>
-		loaded_animation_files;
 	std::optional<SkeletonID> selected_skeleton;
 	std::vector<AnimationChoice> animation_choices;
 	std::optional<AnimationFileLoadRequest> pending_animation_file;
