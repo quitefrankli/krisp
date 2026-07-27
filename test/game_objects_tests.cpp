@@ -211,3 +211,46 @@ TEST(skeletal_component_tests, model_space_transforms_compose_parent_hierarchy)
 	EXPECT_TRUE(glm_equal(glm::vec3(transforms[0][3]), glm::vec3(1.0f, 0.0f, 0.0f)));
 	EXPECT_TRUE(glm_equal(glm::vec3(transforms[1][3]), glm::vec3(1.0f, 2.0f, 0.0f)));
 }
+
+TEST(skeletal_component_tests, bone_attachment_follows_animated_model_space_pose)
+{
+	ECS ecs;
+	Bone root;
+	root.name = "Root";
+	Bone hand;
+	hand.name = "Hand";
+	hand.parent_node = 0;
+	hand.relative_transform.set_pos({ 0.0f, 2.0f, 0.0f });
+	const SkeletonID skeleton = ecs.add_skeleton({ root, hand });
+
+	Renderable renderable;
+	renderable.local_transform.set_pos({ 0.0f, 0.0f, 3.0f });
+	Object character(renderable);
+	character.set_position({ 4.0f, 0.0f, 0.0f });
+	Object prop;
+	ecs.add_object(character);
+	ecs.add_object(prop);
+	ecs.attach_skeleton(character.get_id(), skeleton);
+
+	Maths::Transform grip;
+	grip.set_pos({ 1.0f, 0.0f, 0.0f });
+	ASSERT_TRUE(ecs.attach_entity_to_bone(
+		prop.get_id(), character.get_id(), "Hand", grip));
+	ecs.process(0.0f);
+
+	EXPECT_TRUE(glm_equal(
+		prop.get_position(), glm::vec3(5.0f, 2.0f, 3.0f)));
+
+	ecs.get_skeletal_component(skeleton).get_bones()[1]
+		.relative_transform.set_pos({ 0.0f, 4.0f, 0.0f });
+	ecs.process(0.0f);
+	EXPECT_TRUE(glm_equal(
+		prop.get_position(), glm::vec3(5.0f, 4.0f, 3.0f)));
+
+	ASSERT_TRUE(ecs.detach_entity_from_bone(prop.get_id()));
+	ecs.get_skeletal_component(skeleton).get_bones()[1]
+		.relative_transform.set_pos({ 0.0f, 6.0f, 0.0f });
+	ecs.process(0.0f);
+	EXPECT_TRUE(glm_equal(
+		prop.get_position(), glm::vec3(5.0f, 4.0f, 3.0f)));
+}

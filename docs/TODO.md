@@ -45,3 +45,16 @@ Keep mesh assets immutable and reusable; do not bake node transforms into
 shared vertex data. The refactor must also preserve skinning transforms,
 normal transformation, bounds, picking, serialization, and multi-node
 instances of the same mesh.
+
+## Encapsulate mutable skeletal poses
+
+Animation updates and render-thread pose snapshots are synchronized by the
+`SkeletalComponent` pose mutex. However, `get_bones()` still returns a mutable
+vector reference, so callers can modify cached `Maths::Transform` components
+without taking that mutex.
+
+Replace direct mutable access with explicit read/write pose operations whose
+lock lifetime covers the complete operation. This should include animation
+updates, IK, editor manipulation, deserialization, and tests. Once all callers
+use those operations, make the bone storage private without a mutable-reference
+escape hatch.

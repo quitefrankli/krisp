@@ -5,6 +5,9 @@
 #include "maths.hpp"
 
 #include <string>
+#include <string_view>
+#include <mutex>
+#include <unordered_map>
 #include <vector>
 
 
@@ -84,6 +87,10 @@ struct SkeletalComponent
 public:
 	SkeletalComponent() = default;
 	SkeletalComponent(const std::vector<Bone>& bones) : bones(bones) {}
+	SkeletalComponent(const SkeletalComponent& other) : bones(other.bones) {}
+	SkeletalComponent(SkeletalComponent&& other) noexcept : bones(std::move(other.bones)) {}
+	SkeletalComponent& operator=(const SkeletalComponent&) = delete;
+	SkeletalComponent& operator=(SkeletalComponent&&) = delete;
 
 	std::vector<Bone>& get_bones() { return bones; }
 	const std::vector<Bone>& get_bones() const { return bones; }
@@ -93,7 +100,9 @@ public:
 	std::vector<SDS::Bone> get_bones_data() const;
 
 private:
+	friend class SkeletalAnimationSystem;
 	std::vector<Bone> bones;
+	mutable std::recursive_mutex pose_mutex;
 };
 
 class SkeletalSystem
@@ -109,6 +118,14 @@ public:
 	std::vector<SDS::Bone> get_bones(SkeletonID id) const { return skeletons.at(id).get_bones_data(); }
 	SkeletalComponent& get_skeletal_component(SkeletonID id) { return skeletons.at(id); }
 	const SkeletalComponent& get_skeletal_component(SkeletonID id) const { return skeletons.at(id); }
+	void process(float delta_secs);
+	// Keeps an entity aligned to a named bone. The skeleton entity's first
+	// renderable supplies its imported model transform; the optional local
+	// transform is then applied in bone space.
+	bool attach_entity_to_bone(
+		Entity attached, Entity skeleton_entity, std::string_view bone_name,
+		Maths::Transform local_transform = {});
+	bool detach_entity_from_bone(Entity attached);
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);
 
@@ -116,8 +133,16 @@ protected:
 	void remove_entity(Entity id);
 
 private:
+	struct BoneAttachment
+	{
+		Entity skeleton_entity;
+		uint32_t bone_index;
+		Maths::Transform local_transform;
+	};
+
 	std::unordered_map<SkeletonID, SkeletalComponent> skeletons;
 	std::unordered_map<Entity, SkeletonID> entity_skeletons;
+	std::unordered_map<Entity, BoneAttachment> bone_attachments;
 };
 
 class SkeletalAnimationSystem

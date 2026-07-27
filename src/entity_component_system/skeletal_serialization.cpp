@@ -144,12 +144,29 @@ void SkeletalSystem::serialize(Serializer& out) const
 		} else
 			entry.write("skeleton_id", skeleton_id.get_underlying());
 	}
+	auto bone_attachments_out = out.sequence("bone_attachments");
+	entities.clear();
+	entities.reserve(bone_attachments.size());
+	for (const auto& [entity, _] : bone_attachments)
+		entities.push_back(entity);
+	std::ranges::sort(entities);
+	for (const auto entity : entities) {
+		const auto& attachment = bone_attachments.at(entity);
+		const auto skeleton = entity_skeletons.at(attachment.skeleton_entity);
+		const auto& bones = skeletons.at(skeleton).get_bones();
+		auto entry = bone_attachments_out.append_map();
+		entry.write("entity_id", entity.get_underlying());
+		entry.write("skeleton_entity_id", attachment.skeleton_entity.get_underlying());
+		entry.write("bone_name", bones.at(attachment.bone_index).name);
+		Serialization::write_transform(entry, "local_transform", attachment.local_transform);
+	}
 }
 
 void SkeletalSystem::deserialize(const Deserializer& in)
 {
 	std::unordered_map<SkeletonID, SkeletalComponent> restored;
 	std::unordered_map<Entity, SkeletonID> restored_attachments;
+	std::unordered_map<Entity, BoneAttachment> restored_bone_attachments;
 	const auto entries = in.child("skeletal_system").elements();
 	for (std::size_t index = 0; index < entries.size(); ++index) {
 		const auto& entry = entries[index];
@@ -202,8 +219,30 @@ void SkeletalSystem::deserialize(const Deserializer& in)
 				throw SerializationError("Duplicate skeleton attachment at " + entry.path());
 		}
 	}
+	if (std::ranges::find(root_keys, "bone_attachments") != root_keys.end()) {
+		for (const auto& entry : in.child("bone_attachments").elements()) {
+			const Entity entity(entry.read<std::uint64_t>("entity_id"));
+			const Entity skeleton_entity(entry.read<std::uint64_t>("skeleton_entity_id"));
+			const auto skeleton_entry = restored_attachments.find(skeleton_entity);
+			if (skeleton_entry == restored_attachments.end())
+				throw SerializationError("Unknown skeleton entity at " + entry.path());
+			const auto& bones = restored.at(skeleton_entry->second).get_bones();
+			const auto bone_name = entry.read<std::string>("bone_name");
+			const auto bone = std::ranges::find(bones, bone_name, &Bone::name);
+			if (bone == bones.end())
+				throw SerializationError("Unknown attachment bone at " + entry.path());
+			BoneAttachment attachment{
+				.skeleton_entity = skeleton_entity,
+				.bone_index = static_cast<uint32_t>(std::distance(bones.begin(), bone)),
+				.local_transform = Serialization::read_transform(entry, "local_transform"),
+			};
+			if (!restored_bone_attachments.emplace(entity, std::move(attachment)).second)
+				throw SerializationError("Duplicate bone attachment at " + entry.path());
+		}
+	}
 	skeletons = std::move(restored);
 	entity_skeletons = std::move(restored_attachments);
+	bone_attachments = std::move(restored_bone_attachments);
 }
 
 void SkeletalAnimationSystem::serialize(Serializer& out) const

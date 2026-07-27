@@ -5,6 +5,7 @@
 void ECS::process(const float delta_secs)
 {
 	SkeletalAnimationSystem::process(delta_secs);
+	SkeletalSystem::process(delta_secs);
 	PhysicsSystem::process(delta_secs);
 	ParticleSystem::process(delta_secs);
 }

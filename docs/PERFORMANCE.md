@@ -55,3 +55,17 @@ Cross-fades retain one local transform snapshot per bone for the transition and
 evaluate the target pose into a temporary per-bone pose each update. This adds
 linear CPU work and temporary storage proportional to bone count only while a
 fade is active. No measurements have been recorded.
+
+## Bone attachments
+
+Animated prop attachments compose each source skeleton's model-space pose once
+per frame, then reuse it for every entity attached to that skeleton. Expected
+CPU work and temporary storage are linear in the bone count of skeletons with
+attachments, plus constant transform work per attachment. Skeletons without
+attachments incur no pose-composition cost. No measurements have been recorded.
+
+Animation pose writes and render/attachment pose snapshots take the same
+per-skeleton mutex. This prevents readers from observing partially updated
+`Maths::Transform` cache flags. Different skeletons can still update or render
+independently, but the render thread may briefly wait while one skeleton's
+animation pose is applied. Lock contention has not been measured.

@@ -409,6 +409,34 @@ TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
 	EXPECT_EQ(restored.get_skeleton_id(entity), id);
 }
 
+TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
+{
+	ECS source;
+	Bone hand;
+	hand.name = "Hand";
+	hand.relative_transform.set_pos({ 0.0f, 2.0f, 0.0f });
+	const auto skeleton = source.add_skeleton({ hand });
+	Object character;
+	Object prop;
+	source.add_object(character);
+	source.add_object(prop);
+	source.attach_skeleton(character.get_id(), skeleton);
+	Maths::Transform grip;
+	grip.set_pos({ 1.0f, 0.0f, 0.0f });
+	ASSERT_TRUE(source.attach_entity_to_bone(
+		prop.get_id(), character.get_id(), "Hand", grip));
+
+	Serializer serializer;
+	source.SkeletalSystem::serialize(serializer);
+	ECS restored;
+	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
+	restored.add_object(character);
+	restored.add_object(prop);
+	restored.SkeletalSystem::process(0.0f);
+
+	EXPECT_EQ(prop.get_position(), glm::vec3(1.0f, 2.0f, 0.0f));
+}
+
 TEST(SkeletalSystemSerialization, invalid_parent_fails_atomically_with_path)
 {
 	ECS ecs;

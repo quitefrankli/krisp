@@ -89,6 +89,15 @@ public:
 		engine.get_ecs().add_clickable_entity(spawned_player.get_id());
 		spawned_player.set_name("Player");
 
+		auto& temporary_sword = engine.spawn_object<Object>(
+			Renderable::make_default(MeshFactory::cylinder_id()));
+		temporary_sword.set_name("Temporary Sword");
+		Maths::Transform sword_grip;
+		sword_grip.set_scale({ 0.06f, 0.7f, 0.06f });
+		if (!engine.get_ecs().attach_entity_to_bone(
+			temporary_sword.get_id(), spawned_player.get_id(), "WEAPON", sword_grip))
+			throw std::runtime_error("Player skeleton is missing the WEAPON bone");
+
 		auto& camera = engine.get_camera();
 		camera.look_at(spawned_player.get_position() + definition.camera_focus_offset,
 			spawned_player.get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
