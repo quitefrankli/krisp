@@ -19,6 +19,7 @@ void ECS::serialize(Serializer& out) const
 	PhysicsSystem::serialize(out);
 	SkeletalSystem::serialize(out);
 	SkeletalAnimationSystem::serialize(out);
+	EquipmentSystem::serialize(out);
 	TileSystem::serialize(out);
 }
 
@@ -31,6 +32,7 @@ void ECS::deserialize(const Deserializer& in)
 	PhysicsSystem::deserialize(in);
 	SkeletalSystem::deserialize(in);
 	SkeletalAnimationSystem::deserialize(in);
+	EquipmentSystem::deserialize(in);
 	TileSystem::deserialize(in);
 }
 
@@ -39,6 +41,7 @@ void ECS::remove_object(const ObjectID id)
 	// Stop skeletal animations before removing their skeletons. Otherwise the
 	// next animation tick retains a stale SkeletonID and accesses erased data.
 	SkeletalAnimationSystem::remove_entity(id);
+	EquipmentSystem::remove_entity(id);
 	SkeletalSystem::remove_entity(id);
 	LightSystem::remove_entity(id);
 	ColliderSystem::remove_entity(id);

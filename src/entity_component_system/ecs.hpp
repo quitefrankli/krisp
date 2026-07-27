@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skeletal.hpp"
+#include "equipment.hpp"
 #include "light_source.hpp"
 #include "collider_ecs.hpp"
 #include "clickable.hpp"
@@ -18,6 +19,7 @@
 class ECS :
 	public SkeletalSystem,
 	public SkeletalAnimationSystem,
+	public EquipmentSystem,
 	public LightSystem,
 	public ColliderSystem,
 	public ClickableSystem,

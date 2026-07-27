@@ -94,8 +94,11 @@ public:
 		temporary_sword.set_name("Temporary Sword");
 		Maths::Transform sword_grip;
 		sword_grip.set_scale({ 0.06f, 0.7f, 0.06f });
-		if (!engine.get_ecs().attach_entity_to_bone(
-			temporary_sword.get_id(), spawned_player.get_id(), "WEAPON", sword_grip))
+		if (!engine.get_ecs().equip(spawned_player.get_id(), temporary_sword.get_id(), {
+			.slot = EquipmentSlot::MainHand,
+			.attachment_bone = "WEAPON",
+			.grip_transform = sword_grip,
+		}))
 			throw std::runtime_error("Player skeleton is missing the WEAPON bone");
 
 		auto& camera = engine.get_camera();
