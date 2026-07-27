@@ -91,8 +91,8 @@ public:
 		auto& camera = engine.get_camera();
 		camera.look_at(spawned_player.get_position() + definition.camera_focus_offset,
 			spawned_player.get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
-		engine.set_game_mode(EGameMode::NORMAL);
-		engine.set_camera_orbit_with_right_mouse(true);
+		// engine.set_game_mode(EGameMode::NORMAL);
+		// engine.set_camera_orbit_with_right_mouse(true);
 	}
 
 	void on_tick(GameEngine&, float) override {}

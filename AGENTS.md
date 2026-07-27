@@ -1,5 +1,11 @@
 * Minimise token usage
 
+* Keep tool output high-signal:
+  - Search narrowly (`rg -l` first, then inspect only relevant ranges).
+  - Use small output limits for searches and successful builds; expand output only after a failure.
+  - Prefer structured parsing over dumping binary or generated files.
+  - Run successful test suites with concise output (for GoogleTest, use `--gtest_brief=1`); rerun only failures with full diagnostics.
+
 * Don't poll or re-read: For background tasks, wait for completion once rather than repeatedly reading output files.
 
 * Skip redundant verification: After a tool succeeds without error, don't re-read the result to confirm.
