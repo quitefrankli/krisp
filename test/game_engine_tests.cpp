@@ -78,6 +78,12 @@ public:
 				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
 	{
 	}
+	explicit TestableGameEngine(std::unique_ptr<IApplication> application) :
+		GameEngine(std::make_unique<MockWindow>(),
+				   std::move(application),
+				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
+	{
+	}
 
 	MockWindow& get_mock_window()
 	{
@@ -94,6 +100,27 @@ public:
 
 namespace
 {
+class PlayerlessNormalApplication : public DummyApplication
+{
+public:
+	bool allows_playerless_normal_mode() const override { return true; }
+};
+
+class MouseButtonApplication : public DummyApplication
+{
+public:
+	explicit MouseButtonApplication(bool& pressed) : pressed(pressed) {}
+
+	void on_mouse_button(GameEngine&, const MouseInput& input) override
+	{
+		if (input.eq(EMouseButton::LEFT, EKeyModifier::NONE, EInputAction::PRESS))
+			pressed = true;
+	}
+
+private:
+	bool& pressed;
+};
+
 std::filesystem::path save_path(const std::string_view name)
 {
 	return Utility::get_saves_path() / (std::string(name) + ".yaml");
@@ -112,6 +139,32 @@ TEST_F(GameEngineTests, tab_does_not_leave_editor_mode_without_a_player)
 	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
 	EXPECT_EQ(engine.get_game_mode(), EGameMode::EDITOR);
 	EXPECT_EQ(engine.get_active_player(), nullptr);
+}
+
+TEST(GameEngine, opted_in_application_can_enter_normal_mode_without_a_player)
+{
+	TestableGameEngine engine(std::make_unique<PlayerlessNormalApplication>());
+
+	engine.set_game_mode(EGameMode::NORMAL);
+
+	EXPECT_EQ(engine.get_game_mode(), EGameMode::NORMAL);
+	EXPECT_EQ(engine.get_active_player(), nullptr);
+	EXPECT_FALSE(static_cast<GameEngineTestsMockGraphicsEngine&>(
+		engine.get_graphics_engine()).engine_ui_active);
+}
+
+TEST(GameEngine, routes_uncaptured_left_clicks_to_the_application)
+{
+	bool pressed = false;
+	TestableGameEngine engine(std::make_unique<MouseButtonApplication>(pressed));
+	const MouseInput click{
+		EMouseButton::LEFT, EKeyModifier::NONE, EInputAction::PRESS };
+
+	engine.mouse_button_callback(click, true);
+	EXPECT_FALSE(pressed);
+
+	engine.mouse_button_callback(click, false);
+	EXPECT_TRUE(pressed);
 }
 
 TEST_F(GameEngineTests, tab_toggles_modes_and_cycles_available_players)
@@ -143,6 +196,42 @@ TEST_F(GameEngineTests, normal_mode_captures_the_cursor_and_editor_mode_releases
 
 	engine.set_game_mode(EGameMode::EDITOR);
 	EXPECT_FALSE(engine.get_window().is_cursor_captured());
+}
+
+TEST_F(GameEngineTests, game_mode_activates_only_its_ui_layer)
+{
+	engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+
+	EXPECT_TRUE(get_mock_gfx().engine_ui_active);
+	EXPECT_FALSE(get_mock_gfx().application_ui_active);
+
+	engine.set_game_mode(EGameMode::NORMAL);
+	EXPECT_FALSE(get_mock_gfx().engine_ui_active);
+	EXPECT_TRUE(get_mock_gfx().application_ui_active);
+
+	engine.set_game_mode(EGameMode::EDITOR);
+	EXPECT_TRUE(get_mock_gfx().engine_ui_active);
+	EXPECT_FALSE(get_mock_gfx().application_ui_active);
+}
+
+TEST_F(GameEngineTests, normal_mode_disables_and_rejects_gizmo_selection)
+{
+	auto& object = engine.spawn_object<Object>();
+	engine.spawn_object<PlayerCharacter>(
+		std::vector<Renderable>{}, PlayerDefinition{});
+	auto& gizmo = engine.get_gizmo();
+	gizmo.init();
+	gizmo.select_object(&object);
+	ASSERT_TRUE(gizmo.is_active());
+
+	engine.set_game_mode(EGameMode::NORMAL);
+	EXPECT_FALSE(gizmo.is_active());
+	EXPECT_EQ(gizmo.get_selected_object(), nullptr);
+
+	gizmo.select_object(&object);
+	EXPECT_FALSE(gizmo.is_active());
+	EXPECT_EQ(gizmo.get_selected_object(), nullptr);
 }
 
 TEST_F(GameEngineTests, normal_mode_scroll_zooms_even_when_gui_wants_the_mouse)

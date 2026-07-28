@@ -140,6 +140,54 @@ TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relativ
 	ecs.remove_object(player.get_id());
 }
 
+TEST(player_character_tests, one_shot_action_overrides_then_returns_to_locomotion)
+{
+	ECS ecs;
+	Bone root;
+	root.name = "Root";
+	root.original_transform = root.relative_transform;
+	const SkeletonID skeleton = ecs.add_skeleton({ root });
+	const auto rig = make_skeletal_rig_signature(
+		ecs.get_skeletal_component(skeleton).get_bones());
+	const auto clip = [&ecs, &rig](const char* name)
+	{
+		return ecs.add_skeletal_animation(name, { BoneAnimation{} }, rig);
+	};
+	PlayerLocomotionAnimations animations{
+		.idle = clip("idle"),
+		.walk_backward = clip("walkbackward"),
+		.walk_backward_left = clip("walkbackwardleft"),
+		.walk_backward_right = clip("walkbackwardright"),
+		.walk_forward = clip("walkforward"),
+		.walk_forward_left = clip("walkforwardleft"),
+		.walk_forward_right = clip("walkforwardright"),
+		.walk_left = clip("walkleft"),
+		.walk_right = clip("walkright"),
+	};
+	const AnimationID attack = clip("attack");
+	PlayerCharacter player({}, PlayerDefinition{});
+	ecs.add_object(player);
+	player.configure_locomotion(skeleton, animations);
+	Camera camera(Listener{}, 1.0f);
+	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
+	Keyboard keyboard;
+	player.pre_update(keyboard, camera, ecs, 0.01f);
+
+	ASSERT_TRUE(player.play_action_animation(ecs, attack));
+	player.pre_update(keyboard, camera, ecs, 0.01f);
+	ASSERT_TRUE(ecs.get_animation_playback(skeleton));
+	EXPECT_EQ(ecs.get_animation_playback(skeleton)->animation_id, attack);
+	EXPECT_FALSE(ecs.get_animation_playback(skeleton)->looping);
+
+	ecs.process(0.01f);
+	player.pre_update(keyboard, camera, ecs, 0.01f);
+	ASSERT_TRUE(ecs.get_animation_playback(skeleton));
+	EXPECT_EQ(ecs.get_animation_playback(skeleton)->animation_id, animations.idle);
+	EXPECT_TRUE(ecs.get_animation_playback(skeleton)->looping);
+
+	ecs.remove_object(player.get_id());
+}
+
 TEST(gameplay_collision_tests, raycast_returns_nearest_hit_and_honours_exclusion)
 {
 	ECS ecs;

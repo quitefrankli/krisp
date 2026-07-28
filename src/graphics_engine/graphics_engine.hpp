@@ -74,7 +74,15 @@ public: // getters and setters
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
 	GraphicsEngineRayTracing& get_raytracing_module() { return raytracing_component; }
 	GraphicsEngineGuiManager& get_graphics_gui_manager() { return gui_manager; }
-	GuiManager& get_gui_manager() final { return static_cast<GuiManager&>(gui_manager); }
+	EngineUiManager& get_gui_manager() final { return gui_manager.get_engine_ui_manager(); }
+	void set_application_ui_manager(ApplicationUiManager* manager) final
+	{
+		gui_manager.set_application_ui_manager(manager);
+	}
+	void set_ui_layers_active(bool engine_active, bool application_active) final
+	{
+		gui_manager.set_ui_layers_active(engine_active, application_active);
+	}
 	VideoRecorder& get_video_recorder() { return *video_recorder; }
 	RendererManager& get_renderer_mgr() { return renderer_mgr; }
 	GraphicsResourceManager& get_rsrc_mgr() { return rsrc_mgr; }

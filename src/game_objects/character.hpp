@@ -15,6 +15,8 @@ public:
 	void play_looping_animation(ECS& ecs, AnimationID animation);
 	void play_looping_animation(
 		ECS& ecs, SkeletonID skeleton, AnimationID animation, float transition_secs);
+	bool play_one_shot_animation(
+		ECS& ecs, SkeletonID skeleton, AnimationID animation, float transition_secs);
 	AnimationID get_active_animation() const { return active_animation; }
 	bool has_active_animation() const { return has_animation; }
 

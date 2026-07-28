@@ -64,6 +64,8 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 
 void GameEngine::init()
 {
+	graphics_engine->set_application_ui_manager(&application_ui_manager);
+	graphics_engine->set_ui_layers_active(true, false);
 	gizmo = std::make_unique<Gizmo>(*this);
 	window->setup_callbacks(*this);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
@@ -78,6 +80,8 @@ void GameEngine::init()
 	TPS_counter->text = "TPS Counter";
 
 	configure_ecs();
+	application->create_ui(*this, application_ui_manager);
+	application_ui_manager.seal();
 }
 
 void GameEngine::configure_ecs()
@@ -156,7 +160,10 @@ void GameEngine::main_loop(const float time_delta)
 	process_objs_to_delete();
 
 	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
-	get_gui_manager().process(*this);
+	if (game_mode == EGameMode::EDITOR)
+		get_gui_manager().process(*this);
+	else
+		application_ui_manager.process(*this);
 
 	if (game_mode == EGameMode::NORMAL
 		|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
@@ -202,7 +209,8 @@ void GameEngine::main_loop(const float time_delta)
 
 			const Maths::Ray r1 = camera->get_ray(mouse->orig_pos);
 			const Maths::Ray r2 = camera->get_ray(mouse->curr_pos);
-			gizmo->process(r1, r2);
+			if (game_mode == EGameMode::EDITOR)
+				gizmo->process(r1, r2);
 		}
 	}
 
@@ -225,7 +233,7 @@ void GameEngine::main_loop(const float time_delta)
 
 	if (!paused)
 	{
-		if (game_mode == EGameMode::NORMAL)
+		if (game_mode == EGameMode::NORMAL && active_player)
 		{
 			active_player->pre_update(keyboard, *camera, ecs, time_delta);
 			camera->update_follow();
@@ -255,25 +263,39 @@ void GameEngine::set_game_mode(const EGameMode mode)
 		});
 		if (players.empty())
 		{
-			LOG_WARNING(Utility::get_logger(),
-				"Cannot enter normal game mode without a PlayerCharacter");
-			return;
+			if (!application->allows_playerless_normal_mode())
+			{
+				LOG_WARNING(Utility::get_logger(),
+					"Cannot enter normal game mode without a PlayerCharacter");
+				return;
+			}
+			active_player = nullptr;
 		}
-		const auto current = std::ranges::find(players, active_player);
-		active_player = current == players.end() || std::next(current) == players.end()
-			? players.front() : *std::next(current);
+		else
+		{
+			const auto current = std::ranges::find(players, active_player);
+			active_player = current == players.end() || std::next(current) == players.end()
+				? players.front() : *std::next(current);
+		}
 	}
 	game_mode = mode;
+	graphics_engine->set_ui_layers_active(game_mode == EGameMode::EDITOR, game_mode == EGameMode::NORMAL);
 	if (game_mode == EGameMode::EDITOR)
 	{
 		camera->stop_follow();
 		window->set_cursor_captured(false);
 		return;
 	}
-	camera->follow(
-		*active_player,
-		active_player->get_definition().camera_focus_offset,
-		active_player->get_definition().camera_horizontal_offset);
+	// Gizmo children are ordinary overlay renderables, so hiding the selected
+	// gizmo also removes it from the graphics pass outside editor mode.
+	gizmo->deselect();
+	if (active_player)
+	{
+		camera->follow(
+			*active_player,
+			active_player->get_definition().camera_focus_offset,
+			active_player->get_definition().camera_horizontal_offset);
+	}
 	window->set_cursor_captured(true);
 	mouse->update_pos();
 }
@@ -504,6 +526,7 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 	objects.clear();
 	active_player = nullptr;
 	game_mode = EGameMode::EDITOR;
+	graphics_engine->set_ui_layers_active(true, false);
 	entity_deletion_queue.clear();
 	mesh_resource_references.clear();
 	material_resource_references.clear();
@@ -661,7 +684,7 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 		std::move(retired_materials)));
 }
 
-GuiManager& GameEngine::get_gui_manager()
+EngineUiManager& GameEngine::get_gui_manager()
 {
 	return graphics_engine->get_gui_manager();
 }

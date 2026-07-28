@@ -356,7 +356,7 @@ void Gizmo::init()
 
 void Gizmo::select_object(Object* obj)
 {
-	if (!obj)
+	if (!obj || engine.get_game_mode() != EGameMode::EDITOR)
 		return;
 
 	// if already currently selected object, change the gizmo mode

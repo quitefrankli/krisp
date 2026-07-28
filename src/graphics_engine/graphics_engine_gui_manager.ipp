@@ -20,13 +20,13 @@ namespace
 {
 void panel_settings_read_init(ImGuiContext*, ImGuiSettingsHandler* handler)
 {
-	static_cast<GuiManager*>(handler->UserData)->clear_saved_panel_visibility();
+	static_cast<EngineUiManager*>(handler->UserData)->clear_saved_panel_visibility();
 }
 
 void* panel_settings_read_open(
 	ImGuiContext*, ImGuiSettingsHandler* handler, const char* name)
 {
-	return &static_cast<GuiManager*>(handler->UserData)->get_or_create_saved_panel_visibility(name);
+	return &static_cast<EngineUiManager*>(handler->UserData)->get_or_create_saved_panel_visibility(name);
 }
 
 void panel_settings_read_line(
@@ -39,13 +39,13 @@ void panel_settings_read_line(
 
 void panel_settings_apply_all(ImGuiContext*, ImGuiSettingsHandler* handler)
 {
-	static_cast<GuiManager*>(handler->UserData)->apply_saved_panel_visibility();
+	static_cast<EngineUiManager*>(handler->UserData)->apply_saved_panel_visibility();
 }
 
 void panel_settings_write_all(
 	ImGuiContext*, ImGuiSettingsHandler* handler, ImGuiTextBuffer* output)
 {
-	const auto& windows = static_cast<GuiManager*>(handler->UserData)->get_gui_windows();
+	const auto& windows = static_cast<EngineUiManager*>(handler->UserData)->get_gui_windows();
 	for (const auto& window : windows)
 	{
 		output->appendf("[KrispPanel][%s]\n", window->get_panel_info().id.c_str());
@@ -88,17 +88,66 @@ void GraphicsEngineGuiManager::draw()
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-	draw_workspace();
-
-	for (auto& gui_window : gui_windows)
+	if (engine_ui_active.load(std::memory_order_acquire))
 	{
-		if (gui_window->is_visible())
+		draw_workspace();
+		for (auto& gui_window : engine_ui_manager.get_gui_windows())
 		{
-			gui_window->draw();
+			if (gui_window->is_visible())
+				gui_window->draw();
 		}
 	}
+	if (application_ui_active.load(std::memory_order_acquire) && application_ui_manager)
+		draw_application_ui();
 	
 	ImGui::Render();
+}
+
+void GraphicsEngineGuiManager::draw_application_ui()
+{
+	const auto& theme = application_ui_manager->get_theme();
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(theme.text[0], theme.text[1], theme.text[2], theme.text[3]));
+	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(
+		theme.window_background[0], theme.window_background[1], theme.window_background[2], theme.window_background[3]));
+	ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(theme.accent[0], theme.accent[1], theme.accent[2], theme.accent[3]));
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, theme.window_rounding);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, theme.window_border_size);
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	const auto& windows = application_ui_manager->get_windows();
+	for (const bool overlay : { false, true })
+	{
+		for (size_t index = 0; index < windows.size(); ++index)
+		{
+			auto& window = windows[index];
+			if (!window->is_visible() || application_ui_manager->is_overlay(index) != overlay)
+				continue;
+			const auto& layout = application_ui_manager->get_layout(index);
+			ImVec2 position = viewport->WorkPos;
+			switch (layout.anchor)
+			{
+				case ApplicationUiAnchor::TOP_RIGHT: position.x += viewport->WorkSize.x; break;
+				case ApplicationUiAnchor::BOTTOM_LEFT: position.y += viewport->WorkSize.y; break;
+				case ApplicationUiAnchor::BOTTOM_RIGHT: position.x += viewport->WorkSize.x; position.y += viewport->WorkSize.y; break;
+				case ApplicationUiAnchor::CENTER: position.x += viewport->WorkSize.x * .5f; position.y += viewport->WorkSize.y * .5f; break;
+				case ApplicationUiAnchor::TOP_LEFT: break;
+			}
+			position.x += layout.offset[0]; position.y += layout.offset[1];
+			ImVec2 pivot(0.0f, 0.0f);
+			if (layout.anchor == ApplicationUiAnchor::TOP_RIGHT || layout.anchor == ApplicationUiAnchor::BOTTOM_RIGHT)
+				pivot.x = 1.0f;
+			if (layout.anchor == ApplicationUiAnchor::BOTTOM_LEFT || layout.anchor == ApplicationUiAnchor::BOTTOM_RIGHT)
+				pivot.y = 1.0f;
+			if (layout.anchor == ApplicationUiAnchor::CENTER)
+				pivot = ImVec2(.5f, .5f);
+			ImGui::SetNextWindowPos(position, ImGuiCond_Always, pivot);
+			if (layout.size[0] > 0.0f || layout.size[1] > 0.0f)
+				ImGui::SetNextWindowSize(ImVec2(layout.size[0], layout.size[1]), ImGuiCond_Always);
+			window->draw();
+		}
+	}
+	ImGui::PopStyleVar(2);
+	ImGui::PopStyleColor(3);
 }
 
 void GraphicsEngineGuiManager::draw_workspace()
@@ -129,7 +178,7 @@ void GraphicsEngineGuiManager::draw_workspace()
 	{
 		if (ImGui::BeginMenu("View"))
 		{
-			for (const auto& gui_window : gui_windows)
+			for (const auto& gui_window : engine_ui_manager.get_gui_windows())
 			{
 				const auto& panel = gui_window->get_panel_info();
 				if (!panel.dockable)
@@ -148,7 +197,7 @@ void GraphicsEngineGuiManager::draw_workspace()
 			if (ImGui::MenuItem("Reset Layout"))
 			{
 				reset_layout_requested = true;
-				reset_panel_visibility();
+				engine_ui_manager.reset_panel_visibility();
 			}
 			ImGui::EndMenu();
 		}
@@ -182,7 +231,7 @@ void GraphicsEngineGuiManager::build_default_layout(ImGuiID dockspace_id, const 
 	ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Right, 0.28f, &right, &remaining);
 	ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Down, 0.25f, &bottom, &remaining);
 
-	for (const auto& gui_window : gui_windows)
+	for (const auto& gui_window : engine_ui_manager.get_gui_windows())
 	{
 		const auto& panel = gui_window->get_panel_info();
 		if (!panel.dockable)
@@ -232,6 +281,15 @@ void GraphicsEngineGuiManager::setup_imgui()
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO();
 	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	// Engine/editor chrome: graphite surfaces with a restrained blue accent.
+	ImGuiStyle& style = ImGui::GetStyle();
+	style.Colors[ImGuiCol_WindowBg] = ImVec4(0.075f, 0.080f, 0.095f, 1.0f);
+	style.Colors[ImGuiCol_ChildBg] = ImVec4(0.095f, 0.105f, 0.125f, 1.0f);
+	style.Colors[ImGuiCol_Header] = ImVec4(0.12f, 0.25f, 0.42f, 1.0f);
+	style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.16f, 0.36f, 0.62f, 1.0f);
+	style.Colors[ImGuiCol_Button] = ImVec4(0.11f, 0.28f, 0.50f, 1.0f);
+	style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.16f, 0.40f, 0.70f, 1.0f);
+	style.Colors[ImGuiCol_CheckMark] = ImVec4(0.30f, 0.65f, 1.0f, 1.0f);
 	ImGuiSettingsHandler panel_settings_handler;
 	panel_settings_handler.TypeName = "KrispPanel";
 	panel_settings_handler.TypeHash = ImHashStr("KrispPanel");
@@ -240,7 +298,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 	panel_settings_handler.ReadLineFn = panel_settings_read_line;
 	panel_settings_handler.ApplyAllFn = panel_settings_apply_all;
 	panel_settings_handler.WriteAllFn = panel_settings_write_all;
-	panel_settings_handler.UserData = static_cast<GuiManager*>(this);
+	panel_settings_handler.UserData = &engine_ui_manager;
 	ImGui::AddSettingsHandler(&panel_settings_handler);
 	const auto config_path = Utility::get_user_config_path("imgui.ini");
 	std::filesystem::create_directories(config_path.parent_path());
@@ -272,9 +330,9 @@ void GraphicsEngineGuiManager::setup_imgui()
 
 void GraphicsEngineGuiManager::setup_gui_windows()
 {
-	this->photo.init([&](const std::string_view picture)
+	engine_ui_manager.photo.init([&](const std::string_view picture)
 	{
-		compose_texture_for_gui_window(picture, this->photo);
+		compose_texture_for_gui_window(picture, engine_ui_manager.photo);
 	});
 
 	// RenderSlicer will always read from output of QuadRenderer
@@ -283,8 +341,9 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 		get_graphics_engine().get_texture_mgr().fetch_sampler(ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE), 
 		quad_renderer.get_output_image_view(0),
 		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	this->render_slicer.update(dset, { quad_renderer.get_extent().width, quad_renderer.get_extent().height });
-	this->render_slicer.init([&](const std::string& slice)
+	engine_ui_manager.render_slicer.update(
+		dset, { quad_renderer.get_extent().width, quad_renderer.get_extent().height });
+	engine_ui_manager.render_slicer.init([&](const std::string& slice)
 	{
 		if (slice == "none")
 		{

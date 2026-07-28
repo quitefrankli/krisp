@@ -68,6 +68,17 @@ void PlayerCharacter::configure_locomotion(
 	locomotion_animations = std::move(animations);
 }
 
+bool PlayerCharacter::play_action_animation(ECS& ecs, const AnimationID animation)
+{
+	if (!animation_skeleton)
+		return false;
+	if (!play_one_shot_animation(
+		ecs, *animation_skeleton, animation, definition.animation_transition_secs))
+		return false;
+	action_animation = animation;
+	return true;
+}
+
 AnimationID PlayerCharacter::animation_for(const PlayerLocomotionDirection direction) const
 {
 	const auto& animations = *locomotion_animations;
@@ -107,7 +118,15 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 		set_rotation(Maths::Vec2Rot(forward));
 		resolve_horizontal_movement(ecs, direction * definition.movement_speed * delta_secs);
 	}
-	if (animation_skeleton && locomotion_animations)
+	bool action_playing = false;
+	if (animation_skeleton && action_animation)
+	{
+		const auto playback = ecs.get_animation_playback(*animation_skeleton);
+		action_playing = playback && playback->animation_id == *action_animation;
+		if (!action_playing)
+			action_animation.reset();
+	}
+	if (!action_playing && animation_skeleton && locomotion_animations)
 		play_looping_animation(ecs, *animation_skeleton,
 			animation_for(locomotion_direction(
 				forward_pressed, backward_pressed, right_pressed, left_pressed)),

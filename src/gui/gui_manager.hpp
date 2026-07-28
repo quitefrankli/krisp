@@ -4,17 +4,20 @@
 
 #include <vector>
 #include <memory>
+#include <type_traits>
 #include <unordered_map>
 
 
-class GuiManager
+// Owns the editor-facing panels.  It deliberately has no ImGui backend state;
+// GraphicsEngineGuiManager is the sole owner of the ImGui context.
+class EngineUiManager
 {
 protected:
 	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
 	std::unordered_map<std::string, bool> saved_panel_visibility;
 
 public:
-	GuiManager() :
+	EngineUiManager() :
 		save_manager(spawn_gui<GuiSaveManager>()),
 		graphic_settings(spawn_gui<GuiGraphicsSettings>()),
 		object_spawner(spawn_gui<GuiObjectSpawner>()),
@@ -32,6 +35,7 @@ public:
 	template<typename Gui_T, typename... Args>
 	Gui_T& spawn_gui(Args&&... args)
 	{
+		static_assert(std::is_base_of_v<EngineUiWindow, Gui_T>);
 		gui_windows.push_back(std::make_unique<Gui_T>(std::forward<Args>(args)...));
 		auto& gui = gui_windows.back();
 		const auto saved = saved_panel_visibility.find(gui->get_panel_info().id);
@@ -71,7 +75,7 @@ public:
 		return animation_selector.handle_key_input(input);
 	}
 
-	// references the GuiManager::gui_windows
+	// references the EngineUiManager::gui_windows
 	GuiSaveManager& save_manager;
 	GuiGraphicsSettings& graphic_settings;
 	GuiObjectSpawner& object_spawner;

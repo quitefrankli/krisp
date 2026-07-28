@@ -1,23 +1,42 @@
 #include "gui/gui_windows.hpp"
 #include "gui/gui_manager.hpp"
+#include "gui/application_ui_manager.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
 
 #include <gtest/gtest.h>
 
 namespace
 {
-class TestGuiPanel : public GuiWindow
+class TestEnginePanel : public EngineUiWindow
 {
 public:
-	explicit TestGuiPanel(GuiPanelInfo info) : GuiWindow(std::move(info)) {}
+	explicit TestEnginePanel(GuiPanelInfo info) : EngineUiWindow(std::move(info)) {}
 
 	void draw() override {}
+};
+
+class TestApplicationWindow : public ApplicationUiWindow
+{
+public:
+	explicit TestApplicationWindow(GuiPanelInfo info) : ApplicationUiWindow(std::move(info)) {}
+
+private:
+	void draw_contents() override {}
+};
+
+class TestApplicationOverlay : public ApplicationUiOverlay
+{
+public:
+	explicit TestApplicationOverlay(GuiPanelInfo info) : ApplicationUiOverlay(std::move(info)) {}
+
+private:
+	void draw_contents() override {}
 };
 }
 
 TEST(GuiPanel, stores_stable_docking_metadata)
 {
-	TestGuiPanel panel({ "asset_preview", "Asset Preview", GuiPanelDock::BOTTOM, false });
+	TestEnginePanel panel({ "asset_preview", "Asset Preview", GuiPanelDock::BOTTOM, false });
 
 	EXPECT_EQ(panel.get_panel_info().id, "asset_preview");
 	EXPECT_EQ(panel.get_panel_info().title, "Asset Preview");
@@ -28,7 +47,7 @@ TEST(GuiPanel, stores_stable_docking_metadata)
 
 TEST(GuiPanel, save_manager_is_registered_and_visible_by_default)
 {
-	GuiManager manager;
+	EngineUiManager manager;
 	EXPECT_EQ(manager.save_manager.get_panel_info().id, "save_manager");
 	EXPECT_EQ(manager.save_manager.get_panel_info().title, "Save Manager");
 	EXPECT_TRUE(manager.save_manager.is_visible());
@@ -36,7 +55,7 @@ TEST(GuiPanel, save_manager_is_registered_and_visible_by_default)
 
 TEST(GuiPanel, visibility_can_be_restored_after_closing)
 {
-	TestGuiPanel panel({ "debug", "Debug", GuiPanelDock::RIGHT });
+	TestEnginePanel panel({ "debug", "Debug", GuiPanelDock::RIGHT });
 
 	EXPECT_TRUE(panel.is_visible());
 	panel.set_visible(false);
@@ -47,7 +66,7 @@ TEST(GuiPanel, visibility_can_be_restored_after_closing)
 
 TEST(GuiPanel, manager_applies_saved_visibility_and_resets_defaults)
 {
-	GuiManager manager;
+	EngineUiManager manager;
 	manager.get_or_create_saved_panel_visibility("debug") = false;
 	manager.get_or_create_saved_panel_visibility("texture_viewer") = true;
 	manager.apply_saved_panel_visibility();
@@ -64,12 +83,55 @@ TEST(GuiPanel, manager_applies_saved_visibility_and_resets_defaults)
 
 TEST(GuiPanel, dynamically_spawned_panels_restore_saved_visibility)
 {
-	GuiManager manager;
+	EngineUiManager manager;
 	manager.get_or_create_saved_panel_visibility("dynamic_panel") = false;
-	auto& panel = manager.spawn_gui<TestGuiPanel>(
+	auto& panel = manager.spawn_gui<TestEnginePanel>(
 		GuiPanelInfo{ "dynamic_panel", "Dynamic Panel", GuiPanelDock::RIGHT, true });
 
 	EXPECT_FALSE(panel.is_visible());
+}
+
+TEST(ApplicationUi, registers_windows_and_fixed_overlays_separately)
+{
+	ApplicationUiManager manager;
+	auto& window = manager.register_window<TestApplicationWindow>(
+		{ ApplicationUiAnchor::TOP_LEFT, { 12.0f, 16.0f }, { 320.0f, 240.0f } },
+		GuiPanelInfo{ "game_menu", "Game Menu", GuiPanelDock::NONE });
+	auto& overlay = manager.register_overlay<TestApplicationOverlay>(
+		{ ApplicationUiAnchor::BOTTOM_RIGHT, { -16.0f, -12.0f }, { 240.0f, 80.0f } },
+		GuiPanelInfo{ "hud", "HUD", GuiPanelDock::NONE });
+
+	ASSERT_EQ(manager.get_windows().size(), 2u);
+	EXPECT_EQ(&window, manager.get_windows()[0].get());
+	EXPECT_EQ(&overlay, manager.get_windows()[1].get());
+	EXPECT_FALSE(manager.is_overlay(0));
+	EXPECT_TRUE(manager.is_overlay(1));
+	EXPECT_EQ(manager.get_layout(0).size, (std::array<float, 2>{ 320.0f, 240.0f }));
+	EXPECT_EQ(manager.get_layout(1).anchor, ApplicationUiAnchor::BOTTOM_RIGHT);
+}
+
+TEST(ApplicationUi, retains_the_application_declared_theme)
+{
+	ApplicationUiManager manager;
+	ApplicationUiTheme theme;
+	theme.accent = { 0.1f, 0.2f, 0.3f, 1.0f };
+	theme.window_rounding = 2.0f;
+	manager.set_theme(theme);
+
+	EXPECT_EQ(manager.get_theme().accent, theme.accent);
+	EXPECT_FLOAT_EQ(manager.get_theme().window_rounding, 2.0f);
+}
+
+TEST(ApplicationUi, rejects_registration_after_initialization)
+{
+	ApplicationUiManager manager;
+	manager.seal();
+
+	EXPECT_TRUE(manager.is_sealed());
+	EXPECT_THROW(
+		manager.register_window<TestApplicationWindow>(
+			{}, GuiPanelInfo{ "late", "Late", GuiPanelDock::NONE }),
+		std::logic_error);
 }
 
 TEST(GuiMusic, safely_selects_only_existing_songs)

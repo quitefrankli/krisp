@@ -29,7 +29,7 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	using enum EKeyModifier;
 	using enum EInputAction;
 
-	if (get_gui_manager().handle_key_input(key_input))
+	if (game_mode == EGameMode::EDITOR && get_gui_manager().handle_key_input(key_input))
 		return;
 
 	if (key_input.eq(GLFW_KEY_ESCAPE, NONE, PRESS))
@@ -93,6 +93,8 @@ void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_w
 			return;
 		}
 	}
+
+	application->on_mouse_button(*this, mouse_input);
 
 	if (mouse_input.eq(RIGHT, NONE, PRESS))
 	{

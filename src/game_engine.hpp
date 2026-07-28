@@ -6,6 +6,7 @@
 #include "resource_loader/resource_loader.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
+#include "gui/application_ui_manager.hpp"
 #include "graphics_engine/graphics_engine_commands.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
 #include "window.hpp"
@@ -21,7 +22,7 @@
 
 
 class Camera;
-class GuiManager;
+class EngineUiManager;
 class Experimental;
 class Gizmo;
 class IApplication;
@@ -40,7 +41,8 @@ public: // getters and setters
 	Camera& get_camera() { return *camera; }
 	App::Window& get_window() { return *window; }
 	GraphicsEngineBase& get_graphics_engine() { return *graphics_engine; }
-	GuiManager& get_gui_manager();
+	EngineUiManager& get_gui_manager();
+	ApplicationUiManager& get_application_ui_manager() { return application_ui_manager; }
 	AudioEnginePimpl& get_audio_engine() { return audio_engine; }
 	Gizmo& get_gizmo();
 	IApplication& get_application() { return *application; }
@@ -166,6 +168,8 @@ private:
 	std::optional<Renderable> tile_renderable;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<IApplication> application;
+	// Must be destroyed before application and the graphics ImGui context.
+	ApplicationUiManager application_ui_manager;
 
 	std::unique_ptr<Experimental> experimental;
 	EntityDeletionQueue entity_deletion_queue;	

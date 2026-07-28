@@ -11,12 +11,15 @@
 #include <game_objects/player_character.hpp>
 #include <entity_component_system/collider_ecs.hpp>
 
+#include "krisp_ui.hpp"
+
 #include <fmt/core.h>
 #include <fmt/color.h>
 
 #include <iostream>
 #include <thread>
 #include <iomanip>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -29,6 +32,8 @@ namespace
 {
 constexpr std::string_view player_model = "npc.glb";
 constexpr std::string_view player_animations = "movement_animations.glb";
+constexpr std::string_view attack_animation_file = "combat_animations.glb";
+constexpr std::string_view attack_animation_name = "1h_sword_attack";
 
 AnimationID require_animation(
 	const ECS& ecs,
@@ -48,6 +53,27 @@ AnimationID require_animation(
 class PlayerDemoApplication : public IApplication
 {
 public:
+	void create_ui(GameEngine&, ApplicationUiManager& ui) override
+	{
+		ui.set_theme({
+			.text = { 0.96f, 0.91f, 0.78f, 1.0f },
+			.window_background = { 0.09f, 0.10f, 0.11f, 0.90f },
+			.accent = { 0.88f, 0.52f, 0.12f, 1.0f },
+			.window_rounding = 9.0f,
+			.window_border_size = 1.0f,
+		});
+		ui.register_overlay<KrispStatusOverlay>({
+			.anchor = ApplicationUiAnchor::TOP_LEFT,
+			.offset = { 16.0f, 16.0f },
+			.size = { 250.0f, 70.0f },
+		}, ui_state);
+		ui.register_window<KrispEquipmentWindow>({
+			.anchor = ApplicationUiAnchor::TOP_RIGHT,
+			.offset = { -16.0f, 16.0f },
+			.size = { 280.0f, 150.0f },
+		}, ui_state);
+	}
+
 	void on_begin(GameEngine& engine) override
 	{
 		auto model = ResourceLoader::load_model(engine.get_ecs(), player_model);
@@ -60,6 +86,10 @@ public:
 		const SkeletonID skeleton = *mesh->skeleton_id;
 		const auto imported_animations =
 			ResourceLoader::load_animations(engine.get_ecs(), player_animations, skeleton);
+		const auto imported_attack =
+			ResourceLoader::load_animations(engine.get_ecs(), attack_animation_file, skeleton);
+		attack_animation =
+			require_animation(engine.get_ecs(), imported_attack, attack_animation_name);
 		const PlayerLocomotionAnimations locomotion{
 			.idle = require_animation(engine.get_ecs(), imported_animations, "idle"),
 			.walk_backward = require_animation(engine.get_ecs(), imported_animations, "walkbackward"),
@@ -94,24 +124,60 @@ public:
 		temporary_sword.set_name("Temporary Sword");
 		Maths::Transform sword_grip;
 		sword_grip.set_scale({ 0.06f, 0.7f, 0.06f });
-		if (!engine.get_ecs().equip(spawned_player.get_id(), temporary_sword.get_id(), {
-			.slot = EquipmentSlot::MainHand,
-			.attachment_bone = "WEAPON",
-			.grip_transform = sword_grip,
-		}))
+		sword_definition.grip_transform = sword_grip;
+		if (!engine.get_ecs().equip(spawned_player.get_id(), temporary_sword.get_id(), sword_definition))
 			throw std::runtime_error("Player skeleton is missing the WEAPON bone");
+		player_id = spawned_player.get_id();
+		temporary_sword_id = temporary_sword.get_id();
+		ui_state.publish(spawned_player.is_moving(), true);
 
 		auto& camera = engine.get_camera();
 		camera.look_at(spawned_player.get_position() + definition.camera_focus_offset,
 			spawned_player.get_position() + glm::vec3(0.0f, 2.0f, -5.0f));
-		// engine.set_game_mode(EGameMode::NORMAL);
+		engine.set_game_mode(EGameMode::EDITOR);
 		// engine.set_camera_orbit_with_right_mouse(true);
 	}
 
-	void on_tick(GameEngine&, float) override {}
+	void on_tick(GameEngine& engine, float) override
+	{
+		if (!player_id || !temporary_sword_id)
+			return;
+
+		auto& ecs = engine.get_ecs();
+		if (ui_state.take_main_hand_toggle_request())
+		{
+			if (ecs.equipped_item(*player_id, EquipmentSlot::MainHand))
+				ecs.unequip(*player_id, EquipmentSlot::MainHand);
+			else if (!ecs.equip(*player_id, *temporary_sword_id, sword_definition))
+				throw std::runtime_error("Player skeleton is missing the WEAPON bone");
+		}
+
+		const auto* player = engine.get_active_player();
+		ui_state.publish(player && player->is_moving(),
+			static_cast<bool>(ecs.equipped_item(*player_id, EquipmentSlot::MainHand)));
+	}
 
 	void on_click(GameEngine&, Object&) override {}
+	void on_mouse_button(GameEngine& engine, const MouseInput& input) override
+	{
+		if (!input.eq(EMouseButton::LEFT, EKeyModifier::NONE, EInputAction::PRESS)
+			|| !attack_animation)
+			return;
+		auto* player = engine.get_active_player();
+		if (player && !player->play_action_animation(engine.get_ecs(), *attack_animation))
+			throw std::runtime_error("Attack animation is incompatible with the player skeleton");
+	}
 	void on_key_press(GameEngine&, const KeyInput&) override {}
+
+private:
+	KrispUiState ui_state;
+	std::optional<EntityID> player_id;
+	std::optional<EntityID> temporary_sword_id;
+	std::optional<AnimationID> attack_animation;
+	EquipmentDefinition sword_definition{
+		.slot = EquipmentSlot::MainHand,
+		.attachment_bone = "WEAPON",
+	};
 };
 }
 

@@ -24,9 +24,18 @@ public:
 		cmd->process(this);
 	}
 
-	GuiManager& get_gui_manager()
+	EngineUiManager& get_gui_manager() override
 	{
 		return gui_manager;
+	}
+	void set_application_ui_manager(ApplicationUiManager* manager) override
+	{
+		application_ui_manager = manager;
+	}
+	void set_ui_layers_active(bool engine_active, bool application_active) override
+	{
+		engine_ui_active = engine_active;
+		application_ui_active = application_active;
 	}
 
 	virtual void handle_command(SpawnObjectCmd& cmd) override {}
@@ -49,7 +58,10 @@ public:
 	virtual void increment_num_objs_deleted() override { ++num_objs_deleted; }
 
 	uint64_t num_objs_deleted = 0;
+	ApplicationUiManager* application_ui_manager = nullptr;
+	bool engine_ui_active = true;
+	bool application_ui_active = false;
 
 private:
-	GuiManager gui_manager;
+	EngineUiManager gui_manager;
 };

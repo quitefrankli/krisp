@@ -91,7 +91,7 @@ public:
 	void reset_visibility() { set_visible(panel.initially_visible); }
 
 protected:
-	bool begin(int flags = 0);
+	bool begin(int flags = 0, bool closable = true);
 	void end();
 
 private:
@@ -100,7 +100,13 @@ private:
 	bool visible = true;
 };
 
-class GuiGraphicsSettings : public GuiWindow
+class EngineUiWindow : public GuiWindow
+{
+public:
+	using GuiWindow::GuiWindow;
+};
+
+class GuiGraphicsSettings : public EngineUiWindow
 {
 public:
 	GuiGraphicsSettings();
@@ -120,7 +126,7 @@ private:
 	const std::vector<const char*> camera_projections = { "perspective", "orthographic" };
 };
 
-class GuiSaveManager : public GuiWindow
+class GuiSaveManager : public EngineUiWindow
 {
 public:
 	GuiSaveManager();
@@ -144,7 +150,7 @@ private:
 	std::mutex state_mutex;
 };
 
-class GuiObjectSpawner : public GuiWindow
+class GuiObjectSpawner : public EngineUiWindow
 {
 public:
 	GuiObjectSpawner();
@@ -162,7 +168,7 @@ private:
 	const float button_height = 20.0f;
 };
 
-class GuiModelSpawner : public GuiWindow
+class GuiModelSpawner : public EngineUiWindow
 {
 public:
 	GuiModelSpawner();
@@ -184,7 +190,7 @@ private:
 };
 
 class ImFont;
-class GuiFPSCounter : public GuiWindow
+class GuiFPSCounter : public EngineUiWindow
 {
 public:
 	GuiFPSCounter();
@@ -200,7 +206,7 @@ private:
 
 class AudioSource;
 
-class GuiMusic : public GuiWindow
+class GuiMusic : public EngineUiWindow
 {
 public:
 	GuiMusic(AudioSource&& audio_source);
@@ -226,7 +232,7 @@ private:
 	std::mutex state_mutex;
 };
 
-class GuiStatistics : public GuiWindow
+class GuiStatistics : public EngineUiWindow
 {
 public:
 	GuiStatistics();
@@ -253,7 +259,7 @@ private:
 };
 
 class Object;
-class GuiDebug : public GuiWindow
+class GuiDebug : public EngineUiWindow
 {
 public:
 	GuiDebug();
@@ -321,7 +327,7 @@ protected:
 	int requested_width = 300;
 };
 
-class GuiPhoto : public GuiWindow, public GuiPhotoBase
+class GuiPhoto : public EngineUiWindow, public GuiPhotoBase
 {
 public:
 	GuiPhoto();
@@ -349,7 +355,7 @@ private:
 // i.e. shadow map
 // Currently the output of this window can feel laggy, but that's because we are (for simplicity) only using a single frame in the swapchain
 // can easily be improved by using all frames, however unnecessary for now since it's only used for debugging
-class GuiRenderSlicer : public GuiWindow, public GuiPhotoBase
+class GuiRenderSlicer : public EngineUiWindow, public GuiPhotoBase
 {
 public:
 	GuiRenderSlicer();
@@ -368,7 +374,7 @@ private:
 	requester_t slice_requester;
 };
 
-class GuiAnimationSelector : public GuiWindow
+class GuiAnimationSelector : public EngineUiWindow
 {
 public:
 	using AnimationChoice = std::pair<AnimationID, std::string>;
@@ -427,7 +433,7 @@ private:
 	std::mutex state_mutex;
 };
 
-class GuiMaterialEditor : public GuiWindow
+class GuiMaterialEditor : public EngineUiWindow
 {
 public:
 	GuiMaterialEditor();

@@ -124,10 +124,11 @@ Object& get_or_spawn_collider_visual(GameEngine& engine,
 }
 }
 
-bool GuiWindow::begin(int flags)
+bool GuiWindow::begin(const int flags, const bool closable)
 {
 	const bool was_visible = visible;
-	const bool expanded = ImGui::Begin(get_imgui_name(), get_visible_ptr(), flags);
+	const bool expanded = ImGui::Begin(
+		get_imgui_name(), closable ? get_visible_ptr() : nullptr, flags);
 	if (visible != was_visible)
 		ImGui::MarkIniSettingsDirty();
 	return expanded;
@@ -148,7 +149,7 @@ void GuiWindow::set_visible(const bool value)
 }
 
 GuiSaveManager::GuiSaveManager() :
-	GuiWindow({ "save_manager", "Save Manager", GuiPanelDock::LEFT }),
+	EngineUiWindow({ "save_manager", "Save Manager", GuiPanelDock::LEFT }),
 	store(Utility::get_saves_path())
 {
 }
@@ -269,7 +270,7 @@ void GuiSaveManager::process(GameEngine& engine)
 
 
 GuiGraphicsSettings::GuiGraphicsSettings() :
-	GuiWindow({ "graphics_settings", "Graphics Settings", GuiPanelDock::RIGHT })
+	EngineUiWindow({ "graphics_settings", "Graphics Settings", GuiPanelDock::RIGHT })
 {
 }
 
@@ -339,7 +340,7 @@ void GuiGraphicsSettings::process(GameEngine& engine)
 }
 
 GuiObjectSpawner::GuiObjectSpawner() :
-	GuiWindow({ "object_spawner", "Object Spawner", GuiPanelDock::LEFT })
+	EngineUiWindow({ "object_spawner", "Object Spawner", GuiPanelDock::LEFT })
 {
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngine& engine)
@@ -447,7 +448,7 @@ void GuiObjectSpawner::process(GameEngine& engine)
 }
 
 GuiModelSpawner::GuiModelSpawner() :
-	GuiWindow({ "model_spawner", "Model Spawner", GuiPanelDock::LEFT })
+	EngineUiWindow({ "model_spawner", "Model Spawner", GuiPanelDock::LEFT })
 {
 	refresh_models();
 }
@@ -576,7 +577,7 @@ void GuiModelSpawner::draw()
 
 
 GuiFPSCounter::GuiFPSCounter() :
-	GuiWindow({ "fps_counter", "FPS Counter", GuiPanelDock::NONE, true, false })
+	EngineUiWindow({ "fps_counter", "FPS Counter", GuiPanelDock::NONE, true, false })
 {
 }
 
@@ -616,7 +617,7 @@ void GuiFPSCounter::draw()
 }
 
 GuiMusic::GuiMusic(AudioSource&& audio_source) :
-	GuiWindow({ "audio", "Audio", GuiPanelDock::RIGHT, false }),
+	EngineUiWindow({ "audio", "Audio", GuiPanelDock::RIGHT, false }),
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
 	songs_paths = sort_paths(Utility::get_all_audio());
@@ -724,7 +725,7 @@ void GuiMusic::draw()
 }
 
 GuiStatistics::GuiStatistics() :
-	GuiWindow({ "statistics", "Statistics", GuiPanelDock::BOTTOM })
+	EngineUiWindow({ "statistics", "Statistics", GuiPanelDock::BOTTOM })
 {
 }
 
@@ -766,7 +767,7 @@ void GuiStatistics::update_buffer_capacities(
 }
 
 GuiDebug::GuiDebug() :
-	GuiWindow({ "debug", "Debug", GuiPanelDock::RIGHT })
+	EngineUiWindow({ "debug", "Debug", GuiPanelDock::RIGHT })
 {
 }
 
@@ -967,7 +968,7 @@ void GuiPhotoBase::draw()
 }
 
 GuiPhoto::GuiPhoto() :
-	GuiWindow({ "texture_viewer", "Texture Viewer", GuiPanelDock::BOTTOM, false })
+	EngineUiWindow({ "texture_viewer", "Texture Viewer", GuiPanelDock::BOTTOM, false })
 {
 	refresh_textures();
 }
@@ -1072,7 +1073,7 @@ void GuiPhoto::draw()
 }
 
 GuiRenderSlicer::GuiRenderSlicer() :
-	GuiWindow({ "render_slicer", "RenderSlicer", GuiPanelDock::BOTTOM, false })
+	EngineUiWindow({ "render_slicer", "RenderSlicer", GuiPanelDock::BOTTOM, false })
 {
 }
 
@@ -1111,7 +1112,7 @@ void GuiRenderSlicer::draw()
 }
 
 GuiAnimationSelector::GuiAnimationSelector() :
-	GuiWindow({ "animation_selector", "Animation Selector", GuiPanelDock::LEFT, false })
+	EngineUiWindow({ "animation_selector", "Animation Selector", GuiPanelDock::LEFT, false })
 {
 	refresh_animation_files();
 }
@@ -1522,7 +1523,7 @@ void GuiAnimationSelector::draw()
 }
 
 GuiMaterialEditor::GuiMaterialEditor() :
-	GuiWindow({ "material_editor", "Material Editor", GuiPanelDock::RIGHT, false })
+	EngineUiWindow({ "material_editor", "Material Editor", GuiPanelDock::RIGHT, false })
 {
 	refresh_textures();
 }

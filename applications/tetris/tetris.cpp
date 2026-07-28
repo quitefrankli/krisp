@@ -18,60 +18,101 @@
 #include <GLFW/glfw3.h> // for key macros
 
 #include <iostream>
+#include <mutex>
+#include <utility>
 
 
 constexpr int height = 20;
 constexpr int width = 10;
 
 
-class TetrisGui : public GuiWindow, public GuiPhotoBase
+class TetrisGui : public ApplicationUiWindow, public GuiPhotoBase
 {
 public:
 	TetrisGui() :
-		GuiWindow({ "tetris", "Tetris", GuiPanelDock::RIGHT })
+		ApplicationUiWindow({ "tetris", "Tetris" })
 	{
 	}
 
-	void draw() override
+	bool take_restart_request()
 	{
-		if (begin())
-		{
+		const std::lock_guard lock(mutex);
+		return std::exchange(restart_requested, false);
+	}
 
+	void set_level(const int value)
+	{
+		const std::lock_guard lock(mutex);
+		level = value;
+	}
+
+	void reset_game()
+	{
+		const std::lock_guard lock(mutex);
+		score = 0;
+		game_over = false;
+	}
+
+	void add_score(const int value)
+	{
+		const std::lock_guard lock(mutex);
+		score += value;
+	}
+
+	void set_game_over()
+	{
+		const std::lock_guard lock(mutex);
+		game_over = true;
+	}
+
+private:
+	void draw_contents() override
+	{
+		const std::lock_guard lock(mutex);
 		ImGui::Text("Level: %d, Score: %d", level, score);
-		restart = ImGui::Button("New Game");
+		if (ImGui::Button("New Game"))
+			restart_requested = true;
 		if (!game_over)
-		{
 			ImGui::SameLine();
-		} else
-		{
+		else
 			ImGui::Text("Game Over!");
-		}
 
 		ImGui::Text("Next Piece");
 		GuiPhotoBase::draw();
-
-		}
-		end();
 	}
 
-	void process(GameEngine& engine) override
-	{
-	}
-
+	std::mutex mutex;
 	int score = 0;
 	int level = 0;
-	bool restart = false;
+	bool restart_requested = false;
 	bool game_over = false;
 };
 
 class Application : public IApplication
 {
 public:
+	void create_ui(GameEngine&, ApplicationUiManager& ui) override
+	{
+		ui.set_theme({
+			.text = { 0.91f, 0.96f, 1.0f, 1.0f },
+			.window_background = { 0.05f, 0.08f, 0.13f, 0.94f },
+			.accent = { 0.12f, 0.65f, 0.90f, 1.0f },
+			.window_rounding = 8.0f,
+			.window_border_size = 1.0f,
+		});
+		gui = &ui.register_window<TetrisGui>({
+			.anchor = ApplicationUiAnchor::TOP_RIGHT,
+			.offset = { -16.0f, 16.0f },
+			.size = { 300.0f, 360.0f },
+		});
+	}
+
+	bool allows_playerless_normal_mode() const override { return true; }
+
 	virtual void on_tick(GameEngine&, float delta) override
 	{
-		if (gui->restart)
+		if (gui->take_restart_request())
 		{
-			gui->restart = false;
 			restart();
 			return;
 		}
@@ -95,12 +136,11 @@ public:
 	virtual void on_begin(GameEngine& engine) override
 	{
 		this->engine = &engine;
-		
-		gui = &engine.get_gui_manager().spawn_gui<TetrisGui>();
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 0.0f, -50.0f));
 		
 		spawn_environment();
 		generate_next_piece();
+		engine.set_game_mode(EGameMode::NORMAL);
 		// engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
 		// engine.get_camera().toggle_projection();
 
@@ -254,7 +294,7 @@ private:
 		}
 
 		++piece_count;
-		gui->level = get_level();
+		gui->set_level(get_level());
 		period = std::clamp(1.0f - get_level() * 0.04f, 0.1f, 1.0f);
 	}
 
@@ -300,10 +340,12 @@ private:
 
 		// prepare for next game
 		generate_next_piece();
-		main_theme->stop();
-		main_theme->play();
-		gui->score = 0;
-		gui->game_over = false;
+		if (main_theme)
+		{
+			main_theme->stop();
+			main_theme->play();
+		}
+		gui->reset_game();
 		piece_count = 0;
 	}
 
@@ -356,7 +398,7 @@ private:
 		if (rows_cleared)
 		{
 			// clear_line_fx->play();
-			gui->score += rows_cleared * rows_cleared * 100;
+			gui->add_score(rows_cleared * rows_cleared * 100);
 		}
 
 		generate_next_piece();
@@ -385,8 +427,9 @@ private:
 
 	void game_over()
 	{
-		main_theme->stop();
-		gui->game_over = true;
+		if (main_theme)
+			main_theme->stop();
+		gui->set_game_over();
 	}
 
 private:

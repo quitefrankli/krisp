@@ -60,6 +60,7 @@ public:
 
 	void pre_update(const Keyboard& keyboard, const Camera& camera, ECS& ecs, float delta_secs);
 	void configure_locomotion(SkeletonID skeleton, PlayerLocomotionAnimations animations);
+	bool play_action_animation(ECS& ecs, AnimationID animation);
 	bool is_moving() const { return moving; }
 	const PlayerDefinition& get_definition() const { return definition; }
 
@@ -71,5 +72,6 @@ private:
 	PlayerDefinition definition;
 	std::optional<SkeletonID> animation_skeleton;
 	std::optional<PlayerLocomotionAnimations> locomotion_animations;
+	std::optional<AnimationID> action_animation;
 	bool moving = false;
 };

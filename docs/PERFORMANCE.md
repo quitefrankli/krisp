@@ -69,3 +69,13 @@ per-skeleton mutex. This prevents readers from observing partially updated
 `Maths::Transform` cache flags. Different skeletons can still update or render
 independently, but the render thread may briefly wait while one skeleton's
 animation pose is applied. Lock contention has not been measured.
+
+## UI layers
+
+Only the UI layer for the active game mode is processed and drawn: engine
+panels in editor mode, or application windows and overlays in normal mode.
+Application UI registration is sealed before the render thread starts, so the
+render path reads stable vectors without registry locking. Application windows
+are traversed twice to preserve window-before-overlay ordering; this is linear
+in the typically small number of application UI elements and has not been
+measured.
