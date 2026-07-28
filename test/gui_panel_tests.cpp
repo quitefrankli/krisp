@@ -53,6 +53,15 @@ TEST(GuiPanel, save_manager_is_registered_and_visible_by_default)
 	EXPECT_TRUE(manager.save_manager.is_visible());
 }
 
+TEST(GuiPanel, fps_counter_is_the_only_persistent_engine_ui)
+{
+	EngineUiManager manager;
+
+	ASSERT_EQ(manager.get_persistent_windows().size(), 1u);
+	EXPECT_EQ(manager.get_persistent_windows().front().get(), &manager.fps_counter);
+	EXPECT_TRUE(manager.fps_counter.is_visible());
+}
+
 TEST(GuiPanel, visibility_can_be_restored_after_closing)
 {
 	TestEnginePanel panel({ "debug", "Debug", GuiPanelDock::RIGHT });

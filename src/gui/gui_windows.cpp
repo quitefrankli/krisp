@@ -576,46 +576,6 @@ void GuiModelSpawner::draw()
 }
 
 
-GuiFPSCounter::GuiFPSCounter() :
-	EngineUiWindow({ "fps_counter", "FPS Counter", GuiPanelDock::NONE, true, false })
-{
-}
-
-void GuiFPSCounter::process(GameEngine& engine)
-{
-	tps = engine.get_tps();
-	fps = engine.get_graphics_engine().get_fps();
-	window_width = engine.get_window_width();
-}
-
-void GuiFPSCounter::draw()
-{
-	const auto get_num_digits = [](float f) {
-		int digits = 0;
-		while (f >= 10.0f)
-		{
-			f *= 0.1f;
-			digits++;
-		}
-		return digits + 1;
-	};
-	const int PAD_PER_DIGIT = 10;
-	const int TEXT_RIGHT_PADDING = 50 + PAD_PER_DIGIT * std::max(get_num_digits(fps), get_num_digits(tps));
-	const uint32_t width = window_width.has_value() ? *window_width : 0;
-	ImGui::SetNextWindowPos(ImVec2{ float(width - TEXT_RIGHT_PADDING), 0.0f }, ImGuiCond_Always);
-	ImGui::SetNextWindowSize(ImVec2{ float(TEXT_RIGHT_PADDING), 80.0f }, ImGuiCond_Always);
-	ImGui::Begin(get_imgui_name(), nullptr,
-		ImGuiWindowFlags_::ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_::ImGuiWindowFlags_NoInputs |
-		ImGuiWindowFlags_::ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_::ImGuiWindowFlags_NoScrollbar |
-		ImGuiWindowFlags_::ImGuiWindowFlags_NoSavedSettings
-	);
-	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{0.0f, 0.0f, 0.0f, 1.0f});
-	ImGui::Text("fps %.1f", fps);
-	ImGui::Text("tps %.1f", tps);
-	ImGui::PopStyleColor();
-	ImGui::End();
-}
-
 GuiMusic::GuiMusic(AudioSource&& audio_source) :
 	EngineUiWindow({ "audio", "Audio", GuiPanelDock::RIGHT, false }),
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))

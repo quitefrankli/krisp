@@ -189,21 +189,6 @@ private:
 	std::optional<std::string> load_error;
 };
 
-class ImFont;
-class GuiFPSCounter : public EngineUiWindow
-{
-public:
-	GuiFPSCounter();
-	virtual void process(GameEngine& engine) override;
-	virtual void draw() override;
-
-private:
-	ImFont* font = nullptr;
-	float fps = 0.0f;
-	float tps = 0.0f;
-	std::optional<uint32_t> window_width;
-};
-
 class AudioSource;
 
 class GuiMusic : public EngineUiWindow

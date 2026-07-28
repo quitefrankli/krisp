@@ -159,7 +159,7 @@ void GameEngine::main_loop(const float time_delta)
 
 	process_objs_to_delete();
 
-	// poll gui stuff, we should take advantage of polymorphism later on, but for now this is relatively simple
+	get_gui_manager().process_persistent(*this);
 	if (game_mode == EGameMode::EDITOR)
 		get_gui_manager().process(*this);
 	else

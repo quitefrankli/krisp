@@ -74,6 +74,8 @@ animation pose is applied. Lock contention has not been measured.
 
 Only the UI layer for the active game mode is processed and drawn: engine
 panels in editor mode, or application windows and overlays in normal mode.
+The FPS/TPS overlay is the sole exception and is processed and drawn in both
+modes.
 Application UI registration is sealed before the render thread starts, so the
 render path reads stable vectors without registry locking. Application windows
 are traversed twice to preserve window-before-overlay ordering; this is linear

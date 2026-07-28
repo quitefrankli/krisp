@@ -99,6 +99,11 @@ void GraphicsEngineGuiManager::draw()
 	}
 	if (application_ui_active.load(std::memory_order_acquire) && application_ui_manager)
 		draw_application_ui();
+	for (auto& gui_window : engine_ui_manager.get_persistent_windows())
+	{
+		if (gui_window->is_visible())
+			gui_window->draw();
+	}
 	
 	ImGui::Render();
 }
