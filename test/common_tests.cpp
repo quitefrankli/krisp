@@ -5,12 +5,25 @@
 #include <renderable/material_group.hpp>
 #include <renderable/render_types.hpp>
 #include <entity_component_system/material_system.hpp>
+#include <analytics.hpp>
 #include <utility.hpp>
 
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <chrono>
 #include <thread>
+
+TEST(AnalyticsStatistics, tracks_average_standard_deviation_and_range)
+{
+	Analytics::Statistics statistics;
+	for (const double sample : { 1.0, 2.0, 3.0, 4.0 })
+		statistics.add(sample);
+
+	EXPECT_DOUBLE_EQ(statistics.average(), 2.5);
+	EXPECT_NEAR(statistics.standard_deviation(), std::sqrt(1.25), 0.000001);
+	EXPECT_DOUBLE_EQ(statistics.minimum(), 1.0);
+	EXPECT_DOUBLE_EQ(statistics.maximum(), 4.0);
+}
 
 TEST(UtilityLoopSleeper, elapsed_work_counts_towards_loop_period)
 {

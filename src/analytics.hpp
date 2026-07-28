@@ -3,16 +3,38 @@
 #include <string>
 #include <chrono>
 #include <functional>
+#include <limits>
 #include <optional>
 
 
 class Analytics
 {
 public:
+	class Statistics
+	{
+	public:
+		void add(double sample);
+		void reset();
+		double average() const { return mean; }
+		double standard_deviation() const;
+		double minimum() const { return count == 0 ? 0.0 : min; }
+		double maximum() const { return count == 0 ? 0.0 : max; }
+
+	private:
+		uint64_t count = 0;
+		double mean = 0.0;
+		double squared_deviation_sum = 0.0;
+		double min = std::numeric_limits<double>::max();
+		double max = std::numeric_limits<double>::lowest();
+	};
+
 	// period in seconds for logging to occur
 	Analytics(const int period = 5);
 
-	Analytics(std::function<void(float)>&& on_log, const int period = 5);
+	Analytics(
+		std::function<void(float)>&& on_log,
+		int callback_period = 1,
+		int log_period = 5);
 
 	//
 	// Start and Stop
@@ -33,13 +55,15 @@ public:
 	std::string text;
 
 private:
-	uint64_t num_elapsed_cycles = 0;
 	std::chrono::time_point<std::chrono::system_clock> log_cycle_start;
+	std::chrono::time_point<std::chrono::system_clock> callback_cycle_start;
 	std::chrono::time_point<std::chrono::system_clock> lap_cycle_start;
-	std::chrono::nanoseconds elapsed_log_cycle = std::chrono::nanoseconds(0);
+	Statistics statistics;
+	Statistics callback_statistics;
 	std::chrono::time_point<std::chrono::system_clock> quick_timer_start_time;
 	// once every X seconds Analytics::stop is called, data will be logged
 	const std::chrono::seconds LOG_PERIOD;
+	const std::chrono::seconds CALLBACK_PERIOD;
 
 	enum class State
 	{

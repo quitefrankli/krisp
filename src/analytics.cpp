@@ -3,19 +3,46 @@
 
 #include <quill/LogMacros.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 
 
 using namespace std::chrono;
 
-Analytics::Analytics(const int period) : LOG_PERIOD(period)
+Analytics::Analytics(const int period) : LOG_PERIOD(period), CALLBACK_PERIOD(period)
 {
 }
 
-Analytics::Analytics(std::function<void(float)>&& on_log, const int period) :
-	on_log_period(std::move(on_log)), LOG_PERIOD(period)
+Analytics::Analytics(
+	std::function<void(float)>&& on_log,
+	const int callback_period,
+	const int log_period) :
+	LOG_PERIOD(log_period),
+	CALLBACK_PERIOD(callback_period),
+	on_log_period(std::move(on_log))
 {
+}
+
+void Analytics::Statistics::add(const double sample)
+{
+	++count;
+	const double delta = sample - mean;
+	mean += delta / static_cast<double>(count);
+	squared_deviation_sum += delta * (sample - mean);
+	min = std::min(min, sample);
+	max = std::max(max, sample);
+}
+
+void Analytics::Statistics::reset()
+{
+	*this = {};
+}
+
+double Analytics::Statistics::standard_deviation() const
+{
+	return count == 0 ? 0.0
+		: std::sqrt(squared_deviation_sum / static_cast<double>(count));
 }
 
 void Analytics::start()
@@ -25,6 +52,7 @@ void Analytics::start()
 	if (state == State::FRESH)
 	{
 		log_cycle_start = lap_cycle_start;
+		callback_cycle_start = lap_cycle_start;
 	}
 	state = State::STARTED;
 }
@@ -34,21 +62,26 @@ void Analytics::stop()
 	assert(state == State::STARTED);
 	state = State::STOPPED;
 	auto now = system_clock::now();
-	elapsed_log_cycle += duration_cast<nanoseconds>(now - lap_cycle_start);
-	num_elapsed_cycles++;
+	const double sample = duration<double, std::micro>(now - lap_cycle_start).count();
+	statistics.add(sample);
+	if (on_log_period)
+		callback_statistics.add(sample);
+	if (on_log_period && now - callback_cycle_start > CALLBACK_PERIOD)
+	{
+		on_log_period.value()(static_cast<float>(callback_statistics.average()));
+		callback_cycle_start = now;
+		callback_statistics.reset();
+	}
 	if (now - log_cycle_start > LOG_PERIOD)
 	{
-		const float avg_float = (float)elapsed_log_cycle.count() / (float)num_elapsed_cycles / 1e3;
-		if (on_log_period)
-		{
-			on_log_period.value()(avg_float);
-		} else
-		{
-			LOG_INFO(Utility::get_logger(), "{} {:.2f} microseconds", text, avg_float);
-		}
+		const float average = static_cast<float>(statistics.average());
+		LOG_INFO(Utility::get_logger(),
+			"{} avg {:.2f} microseconds, std dev {:.2f} microseconds, "
+			"min {:.2f} microseconds, max {:.2f} microseconds",
+			text, average, statistics.standard_deviation(),
+			statistics.minimum(), statistics.maximum());
 		log_cycle_start = now;
-		num_elapsed_cycles = 0;
-		elapsed_log_cycle = nanoseconds(0);
+		statistics.reset();
 	}
 }
 
