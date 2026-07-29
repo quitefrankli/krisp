@@ -42,8 +42,6 @@ GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	window(std::make_unique<App::Window>()),
 	mouse(std::make_unique<Mouse>(*window)),
 	graphics_engine(std::make_unique<GraphicsEngine>(*this)),
-	camera(std::make_unique<Camera>(Listener(audio_engine),
-		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
 	application(std::move(app))
 {
 	init();
@@ -55,8 +53,6 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 	window(std::move(win)),
 	mouse(std::make_unique<Mouse>(*window)),
 	graphics_engine(std::move(gfx_engine)),
-	camera(std::make_unique<Camera>(Listener(audio_engine),
-		   static_cast<float>(window->get_width())/static_cast<float>(window->get_height()))),
 	application(std::move(app))
 {
 	init();
@@ -66,11 +62,19 @@ void GameEngine::init()
 {
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
 	graphics_engine->set_ui_layers_active(true, false);
+	auto& camera_focus = spawn_object<Object>(
+		Renderable::make_default(MeshFactory::sphere_id()));
+	camera_focus.set_transient(true);
+	auto& camera_upvector = spawn_object<Arrow>();
+	camera_upvector.set_transient(true);
+	camera = std::make_unique<Camera>(
+		Listener(audio_engine),
+		static_cast<float>(window->get_width()) / static_cast<float>(window->get_height()),
+		camera_focus,
+		camera_upvector);
 	gizmo = std::make_unique<Gizmo>(*this);
 	window->setup_callbacks(*this);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
-	draw_object(camera->focus_obj);
-	draw_object(camera->upvector_obj);
 	experimental = std::make_unique<Experimental>(*this);
 	
 	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
@@ -501,8 +505,9 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 
 	std::vector<ObjectID> object_ids;
 	object_ids.reserve(objects.size());
-	for (const auto& [id, _] : objects)
-		object_ids.push_back(id);
+	for (const auto& [id, object] : objects)
+		if (!object->is_transient())
+			object_ids.push_back(id);
 
 	auto reset_command = std::make_unique<ResetSceneCmd>(std::move(object_ids));
 	auto graphics_paused = reset_command->complete.get_future();
@@ -514,25 +519,29 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 
 	DestroyResourcesCmd destroyed_resources;
 	for (const auto& [_, object] : objects)
-		release_renderable_resources(*object, destroyed_resources);
+		if (!object->is_transient())
+			release_renderable_resources(*object, destroyed_resources);
 	for (const auto& [_, object] : objects)
-	{
-		object->detach_all_children();
-		object->detach_from();
-	}
+		if (!object->is_transient())
+		{
+			object->detach_all_children();
+			object->detach_from();
+		}
 
 	camera->stop_follow();
 	ecs = ECS{};
-	objects.clear();
+	std::erase_if(objects, [](const auto& entry) {
+		return !entry.second->is_transient();
+	});
 	active_player = nullptr;
 	game_mode = EGameMode::EDITOR;
 	graphics_engine->set_ui_layers_active(true, false);
 	entity_deletion_queue.clear();
-	mesh_resource_references.clear();
-	material_resource_references.clear();
 	ResourceProvenance::clear();
 	tile_renderable.reset();
 	configure_ecs();
+	for (const auto& [_, object] : objects)
+		ecs.add_object(*object);
 	gizmo->register_colliders();
 
 	camera->set_mode(Camera::Mode::ORBIT);
@@ -731,9 +740,10 @@ void GameEngine::save_scene(const std::string_view save_name) const
 	camera->serialize(saved_camera);
 	std::unordered_map<MaterialID, bool> saved_material_ids;
 	for (const auto& [_, object] : objects)
-		for (const auto& renderable : object->renderables)
-			for (const auto material_id : renderable.material_ids)
-				saved_material_ids.emplace(material_id, true);
+		if (!object->is_transient())
+			for (const auto& renderable : object->renderables)
+				for (const auto material_id : renderable.material_ids)
+					saved_material_ids.emplace(material_id, true);
 	auto saved_materials = document.sequence("materials");
 	for (const auto& [material_id, _] : saved_material_ids)
 	{
@@ -767,6 +777,8 @@ void GameEngine::save_scene(const std::string_view save_name) const
 	auto saved_objects = document.sequence("objects");
 	for (const auto& [_, object] : objects)
 	{
+		if (object->is_transient())
+			continue;
 		if (!TypeRegistry::contains(object->serialization_type()))
 			throw SerializationError("Unsupported object type at $.objects: " + std::string(object->serialization_type()));
 		auto saved = saved_objects.append_map();
@@ -919,6 +931,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 	camera->deserialize(document.child("camera"));
 	set_game_mode(saved_game_mode);
 	for (const auto& [_, object] : objects)
-		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
+		if (!object->is_transient())
+			send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	application->on_scene_loaded(*this);
 }

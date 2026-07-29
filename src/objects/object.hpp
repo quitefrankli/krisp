@@ -45,6 +45,8 @@ public:
 	virtual void toggle_visibility() { bVisible = !bVisible; }
 	virtual void set_visibility(bool isVisible) { bVisible = isVisible; }
 	bool get_visibility() const { return bVisible; }
+	void set_transient(bool transient) { transient_object = transient; }
+	bool is_transient() const { return transient_object; }
 
 	// detach from parent
 	virtual void detach_from();
@@ -114,4 +116,5 @@ private:
 	Maths::Sphere bounding_sphere;
 
 	bool bVisible = true;
+	bool transient_object = false;
 };

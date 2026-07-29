@@ -785,6 +785,8 @@ void GuiDebug::process(GameEngine& engine)
 		object_ids_strs.clear();
 		for (auto& [id, object] : engine.get_objects())
 		{
+			if (object->is_transient())
+				continue;
 			object_ids.push_back(id);
 			const auto& name = object->get_name();
 			object_ids_strs.push_back(name.empty() ? std::to_string(id.get_underlying()) : name);

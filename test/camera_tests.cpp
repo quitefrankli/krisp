@@ -10,12 +10,14 @@
 class CameraTests : public testing::Test
 {
 public:
-    CameraTests() : camera(Listener(), 1.0f)
+    CameraTests() : camera(Listener(), 1.0f, focus, upvector)
     {
 		camera.look_at(Maths::zero_vec, {0.0f, 0.0f, -2.0f});
 		camera.update_tracker();
     }
 
+	Object focus;
+	Object upvector;
 	Camera camera;
 };
 

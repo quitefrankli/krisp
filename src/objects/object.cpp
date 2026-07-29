@@ -27,6 +27,7 @@ Object::Object(Object&& other) noexcept :
 	relative_transform(std::move(other.relative_transform)),
 	name(std::move(other.name)),
 	bVisible(other.bVisible),
+	transient_object(other.transient_object),
 	aabb(std::move(other.aabb)),
 	bounding_sphere(std::move(other.bounding_sphere))
 {

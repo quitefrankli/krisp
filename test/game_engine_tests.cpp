@@ -11,6 +11,7 @@
 #include "renderable/material_factory.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
+#include "serialization/serializer.hpp"
 #include "utility.hpp"
 
 #include <gtest/gtest.h>
@@ -125,11 +126,32 @@ std::filesystem::path save_path(const std::string_view name)
 {
 	return Utility::get_saves_path() / (std::string(name) + ".yaml");
 }
+
+size_t count_persistent_objects(const GameEngine& engine)
+{
+	return std::ranges::count_if(engine.get_objects(), [](const auto& entry) {
+		return !entry.second->is_transient();
+	});
+}
 }
 
 TEST_F(GameEngineTests, Constructor)
 {
 	EXPECT_EQ(engine.get_window().get_glfw_window(), nullptr);
+}
+
+TEST_F(GameEngineTests, camera_render_helpers_are_engine_owned_transient_objects)
+{
+	const auto* focus = engine.get_camera().focus_obj;
+	const auto* upvector = engine.get_camera().upvector_obj;
+
+	ASSERT_NE(focus, nullptr);
+	ASSERT_NE(upvector, nullptr);
+	EXPECT_TRUE(focus->is_transient());
+	EXPECT_TRUE(upvector->is_transient());
+	EXPECT_EQ(engine.get_object(focus->get_id()), focus);
+	EXPECT_EQ(engine.get_object(upvector->get_id()), upvector);
+	EXPECT_EQ(count_persistent_objects(engine), 0);
 }
 
 TEST_F(GameEngineTests, tab_does_not_leave_editor_mode_without_a_player)
@@ -314,8 +336,10 @@ TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 {
 	engine.spawn_cubemap();
 
-	ASSERT_EQ(engine.get_objects().size(), 1);
-	const auto& object = engine.get_objects().begin()->second;
+	ASSERT_EQ(count_persistent_objects(engine), 1);
+	const auto object = std::ranges::find_if(engine.get_objects(), [](const auto& entry) {
+		return !entry.second->is_transient();
+	})->second;
 	ASSERT_EQ(object->renderables.size(), 1);
 	EXPECT_EQ(object->renderables.front().pipeline_render_type, ERenderType::CUBEMAP);
 	EXPECT_EQ(object->renderables.front().material_ids.size(), 6);
@@ -527,8 +551,54 @@ TEST_F(GameEngineTests, reset_scene_reregisters_transient_gizmo_colliders)
 	};
 
 	EXPECT_EQ(count_transient(), 10);
+	for (const auto& [id, collider] : engine.get_ecs().get_all_colliders())
+		if (collider.persistence == ColliderPersistence::Transient)
+		{
+			const auto* helper = engine.get_object(id);
+			ASSERT_NE(helper, nullptr);
+			EXPECT_TRUE(helper->is_transient());
+		}
 	engine.reset_scene();
 	EXPECT_EQ(count_transient(), 10);
+}
+
+TEST_F(GameEngineTests, reset_scene_preserves_transient_helpers_and_removes_scene_objects)
+{
+	auto* const focus = engine.get_camera().focus_obj;
+	auto* const upvector = engine.get_camera().upvector_obj;
+	const ObjectID scene_object_id = engine.spawn_object<Object>().get_id();
+	engine.get_gizmo().init();
+	std::vector<Object*> helpers;
+	for (const auto& [_, object] : engine.get_objects())
+		if (object->is_transient())
+			helpers.push_back(object.get());
+	ASSERT_EQ(helpers.size(), 12);
+
+	engine.reset_scene();
+
+	EXPECT_EQ(engine.get_object(scene_object_id), nullptr);
+	EXPECT_EQ(engine.get_camera().focus_obj, focus);
+	EXPECT_EQ(engine.get_camera().upvector_obj, upvector);
+	for (const auto* helper : helpers)
+		EXPECT_EQ(engine.get_object(helper->get_id()), helper);
+}
+
+TEST_F(GameEngineTests, scene_serialization_omits_transient_helpers)
+{
+	engine.get_gizmo().init();
+	engine.spawn_object<Object>();
+	const std::string save_name = "krisp_scene_transient_helpers_test";
+	const auto path = save_path(save_name);
+
+	engine.save_scene(save_name);
+	std::ifstream stream(path);
+	std::ostringstream contents;
+	contents << stream.rdbuf();
+	const auto saved = Deserializer::parse(contents.str());
+	std::filesystem::remove(path);
+
+	EXPECT_EQ(saved.child("objects").elements().size(), 1);
+	EXPECT_TRUE(saved.child("materials").elements().empty());
 }
 
 TEST_F(GameEngineTests, gizmo_hit_testing_uses_registered_ecs_colliders)

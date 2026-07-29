@@ -42,12 +42,6 @@ public:
 
 	// Used by GameEngine
 	void add_object(Object& object) { objects.emplace(object.get_id(), &object); }
-	EntityID add_transient_object(Object& object)
-	{
-		const EntityID id(next_transient_id--);
-		objects.emplace(id, &object);
-		return id;
-	}
 	void remove_object(const ObjectID id);
 
 	// Used by ECSComponents
@@ -59,5 +53,4 @@ public:
 
 private:
 	std::unordered_map<ObjectID, Object*> objects;
-	std::uint64_t next_transient_id = std::numeric_limits<std::uint64_t>::max();
 };

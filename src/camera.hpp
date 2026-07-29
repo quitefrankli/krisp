@@ -12,13 +12,14 @@
 #include "maths.hpp"
 
 class Keyboard;
+class GameEngine;
 
 class Camera : public Object, public ITrackableObject
 {
 public:
 	void serialize(Serializer& out) const override;
 	void deserialize(const Deserializer& in) override;
-	Camera(Listener&& listener, float aspect_ratio);
+	Camera(Listener&& listener, float aspect_ratio, Object& focus, Object& upvector);
 	~Camera();
 
 	glm::mat4 get_projection() const;
@@ -37,7 +38,7 @@ public:
 	float get_focal_length();
 	void zoom_in(float length);
 
-	std::shared_ptr<Object> upvector_obj;
+	Object* upvector_obj = nullptr;
 	
 	enum class Mode
 	{
@@ -57,7 +58,7 @@ public: // object
 	virtual void update_tracker() override;
 
 	// this needs to be private and be manipulated within camera
-	std::shared_ptr<Object> focus_obj; // might be better to give this object to game_engine
+	Object* focus_obj = nullptr;
 
 	// sets camera at "from" and the focus at "focus"
 	void look_at(const glm::vec3& focus, const glm::vec3& from);

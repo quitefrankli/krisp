@@ -46,9 +46,9 @@ public:
 private:
 	friend Gizmo;
 
-	Arrow xAxis;
-	Arrow yAxis;
-	Arrow zAxis;
+	Arrow* xAxis = nullptr;
+	Arrow* yAxis = nullptr;
+	Arrow* zAxis = nullptr;
 };
 
 class RotationGizmo : public GizmoBase
@@ -63,9 +63,9 @@ private:
 	friend Gizmo;
 
 	// represents the normal of the arc
-	ArcObject xAxisNorm;
-	ArcObject yAxisNorm;
-	ArcObject zAxisNorm;
+	ArcObject* xAxisNorm = nullptr;
+	ArcObject* yAxisNorm = nullptr;
+	ArcObject* zAxisNorm = nullptr;
 };
 
 class ScaleGizmo : public GizmoBase
@@ -82,10 +82,10 @@ public:
 private:
 	friend Gizmo;
 
-	ScaleGizmoObj xAxis;
-	ScaleGizmoObj yAxis;
-	ScaleGizmoObj zAxis;
-	Object uniformCube;
+	ScaleGizmoObj* xAxis = nullptr;
+	ScaleGizmoObj* yAxis = nullptr;
+	ScaleGizmoObj* zAxis = nullptr;
+	Object* uniformCube = nullptr;
 	EntityID uniform_cube_entity;
 
 	const float minimum_scale = 0.1f;

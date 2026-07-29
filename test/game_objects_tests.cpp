@@ -82,7 +82,9 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 	PlayerCharacter player({}, definition);
 	ecs.add_object(player);
 
-	Camera camera(Listener{}, 1.0f);
+	Object camera_focus;
+	Object camera_upvector;
+	Camera camera(Listener{}, 1.0f, camera_focus, camera_upvector);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	Keyboard keyboard;
 	keyboard.update_key({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
@@ -125,7 +127,9 @@ TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relativ
 	ecs.add_object(player);
 	player.configure_locomotion(skeleton, animations);
 
-	Camera camera(Listener{}, 1.0f);
+	Object camera_focus;
+	Object camera_upvector;
+	Camera camera(Listener{}, 1.0f, camera_focus, camera_upvector);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	Keyboard keyboard;
 	player.pre_update(keyboard, camera, ecs, 0.01f);
@@ -168,7 +172,9 @@ TEST(player_character_tests, one_shot_action_overrides_then_returns_to_locomotio
 	PlayerCharacter player({}, PlayerDefinition{});
 	ecs.add_object(player);
 	player.configure_locomotion(skeleton, animations);
-	Camera camera(Listener{}, 1.0f);
+	Object camera_focus;
+	Object camera_upvector;
+	Camera camera(Listener{}, 1.0f, camera_focus, camera_upvector);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	Keyboard keyboard;
 	player.pre_update(keyboard, camera, ecs, 0.01f);
@@ -234,7 +240,8 @@ TEST(gameplay_collision_tests, transient_colliders_require_an_explicit_candidate
 	ECS ecs;
 	Object object;
 	object.set_position({ 0.0f, 0.0f, 2.0f });
-	const EntityID transient_id = ecs.add_transient_object(object);
+	const EntityID transient_id = object.get_id();
+	ecs.add_object(object);
 	ecs.add_collider(transient_id, std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
 	const Maths::Ray ray(Maths::zero_vec, Maths::forward_vec);
 

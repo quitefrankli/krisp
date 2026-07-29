@@ -107,19 +107,6 @@ public:
 
 	Object& spawn_particle_emitter(const ParticleEmitterConfig& config);
 
-	// this function assumes something else manages the lifetime of object
-	template<typename object_t>
-	void draw_object(const std::shared_ptr<object_t>& object)
-	{
-		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
-	}
-
-	template<typename object_t>
-	void draw_object(object_t& object)
-	{
-		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
-	}
-
 	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
@@ -148,6 +135,7 @@ public:
 		return it == objects.end() ? nullptr : it->second.get();
 	}
 	std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() { return objects; }
+	const std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() const { return objects; }
 
 	void preview_objs_in_gui(const std::vector<ObjectID>& objs, GuiPhotoBase& gui_window);
 
@@ -155,6 +143,9 @@ private:
 	std::unique_ptr<App::Window> window;
 	AudioEnginePimpl audio_engine;
 	ECS ecs;
+	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
+	std::unordered_map<MeshID, size_t> mesh_resource_references;
+	std::unordered_map<MaterialID, size_t> material_resource_references;
     std::unique_ptr<GraphicsEngineBase> graphics_engine;
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<Gizmo> gizmo;
@@ -162,9 +153,6 @@ private:
 	Keyboard keyboard;
 
 	std::atomic<bool> should_shutdown = false;
-	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
-	std::unordered_map<MeshID, size_t> mesh_resource_references;
-	std::unordered_map<MaterialID, size_t> material_resource_references;
 	std::optional<Renderable> tile_renderable;
 	std::thread graphics_engine_thread;
 	std::unique_ptr<IApplication> application;

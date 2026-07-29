@@ -33,6 +33,15 @@ constexpr std::array rotation_axis_materials = {
 	EMaterialPreset::GIZMO_Y_AXIS,
 	EMaterialPreset::GIZMO_X_AXIS,
 };
+
+template<typename ObjectT>
+ObjectT& spawn_transient(GameEngine& engine, std::shared_ptr<ObjectT>&& object)
+{
+	object->set_transient(true);
+	auto* const result = object.get();
+	engine.spawn_object(std::shared_ptr<Object>(std::move(object)));
+	return *result;
+}
 }
 
 
@@ -70,7 +79,7 @@ void GizmoBase::register_colliders()
 {
 	for (std::size_t i = 0; i < axes.size(); ++i)
 	{
-		axis_entities[i] = engine.get_ecs().add_transient_object(*axes[i]);
+		axis_entities[i] = axes[i]->get_id();
 		engine.get_ecs().add_mesh_collider(axis_entities[i], ColliderPersistence::Transient);
 	}
 }
@@ -81,19 +90,22 @@ void GizmoBase::register_colliders()
 
 void TranslationGizmo::init()
 {
-	xAxis.point(Maths::zero_vec, Maths::right_vec);
-	yAxis.point(Maths::zero_vec, Maths::up_vec);
-	zAxis.point(Maths::zero_vec, Maths::forward_vec);
-
-	axes = {&xAxis, &yAxis, &zAxis};
-	for (size_t i = 0; i < axes.size(); ++i)
+	const std::array directions = { Maths::right_vec, Maths::up_vec, Maths::forward_vec };
+	const std::array destinations = { &xAxis, &yAxis, &zAxis };
+	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto* axis = axes[i];
+		auto axis = std::make_shared<Arrow>();
+		axis->point(Maths::zero_vec, directions[i]);
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(axis_materials[i]);
 		axis->renderables[0].casts_shadow = false;
 		axis->renderables[0].render_on_top = true;
+		*destinations[i] = &spawn_transient(engine, std::move(axis));
+	}
+
+	axes = {xAxis, yAxis, zAxis};
+	for (auto* axis : axes)
+	{
 		axis->attach_to(this);
-		engine.draw_object(*axis);
 	}
 	set_visibility(false);
 }
@@ -142,18 +154,22 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 void RotationGizmo::init()
 {
-	xAxisNorm.set_rotation(glm::angleAxis(-Maths::PI/2.0f, Maths::up_vec));
-	yAxisNorm.set_rotation(glm::angleAxis(Maths::PI/2.0f, Maths::right_vec));
-
-	axes = {&xAxisNorm, &yAxisNorm, &zAxisNorm};
-	for (size_t i = 0; i < axes.size(); ++i)
+	const std::array destinations = { &xAxisNorm, &yAxisNorm, &zAxisNorm };
+	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto* axis = axes[i];
+		auto axis = std::make_shared<ArcObject>();
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(rotation_axis_materials[i]);
 		axis->renderables[0].casts_shadow = false;
 		axis->renderables[0].render_on_top = true;
+		*destinations[i] = &spawn_transient(engine, std::move(axis));
+	}
+	xAxisNorm->set_rotation(glm::angleAxis(-Maths::PI/2.0f, Maths::up_vec));
+	yAxisNorm->set_rotation(glm::angleAxis(Maths::PI/2.0f, Maths::right_vec));
+
+	axes = {xAxisNorm, yAxisNorm, zAxisNorm};
+	for (auto* axis : axes)
+	{
 		axis->attach_to(this);
-		engine.draw_object(*axis);
 	}
 	set_visibility(false);
 }
@@ -200,28 +216,28 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 //
 
 ScaleGizmo::ScaleGizmo(GameEngine& engine, Gizmo& gizmo) :
-	xAxis(Maths::right_vec),
-	yAxis(Maths::up_vec),
-	zAxis(Maths::forward_vec),
 	GizmoBase(engine, gizmo)
 {
 }
 
 void ScaleGizmo::init()
 {
-	xAxis.point(Maths::zero_vec, Maths::right_vec);
-	yAxis.point(Maths::zero_vec, Maths::up_vec);
-	zAxis.point(Maths::zero_vec, Maths::forward_vec);
-
-	axes = {&xAxis, &yAxis, &zAxis};
-	for (size_t i = 0; i < axes.size(); ++i)
+	const std::array directions = { Maths::right_vec, Maths::up_vec, Maths::forward_vec };
+	const std::array destinations = { &xAxis, &yAxis, &zAxis };
+	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto* axis = axes[i];
+		auto axis = std::make_shared<ScaleGizmoObj>(directions[i]);
+		axis->point(Maths::zero_vec, directions[i]);
 		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(axis_materials[i]);
 		axis->renderables[0].casts_shadow = false;
 		axis->renderables[0].render_on_top = true;
+		*destinations[i] = &spawn_transient(engine, std::move(axis));
+	}
+
+	axes = {xAxis, yAxis, zAxis};
+	for (auto* axis : axes)
+	{
 		axis->attach_to(this);
-		engine.draw_object(*axis);
 	}
 
 	{
@@ -232,20 +248,20 @@ void ScaleGizmo::init()
 		constexpr float CUBE_SIZE = 0.3f;
 		transform_vertices(vertices, glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE)));
 		const auto mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
-		uniformCube.renderables = { Renderable::make_default(mesh_id) };
+		auto renderable = Renderable::make_default(mesh_id);
+		renderable.material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_UNIFORM_SCALE);
+		renderable.casts_shadow = false;
+		renderable.render_on_top = true;
+		uniformCube = &spawn_transient(engine, std::make_shared<Object>(renderable));
 	}
-	uniformCube.renderables[0].material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_UNIFORM_SCALE);
-	uniformCube.renderables[0].casts_shadow = false;
-	uniformCube.renderables[0].render_on_top = true;
-	uniformCube.attach_to(this);
-	engine.draw_object(uniformCube);
+	uniformCube->attach_to(this);
 
 	set_visibility(false);
 }
 
 void ScaleGizmo::set_visibility(bool visibility)
 {
-	uniformCube.set_visibility(visibility);
+	uniformCube->set_visibility(visibility);
 	GizmoBase::set_visibility(visibility);
 }
 
@@ -262,7 +278,7 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	const std::array uniform_candidate = { uniform_cube_entity };
 	if (engine.get_ecs().raycast(ray, uniform_candidate).bCollided)
 	{
-		active_axis = &uniformCube;
+		active_axis = uniformCube;
 		uniform_scaling = true;
 		reference_transform.set_scale(gizmo.selected_object->get_scale());
 
@@ -290,7 +306,7 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 void ScaleGizmo::register_colliders()
 {
 	GizmoBase::register_colliders();
-	uniform_cube_entity = engine.get_ecs().add_transient_object(uniformCube);
+	uniform_cube_entity = uniformCube->get_id();
 	engine.get_ecs().add_mesh_collider(uniform_cube_entity, ColliderPersistence::Transient);
 }
 

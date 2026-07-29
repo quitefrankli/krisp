@@ -61,24 +61,19 @@ void Camera::deserialize(const Deserializer& in)
 }
 
 
-Camera::Camera(Listener&& listener, float aspect_ratio) :
+Camera::Camera(Listener&& listener, float aspect_ratio, Object& focus, Object& upvector) :
 	ITrackableObject(this),
 	listener(std::move(listener)),
 	aspect_ratio(aspect_ratio)
 {
 	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
 	set_orthographic_projection({ -aspect_ratio, aspect_ratio });
-	focus_obj = std::make_shared<Object>(Renderable::make_default(MeshFactory::sphere_id()));
-	focus_obj->set_scale(glm::vec3(0.3f, 0.3f, 0.3f));
+	focus_obj = &focus;
+	upvector_obj = &upvector;
+	focus_obj->set_scale(glm::vec3(0.3f));
 	focus_obj->set_visibility(false);
-
-	upvector_obj = std::make_shared<Arrow>();
 	upvector_obj->set_position(get_focus());
 	upvector_obj->set_visibility(false);
-
-	attach_to(focus_obj.get());
-	upvector_obj->attach_to(focus_obj.get());
-
 	set_mode(Mode::ORBIT);
 	set_visibility(false);
 
@@ -349,8 +344,8 @@ void Camera::set_mode(Mode new_mode)
 	if (new_mode == Mode::ORBIT)
 	{
 		focus_obj->detach_from();
-		upvector_obj->attach_to(focus_obj.get()); // don't forget to reattach it
-		attach_to(focus_obj.get());
+		upvector_obj->attach_to(focus_obj); // don't forget to reattach it
+		attach_to(focus_obj);
 	} else if (new_mode == Mode::FPV) {
 		detach_from();
 		focus_obj->attach_to(this);
