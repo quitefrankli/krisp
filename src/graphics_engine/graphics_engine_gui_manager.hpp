@@ -57,7 +57,8 @@ private:
 	bool reset_layout_requested = false;
 	std::atomic<bool> engine_ui_active = true;
 	std::atomic<bool> application_ui_active = false;
-	ApplicationUiManager* application_ui_manager = nullptr; // owned by GameEngine
+	// Registration topology is sealed before the graphics thread starts.
+	ApplicationUiManager* application_ui_manager = nullptr;
 	std::string imgui_ini_path;
 	EngineUiManager engine_ui_manager;
 	std::vector<MaterialHandle> gui_texture_owners;

@@ -27,6 +27,7 @@ public:
 
 public:
 	virtual GraphicsEngine& get_graphics_engine() { return graphics_engine; }
+	virtual const GraphicsEngine& get_graphics_engine() const { return graphics_engine; }
 	virtual VkDevice& get_logical_device();
 	virtual VkPhysicalDevice& get_physical_device();
 	virtual VkInstance& get_instance();
@@ -38,7 +39,9 @@ public:
 		VkMemoryPropertyFlags memory_flags,
 		uint32_t alignment = 1,
 		std::string name = "");
-	virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);		
+#if 0 // Ray tracing is unsupported; retained for future repair.
+	virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);
+#endif
 
 protected:
 	// for derived classes that we may not want to call destructor on because of a std::move

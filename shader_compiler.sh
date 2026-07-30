@@ -58,6 +58,11 @@ echo -e "${YELLOW}compiling shaders...${NC}"
 # for each folder in under $RASTERIZATION_SHADERS_DIR except "library" compile each folder
 for directory in $SHADERS_DIR/*/*/
 do
+	if [[ $directory == "$SHADERS_DIR/raytracing_shaders/"* ]]
+	then
+		# Ray tracing is unsupported; keep its shaders out of the build.
+		continue
+	fi
 	shader_name=$(basename $directory)
 	compile_shader_dir $shader_name $directory
 done

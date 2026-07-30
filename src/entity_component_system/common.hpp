@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 
@@ -26,13 +27,16 @@ private:
 	public:
 		~Handle() noexcept
 		{
-			get_global()._remove(id);
+			if (registered)
+				get_global()._remove(id);
 		}
 
 	private:
 		friend CountableSystem;
-		explicit Handle(IDType id) noexcept : id(id) {}
+		Handle(IDType id, ContentType* content) noexcept : id(id), content(content) {}
 		const IDType id;
+		ContentType* const content;
+		bool registered = false;
 	};
 
 public:
@@ -40,9 +44,10 @@ public:
 
 	static HandlePtr add(std::unique_ptr<ContentType>&& content)
 	{
-		const auto id = get_global()._add(std::move(content));
-		auto owner = std::shared_ptr<Handle>(new Handle(id));
-		get_global().owners.emplace(id, owner);
+		auto& global = get_global();
+		const IDType id = content->get_id();
+		auto owner = std::shared_ptr<Handle>(new Handle(id, content.get()));
+		global._add(std::move(content), owner);
 		return owner;
 	}
 
@@ -58,6 +63,7 @@ public:
 	static HandlePtr acquire(IDType id)
 	{
 		auto& global = get_global();
+		const std::lock_guard lock(global.registry_mutex);
 		if (!global.contents.contains(id))
 			throw std::runtime_error("CountableSystem::acquire: id not found");
 		const auto found = global.owners.find(id);
@@ -76,14 +82,31 @@ public:
 		return owner->id;
 	}
 
+	/**
+	 * Reads an immutable resource directly through an owner.
+	 *
+	 * This does not access or lock the global registry. The caller's owner keeps
+	 * the pointed-to resource alive for the complete read.
+	 */
+	static const ContentType& get(const HandlePtr& owner)
+	{
+		if (!owner || !owner->registered)
+			throw std::runtime_error("CountableSystem::get: owner is empty");
+		return *owner->content;
+	}
+
 	static ContentType& get(IDType id)
 	{
-		return get_global()._get(id);
+		auto& global = get_global();
+		const std::lock_guard lock(global.registry_mutex);
+		return global._get(id);
 	}
 
 	static bool contains(IDType id)
 	{
-		return get_global().contents.contains(id);
+		auto& global = get_global();
+		const std::lock_guard lock(global.registry_mutex);
+		return global.contents.contains(id);
 	}
 
 	/**
@@ -97,19 +120,38 @@ public:
 	static std::vector<IDType> take_retired()
 	{
 		auto& global = get_global();
+		const std::lock_guard lock(global.retired_mutex);
 		std::vector<IDType> result;
 		result.swap(global.retired);
 		return result;
 	}
 
 private:
-	IDType _add(std::unique_ptr<ContentType>&& content)
+	void _add(std::unique_ptr<ContentType>&& content, const HandlePtr& owner)
 	{
 		const IDType id = content->get_id();
+		const std::lock_guard lock(registry_mutex);
 		assert(!contents.contains(id));
-		contents.emplace(id, std::move(content));
-
-		return id;
+		bool content_inserted = false;
+		bool owner_inserted = false;
+		try
+		{
+			content_inserted = contents.emplace(id, std::move(content)).second;
+			if (!content_inserted)
+				throw std::runtime_error("CountableSystem::_add: duplicate id");
+			owner_inserted = owners.emplace(id, owner).second;
+			if (!owner_inserted)
+				throw std::runtime_error("CountableSystem::_add: duplicate owner");
+			owner->registered = true;
+		}
+		catch (...)
+		{
+			if (owner_inserted)
+				owners.erase(id);
+			if (content_inserted)
+				contents.erase(id);
+			throw;
+		}
 	}
 
 	ContentType& _get(IDType id)
@@ -123,11 +165,17 @@ private:
 
 	void _remove(IDType id) noexcept
 	{
-		const auto found = owners.find(id);
-		if (found != owners.end())
-			owners.erase(found);
-		contents.erase(id);
-		retired.push_back(id);
+		{
+			const std::lock_guard lock(registry_mutex);
+			const auto found = owners.find(id);
+			if (found != owners.end())
+				owners.erase(found);
+			contents.erase(id);
+		}
+		{
+			const std::lock_guard lock(retired_mutex);
+			retired.push_back(id);
+		}
 	}
 
 	static CountableSystem& get_global()
@@ -140,6 +188,10 @@ private:
 	std::unordered_map<IDType, std::unique_ptr<ContentType>> contents;
 	std::unordered_map<IDType, std::weak_ptr<Handle>> owners;
 	std::vector<IDType> retired;
+	// Registry access can race with final-owner release on another thread.
+	std::mutex registry_mutex;
+	// Graphics drains retirements independently of registry reads and writes.
+	std::mutex retired_mutex;
 };
 
 class ECS;

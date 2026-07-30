@@ -45,6 +45,7 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
+#if 0 // Ray tracing is unsupported; retain this implementation for future repair.
 class RaytracingPipeline : public GraphicsEnginePipeline
 {
 public:
@@ -57,6 +58,7 @@ protected:
 private:
 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
 };
+#endif
 
 class LightWeightOffscreenPipeline : public GraphicsEnginePipeline
 {

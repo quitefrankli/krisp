@@ -40,7 +40,7 @@
 GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	window(std::make_unique<App::Window>()),
 	mouse(std::make_unique<Mouse>(*window)),
-	graphics_engine(std::make_unique<GraphicsEngine>(*this)),
+	graphics_engine(std::make_unique<GraphicsEngine>(*window)),
 	application(std::move(app))
 {
 	init();
@@ -59,10 +59,6 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 
 void GameEngine::init()
 {
-	// Retirements left by a previous engine instance refer to an already-destroyed
-	// graphics backend. Resources released before this engine started were never uploaded.
-	MeshSystem::take_retired();
-	MaterialSystem::take_retired();
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
 	graphics_engine->set_ui_layers_active(true, false);
 	auto& camera_focus = spawn_object<Object>(
@@ -89,6 +85,7 @@ void GameEngine::init()
 	configure_ecs();
 	application->create_ui(*this, application_ui_manager);
 	application_ui_manager.seal();
+	publish_completed_render_frame();
 }
 
 void GameEngine::configure_ecs()
@@ -255,6 +252,7 @@ void GameEngine::main_loop(const float time_delta)
 		application->on_post_tick(*this, time_delta);
 	}
 	camera->sync_audio_listener();
+	publish_completed_render_frame();
 }
 
 void GameEngine::set_game_mode(const EGameMode mode)
@@ -354,8 +352,6 @@ Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	// }
 	// ecs.add_bone_visualisers(object->get_id(), visualisers);
 
-	send_graphics_cmd(std::make_unique<SpawnObjectCmd>(it.first->second));
-
 	return new_obj;
 }
 
@@ -388,20 +384,6 @@ void GameEngine::validate_renderable_resources(const Object& object)
 	}
 }
 
-void GameEngine::collect_retired_resources(DestroyResourcesCmd& destroy_resources_cmd)
-{
-	auto materials = MaterialSystem::take_retired();
-	destroy_resources_cmd.material_ids.insert(
-		destroy_resources_cmd.material_ids.end(),
-		std::make_move_iterator(materials.begin()),
-		std::make_move_iterator(materials.end()));
-	auto meshes = MeshSystem::take_retired();
-	destroy_resources_cmd.mesh_ids.insert(
-		destroy_resources_cmd.mesh_ids.end(),
-		std::make_move_iterator(meshes.begin()),
-		std::make_move_iterator(meshes.end()));
-}
-
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
 {
 	auto& obj = spawn_object<Object>(Renderable::make_default());
@@ -413,28 +395,20 @@ Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config
 
 void GameEngine::delete_object(ObjectID id)
 {
-	if (!entity_deletion_queue.push(id))
-	{
+	if (!objects.contains(id) || !pending_deletions.insert(id).second)
 		return;
-	}
-
-	graphics_engine->enqueue_cmd(std::make_unique<DeleteObjectCmd>(id));
+	entities_to_delete.push(id);
 }
 
 void GameEngine::process_objs_to_delete()
 {
-	const auto curr_deleted_objs_count_in_graphics_engine = graphics_engine->get_num_objs_deleted();
-	DestroyResourcesCmd destroy_resources_cmd;
-	collect_retired_resources(destroy_resources_cmd);
-	while (!entity_deletion_queue.empty())
+	while (!entities_to_delete.empty())
 	{
-		const auto& obj = entity_deletion_queue.front();
-		const ObjectID id = obj.first;
-
-		if (obj.second >= curr_deleted_objs_count_in_graphics_engine)
-		{
-			break;
-		}
+		const ObjectID id = entities_to_delete.front();
+		entities_to_delete.pop();
+		pending_deletions.erase(id);
+		if (!objects.contains(id))
+			continue;
 
 		// TODO: fix visualisers		
 		// if (ecs.has_skeletal_component(id))
@@ -455,41 +429,17 @@ void GameEngine::process_objs_to_delete()
 		}
 		ecs.remove_object(id);
 		objects.erase(id);
-		collect_retired_resources(destroy_resources_cmd);
-		entity_deletion_queue.pop();
 	}
-	if (!destroy_resources_cmd.material_ids.empty() || !destroy_resources_cmd.mesh_ids.empty())
-		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroy_resources_cmd)));
 }
 
 void GameEngine::reset_scene()
 {
-	[[maybe_unused]] auto graphics_pause = reset_scene_and_pause_graphics();
+	reset_scene_state();
 }
 
-GameEngine::SceneResetPause::~SceneResetPause() noexcept
-{
-	if (resume)
-		resume->set_value();
-}
-
-GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
+void GameEngine::reset_scene_state()
 {
 	gizmo->deselect();
-
-	std::vector<ObjectID> object_ids;
-	object_ids.reserve(objects.size());
-	for (const auto& [id, object] : objects)
-		if (!object->is_transient())
-			object_ids.push_back(id);
-
-	auto reset_command = std::make_unique<ResetSceneCmd>(std::move(object_ids));
-	auto graphics_paused = reset_command->complete.get_future();
-	auto resume_graphics = reset_command->resume;
-	SceneResetPause graphics_pause(resume_graphics);
-	send_graphics_cmd(std::move(reset_command));
-	if (graphics_engine_thread.joinable())
-		graphics_paused.get();
 
 	for (const auto& [_, object] : objects)
 		if (!object->is_transient())
@@ -503,15 +453,13 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 	std::erase_if(objects, [](const auto& entry) {
 		return !entry.second->is_transient();
 	});
-	DestroyResourcesCmd destroyed_resources;
-	collect_retired_resources(destroyed_resources);
 	active_player = nullptr;
 	game_mode = EGameMode::EDITOR;
 	graphics_engine->set_ui_layers_active(true, false);
-	entity_deletion_queue.clear();
+	entities_to_delete = {};
+	pending_deletions.clear();
 	ResourceProvenance::clear();
 	tile_renderable.reset();
-	collect_retired_resources(destroyed_resources);
 	configure_ecs();
 	for (const auto& [_, object] : objects)
 		ecs.add_object(*object);
@@ -519,20 +467,16 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 
 	camera->set_mode(Camera::Mode::ORBIT);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
-
-	if (!destroyed_resources.mesh_ids.empty() || !destroyed_resources.material_ids.empty())
-		send_graphics_cmd(std::make_unique<DestroyResourcesCmd>(std::move(destroyed_resources)));
-	return graphics_pause;
 }
 
 void GameEngine::highlight_object(const Object& object)
 {
-	graphics_engine->enqueue_cmd(std::make_unique<StencilObjectCmd>(object));
+	graphics_engine->enqueue_cmd(std::make_unique<StencilObjectCmd>(object.get_id()));
 }
 
 void GameEngine::unhighlight_object(const Object& object)
 {
-	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object));
+	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object.get_id()));
 }
 
 void GameEngine::replace_renderable_texture(
@@ -613,15 +557,6 @@ void GameEngine::replace_renderable_texture(
 			: take_old_owner(*current.specular_mat));
 	renderable.material_owners = std::move(updated_owners);
 	old_owners.clear();
-
-	auto retired_materials = MaterialSystem::take_retired();
-	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
-		object_id,
-		renderable_index,
-		diffuse,
-		normal,
-		specular,
-		std::move(retired_materials)));
 }
 
 void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const size_t renderable_index)
@@ -659,15 +594,6 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 	updated_owners.push_back(std::move(matte_owner));
 	renderable.material_owners = std::move(updated_owners);
 	old_owners.clear();
-
-	auto retired_materials = MaterialSystem::take_retired();
-	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
-		object_id,
-		renderable_index,
-		current.base_color_mat,
-		current.normal_mat,
-		matte,
-		std::move(retired_materials)));
 }
 
 EngineUiManager& GameEngine::get_gui_manager()
@@ -770,7 +696,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 		saved_objects.push_back({ saved, parent.kind() == SerializationKind::Null
 			? std::nullopt : std::optional<ObjectID>(ObjectID(parent.as<uint64_t>())) });
 	}
-	[[maybe_unused]] auto graphics_pause = reset_scene_and_pause_graphics();
+	reset_scene_state();
 	std::unordered_map<std::string, ResourceLoader::LoadedModel> imported_models;
 	const auto load_imported_model = [&](const Deserializer& source) -> const ResourceLoader::LoadedModel&
 	{
@@ -835,8 +761,5 @@ void GameEngine::load_scene(const std::string_view save_name)
 	camera_orbit_with_right_mouse = engine_state.read<bool>("camera_orbit_with_right_mouse");
 	camera->deserialize(document.child("camera"));
 	set_game_mode(saved_game_mode);
-	for (const auto& [_, object] : objects)
-		if (!object->is_transient())
-			send_graphics_cmd(std::make_unique<SpawnObjectCmd>(object));
 	application->on_scene_loaded(*this);
 }

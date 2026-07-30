@@ -191,14 +191,6 @@ void GraphicsEngineSwapChain::destroy_and_recreate_frames()
 	LOG_INFO(Utility::get_logger(), "GraphicsEngineSwapChain: created {} frames", frames.size());
 }
 
-void GraphicsEngineSwapChain::update_command_buffer()
-{
-	for (auto& frame : frames)
-	{
-		frame.update_command_buffer();
-	}
-}
-
 VkExtent2D GraphicsEngineSwapChain::get_extent()
 {
 	return get_extent(get_physical_device(), get_graphics_engine().get_window_surface());

@@ -1,16 +1,14 @@
 #include "renderer.hpp"
 #include "rasterization_renderer.ipp"
 #include "gui_renderer.ipp"
-#include "raytracing_renderer.ipp"
+// #include "raytracing_renderer.ipp" // Ray tracing is unsupported.
 #include "offscreen_gui_viewport_renderer.ipp"
 #include "shadowmap_renderer.ipp"
 #include "quad_renderer.ipp"
 #include "particle_renderer.ipp"
 #include "renderer_manager.ipp"
 #include "graphics_engine/graphics_engine.hpp"
-#include "game_engine.hpp"
 #include "renderable/mesh.hpp"
-#include "entity_component_system/mesh_system.hpp"
 
 
 Renderer::Renderer(GraphicsEngine& engine) :
@@ -37,11 +35,11 @@ VkExtent2D Renderer::get_extent()
 }
 
 void Renderer::draw_renderable(VkCommandBuffer command_buffer,
-						   	   const Renderable& renderable, 
+							   const RenderableDefinition& renderable,
 							   const VkDescriptorSet& object_dset,
 							   const VkDescriptorSet& renderable_dset,
-						   	   EPipelineModifier pipeline_modifier,
-						   	   ERenderType primary_pipeline_override)
+							   EPipelineModifier pipeline_modifier,
+							   ERenderType primary_pipeline_override)
 {
 	const ERenderType primary_pipeline_type = primary_pipeline_override == ERenderType::UNASSIGNED ?
 		renderable.pipeline_render_type : primary_pipeline_override;
@@ -66,7 +64,7 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							0,
 							nullptr);
 
-	const Mesh& mesh = MeshSystem::get(renderable.get_mesh_id());
+	const Mesh& mesh = renderable.get_mesh();
 	const VkDeviceSize buffer_offset = get_rsrc_mgr().get_vertex_buffer_offset(mesh.get_id());
 	const VkBuffer buffer = get_rsrc_mgr().get_vertex_buffer();
 	vkCmdBindVertexBuffers(command_buffer, 

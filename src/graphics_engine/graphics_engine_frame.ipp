@@ -4,13 +4,9 @@
 
 #include "graphics_engine.hpp"
 #include "graphics_engine_swap_chain.hpp"
-#include "objects/object.hpp"
 #include "shared_data_structures.hpp"
-#include "camera.hpp"
 #include "pipeline/pipeline.hpp"
 #include "renderable/render_types.hpp"
-
-#include "entity_component_system/ecs.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -58,7 +54,6 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
 	fence_image_inflight(std::move(frame.fence_image_inflight)),
 	analytics(std::move(frame.analytics)),
-	objs_to_delete(std::move(frame.objs_to_delete)),
 	screenshot_staging_buffer(std::move(frame.screenshot_staging_buffer)),
 	screenshot_path(std::move(frame.screenshot_path)),
 	screenshot_extent(std::move(frame.screenshot_extent)),
@@ -113,29 +108,20 @@ void GraphicsEngineFrame::update_command_buffer()
 		throw std::runtime_error("failed to begin recording command buffer!");
 	}
 
-	//
-	// do stuff that needs to be done before we record a new command buffer
-	// i.e. deleting objects
-	//
-	pre_cmdbuffer_recording();
-
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
 	const auto submit_draw_commands = [&](const ERendererType renderer_type)
 	{
 		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 	};
-	if (get_graphics_engine().render_mode == ERenderMode::RAYTRACING)
-	{
-		submit_draw_commands(ERendererType::RAYTRACING);
-	} else
-	{
-		if (get_graphics_engine().render_mode != ERenderMode::UNLIT_BASE_COLOR)
-			submit_draw_commands(ERendererType::SHADOW_MAP);
-		submit_draw_commands(ERendererType::RASTERIZATION);
-		// Note: Particle rendering is now done within the RasterizationRenderer
-		submit_draw_commands(ERendererType::QUAD);
-		// submit_draw_commands(ERendererType::OFFSCREEN_GUI_VIEWPORT);
-	}
+	// Ray tracing is unsupported:
+	// if (get_graphics_engine().render_mode == ERenderMode::RAYTRACING)
+	//     submit_draw_commands(ERendererType::RAYTRACING);
+	if (get_graphics_engine().render_mode != ERenderMode::UNLIT_BASE_COLOR)
+		submit_draw_commands(ERendererType::SHADOW_MAP);
+	submit_draw_commands(ERendererType::RASTERIZATION);
+	// Note: Particle rendering is now done within the RasterizationRenderer
+	submit_draw_commands(ERendererType::QUAD);
+	// submit_draw_commands(ERendererType::OFFSCREEN_GUI_VIEWPORT);
 
 	maybe_prepare_screenshot_capture();
 
@@ -264,17 +250,19 @@ void GraphicsEngineFrame::update_uniform_buffer()
 {
 	// update global uniform buffer
 	const auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().get_graphic_settings();
+	const RenderFrame& render_frame = get_graphics_engine().get_render_frame();
 	SDS::GlobalData gubo;
-	gubo.view = get_graphics_engine().get_camera()->get_view();
-	gubo.proj = get_graphics_engine().get_camera()->get_projection();
-	gubo.view_pos = get_graphics_engine().get_camera()->get_position();
+	gubo.view = render_frame.camera.view;
+	gubo.proj = render_frame.camera.projection;
+	gubo.view_pos = render_frame.camera.position;
 
 	// currently uses a single active light source
-	if (get_graphics_engine().get_ecs().has_light_source())
+	if (render_frame.active_light)
 	{
-		ObjectID entity = get_graphics_engine().get_ecs().get_global_light_source();
-		auto& light_source = get_graphics_engine().get_object(entity);
-		gubo.light_pos = light_source.get_game_object().get_position();
+		const auto& light = *render_frame.active_light;
+		gubo.light_pos = glm::vec3(
+			get_graphics_engine().get_render_object_transform(
+				render_frame.objects[light.object_index].definition->id)[3]);
 		gubo.lighting_scalar = graphic_settings.light_strength;
 	}
 	else
@@ -321,7 +309,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	SDS::ObjectData object_data{};
 	for (const auto& [id, graphics_object] : get_graphics_engine().get_objects())
 	{
-		const glm::mat4 gameplay_transform = graphics_object->get_game_object().get_transform();
+		const glm::mat4& gameplay_transform = graphics_object->get_model_transform();
 		for (uint32_t renderable_idx = 0; renderable_idx < graphics_object->get_renderables().size(); ++renderable_idx)
 		{
 			object_data.model =
@@ -334,10 +322,12 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		}
 
 		// All skinned renderables in an object share one skeleton and bone buffer.
-		const auto skeleton_id = get_graphics_engine().get_ecs().get_skeleton_id(graphics_object->get_id());
+		const auto skeleton_id = graphics_object->get_skeleton_id();
 		if (skeleton_id)
 		{
-			std::vector<SDS::Bone> bones = get_graphics_engine().get_ecs().get_bones(*skeleton_id);
+			const auto& pose = get_graphics_engine().get_render_skeleton_pose(*skeleton_id);
+			std::vector<SDS::Bone> bones =
+				compose_bone_transforms(pose.local_transforms, *pose.definition);
 			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*skeleton_id, image_index), bones);
 		}
 	}
@@ -357,22 +347,5 @@ void GraphicsEngineFrame::create_synchronisation_objects()
 		vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &fence_frame_inflight) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create semaphores!");
-	}
-}
-
-void GraphicsEngineFrame::mark_obj_for_delete(ObjectID id)
-{
-	objs_to_delete.push(id);
-}
-
-void GraphicsEngineFrame::pre_cmdbuffer_recording()
-{
-	// Note: this code works since when we mark an object for deletion we only do so on the currently in flight frame.
-	// So therefore this function only gets called once the inflight frame finishes
-	// and all the frames gets cycled once. That means no frame would be using the affected resources.
-	while (!objs_to_delete.empty())
-	{
-		get_graphics_engine().cleanup_entity(objs_to_delete.front());
-		objs_to_delete.pop();
 	}
 }

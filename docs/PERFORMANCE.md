@@ -74,11 +74,42 @@ CPU work and temporary storage are linear in the bone count of skeletons with
 attachments, plus constant transform work per attachment. Skeletons without
 attachments incur no pose-composition cost. No measurements have been recorded.
 
-Animation pose writes and render/attachment pose snapshots take the same
-per-skeleton mutex. This prevents readers from observing partially updated
-`Maths::Transform` cache flags. Different skeletons can still update or render
-independently, but the render thread may briefly wait while one skeleton's
-animation pose is applied. Lock contention has not been measured.
+Animation pose writes and render-frame pose snapshots are both confined to the
+game thread. The graphics thread consumes only the copied pose, so skeletal
+processing has no cross-thread mutex or render-thread contention.
+
+## Render-frame publication
+
+The game thread now builds one immutable render snapshot after each update.
+Per-frame work is linear in object count, renderable/material-reference count,
+attached bone count, and live particle count. Object and skeleton definitions
+are compared with cached immutable definitions each update, but their vectors
+and asset handles are copied only when definition content changes.
+
+Current and previous frames remain shared-owned by the publication mailbox, so
+their dynamic vectors and referenced mesh/material assets remain alive until
+consumers release them or newer frames displace them. The graphics thread loads
+one publication per loop and retains it for every pass. If rendering is slower
+than game updates, intermediate snapshots are discarded by the latest-wins
+mailbox instead of queuing work or blocking the producer.
+
+Render definitions expose their retained mesh and material assets through
+owner-based const access. Graphics recording and resource upload therefore do
+not lock or query the mutable asset registries. Registry synchronization is
+limited to ownership lookup/update and the cross-thread retirement handoff.
+
+Graphics-owned objects and their descriptor/buffer topology are reconciled
+only when membership or object/skeleton definition versions change. Dynamic
+camera, visibility, hierarchy-transform, particle, and bone-pose changes reuse
+that topology. Topology changes synchronize the Vulkan device before replacing
+affected resources. Released mesh/material GPU allocations are likewise
+retired only after graphics synchronization; these waits affect the graphics
+thread but never the game publisher.
+
+The unsupported ray-tracing source and shader paths are excluded from builds.
+Its renderer, pipeline, descriptor layouts, device extensions/features, and
+mapping buffer are not created, reducing fixed startup/device resource
+requirements. No timing measurements have been recorded.
 
 ## UI layers
 

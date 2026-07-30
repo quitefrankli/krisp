@@ -366,7 +366,7 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 {
 	auto texture_owner = ResourceLoader::fetch_texture(texture_filename);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
-		MaterialSystem::get_id(texture_owner),
+		texture_owner,
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
 	gui_texture_owners.push_back(std::move(texture_owner));
 	

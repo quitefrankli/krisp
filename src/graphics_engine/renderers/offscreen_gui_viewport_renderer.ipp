@@ -123,12 +123,9 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 	for (const auto& it_pair : graphics_objects)
 	{
 		const auto& graphics_object = *(it_pair.second);
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
 		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 		{
-			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
 			
 			// only support color and texture render types for now
 			if (renderable.pipeline_render_type != ERenderType::COLOR &&

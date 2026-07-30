@@ -5,7 +5,7 @@ RendererManager::RendererManager(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
 	renderers[ERendererType::RASTERIZATION] = std::make_unique<RasterizationRenderer>(engine);
-	renderers[ERendererType::RAYTRACING] = std::make_unique<RaytracingRenderer>(engine);
+	// renderers[ERendererType::RAYTRACING] = std::make_unique<RaytracingRenderer>(engine);
 	renderers[ERendererType::GUI] = std::make_unique<GuiRenderer>(engine);
 	renderers[ERendererType::OFFSCREEN_GUI_VIEWPORT] = std::make_unique<OffscreenGuiViewportRenderer>(engine);
 	renderers[ERendererType::SHADOW_MAP] = std::make_unique<ShadowMapRenderer>(engine);

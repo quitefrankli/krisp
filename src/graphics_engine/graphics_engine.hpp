@@ -13,7 +13,7 @@
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
 #include "renderers/renderer_manager.hpp"
-#include "raytracing.hpp"
+// #include "raytracing.hpp" // Ray tracing is unsupported.
 #include "vulkan_wrappers.hpp"
 #include "window.hpp"
 #include "shared_data_structures.hpp"
@@ -29,16 +29,14 @@
 
 
 class Analytics;
-class Camera;
 class GraphicsEngineObject;
-class ECS;
 class VideoRecorder;
 
 class GraphicsEngine : public GraphicsEngineBase
 {
 public:
 	GraphicsEngine() = delete;
-	GraphicsEngine(GameEngine& game_engine);
+	explicit GraphicsEngine(App::Window& window);
 	virtual ~GraphicsEngine() override;
 
 	void run() final;
@@ -50,7 +48,6 @@ public:
 public: // getters and setters
 	VkExtent2D get_extent();
 	App::Window& get_window();
-	Camera* get_camera();
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject>>& get_objects() 
 	{ 
 		return objects; 
@@ -72,7 +69,7 @@ public: // getters and setters
 	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
-	GraphicsEngineRayTracing& get_raytracing_module() { return raytracing_component; }
+	// GraphicsEngineRayTracing& get_raytracing_module() { return raytracing_component; }
 	GraphicsEngineGuiManager& get_graphics_gui_manager() { return gui_manager; }
 	EngineUiManager& get_gui_manager() final { return gui_manager.get_engine_ui_manager(); }
 	void set_application_ui_manager(ApplicationUiManager* manager) final
@@ -91,10 +88,19 @@ public: // getters and setters
 	void set_fps(const float fps) { this->fps = fps; }
 	float get_fps() const final { return fps; }
 	static constexpr VkSampleCountFlagBits get_msaa_samples() { return VK_SAMPLE_COUNT_4_BIT; }
-	ECS& get_ecs();
-	const ECS& get_ecs() const;
-	uint64_t get_num_objs_deleted() const final { return num_objs_deleted; }
-	void increment_num_objs_deleted() final { ++num_objs_deleted; }
+	const RenderFrame& get_render_frame() const { return *accepted_render_frame; }
+	const RenderObjectState& get_render_object_state(ObjectID id) const
+	{
+		return accepted_render_frame->objects.at(render_object_indices.at(id));
+	}
+	const glm::mat4& get_render_object_transform(ObjectID id) const
+	{
+		return object_transforms.at(render_object_indices.at(id));
+	}
+	const RenderSkeletonPose& get_render_skeleton_pose(SkeletonID id) const
+	{
+		return accepted_render_frame->skeletons.at(render_skeleton_indices.at(id));
+	}
 	void cleanup_entity(const ObjectID id);
 
 private:
@@ -111,14 +117,12 @@ private:
 	std::unique_ptr<Analytics> FPS_tracker;
 	std::optional<VkFormat> depth_format;
 	float fps = 0.0f;
-	uint64_t num_objs_deleted = 0; // used for synchronisation, and knowing when an obj is safe to delete in game engine
 
 // if confused about the different vulkan definitions see here
 // https://stackoverflow.com/questions/39557141/what-is-the-difference-between-framebuffer-and-image-in-vulkan
 
 public: // swap chain
 	void recreate_swap_chain(); // useful for when size of window is changing
-	void update_command_buffer();
 	VkCommandBuffer begin_single_time_commands();
 	void end_single_time_commands(VkCommandBuffer command_buffer);
 
@@ -168,7 +172,11 @@ public: // thread safe
 	void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd) final;
 
 private: // core components
-	GameEngine& game_engine;
+	App::Window& window;
+	RenderFramePtr accepted_render_frame;
+	std::unordered_map<ObjectID, uint32_t> render_object_indices;
+	std::unordered_map<SkeletonID, uint32_t> render_skeleton_indices;
+	std::vector<glm::mat4> object_transforms;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
@@ -177,25 +185,23 @@ private: // core components
 	RendererManager renderer_mgr;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEnginePipelineManager pipeline_mgr;
-	GraphicsEngineRayTracing raytracing_component;
+	// GraphicsEngineRayTracing raytracing_component;
 	GraphicsEngineGuiManager gui_manager;
 	std::unique_ptr<VideoRecorder> video_recorder;
 
 public: // commands
-	void handle_command(SpawnObjectCmd& cmd) final;
-	void handle_command(DeleteObjectCmd& cmd) final;
 	void handle_command(StencilObjectCmd& cmd) final;
 	void handle_command(UnStencilObjectCmd& cmd) final;
 	void handle_command(ShutdownCmd& cmd) final;
 	void handle_command(SetRenderModeCmd& cmd) final;
-	void handle_command(UpdateCommandBufferCmd& cmd) final;
-	void handle_command(UpdateRayTracingCmd& cmd) final;
 	void handle_command(PreviewObjectsCmd& cmd) final;
-	void handle_command(DestroyResourcesCmd& cmd) final;
-	void handle_command(ResetSceneCmd& cmd) final;
-	void handle_command(UpdateRenderableMaterialsCmd& cmd) final;
 
 private:
+	void accept_latest_render_frame();
+	void reconcile_render_objects(
+		const RenderFrame& frame,
+		const RenderFrame* previous_frame);
+	void retire_unused_resources();
 	void spawn_object_create_buffers(GraphicsEngineObject& obj);
 	void spawn_object_create_dsets(GraphicsEngineObject& obj);
 };

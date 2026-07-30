@@ -1,15 +1,11 @@
 #pragma once
 
 #include "identifications.hpp"
-#include "renderable/material.hpp"
-
+#include "renderable/render_types.hpp"
 #include <memory>
-#include <optional>
 #include <vector>
-#include <future>
 
 
-class Object;
 class GraphicsEngineBase;
 class GuiPhotoBase;
 
@@ -19,39 +15,22 @@ struct GraphicsEngineCommand
 	virtual ~GraphicsEngineCommand() = default;
 };
 
-struct SpawnObjectCmd : public GraphicsEngineCommand
-{
-	SpawnObjectCmd(const std::shared_ptr<Object>& object);
-	SpawnObjectCmd(Object& object);
-	virtual void process(GraphicsEngineBase* engine) override;
-
-	std::shared_ptr<Object> object;
-	Object* object_ref = nullptr; // used for a GraphicsEngineObjectRef type object
-};
-
 struct ObjectCommand : public GraphicsEngineCommand
 {
-	ObjectCommand(const Object& object);
 	ObjectCommand(ObjectID object_id) : object_id(object_id) {}
 	
 	const ObjectID object_id;
 };
 
-struct DeleteObjectCmd : public ObjectCommand
-{
-	DeleteObjectCmd(ObjectID object_id) : ObjectCommand(object_id) {}
-	virtual void process(GraphicsEngineBase* engine) override;
-};
-
 struct StencilObjectCmd : public ObjectCommand
 {
-	StencilObjectCmd(const Object& object) : ObjectCommand(object) {}
+	using ObjectCommand::ObjectCommand;
 	virtual void process(GraphicsEngineBase* engine) override;
 };
 
 struct UnStencilObjectCmd : public ObjectCommand
 {
-	UnStencilObjectCmd(const Object& object) : ObjectCommand(object) {}
+	using ObjectCommand::ObjectCommand;
 	virtual void process(GraphicsEngineBase* engine) override;
 };
 
@@ -68,18 +47,6 @@ struct SetRenderModeCmd : public GraphicsEngineCommand
 	ERenderMode render_mode;
 };
 
-struct UpdateCommandBufferCmd : public GraphicsEngineCommand
-{
-	virtual void process(GraphicsEngineBase* engine) override;
-};
-
-// DEPRECATED, no longer necessary, acceleration structures are automatically
-// rebuilt on rtx toggle
-struct UpdateRayTracingCmd : public GraphicsEngineCommand
-{
-	virtual void process(GraphicsEngineBase* engine) override;
-};
-
 struct PreviewObjectsCmd : public GraphicsEngineCommand
 {
 	PreviewObjectsCmd(const std::vector<ObjectID>& objects, GuiPhotoBase& gui);
@@ -87,42 +54,4 @@ struct PreviewObjectsCmd : public GraphicsEngineCommand
 
 	const std::vector<ObjectID> objects;
 	GuiPhotoBase& gui;
-};
-
-struct DestroyResourcesCmd : public GraphicsEngineCommand
-{
-	virtual void process(GraphicsEngineBase* engine) override;
-
-	// std::vector<ObjectID> object_ids; // not needed for now
-	std::vector<MaterialID> material_ids;
-	std::vector<MeshID> mesh_ids;
-};
-
-struct ResetSceneCmd : public GraphicsEngineCommand
-{
-	explicit ResetSceneCmd(std::vector<ObjectID> object_ids) : object_ids(std::move(object_ids)) {}
-	void process(GraphicsEngineBase* engine) override;
-
-	std::vector<ObjectID> object_ids;
-	std::promise<void> complete;
-	std::shared_ptr<std::promise<void>> resume = std::make_shared<std::promise<void>>();
-};
-
-struct UpdateRenderableMaterialsCmd : public GraphicsEngineCommand
-{
-	UpdateRenderableMaterialsCmd(
-		ObjectID object_id,
-		size_t renderable_index,
-		MaterialID diffuse_material,
-		std::optional<MaterialID> normal_material,
-		std::optional<MaterialID> specular_material,
-		std::vector<MaterialID> retired_materials);
-	void process(GraphicsEngineBase* engine) override;
-
-	ObjectID object_id;
-	size_t renderable_index;
-	MaterialID diffuse_material;
-	std::optional<MaterialID> normal_material;
-	std::optional<MaterialID> specular_material;
-	std::vector<MaterialID> retired_materials;
 };

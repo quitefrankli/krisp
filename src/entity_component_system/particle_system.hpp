@@ -42,7 +42,7 @@ public:
 	void spawn_particle_emitter(EntityID entity_id, const ParticleEmitterConfig& config);
 	
 	// Get particle data for rendering (fills instance data buffer)
-	void prepare_render_data(std::vector<SDS::ParticleInstanceData>& out_instance_data);
+	void prepare_render_data(std::vector<SDS::ParticleInstanceData>& out_instance_data) const;
 
 	void remove_entity(EntityID id);
 

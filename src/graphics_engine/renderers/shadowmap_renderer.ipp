@@ -128,18 +128,18 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 	for (const auto& it_pair : graphics_objects)
 	{
 		const auto& graphics_object = *(it_pair.second);
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
 		if (!graphics_object.get_visibility())
 			continue;
 
-		if (get_graphics_engine().get_ecs().get_light_component(graphics_object.get_id()) != nullptr)
+		const auto& frame = get_graphics_engine().get_render_frame();
+		if (frame.active_light
+			&& frame.objects[frame.active_light->object_index].definition->id
+				== graphics_object.get_id())
 			continue;
 			
 		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 		{
-			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
 			if (!renderable.casts_shadow)
 			{
 				continue;

@@ -19,7 +19,9 @@ public:
 	~GraphicsEngineTextureManager();
 
 	// automatically generates texture if requested texture does not exist
-	GraphicsEngineTexture& fetch_texture(MaterialID id, ETextureSamplerType sampler_type);
+	GraphicsEngineTexture& fetch_texture(
+		const MaterialHandle& material_owner,
+		ETextureSamplerType sampler_type);
 	GraphicsEngineTexture& fetch_flat_normal_texture();
 	GraphicsEngineTexture& fetch_white_texture();
 	// automatically generates sampler if requested sampler type does not exist

@@ -136,7 +136,6 @@ SkeletalRigSignature make_skeletal_rig_signature(const std::vector<Bone>& bones)
 
 std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 {
-	const std::lock_guard lock(pose_mutex);
 	std::vector<SDS::Bone> final_bones_data(bones.size());
 	std::vector<bool> resolved(bones.size(), false);
 	std::function<void(uint32_t)> resolve = [&](const uint32_t index)
@@ -172,7 +171,6 @@ std::vector<SDS::Bone> SkeletalComponent::get_bones_data() const
 
 std::vector<glm::mat4> SkeletalComponent::get_model_space_bone_transforms() const
 {
-	const std::lock_guard lock(pose_mutex);
 	std::vector<glm::mat4> transforms(bones.size());
 	std::vector<bool> resolved(bones.size(), false);
 	std::function<void(uint32_t)> resolve = [&](const uint32_t index)
@@ -194,6 +192,21 @@ std::vector<glm::mat4> SkeletalComponent::get_model_space_bone_transforms() cons
 	for (uint32_t i = 0; i < bones.size(); ++i)
 		resolve(i);
 	return transforms;
+}
+
+SkeletalRenderStateSnapshot SkeletalComponent::snapshot_render_state() const
+{
+	SkeletalRenderStateSnapshot snapshot;
+	snapshot.parent_indices.reserve(bones.size());
+	snapshot.inverse_bind_poses.reserve(bones.size());
+	snapshot.local_transforms.reserve(bones.size());
+	for (const auto& bone : bones)
+	{
+		snapshot.parent_indices.push_back(bone.parent_node);
+		snapshot.inverse_bind_poses.push_back(bone.inverse_bind_pose.get_mat4());
+		snapshot.local_transforms.push_back(bone.relative_transform.get_mat4());
+	}
+	return snapshot;
 }
 
 bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Transform& out_transform) const
@@ -340,7 +353,6 @@ void SkeletalAnimationSystem::process(const float delta_secs)
 		else if (state.current_animation_elapsed_secs > duration_secs)
 		{
 			auto& component = get_ecs().get_skeletal_component(skeleton_id);
-			const std::lock_guard lock(component.pose_mutex);
 			for (auto& bone : component.get_bones())
 				bone.relative_transform = bone.original_transform;
 			skeletons_to_remove.push_back(skeleton_id);
@@ -369,7 +381,6 @@ void SkeletalAnimationSystem::apply_animation_pose(const SkeletonID skeleton_id)
 	const auto& animation = animations.at(animation_id);
 	auto& state = animation_states.at(skeleton_id);
 	auto& component = get_ecs().get_skeletal_component(skeleton_id);
-	const std::lock_guard lock(component.pose_mutex);
 	auto& bones = component.get_bones();
 	std::vector<Maths::Transform> target_pose;
 	target_pose.reserve(bones.size());
@@ -459,7 +470,6 @@ bool SkeletalAnimationSystem::play_animation(
 		|| !is_animation_compatible(skeleton_id, animation_id))
 		return false;
 	auto& component = get_ecs().get_skeletal_component(skeleton_id);
-	const std::lock_guard lock(component.pose_mutex);
 	for (auto& bone : component.get_bones())
 		bone.relative_transform = bone.original_transform;
 	active_animations.insert_or_assign(skeleton_id, animation_id);
@@ -485,7 +495,6 @@ bool SkeletalAnimationSystem::crossfade_animation(
 	AnimationState::Fade fade;
 	fade.duration_secs = transition_secs;
 	auto& component = get_ecs().get_skeletal_component(skeleton_id);
-	const std::lock_guard lock(component.pose_mutex);
 	const auto& bones = component.get_bones();
 	fade.source_pose.reserve(bones.size());
 	for (const auto& bone : bones)
@@ -502,7 +511,6 @@ bool SkeletalAnimationSystem::crossfade_animation(
 void SkeletalAnimationSystem::stop_animation(const SkeletonID skeleton_id)
 {
 	auto& component = get_ecs().get_skeletal_component(skeleton_id);
-	const std::lock_guard lock(component.pose_mutex);
 	for (auto& bone : component.get_bones())
 		bone.relative_transform = bone.original_transform;
 	active_animations.erase(skeleton_id);

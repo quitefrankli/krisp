@@ -6,7 +6,6 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include <queue>
 #include <optional>
 #include <filesystem>
 
@@ -36,10 +35,6 @@ private:
 	void maybe_prepare_recording_capture();
 	void flush_recording_capture();
 	
-	// this function does stuff that needs to be done before cmd buffer is recorded
-	// i.e. check for objects to be deleted
-	void pre_cmdbuffer_recording();
-
 public:
 	// Interprets a VkImage and describes how to access it
 	VkImage presentation_image;
@@ -48,9 +43,6 @@ public:
 
 	const uint32_t image_index;
 	
-	// delete object
-	void mark_obj_for_delete(ObjectID id);
-
 private:
 	
 	GraphicsEngineSwapChain& swap_chain;
@@ -75,7 +67,6 @@ private:
 
 	Analytics analytics;
 
-	std::queue<ObjectID> objs_to_delete;
 	std::optional<GraphicsBuffer> screenshot_staging_buffer;
 	std::filesystem::path screenshot_path;
 	VkExtent2D screenshot_extent{};

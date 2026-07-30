@@ -89,7 +89,8 @@ void ParticleSystem::remove_entity(EntityID entity_id)
 	emitters.erase(entity_id);
 }
 
-void ParticleSystem::prepare_render_data(std::vector<SDS::ParticleInstanceData>& out_instance_data)
+void ParticleSystem::prepare_render_data(
+	std::vector<SDS::ParticleInstanceData>& out_instance_data) const
 {
 	out_instance_data.clear();
 	

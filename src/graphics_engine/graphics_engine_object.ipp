@@ -7,19 +7,21 @@
 
 #include "graphics_engine_object.hpp"
 
-#include "objects/object.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 
 
-GraphicsEngineObject::GraphicsEngineObject(GraphicsEngine& engine, const Object& object) :
-	GraphicsEngineBaseModule(engine)
+GraphicsEngineObject::GraphicsEngineObject(
+	GraphicsEngine& engine,
+	RenderObjectDefinitionPtr definition_) :
+	GraphicsEngineBaseModule(engine),
+	definition(std::move(definition_))
 {
-	if (object.renderables.size() > CSTS::MAX_RENDERABLES_PER_OBJECT)
+	if (definition->renderables.size() > CSTS::MAX_RENDERABLES_PER_OBJECT)
 	{
 		throw std::runtime_error(fmt::format(
 			"GraphicsEngineObject: object {} has {} renderables; maximum is {}",
-			object.get_id().get_underlying(),
-			object.renderables.size(),
+			definition->id.get_underlying(),
+			definition->renderables.size(),
 			CSTS::MAX_RENDERABLES_PER_OBJECT));
 	}
 }
@@ -31,16 +33,16 @@ GraphicsEngineObject::~GraphicsEngineObject()
 		get_rsrc_mgr().free_dsets(dsets);
 }
 
-const std::vector<Renderable>& GraphicsEngineObject::get_renderables() const
+const std::vector<RenderableDefinition>& GraphicsEngineObject::get_renderables() const
 {
-	return get_game_object().renderables;
+	return definition->renderables;
 }
 
 std::optional<SkeletonID> GraphicsEngineObject::get_skeleton_id() const
 {
-	const auto skeleton_id = const_cast<GraphicsEngineObject*>(this)->get_graphics_engine()
-		.get_ecs().get_skeleton_id(get_game_object().get_id());
-	const bool has_skinned_renderable = std::ranges::any_of(get_renderables(), [](const Renderable& renderable)
+	const auto skeleton_id = definition->skeleton_id;
+	const bool has_skinned_renderable = std::ranges::any_of(
+		get_renderables(), [](const RenderableDefinition& renderable)
 	{
 		return is_skinned_render_type(renderable.pipeline_render_type);
 	});
@@ -53,36 +55,17 @@ std::optional<SkeletonID> GraphicsEngineObject::get_skeleton_id() const
 
 ObjectID GraphicsEngineObject::get_id() const
 {
-	return get_game_object().get_id();
+	return definition->id;
 }
 
 bool GraphicsEngineObject::get_visibility() const
 {
-	return get_game_object().get_visibility();
+	return get_graphics_engine()
+		.get_render_object_state(get_id()).visible;
 }
 
-//
-// Derived objects
-//
-
-GraphicsEngineObjectPtr::GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object) :
-	GraphicsEngineObject(engine, *game_engine_object),
-	object(std::move(game_engine_object))
+const glm::mat4& GraphicsEngineObject::get_model_transform() const
 {
-}
-
-const Object& GraphicsEngineObjectPtr::get_game_object() const
-{
-	return *object;
-}
-
-GraphicsEngineObjectRef::GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object) :
-	GraphicsEngineObject(engine, game_engine_object),
-	object(game_engine_object)
-{
-}
-
-const Object& GraphicsEngineObjectRef::get_game_object() const
-{
-	return object;
+	return get_graphics_engine()
+		.get_render_object_transform(get_id());
 }

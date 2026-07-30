@@ -11,8 +11,11 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_global_binding()
 	gubo_layout_binding.descriptorCount = 1;
 	// defines which shader stage the descriptor is going to be referenced
 	gubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | 
-		VK_SHADER_STAGE_GEOMETRY_BIT |
+		VK_SHADER_STAGE_GEOMETRY_BIT;
+#if 0 // Ray tracing is unsupported.
+	gubo_layout_binding.stageFlags |=
 		VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+#endif
 	gubo_layout_binding.pImmutableSamplers = nullptr; // only relevant for image sampling related descriptors
 
 	return gubo_layout_binding;
@@ -67,6 +70,7 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_bone_binding()
 	return bone_layout_binding;
 }
 
+#if 0 // Ray tracing is unsupported; retain these layouts for future repair.
 static constexpr VkDescriptorSetLayoutBinding get_generic_raytracing_tlas_binding()
 {
 	VkDescriptorSetLayoutBinding tlas_layout_binding{};
@@ -75,7 +79,6 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_raytracing_tlas_bindin
 	tlas_layout_binding.descriptorCount = 1;
 	tlas_layout_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 	tlas_layout_binding.pImmutableSamplers = nullptr;
-
 	return tlas_layout_binding;
 }
 
@@ -87,7 +90,6 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_raytracing_output_imag
 	output_layout_binding.descriptorCount = 1;
 	output_layout_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
 	output_layout_binding.pImmutableSamplers = nullptr;
-
 	return output_layout_binding;
 }
 
@@ -99,7 +101,6 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_mesh_data_buffer_map_b
 	buffer_mapper_binding.descriptorCount = 1;
 	buffer_mapper_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 	buffer_mapper_binding.pImmutableSamplers = nullptr;
-
 	return buffer_mapper_binding;
 }
 
@@ -111,7 +112,6 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_mesh_data_vertices_bin
 	vertices_binding.descriptorCount = 1;
 	vertices_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 	vertices_binding.pImmutableSamplers = nullptr;
-
 	return vertices_binding;
 }
 
@@ -123,9 +123,9 @@ static constexpr VkDescriptorSetLayoutBinding get_generic_mesh_data_indices_bind
 	indices_binding.descriptorCount = 1;
 	indices_binding.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 	indices_binding.pImmutableSamplers = nullptr;
-
 	return indices_binding;
 }
+#endif
 
 static constexpr VkDescriptorSetLayoutBinding get_generic_shadow_map_binding()
 {
@@ -155,10 +155,12 @@ GraphicsDescriptorManager::GraphicsDescriptorManager(
 		return offsets;
 	};
 	allocate_global_dset(buffer_manager.get_global_uniform_buffer(), get_gubo_offsets());
+#if 0 // Ray tracing is unsupported.
 	allocate_mesh_data_dset(
-		buffer_manager.get_mapping_buffer(), 
+		buffer_manager.get_mapping_buffer(),
 		buffer_manager.get_vertex_buffer(),
 		buffer_manager.get_index_buffer());
+#endif
 }
 
 GraphicsDescriptorManager::~GraphicsDescriptorManager()
@@ -242,7 +244,7 @@ void GraphicsDescriptorManager::create_descriptor_pool()
 	// max number of combined image samplers per descriptor set
 	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET * MAX_HIGH_FREQ_DESCRIPTOR_SETS;
 
-	// for ray tracing
+#if 0 // Ray tracing is unsupported.
 	VkDescriptorPoolSize tlas_pool_size{};
 	tlas_pool_size.type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 	tlas_pool_size.descriptorCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
@@ -250,6 +252,7 @@ void GraphicsDescriptorManager::create_descriptor_pool()
 	VkDescriptorPoolSize rt_storage_image_pool_size{};
 	rt_storage_image_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	rt_storage_image_pool_size.descriptorCount = MAX_RAY_TRACING_DESCRIPTOR_SETS;
+#endif
 
 	// for meshes, materials and bones
 	VkDescriptorPoolSize storage_buffer_pool_size{};
@@ -259,10 +262,12 @@ void GraphicsDescriptorManager::create_descriptor_pool()
 	std::vector<VkDescriptorPoolSize> pool_sizes {
 		uniform_buffer_pool_size, 
 		combined_image_sampler_pool_size,
-		tlas_pool_size,
-		rt_storage_image_pool_size,
 		storage_buffer_pool_size
 	};
+#if 0
+	pool_sizes.push_back(tlas_pool_size);
+	pool_sizes.push_back(rt_storage_image_pool_size);
+#endif
 
 	VkDescriptorPoolCreateInfo poolInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
 	poolInfo.poolSizeCount = pool_sizes.size();
@@ -295,15 +300,17 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 	};
 }
 
+#if 0 // Ray tracing is unsupported; retained for future repair.
 std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 	get_raytracing_descriptor_set_layouts() const
 {
-	return { 
+	return {
 		low_freq_dset_layout,
-		raytracing_tlas_dset_layout, 
+		raytracing_tlas_dset_layout,
 		mesh_data_dset_layout
 	};
 }
+#endif
 
 void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 {
@@ -316,13 +323,15 @@ void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 		get_generic_texture_binding(SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING),
 		get_generic_texture_binding(SDS::RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING) });
 	shadow_map_dset_layout = request_dset_layout({ get_generic_shadow_map_binding() });
-	mesh_data_dset_layout = request_dset_layout({ 
+#if 0 // Ray tracing is unsupported.
+	mesh_data_dset_layout = request_dset_layout({
 		get_generic_mesh_data_buffer_map_binding(),
 		get_generic_mesh_data_vertices_binding(),
 		get_generic_mesh_data_indices_binding() });
 	raytracing_tlas_dset_layout = request_dset_layout({
 		get_generic_raytracing_tlas_binding(),
 		get_generic_raytracing_output_image_binding() });
+#endif
 }
 
 void GraphicsDescriptorManager::allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets)
@@ -370,29 +379,33 @@ void GraphicsDescriptorManager::allocate_global_dset(VkBuffer global_buffer, con
 	}
 }
 
+#if 0 // Ray tracing is unsupported; retained for future repair.
 void GraphicsDescriptorManager::allocate_mesh_data_dset(
 	VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer)
 {
-	std::vector<VkDescriptorSetLayout> layouts(MAX_MESH_DATA_DESCRIPTOR_SETS, mesh_data_dset_layout);
-	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+	std::vector<VkDescriptorSetLayout> layouts(
+		MAX_MESH_DATA_DESCRIPTOR_SETS, mesh_data_dset_layout);
+	VkDescriptorSetAllocateInfo alloc_info{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	alloc_info.descriptorPool = descriptor_pool;
 	alloc_info.descriptorSetCount = 1;
 	alloc_info.pSetLayouts = layouts.data();
-	if (vkAllocateDescriptorSets(get_logical_device(), &alloc_info, &mesh_data_dset) != VK_SUCCESS)
+	if (vkAllocateDescriptorSets(
+			get_logical_device(), &alloc_info, &mesh_data_dset) != VK_SUCCESS)
 	{
-		throw std::runtime_error("GraphicsResourceManager: failed to allocate mesh data descriptor set!");
+		throw std::runtime_error(
+			"GraphicsResourceManager: failed to allocate mesh data descriptor set!");
 	}
 
-	// create descriptor set for object's mesh and material (not implemented yet) data
 	using buffer_mgr_t = GraphicsBufferManager;
 	VkDescriptorBufferInfo buffer_mapper_info{};
 	buffer_mapper_info.buffer = mapping_buffer;
 	buffer_mapper_info.offset = 0;
 	buffer_mapper_info.range = buffer_mgr_t::MAPPING_BUFFER_CAPACITY;
-	VkWriteDescriptorSet buffer_mapper_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	VkWriteDescriptorSet buffer_mapper_dset_write{
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	buffer_mapper_dset_write.dstSet = mesh_data_dset;
 	buffer_mapper_dset_write.dstBinding = SDS::BUFFER_MAPPER_BINDING;
-	buffer_mapper_dset_write.dstArrayElement = 0;
 	buffer_mapper_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	buffer_mapper_dset_write.descriptorCount = 1;
 	buffer_mapper_dset_write.pBufferInfo = &buffer_mapper_info;
@@ -401,10 +414,10 @@ void GraphicsDescriptorManager::allocate_mesh_data_dset(
 	vertices_buffer_info.buffer = vertex_buffer;
 	vertices_buffer_info.offset = 0;
 	vertices_buffer_info.range = buffer_mgr_t::VERTEX_BUFFER_CAPACITY;
-	VkWriteDescriptorSet vertices_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	VkWriteDescriptorSet vertices_dset_write{
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	vertices_dset_write.dstSet = mesh_data_dset;
 	vertices_dset_write.dstBinding = SDS::VERTICES_DATA_BINDING;
-	vertices_dset_write.dstArrayElement = 0;
 	vertices_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	vertices_dset_write.descriptorCount = 1;
 	vertices_dset_write.pBufferInfo = &vertices_buffer_info;
@@ -413,16 +426,19 @@ void GraphicsDescriptorManager::allocate_mesh_data_dset(
 	indices_buffer_info.buffer = index_buffer;
 	indices_buffer_info.offset = 0;
 	indices_buffer_info.range = buffer_mgr_t::INDEX_BUFFER_CAPACITY;
-	VkWriteDescriptorSet indices_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	VkWriteDescriptorSet indices_dset_write{
+		VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 	indices_dset_write.dstSet = mesh_data_dset;
 	indices_dset_write.dstBinding = SDS::INDICES_DATA_BINDING;
-	indices_dset_write.dstArrayElement = 0;
 	indices_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	indices_dset_write.descriptorCount = 1;
 	indices_dset_write.pBufferInfo = &indices_buffer_info;
 
-	std::vector<VkWriteDescriptorSet> dsets{buffer_mapper_dset_write, vertices_dset_write, indices_dset_write};
-
+	std::vector<VkWriteDescriptorSet> dsets{
+		buffer_mapper_dset_write,
+		vertices_dset_write,
+		indices_dset_write
+	};
 	vkUpdateDescriptorSets(
 		get_logical_device(),
 		static_cast<uint32_t>(dsets.size()),
@@ -430,3 +446,4 @@ void GraphicsDescriptorManager::allocate_mesh_data_dset(
 		0,
 		nullptr);
 }
+#endif

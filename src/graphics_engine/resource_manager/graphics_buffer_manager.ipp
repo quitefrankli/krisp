@@ -37,12 +37,14 @@ GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
 		GLOBAL_UNIFORM_BUFFER_MEMORY_FLAGS,
 		engine.get_device_module().get_physical_device_properties().properties.limits.minUniformBufferOffsetAlignment,
 		"global_uniform_buffer")),
+#if 0 // Ray tracing is unsupported; retained for future repair.
 	mapping_buffer(create_buffer(
-		MAPPING_BUFFER_CAPACITY, 
-		MAPPING_BUFFER_USAGE_FLAGS, 
-		MAPPING_BUFFER_MEMORY_FLAGS, 
-		1, 
+		MAPPING_BUFFER_CAPACITY,
+		MAPPING_BUFFER_USAGE_FLAGS,
+		MAPPING_BUFFER_MEMORY_FLAGS,
+		1,
 		"mapping_buffer"), sizeof(SDS::BufferMapEntry)),
+#endif
 	bone_buffer(create_buffer(
 		BONE_BUFFER_CAPACITY, 
 		BONE_BUFFER_USAGE_FLAGS, 
@@ -70,7 +72,9 @@ GraphicsBufferManager::~GraphicsBufferManager()
 	uniform_buffer.destroy(get_logical_device());
 	materials_buffer.destroy(get_logical_device());
 	global_uniform_buffer.destroy(get_logical_device());
+#if 0
 	mapping_buffer.destroy(get_logical_device());
+#endif
 	bone_buffer.destroy(get_logical_device());
 	staging_buffer.destroy(get_logical_device());
 }
@@ -89,16 +93,22 @@ void GraphicsBufferManager::write_to_global_uniform_buffer(uint32_t id, const SD
 	global_uniform_buffer.unmap_slot(get_logical_device());
 }
 
-void GraphicsBufferManager::write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry)
+#if 0 // Ray tracing is unsupported; retained for future repair.
+void GraphicsBufferManager::write_to_mapping_buffer(
+	ObjectID id, const SDS::BufferMapEntry& entry)
 {
 	mapping_buffer.decrease_free_capacity(sizeof(entry));
-	stage_data_to_buffer(mapping_buffer.get_buffer(), mapping_buffer.get_slot_offset(id.get_underlying()), sizeof(entry), 
-	[&entry](std::byte* destination)
-	{
-		std::memcpy(destination, &entry, sizeof(entry));
-	});
+	stage_data_to_buffer(
+		mapping_buffer.get_buffer(),
+		mapping_buffer.get_slot_offset(id.get_underlying()),
+		sizeof(entry),
+		[&entry](std::byte* destination)
+		{
+			std::memcpy(destination, &entry, sizeof(entry));
+		});
 	update_buffer_stats();
 }
+#endif
 
 void GraphicsBufferManager::write_to_buffer(SkeletonFrameID id, const std::vector<SDS::Bone>& bones)
 {
@@ -181,10 +191,12 @@ GraphicsBuffer GraphicsBufferManager::create_buffer(
 	memory_allocate_info.memoryTypeIndex = 
 		get_graphics_engine().find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
 
-	VkMemoryAllocateFlagsInfo memory_allocate_flags_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+#if 0 // Ray tracing is unsupported; device-address allocation is not enabled.
+	VkMemoryAllocateFlagsInfo memory_allocate_flags_info{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
 	memory_allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-
 	memory_allocate_info.pNext = &memory_allocate_flags_info;
+#endif
 
 	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &memory) != VK_SUCCESS)
 	{
@@ -220,10 +232,12 @@ void GraphicsBufferManager::create_buffer_deprecated(size_t size,
 	memory_allocate_info.memoryTypeIndex = 
 		get_graphics_engine().find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
 
-	VkMemoryAllocateFlagsInfo memory_allocate_flags_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+#if 0 // Ray tracing is unsupported; device-address allocation is not enabled.
+	VkMemoryAllocateFlagsInfo memory_allocate_flags_info{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
 	memory_allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-
 	memory_allocate_info.pNext = &memory_allocate_flags_info;
+#endif
 
 	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
 	{
@@ -361,7 +375,9 @@ void GraphicsBufferManager::update_buffer_stats()
 		{ index_buffer.get_filled_capacity(), index_buffer.get_capacity() },
 		{ uniform_buffer.get_filled_capacity(), uniform_buffer.get_capacity() },
 		{ materials_buffer.get_filled_capacity(), materials_buffer.get_capacity() },
+#if 0
 		{ mapping_buffer.get_filled_capacity(), mapping_buffer.get_capacity() },
+#endif
 		{ bone_buffer.get_filled_capacity(), bone_buffer.get_capacity() }
 	};
 	get_graphics_engine().get_gui_manager().update_buffer_capacities(buffer_capacities);

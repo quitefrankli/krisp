@@ -3,12 +3,8 @@
 #include "graphics_engine.hpp"
 #include "video_recorder.hpp"
 
-#include "camera.hpp"
-#include "game_engine.hpp"
-#include "objects/object.hpp"
 #include "shared_data_structures.hpp"
 #include "analytics.hpp"
-#include "entity_component_system/ecs.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "constants.hpp"
@@ -26,8 +22,8 @@
 #include <iostream>
 
 
-GraphicsEngine::GraphicsEngine(GameEngine& game_engine) : 
-	game_engine(game_engine),
+GraphicsEngine::GraphicsEngine(App::Window& window_) :
+	window(window_),
 	instance(*this),
 	validation_layer(*this),
 	device(*this),
@@ -36,7 +32,7 @@ GraphicsEngine::GraphicsEngine(GameEngine& game_engine) :
 	renderer_mgr(*this),
 	swap_chain(*this),
 	pipeline_mgr(*this),
-	raytracing_component(*this),
+	// raytracing_component(*this),
 	gui_manager(*this),
 	video_recorder(std::make_unique<VideoRecorder>())
 {
@@ -52,11 +48,6 @@ GraphicsEngine::~GraphicsEngine()
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
 	objects.clear(); // must be cleared before the logical device is destroyed
-}
-
-Camera* GraphicsEngine::get_camera()
-{
-	return &(game_engine.get_camera());
 }
 
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
@@ -136,10 +127,19 @@ void GraphicsEngine::run() {
 				command->process(this);
 			}
 
+			accept_latest_render_frame();
+			retire_unused_resources();
+			if (!accepted_render_frame)
+			{
+#ifndef DISABLE_SLEEP
+				loop_sleeper();
+#endif
+				continue;
+			}
+
 			gui_manager.draw();
 
-			raytracing_component.process();
-
+			// raytracing_component.process();
 			swap_chain.draw();
 
 			analytics.stop();
@@ -158,6 +158,177 @@ void GraphicsEngine::run() {
 	}
 }
 
+void GraphicsEngine::accept_latest_render_frame()
+{
+	const auto publication = load_latest_completed_render_frames();
+	if (!publication || publication->current == accepted_render_frame)
+		return;
+
+	const RenderFramePtr next_frame = publication->current;
+	const RenderFramePtr previous_frame = accepted_render_frame;
+	bool topology_changed = !accepted_render_frame
+		|| accepted_render_frame->objects.size() != next_frame->objects.size()
+		|| accepted_render_frame->skeletons.size() != next_frame->skeletons.size();
+	if (!topology_changed)
+	{
+		for (const auto& state : next_frame->objects)
+		{
+			const auto existing = objects.find(state.definition->id);
+			if (existing == objects.end()
+				|| existing->second->get_definition_version() != state.definition->version)
+			{
+				topology_changed = true;
+				break;
+			}
+		}
+	}
+	if (!topology_changed)
+	{
+		for (const auto& pose : next_frame->skeletons)
+		{
+			const auto previous = std::ranges::find_if(
+				accepted_render_frame->skeletons,
+				[&pose](const RenderSkeletonPose& candidate) {
+					return candidate.definition->id == pose.definition->id;
+				});
+			if (previous == accepted_render_frame->skeletons.end()
+				|| previous->definition->version != pose.definition->version)
+			{
+				topology_changed = true;
+				break;
+			}
+		}
+	}
+
+	if (topology_changed)
+		vkDeviceWaitIdle(get_logical_device());
+
+	accepted_render_frame = next_frame;
+	render_object_indices.clear();
+	render_object_indices.reserve(accepted_render_frame->objects.size());
+	std::vector<glm::mat4> local_transforms;
+	std::vector<uint32_t> parent_indices;
+	local_transforms.reserve(accepted_render_frame->objects.size());
+	parent_indices.reserve(accepted_render_frame->objects.size());
+	for (uint32_t index = 0; index < accepted_render_frame->objects.size(); ++index)
+	{
+		const auto& state = accepted_render_frame->objects[index];
+		render_object_indices.emplace(state.definition->id, index);
+		local_transforms.push_back(state.local_transform);
+		parent_indices.push_back(state.parent_index);
+	}
+	object_transforms = compose_transform_hierarchy(local_transforms, parent_indices);
+
+	render_skeleton_indices.clear();
+	render_skeleton_indices.reserve(accepted_render_frame->skeletons.size());
+	for (uint32_t index = 0; index < accepted_render_frame->skeletons.size(); ++index)
+		render_skeleton_indices.emplace(
+			accepted_render_frame->skeletons[index].definition->id, index);
+
+	if (!topology_changed)
+		return;
+
+	reconcile_render_objects(*accepted_render_frame, previous_frame.get());
+
+}
+
+void GraphicsEngine::reconcile_render_objects(
+	const RenderFrame& frame,
+	const RenderFrame* previous_frame)
+{
+	std::unordered_set<SkeletonID> changed_skeletons;
+	if (previous_frame)
+	{
+		for (const auto& pose : frame.skeletons)
+		{
+			const auto previous = std::ranges::find_if(
+				previous_frame->skeletons,
+				[&pose](const RenderSkeletonPose& candidate) {
+					return candidate.definition->id == pose.definition->id;
+				});
+			if (previous == previous_frame->skeletons.end()
+				|| previous->definition->version != pose.definition->version)
+			{
+				changed_skeletons.insert(pose.definition->id);
+			}
+		}
+		for (const auto& pose : previous_frame->skeletons)
+		{
+			const bool still_present = std::ranges::any_of(
+				frame.skeletons,
+				[&pose](const RenderSkeletonPose& candidate) {
+					return candidate.definition->id == pose.definition->id;
+				});
+			if (!still_present)
+				changed_skeletons.insert(pose.definition->id);
+		}
+	}
+
+	std::unordered_map<ObjectID, RenderObjectDefinitionPtr> definitions;
+	definitions.reserve(frame.objects.size());
+	for (const auto& state : frame.objects)
+		definitions.emplace(state.definition->id, state.definition);
+
+	std::vector<ObjectID> objects_to_recreate;
+	objects_to_recreate.reserve(objects.size());
+	for (const auto& [id, object] : objects)
+	{
+		const auto definition = definitions.find(id);
+		const bool definition_changed = definition == definitions.end()
+			|| object->get_definition_version() != definition->second->version;
+		const auto skeleton_id = object->get_skeleton_id();
+		if (definition_changed
+			|| (skeleton_id && changed_skeletons.contains(*skeleton_id)))
+		{
+			objects_to_recreate.push_back(id);
+		}
+	}
+	for (const ObjectID id : objects_to_recreate)
+		cleanup_entity(id);
+
+	for (const auto& state : frame.objects)
+	{
+		if (objects.contains(state.definition->id))
+			continue;
+
+		auto graphics_object =
+			std::make_unique<GraphicsEngineObject>(*this, state.definition);
+		spawn_object_create_buffers(*graphics_object);
+		spawn_object_create_dsets(*graphics_object);
+		objects.emplace(state.definition->id, std::move(graphics_object));
+	}
+
+	for (auto it = offscreen_rendering_objects.begin();
+		it != offscreen_rendering_objects.end();)
+	{
+		const auto object = objects.find(it->first);
+		if (object == objects.end())
+			it = offscreen_rendering_objects.erase(it);
+		else
+		{
+			it->second = object->second.get();
+			++it;
+		}
+	}
+}
+
+void GraphicsEngine::retire_unused_resources()
+{
+	auto retired_materials = MaterialSystem::take_retired();
+	auto retired_meshes = MeshSystem::take_retired();
+	if (retired_materials.empty() && retired_meshes.empty())
+		return;
+
+	vkDeviceWaitIdle(get_logical_device());
+	for (const MaterialID id : retired_materials)
+	{
+		get_rsrc_mgr().free_buffer(id);
+		get_texture_mgr().free_texture(id);
+	}
+	for (const MeshID id : retired_meshes)
+		get_rsrc_mgr().free_buffer(id);
+}
+
 int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags)
 {
 	VkPhysicalDeviceMemoryProperties memory_properties;
@@ -174,16 +345,6 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 	throw std::runtime_error("failed to find suitable memory type!");
 };
 
-ECS& GraphicsEngine::get_ecs()
-{
-	return game_engine.get_ecs();
-}
-
-const ECS& GraphicsEngine::get_ecs() const
-{
-	return game_engine.get_ecs();
-}
-
 void GraphicsEngine::cleanup_entity(const ObjectID id)
 {
 	auto& obj = get_object(id);
@@ -192,13 +353,12 @@ void GraphicsEngine::cleanup_entity(const ObjectID id)
 	{
 		for (uint32_t renderable_idx = 0; renderable_idx < obj.get_renderables().size(); ++renderable_idx)
 			get_rsrc_mgr().free_buffer(ObjectRenderableFrameID{id, renderable_idx, frame_idx});
-		if (const auto skeleton_id = get_ecs().get_skeleton_id(obj.get_id()))
+		if (const auto skeleton_id = obj.get_skeleton_id())
 		{
 			get_rsrc_mgr().free_buffer(SkeletonFrameID{*skeleton_id, frame_idx});
 		}
 	}
 	objects.erase(id);
-	++num_objs_deleted;
 }
 
 void GraphicsEngine::recreate_swap_chain()
@@ -256,11 +416,6 @@ void GraphicsEngine::end_single_time_commands(VkCommandBuffer command_buffer)
 VkExtent2D GraphicsEngine::get_extent()
 {
 	return GraphicsEngineSwapChain::get_extent(get_physical_device(), get_window_surface());
-}
-
-void GraphicsEngine::update_command_buffer()
-{
-	swap_chain.update_command_buffer();
 }
 
 void GraphicsEngine::create_image(uint32_t width,
@@ -452,7 +607,7 @@ void GraphicsEngine::transition_image_layout(
 
 App::Window& GraphicsEngine::get_window()
 {
-	return game_engine.get_window();
+	return window;
 }
 
 void GraphicsEngine::copy_buffer(VkBuffer src_buffer, VkBuffer dest_buffer, size_t size)
@@ -518,7 +673,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	for (const auto& renderable : graphics_object.get_renderables())
 	{
 		// reserve and write to mesh buffer (actually vertex and index buffers)
-		const auto& mesh = MeshSystem::get(renderable.get_mesh_id());
+		const auto& mesh = renderable.get_mesh();
 		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
 
 		// reserve and write to materials buffer
@@ -528,7 +683,8 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 			case ERenderType::SKINNED_COLOR:
 			{
 				const FlatMatGroup flat_mat_group(renderable.material_owners);
-				const auto* material = dynamic_cast<const ColorMaterial*>(&MaterialSystem::get(flat_mat_group.color_mat));
+				const auto* material =
+					dynamic_cast<const ColorMaterial*>(&renderable.get_material(0));
 				if (!material)
 					throw std::runtime_error(fmt::format(
 						"GraphicsEngine: material {} is not a ColorMaterial",
@@ -552,19 +708,19 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 		// allocate one set of bone matrices shared by all skinned renderables in the object
 		if (skeleton_id)
 		{
-			const size_t bone_data_size = sizeof(SDS::Bone) * get_ecs().get_bones(*skeleton_id).size();
+			const size_t bone_data_size = sizeof(SDS::Bone)
+				* get_render_skeleton_pose(*skeleton_id).definition->bones.size();
 			rsrc_mgr.reserve_buffer(SkeletonFrameID{*skeleton_id, frame_idx}, bone_data_size);
 		}
 	}
 
-	// TODO: needs to be fixed for raytracing
+	// Ray-tracing buffer mapping is unsupported:
 	// SDS::BufferMapEntry buffer_map;
-	// buffer_map.vertex_offset = rsrc_mgr.get_vertex_buffer_offset(id);
-	// buffer_map.index_offset = rsrc_mgr.get_index_buffer_offset(id);
-	// // this is currently hardcoded to always use the first frame's uniform buffer
-	// // since the buffer map is only used for raytracing it's ignored for now
-	// // TODO: fix this
-	// rsrc_mgr.write_to_mapping_buffer(id, buffer_map);
+	// buffer_map.vertex_offset =
+	//     rsrc_mgr.get_vertex_buffer_offset(graphics_object.get_id());
+	// buffer_map.index_offset =
+	//     rsrc_mgr.get_index_buffer_offset(graphics_object.get_id());
+	// rsrc_mgr.write_to_mapping_buffer(graphics_object.get_id(), buffer_map);
 }
 
 void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
@@ -572,7 +728,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	// Each renderable gets a per-frame transform set; skinned renderables also
 	// reference the skeleton buffer shared by their owning object.
 	std::vector<std::vector<VkDescriptorSet>> renderable_frame_dsets(object.get_renderables().size());
-	const auto skeleton_id = get_ecs().get_skeleton_id(object.get_id());
+	const auto skeleton_id = object.get_skeleton_id();
 	for (uint32_t renderable_idx = 0; renderable_idx < object.get_renderables().size(); ++renderable_idx)
 	{
 		for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
@@ -627,7 +783,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 	// per renderable descriptor set
 	// TODO: we need to cache the dsets for each material/texture
 	std::vector<VkDescriptorSet> renderable_dsets;
-	for (const Renderable& renderable : object.get_renderables())
+	for (const RenderableDefinition& renderable : object.get_renderables())
 	{
 		// TODO: we need to split the renderable dset layout to a material only one and a texture only one
 		// however this is a lot of work and will involve creating a new pipeline
@@ -702,7 +858,8 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				const TexturedMatGroup textured_mat_group(renderable.material_owners);
 				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(
-					textured_mat_group.base_color_mat, ETextureSamplerType::ADDR_MODE_REPEAT);
+					textured_mat_group.get_material_owner(textured_mat_group.base_color_mat),
+					ETextureSamplerType::ADDR_MODE_REPEAT);
 				image_info.imageView = texture.get_texture_image_view();
 				image_info.sampler = texture.get_texture_sampler();
 
@@ -718,7 +875,9 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				VkDescriptorImageInfo normal_image_info{};
 				normal_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				const GraphicsEngineTexture& normal_texture = textured_mat_group.normal_mat.has_value()
-					? get_texture_mgr().fetch_texture(*textured_mat_group.normal_mat, ETextureSamplerType::ADDR_MODE_REPEAT)
+					? get_texture_mgr().fetch_texture(
+						textured_mat_group.get_material_owner(*textured_mat_group.normal_mat),
+						ETextureSamplerType::ADDR_MODE_REPEAT)
 					: get_texture_mgr().fetch_flat_normal_texture();
 				normal_image_info.imageView = normal_texture.get_texture_image_view();
 				normal_image_info.sampler = normal_texture.get_texture_sampler();
@@ -736,7 +895,8 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				specular_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				const GraphicsEngineTexture& specular_texture = textured_mat_group.specular_mat
 					? get_texture_mgr().fetch_texture(
-						*textured_mat_group.specular_mat, ETextureSamplerType::ADDR_MODE_REPEAT)
+						textured_mat_group.get_material_owner(*textured_mat_group.specular_mat),
+						ETextureSamplerType::ADDR_MODE_REPEAT)
 					: get_texture_mgr().fetch_white_texture();
 				specular_info.imageView = specular_texture.get_texture_image_view();
 				specular_info.sampler = specular_texture.get_texture_sampler();

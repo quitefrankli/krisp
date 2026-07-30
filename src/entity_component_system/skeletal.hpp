@@ -6,7 +6,6 @@
 
 #include <string>
 #include <string_view>
-#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -82,6 +81,14 @@ struct SkeletalAnimation
 	SkeletalRigSignature rig_signature;
 };
 
+// A coherent render-facing copy captured while holding the pose mutex.
+struct SkeletalRenderStateSnapshot
+{
+	std::vector<uint32_t> parent_indices;
+	std::vector<glm::mat4> inverse_bind_poses;
+	std::vector<glm::mat4> local_transforms;
+};
+
 struct SkeletalComponent
 {
 public:
@@ -98,11 +105,10 @@ public:
 	// multiplication. These are suitable for gameplay pose adjustments such as IK.
 	std::vector<glm::mat4> get_model_space_bone_transforms() const;
 	std::vector<SDS::Bone> get_bones_data() const;
+	SkeletalRenderStateSnapshot snapshot_render_state() const;
 
 private:
-	friend class SkeletalAnimationSystem;
 	std::vector<Bone> bones;
-	mutable std::recursive_mutex pose_mutex;
 };
 
 class SkeletalSystem

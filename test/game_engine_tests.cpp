@@ -27,48 +27,6 @@
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
 {
 public:
-	struct MaterialUpdate
-	{
-		ObjectID object_id;
-		size_t renderable_index;
-		MaterialID diffuse;
-		std::optional<MaterialID> normal;
-		std::optional<MaterialID> specular;
-		std::vector<MaterialID> retired;
-	};
-
-	virtual void handle_command(DestroyResourcesCmd& cmd) override
-	{
-		for (const auto& mesh_id : cmd.mesh_ids)
-		{
-			meshes_to_destroy.push_back(mesh_id);
-		}
-		for (const auto& material_id : cmd.material_ids)
-		{
-			materials_to_destroy.push_back(material_id);
-		}
-	}
-	void handle_command(SpawnObjectCmd& cmd) override
-	{
-		if (on_spawn)
-			on_spawn(cmd);
-	}
-	void handle_command(UpdateRenderableMaterialsCmd& cmd) override
-	{
-		material_updates.push_back({
-			cmd.object_id,
-			cmd.renderable_index,
-			cmd.diffuse_material,
-			cmd.normal_material,
-			cmd.specular_material,
-			cmd.retired_materials,
-		});
-	}
-
-	std::vector<MeshID> meshes_to_destroy;
-	std::vector<MaterialID> materials_to_destroy;
-	std::vector<MaterialUpdate> material_updates;
-	std::function<void(SpawnObjectCmd&)> on_spawn;
 };
 
 class TestableGameEngine : public GameEngine
@@ -134,11 +92,205 @@ size_t count_persistent_objects(const GameEngine& engine)
 		return !entry.second->is_transient();
 	});
 }
+
+const RenderObjectState& find_render_object(const RenderFrame& frame, const ObjectID id)
+{
+	const auto found = std::ranges::find_if(frame.objects, [id](const RenderObjectState& state) {
+		return state.definition->id == id;
+	});
+	if (found == frame.objects.end())
+		throw std::runtime_error("render object not found");
+	return *found;
+}
+
+const RenderSkeletonPose& find_render_skeleton(const RenderFrame& frame, const SkeletonID id)
+{
+	const auto found = std::ranges::find_if(frame.skeletons, [id](const RenderSkeletonPose& pose) {
+		return pose.definition->id == id;
+	});
+	if (found == frame.skeletons.end())
+		throw std::runtime_error("render skeleton not found");
+	return *found;
+}
 }
 
 TEST_F(GameEngineTests, Constructor)
 {
 	EXPECT_EQ(engine.get_window().get_glfw_window(), nullptr);
+}
+
+TEST_F(GameEngineTests, publishes_initial_and_post_update_render_frames)
+{
+	const auto initial = engine.get_graphics_engine().load_latest_completed_render_frames();
+	ASSERT_NE(initial, nullptr);
+	ASSERT_NE(initial->current, nullptr);
+	EXPECT_EQ(initial->previous, nullptr);
+	EXPECT_EQ(initial->current->frame_number, 0);
+	EXPECT_EQ(initial->current->objects.size(), engine.get_objects().size());
+	EXPECT_TRUE(glm_equal(initial->current->camera.view, engine.get_camera().get_view()));
+	EXPECT_TRUE(glm_equal(initial->current->camera.projection, engine.get_camera().get_projection()));
+	EXPECT_TRUE(glm_equal(initial->current->camera.position, engine.get_camera().get_position()));
+
+	engine.main_loop(0.1f);
+
+	const auto updated = engine.get_graphics_engine().load_latest_completed_render_frames();
+	ASSERT_NE(updated, nullptr);
+	ASSERT_NE(updated->previous, nullptr);
+	EXPECT_EQ(updated->current->frame_number, 1);
+	EXPECT_EQ(updated->previous, initial->current);
+}
+
+TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definitions)
+{
+	auto& parent = engine.spawn_object<Object>();
+	auto& child = engine.spawn_object<Object>(Renderable::make_default());
+	parent.set_position({ 2.0f, 0.0f, 0.0f });
+	child.set_position({ 2.0f, 3.0f, 0.0f });
+	child.attach_to(&parent);
+	child.set_visibility(false);
+
+	engine.main_loop(0.1f);
+	const auto first_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto& first_child = find_render_object(*first_frame, child.get_id());
+	ASSERT_NE(first_child.definition, nullptr);
+	EXPECT_FALSE(first_child.visible);
+	ASSERT_NE(first_child.parent_index, RENDER_FRAME_NO_PARENT);
+	ASSERT_LT(first_child.parent_index, first_frame->objects.size());
+	EXPECT_EQ(
+		first_frame->objects[first_child.parent_index].definition->id,
+		parent.get_id());
+
+	std::vector<glm::mat4> local_transforms;
+	std::vector<uint32_t> parent_indices;
+	for (const auto& object : first_frame->objects)
+	{
+		local_transforms.push_back(object.local_transform);
+		parent_indices.push_back(object.parent_index);
+	}
+	const auto model_transforms =
+		compose_transform_hierarchy(local_transforms, parent_indices);
+	const size_t child_index = &first_child - first_frame->objects.data();
+	EXPECT_TRUE(glm_equal(model_transforms[child_index], child.get_transform()));
+
+	const auto first_definition = first_child.definition;
+	child.set_visibility(true);
+	child.set_relative_position({ 0.0f, 4.0f, 0.0f });
+	engine.main_loop(0.1f);
+	const auto pose_only_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_EQ(find_render_object(*pose_only_frame, child.get_id()).definition, first_definition);
+
+	child.renderables.front().casts_shadow = false;
+	engine.main_loop(0.1f);
+	const auto definition_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto replacement = find_render_object(*definition_frame, child.get_id()).definition;
+	EXPECT_NE(replacement, first_definition);
+	EXPECT_GT(replacement->version, first_definition->version);
+	EXPECT_FALSE(replacement->renderables.front().casts_shadow);
+}
+
+TEST_F(GameEngineTests, snapshots_skeleton_pose_and_versions_only_definition_changes)
+{
+	Bone root;
+	root.relative_transform.set_pos({ 1.0f, 0.0f, 0.0f });
+	root.inverse_bind_pose.set_pos({ -1.0f, 0.0f, 0.0f });
+	Bone child;
+	child.parent_node = 0;
+	child.relative_transform.set_pos({ 0.0f, 2.0f, 0.0f });
+	const SkeletonID skeleton_id = engine.get_ecs().add_skeleton({ root, child });
+	auto& object = engine.spawn_object<Object>();
+	engine.get_ecs().attach_skeleton(object.get_id(), skeleton_id);
+
+	engine.main_loop(0.1f);
+	const auto first_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto first_definition = find_render_skeleton(*first_frame, skeleton_id).definition;
+	EXPECT_EQ(find_render_object(*first_frame, object.get_id()).definition->skeleton_id, skeleton_id);
+	ASSERT_EQ(first_definition->bones.size(), 2);
+	EXPECT_EQ(first_definition->bones[1].parent_index, 0);
+
+	auto& live_bones = engine.get_ecs().get_skeletal_component(skeleton_id).get_bones();
+	live_bones[1].relative_transform.set_pos({ 0.0f, 3.0f, 0.0f });
+	engine.main_loop(0.1f);
+	const auto pose_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto& changed_pose = find_render_skeleton(*pose_frame, skeleton_id);
+	EXPECT_EQ(changed_pose.definition, first_definition);
+	EXPECT_TRUE(glm_equal(
+		changed_pose.local_transforms[1],
+		glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f))));
+
+	live_bones[1].inverse_bind_pose.set_pos({ 0.0f, -2.0f, 0.0f });
+	engine.main_loop(0.1f);
+	const auto definition_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto replacement = find_render_skeleton(*definition_frame, skeleton_id).definition;
+	EXPECT_NE(replacement, first_definition);
+	EXPECT_GT(replacement->version, first_definition->version);
+
+	const auto first_object_definition =
+		find_render_object(*definition_frame, object.get_id()).definition;
+	const SkeletonID replacement_skeleton = engine.get_ecs().add_skeleton({ root });
+	engine.get_ecs().attach_skeleton(object.get_id(), replacement_skeleton);
+	engine.main_loop(0.1f);
+	const auto binding_frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto replacement_object_definition =
+		find_render_object(*binding_frame, object.get_id()).definition;
+	EXPECT_NE(replacement_object_definition, first_object_definition);
+	EXPECT_GT(replacement_object_definition->version, first_object_definition->version);
+	EXPECT_EQ(replacement_object_definition->skeleton_id, replacement_skeleton);
+}
+
+TEST_F(GameEngineTests, snapshots_particles_and_active_light)
+{
+	ParticleEmitterConfig particle_config;
+	particle_config.emission_rate = 1.0f;
+	particle_config.max_particles = 1;
+	engine.spawn_particle_emitter(particle_config);
+	auto& light = engine.spawn_object<Object>();
+	const LightComponent light_component{
+		.intensity = 2.0f,
+		.color = { 0.2f, 0.4f, 0.8f },
+	};
+	engine.get_ecs().add_light_source(light.get_id(), light_component);
+
+	engine.main_loop(1.0f);
+
+	const auto frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	ASSERT_EQ(frame->particles.size(), 1);
+	ASSERT_TRUE(frame->active_light.has_value());
+	ASSERT_LT(frame->active_light->object_index, frame->objects.size());
+	EXPECT_EQ(
+		frame->objects[frame->active_light->object_index].definition->id,
+		light.get_id());
+	EXPECT_FLOAT_EQ(frame->active_light->intensity, light_component.intensity);
+	EXPECT_EQ(frame->active_light->color, light_component.color);
+}
+
+TEST_F(GameEngineTests, acknowledged_deletion_updates_latest_frame_without_mutating_history)
+{
+	auto& object = engine.spawn_object<Object>(Renderable::make_default());
+	const ObjectID id = object.get_id();
+	engine.main_loop(0.1f);
+	const auto before_deletion =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	ASSERT_NO_THROW((void)find_render_object(*before_deletion, id));
+
+	engine.delete_object(id);
+	engine.main_loop(0.1f);
+
+	const auto publication =
+		engine.get_graphics_engine().load_latest_completed_render_frames();
+	EXPECT_EQ(publication->previous, before_deletion);
+	EXPECT_EQ(std::ranges::find_if(
+		publication->current->objects,
+		[id](const RenderObjectState& state) { return state.definition->id == id; }),
+		publication->current->objects.end());
+	ASSERT_NO_THROW((void)find_render_object(*before_deletion, id));
 }
 
 TEST_F(GameEngineTests, camera_render_helpers_are_engine_owned_transient_objects)
@@ -363,7 +515,7 @@ TEST_F(GameEngineTests, scene_save_rejects_procedural_meshes)
 	std::filesystem::remove(path);
 }
 
-TEST_F(GameEngineTests, scene_load_restores_ecs_before_spawning_graphics_objects)
+TEST_F(GameEngineTests, scene_load_is_visible_in_the_next_completed_snapshot)
 {
 	auto& object = engine.spawn_object<Object>();
 	const ObjectID object_id = object.get_id();
@@ -372,20 +524,14 @@ TEST_F(GameEngineTests, scene_load_restores_ecs_before_spawning_graphics_objects
 	const auto path = save_path(save_name);
 	engine.save_scene(save_name);
 
-	bool observed_spawn = false;
-	get_mock_gfx().on_spawn = [&](SpawnObjectCmd& cmd)
-	{
-		if (cmd.object && cmd.object->get_id() == object_id)
-		{
-			observed_spawn = true;
-			EXPECT_NE(engine.get_ecs().get_collider(object_id), nullptr);
-		}
-	};
-
 	engine.load_scene(save_name);
+	engine.main_loop(0.1f);
 	std::filesystem::remove(path);
 
-	EXPECT_TRUE(observed_spawn);
+	EXPECT_NE(engine.get_ecs().get_collider(object_id), nullptr);
+	const auto frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_NO_THROW((void)find_render_object(*frame, object_id));
 }
 
 TEST_F(GameEngineTests, scene_save_rejects_procedural_materials)
@@ -686,13 +832,14 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 	ASSERT_TRUE(engine.get_object(id));
 
 	engine.delete_object(id);
-	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 	ASSERT_FALSE(engine.get_object(id));
 }
 
 TEST_F(GameEngineTests, resource_cleanup)
 {
+	MeshSystem::take_retired();
+	MaterialSystem::take_retired();
 	auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
 	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
 	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
@@ -707,18 +854,16 @@ TEST_F(GameEngineTests, resource_cleanup)
 	const auto obj_id = obj.get_id();
 
 	engine.delete_object(obj_id);
-	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 
-	ASSERT_EQ(get_mock_gfx().meshes_to_destroy.size(), 1);
-	ASSERT_EQ(get_mock_gfx().materials_to_destroy.size(), 1);
-
-	ASSERT_EQ(get_mock_gfx().meshes_to_destroy[0], mesh_id);
-	ASSERT_EQ(get_mock_gfx().materials_to_destroy[0], material_id);
+	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ mesh_id }));
+	EXPECT_EQ(MaterialSystem::take_retired(), (std::vector<MaterialID>{ material_id }));
 }
 
 TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 {
+	MeshSystem::take_retired();
+	MaterialSystem::take_retired();
 	auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
 	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
 	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
@@ -734,19 +879,18 @@ TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 	const auto obj_id = obj.get_id();
 
 	engine.delete_object(obj_id);
-	engine.get_graphics_engine().increment_num_objs_deleted();
 	engine.main_loop(1.0f);
 
-	ASSERT_EQ(get_mock_gfx().meshes_to_destroy.size(), 1);
-	ASSERT_EQ(get_mock_gfx().materials_to_destroy.size(), 0);
-
-	ASSERT_EQ(get_mock_gfx().meshes_to_destroy[0], mesh_id);
+	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ mesh_id }));
+	EXPECT_TRUE(MaterialSystem::take_retired().empty());
 	external_material_owner.reset();
-	engine.main_loop(1.0f);
+	EXPECT_EQ(MaterialSystem::take_retired(), (std::vector<MaterialID>{ material_id }));
 }
 
 TEST_F(GameEngineTests, shared_renderable_resources_are_retained_for_each_spawned_object)
 {
+	MeshSystem::take_retired();
+	MaterialSystem::take_retired();
 	auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
 	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
 	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
@@ -770,21 +914,30 @@ TEST_F(GameEngineTests, shared_renderable_resources_are_retained_for_each_spawne
 	engine.main_loop(1.0f);
 	EXPECT_TRUE(MeshSystem::contains(mesh_id));
 	EXPECT_TRUE(MaterialSystem::contains(material_id));
-	EXPECT_TRUE(get_mock_gfx().meshes_to_destroy.empty());
-	EXPECT_TRUE(get_mock_gfx().materials_to_destroy.empty());
 
 	engine.delete_object(second_id);
+	engine.main_loop(1.0f);
+	EXPECT_TRUE(MeshSystem::contains(mesh_id));
+	EXPECT_TRUE(MaterialSystem::contains(material_id));
+	EXPECT_FALSE(mesh_lifetime.expired());
+	EXPECT_FALSE(material_lifetime.expired());
+
+	// The last frame containing the object remains available as "previous".
+	// Advancing once releases its immutable definition and retained assets.
 	engine.main_loop(1.0f);
 	EXPECT_FALSE(MeshSystem::contains(mesh_id));
 	EXPECT_FALSE(MaterialSystem::contains(material_id));
 	EXPECT_TRUE(mesh_lifetime.expired());
 	EXPECT_TRUE(material_lifetime.expired());
-	EXPECT_EQ(get_mock_gfx().meshes_to_destroy, (std::vector<MeshID>{ mesh_id }));
-	EXPECT_EQ(get_mock_gfx().materials_to_destroy, (std::vector<MaterialID>{ material_id }));
+
+	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ mesh_id }));
+	EXPECT_EQ(MaterialSystem::take_retired(), (std::vector<MaterialID>{ material_id }));
 }
 
 TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 {
+	MeshSystem::take_retired();
+	MaterialSystem::take_retired();
 	std::vector<MeshID> mesh_ids;
 	std::vector<MaterialID> material_ids;
 	std::vector<ObjectID> object_ids;
@@ -804,14 +957,19 @@ TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 		engine.delete_object(object_id);
 	engine.main_loop(1.0f);
 
-	ASSERT_EQ(get_mock_gfx().meshes_to_destroy.size(), 2);
-	ASSERT_EQ(get_mock_gfx().materials_to_destroy.size(), 2);
-	EXPECT_EQ(get_mock_gfx().meshes_to_destroy, mesh_ids);
-	EXPECT_EQ(get_mock_gfx().materials_to_destroy, material_ids);
+	auto retired_meshes = MeshSystem::take_retired();
+	auto retired_materials = MaterialSystem::take_retired();
+	std::ranges::sort(retired_meshes);
+	std::ranges::sort(retired_materials);
+	std::ranges::sort(mesh_ids);
+	std::ranges::sort(material_ids);
+	EXPECT_EQ(retired_meshes, mesh_ids);
+	EXPECT_EQ(retired_materials, material_ids);
 }
 
 TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_safe)
 {
+	MaterialSystem::take_retired();
 	const auto path = "normal_mapped_shared_material.gltf";
 	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
@@ -823,14 +981,16 @@ TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_
 	engine.delete_object(object.get_id());
 	engine.main_loop(1.0f);
 
-	EXPECT_TRUE(get_mock_gfx().materials_to_destroy.empty());
+	EXPECT_TRUE(MaterialSystem::take_retired().empty());
 	EXPECT_TRUE(MaterialSystem::contains(material_ids[0]));
 	EXPECT_TRUE(MaterialSystem::contains(material_ids[1]));
 
 	model = {};
-	engine.main_loop(1.0f);
-	ASSERT_EQ(get_mock_gfx().materials_to_destroy.size(), 2);
-	EXPECT_EQ(get_mock_gfx().materials_to_destroy, material_ids);
+	auto retired_materials = MaterialSystem::take_retired();
+	std::ranges::sort(retired_materials);
+	auto expected_materials = material_ids;
+	std::ranges::sort(expected_materials);
+	EXPECT_EQ(retired_materials, expected_materials);
 	EXPECT_FALSE(MaterialSystem::contains(material_ids[0]));
 	EXPECT_FALSE(MaterialSystem::contains(material_ids[1]));
 }
@@ -874,25 +1034,26 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 	const auto old_diffuse_owners = old_diffuse_owner.use_count();
 	engine.replace_renderable_texture(
 		object.get_id(), 0, ETextureSemantic::BASE_COLOR, "texture5.jpg");
-	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
 	EXPECT_EQ(old_diffuse_owner.use_count(), old_diffuse_owners);
 
 	engine.replace_renderable_texture(
 		object.get_id(), 1, ETextureSemantic::BASE_COLOR, "texture4.png");
 
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
-	const auto& update = get_mock_gfx().material_updates[0];
-	EXPECT_EQ(update.object_id, object.get_id());
-	EXPECT_EQ(update.renderable_index, 1);
-	EXPECT_EQ(update.normal, old_normal);
-	EXPECT_TRUE(update.retired.empty());
 	EXPECT_EQ(object.renderables[0].get_material_ids(), (MatVec{ old_diffuse, old_normal }));
 	ASSERT_EQ(object.renderables[1].material_owners.size(), 2);
-	EXPECT_EQ(object.renderables[1].get_material_id(0), update.diffuse);
+	const MaterialID replacement_id = object.renderables[1].get_material_id(0);
 	EXPECT_EQ(object.renderables[1].get_material_id(1), old_normal);
-	EXPECT_NE(update.diffuse, old_diffuse);
-	const auto& replacement = dynamic_cast<const TextureMaterial&>(MaterialSystem::get(update.diffuse));
+	EXPECT_NE(replacement_id, old_diffuse);
+	const auto& replacement =
+		dynamic_cast<const TextureMaterial&>(MaterialSystem::get(replacement_id));
 	EXPECT_EQ(replacement.semantic, ETextureSemantic::BASE_COLOR);
+
+	engine.main_loop(0.1f);
+	const auto frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const auto& definition = *find_render_object(*frame, object.get_id()).definition;
+	EXPECT_EQ(definition.renderables[0].get_material_ids(), (MatVec{ old_diffuse, old_normal }));
+	EXPECT_EQ(definition.renderables[1].get_material_ids(), (MatVec{ replacement_id, old_normal }));
 }
 
 TEST_F(GameEngineTests, texture_replacement_with_procedural_material_is_not_serializable)
@@ -930,9 +1091,6 @@ TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 	engine.replace_renderable_texture(
 		object.get_id(), 0, ETextureSemantic::NORMAL, std::nullopt);
 	ASSERT_EQ(object.renderables[0].get_material_ids(), (MatVec{ diffuse }));
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
-	EXPECT_FALSE(get_mock_gfx().material_updates[0].normal);
-	EXPECT_EQ(get_mock_gfx().material_updates[0].retired, (MatVec{ normal }));
 	EXPECT_FALSE(MaterialSystem::contains(normal));
 
 	engine.replace_renderable_texture(
@@ -940,10 +1098,14 @@ TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 	const auto white = object.renderables[0].get_material_id(0);
 	EXPECT_EQ(object.renderables[0].get_material_ids(), (MatVec{ white }));
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(MaterialSystem::get(white)).source, "(none)");
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 2);
-	EXPECT_EQ(get_mock_gfx().material_updates[1].diffuse, white);
-	EXPECT_EQ(get_mock_gfx().material_updates[1].retired, (MatVec{ diffuse }));
 	EXPECT_FALSE(MaterialSystem::contains(diffuse));
+
+	engine.main_loop(0.1f);
+	const auto frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_EQ(
+		find_render_object(*frame, object.get_id()).definition->renderables[0].get_material_ids(),
+		(MatVec{ white }));
 }
 
 TEST_F(GameEngineTests, replaces_specular_maps)
@@ -964,9 +1126,12 @@ TEST_F(GameEngineTests, replaces_specular_maps)
 		"texture4.png");
 	const TexturedMatGroup group(object.renderables[0].material_owners);
 	ASSERT_TRUE(group.specular_mat);
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
-	const auto& update = get_mock_gfx().material_updates.back();
-	EXPECT_EQ(update.specular, group.specular_mat);
+	engine.main_loop(0.1f);
+	const auto frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const TexturedMatGroup snapshot_group(
+		find_render_object(*frame, object.get_id()).definition->renderables[0].material_owners);
+	EXPECT_EQ(snapshot_group.specular_mat, group.specular_mat);
 }
 
 TEST_F(GameEngineTests, texture_replacement_matches_owners_by_semantic)
@@ -1012,8 +1177,12 @@ TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
 	ASSERT_TRUE(group.specular_mat);
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
 		MaterialSystem::get(*group.specular_mat)).source, "(matte)");
-	ASSERT_EQ(get_mock_gfx().material_updates.size(), 1);
-	EXPECT_EQ(get_mock_gfx().material_updates.back().specular, group.specular_mat);
+	engine.main_loop(0.1f);
+	const auto frame =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	const TexturedMatGroup snapshot_group(
+		find_render_object(*frame, object.get_id()).definition->renderables[0].material_owners);
+	EXPECT_EQ(snapshot_group.specular_mat, group.specular_mat);
 }
 
 TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
@@ -1036,12 +1205,10 @@ TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
 		object.get_id(), 0, ETextureSemantic::BASE_COLOR,
 		"does_not_exist.png"), ResourceLoadError);
 	EXPECT_EQ(object.renderables[0].get_material_ids(), original);
-	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
 
 	Renderable colour = Renderable::make_default(
 		MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::COLOR)));
 	auto& colour_object = engine.spawn_object<Object>(colour);
 	EXPECT_THROW(engine.replace_renderable_texture(
 		colour_object.get_id(), 0, ETextureSemantic::BASE_COLOR, std::nullopt), std::runtime_error);
-	EXPECT_TRUE(get_mock_gfx().material_updates.empty());
 }

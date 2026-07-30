@@ -9,6 +9,7 @@ sources = [
 	'save_file_store_tests.cpp',
 	'graphics_settings_tests.cpp',
 	'resource_loader_tests.cpp',
+	'render_frame_tests.cpp',
 	'graphics_buffer_tests.cpp',
 	'camera_tests.cpp',
 	'game_objects_tests.cpp',

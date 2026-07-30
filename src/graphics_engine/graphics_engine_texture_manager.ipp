@@ -21,13 +21,13 @@ VkFormat texture_format(const TextureMaterial& material)
 		? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
 }
 
-const TextureMaterial& require_texture_material(const MaterialID id)
+const TextureMaterial& require_texture_material(const MaterialHandle& owner)
 {
-	const auto* material = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(id));
+	const auto* material = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(owner));
 	if (!material)
 		throw std::runtime_error(fmt::format(
 			"GraphicsEngineTextureManager: material {} is not a TextureMaterial",
-			id.get_underlying()));
+			MaterialSystem::get_id(owner).get_underlying()));
 	return *material;
 }
 }
@@ -105,9 +105,10 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_white_texture()
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
-	MaterialID id,
+	const MaterialHandle& material_owner,
 	ETextureSamplerType sampler_type)
 {
+	const MaterialID id = MaterialSystem::get_id(material_owner);
 	if (texture_units.contains(id))
 	{
 		auto& texture = texture_units.at(id);
@@ -115,7 +116,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 		return texture;
 	}
 
-	const auto& material = require_texture_material(id);
+	const auto& material = require_texture_material(material_owner);
 	// TODO: Release CPU-side texture data after a successful upload. Cubemap uploads
 	// currently depend on retaining their six source materials and must be handled first.
 	return texture_units.emplace(id, create_texture(material, sampler_type)).first->second;
@@ -145,18 +146,27 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 		return texture_units.at(representative_id);
 	}
 
-	const auto& representative_material = require_texture_material(representative_id);
-	const uint32_t width = representative_material.width;
-	const uint32_t height = representative_material.height;
-	const uint32_t channels = representative_material.channels;
+	const auto& representative_material = material_group.get_material(0);
+	const auto* representative_texture =
+		dynamic_cast<const TextureMaterial*>(&representative_material);
+	if (!representative_texture)
+		throw std::runtime_error("GraphicsEngineTextureManager: cubemap material is not a texture");
+	const auto& representative_texture_material = *representative_texture;
+	const uint32_t width = representative_texture_material.width;
+	const uint32_t height = representative_texture_material.height;
+	const uint32_t channels = representative_texture_material.channels;
 	if (channels != 4)
 		throw std::runtime_error(fmt::format(
 			"GraphicsEngineTextureManager: cubemap material {} has {} channels; expected 4",
 			representative_id.get_underlying(), channels));
 	for (size_t index = 0; index < material_group.size(); ++index)
 	{
-		const auto& material = require_texture_material(material_group.get_material_id(index));
-		if (width != material.width || height != material.height || channels != material.channels)
+		const auto* material =
+			dynamic_cast<const TextureMaterial*>(&material_group.get_material(index));
+		if (!material)
+			throw std::runtime_error(
+				"GraphicsEngineTextureManager: cubemap material is not a texture");
+		if (width != material->width || height != material->height || channels != material->channels)
 			throw std::runtime_error(
 				"GraphicsEngineTextureManager: cubemap textures do not have matching dimensions and channels");
 	}
@@ -280,13 +290,16 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
 {
-	const auto representative_id = material_group.get_material_id(0);
-	const auto& representative_material = require_texture_material(representative_id);
+	const auto* representative_material =
+		dynamic_cast<const TextureMaterial*>(&material_group.get_material(0));
+	if (!representative_material)
+		throw std::runtime_error(
+			"GraphicsEngineTextureManager: cubemap material is not a texture");
 	const unsigned num_textures = material_group.size();
 
-	const uint32_t width = representative_material.width;
-	const uint32_t height = representative_material.height;
-	const uint32_t channels = representative_material.channels;
+	const uint32_t width = representative_material->width;
+	const uint32_t height = representative_material->height;
+	const uint32_t channels = representative_material->channels;
 
 	VkDeviceSize layer_size = width * height * channels;
 	VkDeviceSize image_size = layer_size * material_group.size();
@@ -326,8 +339,15 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		{
 			for (auto i = 0; i < num_textures; i++)
 			{
-				const auto& material = require_texture_material(material_group.get_material_id(i));
-				std::memcpy(destination+(layer_size*i), material.data->get(), static_cast<size_t>(layer_size));
+				const auto* material =
+					dynamic_cast<const TextureMaterial*>(&material_group.get_material(i));
+				if (!material)
+					throw std::runtime_error(
+						"GraphicsEngineTextureManager: cubemap material is not a texture");
+				std::memcpy(
+					destination + (layer_size * i),
+					material->data->get(),
+					static_cast<size_t>(layer_size));
 			}
 		},
 		num_textures);

@@ -25,7 +25,6 @@ public:
 
 	void reset();
 
-	void update_command_buffer();
 	void draw();
 
 	// TODO: deprecate this infavor of something more useful, i.e. recreating the entire swapchain

@@ -38,6 +38,7 @@ struct TexturedMatGroup : public MaterialGroup
 {
 	TexturedMatGroup() = default;
 	explicit TexturedMatGroup(std::span<const MaterialHandle> mats);
+	const MaterialHandle& get_material_owner(MaterialID id) const;
 
 	MatVec get_materials() const
 	{
@@ -52,6 +53,9 @@ struct TexturedMatGroup : public MaterialGroup
 	MaterialID base_color_mat;
 	std::optional<MaterialID> normal_mat;
 	std::optional<MaterialID> specular_mat;
+
+private:
+	std::span<const MaterialHandle> material_owners;
 };
 
 struct CubeMapMatGroup : public MaterialGroup
@@ -71,6 +75,11 @@ struct CubeMapMatGroup : public MaterialGroup
 	MaterialID get_material_id(size_t index) const
 	{
 		return MaterialSystem::get_id(material_owners[index]);
+	}
+
+	const Material& get_material(size_t index) const
+	{
+		return MaterialSystem::get(material_owners[index]);
 	}
 
 	std::span<const MaterialHandle> material_owners;

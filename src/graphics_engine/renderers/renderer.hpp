@@ -6,6 +6,7 @@
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "renderable/render_types.hpp"
 #include "renderable/material.hpp"
+#include "render_frame.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -24,7 +25,6 @@ enum class ERendererType
 
 class GraphicsEngineObject;
 class GraphicsEnginePipeline;
-class Renderable;
 
 // A renderer is simply anything that submits draw commands and fills up a command buffer
 // Each renderer can only have ONE renderpass and each renderpass must be unique to the renderer
@@ -48,11 +48,11 @@ public:
 	virtual VkRenderPass get_render_pass() { return render_pass; }
 	
 	virtual void draw_renderable(VkCommandBuffer command_buffer,
-							 	 const Renderable& renderable,
-							 	 const VkDescriptorSet& object_dset,
-							 	 const VkDescriptorSet& renderable_dset,
-							 	 EPipelineModifier pipeline_modifier,
-							 	 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
+								 const RenderableDefinition& renderable,
+								 const VkDescriptorSet& object_dset,
+								 const VkDescriptorSet& renderable_dset,
+								 EPipelineModifier pipeline_modifier,
+								 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
 
 protected:
 	// A render pass is a general description of steps to draw something on the screen

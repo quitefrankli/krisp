@@ -3,19 +3,20 @@
 #include "graphics_engine_base_module.hpp"
 #include "pipeline/pipeline.hpp"
 #include "identifications.hpp"
-#include "renderable/renderable.hpp"
+#include "render_frame.hpp"
 
 #include <vulkan/vulkan.hpp>
 
 
-class Object;
 class GraphicsEngineTexture;
 
 class GraphicsEngineObject : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineObject(GraphicsEngine& engine, const Object& object);
-	virtual ~GraphicsEngineObject();
+	GraphicsEngineObject(
+		GraphicsEngine& engine,
+		RenderObjectDefinitionPtr definition);
+	~GraphicsEngineObject();
 
 	GraphicsEngineObject() = delete;
 	GraphicsEngineObject(const GraphicsEngineObject&) = delete;
@@ -23,16 +24,13 @@ public:
 	GraphicsEngineObject& operator=(const GraphicsEngineObject&) = delete;
 	GraphicsEngineObject& operator=(GraphicsEngineObject&&) = delete;
 
-	const virtual Object& get_game_object() const = 0;
-
 	ObjectID get_id() const;
 	bool get_visibility() const;
+	const glm::mat4& get_model_transform() const;
 
-	const std::vector<Renderable>& get_renderables() const;
+	const std::vector<RenderableDefinition>& get_renderables() const;
 	std::optional<SkeletonID> get_skeleton_id() const;
-
-	void mark_for_delete() { marked_for_delete = true; }
-	bool is_marked_for_delete() const { return marked_for_delete; }
+	RenderDefinitionVersion get_definition_version() const { return definition->version; }
 
 	VkDescriptorSet get_renderable_frame_dset(uint8_t frame_idx, uint32_t renderable_idx) const
 	{
@@ -47,31 +45,7 @@ public:
 	void set_renderable_dsets(const std::vector<VkDescriptorSet>& dsets) { renderable_dsets = dsets; }
 
 private:
-	bool marked_for_delete = false;
-	std::vector<VkDescriptorSet> renderable_dsets; // i.e. mesh data
+	RenderObjectDefinitionPtr definition;
+	std::vector<VkDescriptorSet> renderable_dsets; // material and texture bindings
 	std::vector<std::vector<VkDescriptorSet>> renderable_frame_dsets;
-};
-
-// this object derivation CAN be destroyed while graphics engine is running
-class GraphicsEngineObjectPtr : public GraphicsEngineObject
-{
-public:
-	GraphicsEngineObjectPtr(GraphicsEngine& engine, std::shared_ptr<Object>&& game_engine_object);
-
-	const Object& get_game_object() const override;
-
-private:
-	std::shared_ptr<Object> object;
-};
-
-// this object derivation CANNOT be destroyed while graphics engine is running
-class GraphicsEngineObjectRef : public GraphicsEngineObject
-{
-public:
-	GraphicsEngineObjectRef(GraphicsEngine& engine, Object& game_engine_object);
-	
-	const Object& get_game_object() const override;
-
-private:
-	Object& object;
 };

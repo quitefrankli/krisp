@@ -1,8 +1,9 @@
 # Graphics Engine Architecture
 
 `GraphicsEngine` is Krisp's Vulkan-backed rendering boundary. The game layer
-owns scene objects and submits graphics commands; this module owns the Vulkan
-objects, GPU-facing representations, and the render loop that presents frames.
+owns mutable scene objects and publishes completed immutable snapshots; this
+module owns the window-facing Vulkan objects, GPU representations, and render
+loop.
 
 ## Major components
 
@@ -14,9 +15,9 @@ objects, GPU-facing representations, and the render loop that presents frames.
 | `resource_manager/` | Allocates command buffers and GPU buffers, and manages descriptor sets. |
 | `pipeline/` | Builds and caches Vulkan graphics/compute pipelines and their layouts. |
 | `renderers/` | Implements rendering passes such as shadow maps, rasterization, ray tracing, compositing, particles, and ImGui. |
-| `graphics_engine_object.*` | Holds GPU-side state for a game object and its renderables. |
+| `graphics_engine_object.*` | Holds graphics-owned state for one immutable render-object definition. |
 | `graphics_engine_texture*` | Loads, uploads, samples, and owns texture resources. |
-| `raytracing.*` | Maintains ray-tracing acceleration structures and related resources. |
+| `raytracing.*` | Dormant implementation; ray tracing is unsupported and excluded from builds. |
 
 Most submodules inherit `GraphicsEngineBaseModule`, which provides controlled
 access back to the owning `GraphicsEngine` and its shared Vulkan services.
@@ -24,12 +25,15 @@ access back to the owning `GraphicsEngine` and its shared Vulkan services.
 ## Frame flow
 
 ```text
-GameEngine commands
+GameEngine completed-frame publication
         |
         v
 GraphicsEngine::run
-  ├─ process queued graphics commands
-  ├─ update GUI and ray-tracing state
+  ├─ process control-only graphics commands
+  ├─ acquire and retain the newest completed snapshot
+  ├─ reconcile versioned graphics-owned definitions when needed
+  ├─ retire released GPU assets after graphics synchronization
+  ├─ update GUI
   └─ SwapChain / GraphicsEngineFrame::draw
        ├─ wait for the frame fence
        ├─ record renderer command passes
@@ -39,22 +43,30 @@ GraphicsEngine::run
        └─ present on the present queue
 ```
 
-With rasterization enabled, command recording executes the shadow-map pass,
-rasterization pass, and quad/composite pass before the ImGui pass. With ray
-tracing enabled, the ray-tracing renderer replaces that scene-pass sequence.
-Particles are recorded by the rasterization renderer.
+Command recording executes the shadow-map, rasterization, and quad/composite
+passes before the ImGui pass. Particles are recorded by the rasterization
+renderer. Every scene pass reads the one snapshot retained for that graphics
+iteration. Ray tracing is currently unsupported.
 
 ## Data ownership and boundaries
 
-- The game/ECS side remains the source of truth for objects, meshes,
-  materials, camera state, and scene changes.
-- `GraphicsEngineObject` and the resource managers mirror only the GPU state
-  required to render those objects.
-- Changes cross the boundary through the graphics-engine command queue, which
-  the render thread drains at the start of each loop iteration.
+- The game/ECS side remains the mutable source of truth and publishes all
+  renderable state through `RenderFrame`.
+- `GraphicsEngine` depends on the window and graphics-owned resources, never
+  on `GameEngine`, mutable `Object` instances, the ECS, or the game camera.
+- `GraphicsEngineObject` retains an immutable versioned definition. Membership
+  and definition changes reconcile graphics resources; dynamic state is read
+  directly from the accepted snapshot.
+- The latest-wins mailbox lets either thread advance independently. A slow
+  graphics loop drops intermediate publications instead of blocking updates.
+- The command queue carries controls only; stencil commands carry an
+  `ObjectID`, not a game-object reference.
 - Swap-chain frames own transient per-frame synchronization and command
   resources; long-lived device resources belong to the relevant manager or
   renderer.
+
+The full boundary contract is documented in
+[`docs/RENDER_BOUNDARY.md`](../../docs/RENDER_BOUNDARY.md).
 
 ## Where to start
 

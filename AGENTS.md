@@ -35,6 +35,8 @@
 
 * Only the `krisp` application must be maintained. Other applications are out of scope; do not spend additional effort maintaining them unless required to build `krisp`.
 
+* Ray tracing is currently unsupported. Keep its C++ and shader build paths disabled unless the user explicitly asks to restore and repair it.
+
 * When making materially performance-relevant changes, add or update the relevant notes in `docs/PERFORMANCE.md`. Ignore negligible constant-time bookkeeping and similarly insignificant performance effects.
 
 * When the user explicitly approves a commit, use the subagent configured in `.codex/agents/commit.toml`.

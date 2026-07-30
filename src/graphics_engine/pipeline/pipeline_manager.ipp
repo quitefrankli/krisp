@@ -68,8 +68,9 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		new_pipeline = create_pipeline<CubemapPipeline>(id);
 		break;
 	case ERenderType::RAYTRACING:
-		new_pipeline = create_pipeline<RaytracingPipeline>(id);
-		break;
+		// new_pipeline = create_pipeline<RaytracingPipeline>(id);
+		throw std::runtime_error(
+			"GraphicsEnginePipelineManager: ray tracing is unsupported");
 	case ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE:
 		new_pipeline = create_pipeline<LightWeightOffscreenPipeline>(id);
 		break;

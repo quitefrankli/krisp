@@ -91,36 +91,22 @@ Non-imported resources use their saved IDs:
 
 ## Deserialization flow
 
-Loading has a validation phase followed by a graphics-paused restore:
+Loading has a validation phase followed by a game-side restore:
 
 1. Read and parse the YAML document.
 2. Validate all object types and reject duplicate object IDs.
-3. Send `ResetSceneCmd` and wait for its `complete` promise.
-4. Keep the graphics thread blocked on the command's `resume` promise.
-5. Clear game objects, persistent ECS state, resource tracking, and provenance.
-6. Restore the material table and build a saved-ID-to-runtime-ID remap.
-7. Import each referenced model once per source path and glTF scene.
-8. Construct and deserialize every object, resolving its renderables.
-9. Restore parent relationships.
-10. Deserialize ECS systems, followed by engine and camera state.
-11. Queue graphics spawn commands for the fully restored objects.
-12. Invoke `IApplication::on_scene_loaded`.
-13. Destroy the scene-reset pause guard, fulfilling `resume`.
+3. Clear game objects, persistent ECS state, resource tracking, and provenance.
+4. Import each referenced model once per source path and glTF scene.
+5. Construct and deserialize every object, resolving its renderables.
+6. Restore parent relationships.
+7. Deserialize ECS systems, followed by engine and camera state.
+8. Invoke `IApplication::on_scene_loaded`.
+9. Publish the restored state at the next completed game-update boundary.
 
-The pause guard is move-only and owns the resume promise. Its destructor also
-runs during exception unwinding, so a failed restore cannot leave the graphics
-thread permanently waiting.
-
-The graphics command queue removes a command while holding its mutex and
-processes it after releasing the mutex. This is required during loading:
-`ResetSceneCmd` is waiting in the graphics thread while the game thread queues
-resource-destruction and spawn commands behind it. Those commands cannot run
-until the pause guard resumes graphics.
-
-Deferring spawn commands until after ECS deserialization is important.
-Graphics object creation reads meshes, materials, skeleton attachments, and
-bone data; exposing an object earlier would race with resource imports and ECS
-replacement.
+Loading does not pause or command the graphics thread. Graphics may continue to
+render its previously accepted immutable frame while restoration runs. Once
+the next completed frame is published, graphics accepts the coherent restored
+scene and reconciles membership and versioned definitions.
 
 ## `Serializer` and `Deserializer`
 

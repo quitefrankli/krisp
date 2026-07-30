@@ -2,8 +2,6 @@
 
 #include "renderers.hpp"
 #include "graphics_engine/graphics_engine.hpp"
-#include "entity_component_system/particle_system.hpp"
-#include "entity_component_system/ecs.hpp"
 
 
 class ParticleRenderer : public Renderer
@@ -160,10 +158,7 @@ void ParticleRenderer::update_instance_buffer(uint32_t frame_index)
 		return;
 	}
 	
-	// Get particle data from particle system
-	auto& ecs = get_graphics_engine().get_ecs();
-	std::vector<SDS::ParticleInstanceData> instance_data;
-	ecs.prepare_render_data(instance_data);
+	const auto& instance_data = get_graphics_engine().get_render_frame().particles;
 	
 	if (instance_data.empty())
 	{
@@ -219,9 +214,7 @@ void ParticleRenderer::render_particles(VkCommandBuffer command_buffer, uint32_t
 	update_instance_buffer(frame_index);
 	
 	// Check if we have any particles to render
-	auto& ecs = get_graphics_engine().get_ecs();
-	std::vector<SDS::ParticleInstanceData> instance_data;
-	ecs.prepare_render_data(instance_data);
+	const auto& instance_data = get_graphics_engine().get_render_frame().particles;
 	
 	if (instance_data.empty())
 	{

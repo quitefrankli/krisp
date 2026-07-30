@@ -11,12 +11,13 @@
 #include "audio_engine/audio_engine_pimpl.hpp"
 #include "window.hpp"
 #include "entity_component_system/ecs.hpp"
-#include "entity_deletion_queue.hpp"
 #include "graphics_engine/engine_base.hpp"
+#include "render_frame.hpp"
 
 #include <atomic>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include <stdexcept>
 
@@ -90,7 +91,6 @@ public:
 		auto result = objects.emplace(id, std::move(tmp_new_obj));
 		Object& new_obj = *(result.first->second);
 		ecs.add_object(new_obj);
-		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
 		return static_cast<object_t&>(new_obj);
 	}
 
@@ -150,31 +150,26 @@ private:
 	ApplicationUiManager application_ui_manager;
 
 	std::unique_ptr<Experimental> experimental;
-	EntityDeletionQueue entity_deletion_queue;	
+	std::queue<ObjectID> entities_to_delete;
+	std::unordered_set<ObjectID> pending_deletions;
+	std::unordered_map<ObjectID, RenderObjectDefinitionPtr> render_object_definitions;
+	std::unordered_map<SkeletonID, RenderSkeletonDefinitionPtr> render_skeleton_definitions;
+	uint64_t next_render_frame_number = 0;
+	RenderDefinitionVersion next_render_definition_version = 1;
 
 private:
-	class SceneResetPause
-	{
-	public:
-		explicit SceneResetPause(std::shared_ptr<std::promise<void>> resume) :
-			resume(std::move(resume)) {}
-		SceneResetPause(SceneResetPause&&) noexcept = default;
-		SceneResetPause& operator=(SceneResetPause&&) = delete;
-		SceneResetPause(const SceneResetPause&) = delete;
-		SceneResetPause& operator=(const SceneResetPause&) = delete;
-		~SceneResetPause() noexcept;
-
-	private:
-		std::shared_ptr<std::promise<void>> resume;
-	};
-
 	void init();
 	void configure_ecs();
-	[[nodiscard]] SceneResetPause reset_scene_and_pause_graphics();
+	void reset_scene_state();
 	void shutdown_impl();
 	void process_objs_to_delete();
+	void publish_completed_render_frame();
+	RenderFrame build_render_frame();
+	RenderObjectDefinitionPtr get_render_object_definition(
+		const Object& object, std::optional<SkeletonID> skeleton_id);
+	RenderSkeletonDefinitionPtr get_render_skeleton_definition(
+		SkeletonID id, const SkeletalRenderStateSnapshot& snapshot);
 	static void validate_renderable_resources(const Object& object);
-	static void collect_retired_resources(DestroyResourcesCmd& destroy_resources_cmd);
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;

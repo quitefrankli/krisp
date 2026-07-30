@@ -65,6 +65,10 @@ public:
 	virtual void attach_to(Object* parent);
 	// detach all children
 	virtual void detach_all_children();
+	std::optional<ObjectID> get_parent_id() const
+	{
+		return parent ? std::optional<ObjectID>(parent->get_id()) : std::nullopt;
+	}
 
 	const std::string& get_name() const { return name; }
 	void set_name(const std::string_view name) { this->name = name; }

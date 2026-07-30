@@ -38,26 +38,13 @@ public:
 		application_ui_active = application_active;
 	}
 
-	virtual void handle_command(SpawnObjectCmd& cmd) override {}
-	virtual void handle_command(DeleteObjectCmd& cmd) override 
-	{
-		++num_objs_deleted;
-	}
 	virtual void handle_command(StencilObjectCmd& cmd) override {}
 	virtual void handle_command(UnStencilObjectCmd& cmd) override {}
 	virtual void handle_command(ShutdownCmd& cmd) override {}
 	virtual void handle_command(SetRenderModeCmd& cmd) override {}
-	virtual void handle_command(UpdateCommandBufferCmd& cmd) override {}
-
 	virtual float get_fps() const override { return 1.0f; }
 
-	virtual uint64_t get_num_objs_deleted() const override { return num_objs_deleted; }
-
 	virtual void run() override {}
-
-	virtual void increment_num_objs_deleted() override { ++num_objs_deleted; }
-
-	uint64_t num_objs_deleted = 0;
 	ApplicationUiManager* application_ui_manager = nullptr;
 	bool engine_ui_active = true;
 	bool application_ui_active = false;

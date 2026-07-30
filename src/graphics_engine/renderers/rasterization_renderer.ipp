@@ -148,9 +148,6 @@ void RasterizationRenderer::submit_draw_commands(
 	for (const auto& [id, obj_ptr] : graphics_objects)
 	{
 		const auto& graphics_object = *obj_ptr;
-		if (graphics_object.is_marked_for_delete())
-			continue;
-
 		if (!graphics_object.get_visibility())
 			continue;
 		
@@ -178,7 +175,7 @@ void RasterizationRenderer::submit_draw_commands(
 
 		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 		{
-			const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+			const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
 			if (renderable.alpha_mode == EAlphaMode::BLEND)
 			{
 				blended_renderables.emplace_back(&graphics_object, renderable_idx);
@@ -192,11 +189,14 @@ void RasterizationRenderer::submit_draw_commands(
 		}
 	}
 
-	const glm::vec3 camera_position = get_graphics_engine().get_camera()->get_position();
+	const glm::vec3 camera_position =
+		get_graphics_engine().get_render_frame().camera.position;
 	std::ranges::sort(blended_renderables, [&camera_position](const auto& lhs, const auto& rhs)
 	{
-		const glm::vec3 lhs_delta = lhs.first->get_game_object().get_position() - camera_position;
-		const glm::vec3 rhs_delta = rhs.first->get_game_object().get_position() - camera_position;
+		const glm::vec3 lhs_delta =
+			glm::vec3(lhs.first->get_model_transform()[3]) - camera_position;
+		const glm::vec3 rhs_delta =
+			glm::vec3(rhs.first->get_model_transform()[3]) - camera_position;
 		const float lhs_distance = glm::dot(lhs_delta, lhs_delta);
 		const float rhs_distance = glm::dot(rhs_delta, rhs_delta);
 		return lhs_distance > rhs_distance;
@@ -225,15 +225,12 @@ void RasterizationRenderer::submit_draw_commands(
 				continue;
 
 			const auto& graphics_object = *it_obj->second;
-			if (graphics_object.is_marked_for_delete())
-				continue;
-
 			if (!graphics_object.get_visibility())
 				continue;
 
 			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 			{
-				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+				const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
 				draw_renderable(command_buffer,
 								renderable,
 								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
@@ -250,15 +247,12 @@ void RasterizationRenderer::submit_draw_commands(
 				continue;
 
 			const auto& graphics_object = *it_obj->second;
-			if (graphics_object.is_marked_for_delete())
-				continue;
-
 			if (!graphics_object.get_visibility())
 				continue;
 			
 			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 			{
-				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+				const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
 				draw_renderable(command_buffer,
 								renderable,
 								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
@@ -282,7 +276,7 @@ void RasterizationRenderer::submit_draw_commands(
 		for (const auto& [id, obj_ptr] : graphics_objects)
 		{
 			const auto& graphics_object = *obj_ptr;
-			if (graphics_object.is_marked_for_delete() || !graphics_object.get_visibility())
+			if (!graphics_object.get_visibility())
 				continue;
 
 			bool has_overlay = false;
@@ -300,7 +294,7 @@ void RasterizationRenderer::submit_draw_commands(
 
 			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
 			{
-				const Renderable& renderable = graphics_object.get_renderables()[renderable_idx];
+				const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
 				draw_renderable(command_buffer,
 								renderable,
 								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),

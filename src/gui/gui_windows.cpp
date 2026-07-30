@@ -290,7 +290,7 @@ void GuiGraphicsSettings::draw()
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
 	for (const auto& [label, mode] : std::array{
 		std::pair{ "Rasterized", ERenderMode::RASTERIZED },
-		std::pair{ "RTX", ERenderMode::RAYTRACING },
+		// std::pair{ "RTX", ERenderMode::RAYTRACING },
 		std::pair{ "Wireframe", ERenderMode::WIREFRAME },
 		std::pair{ "Unlit Base Color", ERenderMode::UNLIT_BASE_COLOR },
 	})
@@ -717,7 +717,7 @@ void GuiStatistics::draw()
 void GuiStatistics::update_buffer_capacities(
 	const std::vector<std::pair<size_t, size_t>>& buffer_capacities)
 {
-	assert(buffer_capacities.size() == 6);
+	assert(buffer_capacities.size() == this->buffer_capacities.size());
 
 	for (size_t i = 0; i < buffer_capacities.size(); ++i)
 	{
