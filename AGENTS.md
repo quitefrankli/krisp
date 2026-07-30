@@ -1,5 +1,11 @@
 * Minimise token usage without omitting material findings, risks, or verification.
 
+* Prioritise simple, clear designs and clean, maintainable code. Do not knowingly
+  introduce avoidable complexity, duplication, weak abstractions, shortcuts, or
+  technical debt. If a requested change appears to require a material reduction
+  in design or code quality, stop before making that compromise, explain the
+  trade-off, and ask the user for explicit approval.
+
 * Keep tool output high-signal:
   - Search narrowly (`rg -l` first, then inspect only relevant ranges).
   - Use small output limits for searches and successful builds; expand output only after a failure.
