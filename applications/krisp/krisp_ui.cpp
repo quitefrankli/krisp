@@ -39,7 +39,7 @@ void KrispEquipmentWindow::draw_contents()
 	const auto current = state.snapshot();
 	ImGui::TextUnformatted("Main Hand");
 	ImGui::SameLine();
-	if (ImGui::Button(current.main_hand_equipped ? "Temporary Sword" : "Empty"))
+	if (ImGui::Button(current.main_hand_equipped ? "Iron Longsword" : "Empty"))
 		state.request_main_hand_toggle();
 	ImGui::TextUnformatted("Off Hand: Empty");
 	ImGui::TextUnformatted("Head: Empty");
@@ -56,5 +56,5 @@ void KrispStatusOverlay::draw_contents()
 {
 	const auto current = state.snapshot();
 	ImGui::Text("%s", current.moving ? "Moving" : "Idle");
-	ImGui::Text("Main Hand: %s", current.main_hand_equipped ? "Temporary Sword" : "Empty");
+	ImGui::Text("Main Hand: %s", current.main_hand_equipped ? "Iron Longsword" : "Empty");
 }

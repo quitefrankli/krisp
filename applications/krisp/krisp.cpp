@@ -34,6 +34,7 @@ constexpr std::string_view player_model = "npc.glb";
 constexpr std::string_view player_animations = "movement_animations.glb";
 constexpr std::string_view attack_animation_file = "combat_animations.glb";
 constexpr std::string_view attack_animation_name = "1h_sword_attack";
+constexpr std::string_view sword_model = "weapons_iron_longsword.glb";
 
 AnimationID require_animation(
 	const ECS& ecs,
@@ -119,16 +120,16 @@ public:
 		engine.get_ecs().add_clickable_entity(spawned_player.get_id());
 		spawned_player.set_name("Player");
 
-		auto& temporary_sword = engine.spawn_object<Object>(
-			Renderable::make_default(MeshSystem::add(MeshFactory::cylinder())));
-		temporary_sword.set_name("Temporary Sword");
-		Maths::Transform sword_grip;
-		sword_grip.set_scale({ 0.06f, 0.7f, 0.06f });
-		sword_definition.grip_transform = sword_grip;
-		if (!engine.get_ecs().equip(spawned_player.get_id(), temporary_sword.get_id(), sword_definition))
+		auto loaded_sword = ResourceLoader::load_model(engine.get_ecs(), sword_model);
+		if (loaded_sword.meshes.empty())
+			throw std::runtime_error("Iron Longsword model contains no meshes");
+		auto& sword = engine.spawn_object<Object>(
+			std::move(loaded_sword.meshes.front().renderables));
+		sword.set_name("Iron Longsword");
+		if (!engine.get_ecs().equip(spawned_player.get_id(), sword.get_id(), sword_definition))
 			throw std::runtime_error("Player skeleton is missing the WEAPON bone");
 		player_id = spawned_player.get_id();
-		temporary_sword_id = temporary_sword.get_id();
+		sword_id = sword.get_id();
 		ui_state.publish(spawned_player.is_moving(), true);
 
 		auto& camera = engine.get_camera();
@@ -140,7 +141,7 @@ public:
 
 	void on_tick(GameEngine& engine, float) override
 	{
-		if (!player_id || !temporary_sword_id)
+		if (!player_id || !sword_id)
 			return;
 
 		auto& ecs = engine.get_ecs();
@@ -148,7 +149,7 @@ public:
 		{
 			if (ecs.equipped_item(*player_id, EquipmentSlot::MainHand))
 				ecs.unequip(*player_id, EquipmentSlot::MainHand);
-			else if (!ecs.equip(*player_id, *temporary_sword_id, sword_definition))
+			else if (!ecs.equip(*player_id, *sword_id, sword_definition))
 				throw std::runtime_error("Player skeleton is missing the WEAPON bone");
 		}
 
@@ -172,7 +173,7 @@ public:
 private:
 	KrispUiState ui_state;
 	std::optional<EntityID> player_id;
-	std::optional<EntityID> temporary_sword_id;
+	std::optional<EntityID> sword_id;
 	std::optional<AnimationID> attack_animation;
 	EquipmentDefinition sword_definition{
 		.slot = EquipmentSlot::MainHand,
