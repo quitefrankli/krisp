@@ -13,8 +13,9 @@ Arrow::Arrow()
 {
 	const int nVertices = 8;
 	Renderable renderable;
-	renderable.mesh_id = MeshFactory::arrow_id(INITIAL_RADIUS, nVertices);
-	renderable.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW) };
+	renderable.mesh_owner = MeshSystem::add(MeshFactory::arrow(INITIAL_RADIUS, nVertices));
+	renderable.material_owners.push_back(
+		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW)));
 	renderables = { std::move(renderable) };
 }
 
@@ -41,7 +42,9 @@ ArcObject::ArcObject()
 	const int nVertices = 8;
 	
 	Renderable renderable;
-	renderable.mesh_id = MeshFactory::arc_id(nVertices, INITIAL_OUTER_RAIUS, INITIAL_INNER_RADIUS);
-	renderable.material_ids.push_back(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC));
+	renderable.mesh_owner = MeshSystem::add(
+		MeshFactory::arc(nVertices, INITIAL_OUTER_RAIUS, INITIAL_INNER_RADIUS));
+	renderable.material_owners.push_back(
+		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC)));
 	renderables.push_back(std::move(renderable));
 }

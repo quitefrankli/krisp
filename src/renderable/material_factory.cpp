@@ -1,19 +1,11 @@
 #include "material_factory.hpp"
 #include "maths.hpp"
-#include "entity_component_system/material_system.hpp"
 
-#include <unordered_map>
 #include <array>
 
 
-MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
+std::unique_ptr<Material> MaterialFactory::fetch_preset(EMaterialPreset preset)
 {
-	static std::unordered_map<EMaterialPreset, MaterialID> material_map;
-	if (material_map.contains(preset))
-	{
-		return material_map[preset];
-	}
-
 	ColorMaterial material;
 	switch (preset)
 	{
@@ -100,14 +92,10 @@ MaterialID MaterialFactory::fetch_preset(EMaterialPreset preset)
 			break;
 	}
 
-	auto material_ptr = std::make_unique<ColorMaterial>(std::move(material));
-	const auto material_id = MaterialSystem::add_permanent(std::move(material_ptr));
-	material_map[preset] = material_id;
-
-	return material_id;
+	return std::make_unique<ColorMaterial>(std::move(material));
 }
 
-MaterialID MaterialFactory::fetch_white_texture()
+std::unique_ptr<Material> MaterialFactory::fetch_white_texture()
 {
 	struct WhiteTextureData : TextureData
 	{
@@ -116,22 +104,18 @@ MaterialID MaterialFactory::fetch_white_texture()
 		std::byte* get() override { return pixels.data(); }
 	};
 
-	static const MaterialID material_id = []
-	{
-		auto material = std::make_unique<TextureMaterial>();
-		material->data = std::make_unique<WhiteTextureData>();
-		material->data_len = 4;
-		material->width = 1;
-		material->height = 1;
-		material->channels = 4;
-		material->mip_sizes = { 4 };
-		material->source = "(none)";
-		return MaterialSystem::add_permanent(std::move(material));
-	}();
-	return material_id;
+	auto material = std::make_unique<TextureMaterial>();
+	material->data = std::make_unique<WhiteTextureData>();
+	material->data_len = 4;
+	material->width = 1;
+	material->height = 1;
+	material->channels = 4;
+	material->mip_sizes = { 4 };
+	material->source = "(none)";
+	return material;
 }
 
-MaterialID MaterialFactory::fetch_black_texture()
+std::unique_ptr<Material> MaterialFactory::fetch_black_texture()
 {
 	struct BlackTextureData : TextureData
 	{
@@ -140,18 +124,14 @@ MaterialID MaterialFactory::fetch_black_texture()
 		std::byte* get() override { return pixels.data(); }
 	};
 
-	static const MaterialID material_id = []
-	{
-		auto material = std::make_unique<TextureMaterial>();
-		material->data = std::make_unique<BlackTextureData>();
-		material->data_len = 4;
-		material->width = 1;
-		material->height = 1;
-		material->channels = 4;
-		material->mip_sizes = { 4 };
-		material->source = "(matte)";
-		material->semantic = ETextureSemantic::SPECULAR;
-		return MaterialSystem::add_permanent(std::move(material));
-	}();
-	return material_id;
+	auto material = std::make_unique<TextureMaterial>();
+	material->data = std::make_unique<BlackTextureData>();
+	material->data_len = 4;
+	material->width = 1;
+	material->height = 1;
+	material->channels = 4;
+	material->mip_sizes = { 4 };
+	material->source = "(matte)";
+	material->semantic = ETextureSemantic::SPECULAR;
+	return material;
 }

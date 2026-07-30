@@ -518,7 +518,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 	for (const auto& renderable : graphics_object.get_renderables())
 	{
 		// reserve and write to mesh buffer (actually vertex and index buffers)
-		const auto& mesh = MeshSystem::get(renderable.mesh_id);
+		const auto& mesh = MeshSystem::get(renderable.get_mesh_id());
 		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
 
 		// reserve and write to materials buffer
@@ -527,7 +527,7 @@ void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_
 			case ERenderType::COLOR:
 			case ERenderType::SKINNED_COLOR:
 			{
-				const FlatMatGroup flat_mat_group(renderable.material_ids);
+				const FlatMatGroup flat_mat_group(renderable.material_owners);
 				const auto* material = dynamic_cast<const ColorMaterial*>(&MaterialSystem::get(flat_mat_group.color_mat));
 				if (!material)
 					throw std::runtime_error(fmt::format(
@@ -647,7 +647,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				return slot;
 			}
 
-			const FlatMatGroup flat_material_group(renderable.material_ids);
+			const FlatMatGroup flat_material_group(renderable.material_owners);
 			return get_rsrc_mgr().get_buffer_slot(flat_material_group.color_mat);
 		}();
 		VkDescriptorBufferInfo material_buffer_info{};
@@ -674,7 +674,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
 				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
 				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-				const CubeMapMatGroup cube_map_mat_group(renderable.material_ids);
+				const CubeMapMatGroup cube_map_mat_group(renderable.material_owners);
 				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_cubemap_texture(cube_map_mat_group);
 				image_info.imageView = texture.get_texture_image_view();
 				image_info.sampler = texture.get_texture_sampler();
@@ -700,7 +700,7 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 			{
 				VkDescriptorImageInfo image_info{};
 				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const TexturedMatGroup textured_mat_group(renderable.material_ids);
+				const TexturedMatGroup textured_mat_group(renderable.material_owners);
 				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(
 					textured_mat_group.base_color_mat, ETextureSamplerType::ADDR_MODE_REPEAT);
 				image_info.imageView = texture.get_texture_image_view();

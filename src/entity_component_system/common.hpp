@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <memory>
+#include <vector>
 
 
 struct DetectedEntityCollision
@@ -19,24 +20,60 @@ struct DetectedEntityCollision
 template<typename IDType, typename ContentType>
 class CountableSystem
 {
-public:
-	static IDType add_permanent(std::unique_ptr<ContentType>&& content)
+private:
+	class Owner
 	{
-		const auto id = get_global()._add(std::move(content));
-		get_global().owners[id] = PERMANENTLY_OWNED;
-
-		return id;
-	}
-
-	static IDType add(std::unique_ptr<ContentType>&& content, bool increment = true)
-	{
-		const auto id = get_global()._add(std::move(content));
-		if (increment)
+	public:
+		~Owner() noexcept
 		{
-			get_global()._increment_owners(id);
+			get_global()._remove(id);
 		}
 
-		return id;
+	private:
+		friend CountableSystem;
+		explicit Owner(IDType id) noexcept : id(id) {}
+		const IDType id;
+	};
+
+public:
+	using OwnerPtr = std::shared_ptr<Owner>;
+
+	static OwnerPtr add(std::unique_ptr<ContentType>&& content)
+	{
+		const auto id = get_global()._add(std::move(content));
+		auto owner = std::shared_ptr<Owner>(new Owner(id));
+		get_global().owners.emplace(id, owner);
+		return owner;
+	}
+
+	/**
+	 * Acquires shared ownership of an existing resource.
+	 *
+	 * IDs are non-owning handles. The returned owner keeps the resource alive
+	 * until it and every other owner are released. This is intended for
+	 * consumers, such as the ECS, that receive an ID and must retain its
+	 * resource. Throws std::runtime_error if the ID is missing or no live owner
+	 * can be acquired.
+	 */
+	static OwnerPtr acquire(IDType id)
+	{
+		auto& global = get_global();
+		if (!global.contents.contains(id))
+			throw std::runtime_error("CountableSystem::acquire: id not found");
+		const auto found = global.owners.find(id);
+		if (found == global.owners.end())
+			throw std::runtime_error("CountableSystem::acquire: owner not found");
+		auto owner = found->second.lock();
+		if (!owner)
+			throw std::runtime_error("CountableSystem::acquire: owner expired");
+		return owner;
+	}
+
+	static IDType get_id(const OwnerPtr& owner)
+	{
+		if (!owner)
+			throw std::runtime_error("CountableSystem::get_id: owner is empty");
+		return owner->id;
 	}
 
 	static ContentType& get(IDType id)
@@ -44,37 +81,33 @@ public:
 		return get_global()._get(id);
 	}
 
-	static uint32_t get_num_owners(IDType id)
-	{
-		return get_global()._get_num_owners(id);
-	}
-
 	static bool contains(IDType id)
 	{
 		return get_global().contents.contains(id);
 	}
 
-	// returns the new owner count
-	static uint32_t register_owner(IDType id)
+	/**
+	 * Drains and returns IDs whose final owner has been released.
+	 *
+	 * The corresponding CPU-side resources have already been removed. The
+	 * returned IDs allow consumers such as the graphics backend to retire their
+	 * associated resources. Each retirement is returned once; a subsequent call
+	 * returns an empty vector until more owners are released.
+	 */
+	static std::vector<IDType> take_retired()
 	{
-		return get_global()._increment_owners(id);
-	}
-
-	// returns the new owner count
-	static uint32_t unregister_owner(IDType id)
-	{
-		return get_global()._decrement_owners(id);
+		auto& global = get_global();
+		std::vector<IDType> result;
+		result.swap(global.retired);
+		return result;
 	}
 
 private:
-	static constexpr uint32_t PERMANENTLY_OWNED = std::numeric_limits<uint32_t>::max();
-
 	IDType _add(std::unique_ptr<ContentType>&& content)
 	{
 		const IDType id = content->get_id();
 		assert(!contents.contains(id));
 		contents.emplace(id, std::move(content));
-		owners[id] = 0;
 
 		return id;
 	}
@@ -88,45 +121,13 @@ private:
 		return *contents[id];
 	}
 
-	uint32_t _get_num_owners(IDType id) const
+	void _remove(IDType id) noexcept
 	{
-		return owners.contains(id) ? owners.at(id) : 0;
-	}
-
-	uint32_t _increment_owners(IDType id)
-	{
-		auto it = owners.find(id);
-		if (it == owners.end())
-			throw std::runtime_error("CountableSystem::_increment_owners: id not found");
-		if (it->second == PERMANENTLY_OWNED)
-		{
-			return PERMANENTLY_OWNED;
-		}
-
-		return ++it->second;
-	}
-
-	uint32_t _decrement_owners(IDType id)
-	{
-		auto it = owners.find(id);
-		if (it == owners.end())
-			throw std::runtime_error("CountableSystem::_decrement_owners: id not found");
-		const auto count = it->second;
-		if (count == 0)
-		{
-			throw std::runtime_error("CountableSystem::_decrement_owners: count < 0");
-		} else if (count == PERMANENTLY_OWNED)
-		{
-			return PERMANENTLY_OWNED;
-		} else if (count == 1)
-		{
-			contents.erase(id);
-			owners.erase(id);
-			return 0;
-		} else
-		{
-			return --it->second;
-		}
+		const auto found = owners.find(id);
+		if (found != owners.end())
+			owners.erase(found);
+		contents.erase(id);
+		retired.push_back(id);
 	}
 
 	static CountableSystem& get_global()
@@ -137,7 +138,8 @@ private:
 
 private:
 	std::unordered_map<IDType, std::unique_ptr<ContentType>> contents;
-	std::unordered_map<IDType, uint32_t> owners;
+	std::unordered_map<IDType, std::weak_ptr<Owner>> owners;
+	std::vector<IDType> retired;
 };
 
 class ECS;

@@ -1,7 +1,6 @@
 #pragma once
 
-#include "identifications.hpp"
-#include "renderable/material.hpp"
+#include "material.hpp"
 
 
 enum class EMaterialPreset
@@ -24,7 +23,7 @@ enum class EMaterialPreset
 class MaterialFactory
 {
 public:
-	static MaterialID fetch_preset(EMaterialPreset preset);
-	static MaterialID fetch_white_texture();
-	static MaterialID fetch_black_texture();
+	static std::unique_ptr<Material> fetch_preset(EMaterialPreset preset);
+	static std::unique_ptr<Material> fetch_white_texture();
+	static std::unique_ptr<Material> fetch_black_texture();
 };

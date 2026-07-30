@@ -5,11 +5,12 @@
 #include <stdexcept>
 
 
-TexturedMatGroup::TexturedMatGroup(const MatVec& mats)
+TexturedMatGroup::TexturedMatGroup(const std::span<const MaterialOwner> mats)
 {
 	bool has_base_color = false;
-	for (const auto id : mats)
+	for (const auto& owner : mats)
 	{
+		const auto id = MaterialSystem::get_id(owner);
 		const auto* texture = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(id));
 		if (!texture)
 			throw std::runtime_error("TexturedMatGroup: material is not a texture");

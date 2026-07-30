@@ -22,7 +22,7 @@
 
 void spawn_test_particles(GameEngine& engine);
 MeshPtr generate_terrain_mesh(int grid_size, float scale, float height_scale, MaterialID texture_mat_id);
-MaterialID generate_terrain_texture(int width, int height);
+MaterialOwner generate_terrain_texture(int width, int height);
 
 // Simple Perlin noise implementation for terrain generation
 class PerlinNoise
@@ -138,7 +138,7 @@ struct ProceduralTextureData : public TextureData
 };
 
 // Generate a colorful terrain texture using Perlin noise
-MaterialID generate_terrain_texture(int width, int height)
+MaterialOwner generate_terrain_texture(int width, int height)
 {
     PerlinNoise perlin(42);
     PerlinNoise color_variation(123);
@@ -360,22 +360,23 @@ void Experimental::process()
 
     // Generate the terrain texture
     LOG_INFO(Utility::get_logger(), "Generating terrain texture...");
-    MaterialID terrain_texture = generate_terrain_texture(512, 512);
+    auto terrain_texture = generate_terrain_texture(512, 512);
     
     // Generate and spawn the terrain mesh with texture
     LOG_INFO(Utility::get_logger(), "Generating terrain mesh...");
-    auto terrain_mesh = generate_terrain_mesh(128, 0.05f, 8.0f, terrain_texture);
-    const auto mesh_id = MeshSystem::add(std::move(terrain_mesh));
+    auto terrain_mesh = generate_terrain_mesh(
+		128, 0.05f, 8.0f, MaterialSystem::get_id(terrain_texture));
+    auto mesh_owner = MeshSystem::add(std::move(terrain_mesh));
     
     // Create renderable with texture material
     Renderable renderable;
-    renderable.mesh_id = mesh_id;
-    renderable.material_ids = { terrain_texture };
+    renderable.mesh_owner = std::move(mesh_owner);
+    renderable.material_owners = { std::move(terrain_texture) };
     renderable.pipeline_render_type = ERenderType::STANDARD;
     renderable.casts_shadow = true;
     
     // Create an object with the terrain
-    auto& terrain_obj = engine.spawn_object<Object>(renderable);
+    auto& terrain_obj = engine.spawn_object<Object>(std::move(renderable));
     terrain_obj.set_name("Perlin Terrain");
     
     // Position it below the camera for good viewing

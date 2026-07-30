@@ -96,7 +96,8 @@ void TranslationGizmo::init()
 	{
 		auto axis = std::make_shared<Arrow>();
 		axis->point(Maths::zero_vec, directions[i]);
-		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(axis_materials[i]);
+		auto material_owner = MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
+		axis->renderables[0].material_owners[0] = std::move(material_owner);
 		axis->renderables[0].casts_shadow = false;
 		axis->renderables[0].render_on_top = true;
 		*destinations[i] = &spawn_transient(engine, std::move(axis));
@@ -158,7 +159,9 @@ void RotationGizmo::init()
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
 		auto axis = std::make_shared<ArcObject>();
-		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(rotation_axis_materials[i]);
+		auto material_owner = MaterialSystem::add(
+			MaterialFactory::fetch_preset(rotation_axis_materials[i]));
+		axis->renderables[0].material_owners[0] = std::move(material_owner);
 		axis->renderables[0].casts_shadow = false;
 		axis->renderables[0].render_on_top = true;
 		*destinations[i] = &spawn_transient(engine, std::move(axis));
@@ -228,7 +231,8 @@ void ScaleGizmo::init()
 	{
 		auto axis = std::make_shared<ScaleGizmoObj>(directions[i]);
 		axis->point(Maths::zero_vec, directions[i]);
-		axis->renderables[0].material_ids[0] = MaterialFactory::fetch_preset(axis_materials[i]);
+		auto material_owner = MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
+		axis->renderables[0].material_owners[0] = std::move(material_owner);
 		axis->renderables[0].casts_shadow = false;
 		axis->renderables[0].render_on_top = true;
 		*destinations[i] = &spawn_transient(engine, std::move(axis));
@@ -247,12 +251,15 @@ void ScaleGizmo::init()
 		auto indices = cube.get_indices();
 		constexpr float CUBE_SIZE = 0.3f;
 		transform_vertices(vertices, glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE)));
-		const auto mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
-		auto renderable = Renderable::make_default(mesh_id);
-		renderable.material_ids[0] = MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_UNIFORM_SCALE);
+		auto mesh_owner = MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
+		auto renderable = Renderable::make_default(std::move(mesh_owner));
+		auto material_owner = MaterialSystem::add(
+			MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_UNIFORM_SCALE));
+		renderable.material_owners[0] = std::move(material_owner);
 		renderable.casts_shadow = false;
 		renderable.render_on_top = true;
-		uniformCube = &spawn_transient(engine, std::make_shared<Object>(renderable));
+		auto object = std::make_shared<Object>(std::move(renderable));
+		uniformCube = &spawn_transient(engine, std::move(object));
 	}
 	uniformCube->attach_to(this);
 

@@ -84,18 +84,10 @@ public:
 	{
 		auto tmp_new_obj = std::make_shared<object_t>(std::forward<Args>(args)...);
 		auto id = tmp_new_obj->get_id();
-		auto result = objects.emplace(id, std::move(tmp_new_obj));
-		if (!result.second)
+		if (objects.contains(id))
 			throw std::runtime_error("GameEngine::spawn_object: duplicate object id");
-		try
-		{
-			retain_renderable_resources(*result.first->second);
-		}
-		catch (...)
-		{
-			objects.erase(result.first);
-			throw;
-		}
+		validate_renderable_resources(*tmp_new_obj);
+		auto result = objects.emplace(id, std::move(tmp_new_obj));
 		Object& new_obj = *(result.first->second);
 		ecs.add_object(new_obj);
 		send_graphics_cmd(std::make_unique<SpawnObjectCmd>(result.first->second));
@@ -144,8 +136,6 @@ private:
 	AudioEnginePimpl audio_engine;
 	ECS ecs;
 	std::unordered_map<ObjectID, std::shared_ptr<Object>> objects;
-	std::unordered_map<MeshID, size_t> mesh_resource_references;
-	std::unordered_map<MaterialID, size_t> material_resource_references;
     std::unique_ptr<GraphicsEngineBase> graphics_engine;
 	std::unique_ptr<Camera> camera;
 	std::unique_ptr<Gizmo> gizmo;
@@ -183,8 +173,8 @@ private:
 	[[nodiscard]] SceneResetPause reset_scene_and_pause_graphics();
 	void shutdown_impl();
 	void process_objs_to_delete();
-	void retain_renderable_resources(const Object& object);
-	void release_renderable_resources(const Object& object, DestroyResourcesCmd& destroy_resources_cmd);
+	static void validate_renderable_resources(const Object& object);
+	static void collect_retired_resources(DestroyResourcesCmd& destroy_resources_cmd);
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;

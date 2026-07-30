@@ -2,9 +2,11 @@
 
 #include "material.hpp"
 #include "identifications.hpp"
+#include "entity_component_system/material_system.hpp"
 
 #include <cassert>
 #include <optional>
+#include <span>
 
 
 // This might not be necessary, can consider to be deleted
@@ -18,10 +20,10 @@ using MatVec = std::vector<MaterialID>;
 struct FlatMatGroup : public MaterialGroup
 {
 	FlatMatGroup() = default;
-	FlatMatGroup(MatVec mats)
+	FlatMatGroup(const std::span<const MaterialOwner> mats)
 	{
 		assert(mats.size() == 1);
-		color_mat = mats[0];
+		color_mat = MaterialSystem::get_id(mats[0]);
 	}
 
 	MatVec get_materials() const
@@ -35,7 +37,7 @@ struct FlatMatGroup : public MaterialGroup
 struct TexturedMatGroup : public MaterialGroup
 {
 	TexturedMatGroup() = default;
-	explicit TexturedMatGroup(const MatVec& mats);
+	explicit TexturedMatGroup(std::span<const MaterialOwner> mats);
 
 	MatVec get_materials() const
 	{
@@ -55,16 +57,21 @@ struct TexturedMatGroup : public MaterialGroup
 struct CubeMapMatGroup : public MaterialGroup
 {
 	CubeMapMatGroup() = default;
-	CubeMapMatGroup(MatVec mats)
+	explicit CubeMapMatGroup(const std::span<const MaterialOwner> mats)
 	{
 		assert(mats.size() == 6);
-		cube_map_mats = mats;
+		material_owners = mats;
 	}
 
-	MatVec get_materials() const
+	size_t size() const
 	{
-		return cube_map_mats;
+		return material_owners.size();
 	}
 
-	std::vector<MaterialID> cube_map_mats;
+	MaterialID get_material_id(size_t index) const
+	{
+		return MaterialSystem::get_id(material_owners[index]);
+	}
+
+	std::span<const MaterialOwner> material_owners;
 };

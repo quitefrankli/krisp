@@ -2,6 +2,7 @@
 
 #include <objects/object.hpp>
 #include <serialization/serializer.hpp>
+#include <serialization/serialization_helpers.hpp>
 
 #include <gtest/gtest.h>
 #include <glm/gtx/string_cast.hpp>
@@ -213,37 +214,62 @@ TEST(ObjectTestsMisc, moving_parent_repairs_child_backlinks)
 	EXPECT_TRUE(glm_equal(child.get_position(), glm::vec3(2.0f, 0.0f, 0.0f)));
 }
 
-TEST(ObjectSerialization, round_trips_common_state_and_exact_id)
+TEST(ObjectSerialization, rejects_procedural_resources)
 {
 	Object source;
-	source.set_name("saved object");
-	source.set_visibility(false);
-	source.set_relative_position({ 1.0f, 2.0f, 3.0f });
-	source.set_relative_scale({ 2.0f, 3.0f, 4.0f });
-	source.set_aabb(AABB({ -1.0f, -2.0f, -3.0f }, { 4.0f, 5.0f, 6.0f }));
+	auto mesh_owner = MeshSystem::add(std::make_unique<ColorMesh>(
+		ColorVertices{ SDS::ColorVertex{} }, VertexIndices{ 0 }));
 	source.renderables.push_back(Renderable{
-		MeshID(41), { MaterialID(42), MaterialID(43) }, ERenderType::STANDARD,
-		EAlphaMode::MASK, 0.25f, 0.75f, false, true });
-	source.renderables[0].local_transform.set_pos({ 7.0f, 8.0f, 9.0f });
+		.pipeline_render_type = ERenderType::STANDARD, .mesh_owner = mesh_owner });
 
 	Serializer serializer;
-	source.serialize(serializer);
-	Object restored;
-	restored.deserialize(Deserializer::parse(serializer.emit()));
+	EXPECT_THROW(source.serialize(serializer), SerializationError);
+}
 
-	EXPECT_EQ(restored.get_id(), source.get_id());
-	EXPECT_EQ(restored.get_name(), "saved object");
-	EXPECT_FALSE(restored.get_visibility());
-	EXPECT_TRUE(glm_equal(restored.get_relative_position(), glm::vec3(1.0f, 2.0f, 3.0f)));
-	EXPECT_EQ(restored.renderables.size(), 1);
-	EXPECT_EQ(restored.renderables[0].mesh_id, MeshID(41));
-	EXPECT_EQ(restored.renderables[0].material_ids, (MatVec{ MaterialID(42), MaterialID(43) }));
-	EXPECT_EQ(restored.renderables[0].alpha_mode, EAlphaMode::MASK);
-	EXPECT_FALSE(restored.renderables[0].casts_shadow);
-	EXPECT_TRUE(restored.renderables[0].render_on_top);
-	EXPECT_TRUE(glm_equal(
-		restored.renderables[0].local_transform.get_mat4(),
-		source.renderables[0].local_transform.get_mat4()));
+TEST(ObjectSerialization, rejects_procedural_resources_during_deserialization)
+{
+	const auto legacy_object = [](const bool procedural_mesh, const bool procedural_material)
+	{
+		Serializer serializer;
+		serializer.write("id", 1);
+		serializer.write("name", "legacy object");
+		serializer.write("visible", true);
+		Serialization::write_transform(serializer, "world_transform", Maths::Transform{});
+		Serialization::write_transform(serializer, "relative_transform", Maths::Transform{});
+		auto bounds = serializer.map("aabb");
+		Serialization::write_vec3(bounds, "min", Maths::zero_vec);
+		Serialization::write_vec3(bounds, "max", Maths::zero_vec);
+		auto saved = serializer.sequence("renderables").append_map();
+		if (procedural_mesh)
+			saved.write("mesh_id", 41);
+		else
+		{
+			auto mesh_source = saved.map("mesh_source");
+			mesh_source.write("path", "model.gltf");
+			mesh_source.write("scene", 0);
+			mesh_source.write("node", 0);
+			mesh_source.write("primitive", 0);
+		}
+		auto materials = saved.sequence("material_ids");
+		if (procedural_material)
+			materials.append(42);
+		saved.write("render_type", static_cast<int>(ERenderType::STANDARD));
+		saved.write("alpha_mode", static_cast<int>(EAlphaMode::OPAQUE));
+		saved.write("alpha_cutoff", 0.5f);
+		saved.write("opacity", 1.0f);
+		saved.write("casts_shadow", true);
+		saved.write("render_on_top", false);
+		Serialization::write_transform(saved, "local_transform", Maths::Transform{});
+		return serializer.emit();
+	};
+
+	Object restored;
+	EXPECT_THROW(
+		restored.deserialize(Deserializer::parse(legacy_object(true, false))),
+		SerializationError);
+	EXPECT_THROW(
+		restored.deserialize(Deserializer::parse(legacy_object(false, true))),
+		SerializationError);
 }
 
 TEST(RenderableTransform, composes_gameplay_before_asset_local_transform)

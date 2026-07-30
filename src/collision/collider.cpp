@@ -12,6 +12,18 @@
 
 namespace
 {
+Renderable make_debug_renderable(MeshOwner mesh_owner)
+{
+	auto material_owner = MaterialSystem::add(
+		MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC));
+	Renderable renderable;
+	renderable.pipeline_render_type = ERenderType::COLOR;
+	renderable.casts_shadow = false;
+	renderable.mesh_owner = std::move(mesh_owner);
+	renderable.material_owners.push_back(std::move(material_owner));
+	return renderable;
+}
+
 glm::quat quad_normal_to_rotation(const glm::vec3& normal)
 {
 	const glm::vec3 normalized_normal = glm::normalize(normal);
@@ -101,12 +113,7 @@ Maths::Quad QuadCollider::get_data() const
 
 Object& QuadCollider::spawn_debug_object(GameEngine& engine) const
 {	
-	static Renderable renderable{
-		.mesh_id = MeshFactory::cube_id(),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
-		.pipeline_render_type = ERenderType::COLOR,
-		.casts_shadow = false,
-	};
+	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
 	Object& obj = engine.spawn_object<Object>(renderable);
 	obj.set_name("Collider Visual");
 	update_debug_object(obj);
@@ -169,12 +176,9 @@ Maths::Sphere SphereCollider::get_data() const
 
 Object& SphereCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Object>(Renderable{
-		.mesh_id = MeshFactory::sphere_id(MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::UV_SPHERE, 64),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
-		.pipeline_render_type = ERenderType::COLOR,
-		.casts_shadow = false,
-	});
+	Object& obj = engine.spawn_object<Object>(make_debug_renderable(
+		MeshSystem::add(MeshFactory::sphere(
+			MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::UV_SPHERE, 64))));
 	obj.set_name("Collider Visual");
 	update_debug_object(obj);
 	return obj;
@@ -265,12 +269,8 @@ bool CapsuleCollider::check_collision(const RayCollider& ray, glm::vec3& out_int
 
 Object& CapsuleCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Object>(Renderable{
-		.mesh_id = MeshFactory::capsule_id(radius, height),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
-		.pipeline_render_type = ERenderType::COLOR,
-		.casts_shadow = false,
-	});
+	Object& obj = engine.spawn_object<Object>(
+		make_debug_renderable(MeshSystem::add(MeshFactory::capsule(radius, height))));
 	obj.set_name("Collider Visual");
 	update_debug_object(obj);
 	return obj;
@@ -306,12 +306,7 @@ bool BoxCollider::check_collision(const RayCollider& ray, glm::vec3& out_interse
 
 Object& BoxCollider::spawn_debug_object(GameEngine& engine) const
 {
-	static Renderable renderable{
-		.mesh_id = MeshFactory::cube_id(),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
-		.pipeline_render_type = ERenderType::COLOR,
-		.casts_shadow = false,
-	};
+	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
 	Object& obj = engine.spawn_object<Object>(renderable);
 	obj.set_name("Collider Visual");
 	update_debug_object(obj);
@@ -390,12 +385,8 @@ bool MeshCollider::check_collision(const RayCollider& ray, glm::vec3& out_inters
 
 Object& MeshCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Object>(Renderable{
-		.mesh_id = MeshFactory::cube_id(),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC) },
-		.pipeline_render_type = ERenderType::COLOR,
-		.casts_shadow = false,
-	});
+	Object& obj = engine.spawn_object<Object>(
+		make_debug_renderable(MeshSystem::add(MeshFactory::cube())));
 	obj.set_name("Collider Visual");
 	update_debug_object(obj);
 	return obj;

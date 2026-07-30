@@ -1,6 +1,5 @@
 #pragma once
 
-#include "identifications.hpp"
 #include "mesh.hpp"
 
 
@@ -19,22 +18,6 @@ public:
 		UV_SPHERE,
 		ICO_SPHERE
 	};
-
-public:
-	static MeshID quad_id(EVertexType vertex_type = EVertexType::COLOR);
-	static MeshID cube_id(EVertexType vertex_type = EVertexType::COLOR);
-	static MeshID circle_id(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
-	static MeshID icosahedron_id(EVertexType vertex_type = EVertexType::COLOR);
-	static MeshID sphere_id(
-		EVertexType vertex_type = EVertexType::COLOR, 
-		GenerationMethod method = GenerationMethod::UV_SPHERE, 
-		int nVertices = 512);
-	static MeshID capsule_id(float radius, float height, uint32_t nSegments = 32, uint32_t nHemisphereRings = 8);
-	static MeshID cone_id(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
-	static MeshID cylinder_id(EVertexType vertex_type = EVertexType::COLOR, uint32_t nVertices = 8);
-	static MeshID arrow_id(float radius = 0.05f, uint32_t nVertices = 8);
-	static MeshID arc_id(uint32_t nSegments = 10, float outer_radius = 1.0f, float inner_radius = 0.8f);
-	static MeshID cube_edges_id(float thickness = 0.02f);
 
 public:
 	static MeshPtr quad(EVertexType vertex_type = EVertexType::COLOR);

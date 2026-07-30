@@ -364,11 +364,11 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	const std::string_view texture_filename,
 	GuiPhotoBase& gui_photo)
 {
-	const auto texture_mat_id = ResourceLoader::fetch_texture(texture_filename);
+	auto texture_owner = ResourceLoader::fetch_texture(texture_filename);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
-		texture_mat_id, 
+		MaterialSystem::get_id(texture_owner),
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
-	// TODO: release the acquired material owner when this ImGui texture is replaced.
+	gui_texture_owners.push_back(std::move(texture_owner));
 	
 	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
 	// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples

@@ -20,7 +20,6 @@
 #include "renderable/material_factory.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
-#include "serialization/serialization_helpers.hpp"
 #include "serialization/resource_provenance.hpp"
 #include "save_file_store.hpp"
 
@@ -60,10 +59,14 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 
 void GameEngine::init()
 {
+	// Retirements left by a previous engine instance refer to an already-destroyed
+	// graphics backend. Resources released before this engine started were never uploaded.
+	MeshSystem::take_retired();
+	MaterialSystem::take_retired();
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
 	graphics_engine->set_ui_layers_active(true, false);
 	auto& camera_focus = spawn_object<Object>(
-		Renderable::make_default(MeshFactory::sphere_id()));
+		Renderable::make_default(MeshSystem::add(MeshFactory::sphere())));
 	camera_focus.set_transient(true);
 	auto& camera_upvector = spawn_object<Arrow>();
 	camera_upvector.set_transient(true);
@@ -92,7 +95,8 @@ void GameEngine::configure_ecs()
 {
 	ecs.set_tile_spawner([this]() -> Object&
 	{
-		if (!tile_renderable || !MaterialSystem::contains(tile_renderable->material_ids.front()))
+		MaterialOwner new_tile_material;
+		if (!tile_renderable || !MaterialSystem::contains(tile_renderable->get_material_id(0)))
 		{
 			ColorMaterial mat{};
 			mat.data.ambient = glm::vec3(0.45f) / SDS::AMBIENT_STRENGTH;
@@ -101,10 +105,12 @@ void GameEngine::configure_ecs()
 			mat.data.emissive = Maths::zero_vec;
 			mat.data.shininess = 0.0f;
 			
+			new_tile_material = MaterialSystem::add(std::make_unique<ColorMaterial>(mat));
+			auto tile_mesh = MeshSystem::add(MeshFactory::cube());
 			tile_renderable = Renderable{
-				.mesh_id = MeshFactory::cube_id(),
-				.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(mat)) },
-				.pipeline_render_type = ERenderType::COLOR
+				.pipeline_render_type = ERenderType::COLOR,
+				.mesh_owner = std::move(tile_mesh),
+				.material_owners = { new_tile_material },
 			};
 		}
 
@@ -325,18 +331,10 @@ GameEngine::~GameEngine() = default;
 
 Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 {
-	auto it = objects.emplace(object->get_id(), std::move(object));
-	if (!it.second)
+	if (objects.contains(object->get_id()))
 		throw std::runtime_error("GameEngine::spawn_object: duplicate object id");
-	try
-	{
-		retain_renderable_resources(*it.first->second);
-	}
-	catch (...)
-	{
-		objects.erase(it.first);
-		throw;
-	}
+	validate_renderable_resources(*object);
+	auto it = objects.emplace(object->get_id(), std::move(object));
 	Object& new_obj = *(it.first->second);
 	ecs.add_object(new_obj);
 
@@ -366,66 +364,42 @@ void GameEngine::spawn_cubemap()
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.casts_shadow = false;
-	renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
+	auto mesh_owner = MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::COLOR));
+	renderable.mesh_owner = std::move(mesh_owner);
 	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })
-		renderable.material_ids.push_back(
-			ResourceLoader::fetch_texture(fmt::format("skybox/{}.jpg", texture_name)));
-	spawn_object<Object>(renderable);
+	{
+		renderable.material_owners.push_back(ResourceLoader::fetch_texture(
+			fmt::format("skybox/{}.jpg", texture_name)));
+	}
+	spawn_object<Object>(std::move(renderable));
 }
 
-void GameEngine::retain_renderable_resources(const Object& object)
+void GameEngine::validate_renderable_resources(const Object& object)
 {
 	for (const auto& renderable : object.renderables)
 	{
-		if (!MeshSystem::contains(renderable.mesh_id))
-			throw std::runtime_error("GameEngine::spawn_object: mesh not found");
-		for (const auto material_id : renderable.material_ids)
+		if (!renderable.mesh_owner || !MeshSystem::contains(renderable.get_mesh_id()))
+			throw std::runtime_error("GameEngine::spawn_object: mesh owner is missing or invalid");
+		for (const auto& material_owner : renderable.material_owners)
 		{
-			if (!MaterialSystem::contains(material_id))
-				throw std::runtime_error("GameEngine::spawn_object: material not found");
-		}
-	}
-
-	for (const auto& renderable : object.renderables)
-	{
-		const size_t mesh_references = ++mesh_resource_references[renderable.mesh_id];
-		if (MeshSystem::get_num_owners(renderable.mesh_id) < mesh_references)
-			MeshSystem::register_owner(renderable.mesh_id);
-
-		for (const auto material_id : renderable.material_ids)
-		{
-			const size_t material_references = ++material_resource_references[material_id];
-			if (MaterialSystem::get_num_owners(material_id) < material_references)
-				MaterialSystem::register_owner(material_id);
+			if (!material_owner || !MaterialSystem::contains(MaterialSystem::get_id(material_owner)))
+				throw std::runtime_error("GameEngine::spawn_object: material owner is missing or invalid");
 		}
 	}
 }
 
-void GameEngine::release_renderable_resources(
-	const Object& object,
-	DestroyResourcesCmd& destroy_resources_cmd)
+void GameEngine::collect_retired_resources(DestroyResourcesCmd& destroy_resources_cmd)
 {
-	for (const auto& renderable : object.renderables)
-	{
-		for (const auto material_id : renderable.material_ids)
-		{
-			auto reference = material_resource_references.find(material_id);
-			if (reference == material_resource_references.end() || reference->second == 0)
-				throw std::runtime_error("GameEngine::delete_object: untracked material reference");
-			if (--reference->second == 0)
-				material_resource_references.erase(reference);
-			if (MaterialSystem::unregister_owner(material_id) == 0)
-				destroy_resources_cmd.material_ids.push_back(material_id);
-		}
-
-		auto reference = mesh_resource_references.find(renderable.mesh_id);
-		if (reference == mesh_resource_references.end() || reference->second == 0)
-			throw std::runtime_error("GameEngine::delete_object: untracked mesh reference");
-		if (--reference->second == 0)
-			mesh_resource_references.erase(reference);
-		if (MeshSystem::unregister_owner(renderable.mesh_id) == 0)
-			destroy_resources_cmd.mesh_ids.push_back(renderable.mesh_id);
-	}
+	auto materials = MaterialSystem::take_retired();
+	destroy_resources_cmd.material_ids.insert(
+		destroy_resources_cmd.material_ids.end(),
+		std::make_move_iterator(materials.begin()),
+		std::make_move_iterator(materials.end()));
+	auto meshes = MeshSystem::take_retired();
+	destroy_resources_cmd.mesh_ids.insert(
+		destroy_resources_cmd.mesh_ids.end(),
+		std::make_move_iterator(meshes.begin()),
+		std::make_move_iterator(meshes.end()));
 }
 
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
@@ -451,6 +425,7 @@ void GameEngine::process_objs_to_delete()
 {
 	const auto curr_deleted_objs_count_in_graphics_engine = graphics_engine->get_num_objs_deleted();
 	DestroyResourcesCmd destroy_resources_cmd;
+	collect_retired_resources(destroy_resources_cmd);
 	while (!entity_deletion_queue.empty())
 	{
 		const auto& obj = entity_deletion_queue.front();
@@ -478,10 +453,9 @@ void GameEngine::process_objs_to_delete()
 			set_game_mode(EGameMode::EDITOR);
 			active_player = nullptr;
 		}
-		release_renderable_resources(object, destroy_resources_cmd);
-
 		ecs.remove_object(id);
 		objects.erase(id);
+		collect_retired_resources(destroy_resources_cmd);
 		entity_deletion_queue.pop();
 	}
 	if (!destroy_resources_cmd.material_ids.empty() || !destroy_resources_cmd.mesh_ids.empty())
@@ -517,10 +491,6 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 	if (graphics_engine_thread.joinable())
 		graphics_paused.get();
 
-	DestroyResourcesCmd destroyed_resources;
-	for (const auto& [_, object] : objects)
-		if (!object->is_transient())
-			release_renderable_resources(*object, destroyed_resources);
 	for (const auto& [_, object] : objects)
 		if (!object->is_transient())
 		{
@@ -533,12 +503,15 @@ GameEngine::SceneResetPause GameEngine::reset_scene_and_pause_graphics()
 	std::erase_if(objects, [](const auto& entry) {
 		return !entry.second->is_transient();
 	});
+	DestroyResourcesCmd destroyed_resources;
+	collect_retired_resources(destroyed_resources);
 	active_player = nullptr;
 	game_mode = EGameMode::EDITOR;
 	graphics_engine->set_ui_layers_active(true, false);
 	entity_deletion_queue.clear();
 	ResourceProvenance::clear();
 	tile_renderable.reset();
+	collect_retired_resources(destroyed_resources);
 	configure_ecs();
 	for (const auto& [_, object] : objects)
 		ecs.add_object(*object);
@@ -580,15 +553,18 @@ void GameEngine::replace_renderable_texture(
 	if (semantic == ETextureSemantic::COUNT)
 		throw std::runtime_error("GameEngine::replace_renderable_texture: invalid texture semantic");
 
-	const TexturedMatGroup current(renderable.material_ids);
+	const TexturedMatGroup current(renderable.material_owners);
 	MaterialID diffuse = current.base_color_mat;
 	std::optional<MaterialID> normal = current.normal_mat;
 	std::optional<MaterialID> specular = current.specular_mat;
-	const MaterialID replacement = texture_filename
+	auto replacement_owner = texture_filename
 		? ResourceLoader::fetch_texture(*texture_filename, semantic)
 		: semantic == ETextureSemantic::BASE_COLOR
-			? MaterialFactory::fetch_white_texture()
-			: MaterialID{};
+			? MaterialSystem::add(MaterialFactory::fetch_white_texture())
+			: MaterialOwner{};
+	const MaterialID replacement = replacement_owner
+		? MaterialSystem::get_id(replacement_owner)
+		: MaterialID{};
 	const std::optional<MaterialID> old = [&]() -> std::optional<MaterialID>
 	{
 		switch (semantic)
@@ -602,11 +578,7 @@ void GameEngine::replace_renderable_texture(
 	}();
 
 	if (old && *old == replacement)
-	{
-		if (texture_filename)
-			MaterialSystem::unregister_owner(replacement);
 		return;
-	}
 
 	if (semantic == ETextureSemantic::BASE_COLOR)
 		diffuse = replacement;
@@ -615,33 +587,34 @@ void GameEngine::replace_renderable_texture(
 	else if (semantic == ETextureSemantic::SPECULAR)
 		specular = texture_filename ? std::optional<MaterialID>(replacement) : std::nullopt;
 
-	std::vector<MaterialID> retired_materials;
-	const auto release_material = [&](const MaterialID material_id)
+	auto old_owners = std::move(renderable.material_owners);
+	const auto take_old_owner = [&old_owners](const MaterialID id)
 	{
-		auto reference = material_resource_references.find(material_id);
-		if (reference == material_resource_references.end() || reference->second == 0)
-			throw std::runtime_error("GameEngine::replace_renderable_texture: untracked material reference");
-		if (--reference->second == 0)
-			material_resource_references.erase(reference);
-		if (MaterialSystem::unregister_owner(material_id) == 0)
-			retired_materials.push_back(material_id);
+		const auto found = std::ranges::find_if(old_owners, [id](const MaterialOwner& owner) {
+			return owner && MaterialSystem::get_id(owner) == id;
+		});
+		if (found == old_owners.end())
+			throw std::runtime_error(
+				"GameEngine::replace_renderable_texture: material owner not found");
+		return std::move(*found);
 	};
-	const auto retain_material = [&](const MaterialID material_id)
-	{
-		const size_t references = ++material_resource_references[material_id];
-		if (MaterialSystem::get_num_owners(material_id) < references)
-			MaterialSystem::register_owner(material_id);
-	};
-	if (old)
-		release_material(*old);
-	if (semantic == ETextureSemantic::BASE_COLOR || texture_filename)
-		retain_material(replacement);
-	renderable.material_ids = { diffuse };
+	std::vector<MaterialOwner> updated_owners;
+	updated_owners.reserve(3);
+	updated_owners.push_back(semantic == ETextureSemantic::BASE_COLOR
+		? std::move(replacement_owner)
+		: take_old_owner(current.base_color_mat));
 	if (normal)
-		renderable.material_ids.push_back(*normal);
+		updated_owners.push_back(semantic == ETextureSemantic::NORMAL
+			? std::move(replacement_owner)
+			: take_old_owner(*current.normal_mat));
 	if (specular)
-		renderable.material_ids.push_back(*specular);
+		updated_owners.push_back(semantic == ETextureSemantic::SPECULAR
+			? std::move(replacement_owner)
+			: take_old_owner(*current.specular_mat));
+	renderable.material_owners = std::move(updated_owners);
+	old_owners.clear();
 
+	auto retired_materials = MaterialSystem::take_retired();
 	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
 		object_id,
 		renderable_index,
@@ -661,29 +634,33 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 		&& renderable.pipeline_render_type != ERenderType::SKINNED)
 		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable does not support textures");
 
-	const TexturedMatGroup current(renderable.material_ids);
-	const MaterialID matte = MaterialFactory::fetch_black_texture();
+	const TexturedMatGroup current(renderable.material_owners);
+	auto matte_owner = MaterialSystem::add(MaterialFactory::fetch_black_texture());
+	const MaterialID matte = MaterialSystem::get_id(matte_owner);
 	if (current.specular_mat && *current.specular_mat == matte)
 		return;
 
-	std::vector<MaterialID> retired_materials;
-	if (current.specular_mat)
+	auto old_owners = std::move(renderable.material_owners);
+	const auto take_old_owner = [&old_owners](const MaterialID id)
 	{
-		auto reference = material_resource_references.find(*current.specular_mat);
-		if (reference == material_resource_references.end() || reference->second == 0)
-			throw std::runtime_error("GameEngine::set_renderable_specular_matte: untracked material reference");
-		if (--reference->second == 0)
-			material_resource_references.erase(reference);
-		if (MaterialSystem::unregister_owner(*current.specular_mat) == 0)
-			retired_materials.push_back(*current.specular_mat);
-	}
-	const size_t matte_references = ++material_resource_references[matte];
-	if (MaterialSystem::get_num_owners(matte) < matte_references)
-		MaterialSystem::register_owner(matte);
-	renderable.material_ids = { current.base_color_mat, matte };
+		const auto found = std::ranges::find_if(old_owners, [id](const MaterialOwner& owner) {
+			return owner && MaterialSystem::get_id(owner) == id;
+		});
+		if (found == old_owners.end())
+			throw std::runtime_error(
+				"GameEngine::set_renderable_specular_matte: material owner not found");
+		return std::move(*found);
+	};
+	std::vector<MaterialOwner> updated_owners;
+	updated_owners.reserve(3);
+	updated_owners.push_back(take_old_owner(current.base_color_mat));
 	if (current.normal_mat)
-		renderable.material_ids.push_back(*current.normal_mat);
+		updated_owners.push_back(take_old_owner(*current.normal_mat));
+	updated_owners.push_back(std::move(matte_owner));
+	renderable.material_owners = std::move(updated_owners);
+	old_owners.clear();
 
+	auto retired_materials = MaterialSystem::take_retired();
 	send_graphics_cmd(std::make_unique<UpdateRenderableMaterialsCmd>(
 		object_id,
 		renderable_index,
@@ -738,42 +715,6 @@ void GameEngine::save_scene(const std::string_view save_name) const
 	engine_state.write("camera_orbit_with_right_mouse", camera_orbit_with_right_mouse);
 	auto saved_camera = document.map("camera");
 	camera->serialize(saved_camera);
-	std::unordered_map<MaterialID, bool> saved_material_ids;
-	for (const auto& [_, object] : objects)
-		if (!object->is_transient())
-			for (const auto& renderable : object->renderables)
-				for (const auto material_id : renderable.material_ids)
-					saved_material_ids.emplace(material_id, true);
-	auto saved_materials = document.sequence("materials");
-	for (const auto& [material_id, _] : saved_material_ids)
-	{
-		// Imported glTF materials are restored together with the mesh primitive
-		// that owns them.  Writing TextureMaterial::source here loses embedded
-		// GLB image provenance, so deliberately omit them from this legacy table.
-		if (ResourceProvenance::material(material_id))
-			continue;
-		const auto& material = MaterialSystem::get(material_id);
-		auto saved = saved_materials.append_map();
-		saved.write("id", material_id.get_underlying());
-		if (const auto* color = dynamic_cast<const ColorMaterial*>(&material))
-		{
-			saved.write("type", "color");
-			auto data = saved.map("data");
-			Serialization::write_vec3(data, "ambient", color->data.ambient);
-			Serialization::write_vec3(data, "diffuse", color->data.diffuse);
-			Serialization::write_vec3(data, "specular", color->data.specular);
-			Serialization::write_vec3(data, "emissive", color->data.emissive);
-			data.write("shininess", color->data.shininess);
-		}
-		else if (const auto* texture = dynamic_cast<const TextureMaterial*>(&material))
-		{
-			saved.write("type", "texture");
-			saved.write("source", texture->source);
-			saved.write("semantic", static_cast<int>(texture->semantic));
-		}
-		else
-			throw SerializationError("Unsupported material at $.materials");
-	}
 	auto saved_objects = document.sequence("objects");
 	for (const auto& [_, object] : objects)
 	{
@@ -809,6 +750,11 @@ void GameEngine::load_scene(const std::string_view save_name)
 	std::ostringstream contents;
 	contents << stream.rdbuf();
 	const auto document = Deserializer::parse(contents.str());
+	const auto document_keys = document.keys();
+	if (std::ranges::find(document_keys, "materials") != document_keys.end()
+		&& !document.child("materials").elements().empty())
+		throw SerializationError(
+			"Procedurally generated materials cannot be deserialized at $.materials");
 
 	struct SavedObject { Deserializer data; std::optional<ObjectID> parent; };
 	std::vector<SavedObject> saved_objects;
@@ -825,38 +771,6 @@ void GameEngine::load_scene(const std::string_view save_name)
 			? std::nullopt : std::optional<ObjectID>(ObjectID(parent.as<uint64_t>())) });
 	}
 	[[maybe_unused]] auto graphics_pause = reset_scene_and_pause_graphics();
-	std::unordered_map<MaterialID, MaterialID> material_remap;
-	for (const auto& saved : document.child("materials").elements())
-	{
-		const MaterialID saved_id(saved.read<uint64_t>("id"));
-		if (MaterialSystem::contains(saved_id))
-		{
-			material_remap.emplace(saved_id, saved_id);
-			continue;
-		}
-		const auto type = saved.read<std::string>("type");
-		if (type == "color")
-		{
-			ColorMaterial material;
-			const auto data = saved.child("data");
-			material.data.ambient = Serialization::read_vec3(data, "ambient");
-			material.data.diffuse = Serialization::read_vec3(data, "diffuse");
-			material.data.specular = Serialization::read_vec3(data, "specular");
-			material.data.emissive = Serialization::read_vec3(data, "emissive");
-			material.data.shininess = data.read<float>("shininess");
-			material_remap.emplace(saved_id, MaterialSystem::add(
-				std::make_unique<ColorMaterial>(std::move(material)), false));
-		}
-		else if (type == "texture")
-		{
-			const auto loaded_id = ResourceLoader::fetch_texture(
-				saved.read<std::string>("source"),
-				static_cast<ETextureSemantic>(saved.read<int>("semantic")));
-			material_remap.emplace(saved_id, loaded_id);
-		}
-		else
-			throw SerializationError("Unsupported material type at " + saved.path());
-	}
 	std::unordered_map<std::string, ResourceLoader::LoadedModel> imported_models;
 	const auto load_imported_model = [&](const Deserializer& source) -> const ResourceLoader::LoadedModel&
 	{
@@ -899,19 +813,10 @@ void GameEngine::load_scene(const std::string_view save_name)
 					ecs.attach_skeleton(object->get_id(), *loaded_mesh->skeleton_id);
 				continue;
 			}
-			if (!MeshSystem::contains(renderable.mesh_id))
-				throw SerializationError("Missing mesh resource at " + saved.data.path());
-			for (auto& material_id : renderable.material_ids)
-			{
-				const auto remapped = material_remap.find(material_id);
-				if (remapped == material_remap.end())
-					throw SerializationError("Missing material resource at " + saved.data.path());
-				material_id = remapped->second;
-			}
 		}
+		validate_renderable_resources(*object);
 		const auto id = object->get_id();
 		objects.emplace(id, object);
-		retain_renderable_resources(*object);
 		ecs.add_object(*object);
 	}
 	for (const auto& saved : saved_objects)

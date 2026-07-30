@@ -95,11 +95,13 @@ TEST(Basics, TexturedMaterialGroupResolvesOptionalMapsBySemantic)
 	const auto base = make_texture(ETextureSemantic::BASE_COLOR);
 	const auto specular = make_texture(ETextureSemantic::SPECULAR);
 
-	const TexturedMatGroup group({ specular, base });
-	EXPECT_EQ(group.base_color_mat, base);
+	const std::vector<MaterialOwner> owners{ specular, base };
+	const TexturedMatGroup group(owners);
+	EXPECT_EQ(group.base_color_mat, MaterialSystem::get_id(base));
 	EXPECT_FALSE(group.normal_mat);
-	EXPECT_EQ(group.specular_mat, specular);
-	EXPECT_EQ(group.get_materials(), (MatVec{ base, specular }));
+	EXPECT_EQ(group.specular_mat, MaterialSystem::get_id(specular));
+	EXPECT_EQ(group.get_materials(), (MatVec{
+		MaterialSystem::get_id(base), MaterialSystem::get_id(specular) }));
 }
 
 TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)
@@ -108,8 +110,9 @@ TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)
 	first->semantic = ETextureSemantic::BASE_COLOR;
 	auto second = std::make_unique<TextureMaterial>();
 	second->semantic = ETextureSemantic::BASE_COLOR;
-	const auto first_id = MaterialSystem::add(std::move(first));
-	const auto second_id = MaterialSystem::add(std::move(second));
+	const auto first_owner = MaterialSystem::add(std::move(first));
+	const auto second_owner = MaterialSystem::add(std::move(second));
 
-	EXPECT_THROW(TexturedMatGroup({ first_id, second_id }), std::runtime_error);
+	const std::vector<MaterialOwner> owners{ first_owner, second_owner };
+	EXPECT_THROW((void)TexturedMatGroup{ owners }, std::runtime_error);
 }

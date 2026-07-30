@@ -112,9 +112,11 @@ TEST(Serialization, GenericIdCounterCanBeSetExplicitly)
 
 TEST(Serialization, ImportedRenderableUsesOnlyStableSourceSelectors)
 {
-	const MeshID mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(
+	auto mesh_owner = MeshSystem::add(std::make_unique<ColorMesh>(
 		ColorVertices{ SDS::ColorVertex{} }, VertexIndices{ 0 }));
-	const MaterialID material_id = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
+	const MaterialID material_id = MaterialSystem::get_id(material_owner);
 	const ImportedResourceProvenance mesh_origin{
 		.source = "characters/robot.glb", .scene = 2, .node = 7, .primitive = 3, .skin = 1 };
 	const ImportedResourceProvenance material_origin{
@@ -122,7 +124,8 @@ TEST(Serialization, ImportedRenderableUsesOnlyStableSourceSelectors)
 	ResourceProvenance::register_mesh(mesh_id, mesh_origin);
 	ResourceProvenance::register_material(material_id, material_origin);
 
-	Object source(Renderable{ mesh_id, { material_id }, ERenderType::STANDARD });
+	Object source(Renderable{ .pipeline_render_type = ERenderType::STANDARD,
+		.mesh_owner = mesh_owner, .material_owners = { material_owner } });
 	Serializer serializer;
 	source.serialize(serializer);
 	const std::string yaml = serializer.emit();
@@ -143,15 +146,15 @@ TEST(Serialization, ImportedRenderableUsesOnlyStableSourceSelectors)
 	EXPECT_EQ(yaml.find("mesh_id:"), std::string::npos);
 
 	ResourceProvenance::clear();
-	EXPECT_EQ(MeshSystem::unregister_owner(mesh_id), 0);
-	EXPECT_EQ(MaterialSystem::unregister_owner(material_id), 0);
 }
 
 TEST(Serialization, ImportedRenderableDeserializerDefersResourceResolution)
 {
-	const MeshID placeholder{};
-	ResourceProvenance::register_mesh(placeholder, { .source = "robot.glb", .scene = 0, .node = 1, .primitive = 2 });
-	Object source(Renderable{ placeholder, {}, ERenderType::STANDARD });
+	auto mesh_owner = MeshSystem::add(std::make_unique<ColorMesh>(
+		ColorVertices{ SDS::ColorVertex{} }, VertexIndices{ 0 }));
+	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
+	ResourceProvenance::register_mesh(mesh_id, { .source = "robot.glb", .scene = 0, .node = 1, .primitive = 2 });
+	Object source(Renderable{ .pipeline_render_type = ERenderType::STANDARD, .mesh_owner = mesh_owner });
 	Serializer serializer;
 	source.serialize(serializer);
 	const auto document = Deserializer::parse(serializer.emit());
@@ -159,7 +162,7 @@ TEST(Serialization, ImportedRenderableDeserializerDefersResourceResolution)
 	Object restored;
 	EXPECT_NO_THROW(restored.deserialize(document));
 	ASSERT_EQ(restored.renderables.size(), 1);
-	EXPECT_EQ(restored.renderables.front().mesh_id, MeshID{});
-	EXPECT_TRUE(restored.renderables.front().material_ids.empty());
+	EXPECT_FALSE(restored.renderables.front().mesh_owner);
+	EXPECT_TRUE(restored.renderables.front().material_owners.empty());
 	ResourceProvenance::clear();
 }

@@ -32,7 +32,7 @@ namespace
 constexpr float ANIMATION_FRAME_STEP_SECS = 1.0f / 30.0f;
 
 template<typename MeshType>
-MeshID bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
+MeshOwner bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
 {
 	auto vertices = source.get_vertices();
 	const glm::mat3 normal_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
@@ -44,21 +44,16 @@ MeshID bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
 	return MeshSystem::add(std::make_unique<MeshType>(std::move(vertices), source.get_indices()));
 }
 
-MeshID bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
+MeshOwner bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
 {
 	const Mesh& source = MeshSystem::get(mesh_id);
-	MeshID baked_id;
 	if (const auto* mesh = dynamic_cast<const ColorMesh*>(&source))
-		baked_id = bake_mesh_transform(*mesh, transform);
+		return bake_mesh_transform(*mesh, transform);
 	else if (const auto* mesh = dynamic_cast<const TexMesh*>(&source))
-		baked_id = bake_mesh_transform(*mesh, transform);
+		return bake_mesh_transform(*mesh, transform);
 	else if (const auto* mesh = dynamic_cast<const SkinnedMesh*>(&source))
-		baked_id = bake_mesh_transform(*mesh, transform);
-	else
-		throw std::runtime_error("GuiModelSpawner: unsupported mesh type");
-
-	MeshSystem::unregister_owner(mesh_id);
-	return baked_id;
+		return bake_mesh_transform(*mesh, transform);
+	throw std::runtime_error("GuiModelSpawner: unsupported mesh type");
 }
 
 std::string report_resource_load_error(std::string_view context, const ResourceLoadError& error)
@@ -346,21 +341,23 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"cube", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>(
-					Renderable::make_default(MeshFactory::cube_id(MeshFactory::EVertexType::COLOR)));
+					Renderable::make_default(MeshSystem::add(
+						MeshFactory::cube(MeshFactory::EVertexType::COLOR))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
-				const auto mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::TEXTURE);
-				const auto mat_id = ResourceLoader::fetch_texture("texture.jpg");
+				auto mesh_owner = MeshSystem::add(
+					MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
+				auto material_owner = ResourceLoader::fetch_texture("texture.jpg");
 				Renderable renderable;
-				renderable.mesh_id = mesh_id;
-				renderable.material_ids = { mat_id };
 				renderable.pipeline_render_type = ERenderType::STANDARD;
+				renderable.mesh_owner = std::move(mesh_owner);
+				renderable.material_owners = { std::move(material_owner) };
 
-				auto obj = std::make_shared<Object>(renderable);
+				auto obj = std::make_shared<Object>(std::move(renderable));
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
@@ -372,9 +369,12 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				ColorMaterial material;
 				material.data.shininess = 1.0f;
 				Renderable renderable;
-				renderable.mesh_id = MeshFactory::cube_id(MeshFactory::EVertexType::COLOR);
-				renderable.material_ids = { MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material))) };
-				auto obj = std::make_shared<Object>(renderable);
+				renderable.mesh_owner = MeshSystem::add(
+					MeshFactory::cube(MeshFactory::EVertexType::COLOR));
+				auto material_owner = MaterialSystem::add(
+					std::make_unique<ColorMaterial>(std::move(material)));
+				renderable.material_owners = { std::move(material_owner) };
+				auto obj = std::make_shared<Object>(std::move(renderable));
 				engine.get_ecs().add_object(*obj);
 				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj->get_id());
@@ -384,10 +384,10 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"sphere", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>(
-					Renderable::make_default(MeshFactory::sphere_id(
+					Renderable::make_default(MeshSystem::add(MeshFactory::sphere(
 						MeshFactory::EVertexType::COLOR, 
 						MeshFactory::GenerationMethod::ICO_SPHERE, 
-						100)));
+						100))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
@@ -395,9 +395,9 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"physics sphere", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>(
-					Renderable::make_default(MeshFactory::sphere_id(
+					Renderable::make_default(MeshSystem::add(MeshFactory::sphere(
 						MeshFactory::EVertexType::COLOR,
-						MeshFactory::GenerationMethod::ICO_SPHERE)));
+						MeshFactory::GenerationMethod::ICO_SPHERE))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 				engine.get_ecs().add_physics_entity(obj.get_id(), PhysicsComponent{});
@@ -516,10 +516,12 @@ void GuiModelSpawner::process(GameEngine& engine)
 			object->set_transform(loaded_model.onload_transform.get_mat4());
 			for (auto& loaded_mesh : loaded_model.meshes)
 			{
-				for (auto renderable : loaded_mesh.renderables)
+				for (size_t index = 0; index < loaded_mesh.renderables.size(); ++index)
 				{
-					renderable.mesh_id = bake_mesh_transform(
-						renderable.mesh_id, renderable.local_transform.get_mat4());
+					auto renderable = loaded_mesh.renderables[index];
+					auto baked_mesh = bake_mesh_transform(
+						renderable.get_mesh_id(), renderable.local_transform.get_mat4());
+					renderable.mesh_owner = std::move(baked_mesh);
 					renderable.local_transform = {};
 					object->renderables.push_back(std::move(renderable));
 				}
@@ -1553,7 +1555,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	{
 		const auto& renderable = object->renderables[index];
 		renderable_labels.push_back(fmt::format(
-			"Mesh {} (ID {})", index + 1, renderable.mesh_id.get_underlying()));
+			"Mesh {} (ID {})", index + 1, renderable.get_mesh_id().get_underlying()));
 	}
 	if (renderable_labels.empty())
 	{
@@ -1570,7 +1572,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		target_status += " — selected mesh does not support textures";
 		return;
 	}
-	if (renderable.material_ids.empty())
+	if (renderable.material_owners.empty())
 	{
 		compatible = false;
 		target_status += " — selected mesh has no material";
@@ -1579,19 +1581,17 @@ void GuiMaterialEditor::process(GameEngine& engine)
 
 	const auto material_label = [](const MaterialID id)
 	{
-		if (id == MaterialFactory::fetch_black_texture())
-			return std::string("(matte)");
-		if (id == MaterialFactory::fetch_white_texture())
-			return std::string("(none)");
 		if (!MaterialSystem::contains(id))
 			return std::string("(missing material)");
 		const auto* texture = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(id));
 		if (!texture || texture->source.empty())
 			return fmt::format("Material {}", id.get_underlying());
+		if (texture->source == "(matte)" || texture->source == "(none)")
+			return texture->source;
 		const std::filesystem::path source(texture->source);
 		return source.filename().empty() ? texture->source : source.filename().string();
 	};
-	const TexturedMatGroup materials(renderable.material_ids);
+	const TexturedMatGroup materials(renderable.material_owners);
 	diffuse_label = material_label(materials.base_color_mat);
 	if (materials.normal_mat)
 		normal_label = material_label(*materials.normal_mat);

@@ -139,7 +139,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 	// However we should also note that there is an edge case where there exists another cubemap
 	// such that it contains the same first image but the rest of the images are different
 	// I really don't ever see this ever happening but it's a possibility
-	const auto representative_id = material_group.get_materials()[0];
+	const auto representative_id = material_group.get_material_id(0);
 	if (texture_units.contains(representative_id))
 	{
 		return texture_units.at(representative_id);
@@ -153,15 +153,12 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 		throw std::runtime_error(fmt::format(
 			"GraphicsEngineTextureManager: cubemap material {} has {} channels; expected 4",
 			representative_id.get_underlying(), channels));
-	if (!std::ranges::all_of(material_group.get_materials(), 
-		[width, height, channels](const auto material_id)
-		{ 
-			const auto& material = require_texture_material(material_id);
-			return width == material.width && height == material.height && channels == material.channels;
-		}))
+	for (size_t index = 0; index < material_group.size(); ++index)
 	{
-		throw std::runtime_error(
-			"GraphicsEngineTextureManager: cubemap textures do not have matching dimensions and channels");
+		const auto& material = require_texture_material(material_group.get_material_id(index));
+		if (width != material.width || height != material.height || channels != material.channels)
+			throw std::runtime_error(
+				"GraphicsEngineTextureManager: cubemap textures do not have matching dimensions and channels");
 	}
 
 	VkImage texture_image;
@@ -173,7 +170,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_VIEW_TYPE_CUBE,
-		material_group.cube_map_mats.size());
+		material_group.size());
 	VkSampler texture_sampler = fetch_sampler(ETextureSamplerType::ADDR_MODE_REPEAT);
 
 	GraphicsEngineTexture texture_object(
@@ -283,16 +280,16 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 	VkImage& texture_image,
 	VkDeviceMemory& texture_image_memory)
 {
-	const auto representative_id = material_group.get_materials()[0];
+	const auto representative_id = material_group.get_material_id(0);
 	const auto& representative_material = require_texture_material(representative_id);
-	const unsigned num_textures = material_group.cube_map_mats.size();
+	const unsigned num_textures = material_group.size();
 
 	const uint32_t width = representative_material.width;
 	const uint32_t height = representative_material.height;
 	const uint32_t channels = representative_material.channels;
 
 	VkDeviceSize layer_size = width * height * channels;
-	VkDeviceSize image_size = layer_size * material_group.cube_map_mats.size();
+	VkDeviceSize image_size = layer_size * material_group.size();
 	if (layer_size == 0)
 	{
 		throw std::runtime_error("GraphicsEngineTextureManager::create_volume_texture: supplied material texture is invalid, size=0!");
@@ -329,7 +326,7 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		{
 			for (auto i = 0; i < num_textures; i++)
 			{
-				const auto& material = require_texture_material(material_group.cube_map_mats[i]);
+				const auto& material = require_texture_material(material_group.get_material_id(i));
 				std::memcpy(destination+(layer_size*i), material.data->get(), static_cast<size_t>(layer_size));
 			}
 		},

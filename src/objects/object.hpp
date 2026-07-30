@@ -5,6 +5,8 @@
 #include "collision/bounding_box.hpp"
 #include "identifications.hpp"
 #include "renderable/renderable.hpp"
+#include "entity_component_system/mesh_system.hpp"
+#include "entity_component_system/material_system.hpp"
 #include <glm/gtc/quaternion.hpp>
 #include <glm/mat4x4.hpp>
 
@@ -12,6 +14,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <utility>
 
 
 class ResourceLoader;
@@ -27,8 +30,16 @@ public:
 		renderables({ renderable })
 	{
 	}
+	Object(Renderable&& renderable) :
+		renderables({ std::move(renderable) })
+	{
+	}
 	Object(const std::vector<Renderable>& renderables) :
 		renderables(renderables)
+	{
+	}
+	Object(std::vector<Renderable>&& renderables) :
+		renderables(std::move(renderables))
 	{
 	}
 	Object(const Object& object) = delete;

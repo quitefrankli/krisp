@@ -5,6 +5,7 @@
 #include "gui/application_ui_manager.hpp"
 #include "gui/gui_windows.hpp"
 #include "analytics.hpp"
+#include "entity_component_system/material_system.hpp"
 
 #include <vector>
 #include <memory>
@@ -59,4 +60,5 @@ private:
 	ApplicationUiManager* application_ui_manager = nullptr; // owned by GameEngine
 	std::string imgui_ini_path;
 	EngineUiManager engine_ui_manager;
+	std::vector<MaterialOwner> gui_texture_owners;
 };

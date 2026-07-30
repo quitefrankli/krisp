@@ -36,9 +36,9 @@ ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 
 	concatenate_vertices(rod_vertices, rod_indices, block_vertices, block_indices);
 
-	const auto mesh_id = MeshSystem::add(std::make_unique<ColorMesh>(std::move(rod_vertices), std::move(rod_indices)));
+	auto mesh = MeshSystem::add(std::make_unique<ColorMesh>(std::move(rod_vertices), std::move(rod_indices)));
 
-	renderables = { Renderable::make_default(mesh_id) };
+	renderables = { Renderable::make_default(std::move(mesh)) };
 }
 
 void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)

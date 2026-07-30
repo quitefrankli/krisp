@@ -272,7 +272,8 @@ void Object::serialize(Serializer& out) const
 	for (const auto& renderable : renderables)
 	{
 		auto saved = saved_renderables.append_map();
-		if (const auto* origin = ResourceProvenance::mesh(renderable.mesh_id))
+		const MeshID mesh_id = renderable.get_mesh_id();
+		if (const auto* origin = ResourceProvenance::mesh(mesh_id))
 		{
 			auto source = saved.map("mesh_source");
 			source.write("path", origin->source);
@@ -281,9 +282,10 @@ void Object::serialize(Serializer& out) const
 			source.write("primitive", origin->primitive);
 		}
 		else
-			saved.write("mesh_id", renderable.mesh_id.get_underlying());
+			throw SerializationError(
+				"Procedurally generated meshes cannot be serialized at $.renderables");
 		auto materials = saved.sequence("material_ids");
-		for (const auto material : renderable.material_ids)
+		for (const auto material : renderable.get_material_ids())
 		{
 			if (const auto* origin = ResourceProvenance::material(material))
 			{
@@ -294,7 +296,8 @@ void Object::serialize(Serializer& out) const
 				source.write("primitive", origin->primitive);
 			}
 			else
-				materials.append(material.get_underlying());
+				throw SerializationError(
+					"Procedurally generated materials cannot be serialized at $.renderables");
 		}
 		saved.write("render_type", static_cast<int>(renderable.pipeline_render_type));
 		saved.write("alpha_mode", static_cast<int>(renderable.alpha_mode));
@@ -322,10 +325,13 @@ void Object::deserialize(const Deserializer& in)
 		Renderable renderable;
 		const auto keys = saved.keys();
 		const bool imported_mesh = std::ranges::find(keys, "mesh_source") != keys.end();
-		renderable.mesh_id = imported_mesh ? MeshID{} : MeshID(saved.read<uint64_t>("mesh_id"));
+		if (!imported_mesh)
+			throw SerializationError(
+				"Procedurally generated meshes cannot be deserialized at " + saved.path());
 		for (const auto& material : saved.child("material_ids").elements())
 			if (material.kind() == SerializationKind::Scalar)
-				renderable.material_ids.emplace_back(material.as<uint64_t>());
+				throw SerializationError(
+					"Procedurally generated materials cannot be deserialized at " + material.path());
 		renderable.pipeline_render_type = static_cast<ERenderType>(saved.read<int>("render_type"));
 		renderable.alpha_mode = static_cast<EAlphaMode>(saved.read<int>("alpha_mode"));
 		renderable.alpha_cutoff = saved.read<float>("alpha_cutoff");

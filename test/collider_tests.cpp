@@ -9,7 +9,7 @@
 
 namespace
 {
-MeshID add_test_mesh(const std::initializer_list<glm::vec3> positions, std::vector<uint32_t> indices)
+MeshOwner add_test_mesh(const std::initializer_list<glm::vec3> positions, std::vector<uint32_t> indices)
 {
     ColorVertices vertices;
     vertices.reserve(positions.size());
@@ -120,9 +120,10 @@ TEST(collider_tests, capsule_collider_bottom_rests_at_local_y_zero)
 
 TEST(collider_tests, mesh_collider_rejects_aabb_hits_outside_the_mesh_triangles)
 {
-    const MeshID mesh_id = add_test_mesh({
+    auto mesh_owner = add_test_mesh({
         { -1.0f, -1.0f, 0.0f }, { 1.0f, -1.0f, 0.0f }, { -1.0f, 1.0f, 0.0f }
     }, { 0, 1, 2 });
+    const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
     const MeshCollider mesh({ mesh_id });
     const RayCollider hit_ray(Maths::Ray(glm::vec3(-0.5f, -0.5f, -1.0f), Maths::forward_vec));
     const RayCollider gap_ray(Maths::Ray(glm::vec3(0.75f, 0.75f, -1.0f), Maths::forward_vec));
@@ -131,17 +132,18 @@ TEST(collider_tests, mesh_collider_rejects_aabb_hits_outside_the_mesh_triangles)
     ASSERT_TRUE(mesh.check_collision(hit_ray, intersection));
     ASSERT_TRUE(glm_equal(intersection, glm::vec3(-0.5f, -0.5f, 0.0f)));
     ASSERT_FALSE(mesh.check_collision(gap_ray, intersection));
-    MeshSystem::unregister_owner(mesh_id);
 }
 
 TEST(collider_tests, mesh_collider_returns_the_closest_triangle_across_meshes_and_transforms)
 {
-    const MeshID near_mesh = add_test_mesh({
+    auto near_owner = add_test_mesh({
         { -1.0f, -1.0f, 0.0f }, { 1.0f, -1.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }
     }, { 0, 1, 2 });
-    const MeshID far_mesh = add_test_mesh({
+    auto far_owner = add_test_mesh({
         { -1.0f, -1.0f, 1.0f }, { 1.0f, -1.0f, 1.0f }, { 0.0f, 1.0f, 1.0f }
     }, { 0, 1, 2 });
+    const MeshID near_mesh = MeshSystem::get_id(near_owner);
+    const MeshID far_mesh = MeshSystem::get_id(far_owner);
     MeshCollider mesh({ near_mesh, far_mesh });
     mesh.set_temporary_transform(Maths::Transform(
         glm::vec3(2.0f, 0.0f, 0.0f), glm::vec3(2.0f, 1.0f, 1.0f), Maths::identity_quat));
@@ -150,13 +152,12 @@ TEST(collider_tests, mesh_collider_returns_the_closest_triangle_across_meshes_an
 
     ASSERT_TRUE(mesh.check_collision(ray, intersection));
     ASSERT_TRUE(glm_equal(intersection, glm::vec3(2.0f, 0.0f, 0.0f)));
-    MeshSystem::unregister_owner(near_mesh);
-    MeshSystem::unregister_owner(far_mesh);
 }
 
 TEST(collider_tests, mesh_collider_traverses_the_bvh_for_multi_triangle_meshes)
 {
-    const MeshID cube_id = MeshFactory::cube_id();
+    const auto cube_owner = MeshSystem::add(MeshFactory::cube());
+    const MeshID cube_id = MeshSystem::get_id(cube_owner);
     const auto& pick_data = MeshSystem::get(cube_id).get_pick_data();
     ASSERT_GT(pick_data.get_nodes().size(), 1u);
 

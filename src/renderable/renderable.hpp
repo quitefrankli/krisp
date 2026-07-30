@@ -4,6 +4,8 @@
 #include "maths.hpp"
 #include "renderable/render_types.hpp"
 #include "renderable/material_group.hpp"
+#include "entity_component_system/mesh_system.hpp"
+#include "entity_component_system/material_system.hpp"
 
 #include <vector>
 
@@ -12,8 +14,6 @@
 // There are multiple materials because we may need multiple maps i.e. texture, normal, uv maps
 struct Renderable
 {
-	MeshID mesh_id;
-	MatVec material_ids;
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
 	float alpha_cutoff = 0.5f;
@@ -22,6 +22,12 @@ struct Renderable
 	bool render_on_top = false;
 	// Asset-local placement, kept separate from the owning object's gameplay transform.
 	Maths::Transform local_transform;
+	MeshOwner mesh_owner;
+	std::vector<MaterialOwner> material_owners;
+
+	MeshID get_mesh_id() const;
+	MaterialID get_material_id(size_t index) const;
+	MatVec get_material_ids() const;
 
 	glm::mat4 get_model_transform(const glm::mat4& gameplay_transform) const
 	{
@@ -29,5 +35,5 @@ struct Renderable
 	}
 
 	static Renderable make_default();
-	static Renderable make_default(MeshID mesh_id);
+	static Renderable make_default(MeshOwner mesh_owner);
 };

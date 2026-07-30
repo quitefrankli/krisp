@@ -38,7 +38,7 @@ std::filesystem::path resolve_resource_filename(std::string_view filename, Resol
 
 ResourceLoader ResourceLoader::global_resource_loader;
 
-MaterialID ResourceLoader::fetch_texture(
+MaterialOwner ResourceLoader::fetch_texture(
 	const std::string_view filename,
 	const ETextureSemantic semantic)
 {
@@ -50,17 +50,14 @@ MaterialID ResourceLoader::fetch_texture(
 	const size_t semantic_index = static_cast<size_t>(semantic);
 	auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
 	if (cached && MaterialSystem::contains(*cached))
-	{
-		MaterialSystem::register_owner(*cached);
-		return *cached;
-	}
+		return MaterialSystem::acquire(*cached);
 	cached.reset();
 
-	const auto material_id = global_resource_loader.load_texture(file_path, semantic);
-	if (auto* texture = dynamic_cast<TextureMaterial*>(&MaterialSystem::get(material_id)))
+	auto material = global_resource_loader.load_texture(file_path, semantic);
+	if (auto* texture = dynamic_cast<TextureMaterial*>(
+		&MaterialSystem::get(MaterialSystem::get_id(material))))
 		texture->source = filename;
-	MaterialSystem::register_owner(material_id);
-	return material_id;
+	return material;
 }
 
 namespace
@@ -354,7 +351,9 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			if (positions.size() != normals.size())
 				throw ResourceLoadError("ResourceLoader: POSITION and NORMAL counts differ");
 
-			const auto loaded_material = global_resource_loader.load_material(primitive, model);
+			std::vector<MaterialOwner> material_owners;
+			const auto loaded_material = global_resource_loader.load_material(
+				primitive, model, material_owners);
 			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");
 			const bool textured = [&]
 			{
@@ -472,20 +471,21 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				mesh = std::make_unique<ColorMesh>(load_color_vertices(positions, normals), std::move(indices));
 				renderable.pipeline_render_type = ERenderType::COLOR;
 			}
-			renderable.mesh_id = MeshSystem::add(std::move(mesh));
-			ResourceProvenance::register_mesh(renderable.mesh_id, {
+			renderable.mesh_owner = MeshSystem::add(std::move(mesh));
+			const auto mesh_id = MeshSystem::get_id(renderable.mesh_owner);
+			ResourceProvenance::register_mesh(mesh_id, {
 				.source = provenance_source, .scene = scene_index, .node = instance.node_index,
 				.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
 			for (const auto material_id : loaded_material.ids)
 				ResourceProvenance::register_material(material_id, {
 					.source = provenance_source, .scene = scene_index, .node = instance.node_index,
 					.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
-			renderable.material_ids = loaded_material.ids;
+			renderable.material_owners = std::move(material_owners);
 			renderable.alpha_mode = loaded_material.alpha_mode;
 			renderable.alpha_cutoff = loaded_material.alpha_cutoff;
 			renderable.opacity = loaded_material.opacity;
 			renderable.local_transform.set_mat4(instance.world_transform);
-			loaded_mesh.renderables.push_back(renderable);
+			loaded_mesh.renderables.push_back(std::move(renderable));
 		}
 		result.meshes.push_back(std::move(loaded_mesh));
 	}

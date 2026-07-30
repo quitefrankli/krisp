@@ -34,6 +34,16 @@ skinned-color, and skinned-texture pipelines.
 
 No GPU timing measurements have been recorded yet.
 
+## Procedural resource factories
+
+Mesh and material factory calls create independently owned resources rather
+than using process-wide caches. Repeated calls therefore repeat mesh generation
+or material allocation and consume separate graphics resources. Callers that
+need reuse should retain and share the returned owner instead of invoking a
+factory and registering its result each frame. Factories only construct CPU
+resources; callers explicitly register them with `MeshSystem` or
+`MaterialSystem`. No timing measurements have been recorded.
+
 ## Renderable-local transforms
 
 Rasterization keeps imported asset-node transforms separate from gameplay

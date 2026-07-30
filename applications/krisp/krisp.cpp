@@ -120,7 +120,7 @@ public:
 		spawned_player.set_name("Player");
 
 		auto& temporary_sword = engine.spawn_object<Object>(
-			Renderable::make_default(MeshFactory::cylinder_id()));
+			Renderable::make_default(MeshSystem::add(MeshFactory::cylinder())));
 		temporary_sword.set_name("Temporary Sword");
 		Maths::Transform sword_grip;
 		sword_grip.set_scale({ 0.06f, 0.7f, 0.06f });
@@ -189,24 +189,29 @@ int main(int argc, char* argv[])
 	engine.spawn_cubemap(); // background/horizon
 	Renderable floor_renderable;
 	floor_renderable.pipeline_render_type = ERenderType::COLOR;
-	floor_renderable.mesh_id = MeshFactory::cube_id();
-	floor_renderable.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE) };
-	auto& floor = engine.spawn_object<Object>(floor_renderable);
+	floor_renderable.mesh_owner = MeshSystem::add(MeshFactory::cube());
+	floor_renderable.material_owners = {
+		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE))
+	};
+	auto& floor = engine.spawn_object<Object>(std::move(floor_renderable));
 	floor.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 	floor.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
 	engine.get_ecs().add_collider(floor.get_id(), std::make_unique<BoxCollider>());
 
-	auto& obstacle = engine.spawn_object<Object>(Renderable::make_default(MeshFactory::cube_id()));
+	auto& obstacle = engine.spawn_object<Object>(
+		Renderable::make_default(MeshSystem::add(MeshFactory::cube())));
 	obstacle.set_position({ 2.0f, 0.5f, 2.0f });
 	obstacle.set_scale({ 1.0f, 1.0f, 1.0f });
 	engine.get_ecs().add_collider(obstacle.get_id(), std::make_unique<BoxCollider>());
 	engine.get_ecs().add_clickable_entity(obstacle.get_id());
 
-	auto& light_source = engine.spawn_object<Object>(Renderable{
-		.mesh_id = MeshFactory::sphere_id(),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
-		.pipeline_render_type = ERenderType::COLOR
-	});
+	Renderable light_renderable;
+	light_renderable.mesh_owner = MeshSystem::add(MeshFactory::sphere());
+	light_renderable.material_owners = {
+		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE))
+	};
+	light_renderable.pipeline_render_type = ERenderType::COLOR;
+	auto& light_source = engine.spawn_object<Object>(std::move(light_renderable));
 	light_source.set_position(glm::vec3(0.5f, 6.0f, -3.0f));
 	LightComponent light_component{
 		.intensity = 1.0f,
