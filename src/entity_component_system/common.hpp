@@ -21,27 +21,27 @@ template<typename IDType, typename ContentType>
 class CountableSystem
 {
 private:
-	class Owner
+	class Handle
 	{
 	public:
-		~Owner() noexcept
+		~Handle() noexcept
 		{
 			get_global()._remove(id);
 		}
 
 	private:
 		friend CountableSystem;
-		explicit Owner(IDType id) noexcept : id(id) {}
+		explicit Handle(IDType id) noexcept : id(id) {}
 		const IDType id;
 	};
 
 public:
-	using OwnerPtr = std::shared_ptr<Owner>;
+	using HandlePtr = std::shared_ptr<Handle>;
 
-	static OwnerPtr add(std::unique_ptr<ContentType>&& content)
+	static HandlePtr add(std::unique_ptr<ContentType>&& content)
 	{
 		const auto id = get_global()._add(std::move(content));
-		auto owner = std::shared_ptr<Owner>(new Owner(id));
+		auto owner = std::shared_ptr<Handle>(new Handle(id));
 		get_global().owners.emplace(id, owner);
 		return owner;
 	}
@@ -55,7 +55,7 @@ public:
 	 * resource. Throws std::runtime_error if the ID is missing or no live owner
 	 * can be acquired.
 	 */
-	static OwnerPtr acquire(IDType id)
+	static HandlePtr acquire(IDType id)
 	{
 		auto& global = get_global();
 		if (!global.contents.contains(id))
@@ -69,7 +69,7 @@ public:
 		return owner;
 	}
 
-	static IDType get_id(const OwnerPtr& owner)
+	static IDType get_id(const HandlePtr& owner)
 	{
 		if (!owner)
 			throw std::runtime_error("CountableSystem::get_id: owner is empty");
@@ -138,7 +138,7 @@ private:
 
 private:
 	std::unordered_map<IDType, std::unique_ptr<ContentType>> contents;
-	std::unordered_map<IDType, std::weak_ptr<Owner>> owners;
+	std::unordered_map<IDType, std::weak_ptr<Handle>> owners;
 	std::vector<IDType> retired;
 };
 

@@ -5,4 +5,4 @@
 
 
 using MeshSystem = CountableSystem<MeshID, Mesh>;
-using MeshOwner = MeshSystem::OwnerPtr;
+using MeshHandle = MeshSystem::HandlePtr;

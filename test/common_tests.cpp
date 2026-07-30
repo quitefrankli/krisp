@@ -95,7 +95,7 @@ TEST(Basics, TexturedMaterialGroupResolvesOptionalMapsBySemantic)
 	const auto base = make_texture(ETextureSemantic::BASE_COLOR);
 	const auto specular = make_texture(ETextureSemantic::SPECULAR);
 
-	const std::vector<MaterialOwner> owners{ specular, base };
+	const std::vector<MaterialHandle> owners{ specular, base };
 	const TexturedMatGroup group(owners);
 	EXPECT_EQ(group.base_color_mat, MaterialSystem::get_id(base));
 	EXPECT_FALSE(group.normal_mat);
@@ -113,6 +113,6 @@ TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)
 	const auto first_owner = MaterialSystem::add(std::move(first));
 	const auto second_owner = MaterialSystem::add(std::move(second));
 
-	const std::vector<MaterialOwner> owners{ first_owner, second_owner };
+	const std::vector<MaterialHandle> owners{ first_owner, second_owner };
 	EXPECT_THROW((void)TexturedMatGroup{ owners }, std::runtime_error);
 }

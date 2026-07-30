@@ -5,4 +5,4 @@
 
 
 using MaterialSystem = CountableSystem<MaterialID, Material>;
-using MaterialOwner = MaterialSystem::OwnerPtr;
+using MaterialHandle = MaterialSystem::HandlePtr;

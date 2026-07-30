@@ -88,7 +88,7 @@ public:
 		std::vector<ImportWarning> warnings;
 	};
 
-	static MaterialOwner fetch_texture(
+	static MaterialHandle fetch_texture(
 		std::string_view filename,
 		ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
 	static LoadedModel load_model(ECS& ecs, std::string_view filename);
@@ -104,13 +104,13 @@ private:
 		float opacity = 1.0f;
 	};
 
-	MaterialOwner load_texture(
+	MaterialHandle load_texture(
 		const std::filesystem::path& file_path,
 		ETextureSemantic semantic);
 	LoadedMaterial load_material(
 		const tinygltf::Primitive& primitive,
 		const tinygltf::Model& model,
-		std::vector<MaterialOwner>& owners);
+		std::vector<MaterialHandle>& owners);
 
 private:
 	static constexpr size_t texture_semantic_count = static_cast<size_t>(ETextureSemantic::COUNT);

@@ -20,7 +20,7 @@ using MatVec = std::vector<MaterialID>;
 struct FlatMatGroup : public MaterialGroup
 {
 	FlatMatGroup() = default;
-	FlatMatGroup(const std::span<const MaterialOwner> mats)
+	FlatMatGroup(const std::span<const MaterialHandle> mats)
 	{
 		assert(mats.size() == 1);
 		color_mat = MaterialSystem::get_id(mats[0]);
@@ -37,7 +37,7 @@ struct FlatMatGroup : public MaterialGroup
 struct TexturedMatGroup : public MaterialGroup
 {
 	TexturedMatGroup() = default;
-	explicit TexturedMatGroup(std::span<const MaterialOwner> mats);
+	explicit TexturedMatGroup(std::span<const MaterialHandle> mats);
 
 	MatVec get_materials() const
 	{
@@ -57,7 +57,7 @@ struct TexturedMatGroup : public MaterialGroup
 struct CubeMapMatGroup : public MaterialGroup
 {
 	CubeMapMatGroup() = default;
-	explicit CubeMapMatGroup(const std::span<const MaterialOwner> mats)
+	explicit CubeMapMatGroup(const std::span<const MaterialHandle> mats)
 	{
 		assert(mats.size() == 6);
 		material_owners = mats;
@@ -73,5 +73,5 @@ struct CubeMapMatGroup : public MaterialGroup
 		return MaterialSystem::get_id(material_owners[index]);
 	}
 
-	std::span<const MaterialOwner> material_owners;
+	std::span<const MaterialHandle> material_owners;
 };

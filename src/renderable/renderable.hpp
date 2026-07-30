@@ -22,8 +22,8 @@ struct Renderable
 	bool render_on_top = false;
 	// Asset-local placement, kept separate from the owning object's gameplay transform.
 	Maths::Transform local_transform;
-	MeshOwner mesh_owner;
-	std::vector<MaterialOwner> material_owners;
+	MeshHandle mesh_owner;
+	std::vector<MaterialHandle> material_owners;
 
 	MeshID get_mesh_id() const;
 	MaterialID get_material_id(size_t index) const;
@@ -35,5 +35,5 @@ struct Renderable
 	}
 
 	static Renderable make_default();
-	static Renderable make_default(MeshOwner mesh_owner);
+	static Renderable make_default(MeshHandle mesh_owner);
 };

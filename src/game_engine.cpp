@@ -95,7 +95,7 @@ void GameEngine::configure_ecs()
 {
 	ecs.set_tile_spawner([this]() -> Object&
 	{
-		MaterialOwner new_tile_material;
+		MaterialHandle new_tile_material;
 		if (!tile_renderable || !MaterialSystem::contains(tile_renderable->get_material_id(0)))
 		{
 			ColorMaterial mat{};
@@ -561,7 +561,7 @@ void GameEngine::replace_renderable_texture(
 		? ResourceLoader::fetch_texture(*texture_filename, semantic)
 		: semantic == ETextureSemantic::BASE_COLOR
 			? MaterialSystem::add(MaterialFactory::fetch_white_texture())
-			: MaterialOwner{};
+			: MaterialHandle{};
 	const MaterialID replacement = replacement_owner
 		? MaterialSystem::get_id(replacement_owner)
 		: MaterialID{};
@@ -590,7 +590,7 @@ void GameEngine::replace_renderable_texture(
 	auto old_owners = std::move(renderable.material_owners);
 	const auto take_old_owner = [&old_owners](const MaterialID id)
 	{
-		const auto found = std::ranges::find_if(old_owners, [id](const MaterialOwner& owner) {
+		const auto found = std::ranges::find_if(old_owners, [id](const MaterialHandle& owner) {
 			return owner && MaterialSystem::get_id(owner) == id;
 		});
 		if (found == old_owners.end())
@@ -598,7 +598,7 @@ void GameEngine::replace_renderable_texture(
 				"GameEngine::replace_renderable_texture: material owner not found");
 		return std::move(*found);
 	};
-	std::vector<MaterialOwner> updated_owners;
+	std::vector<MaterialHandle> updated_owners;
 	updated_owners.reserve(3);
 	updated_owners.push_back(semantic == ETextureSemantic::BASE_COLOR
 		? std::move(replacement_owner)
@@ -643,7 +643,7 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 	auto old_owners = std::move(renderable.material_owners);
 	const auto take_old_owner = [&old_owners](const MaterialID id)
 	{
-		const auto found = std::ranges::find_if(old_owners, [id](const MaterialOwner& owner) {
+		const auto found = std::ranges::find_if(old_owners, [id](const MaterialHandle& owner) {
 			return owner && MaterialSystem::get_id(owner) == id;
 		});
 		if (found == old_owners.end())
@@ -651,7 +651,7 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 				"GameEngine::set_renderable_specular_matte: material owner not found");
 		return std::move(*found);
 	};
-	std::vector<MaterialOwner> updated_owners;
+	std::vector<MaterialHandle> updated_owners;
 	updated_owners.reserve(3);
 	updated_owners.push_back(take_old_owner(current.base_color_mat));
 	if (current.normal_mat)

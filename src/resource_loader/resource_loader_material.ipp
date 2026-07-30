@@ -174,7 +174,7 @@ bool load_gltf_image_data(
 ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 	const tinygltf::Primitive& primitive,
 	const tinygltf::Model& model,
-	std::vector<MaterialOwner>& owners)
+	std::vector<MaterialHandle>& owners)
 {
 	if (primitive.material >= 0)
 	{
@@ -348,7 +348,7 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 	return { .ids = { MaterialSystem::get_id(owners.back()) } };
 }
 
-MaterialOwner ResourceLoader::load_texture(
+MaterialHandle ResourceLoader::load_texture(
 	const std::filesystem::path& filename,
 	const ETextureSemantic semantic)
 {

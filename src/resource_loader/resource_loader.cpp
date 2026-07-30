@@ -38,7 +38,7 @@ std::filesystem::path resolve_resource_filename(std::string_view filename, Resol
 
 ResourceLoader ResourceLoader::global_resource_loader;
 
-MaterialOwner ResourceLoader::fetch_texture(
+MaterialHandle ResourceLoader::fetch_texture(
 	const std::string_view filename,
 	const ETextureSemantic semantic)
 {
@@ -351,7 +351,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			if (positions.size() != normals.size())
 				throw ResourceLoadError("ResourceLoader: POSITION and NORMAL counts differ");
 
-			std::vector<MaterialOwner> material_owners;
+			std::vector<MaterialHandle> material_owners;
 			const auto loaded_material = global_resource_loader.load_material(
 				primitive, model, material_owners);
 			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");

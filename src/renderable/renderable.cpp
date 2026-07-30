@@ -27,7 +27,7 @@ MatVec Renderable::get_material_ids() const
 	return result;
 }
 
-Renderable Renderable::make_default(MeshOwner mesh_owner)
+Renderable Renderable::make_default(MeshHandle mesh_owner)
 {
 	Renderable renderable;
 	renderable.mesh_owner = std::move(mesh_owner);

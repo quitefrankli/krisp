@@ -9,7 +9,7 @@
 
 namespace
 {
-MeshOwner add_test_mesh(const std::initializer_list<glm::vec3> positions, std::vector<uint32_t> indices)
+MeshHandle add_test_mesh(const std::initializer_list<glm::vec3> positions, std::vector<uint32_t> indices)
 {
     ColorVertices vertices;
     vertices.reserve(positions.size());

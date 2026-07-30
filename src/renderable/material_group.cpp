@@ -5,7 +5,7 @@
 #include <stdexcept>
 
 
-TexturedMatGroup::TexturedMatGroup(const std::span<const MaterialOwner> mats)
+TexturedMatGroup::TexturedMatGroup(const std::span<const MaterialHandle> mats)
 {
 	bool has_base_color = false;
 	for (const auto& owner : mats)

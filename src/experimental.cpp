@@ -22,7 +22,7 @@
 
 void spawn_test_particles(GameEngine& engine);
 MeshPtr generate_terrain_mesh(int grid_size, float scale, float height_scale, MaterialID texture_mat_id);
-MaterialOwner generate_terrain_texture(int width, int height);
+MaterialHandle generate_terrain_texture(int width, int height);
 
 // Simple Perlin noise implementation for terrain generation
 class PerlinNoise
@@ -138,7 +138,7 @@ struct ProceduralTextureData : public TextureData
 };
 
 // Generate a colorful terrain texture using Perlin noise
-MaterialOwner generate_terrain_texture(int width, int height)
+MaterialHandle generate_terrain_texture(int width, int height)
 {
     PerlinNoise perlin(42);
     PerlinNoise color_variation(123);

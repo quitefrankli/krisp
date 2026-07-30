@@ -12,7 +12,7 @@
 
 namespace
 {
-Renderable make_debug_renderable(MeshOwner mesh_owner)
+Renderable make_debug_renderable(MeshHandle mesh_owner)
 {
 	auto material_owner = MaterialSystem::add(
 		MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC));

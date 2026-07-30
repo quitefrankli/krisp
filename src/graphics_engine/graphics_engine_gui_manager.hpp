@@ -60,5 +60,5 @@ private:
 	ApplicationUiManager* application_ui_manager = nullptr; // owned by GameEngine
 	std::string imgui_ini_path;
 	EngineUiManager engine_ui_manager;
-	std::vector<MaterialOwner> gui_texture_owners;
+	std::vector<MaterialHandle> gui_texture_owners;
 };

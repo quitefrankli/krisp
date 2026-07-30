@@ -32,7 +32,7 @@ namespace
 constexpr float ANIMATION_FRAME_STEP_SECS = 1.0f / 30.0f;
 
 template<typename MeshType>
-MeshOwner bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
+MeshHandle bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
 {
 	auto vertices = source.get_vertices();
 	const glm::mat3 normal_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
@@ -44,7 +44,7 @@ MeshOwner bake_mesh_transform(const MeshType& source, const glm::mat4& transform
 	return MeshSystem::add(std::make_unique<MeshType>(std::move(vertices), source.get_indices()));
 }
 
-MeshOwner bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
+MeshHandle bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
 {
 	const Mesh& source = MeshSystem::get(mesh_id);
 	if (const auto* mesh = dynamic_cast<const ColorMesh*>(&source))
