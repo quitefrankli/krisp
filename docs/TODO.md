@@ -78,7 +78,7 @@ graphics thread shouldn't know about gameplay objects. It should only know about
 
 Remove runtime `vkDeviceWaitIdle()` calls from topology reconciliation and
 unused-resource cleanup. Topology changes may be frequent, and waiting for the
-entire device stalls every frame in flight even when only an old resource
+entire device stalls every frame in flight in the swapchain even when only an old resource
 generation needs to be released.
 
 Implement fence-driven deferred destruction:

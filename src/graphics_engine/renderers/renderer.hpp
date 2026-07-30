@@ -10,6 +10,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <optional>
+
 
 enum class ERendererType
 {
@@ -53,6 +55,7 @@ public:
 								 const VkDescriptorSet& renderable_dset,
 								 EPipelineModifier pipeline_modifier,
 								 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
+	void reset_draw_state();
 
 protected:
 	// A render pass is a general description of steps to draw something on the screen
@@ -65,4 +68,8 @@ protected:
 
 	// per frame resources
 	std::vector<VkFramebuffer> frame_buffers;
+
+private:
+	VkPipeline bound_pipeline = VK_NULL_HANDLE;
+	std::optional<MeshID> bound_mesh;
 };

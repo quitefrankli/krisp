@@ -12,6 +12,7 @@ loop.
 | `graphics_engine.*` | Top-level coordinator: owns the render loop, queues, graphics objects, and submodules. |
 | `graphics_engine_instance/device/swap_chain.*` | Creates the Vulkan instance, surface, device, queues, swap chain, and per-swap-chain frames. |
 | `graphics_engine_frame.*` | Records and submits one frame's command buffer; owns its fences, semaphores, and per-frame resources. |
+| `render_draw_list.*` | Caches renderable-level pass classification and state ordering for reconciled topology. |
 | `resource_manager/` | Allocates command buffers and GPU buffers, and manages descriptor sets. |
 | `pipeline/` | Builds and caches Vulkan graphics/compute pipelines and their layouts. |
 | `renderers/` | Implements rendering passes such as shadow maps, rasterization, ray tracing, compositing, particles, and ImGui. |
@@ -31,7 +32,7 @@ GameEngine completed-frame publication
 GraphicsEngine::run
   ├─ process control-only graphics commands
   ├─ acquire and retain the newest completed snapshot
-  ├─ reconcile versioned graphics-owned definitions when needed
+  ├─ reconcile versioned graphics-owned definitions and draw lists when needed
   ├─ retire released GPU assets after graphics synchronization
   ├─ update GUI
   └─ SwapChain / GraphicsEngineFrame::draw
@@ -57,6 +58,8 @@ iteration. Ray tracing is currently unsupported.
 - `GraphicsEngineObject` retains an immutable versioned definition. Membership
   and definition changes reconcile graphics resources; dynamic state is read
   directly from the accepted snapshot.
+- Cached flat draw lists retain object ownership links while allowing each
+  renderable to be classified and ordered independently for each scene pass.
 - The latest-wins mailbox lets either thread advance independently. A slow
   graphics loop drops intermediate publications instead of blocking updates.
 - The command queue carries controls only; stencil commands carry an

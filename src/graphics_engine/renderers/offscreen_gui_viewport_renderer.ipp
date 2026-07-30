@@ -107,6 +107,7 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 	render_pass_begin_info.clearValueCount = clear_values.size();
 	render_pass_begin_info.pClearValues = clear_values.data();
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	reset_draw_state();
 
 	std::vector<VkDescriptorSet> per_frame_dsets = { 
 		get_rsrc_mgr().get_global_dset(frame_index)

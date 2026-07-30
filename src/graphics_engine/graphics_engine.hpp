@@ -9,6 +9,7 @@
 #include "resource_manager/graphics_resource_manager.hpp"
 #include "graphics_engine_commands.hpp"
 #include "graphics_engine_object.hpp"
+#include "render_draw_list.hpp"
 #include "graphics_engine_texture_manager.hpp"
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
@@ -52,6 +53,7 @@ public: // getters and setters
 	{ 
 		return objects; 
 	}
+	const GraphicsDrawLists& get_draw_lists() const { return draw_lists; }
 	std::unordered_map<ObjectID, GraphicsEngineObject*>& get_offscreen_rendering_objects() 
 	{ 
 		return offscreen_rendering_objects; 
@@ -108,6 +110,7 @@ private:
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject>> objects;
+	GraphicsDrawLists draw_lists;
 	std::unordered_set<ObjectID> stenciled_objects;
 	// currently used for OffscreenGuiViewportRenderer, in future we should have a scene system
 	// and this would be a separate scene

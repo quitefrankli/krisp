@@ -34,6 +34,12 @@ VkExtent2D Renderer::get_extent()
 	return get_graphics_engine().get_extent();
 }
 
+void Renderer::reset_draw_state()
+{
+	bound_pipeline = VK_NULL_HANDLE;
+	bound_mesh.reset();
+}
+
 void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							   const RenderableDefinition& renderable,
 							   const VkDescriptorSet& object_dset,
@@ -50,9 +56,14 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 		return;
 	}
 
-	vkCmdBindPipeline(command_buffer, 
-					  VK_PIPELINE_BIND_POINT_GRAPHICS, 
-					  pipeline->graphics_pipeline); // bind the graphics pipeline
+	if (bound_pipeline != pipeline->graphics_pipeline)
+	{
+		vkCmdBindPipeline(
+			command_buffer,
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			pipeline->graphics_pipeline);
+		bound_pipeline = pipeline->graphics_pipeline;
+	}
 
 	// binds uniform buffer dset
 	vkCmdBindDescriptorSets(command_buffer,
@@ -65,19 +76,22 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							nullptr);
 
 	const Mesh& mesh = renderable.get_mesh();
-	const VkDeviceSize buffer_offset = get_rsrc_mgr().get_vertex_buffer_offset(mesh.get_id());
-	const VkBuffer buffer = get_rsrc_mgr().get_vertex_buffer();
-	vkCmdBindVertexBuffers(command_buffer, 
-						   0, 				// first buffer in vertex buffers array
-						   1, 				// number of vertex buffers
-						   &buffer, 		// array of vertex buffers to bind
-						   &buffer_offset);	// byte offset to start from for each buffer
-	
-	const VkDeviceSize index_buffer_offset = get_rsrc_mgr().get_index_buffer_offset(mesh.get_id());
-	vkCmdBindIndexBuffer(command_buffer,
-						 get_rsrc_mgr().get_index_buffer(),
-						 index_buffer_offset,
-						 VK_INDEX_TYPE_UINT32);
+	if (bound_mesh != mesh.get_id())
+	{
+		const VkDeviceSize buffer_offset =
+			get_rsrc_mgr().get_vertex_buffer_offset(mesh.get_id());
+		const VkBuffer buffer = get_rsrc_mgr().get_vertex_buffer();
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &buffer, &buffer_offset);
+
+		const VkDeviceSize index_buffer_offset =
+			get_rsrc_mgr().get_index_buffer_offset(mesh.get_id());
+		vkCmdBindIndexBuffer(
+			command_buffer,
+			get_rsrc_mgr().get_index_buffer(),
+			index_buffer_offset,
+			VK_INDEX_TYPE_UINT32);
+		bound_mesh = mesh.get_id();
+	}
 
 	// binds renderable specific dsets, i.e. material group
 	vkCmdBindDescriptorSets(command_buffer, 

@@ -1,4 +1,5 @@
 graphics_sources = files('graphics_engine/video_recorder.cpp',
+					 'graphics_engine/render_draw_list.cpp',
 					 'graphics_engine/pipeline/pipeline.cpp',
 						 'graphics_engine/renderers/renderer.cpp',
 						 # Ray tracing is unsupported; keep its source out of the build.

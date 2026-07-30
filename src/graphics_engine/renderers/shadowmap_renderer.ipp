@@ -108,6 +108,7 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 	render_pass_begin_info.clearValueCount = 1;
 	render_pass_begin_info.pClearValues = &clear_value;
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	reset_draw_state();
 
 	std::vector<VkDescriptorSet> per_frame_dsets = { 
 		get_rsrc_mgr().get_global_dset(frame_index)
@@ -124,36 +125,23 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 							nullptr);
 
 
-	const auto& graphics_objects = get_graphics_engine().get_objects();
-	for (const auto& it_pair : graphics_objects)
+	const auto& frame = get_graphics_engine().get_render_frame();
+	const std::optional<ObjectID> active_light_id = frame.active_light
+		? std::optional<ObjectID>(
+			frame.objects[frame.active_light->object_index].definition->id)
+		: std::nullopt;
+	for (const GraphicsDrawItem* item : get_graphics_engine().get_draw_lists().shadow())
 	{
-		const auto& graphics_object = *(it_pair.second);
-		if (!graphics_object.get_visibility())
+		if (!item->object->get_visibility())
 			continue;
-
-		const auto& frame = get_graphics_engine().get_render_frame();
-		if (frame.active_light
-			&& frame.objects[frame.active_light->object_index].definition->id
-				== graphics_object.get_id())
+		if (active_light_id == item->sort_key.object_id)
 			continue;
-			
-		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
-		{
-			const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
-			if (!renderable.casts_shadow)
-			{
-				continue;
-			}
-			if (renderable.alpha_mode == EAlphaMode::BLEND)
-			{
-				continue;
-			}
-			draw_renderable(command_buffer,
-							renderable,
-							graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
-							graphics_object.get_renderable_dsets()[renderable_idx],
-							EPipelineModifier::SHADOW_MAP);
-		}
+		draw_renderable(
+			command_buffer,
+			*item->renderable,
+			item->object->get_renderable_frame_dset(frame_index, item->renderable_index),
+			item->object->get_renderable_dsets()[item->renderable_index],
+			EPipelineModifier::SHADOW_MAP);
 	}
 	
 	vkCmdEndRenderPass(command_buffer);

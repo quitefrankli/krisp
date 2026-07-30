@@ -117,6 +117,7 @@ void RasterizationRenderer::submit_draw_commands(
 	render_pass_begin_info.clearValueCount = clear_values.size();
 	render_pass_begin_info.pClearValues = clear_values.data();
 	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	reset_draw_state();
 
 	std::vector<VkDescriptorSet> per_frame_dsets = { 
 		get_rsrc_mgr().get_global_dset(frame_index)
@@ -142,127 +143,81 @@ void RasterizationRenderer::submit_draw_commands(
 							0,
 							nullptr);
 
-	const auto& graphics_objects = get_graphics_engine().get_objects();
+	const auto& draw_lists = get_graphics_engine().get_draw_lists();
 	const auto& stenciled_ids = get_graphics_engine().get_stenciled_object_ids();
-	std::vector<std::pair<const GraphicsEngineObject*, uint32_t>> blended_renderables;
-	for (const auto& [id, obj_ptr] : graphics_objects)
+	const EPipelineModifier modifier =
+		get_graphics_engine().render_mode == ERenderMode::WIREFRAME
+		? EPipelineModifier::WIREFRAME
+		: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
+			? EPipelineModifier::UNLIT_BASE_COLOR
+			: EPipelineModifier::NONE;
+	const auto is_stenciled = [&stenciled_ids](const GraphicsDrawItem& item) {
+		return stenciled_ids.contains(item.sort_key.object_id);
+	};
+	const auto skip_regular_draw = [&](const GraphicsDrawItem& item) {
+		return !item.object->get_visibility()
+			|| (get_graphics_engine().render_mode == ERenderMode::RASTERIZED
+				&& is_stenciled(item));
+	};
+	const auto draw_item = [&](const GraphicsDrawItem& item, const EPipelineModifier item_modifier) {
+		draw_renderable(
+			command_buffer,
+			*item.renderable,
+			item.object->get_renderable_frame_dset(frame_index, item.renderable_index),
+			item.object->get_renderable_dsets()[item.renderable_index],
+			item_modifier);
+	};
+
+	for (const GraphicsDrawItem* item : draw_lists.opaque())
 	{
-		const auto& graphics_object = *obj_ptr;
-		if (!graphics_object.get_visibility())
+		if (skip_regular_draw(*item))
 			continue;
-		
-		// skip stenciled objects in main loop - they will be rendered with stencil effect later
-		// unless we're in wireframe mode, in which case we skip the stencil effect
-		if (stenciled_ids.find(id) != stenciled_ids.end()
-			&& get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
-			continue;
-
-		// skip overlay objects - they will be rendered on top after depth clear
-		{
-			bool has_overlay = false;
-			for (const auto& r : graphics_object.get_renderables())
-			{
-				if (r.render_on_top) { has_overlay = true; break; }
-			}
-			if (has_overlay)
-				continue;
-		}
-
-			const EPipelineModifier modifier = get_graphics_engine().render_mode == ERenderMode::WIREFRAME
-				? EPipelineModifier::WIREFRAME
-				: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
-					? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
-
-		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
-		{
-			const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
-			if (renderable.alpha_mode == EAlphaMode::BLEND)
-			{
-				blended_renderables.emplace_back(&graphics_object, renderable_idx);
-				continue;
-			}
-			draw_renderable(command_buffer,
-							renderable,
-							graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
-							graphics_object.get_renderable_dsets()[renderable_idx],
-							modifier);
-		}
+		draw_item(*item, modifier);
 	}
 
 	const glm::vec3 camera_position =
 		get_graphics_engine().get_render_frame().camera.position;
-	std::ranges::sort(blended_renderables, [&camera_position](const auto& lhs, const auto& rhs)
+	const auto blended_order = [&camera_position](
+		const GraphicsDrawItem* lhs,
+		const GraphicsDrawItem* rhs)
 	{
-		const glm::vec3 lhs_delta =
-			glm::vec3(lhs.first->get_model_transform()[3]) - camera_position;
-		const glm::vec3 rhs_delta =
-			glm::vec3(rhs.first->get_model_transform()[3]) - camera_position;
-		const float lhs_distance = glm::dot(lhs_delta, lhs_delta);
-		const float rhs_distance = glm::dot(rhs_delta, rhs_delta);
-		return lhs_distance > rhs_distance;
-	});
-	for (const auto& [graphics_object, renderable_idx] : blended_renderables)
-	{
-		const auto& renderable = graphics_object->get_renderables()[renderable_idx];
-		const EPipelineModifier modifier = get_graphics_engine().render_mode == ERenderMode::WIREFRAME
-			? EPipelineModifier::WIREFRAME
-			: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
-				? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
-		draw_renderable(command_buffer, renderable,
-			graphics_object->get_renderable_frame_dset(frame_index, renderable_idx),
-			graphics_object->get_renderable_dsets()[renderable_idx], modifier);
-	}
+		const float lhs_distance = renderable_distance_squared(
+			camera_position,
+			lhs->object->get_model_transform(),
+			*lhs->renderable);
+		const float rhs_distance = renderable_distance_squared(
+			camera_position,
+			rhs->object->get_model_transform(),
+			*rhs->renderable);
+		if (lhs_distance != rhs_distance)
+			return lhs_distance > rhs_distance;
+		return lhs->sort_key < rhs->sort_key;
+	};
+
+	std::vector blended_items = draw_lists.blended();
+	std::ranges::sort(blended_items, blended_order);
+	for (const GraphicsDrawItem* item : blended_items)
+		if (!skip_regular_draw(*item))
+			draw_item(*item, modifier);
 	
-	// render stenciled objects again, for stencil effect. It's a little costly but at least it uses simpler shader
-	// skip stencil effect when in wireframe mode
 	if (get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
 	{
-		// Draw the object normally first and mark its pixels in the stencil buffer.
-		for (const auto& id : stenciled_ids)
-		{
-			const auto it_obj = graphics_objects.find(id);
-			if (it_obj == graphics_objects.end())
-				continue;
+		std::vector<const GraphicsDrawItem*> stencil_items;
+		stencil_items.reserve(draw_lists.all().size());
+		for (const auto& item : draw_lists.all())
+			if (item.object->get_visibility() && is_stenciled(item))
+				stencil_items.push_back(&item);
+		std::ranges::sort(stencil_items, [](const auto* lhs, const auto* rhs) {
+			return lhs->sort_key < rhs->sort_key;
+		});
 
-			const auto& graphics_object = *it_obj->second;
-			if (!graphics_object.get_visibility())
-				continue;
-
-			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
-			{
-				const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
-				draw_renderable(command_buffer,
-								renderable,
-								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
-								graphics_object.get_renderable_dsets()[renderable_idx],
-								EPipelineModifier::POST_STENCIL);
-			}	
-		}
-
-		// Draw the expanded shell only outside the marked object pixels.
-		for (const auto& id : stenciled_ids)
-		{
-			const auto it_obj = graphics_objects.find(id);
-			if (it_obj == graphics_objects.end())
-				continue;
-
-			const auto& graphics_object = *it_obj->second;
-			if (!graphics_object.get_visibility())
-				continue;
-			
-			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
-			{
-				const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
-				draw_renderable(command_buffer,
-								renderable,
-								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
-								graphics_object.get_renderable_dsets()[renderable_idx],
-								EPipelineModifier::STENCIL);
-			}
-		}
+		for (const GraphicsDrawItem* item : stencil_items)
+			draw_item(*item, EPipelineModifier::POST_STENCIL);
+		for (const GraphicsDrawItem* item : stencil_items)
+			draw_item(*item, EPipelineModifier::STENCIL);
 	}
 
-	// Render overlay objects (gizmos etc.) on top of everything by clearing depth first
+	// Render overlay renderables (gizmos etc.) on top after clearing depth.
 	{
 		VkClearAttachment clear_depth{};
 		clear_depth.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -273,35 +228,15 @@ void RasterizationRenderer::submit_draw_commands(
 		clear_rect.layerCount = 1;
 		vkCmdClearAttachments(command_buffer, 1, &clear_depth, 1, &clear_rect);
 
-		for (const auto& [id, obj_ptr] : graphics_objects)
-		{
-			const auto& graphics_object = *obj_ptr;
-			if (!graphics_object.get_visibility())
-				continue;
+		for (const GraphicsDrawItem* item : draw_lists.overlay_opaque())
+			if (!skip_regular_draw(*item))
+				draw_item(*item, modifier);
 
-			bool has_overlay = false;
-			for (const auto& r : graphics_object.get_renderables())
-			{
-				if (r.render_on_top) { has_overlay = true; break; }
-			}
-			if (!has_overlay)
-				continue;
-
-		const EPipelineModifier modifier = get_graphics_engine().render_mode == ERenderMode::WIREFRAME
-			? EPipelineModifier::WIREFRAME
-			: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
-				? EPipelineModifier::UNLIT_BASE_COLOR : EPipelineModifier::NONE;
-
-			for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
-			{
-				const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
-				draw_renderable(command_buffer,
-								renderable,
-								graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
-								graphics_object.get_renderable_dsets()[renderable_idx],
-								modifier);
-			}
-		}
+		std::vector overlay_blended_items = draw_lists.overlay_blended();
+		std::ranges::sort(overlay_blended_items, blended_order);
+		for (const GraphicsDrawItem* item : overlay_blended_items)
+			if (!skip_regular_draw(*item))
+				draw_item(*item, modifier);
 	}
 
 	// Render particles within the same render pass (skip in wireframe mode)

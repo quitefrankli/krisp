@@ -310,6 +310,8 @@ void GraphicsEngine::reconcile_render_objects(
 			++it;
 		}
 	}
+
+	draw_lists.rebuild(objects);
 }
 
 void GraphicsEngine::retire_unused_resources()

@@ -59,6 +59,22 @@ measurements have been recorded. The transform separation also increases
 per-frame uniform storage and descriptor-set use in proportion to renderable
 count rather than object count.
 
+## Renderable draw lists
+
+Graphics objects remain the ownership and dynamic-state boundary, while
+topology reconciliation builds flat draw-item lists for rasterization. Opaque,
+masked, overlay, and shadow lists are classified and state-sorted only when
+object or skeleton topology changes. Blended main and overlay items are sorted
+back-to-front each graphics frame using their combined object and renderable
+local transforms.
+
+The state order groups pipelines, meshes, and material identities. Command
+recording skips redundant pipeline and vertex/index-buffer binds within a
+render pass; per-draw transform and material descriptor sets are still bound
+for every item. This is expected to reduce CPU command-recording work and
+driver state processing for scenes with repeated state, but no timing
+measurements have been recorded.
+
 ## Skeletal animation cross-fades
 
 Cross-fades retain one local transform snapshot per bone for the transition and
