@@ -12,6 +12,7 @@ void ECS::process(const float delta_secs)
 
 void ECS::serialize(Serializer& out) const
 {
+	TransformationSystem::serialize(out);
 	ClickableSystem::serialize(out);
 	HoverableSystem::serialize(out);
 	LightSystem::serialize(out);
@@ -25,6 +26,7 @@ void ECS::serialize(Serializer& out) const
 
 void ECS::deserialize(const Deserializer& in)
 {
+	TransformationSystem::deserialize(in);
 	ClickableSystem::deserialize(in);
 	HoverableSystem::deserialize(in);
 	LightSystem::deserialize(in);
@@ -34,6 +36,16 @@ void ECS::deserialize(const Deserializer& in)
 	SkeletalAnimationSystem::deserialize(in);
 	EquipmentSystem::deserialize(in);
 	TileSystem::deserialize(in);
+}
+
+void ECS::add_object(Object& object)
+{
+	objects.emplace(object.get_id(), &object);
+	add_transformation(
+		object.get_id(),
+		object.is_transient()
+			? TransformationPersistence::Transient
+			: TransformationPersistence::Persistent);
 }
 
 void ECS::remove_object(const ObjectID id) 
@@ -50,6 +62,14 @@ void ECS::remove_object(const ObjectID id)
 	ParticleSystem::remove_entity(id);
 	TileSystem::remove_entity(id);
 	objects.erase(id);
+	remove_transformation(id);
+}
+
+void ECS::reset_preserving_transient_transformations()
+{
+	auto transformations = take_transient_transformations();
+	*this = ECS{};
+	static_cast<TransformationSystem&>(*this) = std::move(transformations);
 }
 
 Object& ECS::get_object(const ObjectID id)

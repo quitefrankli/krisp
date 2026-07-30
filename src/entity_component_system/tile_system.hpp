@@ -17,6 +17,7 @@ using TileCoord = glm::ivec2;
 using TileSetID = std::string;
 
 class Object;
+class ECS;
 
 namespace std
 {
@@ -64,7 +65,7 @@ struct TileSet
 	std::unordered_map<TileCoord, ObjectID> coord_to_tile_object;
 	std::unordered_map<ObjectID, TileCoord> tile_object_to_coord;
 
-	void move_to_tile(const TileCoord& coord, Object& object);
+	void move_to_tile(const TileCoord& coord, ObjectID object_id, ECS& ecs);
 	void remove_object(const ObjectID& object_id);
 
 	glm::vec3 get_tile_center(const TileCoord& coord) const;
@@ -72,7 +73,6 @@ struct TileSet
 
 using TileSets = std::unordered_map<TileSetID, TileSet>;
 
-class ECS;
 class Serializer;
 class Deserializer;
 

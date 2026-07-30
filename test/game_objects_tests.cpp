@@ -84,18 +84,20 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 
 	Object camera_focus;
 	Object camera_upvector;
-	Camera camera(Listener{}, 1.0f, camera_focus, camera_upvector);
+	ecs.add_object(camera_focus);
+	ecs.add_object(camera_upvector);
+	Camera camera(ecs, Listener{}, 1.0f, camera_focus, camera_upvector);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	Keyboard keyboard;
 	keyboard.update_key({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
 	player.pre_update(keyboard, camera, ecs, 0.5f);
 
 	EXPECT_TRUE(player.is_moving());
-	EXPECT_TRUE(glm_equal(player.get_position(), Maths::forward_vec));
+	EXPECT_TRUE(glm_equal(ecs.get_position(player.get_id()), Maths::forward_vec));
 	keyboard.update_key({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::RELEASE });
 	player.pre_update(keyboard, camera, ecs, 0.5f);
 	EXPECT_FALSE(player.is_moving());
-	EXPECT_TRUE(glm_equal(player.get_position(), Maths::forward_vec));
+	EXPECT_TRUE(glm_equal(ecs.get_position(player.get_id()), Maths::forward_vec));
 
 	ecs.remove_object(player.get_id());
 }
@@ -129,7 +131,9 @@ TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relativ
 
 	Object camera_focus;
 	Object camera_upvector;
-	Camera camera(Listener{}, 1.0f, camera_focus, camera_upvector);
+	ecs.add_object(camera_focus);
+	ecs.add_object(camera_upvector);
+	Camera camera(ecs, Listener{}, 1.0f, camera_focus, camera_upvector);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	Keyboard keyboard;
 	player.pre_update(keyboard, camera, ecs, 0.01f);
@@ -139,7 +143,7 @@ TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relativ
 	keyboard.update_key({ GLFW_KEY_D, EKeyModifier::NONE, EInputAction::PRESS });
 	player.pre_update(keyboard, camera, ecs, 0.01f);
 	EXPECT_EQ(player.get_active_animation(), animations.walk_forward_right);
-	EXPECT_TRUE(glm_equal(player.get_rotation() * Maths::forward_vec, Maths::forward_vec));
+	EXPECT_TRUE(glm_equal(ecs.get_rotation(player.get_id()) * Maths::forward_vec, Maths::forward_vec));
 
 	ecs.remove_object(player.get_id());
 }
@@ -174,7 +178,9 @@ TEST(player_character_tests, one_shot_action_overrides_then_returns_to_locomotio
 	player.configure_locomotion(skeleton, animations);
 	Object camera_focus;
 	Object camera_upvector;
-	Camera camera(Listener{}, 1.0f, camera_focus, camera_upvector);
+	ecs.add_object(camera_focus);
+	ecs.add_object(camera_upvector);
+	Camera camera(ecs, Listener{}, 1.0f, camera_focus, camera_upvector);
 	camera.look_at(Maths::forward_vec, glm::vec3(0.0f, 0.0f, -2.0f));
 	Keyboard keyboard;
 	player.pre_update(keyboard, camera, ecs, 0.01f);
@@ -198,11 +204,11 @@ TEST(gameplay_collision_tests, raycast_returns_nearest_hit_and_honours_exclusion
 {
 	ECS ecs;
 	Object near_object;
-	near_object.set_position({ 0.0f, 0.0f, 2.0f });
 	Object far_object;
-	far_object.set_position({ 0.0f, 0.0f, 5.0f });
 	ecs.add_object(near_object);
 	ecs.add_object(far_object);
+	ecs.set_position(near_object.get_id(), { 0.0f, 0.0f, 2.0f });
+	ecs.set_position(far_object.get_id(), { 0.0f, 0.0f, 5.0f });
 	ecs.add_collider(near_object.get_id(), std::make_unique<BoxCollider>());
 	ecs.add_collider(far_object.get_id(), std::make_unique<BoxCollider>());
 
@@ -218,16 +224,16 @@ TEST(gameplay_collision_tests, candidate_raycast_only_considers_supplied_entitie
 {
 	ECS ecs;
 	Object excluded_near;
-	excluded_near.set_position({ 0.0f, 0.0f, 1.0f });
 	Object included_near;
-	included_near.set_position({ 0.0f, 0.0f, 3.0f });
 	Object included_far;
-	included_far.set_position({ 0.0f, 0.0f, 6.0f });
 	for (Object* object : { &excluded_near, &included_near, &included_far })
 	{
 		ecs.add_object(*object);
 		ecs.add_collider(object->get_id(), std::make_unique<BoxCollider>());
 	}
+	ecs.set_position(excluded_near.get_id(), { 0.0f, 0.0f, 1.0f });
+	ecs.set_position(included_near.get_id(), { 0.0f, 0.0f, 3.0f });
+	ecs.set_position(included_far.get_id(), { 0.0f, 0.0f, 6.0f });
 
 	const std::array candidates = { included_far.get_id(), included_near.get_id() };
 	const auto hit = ecs.raycast(Maths::Ray(Maths::zero_vec, Maths::forward_vec), candidates);
@@ -239,9 +245,9 @@ TEST(gameplay_collision_tests, transient_colliders_require_an_explicit_candidate
 {
 	ECS ecs;
 	Object object;
-	object.set_position({ 0.0f, 0.0f, 2.0f });
 	const EntityID transient_id = object.get_id();
 	ecs.add_object(object);
+	ecs.set_position(transient_id, { 0.0f, 0.0f, 2.0f });
 	ecs.add_collider(transient_id, std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
 	const Maths::Ray ray(Maths::zero_vec, Maths::forward_vec);
 
@@ -281,10 +287,10 @@ TEST(skeletal_component_tests, bone_attachment_follows_animated_model_space_pose
 	Renderable renderable;
 	renderable.local_transform.set_pos({ 0.0f, 0.0f, 3.0f });
 	Object character(renderable);
-	character.set_position({ 4.0f, 0.0f, 0.0f });
 	Object prop;
 	ecs.add_object(character);
 	ecs.add_object(prop);
+	ecs.set_position(character.get_id(), { 4.0f, 0.0f, 0.0f });
 	ecs.attach_skeleton(character.get_id(), skeleton);
 
 	Maths::Transform grip;
@@ -294,18 +300,18 @@ TEST(skeletal_component_tests, bone_attachment_follows_animated_model_space_pose
 	ecs.process(0.0f);
 
 	EXPECT_TRUE(glm_equal(
-		prop.get_position(), glm::vec3(5.0f, 2.0f, 3.0f)));
+		ecs.get_position(prop.get_id()), glm::vec3(5.0f, 2.0f, 3.0f)));
 
 	ecs.get_skeletal_component(skeleton).get_bones()[1]
 		.relative_transform.set_pos({ 0.0f, 4.0f, 0.0f });
 	ecs.process(0.0f);
 	EXPECT_TRUE(glm_equal(
-		prop.get_position(), glm::vec3(5.0f, 4.0f, 3.0f)));
+		ecs.get_position(prop.get_id()), glm::vec3(5.0f, 4.0f, 3.0f)));
 
 	ASSERT_TRUE(ecs.detach_entity_from_bone(prop.get_id()));
 	ecs.get_skeletal_component(skeleton).get_bones()[1]
 		.relative_transform.set_pos({ 0.0f, 6.0f, 0.0f });
 	ecs.process(0.0f);
 	EXPECT_TRUE(glm_equal(
-		prop.get_position(), glm::vec3(5.0f, 4.0f, 3.0f)));
+		ecs.get_position(prop.get_id()), glm::vec3(5.0f, 4.0f, 3.0f)));
 }

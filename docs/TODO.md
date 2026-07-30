@@ -70,6 +70,10 @@ later moved off the game thread.
 ## Add serialization support for procedurally generated resources
 ### Add Cache for procedurally generated resourcees
 
+## No Object in Graphics
+
+graphics thread shouldn't know about gameplay objects. It should only know about renderables and their associated resources
+
 ## Deferred graphics resource retirement
 
 Remove runtime `vkDeviceWaitIdle()` calls from topology reconciliation and
@@ -79,11 +83,11 @@ generation needs to be released.
 
 Implement fence-driven deferred destruction:
 
-- Assign a monotonically increasing submission serial to each graphics queue
-  submission and associate it with the corresponding frame fence.
-- After waiting for a frame fence, advance the completed submission serial.
+<!-- - Assign a monotonically increasing submission serial to each graphics queue
+  submission and associate it with the corresponding frame fence. -->
+<!-- - After waiting for a frame fence, advance the completed submission serial.
   Graphics queue ordering means completion of serial N also completes all
-  earlier submissions on that queue.
+  earlier submissions on that queue. -->
 - When an object, definition, mesh, material, descriptor, buffer, or texture
   becomes unused, stop referencing it immediately but move its graphics-owned
   resources into a retirement batch tagged with the latest submitted serial.

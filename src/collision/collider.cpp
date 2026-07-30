@@ -62,21 +62,23 @@ bool ray_triangle_intersection(const Maths::Ray& ray,
 
 Object& RayCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Arrow>(data.origin, data.origin + data.direction * data.length);
+	auto& obj = engine.spawn_object<Arrow>();
+	obj.point(engine.get_ecs(), data.origin, data.origin + data.direction * data.length);
 	obj.set_name("Collider Visual");
-	update_debug_object(obj);
+	update_debug_object(engine, obj);
 	return obj;
 }
 
-void RayCollider::update_debug_object(Object& obj) const
+void RayCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
 	const auto ray = get_data();
-	obj.set_position(ray.origin);
+	auto& transform = engine.get_ecs().get_transformation(obj.get_id());
+	transform.set_position(ray.origin);
 	if (glm::length2(ray.direction) > Maths::ACCEPTABLE_FLOATING_PT_DIFF)
 	{
-		obj.set_rotation(Maths::Vec2Rot(glm::normalize(ray.direction)));
+		transform.set_rotation(Maths::Vec2Rot(glm::normalize(ray.direction)));
 	}
-	obj.set_scale(glm::vec3(std::max(ray.length, 0.001f)));
+	transform.set_scale(glm::vec3(std::max(ray.length, 0.001f)));
 }
 
 
@@ -116,16 +118,17 @@ Object& QuadCollider::spawn_debug_object(GameEngine& engine) const
 	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
 	Object& obj = engine.spawn_object<Object>(renderable);
 	obj.set_name("Collider Visual");
-	update_debug_object(obj);
+	update_debug_object(engine, obj);
 	return obj;
 }
 
-void QuadCollider::update_debug_object(Object& obj) const
+void QuadCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
 	const float thickness = 0.1f;
 
-	obj.set_position(data.offset);
-	obj.set_scale(glm::vec3(data.size.x, thickness, data.size.y));
+	auto& transform = engine.get_ecs().get_transformation(obj.get_id());
+	transform.set_position(data.offset);
+	transform.set_scale(glm::vec3(data.size.x, thickness, data.size.y));
 }
 
 bool QuadCollider::check_collision(const RayCollider& ray) const
@@ -180,16 +183,17 @@ Object& SphereCollider::spawn_debug_object(GameEngine& engine) const
 		MeshSystem::add(MeshFactory::sphere(
 			MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::UV_SPHERE, 64))));
 	obj.set_name("Collider Visual");
-	update_debug_object(obj);
+	update_debug_object(engine, obj);
 	return obj;
 }
 
-void SphereCollider::update_debug_object(Object& obj) const
+void SphereCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
 	const auto sphere = get_data();
-	obj.set_position(sphere.origin);
-	obj.set_rotation(Maths::identity_quat);
-	obj.set_scale(glm::vec3(sphere.radius * 2.0f));
+	auto& transform = engine.get_ecs().get_transformation(obj.get_id());
+	transform.set_position(sphere.origin);
+	transform.set_rotation(Maths::identity_quat);
+	transform.set_scale(glm::vec3(sphere.radius * 2.0f));
 }
 
 CapsuleCollider::CapsuleCollider(const float radius, const float height) :
@@ -272,13 +276,14 @@ Object& CapsuleCollider::spawn_debug_object(GameEngine& engine) const
 	Object& obj = engine.spawn_object<Object>(
 		make_debug_renderable(MeshSystem::add(MeshFactory::capsule(radius, height))));
 	obj.set_name("Collider Visual");
-	update_debug_object(obj);
+	update_debug_object(engine, obj);
 	return obj;
 }
 
-void CapsuleCollider::update_debug_object(Object& obj) const
+void CapsuleCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
-	obj.set_transform(get_temporary_transform().get_mat4());
+	engine.get_ecs().get_transformation(obj.get_id())
+		.set_transform(get_temporary_transform().get_mat4());
 }
 
 bool BoxCollider::check_collision(const RayCollider& ray, glm::vec3& out_intersection) const
@@ -309,15 +314,16 @@ Object& BoxCollider::spawn_debug_object(GameEngine& engine) const
 	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
 	Object& obj = engine.spawn_object<Object>(renderable);
 	obj.set_name("Collider Visual");
-	update_debug_object(obj);
+	update_debug_object(engine, obj);
 	return obj;
 }
 
-void BoxCollider::update_debug_object(Object& obj) const
+void BoxCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
 	const glm::vec3 centre = (data.min_bound + data.max_bound) * 0.5f;
 	const glm::vec3 size = data.max_bound - data.min_bound;
-	obj.set_transform(get_temporary_transform().get_mat4() *
+	engine.get_ecs().get_transformation(obj.get_id()).set_transform(
+		get_temporary_transform().get_mat4() *
 		glm::translate(Maths::identity_mat, centre) * glm::scale(Maths::identity_mat, size));
 }
 
@@ -388,11 +394,11 @@ Object& MeshCollider::spawn_debug_object(GameEngine& engine) const
 	Object& obj = engine.spawn_object<Object>(
 		make_debug_renderable(MeshSystem::add(MeshFactory::cube())));
 	obj.set_name("Collider Visual");
-	update_debug_object(obj);
+	update_debug_object(engine, obj);
 	return obj;
 }
 
-void MeshCollider::update_debug_object(Object& obj) const
+void MeshCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
 	bool has_bounds = false;
 	AABB bounds;
@@ -412,6 +418,8 @@ void MeshCollider::update_debug_object(Object& obj) const
 	if (!has_bounds)
 		return;
 	const glm::vec3 centre = (bounds.min_bound + bounds.max_bound) * 0.5f;
-	obj.set_transform(get_temporary_transform().get_mat4() * glm::translate(Maths::identity_mat, centre) *
-		glm::scale(Maths::identity_mat, bounds.max_bound - bounds.min_bound));
+	engine.get_ecs().get_transformation(obj.get_id()).set_transform(
+		get_temporary_transform().get_mat4()
+		* glm::translate(Maths::identity_mat, centre)
+		* glm::scale(Maths::identity_mat, bounds.max_bound - bounds.min_bound));
 }

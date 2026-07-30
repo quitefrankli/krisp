@@ -24,10 +24,10 @@ public:
 		ecs.set_tile_spawner([this, initial_position, initial_scale]() -> Object&
 		{
 			auto tile = std::make_unique<Object>();
-			tile->set_position(initial_position);
-			tile->set_scale(initial_scale);
 			Object& ref = *tile;
 			ecs.add_object(ref);
+			ecs.set_position(ref.get_id(), initial_position);
+			ecs.set_scale(ref.get_id(), initial_scale);
 			spawned_tiles.push_back(std::move(tile));
 			return ref;
 		});
@@ -59,12 +59,12 @@ TEST_F(TileSystemFixture, move_to_tile_updates_position)
 	ecs.spawn_tileset(8, 8, cell_size);
 
 	ecs.move_to_tile({3, 4}, obj1.get_id());
-	EXPECT_FLOAT_EQ(obj1.get_position().x, 3 * cell_size);
-	EXPECT_FLOAT_EQ(obj1.get_position().z, 4 * cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(obj1.get_id()).x, 3 * cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(obj1.get_id()).z, 4 * cell_size);
 
 	ecs.move_to_tile({7, 2}, obj1.get_id());
-	EXPECT_FLOAT_EQ(obj1.get_position().x, 7 * cell_size);
-	EXPECT_FLOAT_EQ(obj1.get_position().z, 2 * cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(obj1.get_id()).x, 7 * cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(obj1.get_id()).z, 2 * cell_size);
 }
 
 TEST_F(TileSystemFixture, remove_entity_clears_from_all_tiles)
@@ -92,8 +92,8 @@ TEST_F(TileSystemFixture, create_grid_scales_spawned_cube_to_tile_and_aligns_top
 	ecs.spawn_tileset(1, 1, cell_size);
 
 	ASSERT_EQ(spawned_tiles.size(), 1);
-	const auto scale = spawned_tiles[0]->get_scale();
-	const auto pos = spawned_tiles[0]->get_position();
+	const auto scale = ecs.get_scale(spawned_tiles[0]->get_id());
+	const auto pos = ecs.get_position(spawned_tiles[0]->get_id());
 
 	EXPECT_FLOAT_EQ(scale.x, cell_size - tile_gap);
 	EXPECT_FLOAT_EQ(scale.y, tile_thickness);
@@ -133,14 +133,14 @@ TEST_F(TileSystemFixture, create_grid_centers_odd_sized_tileset_and_keeps_no_gap
 	const auto& top = *spawned_tiles[1];
 	const auto& bottom = *spawned_tiles[7];
 
-	EXPECT_FLOAT_EQ(center.get_position().x, 0.0f);
-	EXPECT_FLOAT_EQ(center.get_position().z, 0.0f);
-	EXPECT_FLOAT_EQ(center.get_position().y + center.get_scale().y * 0.5f, 0.0f);
+	EXPECT_FLOAT_EQ(ecs.get_position(center.get_id()).x, 0.0f);
+	EXPECT_FLOAT_EQ(ecs.get_position(center.get_id()).z, 0.0f);
+	EXPECT_FLOAT_EQ(ecs.get_position(center.get_id()).y + ecs.get_scale(center.get_id()).y * 0.5f, 0.0f);
 
-	EXPECT_FLOAT_EQ(center.get_position().x - left.get_position().x, cell_size);
-	EXPECT_FLOAT_EQ(right.get_position().x - center.get_position().x, cell_size);
-	EXPECT_FLOAT_EQ(center.get_position().z - top.get_position().z, cell_size);
-	EXPECT_FLOAT_EQ(bottom.get_position().z - center.get_position().z, cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(center.get_id()).x - ecs.get_position(left.get_id()).x, cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(right.get_id()).x - ecs.get_position(center.get_id()).x, cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(center.get_id()).z - ecs.get_position(top.get_id()).z, cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(bottom.get_id()).z - ecs.get_position(center.get_id()).z, cell_size);
 }
 
 TEST_F(TileSystemFixture, create_grid_centers_even_rows_and_cols_and_overrides_initial_height_offset)
@@ -156,13 +156,13 @@ TEST_F(TileSystemFixture, create_grid_centers_even_rows_and_cols_and_overrides_i
 	const auto& second = *spawned_tiles[1];  // row 0, col 1
 	const auto& last = *spawned_tiles[7];    // row 1, col 3
 
-	EXPECT_FLOAT_EQ(first.get_scale().x, cell_size - tile_gap);
-	EXPECT_FLOAT_EQ(first.get_scale().z, cell_size - tile_gap);
-	EXPECT_FLOAT_EQ(first.get_position().x, -4.5f);
-	EXPECT_FLOAT_EQ(first.get_position().z, -1.5f);
-	EXPECT_FLOAT_EQ(last.get_position().x, 4.5f);
-	EXPECT_FLOAT_EQ(last.get_position().z, 1.5f);
-	EXPECT_FLOAT_EQ(first.get_position().y + first.get_scale().y * 0.5f, 0.0f);
+	EXPECT_FLOAT_EQ(ecs.get_scale(first.get_id()).x, cell_size - tile_gap);
+	EXPECT_FLOAT_EQ(ecs.get_scale(first.get_id()).z, cell_size - tile_gap);
+	EXPECT_FLOAT_EQ(ecs.get_position(first.get_id()).x, -4.5f);
+	EXPECT_FLOAT_EQ(ecs.get_position(first.get_id()).z, -1.5f);
+	EXPECT_FLOAT_EQ(ecs.get_position(last.get_id()).x, 4.5f);
+	EXPECT_FLOAT_EQ(ecs.get_position(last.get_id()).z, 1.5f);
+	EXPECT_FLOAT_EQ(ecs.get_position(first.get_id()).y + ecs.get_scale(first.get_id()).y * 0.5f, 0.0f);
 
-	EXPECT_FLOAT_EQ(second.get_position().x - first.get_position().x, cell_size);
+	EXPECT_FLOAT_EQ(ecs.get_position(second.get_id()).x - ecs.get_position(first.get_id()).x, cell_size);
 }

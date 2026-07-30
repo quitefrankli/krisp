@@ -115,7 +115,7 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 	moving = glm::length2(direction) > Maths::ACCEPTABLE_FLOATING_PT_DIFF;
 	if (moving)
 	{
-		set_rotation(Maths::Vec2Rot(forward));
+		ecs.get_transformation(get_id()).set_rotation(Maths::Vec2Rot(forward));
 		resolve_horizontal_movement(ecs, direction * definition.movement_speed * delta_secs);
 	}
 	bool action_playing = false;
@@ -140,7 +140,7 @@ void PlayerCharacter::resolve_horizontal_movement(ECS& ecs, glm::vec3 displaceme
 	if (distance <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
 		return;
 	const glm::vec3 direction = displacement / distance;
-	const glm::vec3 position = get_position();
+	const glm::vec3 position = ecs.get_transformation(get_id()).get_position();
 	// Three probes approximate the controller capsule's lower, middle, and upper
 	// sections. A blocked move is projected along the contact normal for sliding.
 	for (const float height : { definition.capsule_radius, definition.capsule_height * 0.5f,
@@ -160,18 +160,21 @@ void PlayerCharacter::resolve_horizontal_movement(ECS& ecs, glm::vec3 displaceme
 		displacement -= normal * glm::dot(displacement, normal);
 		break;
 	}
-	set_position(position + displacement);
+	ecs.get_transformation(get_id()).set_position(position + displacement);
 }
 
 void PlayerCharacter::snap_to_ground(ECS& ecs)
 {
-	Maths::Ray ray(get_position() + Maths::up_vec * definition.ground_snap_distance, -Maths::up_vec);
+	auto& transform = ecs.get_transformation(get_id());
+	Maths::Ray ray(
+		transform.get_position() + Maths::up_vec * definition.ground_snap_distance,
+		-Maths::up_vec);
 	ray.length = definition.ground_snap_distance + definition.capsule_height;
 	const auto hit = ecs.raycast(ray, get_id());
 	if (hit.bCollided && glm::distance(ray.origin, hit.intersection) <= ray.length)
 	{
-		auto position = get_position();
+		auto position = transform.get_position();
 		position.y = hit.intersection.y;
-		set_position(position);
+		transform.set_position(position);
 	}
 }

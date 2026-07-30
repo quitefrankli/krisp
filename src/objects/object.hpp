@@ -1,18 +1,11 @@
 #pragma once
 
 #include "renderable/render_types.hpp" // TODO: come up with a to decouiple this, having graphics engine code here is bad
-#include "maths.hpp"
-#include "collision/bounding_box.hpp"
 #include "identifications.hpp"
 #include "renderable/renderable.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
-#include <glm/gtc/quaternion.hpp>
-#include <glm/mat4x4.hpp>
-
 #include <vector>
-#include <map>
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -44,7 +37,7 @@ public:
 	}
 	Object(const Object& object) = delete;
 	Object(Object&& object) noexcept;
-	virtual ~Object();
+	virtual ~Object() = default;
 
 	Object& operator=(const Object& object) = delete;
 
@@ -59,76 +52,15 @@ public:
 	void set_transient(bool transient) { transient_object = transient; }
 	bool is_transient() const { return transient_object; }
 
-	// detach from parent
-	virtual void detach_from();
-	// attach to parent
-	virtual void attach_to(Object* parent);
-	// detach all children
-	virtual void detach_all_children();
-	std::optional<ObjectID> get_parent_id() const
-	{
-		return parent ? std::optional<ObjectID>(parent->get_id()) : std::nullopt;
-	}
-
 	const std::string& get_name() const { return name; }
 	void set_name(const std::string_view name) { this->name = name; }
 
 	std::vector<Renderable> renderables;
-public:
-	// world
-	virtual Maths::Transform get_maths_transform() const;
-
-	virtual glm::mat4 get_transform() const;
-	virtual glm::vec3 get_position() const;
-	virtual glm::vec3 get_scale() const;
-	virtual glm::quat get_rotation() const;
-
-	virtual void set_transform(const glm::mat4& transform);
-	virtual void set_position(const glm::vec3& position);
-	void set_scale(float uniform_scale) { set_scale(glm::vec3(uniform_scale)); }
-	virtual void set_scale(const glm::vec3& scale);
-	virtual void set_rotation(const glm::quat& rotation);
-
-	// relative
-	virtual glm::mat4 get_relative_transform() const;
-	virtual glm::vec3 get_relative_position() const;
-	virtual glm::vec3 get_relative_scale() const;
-	virtual glm::quat get_relative_rotation() const;
-
-	virtual void set_relative_transform(const glm::mat4& transform);
-	virtual void set_relative_position(const glm::vec3& position);
-	virtual void set_relative_scale(const glm::vec3& scale);
-	virtual void set_relative_rotation(const glm::quat& rotation);
-
-	AABB get_aabb() const { return aabb; }
-	void set_aabb(const AABB& aabb) { this->aabb = aabb; }
-
-protected:
-	std::map<ObjectID, Object*> children;
-	Object* parent = nullptr;
-
-	// callback when a child gets attached
-	virtual void on_child_attached(Object* new_child) {}
-	// callback when a parent gets attached
-	virtual void on_parent_attached(Object* new_parent) {}
-	// callback when a child gets deattached
-	virtual void on_child_detached(Object* old_child) {}
-	// callback when a parent gets deattached
-	virtual void on_parent_detached(Object* old_parent) {}
 
 private:
 	ObjectID id = ObjectID::generate_new_id();
 
-	// there's a lot of caching going on with the below 2 transforms hence the mutable
-	mutable Maths::Transform world_transform;
-	mutable Maths::Transform relative_transform; // as opposed to world, relative SHOULD ALWAYS be up to date
-	// when relative_transform updates then world transform will be outdated
-	// mutable bool bIsWorldTransformOld = false;
-	void sync_world_from_relative() const;
 	std::string name;
-
-	AABB aabb;
-	Maths::Sphere bounding_sphere;
 
 	bool bVisible = true;
 	bool transient_object = false;

@@ -61,12 +61,16 @@ void GameEngine::init()
 {
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
 	graphics_engine->set_ui_layers_active(true, false);
-	auto& camera_focus = spawn_object<Object>(
+	auto camera_focus_object = std::make_shared<Object>(
 		Renderable::make_default(MeshSystem::add(MeshFactory::sphere())));
-	camera_focus.set_transient(true);
-	auto& camera_upvector = spawn_object<Arrow>();
-	camera_upvector.set_transient(true);
+	camera_focus_object->set_transient(true);
+	auto& camera_focus = spawn_object(std::move(camera_focus_object));
+	auto camera_upvector_object = std::make_shared<Arrow>();
+	camera_upvector_object->set_transient(true);
+	auto& camera_upvector = static_cast<Arrow&>(spawn_object(
+		std::shared_ptr<Object>(std::move(camera_upvector_object))));
 	camera = std::make_unique<Camera>(
+		ecs,
 		Listener(audio_engine),
 		static_cast<float>(window->get_width()) / static_cast<float>(window->get_height()),
 		camera_focus,
@@ -387,7 +391,7 @@ void GameEngine::validate_renderable_resources(const Object& object)
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
 {
 	auto& obj = spawn_object<Object>(Renderable::make_default());
-	obj.set_scale(glm::vec3(0.2f));
+	ecs.get_transformation(obj.get_id()).set_scale(glm::vec3(0.2f));
 	obj.set_visibility(false);
 	ecs.spawn_particle_emitter(obj.get_id(), config);
 	return obj;
@@ -441,15 +445,8 @@ void GameEngine::reset_scene_state()
 {
 	gizmo->deselect();
 
-	for (const auto& [_, object] : objects)
-		if (!object->is_transient())
-		{
-			object->detach_all_children();
-			object->detach_from();
-		}
-
 	camera->stop_follow();
-	ecs = ECS{};
+	ecs.reset_preserving_transient_transformations();
 	std::erase_if(objects, [](const auto& entry) {
 		return !entry.second->is_transient();
 	});
@@ -682,8 +679,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 		throw SerializationError(
 			"Procedurally generated materials cannot be deserialized at $.materials");
 
-	struct SavedObject { Deserializer data; std::optional<ObjectID> parent; };
-	std::vector<SavedObject> saved_objects;
+	std::vector<Deserializer> saved_objects;
 	std::unordered_map<ObjectID, bool> ids;
 	for (const auto& saved : document.child("objects").elements())
 	{
@@ -692,9 +688,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 		const ObjectID id(saved.read<uint64_t>("id"));
 		if (!ids.emplace(id, true).second)
 			throw SerializationError("Duplicate object id at " + saved.path());
-		const auto parent = saved.child("parent_id");
-		saved_objects.push_back({ saved, parent.kind() == SerializationKind::Null
-			? std::nullopt : std::optional<ObjectID>(ObjectID(parent.as<uint64_t>())) });
+		saved_objects.push_back(saved);
 	}
 	reset_scene_state();
 	std::unordered_map<std::string, ResourceLoader::LoadedModel> imported_models;
@@ -714,9 +708,9 @@ void GameEngine::load_scene(const std::string_view save_name)
 	};
 	for (auto& saved : saved_objects)
 	{
-		auto object = TypeRegistry::create(saved.data.read<std::string>("type"));
-		object->deserialize(saved.data);
-		const auto saved_renderables = saved.data.child("renderables").elements();
+		auto object = TypeRegistry::create(saved.read<std::string>("type"));
+		object->deserialize(saved);
+		const auto saved_renderables = saved.child("renderables").elements();
 		for (size_t renderable_index = 0; renderable_index < object->renderables.size(); ++renderable_index)
 		{
 			auto& renderable = object->renderables[renderable_index];
@@ -745,15 +739,6 @@ void GameEngine::load_scene(const std::string_view save_name)
 		objects.emplace(id, object);
 		ecs.add_object(*object);
 	}
-	for (const auto& saved : saved_objects)
-		if (saved.parent)
-		{
-			Object* child = get_object(ObjectID(saved.data.read<uint64_t>("id")));
-			Object* parent = get_object(*saved.parent);
-			if (!parent)
-				throw SerializationError("Missing parent object at " + saved.data.path());
-			child->attach_to(parent);
-		}
 	ecs.deserialize(document.child("ecs"));
 	const auto engine_state = document.child("engine");
 	paused = engine_state.read<bool>("paused");

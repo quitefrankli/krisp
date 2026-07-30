@@ -1,6 +1,7 @@
 #include "test_helper.hpp"
 
 #include <camera.hpp>
+#include <entity_component_system/ecs.hpp>
 
 #include <gtest/gtest.h>
 #include <glm/gtx/string_cast.hpp>
@@ -10,12 +11,24 @@
 class CameraTests : public testing::Test
 {
 public:
-    CameraTests() : camera(Listener(), 1.0f, focus, upvector)
+	static Object& register_object(ECS& ecs, Object& object)
+	{
+		ecs.add_object(object);
+		return object;
+	}
+
+    CameraTests() : camera(
+		ecs,
+		Listener(),
+		1.0f,
+		register_object(ecs, focus),
+		register_object(ecs, upvector))
     {
 		camera.look_at(Maths::zero_vec, {0.0f, 0.0f, -2.0f});
 		camera.update_tracker();
     }
 
+	ECS ecs;
 	Object focus;
 	Object upvector;
 	Camera camera;
@@ -84,27 +97,29 @@ TEST_F(CameraTests, panning_after_orbit_preserves_view_direction)
 TEST_F(CameraTests, following_can_frame_target_to_the_left_with_a_horizontal_focus_offset)
 {
 	Object target;
-	target.set_position({ 4.0f, 2.0f, 3.0f });
+	ecs.add_object(target);
+	ecs.set_position(target.get_id(), { 4.0f, 2.0f, 3.0f });
 
 	camera.follow(target, { 0.0f, 1.0f, 0.0f }, 1.25f);
 
 	EXPECT_TRUE(glm_equal(camera.get_focus(), { 5.25f, 3.0f, 3.0f }));
-	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(target.get_position(), 1.0f);
+	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(ecs.get_position(target.get_id()), 1.0f);
 	EXPECT_NEAR(target_in_camera_space.x, -1.25f, 0.001f);
 }
 
 TEST_F(CameraTests, horizontal_follow_framing_remains_camera_relative_after_orbiting)
 {
 	Object target;
-	target.set_position({ 4.0f, 2.0f, 3.0f });
+	ecs.add_object(target);
+	ecs.set_position(target.get_id(), { 4.0f, 2.0f, 3.0f });
 	camera.follow(target, { 0.0f, 1.0f, 0.0f }, 1.25f);
 
 	camera.rotate_camera({ 0.03f, -0.02f }, 0.1f);
-	const glm::vec3 camera_right = camera.focus_obj->get_rotation() * Maths::right_vec;
+	const glm::vec3 camera_right = ecs.get_rotation(camera.focus_obj->get_id()) * Maths::right_vec;
 	camera.update_follow();
 
-	EXPECT_TRUE(glm_equal(camera.get_focus(), target.get_position() + glm::vec3(0.0f, 1.0f, 0.0f) + camera_right * 1.25f));
-	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(target.get_position(), 1.0f);
+	EXPECT_TRUE(glm_equal(camera.get_focus(), ecs.get_position(target.get_id()) + glm::vec3(0.0f, 1.0f, 0.0f) + camera_right * 1.25f));
+	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(ecs.get_position(target.get_id()), 1.0f);
 	EXPECT_NEAR(target_in_camera_space.x, -1.25f, 0.001f);
 }
 
@@ -139,10 +154,10 @@ TEST_F(CameraTests, orbit_rotation_remains_roll_free)
 	const glm::vec3 direction = glm::normalize(camera.get_focus() - camera.get_position());
 	const glm::vec3 expected_up = glm::normalize(
 		Maths::up_vec - glm::dot(Maths::up_vec, direction) * direction);
-	const glm::vec3 camera_up = camera.focus_obj->get_rotation() * Maths::up_vec;
+	const glm::vec3 camera_up = ecs.get_rotation(camera.focus_obj->get_id()) * Maths::up_vec;
 
 	EXPECT_TRUE(glm_equal(camera_up, expected_up));
-	EXPECT_NEAR(glm::dot(camera.focus_obj->get_rotation() * Maths::right_vec, Maths::up_vec), 0.0f, 0.00001f);
+	EXPECT_NEAR(glm::dot(ecs.get_rotation(camera.focus_obj->get_id()) * Maths::right_vec, Maths::up_vec), 0.0f, 0.00001f);
 }
 
 TEST_F(CameraTests, pitch_is_clamped_before_world_up_becomes_singular)

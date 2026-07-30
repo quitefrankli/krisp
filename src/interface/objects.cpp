@@ -3,6 +3,7 @@
 #include "renderable/mesh_maths.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
+#include "entity_component_system/ecs.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -41,11 +42,12 @@ ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 	renderables = { Renderable::make_default(std::move(mesh)) };
 }
 
-void ScaleGizmoObj::point(const glm::vec3& start, const glm::vec3& end)
+void ScaleGizmoObj::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)
 {
 	const glm::vec3 v1 = Maths::forward_vec;
 	const glm::vec3 v2 = glm::normalize(end - start);
 	const glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
-	set_rotation(rot);
-	set_position(start);
+	auto& transform = ecs.get_transformation(get_id());
+	transform.set_rotation(rot);
+	transform.set_position(start);
 }

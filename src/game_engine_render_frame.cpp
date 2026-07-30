@@ -165,25 +165,26 @@ RenderFrame GameEngine::build_render_frame()
 	std::vector<SkeletonID> attached_skeletons;
 	for (const Object* object : ordered_objects)
 	{
+		const auto& transform = ecs.get_transformation(object->get_id());
 		const auto skeleton_id = ecs.get_skeleton_id(object->get_id());
 		if (skeleton_id)
 			attached_skeletons.push_back(*skeleton_id);
 
 		uint32_t parent_index = RENDER_FRAME_NO_PARENT;
 		glm::mat4 local_transform;
-		if (const auto parent_id = object->get_parent_id())
+		if (const auto parent_id = transform.get_parent_id())
 		{
 			const auto parent = object_indices.find(*parent_id);
 			if (parent != object_indices.end())
 			{
 				parent_index = parent->second;
-				local_transform = object->get_relative_transform();
+				local_transform = transform.get_relative_transform();
 			}
 			else
-				local_transform = object->get_transform();
+				local_transform = transform.get_transform();
 		}
 		else
-			local_transform = object->get_transform();
+			local_transform = transform.get_transform();
 
 		frame.objects.push_back({
 			.definition = get_render_object_definition(*object, skeleton_id),

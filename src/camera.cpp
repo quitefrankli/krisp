@@ -10,7 +10,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
-#include <iostream>
+#include <utility>
 
 namespace
 {
@@ -61,18 +61,19 @@ void Camera::deserialize(const Deserializer& in)
 }
 
 
-Camera::Camera(Listener&& listener, float aspect_ratio, Object& focus, Object& upvector) :
-	ITrackableObject(this),
+Camera::Camera(ECS& ecs, Listener&& listener, float aspect_ratio, Object& focus, Object& upvector) :
 	listener(std::move(listener)),
-	aspect_ratio(aspect_ratio)
+	aspect_ratio(aspect_ratio),
+	ecs(ecs)
 {
+	ecs.add_transformation(get_id(), TransformationPersistence::Transient);
 	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
 	set_orthographic_projection({ -aspect_ratio, aspect_ratio });
 	focus_obj = &focus;
 	upvector_obj = &upvector;
-	focus_obj->set_scale(glm::vec3(0.3f));
+	ecs.get_transformation(focus_obj->get_id()).set_scale(glm::vec3(0.3f));
 	focus_obj->set_visibility(false);
-	upvector_obj->set_position(get_focus());
+	ecs.get_transformation(upvector_obj->get_id()).set_position(get_focus());
 	upvector_obj->set_visibility(false);
 	set_mode(Mode::ORBIT);
 	set_visibility(false);
@@ -103,7 +104,20 @@ Camera::Camera(Listener&& listener, float aspect_ratio, Object& focus, Object& u
 	// 0.00,  0.00, -2.00,  1.00,
 }
 
-Camera::~Camera() = default;
+Camera::~Camera()
+{
+	ecs.remove_transformation(get_id());
+}
+
+TransformationComponent& Camera::transformation()
+{
+	return ecs.get_transformation(get_id());
+}
+
+const TransformationComponent& Camera::transformation() const
+{
+	return std::as_const(ecs).get_transformation(get_id());
+}
 
 glm::vec3 Camera::sync_to_camera(const glm::vec2& axis)
 {
@@ -149,7 +163,27 @@ glm::mat4 Camera::get_view() const
 
 void Camera::set_rotation(const glm::quat& rotation)
 {
-	Object::set_rotation(make_roll_free_orientation(rotation * Maths::forward_vec));
+	transformation().set_rotation(make_roll_free_orientation(rotation * Maths::forward_vec));
+}
+
+void Camera::set_position(const glm::vec3& position)
+{
+	transformation().set_position(position);
+}
+
+glm::vec3 Camera::get_position() const
+{
+	return transformation().get_position();
+}
+
+glm::vec3 Camera::get_scale() const
+{
+	return transformation().get_scale();
+}
+
+glm::quat Camera::get_rotation() const
+{
+	return transformation().get_rotation();
 }
 
 void Camera::toggle_projection()
@@ -171,14 +205,15 @@ void Camera::set_orthographic_projection(const glm::vec2& horizontal_span)
 
 void Camera::update_tracker()
 {
-	set_old_position(focus_obj->get_position());
-	set_old_rotation(focus_obj->get_rotation());
+	const auto& focus_transform = ecs.get_transformation(focus_obj->get_id());
+	set_old_position(focus_transform.get_position());
+	set_old_rotation(focus_transform.get_rotation());
 	set_old_scale(get_scale());
 }
 
 glm::vec3 Camera::get_focus() const
 {
-	return focus_obj->get_position();
+	return ecs.get_transformation(focus_obj->get_id()).get_position();
 }
 
 void Camera::sync_audio_listener()
@@ -190,8 +225,9 @@ void Camera::sync_audio_listener()
 void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 {
 	const glm::vec3 view_dir = glm::normalize(focus - from);
-	focus_obj->set_position(focus);
-	focus_obj->set_rotation(make_roll_free_orientation(view_dir));
+	auto& focus_transform = ecs.get_transformation(focus_obj->get_id());
+	focus_transform.set_position(focus);
+	focus_transform.set_rotation(make_roll_free_orientation(view_dir));
 	set_position(from);
 }
 
@@ -207,8 +243,8 @@ void Camera::pan(const glm::vec3& relative_axis, const float magnitude)
 	// already moves the camera. Preserve its pre-pan world position to avoid
 	// applying the translation twice and changing the camera-focus direction.
 	const glm::vec3 camera_position = get_position();
-	focus_obj->set_position(get_focus() + offset);
-	Object::set_position(camera_position + offset);
+	ecs.get_transformation(focus_obj->get_id()).set_position(get_focus() + offset);
+	transformation().set_position(camera_position + offset);
 }
 
 void Camera::process_keyboard_movement(const Keyboard& keyboard, const float delta_secs)
@@ -231,7 +267,7 @@ void Camera::process_keyboard_movement(const Keyboard& keyboard, const float del
 
 void Camera::follow(Object& target, const glm::vec3& focus_offset, const float horizontal_focus_offset)
 {
-	focus_obj->detach_from();
+	ecs.get_transformation(focus_obj->get_id()).detach_from();
 	follow_target = &target;
 	follow_offset = focus_offset;
 	follow_horizontal_offset = horizontal_focus_offset;
@@ -248,7 +284,7 @@ void Camera::update_follow()
 	if (follow_target)
 	{
 		const auto basis = make_roll_free_basis(get_focus() - get_position());
-		const glm::vec3 desired_focus = follow_target->get_position()
+		const glm::vec3 desired_focus = ecs.get_transformation(follow_target->get_id()).get_position()
 			+ follow_offset + basis.right * follow_horizontal_offset;
 		pan(desired_focus - get_focus(), 1.0f);
 	}
@@ -280,7 +316,8 @@ void Camera::zoom_in(float length)
 	length *= sensitivity;
 	length = std::min(focal_len - closest_distance, length);
 	length = std::max(focal_len - maximum_distance, length);
-	const glm::vec3 offset = focus_obj->get_rotation() * Maths::forward_vec * length;
+	const glm::vec3 offset =
+		ecs.get_transformation(focus_obj->get_id()).get_rotation() * Maths::forward_vec * length;
 	set_position(get_position() + offset);
 
 	if (!projection_is_perspective)
@@ -321,7 +358,7 @@ void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 	{
 		case Mode::ORBIT:
 		{
-			focus_obj->set_rotation(orientation);
+			ecs.get_transformation(focus_obj->get_id()).set_rotation(orientation);
 			break;
 		}
 		case Mode::FPV:
@@ -343,12 +380,14 @@ void Camera::set_mode(Mode new_mode)
 {
 	if (new_mode == Mode::ORBIT)
 	{
-		focus_obj->detach_from();
-		upvector_obj->attach_to(focus_obj); // don't forget to reattach it
-		attach_to(focus_obj);
+		auto& focus_transform = ecs.get_transformation(focus_obj->get_id());
+		focus_transform.detach_from();
+		ecs.get_transformation(upvector_obj->get_id()).attach_to(focus_transform);
+		transformation().attach_to(focus_transform);
 	} else if (new_mode == Mode::FPV) {
-		detach_from();
-		focus_obj->attach_to(this);
+		auto& camera_transform = transformation();
+		camera_transform.detach_from();
+		ecs.get_transformation(focus_obj->get_id()).attach_to(camera_transform);
 	} else {
 		assert(false);
 	}

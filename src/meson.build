@@ -21,6 +21,7 @@ ecs_sources = files('entity_component_system/skeletal_serialization.cpp',
 					'entity_component_system/physics/gravity.cpp',
 					'entity_component_system/physics/physics.cpp',
 					'entity_component_system/particle_system.cpp',
+					'entity_component_system/transformation_system.cpp',
 					'entity_component_system/tile_system.cpp')
 
 audio_sources = files('audio_engine/audio_engine.cpp',

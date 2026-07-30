@@ -14,9 +14,10 @@ class GizmoBase : public Object
 {
 public:
 	GizmoBase(GameEngine& engine, Gizmo& gizmo);
+	~GizmoBase() override;
 
 	virtual void init() = 0;
-	virtual void set_visibility(bool) override;
+	void set_visibility(bool) override;
 	void clear_active_axis() { active_axis = nullptr; }
 	virtual void register_colliders();
 	
@@ -96,6 +97,7 @@ class Gizmo : public Object
 {
 public:
 	Gizmo(GameEngine& engine);
+	~Gizmo() override;
 	void init();
 	void select_object(Object* obj);
 	void deselect();
@@ -106,7 +108,7 @@ public:
 	void register_colliders();
 	void delete_object();
 	Object* get_selected_object() { return selected_object; }
-	virtual void set_scale(const glm::vec3& new_scale) override;
+	void set_scale(const glm::vec3& new_scale);
 
 private:
 	bool scale_mode = false;

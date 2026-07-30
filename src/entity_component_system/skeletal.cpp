@@ -301,8 +301,8 @@ void SkeletalSystem::process(const float)
 		glm::mat4 visual_transform = Maths::identity_mat;
 		if (!skeleton_object.renderables.empty())
 			visual_transform = skeleton_object.renderables.front().local_transform.get_mat4();
-		get_ecs().get_object(attached).set_transform(
-			skeleton_object.get_transform() *
+		get_ecs().set_transform(attached,
+			get_ecs().get_transform(attachment.skeleton_entity) *
 			visual_transform *
 			pose->second[attachment.bone_index] *
 			attachment.local_transform.get_mat4());

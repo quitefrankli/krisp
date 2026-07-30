@@ -19,7 +19,7 @@ public:
 		ecs.add_object(object1);
 		ecs.add_object(object2);
 		
-		object2.set_position(glm::vec3(1.0f, 1.0f, 1.0f));
+		ecs.set_position(object2.get_id(), glm::vec3(1.0f, 1.0f, 1.0f));
 
 		ecs.add_collider(object1.get_id(), std::make_unique<SphereCollider>(Maths::Sphere{}));
 		ecs.add_collider(object2.get_id(), std::make_unique<SphereCollider>(Maths::Sphere{}));

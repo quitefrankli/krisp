@@ -42,7 +42,9 @@ TEST(EquipmentSystem, equips_queries_and_follows_bone_pose)
 	ASSERT_TRUE(fixture.ecs.equip(fixture.wearer.get_id(), fixture.first_item.get_id(), fixture.definition()));
 	EXPECT_EQ(fixture.ecs.equipped_item(fixture.wearer.get_id(), EquipmentSlot::MainHand), fixture.first_item.get_id());
 	fixture.ecs.process(0.0f);
-	EXPECT_EQ(fixture.first_item.get_position(), glm::vec3(2.0f, 1.0f, 0.0f));
+	EXPECT_EQ(
+		fixture.ecs.get_position(fixture.first_item.get_id()),
+		glm::vec3(2.0f, 1.0f, 0.0f));
 }
 
 TEST(EquipmentSystem, replacement_and_moving_item_keep_one_global_location)

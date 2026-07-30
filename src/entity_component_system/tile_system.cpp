@@ -5,14 +5,15 @@
 #include <algorithm>
 
 
-void TileSet::move_to_tile(const TileCoord& coord, Object& object)
+void TileSet::move_to_tile(const TileCoord& coord, const ObjectID object_id, ECS& ecs)
 {
 	auto& tile = tiles[coord];
-	tile.add_object(object.get_id());
-	object_to_tile[object.get_id()] = &tile;
-	object_to_coord[object.get_id()] = coord;
+	tile.add_object(object_id);
+	object_to_tile[object_id] = &tile;
+	object_to_coord[object_id] = coord;
 
-	object.set_position(glm::vec3(coord.x * cell_size, object.get_position().y, coord.y * cell_size));
+	ecs.set_position(object_id, glm::vec3(
+		coord.x * cell_size, ecs.get_position(object_id).y, coord.y * cell_size));
 }
 
 void TileSet::remove_object(const ObjectID& object_id)
@@ -49,14 +50,14 @@ void TileSystem::spawn_tileset(int rows, int cols, float cell_size, const TileSe
 			if (tile_spawner)
 			{
 				auto& tile = tile_spawner();
-				tile.set_scale(glm::vec3(cell_size - gap, thickness, cell_size - gap));
+				get_ecs().set_scale(tile.get_id(), glm::vec3(cell_size - gap, thickness, cell_size - gap));
 
 				const float x = x_start + static_cast<float>(col) * cell_size;
 				const float z = z_start + static_cast<float>(row) * cell_size;
 				// Unit cube mesh is centered on its origin, so move it down by half height to keep the top face at y=0.
 				const float y = -0.5f * thickness;
 				const auto position = glm::vec3(x, y, z);
-				tile.set_position(position);
+				get_ecs().set_position(tile.get_id(), position);
 
 				const Maths::Plane plane(position, glm::vec3(0.0f, 1.0f, 0.0f));
 				const glm::vec2 size(cell_size - gap, cell_size - gap);
@@ -151,7 +152,7 @@ void TileSystem::move_to_tile(const TileCoord& coord, const ObjectID& object_id,
 	}
 
 	remove_entity(object_id);
-	tilesets[tileset_id].move_to_tile(coord, get_ecs().get_object(object_id));
+	tilesets[tileset_id].move_to_tile(coord, object_id, get_ecs());
 }
 
 

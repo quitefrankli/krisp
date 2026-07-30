@@ -21,7 +21,7 @@ class UnsupportedCollider : public Collider
 public:
 	ECollider get_type() const override { return static_cast<ECollider>(255); }
 	Object& spawn_debug_object(GameEngine&) const override { throw std::runtime_error("unused"); }
-	void update_debug_object(Object&) const override {}
+	void update_debug_object(GameEngine&, Object&) const override {}
 };
 }
 
@@ -434,7 +434,7 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 	restored.add_object(prop);
 	restored.SkeletalSystem::process(0.0f);
 
-	EXPECT_EQ(prop.get_position(), glm::vec3(1.0f, 2.0f, 0.0f));
+	EXPECT_EQ(restored.get_position(prop.get_id()), glm::vec3(1.0f, 2.0f, 0.0f));
 }
 
 TEST(SkeletalSystemSerialization, invalid_parent_fails_atomically_with_path)

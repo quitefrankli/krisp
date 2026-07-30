@@ -42,6 +42,11 @@ ObjectT& spawn_transient(GameEngine& engine, std::shared_ptr<ObjectT>&& object)
 	engine.spawn_object(std::shared_ptr<Object>(std::move(object)));
 	return *result;
 }
+
+TransformationComponent& transformation(GameEngine& engine, const Object& object)
+{
+	return engine.get_ecs().get_transformation(object.get_id());
+}
 }
 
 
@@ -53,8 +58,13 @@ GizmoBase::GizmoBase(GameEngine& engine, Gizmo& gizmo_) :
 	engine(engine),
 	gizmo(gizmo_)
 {
+	engine.get_ecs().add_transformation(get_id(), TransformationPersistence::Transient);
 }
 
+GizmoBase::~GizmoBase()
+{
+	engine.get_ecs().remove_transformation(get_id());
+}
 bool GizmoBase::is_essential_child(Object* child)
 {
 	return std::any_of(axes.begin(), axes.end(), [child](auto* axis){ return child == axis;});
@@ -95,18 +105,19 @@ void TranslationGizmo::init()
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
 		auto axis = std::make_shared<Arrow>();
-		axis->point(Maths::zero_vec, directions[i]);
+		auto& spawned = spawn_transient(engine, std::move(axis));
+		spawned.point(engine.get_ecs(), Maths::zero_vec, directions[i]);
+		*destinations[i] = &spawned;
 		auto material_owner = MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
-		axis->renderables[0].material_owners[0] = std::move(material_owner);
-		axis->renderables[0].casts_shadow = false;
-		axis->renderables[0].render_on_top = true;
-		*destinations[i] = &spawn_transient(engine, std::move(axis));
+		spawned.renderables[0].material_owners[0] = std::move(material_owner);
+		spawned.renderables[0].casts_shadow = false;
+		spawned.renderables[0].render_on_top = true;
 	}
 
 	axes = {xAxis, yAxis, zAxis};
 	for (auto* axis : axes)
 	{
-		axis->attach_to(this);
+		transformation(engine, *axis).attach_to(get_id());
 	}
 	set_visibility(false);
 }
@@ -124,12 +135,14 @@ bool TranslationGizmo::check_collision(const Maths::Ray& ray)
 	if (closest_axis)
 	{
 		active_axis = closest_axis;
-		reference_transform.set_pos(get_position());
-		reference_transform.set_orient(get_rotation());
+		const auto& gizmo_transform = transformation(engine, *this);
+		reference_transform.set_pos(gizmo_transform.get_position());
+		reference_transform.set_orient(gizmo_transform.get_rotation());
 
-		const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+		const glm::vec3 curr_axis =
+			transformation(engine, *active_axis).get_rotation() * Maths::forward_vec;
 		plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));;
-		plane.offset = get_position();
+		plane.offset = gizmo_transform.get_position();
 		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
 
@@ -141,12 +154,13 @@ void TranslationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 	if (!active_axis)
 		return;
 
-	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+	const glm::vec3 curr_axis =
+		transformation(engine, *active_axis).get_rotation() * Maths::forward_vec;
 
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
 	const auto Vp1_p2 = glm::dot(p2 - p1, curr_axis) * curr_axis;
 
-	gizmo.set_position(reference_transform.get_pos() + Vp1_p2);
+	transformation(engine, gizmo).set_position(reference_transform.get_pos() + Vp1_p2);
 }
 
 //
@@ -166,13 +180,15 @@ void RotationGizmo::init()
 		axis->renderables[0].render_on_top = true;
 		*destinations[i] = &spawn_transient(engine, std::move(axis));
 	}
-	xAxisNorm->set_rotation(glm::angleAxis(-Maths::PI/2.0f, Maths::up_vec));
-	yAxisNorm->set_rotation(glm::angleAxis(Maths::PI/2.0f, Maths::right_vec));
+	transformation(engine, *xAxisNorm).set_rotation(
+		glm::angleAxis(-Maths::PI/2.0f, Maths::up_vec));
+	transformation(engine, *yAxisNorm).set_rotation(
+		glm::angleAxis(Maths::PI/2.0f, Maths::right_vec));
 
 	axes = {xAxisNorm, yAxisNorm, zAxisNorm};
 	for (auto* axis : axes)
 	{
-		axis->attach_to(this);
+		transformation(engine, *axis).attach_to(get_id());
 	}
 	set_visibility(false);
 }
@@ -190,11 +206,13 @@ bool RotationGizmo::check_collision(const Maths::Ray& ray)
 	if (closest_axis)
 	{
 		active_axis = closest_axis;
-		reference_transform.set_pos(get_position());
-		reference_transform.set_orient(get_rotation());
+		const auto& gizmo_transform = transformation(engine, *this);
+		reference_transform.set_pos(gizmo_transform.get_position());
+		reference_transform.set_orient(gizmo_transform.get_rotation());
 
-		plane.normal = glm::normalize(active_axis->get_rotation() * Maths::forward_vec);
-		plane.offset = get_position();
+		plane.normal = glm::normalize(
+			transformation(engine, *active_axis).get_rotation() * Maths::forward_vec);
+		plane.offset = gizmo_transform.get_position();
 		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
 
@@ -211,7 +229,8 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 		glm::normalize(p1-plane.offset), 
 		glm::normalize(p2-plane.offset),
 		plane.normal);
-	gizmo.set_rotation(glm::normalize(quat * reference_transform.get_orient()));
+	transformation(engine, gizmo).set_rotation(
+		glm::normalize(quat * reference_transform.get_orient()));
 }
 
 //
@@ -230,18 +249,19 @@ void ScaleGizmo::init()
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
 		auto axis = std::make_shared<ScaleGizmoObj>(directions[i]);
-		axis->point(Maths::zero_vec, directions[i]);
+		auto& spawned = spawn_transient(engine, std::move(axis));
+		spawned.point(engine.get_ecs(), Maths::zero_vec, directions[i]);
+		*destinations[i] = &spawned;
 		auto material_owner = MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
-		axis->renderables[0].material_owners[0] = std::move(material_owner);
-		axis->renderables[0].casts_shadow = false;
-		axis->renderables[0].render_on_top = true;
-		*destinations[i] = &spawn_transient(engine, std::move(axis));
+		spawned.renderables[0].material_owners[0] = std::move(material_owner);
+		spawned.renderables[0].casts_shadow = false;
+		spawned.renderables[0].render_on_top = true;
 	}
 
 	axes = {xAxis, yAxis, zAxis};
 	for (auto* axis : axes)
 	{
-		axis->attach_to(this);
+		transformation(engine, *axis).attach_to(get_id());
 	}
 
 	{
@@ -261,7 +281,7 @@ void ScaleGizmo::init()
 		auto object = std::make_shared<Object>(std::move(renderable));
 		uniformCube = &spawn_transient(engine, std::move(object));
 	}
-	uniformCube->attach_to(this);
+	transformation(engine, *uniformCube).attach_to(get_id());
 
 	set_visibility(false);
 }
@@ -287,10 +307,11 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	{
 		active_axis = uniformCube;
 		uniform_scaling = true;
-		reference_transform.set_scale(gizmo.selected_object->get_scale());
+		reference_transform.set_scale(
+			transformation(engine, *gizmo.selected_object).get_scale());
 
 		plane.normal = glm::normalize(-ray.direction);
-		plane.offset = get_position();
+		plane.offset = transformation(engine, *this).get_position();
 		p1 = Maths::ray_plane_intersection(ray, plane);
 		return true;
 	}
@@ -299,11 +320,13 @@ bool ScaleGizmo::check_collision(const Maths::Ray& ray)
 	if (closest_axis)
 	{
 		active_axis = closest_axis;
-		reference_transform.set_scale(gizmo.selected_object->get_scale());
+		reference_transform.set_scale(
+			transformation(engine, *gizmo.selected_object).get_scale());
 
-		const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+		const glm::vec3 curr_axis =
+			transformation(engine, *active_axis).get_rotation() * Maths::forward_vec;
 		plane.normal = glm::normalize(glm::cross(curr_axis, glm::cross(curr_axis, ray.direction)));
-		plane.offset = get_position();
+		plane.offset = transformation(engine, *this).get_position();
 		p1 = Maths::ray_plane_intersection(ray, plane);
 	}
 
@@ -335,11 +358,12 @@ void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 		if (scale_factor <= 0.0f || glm::compMin(new_scale) < minimum_scale)
 			return;
 
-		gizmo.selected_object->set_scale(new_scale);
+		transformation(engine, *gizmo.selected_object).set_scale(new_scale);
 		return;
 	}
 
-	const glm::vec3 curr_axis = active_axis->get_rotation() * Maths::forward_vec;
+	const glm::vec3 curr_axis =
+		transformation(engine, *active_axis).get_rotation() * Maths::forward_vec;
 	const float magnitude = glm::dot(p2 - p1, curr_axis);
 
 	const auto& original_axis = static_cast<ScaleGizmoObj*>(active_axis)->original_axis;
@@ -348,7 +372,7 @@ void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 	if (glm::dot(new_scale, original_axis) < minimum_scale)
 		return;
 
-	gizmo.selected_object->set_scale(new_scale);
+	transformation(engine, *gizmo.selected_object).set_scale(new_scale);
 }
 
 //
@@ -361,9 +385,15 @@ Gizmo::Gizmo(GameEngine& engine) :
 	rotation(engine, *this),
 	scale(engine, *this)
 {
-	translation.attach_to(this);
-	rotation.attach_to(this);
-	scale.attach_to(this);
+	engine.get_ecs().add_transformation(get_id(), TransformationPersistence::Transient);
+	transformation(engine, translation).attach_to(get_id());
+	transformation(engine, rotation).attach_to(get_id());
+	transformation(engine, scale).attach_to(get_id());
+}
+
+Gizmo::~Gizmo()
+{
+	engine.get_ecs().remove_transformation(get_id());
 }
 
 void Gizmo::init()
@@ -392,9 +422,11 @@ void Gizmo::select_object(Object* obj)
 	deselect();
 	engine.highlight_object(*obj);
 	selected_object = obj;
-	set_position(selected_object->get_position());
-	set_rotation(selected_object->get_rotation());
-	selected_object->attach_to(this);
+	auto& gizmo_transform = transformation(engine, *this);
+	auto& selected_transform = transformation(engine, *selected_object);
+	gizmo_transform.set_position(selected_transform.get_position());
+	gizmo_transform.set_rotation(selected_transform.get_rotation());
+	selected_transform.attach_to(gizmo_transform);
 
 	isActive = true;
 
@@ -414,7 +446,7 @@ void Gizmo::deselect()
 		return;
 
 	engine.unhighlight_object(*selected_object);
-	selected_object->detach_from();
+	transformation(engine, *selected_object).detach_from();
 	selected_object = nullptr;
 
 	isActive = false;
@@ -464,7 +496,7 @@ void Gizmo::delete_object()
 
 void Gizmo::set_scale(const glm::vec3& new_scale) 
 {
-	translation.set_scale(new_scale);
-	rotation.set_scale(new_scale);
-	scale.set_scale(new_scale);
+	transformation(engine, translation).set_scale(new_scale);
+	transformation(engine, rotation).set_scale(new_scale);
+	transformation(engine, scale).set_scale(new_scale);
 }

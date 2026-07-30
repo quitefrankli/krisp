@@ -2,6 +2,7 @@
 
 #include "objects/object.hpp"
 
+class ECS;
 
 class ScaleGizmoObj : public Object
 {
@@ -9,7 +10,7 @@ public:
 	ScaleGizmoObj(const glm::vec3& original_axis);
 	ScaleGizmoObj(ScaleGizmoObj&&) = delete;
 
-	void point(const glm::vec3& start, const glm::vec3& end);
+	void point(ECS& ecs, const glm::vec3& start, const glm::vec3& end);
 
 public:
 	const float INITIAL_RADIUS = 0.1f;

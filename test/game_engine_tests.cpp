@@ -144,9 +144,9 @@ TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definiti
 {
 	auto& parent = engine.spawn_object<Object>();
 	auto& child = engine.spawn_object<Object>(Renderable::make_default());
-	parent.set_position({ 2.0f, 0.0f, 0.0f });
-	child.set_position({ 2.0f, 3.0f, 0.0f });
-	child.attach_to(&parent);
+	engine.get_ecs().set_position(parent.get_id(), { 2.0f, 0.0f, 0.0f });
+	engine.get_ecs().set_position(child.get_id(), { 2.0f, 3.0f, 0.0f });
+	engine.get_ecs().attach_to(child.get_id(), parent.get_id());
 	child.set_visibility(false);
 
 	engine.main_loop(0.1f);
@@ -171,11 +171,11 @@ TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definiti
 	const auto model_transforms =
 		compose_transform_hierarchy(local_transforms, parent_indices);
 	const size_t child_index = &first_child - first_frame->objects.data();
-	EXPECT_TRUE(glm_equal(model_transforms[child_index], child.get_transform()));
+	EXPECT_TRUE(glm_equal(model_transforms[child_index], engine.get_ecs().get_transform(child.get_id())));
 
 	const auto first_definition = first_child.definition;
 	child.set_visibility(true);
-	child.set_relative_position({ 0.0f, 4.0f, 0.0f });
+	engine.get_ecs().set_relative_position(child.get_id(), { 0.0f, 4.0f, 0.0f });
 	engine.main_loop(0.1f);
 	const auto pose_only_frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
@@ -438,12 +438,12 @@ TEST_F(GameEngineTests, normal_mode_routes_movement_to_the_active_player)
 	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
 	engine.main_loop(0.5f);
 
-	EXPECT_TRUE(glm_equal(player.get_position(), Maths::forward_vec));
+	EXPECT_TRUE(glm_equal(engine.get_ecs().get_position(player.get_id()), Maths::forward_vec));
 	const glm::vec3 camera_right =
-		engine.get_camera().focus_obj->get_rotation() * Maths::right_vec;
+		engine.get_ecs().get_rotation(engine.get_camera().focus_obj->get_id()) * Maths::right_vec;
 	EXPECT_TRUE(glm_equal(
 		engine.get_camera().get_focus(),
-		player.get_position() + definition.camera_focus_offset
+		engine.get_ecs().get_position(player.get_id()) + definition.camera_focus_offset
 			+ camera_right * definition.camera_horizontal_offset));
 }
 
@@ -659,7 +659,7 @@ TEST_F(GameEngineTests, scene_load_restores_camera_state)
 TEST_F(GameEngineTests, scene_load_ignores_transient_gizmo_parent)
 {
 	auto& object = engine.spawn_object<Object>();
-	object.set_position({ 2.0f, 3.0f, 4.0f });
+	engine.get_ecs().set_position(object.get_id(), { 2.0f, 3.0f, 4.0f });
 	const ObjectID object_id = object.get_id();
 	engine.get_gizmo().init();
 	engine.get_gizmo().select_object(&object);
@@ -673,7 +673,9 @@ TEST_F(GameEngineTests, scene_load_ignores_transient_gizmo_parent)
 
 	const auto* restored = engine.get_object(object_id);
 	ASSERT_NE(restored, nullptr);
-	EXPECT_TRUE(glm_equal(restored->get_position(), glm::vec3(2.0f, 3.0f, 4.0f)));
+	EXPECT_TRUE(glm_equal(
+		engine.get_ecs().get_position(restored->get_id()),
+		glm::vec3(2.0f, 3.0f, 4.0f)));
 	EXPECT_FALSE(engine.get_gizmo().is_active());
 }
 

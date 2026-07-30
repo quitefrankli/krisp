@@ -6,9 +6,10 @@
 #include <random>
 
 
-ParticleSystem::Emitter::Emitter(const ParticleEmitterConfig& config, const Object& parent_object) :
+ParticleSystem::Emitter::Emitter(const ParticleEmitterConfig& config, ECS& ecs, const EntityID parent_id) :
 	config(config),
-	parent_object(parent_object)
+	ecs(ecs),
+	parent_id(parent_id)
 {
 	particles.reserve(config.max_particles);
 }
@@ -53,7 +54,7 @@ void ParticleSystem::Emitter::emit(uint32_t count)
 	for (uint32_t i = 0; i < count && particles.size() < config.max_particles; ++i)
 	{
 		particles.push_back(Particle{
-			.position = parent_object.get_position(),
+			.position = ecs.get_position(parent_id),
 			.velocity = Maths::random_uniform(config.velocity_min, config.velocity_max),
 			.color = config.start_color,
 			.size = Maths::random_uniform(config.min_size, config.max_size),
@@ -80,8 +81,7 @@ void ParticleSystem::process(float delta_time)
 void ParticleSystem::spawn_particle_emitter(EntityID entity_id, const ParticleEmitterConfig& config)
 {
 	assert(emitters.find(entity_id) == emitters.end() && "Entity already has a particle emitter!");
-	const Object& parent_object = get_ecs().get_object(entity_id);
-	emitters.emplace(entity_id, std::make_unique<Emitter>(config, parent_object));
+	emitters.emplace(entity_id, std::make_unique<Emitter>(config, get_ecs(), entity_id));
 }
 
 void ParticleSystem::remove_entity(EntityID entity_id)

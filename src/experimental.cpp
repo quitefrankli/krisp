@@ -385,12 +385,13 @@ void Experimental::process()
     // terrain_obj.set_position(glm::vec3(camera_pos.x, camera_pos.y - 15.0f, camera_pos.z));
     
     // Scale it for good visibility
-    terrain_obj.set_scale(glm::vec3(0.5f, 1.0f, 0.5f));
+    auto& terrain_transform = engine.get_ecs().get_transformation(terrain_obj.get_id());
+    terrain_transform.set_scale(glm::vec3(0.5f, 1.0f, 0.5f));
     
     LOG_INFO(Utility::get_logger(), "Spawned Perlin noise terrain at position ({}, {}, {})", 
-             terrain_obj.get_position().x, 
-             terrain_obj.get_position().y, 
-             terrain_obj.get_position().z);
+             terrain_transform.get_position().x,
+             terrain_transform.get_position().y,
+             terrain_transform.get_position().z);
 
     auto audio_source = engine.get_audio_engine().create_source();
     auto audio_file = Utility::get_audio("wav2.wav");
@@ -423,7 +424,8 @@ void spawn_test_particles(GameEngine& engine)
     config.loop = false;  // One-shot burst
     
     auto& emitter1 = engine.spawn_particle_emitter(config);
-    emitter1.set_position(engine.get_camera().get_position());
+    engine.get_ecs().get_transformation(emitter1.get_id())
+        .set_position(engine.get_camera().get_position());
     
     // Also spawn a second emitter with different colors slightly offset
     config.start_color = { 0.2f, 0.8f, 1.0f, 1.0f };  // Cyan
@@ -433,7 +435,7 @@ void spawn_test_particles(GameEngine& engine)
     
     auto& emitter2 = engine.spawn_particle_emitter(config);
     glm::vec3 offset_pos = engine.get_camera().get_position() + glm::vec3(0.5f, 0.0f, 0.0f);
-    emitter2.set_position(offset_pos);
+    engine.get_ecs().get_transformation(emitter2.get_id()).set_position(offset_pos);
     
     LOG_INFO(Utility::get_logger(), "Spawned test particles at camera position");
 }

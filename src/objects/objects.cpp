@@ -2,6 +2,7 @@
 #include "renderable/mesh_factory.hpp"
 #include "renderable/material_factory.hpp"
 #include "renderable/material.hpp"
+#include "entity_component_system/ecs.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -19,22 +20,18 @@ Arrow::Arrow()
 	renderables = { std::move(renderable) };
 }
 
-Arrow::Arrow(const glm::vec3& start, const glm::vec3& end) : Arrow()
-{
-	point(start, end);
-}
-
-void Arrow::point(const glm::vec3& start, const glm::vec3& end)
+void Arrow::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)
 {
 	const auto& v1 = Maths::forward_vec;
 	const auto v2 = glm::normalize(end - start);
 	const glm::quat rot = Maths::RotationBetweenVectors(v1, v2);
-	set_rotation(rot);
-	set_position(start);
+	auto& transform = ecs.get_transformation(get_id());
+	transform.set_rotation(rot);
+	transform.set_position(start);
 
-	auto scale = get_scale();
+	auto scale = transform.get_scale();
 	scale.z = glm::distance(start, end);
-	set_scale(scale);
+	transform.set_scale(scale);
 }
 
 ArcObject::ArcObject()

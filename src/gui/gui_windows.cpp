@@ -513,7 +513,8 @@ void GuiModelSpawner::process(GameEngine& engine)
 		{
 			auto object = std::make_shared<Object>();
 			object->set_name(model_name);
-			object->set_transform(loaded_model.onload_transform.get_mat4());
+			engine.get_ecs().get_transformation(object->get_id())
+				.set_transform(loaded_model.onload_transform.get_mat4());
 			for (auto& loaded_mesh : loaded_model.meshes)
 			{
 				for (size_t index = 0; index < loaded_mesh.renderables.size(); ++index)
@@ -535,7 +536,8 @@ void GuiModelSpawner::process(GameEngine& engine)
 		for (const auto& loaded_mesh : loaded_model.meshes)
 		{
 			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
-			mesh->set_transform(loaded_model.onload_transform.get_mat4());
+			engine.get_ecs().get_transformation(mesh->get_id())
+				.set_transform(loaded_model.onload_transform.get_mat4());
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
 			if (loaded_mesh.skeleton_id)
@@ -760,7 +762,7 @@ void GuiDebug::process(GameEngine& engine)
 
 	if (selected_object.changed)
 	{
-		const auto pos = engine.get_object(selected_object)->get_position();
+		const auto pos = engine.get_ecs().get_transformation(selected_object).get_position();
 		engine.get_camera().look_at(pos);
 		engine.get_gizmo().select_object(engine.get_object(selected_object.value));
 		selected_object.changed = false;
@@ -891,7 +893,7 @@ void GuiDebug::sync_collider_visualisers(GameEngine& engine)
 		}
 
 		Object& visual = get_or_spawn_collider_visual(engine, collider_visualiser_ids, entity_id, *collider);
-		collider->update_debug_object(visual);
+		collider->update_debug_object(engine, visual);
 	}
 
 	for (auto it = collider_visualiser_ids.begin(); it != collider_visualiser_ids.end(); )

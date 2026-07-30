@@ -53,10 +53,9 @@ void PhysicsSystem::process(const float delta_secs)
 	//
 	for (auto& [id, physics_comp] : physics_entities)
 	{
-		auto& object = ecs.get_object(id);
-		auto pos = object.get_position();
+		auto pos = ecs.get_position(id);
 		pos += physics_comp.velocity * delta_secs + 0.5f * physics_comp.acceleration * delta_secs * delta_secs;
-		object.set_position(pos);
+		ecs.set_position(id, pos);
 	}
 
 	//
@@ -72,7 +71,6 @@ void PhysicsSystem::process(const float delta_secs)
 	//
 	for (auto& [id, physics_comp] : physics_entities)
 	{
-		auto& object = ecs.get_object(id);
 		const glm::vec3 new_acceleration = physics_comp._net_force / physics_comp.mass;
 		physics_comp.velocity += 0.5f * (physics_comp.acceleration + new_acceleration) * delta_secs;
 		physics_comp.acceleration = new_acceleration;
@@ -169,7 +167,7 @@ void PhysicsSystem::prepare_components()
 	auto& ecs = get_ecs();
 	for (auto& [id, physics_comp] : physics_entities)
 	{
-		physics_comp.position = ecs.get_object(id).get_position();
+		physics_comp.position = ecs.get_position(id);
 		physics_comp._net_force = Maths::zero_vec;
 	}
 }

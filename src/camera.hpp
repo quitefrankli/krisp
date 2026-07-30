@@ -13,13 +13,15 @@
 
 class Keyboard;
 class GameEngine;
+class ECS;
+class TransformationComponent;
 
 class Camera : public Object, public ITrackableObject
 {
 public:
 	void serialize(Serializer& out) const override;
 	void deserialize(const Deserializer& in) override;
-	Camera(Listener&& listener, float aspect_ratio, Object& focus, Object& upvector);
+	Camera(ECS& ecs, Listener&& listener, float aspect_ratio, Object& focus, Object& upvector);
 	~Camera();
 
 	glm::mat4 get_projection() const;
@@ -33,6 +35,9 @@ public:
 	Maths::Ray get_ray(const glm::vec2& screen) const;
 
 	glm::vec3 get_focus() const;
+	glm::vec3 get_position() const;
+	glm::vec3 get_scale() const;
+	glm::quat get_rotation() const;
 	void sync_audio_listener();
 
 	float get_focal_length();
@@ -74,20 +79,20 @@ public: // object
 	void stop_follow();
 	void update_follow();
 
-	virtual void toggle_visibility() override;
+	void toggle_visibility() override;
 
 protected:
-	virtual void set_rotation(const glm::quat& rotation) override;
+	void set_rotation(const glm::quat& rotation);
 
 private:
+	TransformationComponent& transformation();
+	const TransformationComponent& transformation() const;
+	void set_position(const glm::vec3& position);
 	glm::mat4 perspective_matrix;
 	glm::mat4 orthographic_matrix;
 
 	Mode mode;
 	Listener listener;
-
-	using Object::set_transform;
-	using Object::set_position;
 
 	static constexpr float panning_sensitivity = 0.2f;
 	bool projection_is_perspective = true;
@@ -99,6 +104,7 @@ private:
 	Object* follow_target = nullptr;
 	glm::vec3 follow_offset{ 0.0f };
 	float follow_horizontal_offset = 0.0f;
+	ECS& ecs;
 
 	class CameraTests;
 	friend CameraTests;

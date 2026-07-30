@@ -27,7 +27,7 @@ struct Collider
 	virtual ECollider get_type() const = 0;
 	virtual void apply_transform(const Maths::Transform& transform) {}
 	virtual Object& spawn_debug_object(GameEngine& engine) const = 0;
-	virtual void update_debug_object(Object& object) const = 0;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const = 0;
 
 	void set_temporary_transform(const Maths::Transform& transform) const { temporary_transform = transform; }
 	void clear_temporary_transform() const { temporary_transform = Maths::Transform{}; }
@@ -47,7 +47,7 @@ struct RayCollider : public Collider
 	RayCollider(const Maths::Ray& ray) : data(ray) {}
 	virtual ECollider get_type() const override { return ECollider::RAY; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
-	virtual void update_debug_object(Object& object) const override;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 	Maths::Ray get_data() const;
 	const Maths::Ray& get_local_data() const { return data; }
 
@@ -61,7 +61,7 @@ struct QuadCollider : public Collider
 	QuadCollider(const Maths::Plane& plane, const glm::vec2& size) : data(plane.offset, plane.normal, size) {}
 	virtual ECollider get_type() const override { return ECollider::QUAD; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
-	virtual void update_debug_object(Object& object) const override;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 
 	Maths::Quad get_data() const;
 	const Maths::Quad& get_local_data() const { return data; }
@@ -80,7 +80,7 @@ struct SphereCollider : public Collider
 	SphereCollider(const Maths::Sphere& sphere) : data(sphere) {}
 	virtual ECollider get_type() const override { return ECollider::SPHERE; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
-	virtual void update_debug_object(Object& object) const override;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 	Maths::Sphere get_data() const;
 	const Maths::Sphere& get_local_data() const { return data; }
 
@@ -95,7 +95,7 @@ struct CapsuleCollider : public Collider
 	CapsuleCollider(float radius, float height);
 	virtual ECollider get_type() const override { return ECollider::CAPSULE; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
-	virtual void update_debug_object(Object& object) const override;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
 	float get_radius() const { return radius; }
@@ -115,7 +115,7 @@ struct BoxCollider : public Collider
 	BoxCollider(const AABB& bounds) : data(bounds) {}
 	virtual ECollider get_type() const override { return ECollider::BOX; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
-	virtual void update_debug_object(Object& object) const override;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
 	const AABB& get_local_data() const { return data; }
@@ -132,7 +132,7 @@ struct MeshCollider : public Collider
 	explicit MeshCollider(std::vector<MeshID> mesh_ids) : mesh_ids(std::move(mesh_ids)) {}
 	virtual ECollider get_type() const override { return ECollider::MESH; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
-	virtual void update_debug_object(Object& object) const override;
+	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
 	const std::vector<MeshID>& get_mesh_ids() const { return mesh_ids; }

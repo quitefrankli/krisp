@@ -82,7 +82,7 @@ const Collider* ColliderSystem::get_collider(EntityID id) const
 	}
 
 	Collider* collider = it->second.collider.get();
-	collider->set_temporary_transform(get_ecs().get_object(id).get_maths_transform());
+	collider->set_temporary_transform(get_ecs().get_maths_transform(id));
 
 	return collider;
 }

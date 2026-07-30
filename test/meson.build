@@ -4,6 +4,7 @@ sources = [
 	'game_engine_tests.cpp',
 	'audio_engine_tests.cpp',
 	'ecs/clickable_ecs_tests.cpp',
+	'ecs/transformation_system_tests.cpp',
 	'common_tests.cpp',
 	'gui_panel_tests.cpp',
 	'save_file_store_tests.cpp',

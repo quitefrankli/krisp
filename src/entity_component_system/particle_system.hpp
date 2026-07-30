@@ -64,7 +64,7 @@ private:
 
 	struct Emitter
 	{
-		Emitter(const ParticleEmitterConfig& config, const Object& parent_object);
+		Emitter(const ParticleEmitterConfig& config, ECS& ecs, EntityID parent_id);
 
 		void process(float delta_time);
 		void emit(uint32_t count);
@@ -75,7 +75,8 @@ private:
 		std::vector<Particle> particles;
 		float emission_accumulator = 0.0f;
 		bool enabled = true;
-		const Object& parent_object;
+		ECS& ecs;
+		EntityID parent_id;
 	};
 
 	std::unordered_map<EntityID, std::unique_ptr<Emitter>> emitters;

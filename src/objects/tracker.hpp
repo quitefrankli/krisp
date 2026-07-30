@@ -1,26 +1,12 @@
 #pragma once
 
-#include "object.hpp"
-
 #include <glm/gtx/transform.hpp>
-
-#include <cassert>
-
 
 class ITrackableObject
 {
 public:
-	ITrackableObject(Object* obj) : object(obj)
-	{
-		assert(obj);
-	}
-	
-	virtual void update_tracker()
-	{
-		position = object->get_position();
-		scale = object->get_scale();
-		rotation = object->get_rotation();
-	}
+	virtual ~ITrackableObject() = default;
+	virtual void update_tracker() = 0;
 
 	virtual glm::vec3 get_old_position() const { return position; }
 	virtual glm::vec3 get_old_scale() const { return scale; }
@@ -37,7 +23,6 @@ public:
 	virtual void set_old_rotation(const glm::quat& rot) { rotation = rot; }
 	
 private:
-	Object* object = nullptr;
 	glm::vec3 position;
 	glm::vec3 scale;
 	glm::quat rotation;

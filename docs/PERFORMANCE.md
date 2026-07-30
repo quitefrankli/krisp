@@ -78,6 +78,17 @@ Animation pose writes and render-frame pose snapshots are both confined to the
 game thread. The graphics thread consumes only the copied pose, so skeletal
 processing has no cross-thread mutex or render-thread contention.
 
+## Transformation hierarchy
+
+The ECS owns local transforms and parent-child links in one transformation
+registry. World transforms are composed lazily and cached; changing a transform
+or hierarchy link marks only that entity and its descendants dirty. Repeated
+world-transform reads therefore reuse the cached result until an ancestor
+changes. Registry access adds an entity-ID hash lookup compared with the former
+direct `Object` storage. Components are stored directly in the hash registry;
+the registry therefore owns their storage without an extra allocation or
+pointer indirection per component. No timing measurements have been recorded.
+
 ## Render-frame publication
 
 The game thread now builds one immutable render snapshot after each update.

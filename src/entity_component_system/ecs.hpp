@@ -9,6 +9,7 @@
 #include "physics/physics.hpp"
 #include "particle_system.hpp"
 #include "tile_system.hpp"
+#include "transformation_system.hpp"
 #include "objects/object.hpp"
 
 #include <unordered_map>
@@ -26,7 +27,8 @@ class ECS :
 	public HoverableSystem,
 	public PhysicsSystem,
 	public ParticleSystem,
-	public TileSystem
+	public TileSystem,
+	public TransformationSystem
 {
 public:
 	ECS() = default;
@@ -41,8 +43,9 @@ public:
 	virtual const ECS& get_ecs() const override { return *this; }
 
 	// Used by GameEngine
-	void add_object(Object& object) { objects.emplace(object.get_id(), &object); }
+	void add_object(Object& object);
 	void remove_object(const ObjectID id);
+	void reset_preserving_transient_transformations();
 
 	// Used by ECSComponents
 	Object& get_object(const ObjectID id);
