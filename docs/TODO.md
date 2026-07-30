@@ -65,6 +65,11 @@ later moved off the game thread.
 
 ## mutexes and lockguards in GUI and common.hpp
 
+## Remove static Material/Mesh Systems
+
+## Add serialization support for procedurally generated resources
+### Add Cache for procedurally generated resourcees
+
 ## Deferred graphics resource retirement
 
 Remove runtime `vkDeviceWaitIdle()` calls from topology reconciliation and
