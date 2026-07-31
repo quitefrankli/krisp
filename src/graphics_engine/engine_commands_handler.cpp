@@ -34,16 +34,15 @@ void GraphicsEngine::handle_command(SetRenderModeCmd& cmd)
 void GraphicsEngine::handle_command(PreviewObjectsCmd& cmd)
 {
 	offscreen_rendering_objects.clear();
+	offscreen_rendering_object_ids.clear();
 	for (const auto& id : cmd.objects)
 	{
-		auto it = objects.find(id);
-		if (it == objects.end())
-		{
-			LOG_WARNING(Utility::get_logger(), "PreviewObjectsCmd: ignoring obj with id:={}", id.get_underlying());
-			continue;
-		}
-
-		offscreen_rendering_objects.emplace(id, it->second.get());
+		offscreen_rendering_object_ids.insert(id);
+		std::vector<GraphicsRenderable*> matches;
+		for (auto& [_, renderable] : renderables)
+			if (renderable->get_object_id() == id)
+				matches.push_back(renderable.get());
+		offscreen_rendering_objects.emplace(id, std::move(matches));
 	}
 
 	Renderer& renderer = get_renderer_mgr().get_renderer(ERendererType::OFFSCREEN_GUI_VIEWPORT);

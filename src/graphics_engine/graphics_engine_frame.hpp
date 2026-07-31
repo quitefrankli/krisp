@@ -12,8 +12,6 @@
 
 class GraphicsEngineSwapChain;
 
-class GraphicsEngineObject;
-
 // Note that frame refers to swap_chain frame and not actual frames
 class GraphicsEngineFrame : public GraphicsEngineBaseModule
 {

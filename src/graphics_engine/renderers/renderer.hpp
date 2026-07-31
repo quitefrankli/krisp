@@ -25,7 +25,6 @@ enum class ERendererType
 	PARTICLE,
 };
 
-class GraphicsEngineObject;
 class GraphicsEnginePipeline;
 
 // A renderer is simply anything that submits draw commands and fills up a command buffer

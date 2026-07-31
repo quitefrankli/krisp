@@ -48,8 +48,9 @@ void ColliderSystem::add_mesh_collider(const EntityID id, const ColliderPersiste
 	bool has_triangles = false;
 	bool has_bounds = false;
 	AABB combined_bounds;
-	for (const auto& renderable : get_ecs().get_object(id).renderables)
+	for (const auto renderable_id : get_ecs().get_renderable_ids(id))
 	{
+		const auto& renderable = get_ecs().get_renderable(renderable_id).renderable;
 		const auto mesh_id = renderable.get_mesh_id();
 		const auto& pick_data = MeshSystem::get(mesh_id).get_pick_data();
 		mesh_ids.push_back(mesh_id);

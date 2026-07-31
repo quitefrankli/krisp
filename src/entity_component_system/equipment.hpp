@@ -32,7 +32,8 @@ public:
 	virtual ECS& get_ecs() = 0;
 	virtual const ECS& get_ecs() const = 0;
 
-	bool equip(Entity wearer, Entity item, const EquipmentDefinition& definition);
+	bool equip(Entity wearer, RenderableID source_renderable, Entity item,
+		const EquipmentDefinition& definition);
 	std::optional<Entity> unequip(Entity wearer, EquipmentSlot slot);
 	std::optional<Entity> equipped_item(Entity wearer, EquipmentSlot slot) const;
 	void serialize(Serializer& out) const;
@@ -40,6 +41,8 @@ public:
 
 protected:
 	void remove_entity(Entity id);
+	void on_renderable_removed(RenderableID id);
+	friend class RenderableSystem;
 
 private:
 	static constexpr size_t slot_count = 4;
@@ -47,6 +50,7 @@ private:
 	struct EquippedItem
 	{
 		Entity item;
+		RenderableID source_renderable;
 		EquipmentDefinition definition;
 	};
 

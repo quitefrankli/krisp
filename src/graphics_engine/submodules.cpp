@@ -4,7 +4,7 @@
 #include "graphics_engine_screenshot.ipp"
 #include "graphics_engine_recording.ipp"
 #include "graphics_engine_gui_manager.ipp"
-#include "graphics_engine_object.ipp"
+#include "graphics_renderable.ipp"
 #include "graphics_engine_swap_chain.ipp"
 #include "graphics_engine_texture.ipp"
 #include "graphics_engine_validation_layer.ipp"

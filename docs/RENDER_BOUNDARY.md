@@ -6,9 +6,17 @@ latest-wins mailbox. Publication never waits for graphics, and loading the
 latest publication never waits for the game thread.
 
 Each frame contains all state needed by rasterization: camera and light state,
-object visibility and local hierarchy transforms, particle instances, animated
-bone poses, and shared immutable object/skeleton definitions. Definitions own
-their mesh and material handles and carry monotonically changing versions.
+particle instances, one state and immutable versioned definition per
+`RenderableID`, and animated bone poses keyed by `SkeletonID`. A renderable
+definition retains its mesh and material handles and records optional
+`ObjectID` grouping metadata and an optional skeleton binding. Renderable state
+contains its already-composed world transform and effective visibility.
+
+`RenderableID` is the stable topology identity across the boundary. `ObjectID`
+is not a graphics ownership key: graphics uses it only to group renderables for
+object-level controls such as stencil selection, previews, and active-light
+shadow suppression. Effective object visibility is composed before publication.
+Standalone renderables have no group and are unaffected by object commands.
 
 The graphics thread loads at most one completed publication at the start of a
 graphics-loop iteration. It retains that same `shared_ptr<const RenderFrame>`
@@ -17,11 +25,19 @@ particle, or bone data from different game updates. If several game frames are
 published during a slow draw, only the newest is accepted by the next graphics
 iteration.
 
-Graphics-owned objects are reconciled only when object membership, object
-definition versions, skeleton membership, or skeleton definition versions
-change. Dynamic-only frames reuse existing buffers and descriptor sets.
-Topology replacement waits for graphics-device synchronization before
-replacing affected graphics resources. Mesh and material GPU allocations are
+Graphics-owned renderables are reconciled independently when renderable
+membership or definition versions change. Changing or removing one attachment
+does not recreate other renderables in its object group. Dynamic-only frames
+reuse the existing transform buffers and descriptor sets.
+
+Skeleton GPU resources are independently keyed by `SkeletonID`. One bone-buffer
+slot per skeleton and swap-chain frame is updated from the published pose and
+bound by every renderable that references that skeleton. Skeleton membership
+or definition changes reconcile the affected shared skeleton resource and its
+referencing descriptors without making a skeleton the owner of a renderable.
+
+Topology replacement currently waits for graphics-device synchronization
+before replacing affected resources. Mesh and material GPU allocations are
 retired by the graphics thread after their final immutable CPU owner is
 released and the device is synchronized.
 

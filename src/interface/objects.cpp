@@ -14,6 +14,9 @@
 
 ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 	original_axis(original_axis)
+{}
+
+Renderable ScaleGizmoObj::make_renderable()
 {
 	MeshPtr rod_ptr = MeshFactory::cylinder();
 	MeshPtr block_ptr = MeshFactory::cube();
@@ -39,7 +42,7 @@ ScaleGizmoObj::ScaleGizmoObj(const glm::vec3& original_axis) :
 
 	auto mesh = MeshSystem::add(std::make_unique<ColorMesh>(std::move(rod_vertices), std::move(rod_indices)));
 
-	renderables = { Renderable::make_default(std::move(mesh)) };
+	return Renderable::make_default(std::move(mesh));
 }
 
 void ScaleGizmoObj::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)

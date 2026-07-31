@@ -10,14 +10,14 @@
 #include <iostream>
 
 
-Arrow::Arrow()
+Renderable Arrow::make_renderable()
 {
 	const int nVertices = 8;
 	Renderable renderable;
 	renderable.mesh_owner = MeshSystem::add(MeshFactory::arrow(INITIAL_RADIUS, nVertices));
 	renderable.material_owners.push_back(
 		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW)));
-	renderables = { std::move(renderable) };
+	return renderable;
 }
 
 void Arrow::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)
@@ -34,7 +34,7 @@ void Arrow::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)
 	transform.set_scale(scale);
 }
 
-ArcObject::ArcObject()
+Renderable ArcObject::make_renderable()
 {
 	const int nVertices = 8;
 	
@@ -43,5 +43,5 @@ ArcObject::ArcObject()
 		MeshFactory::arc(nVertices, INITIAL_OUTER_RAIUS, INITIAL_INNER_RADIUS));
 	renderable.material_owners.push_back(
 		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC)));
-	renderables.push_back(std::move(renderable));
+	return renderable;
 }

@@ -49,7 +49,7 @@ GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
 		BONE_BUFFER_CAPACITY, 
 		BONE_BUFFER_USAGE_FLAGS, 
 		BONE_BUFFER_MEMORY_FLAGS, 
-		1, 
+		engine.get_device_module().get_physical_device_properties().properties.limits.minStorageBufferOffsetAlignment,
 		"bone_buffer")),
 	staging_buffer(create_buffer(
 		INITIAL_STAGING_BUFFER_CAPACITY, 
@@ -79,7 +79,7 @@ GraphicsBufferManager::~GraphicsBufferManager()
 	staging_buffer.destroy(get_logical_device());
 }
 
-void GraphicsBufferManager::write_to_buffer(ObjectRenderableFrameID id, const SDS::ObjectData& ubos)
+void GraphicsBufferManager::write_to_buffer(RenderableFrameID id, const SDS::ObjectData& ubos)
 {
 	std::byte* mapped_memory = uniform_buffer.map_slot(id.get_underlying(), get_logical_device());
 	*reinterpret_cast<SDS::ObjectData*>(mapped_memory) = ubos;

@@ -115,25 +115,26 @@ class SkeletalSystem
 {
 public:
 	virtual ECS& get_ecs() = 0;
+	virtual const ECS& get_ecs() const = 0;
 
 	SkeletonID add_skeleton(const std::vector<Bone>& bones);
-	void attach_skeleton(Entity id, SkeletonID skeleton_id);
-	std::optional<SkeletonID> get_skeleton_id(Entity id) const;
+	bool remove_skeleton(SkeletonID id);
 	std::vector<SkeletonID> get_skeleton_ids() const;
 	bool has_skeleton(SkeletonID id) const { return skeletons.contains(id); }
 	std::vector<SDS::Bone> get_bones(SkeletonID id) const { return skeletons.at(id).get_bones_data(); }
 	SkeletalComponent& get_skeletal_component(SkeletonID id) { return skeletons.at(id); }
 	const SkeletalComponent& get_skeletal_component(SkeletonID id) const { return skeletons.at(id); }
 	void process(float delta_secs);
-	// Keeps an entity aligned to a named bone. The skeleton entity's first
-	// renderable supplies its imported model transform; the optional local
-	// transform is then applied in bone space.
+	// Keeps an entity aligned to a named bone. The exact source renderable
+	// supplies both the skeleton binding and its composed visual transform.
 	bool attach_entity_to_bone(
-		Entity attached, Entity skeleton_entity, std::string_view bone_name,
+		Entity attached, RenderableID source_renderable, std::string_view bone_name,
 		Maths::Transform local_transform = {});
 	bool detach_entity_from_bone(Entity attached);
+	void on_renderable_removed(RenderableID id);
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);
+	void deserialize_bone_attachments(const Deserializer& in);
 
 protected:
 	void remove_entity(Entity id);
@@ -141,13 +142,12 @@ protected:
 private:
 	struct BoneAttachment
 	{
-		Entity skeleton_entity;
+		RenderableID source_renderable;
 		uint32_t bone_index;
 		Maths::Transform local_transform;
 	};
 
 	std::unordered_map<SkeletonID, SkeletalComponent> skeletons;
-	std::unordered_map<Entity, SkeletonID> entity_skeletons;
 	std::unordered_map<Entity, BoneAttachment> bone_attachments;
 };
 
@@ -192,9 +192,6 @@ public:
 	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);
-
-protected:
-	void remove_entity(Entity id);
 
 private:
 	struct AnimationState

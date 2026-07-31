@@ -477,9 +477,14 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				.source = provenance_source, .scene = scene_index, .node = instance.node_index,
 				.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
 			for (const auto material_id : loaded_material.ids)
+			{
+				const auto* texture = dynamic_cast<const TextureMaterial*>(
+					&MaterialSystem::get(material_id));
 				ResourceProvenance::register_material(material_id, {
 					.source = provenance_source, .scene = scene_index, .node = instance.node_index,
-					.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
+					.primitive = static_cast<int>(primitive_index), .material = primitive.material,
+					.texture = texture ? static_cast<int>(texture->semantic) : -1, .skin = node.skin });
+			}
 			renderable.material_owners = std::move(material_owners);
 			renderable.alpha_mode = loaded_material.alpha_mode;
 			renderable.alpha_cutoff = loaded_material.alpha_cutoff;

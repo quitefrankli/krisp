@@ -1,5 +1,8 @@
 #include "resource_provenance.hpp"
 
+#include "entity_component_system/material_system.hpp"
+#include "entity_component_system/mesh_system.hpp"
+
 namespace
 {
 std::unordered_map<MeshID, ImportedResourceProvenance> meshes;
@@ -23,6 +26,25 @@ const ImportedResourceProvenance* ResourceProvenance::mesh(MeshID id) { return f
 const ImportedResourceProvenance* ResourceProvenance::material(MaterialID id) { return find(materials, id); }
 const ImportedResourceProvenance* ResourceProvenance::skeleton(SkeletonID id) { return find(skeletons, id); }
 const ImportedResourceProvenance* ResourceProvenance::animation(AnimationID id) { return find(animations, id); }
+std::optional<MeshID> ResourceProvenance::find_mesh(const ImportedResourceProvenance& provenance)
+{
+	for (const auto& [id, value] : meshes)
+		if (MeshSystem::contains(id)
+			&& value.source == provenance.source && value.scene == provenance.scene
+			&& value.node == provenance.node && value.primitive == provenance.primitive)
+			return id;
+	return std::nullopt;
+}
+std::optional<MaterialID> ResourceProvenance::find_material(const ImportedResourceProvenance& provenance)
+{
+	for (const auto& [id, value] : materials)
+		if (MaterialSystem::contains(id)
+			&& value.source == provenance.source && value.scene == provenance.scene
+			&& value.node == provenance.node && value.primitive == provenance.primitive
+			&& value.material == provenance.material && value.texture == provenance.texture)
+			return id;
+	return std::nullopt;
+}
 std::optional<SkeletonID> ResourceProvenance::find_skeleton(const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : skeletons)
@@ -40,6 +62,7 @@ std::optional<AnimationID> ResourceProvenance::find_animation(const ImportedReso
 }
 void ResourceProvenance::erase_mesh(MeshID id) { meshes.erase(id); }
 void ResourceProvenance::erase_material(MaterialID id) { materials.erase(id); }
+void ResourceProvenance::erase_skeleton(SkeletonID id) { skeletons.erase(id); }
 void ResourceProvenance::erase_animation(AnimationID id) { animations.erase(id); }
 void ResourceProvenance::clear()
 {

@@ -29,9 +29,12 @@ vertex; additional `JOINTS_n` or `WEIGHTS_n` sets are rejected. Give every
 joint a unique, non-empty name if the skeleton will use separately imported
 animations.
 
-Loading a skinned mesh creates its skeleton and attaches that skeleton to the
-resulting object. Animation files are then imported against this skeleton using
-the compatibility rules below.
+Loading a skinned mesh creates independently owned skeletal state and returns
+its `SkeletonID` beside the unattached renderables. Callers bind that ID when
+they add each skinned renderable attachment. The binding belongs to the
+attachment, not to its optional object group, and several renderables may share
+the same skeleton pose and animation state. Animation files are imported
+against that skeleton using the compatibility rules below.
 
 ## Animation files
 
@@ -42,7 +45,7 @@ file must contain:
 
 * at least one animation clip;
 * at least one skin; and
-* exactly one skin compatible with the target object's skeleton.
+* exactly one skin compatible with the target skeleton.
 
 A skin is compatible when it has the same number of joints as the target
 skeleton loaded from the skinned mesh, every joint has a unique non-empty name,

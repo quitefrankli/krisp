@@ -121,12 +121,11 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 							0,
 							nullptr);
 
-	for (const auto& it_pair : graphics_objects)
+	for (const auto& [_, group_renderables] : graphics_objects)
 	{
-		const auto& graphics_object = *(it_pair.second);
-		for (uint32_t renderable_idx=0; renderable_idx<graphics_object.get_renderables().size(); ++renderable_idx)
+		for (const GraphicsRenderable* graphics_renderable : group_renderables)
 		{
-			const RenderableDefinition& renderable = graphics_object.get_renderables()[renderable_idx];
+			const RenderableDefinition& renderable = graphics_renderable->get_definition();
 			
 			// only support color and texture render types for now
 			if (renderable.pipeline_render_type != ERenderType::COLOR &&
@@ -137,8 +136,8 @@ void OffscreenGuiViewportRenderer::submit_draw_commands(VkCommandBuffer command_
 
 			draw_renderable(command_buffer, 
 							renderable, 
-							graphics_object.get_renderable_frame_dset(frame_index, renderable_idx),
-							graphics_object.get_renderable_dsets()[renderable_idx], 
+							graphics_renderable->get_frame_dset(frame_index),
+							graphics_renderable->get_dset(),
 							EPipelineModifier::NONE, 
 							ERenderType::LIGHTWEIGHT_OFFSCREEN_PIPELINE);
 		}

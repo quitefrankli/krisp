@@ -61,14 +61,16 @@ void GameEngine::init()
 {
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
 	graphics_engine->set_ui_layers_active(true, false);
-	auto camera_focus_object = std::make_shared<Object>(
-		Renderable::make_default(MeshSystem::add(MeshFactory::sphere())));
+	auto camera_focus_object = std::make_shared<Object>();
 	camera_focus_object->set_transient(true);
 	auto& camera_focus = spawn_object(std::move(camera_focus_object));
+	attach_renderable(camera_focus.get_id(),
+		Renderable::make_default(MeshSystem::add(MeshFactory::sphere())));
 	auto camera_upvector_object = std::make_shared<Arrow>();
 	camera_upvector_object->set_transient(true);
 	auto& camera_upvector = static_cast<Arrow&>(spawn_object(
 		std::shared_ptr<Object>(std::move(camera_upvector_object))));
+	attach_renderable(camera_upvector.get_id(), Arrow::make_renderable());
 	camera = std::make_unique<Camera>(
 		ecs,
 		Listener(audio_engine),
@@ -115,7 +117,9 @@ void GameEngine::configure_ecs()
 			};
 		}
 
-		return spawn_object<Object>(*tile_renderable);
+		auto& object = spawn_object<Object>();
+		attach_renderable(object.get_id(), *tile_renderable);
+		return object;
 	});
 }
 
@@ -335,7 +339,6 @@ Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 {
 	if (objects.contains(object->get_id()))
 		throw std::runtime_error("GameEngine::spawn_object: duplicate object id");
-	validate_renderable_resources(*object);
 	auto it = objects.emplace(object->get_id(), std::move(object));
 	Object& new_obj = *(it.first->second);
 	ecs.add_object(new_obj);
@@ -359,6 +362,25 @@ Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	return new_obj;
 }
 
+RenderableID GameEngine::attach_renderable(
+	const ObjectID object_id,
+	Renderable renderable,
+	const std::optional<SkeletonID> skeleton_id)
+{
+	validate_renderable_resources(renderable);
+	return ecs.add_renderable(std::move(renderable), object_id, skeleton_id);
+}
+
+std::vector<RenderableID> GameEngine::attach_renderables(
+	const ObjectID object_id,
+	std::vector<Renderable> renderables,
+	const std::optional<SkeletonID> skeleton_id)
+{
+	for (const auto& renderable : renderables)
+		validate_renderable_resources(renderable);
+	return ecs.add_renderables(std::move(renderables), object_id, skeleton_id);
+}
+
 void GameEngine::spawn_cubemap()
 {
 	Renderable renderable;
@@ -371,26 +393,25 @@ void GameEngine::spawn_cubemap()
 		renderable.material_owners.push_back(ResourceLoader::fetch_texture(
 			fmt::format("skybox/{}.jpg", texture_name)));
 	}
-	spawn_object<Object>(std::move(renderable));
+	auto& object = spawn_object<Object>();
+	attach_renderable(object.get_id(), std::move(renderable));
 }
 
-void GameEngine::validate_renderable_resources(const Object& object)
+void GameEngine::validate_renderable_resources(const Renderable& renderable)
 {
-	for (const auto& renderable : object.renderables)
+	if (!renderable.mesh_owner || !MeshSystem::contains(renderable.get_mesh_id()))
+		throw std::runtime_error("GameEngine::attach_renderable: mesh owner is missing or invalid");
+	for (const auto& material_owner : renderable.material_owners)
 	{
-		if (!renderable.mesh_owner || !MeshSystem::contains(renderable.get_mesh_id()))
-			throw std::runtime_error("GameEngine::spawn_object: mesh owner is missing or invalid");
-		for (const auto& material_owner : renderable.material_owners)
-		{
-			if (!material_owner || !MaterialSystem::contains(MaterialSystem::get_id(material_owner)))
-				throw std::runtime_error("GameEngine::spawn_object: material owner is missing or invalid");
-		}
+		if (!material_owner || !MaterialSystem::contains(MaterialSystem::get_id(material_owner)))
+			throw std::runtime_error("GameEngine::attach_renderable: material owner is missing or invalid");
 	}
 }
 
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
 {
-	auto& obj = spawn_object<Object>(Renderable::make_default());
+	auto& obj = spawn_object<Object>();
+	attach_renderable(obj.get_id(), Renderable::make_default());
 	ecs.get_transformation(obj.get_id()).set_scale(glm::vec3(0.2f));
 	obj.set_visibility(false);
 	ecs.spawn_particle_emitter(obj.get_id(), config);
@@ -459,7 +480,8 @@ void GameEngine::reset_scene_state()
 	tile_renderable.reset();
 	configure_ecs();
 	for (const auto& [_, object] : objects)
-		ecs.add_object(*object);
+		if (!ecs.has_object(object->get_id()))
+			ecs.add_object(*object);
 	gizmo->register_colliders();
 
 	camera->set_mode(Camera::Mode::ORBIT);
@@ -477,17 +499,13 @@ void GameEngine::unhighlight_object(const Object& object)
 }
 
 void GameEngine::replace_renderable_texture(
-	const ObjectID object_id,
-	const size_t renderable_index,
+	const RenderableID renderable_id,
 	const ETextureSemantic semantic,
 	std::optional<std::string> texture_filename)
 {
-	Object* object = get_object(object_id);
-	if (!object)
-		throw std::runtime_error("GameEngine::replace_renderable_texture: object not found");
-	if (renderable_index >= object->renderables.size())
-		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable index is out of range");
-	auto& renderable = object->renderables[renderable_index];
+	if (!ecs.has_renderable(renderable_id))
+		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable not found");
+	auto renderable = ecs.get_renderable(renderable_id).renderable;
 	if (renderable.pipeline_render_type != ERenderType::STANDARD
 		&& renderable.pipeline_render_type != ERenderType::SKINNED)
 		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable does not support textures");
@@ -554,14 +572,14 @@ void GameEngine::replace_renderable_texture(
 			: take_old_owner(*current.specular_mat));
 	renderable.material_owners = std::move(updated_owners);
 	old_owners.clear();
+	ecs.set_renderable(renderable_id, std::move(renderable));
 }
 
-void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const size_t renderable_index)
+void GameEngine::set_renderable_specular_matte(const RenderableID renderable_id)
 {
-	Object* object = get_object(object_id);
-	if (!object || renderable_index >= object->renderables.size())
-		throw std::runtime_error("GameEngine::set_renderable_specular_matte: object or renderable not found");
-	auto& renderable = object->renderables[renderable_index];
+	if (!ecs.has_renderable(renderable_id))
+		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable not found");
+	auto renderable = ecs.get_renderable(renderable_id).renderable;
 	if (renderable.pipeline_render_type != ERenderType::STANDARD
 		&& renderable.pipeline_render_type != ERenderType::SKINNED)
 		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable does not support textures");
@@ -591,6 +609,7 @@ void GameEngine::set_renderable_specular_matte(const ObjectID object_id, const s
 	updated_owners.push_back(std::move(matte_owner));
 	renderable.material_owners = std::move(updated_owners);
 	old_owners.clear();
+	ecs.set_renderable(renderable_id, std::move(renderable));
 }
 
 EngineUiManager& GameEngine::get_gui_manager()
@@ -673,11 +692,6 @@ void GameEngine::load_scene(const std::string_view save_name)
 	std::ostringstream contents;
 	contents << stream.rdbuf();
 	const auto document = Deserializer::parse(contents.str());
-	const auto document_keys = document.keys();
-	if (std::ranges::find(document_keys, "materials") != document_keys.end()
-		&& !document.child("materials").elements().empty())
-		throw SerializationError(
-			"Procedurally generated materials cannot be deserialized at $.materials");
 
 	std::vector<Deserializer> saved_objects;
 	std::unordered_map<ObjectID, bool> ids;
@@ -706,35 +720,18 @@ void GameEngine::load_scene(const std::string_view save_name)
 		return imported_models.emplace(
 			cache_key, ResourceLoader::load_model(ecs, path, options)).first->second;
 	};
+	for (const auto& saved : document.child("ecs").child("skeletal_system").elements())
+	{
+		const auto fields = saved.keys();
+		if (std::ranges::find(fields, "imported_source") != fields.end())
+			load_imported_model(saved.child("imported_source"));
+	}
+	for (const auto& saved : document.child("ecs").child("renderable_system").elements())
+		load_imported_model(saved.child("mesh_source"));
 	for (auto& saved : saved_objects)
 	{
 		auto object = TypeRegistry::create(saved.read<std::string>("type"));
 		object->deserialize(saved);
-		const auto saved_renderables = saved.child("renderables").elements();
-		for (size_t renderable_index = 0; renderable_index < object->renderables.size(); ++renderable_index)
-		{
-			auto& renderable = object->renderables[renderable_index];
-			const auto& saved_renderable = saved_renderables.at(renderable_index);
-			const auto fields = saved_renderable.keys();
-			if (std::ranges::find(fields, "mesh_source") != fields.end())
-			{
-				const auto source = saved_renderable.child("mesh_source");
-				const auto& model = load_imported_model(source);
-				const int node = source.read<int>("node");
-				const int primitive = source.read<int>("primitive");
-				const auto loaded_mesh = std::ranges::find_if(model.meshes, [node](const auto& mesh) {
-					return mesh.source_node == node;
-				});
-				if (loaded_mesh == model.meshes.end() || primitive < 0
-					|| primitive >= static_cast<int>(loaded_mesh->renderables.size()))
-					throw SerializationError("Invalid imported mesh reference at " + saved_renderable.path());
-				renderable = loaded_mesh->renderables[primitive];
-				if (loaded_mesh->skeleton_id)
-					ecs.attach_skeleton(object->get_id(), *loaded_mesh->skeleton_id);
-				continue;
-			}
-		}
-		validate_renderable_resources(*object);
 		const auto id = object->get_id();
 		objects.emplace(id, object);
 		ecs.add_object(*object);

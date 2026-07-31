@@ -95,36 +95,62 @@ TEST(RenderFrame, immutable_definitions_retain_mesh_and_material_assets)
 	const MeshID mesh_id = MeshSystem::get_id(mesh);
 	const MaterialID material_id = MaterialSystem::get_id(material);
 
-	auto definition = std::make_shared<const RenderObjectDefinition>(RenderObjectDefinition{
-		.id = ObjectID(5),
+	auto definition = std::make_shared<const RenderableDefinition>(RenderableDefinition{
+		.pipeline_render_type = ERenderType::SKINNED_COLOR,
+		.id = RenderableID(5),
 		.version = 9,
-		.renderables = {
-			{
-				.local_transform = translation({ 1.0f, 2.0f, 3.0f }),
-				.mesh_owner = mesh,
-				.material_owners = { material },
-			},
-		},
+		.object_id = ObjectID(12),
 		.skeleton_id = SkeletonID(8),
+		.mesh_owner = mesh,
+		.material_owners = { material },
 	});
 	mesh.reset();
 	material.reset();
 
 	static_assert(std::is_const_v<std::remove_reference_t<decltype(*definition)>>);
 	static_assert(std::is_same_v<
-		decltype(definition->renderables[0].get_mesh()), const Mesh&>);
+		decltype(definition->get_mesh()), const Mesh&>);
 	static_assert(std::is_same_v<
-		decltype(definition->renderables[0].get_material(0)), const Material&>);
+		decltype(definition->get_material(0)), const Material&>);
 	EXPECT_EQ(definition->version, 9);
+	EXPECT_EQ(definition->object_id, ObjectID(12));
 	EXPECT_EQ(definition->skeleton_id, SkeletonID(8));
-	EXPECT_EQ(definition->renderables[0].get_mesh().get_id(), mesh_id);
-	EXPECT_EQ(definition->renderables[0].get_material(0).get_id(), material_id);
+	EXPECT_EQ(definition->get_mesh().get_id(), mesh_id);
+	EXPECT_EQ(definition->get_material(0).get_id(), material_id);
 	EXPECT_TRUE(MeshSystem::contains(mesh_id));
 	EXPECT_TRUE(MaterialSystem::contains(material_id));
 
 	definition.reset();
 	EXPECT_FALSE(MeshSystem::contains(mesh_id));
 	EXPECT_FALSE(MaterialSystem::contains(material_id));
+}
+
+TEST(RenderFrame, renderable_state_is_already_composed)
+{
+	auto definition = std::make_shared<const RenderableDefinition>(RenderableDefinition{
+		.id = RenderableID(4),
+		.version = 1,
+		.object_id = ObjectID(2),
+	});
+	RenderFrame frame{
+		.renderables = {{
+			.definition = definition,
+			.model_transform = translation({ 3.0f, 2.0f, 1.0f }),
+			.visible = false,
+		}},
+		.active_light = RenderLightState{
+			.object_id = ObjectID(3),
+			.position = { 4.0f, 5.0f, 6.0f },
+		},
+	};
+
+	EXPECT_EQ(frame.renderables[0].definition->id, RenderableID(4));
+	EXPECT_TRUE(matrices_are_equal(
+		frame.renderables[0].model_transform,
+		translation({ 3.0f, 2.0f, 1.0f })));
+	EXPECT_FALSE(frame.renderables[0].visible);
+	EXPECT_EQ(frame.active_light->object_id, ObjectID(3));
+	EXPECT_EQ(frame.active_light->position, glm::vec3(4.0f, 5.0f, 6.0f));
 }
 
 TEST(RenderFrameMailbox, publishes_immutable_latest_completed_frame_pair)

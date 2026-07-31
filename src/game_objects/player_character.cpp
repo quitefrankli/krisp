@@ -25,9 +25,7 @@ MovementAxes movement_axes(
 }
 
 PlayerCharacter::PlayerCharacter(
-	std::vector<Renderable> renderables,
 	PlayerDefinition definition) :
-	Character(std::move(renderables)),
 	definition(std::move(definition))
 {
 }

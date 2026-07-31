@@ -1,0 +1,68 @@
+#pragma once
+
+#include "identifications.hpp"
+#include "renderable/renderable.hpp"
+
+#include <optional>
+#include <functional>
+#include <unordered_map>
+#include <vector>
+
+
+class ECS;
+class Serializer;
+class Deserializer;
+
+struct RenderableAttachment
+{
+	Renderable renderable;
+	std::optional<ObjectID> object_id;
+	std::optional<SkeletonID> skeleton_id;
+	bool visible = true;
+};
+
+class RenderableSystem
+{
+public:
+	virtual ECS& get_ecs() = 0;
+	virtual const ECS& get_ecs() const = 0;
+
+	RenderableID add_renderable(
+		Renderable renderable,
+		std::optional<ObjectID> object_id = {},
+		std::optional<SkeletonID> skeleton_id = {});
+	std::vector<RenderableID> add_renderables(
+		std::vector<Renderable> renderables,
+		std::optional<ObjectID> object_id = {},
+		std::optional<SkeletonID> skeleton_id = {});
+
+	bool has_renderable(RenderableID id) const { return renderables.contains(id); }
+	const RenderableAttachment& get_renderable(RenderableID id) const { return renderables.at(id); }
+	std::vector<RenderableID> get_renderable_ids() const;
+	std::vector<RenderableID> get_renderable_ids(ObjectID object_id) const;
+
+	bool remove_renderable(RenderableID id);
+	void set_renderable(RenderableID id, Renderable renderable);
+	void set_renderable_object(RenderableID id, std::optional<ObjectID> object_id);
+	void set_renderable_skeleton(RenderableID id, std::optional<SkeletonID> skeleton_id);
+	void set_renderable_visibility(RenderableID id, bool visible);
+	glm::mat4 get_renderable_transform(RenderableID id) const;
+	bool get_renderable_visibility(RenderableID id) const;
+
+	bool references_skeleton(SkeletonID id) const;
+	void serialize(Serializer& out) const;
+	void deserialize(const Deserializer& in);
+
+protected:
+	using AttachmentMap = std::unordered_map<RenderableID, RenderableAttachment>;
+	AttachmentMap take_renderables_if(const std::function<bool(ObjectID)>& predicate);
+	void restore_renderables(AttachmentMap values);
+	void remove_object_renderables(ObjectID id);
+
+private:
+	void validate_attachment(const Renderable& renderable,
+		std::optional<ObjectID> object_id, std::optional<SkeletonID> skeleton_id) const;
+	void notify_removing(RenderableID id);
+
+	AttachmentMap renderables;
+};

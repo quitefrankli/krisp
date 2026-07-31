@@ -84,6 +84,8 @@ BoneAnimation::Track<T> read_track(const Deserializer& in, const std::string_vie
 
 void validate_bones(const std::vector<Bone>& bones, const std::string& path)
 {
+	if (bones.empty())
+		throw SerializationError("Skeleton has no bones at " + path);
 	std::vector<uint8_t> state(bones.size());
 	std::function<void(std::size_t)> visit = [&](const std::size_t index) {
 		if (state[index] == 1)
@@ -129,34 +131,27 @@ void SkeletalSystem::serialize(Serializer& out) const
 			Serialization::write_transform(bone_out, "inverse_bind_pose", bone.inverse_bind_pose);
 		}
 	}
-	auto attachments = out.sequence("skeleton_attachments");
-	std::vector<Entity> entities;
-	entities.reserve(entity_skeletons.size());
-	for (const auto& [entity, _] : entity_skeletons) entities.push_back(entity);
-	std::ranges::sort(entities);
-	for (const auto entity : entities) {
-		auto entry = attachments.append_map();
-		entry.write("entity_id", entity.get_underlying());
-		const auto skeleton_id = entity_skeletons.at(entity);
-		if (const auto* provenance = ResourceProvenance::skeleton(skeleton_id)) {
-			auto source = entry.map("imported_source");
-			write_imported_source(source, *provenance);
-		} else
-			entry.write("skeleton_id", skeleton_id.get_underlying());
-	}
 	auto bone_attachments_out = out.sequence("bone_attachments");
-	entities.clear();
+	std::vector<Entity> entities;
 	entities.reserve(bone_attachments.size());
 	for (const auto& [entity, _] : bone_attachments)
 		entities.push_back(entity);
 	std::ranges::sort(entities);
 	for (const auto entity : entities) {
 		const auto& attachment = bone_attachments.at(entity);
-		const auto skeleton = entity_skeletons.at(attachment.skeleton_entity);
-		const auto& bones = skeletons.at(skeleton).get_bones();
+		const auto& source = get_ecs().get_renderable(attachment.source_renderable);
+		if (get_ecs().is_transient_transformation(entity)
+			|| (source.object_id
+				&& get_ecs().is_transient_transformation(*source.object_id)))
+		{
+			continue;
+		}
+		if (!source.skeleton_id)
+			throw SerializationError("Bone attachment source has no skeleton");
+		const auto& bones = skeletons.at(*source.skeleton_id).get_bones();
 		auto entry = bone_attachments_out.append_map();
 		entry.write("entity_id", entity.get_underlying());
-		entry.write("skeleton_entity_id", attachment.skeleton_entity.get_underlying());
+		entry.write("source_renderable_id", attachment.source_renderable.get_underlying());
 		entry.write("bone_name", bones.at(attachment.bone_index).name);
 		Serialization::write_transform(entry, "local_transform", attachment.local_transform);
 	}
@@ -165,8 +160,6 @@ void SkeletalSystem::serialize(Serializer& out) const
 void SkeletalSystem::deserialize(const Deserializer& in)
 {
 	std::unordered_map<SkeletonID, SkeletalComponent> restored;
-	std::unordered_map<Entity, SkeletonID> restored_attachments;
-	std::unordered_map<Entity, BoneAttachment> restored_bone_attachments;
 	const auto entries = in.child("skeletal_system").elements();
 	for (std::size_t index = 0; index < entries.size(); ++index) {
 		const auto& entry = entries[index];
@@ -204,45 +197,45 @@ void SkeletalSystem::deserialize(const Deserializer& in)
 			throw SerializationError("Cannot advance SkeletonID counter beyond uint64 maximum");
 		SkeletonID::set_next_id(std::max(SkeletonID::get_next_id(), maximum + 1));
 	}
-	const auto root_keys = in.keys();
-	if (std::ranges::find(root_keys, "skeleton_attachments") != root_keys.end()) {
-		for (const auto& entry : in.child("skeleton_attachments").elements()) {
-			const Entity entity(entry.read<std::uint64_t>("entity_id"));
-			const auto fields = entry.keys();
-			std::optional<SkeletonID> imported;
-			if (std::ranges::find(fields, "imported_source") != fields.end())
-				imported = ResourceProvenance::find_skeleton(read_imported_source(entry.child("imported_source")));
-			const SkeletonID skeleton_id = imported ? *imported : SkeletonID(entry.read<std::uint64_t>("skeleton_id"));
-			if (!restored.contains(skeleton_id))
-				throw SerializationError("Unknown skeleton ID at " + entry.path());
-			if (!restored_attachments.emplace(entity, skeleton_id).second)
-				throw SerializationError("Duplicate skeleton attachment at " + entry.path());
-		}
-	}
-	if (std::ranges::find(root_keys, "bone_attachments") != root_keys.end()) {
-		for (const auto& entry : in.child("bone_attachments").elements()) {
-			const Entity entity(entry.read<std::uint64_t>("entity_id"));
-			const Entity skeleton_entity(entry.read<std::uint64_t>("skeleton_entity_id"));
-			const auto skeleton_entry = restored_attachments.find(skeleton_entity);
-			if (skeleton_entry == restored_attachments.end())
-				throw SerializationError("Unknown skeleton entity at " + entry.path());
-			const auto& bones = restored.at(skeleton_entry->second).get_bones();
-			const auto bone_name = entry.read<std::string>("bone_name");
-			const auto bone = std::ranges::find(bones, bone_name, &Bone::name);
-			if (bone == bones.end())
-				throw SerializationError("Unknown attachment bone at " + entry.path());
-			BoneAttachment attachment{
-				.skeleton_entity = skeleton_entity,
-				.bone_index = static_cast<uint32_t>(std::distance(bones.begin(), bone)),
-				.local_transform = Serialization::read_transform(entry, "local_transform"),
-			};
-			if (!restored_bone_attachments.emplace(entity, std::move(attachment)).second)
-				throw SerializationError("Duplicate bone attachment at " + entry.path());
-		}
-	}
+	for (const auto& [id, _] : skeletons)
+		if (!restored.contains(id))
+			ResourceProvenance::erase_skeleton(id);
 	skeletons = std::move(restored);
-	entity_skeletons = std::move(restored_attachments);
-	bone_attachments = std::move(restored_bone_attachments);
+	bone_attachments.clear();
+}
+
+void SkeletalSystem::deserialize_bone_attachments(const Deserializer& in)
+{
+	std::unordered_map<Entity, BoneAttachment> restored;
+	const auto root_keys = in.keys();
+	if (std::ranges::find(root_keys, "bone_attachments") == root_keys.end()) {
+		bone_attachments.clear();
+		return;
+	}
+	for (const auto& entry : in.child("bone_attachments").elements()) {
+		const Entity entity(entry.read<std::uint64_t>("entity_id"));
+		const RenderableID source_id(entry.read<std::uint64_t>("source_renderable_id"));
+		if (!get_ecs().has_transformation(entity))
+			throw SerializationError("Unknown attached entity at " + entry.path());
+		if (!get_ecs().has_renderable(source_id))
+			throw SerializationError("Unknown source renderable at " + entry.path());
+		const auto& source = get_ecs().get_renderable(source_id);
+		if (!source.skeleton_id || !skeletons.contains(*source.skeleton_id))
+			throw SerializationError("Source renderable has no valid skeleton at " + entry.path());
+		const auto& bones = skeletons.at(*source.skeleton_id).get_bones();
+		const auto bone_name = entry.read<std::string>("bone_name");
+		const auto bone = std::ranges::find(bones, bone_name, &Bone::name);
+		if (bone == bones.end())
+			throw SerializationError("Unknown attachment bone at " + entry.path());
+		BoneAttachment attachment{
+			.source_renderable = source_id,
+			.bone_index = static_cast<uint32_t>(std::distance(bones.begin(), bone)),
+			.local_transform = Serialization::read_transform(entry, "local_transform"),
+		};
+		if (!restored.emplace(entity, std::move(attachment)).second)
+			throw SerializationError("Duplicate bone attachment at " + entry.path());
+	}
+	bone_attachments = std::move(restored);
 }
 
 void SkeletalAnimationSystem::serialize(Serializer& out) const

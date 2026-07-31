@@ -104,14 +104,16 @@ void TranslationGizmo::init()
 	const std::array destinations = { &xAxis, &yAxis, &zAxis };
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
+		auto renderable = Arrow::make_renderable();
+		renderable.material_owners[0] =
+			MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
+		renderable.casts_shadow = false;
+		renderable.render_on_top = true;
 		auto axis = std::make_shared<Arrow>();
 		auto& spawned = spawn_transient(engine, std::move(axis));
+		engine.attach_renderable(spawned.get_id(), std::move(renderable));
 		spawned.point(engine.get_ecs(), Maths::zero_vec, directions[i]);
 		*destinations[i] = &spawned;
-		auto material_owner = MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
-		spawned.renderables[0].material_owners[0] = std::move(material_owner);
-		spawned.renderables[0].casts_shadow = false;
-		spawned.renderables[0].render_on_top = true;
 	}
 
 	axes = {xAxis, yAxis, zAxis};
@@ -172,13 +174,15 @@ void RotationGizmo::init()
 	const std::array destinations = { &xAxisNorm, &yAxisNorm, &zAxisNorm };
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto axis = std::make_shared<ArcObject>();
-		auto material_owner = MaterialSystem::add(
+		auto renderable = ArcObject::make_renderable();
+		renderable.material_owners[0] = MaterialSystem::add(
 			MaterialFactory::fetch_preset(rotation_axis_materials[i]));
-		axis->renderables[0].material_owners[0] = std::move(material_owner);
-		axis->renderables[0].casts_shadow = false;
-		axis->renderables[0].render_on_top = true;
-		*destinations[i] = &spawn_transient(engine, std::move(axis));
+		renderable.casts_shadow = false;
+		renderable.render_on_top = true;
+		auto axis = std::make_shared<ArcObject>();
+		auto& spawned = spawn_transient(engine, std::move(axis));
+		engine.attach_renderable(spawned.get_id(), std::move(renderable));
+		*destinations[i] = &spawned;
 	}
 	transformation(engine, *xAxisNorm).set_rotation(
 		glm::angleAxis(-Maths::PI/2.0f, Maths::up_vec));
@@ -248,14 +252,16 @@ void ScaleGizmo::init()
 	const std::array destinations = { &xAxis, &yAxis, &zAxis };
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
+		auto renderable = ScaleGizmoObj::make_renderable();
+		renderable.material_owners[0] =
+			MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
+		renderable.casts_shadow = false;
+		renderable.render_on_top = true;
 		auto axis = std::make_shared<ScaleGizmoObj>(directions[i]);
 		auto& spawned = spawn_transient(engine, std::move(axis));
+		engine.attach_renderable(spawned.get_id(), std::move(renderable));
 		spawned.point(engine.get_ecs(), Maths::zero_vec, directions[i]);
 		*destinations[i] = &spawned;
-		auto material_owner = MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
-		spawned.renderables[0].material_owners[0] = std::move(material_owner);
-		spawned.renderables[0].casts_shadow = false;
-		spawned.renderables[0].render_on_top = true;
 	}
 
 	axes = {xAxis, yAxis, zAxis};
@@ -278,8 +284,9 @@ void ScaleGizmo::init()
 		renderable.material_owners[0] = std::move(material_owner);
 		renderable.casts_shadow = false;
 		renderable.render_on_top = true;
-		auto object = std::make_shared<Object>(std::move(renderable));
+		auto object = std::make_shared<Object>();
 		uniformCube = &spawn_transient(engine, std::move(object));
+		engine.attach_renderable(uniformCube->get_id(), std::move(renderable));
 	}
 	transformation(engine, *uniformCube).attach_to(get_id());
 

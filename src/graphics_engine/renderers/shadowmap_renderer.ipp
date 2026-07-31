@@ -126,21 +126,20 @@ void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
 
 
 	const auto& frame = get_graphics_engine().get_render_frame();
-	const std::optional<ObjectID> active_light_id = frame.active_light
-		? std::optional<ObjectID>(
-			frame.objects[frame.active_light->object_index].definition->id)
-		: std::nullopt;
 	for (const GraphicsDrawItem* item : get_graphics_engine().get_draw_lists().shadow())
 	{
-		if (!item->object->get_visibility())
+		if (!item->graphics_renderable->get_visibility())
 			continue;
-		if (active_light_id == item->sort_key.object_id)
+		if (frame.active_light
+			&& item->graphics_renderable->get_object_id() == frame.active_light->object_id)
+		{
 			continue;
+		}
 		draw_renderable(
 			command_buffer,
 			*item->renderable,
-			item->object->get_renderable_frame_dset(frame_index, item->renderable_index),
-			item->object->get_renderable_dsets()[item->renderable_index],
+			item->graphics_renderable->get_frame_dset(frame_index),
+			item->graphics_renderable->get_dset(),
 			EPipelineModifier::SHADOW_MAP);
 	}
 	

@@ -23,6 +23,8 @@ using RenderDefinitionVersion = uint64_t;
 
 // Frame-independent draw data. The handles keep the immutable CPU assets alive
 // for as long as a published definition can be retained by a consumer.
+// Reusable per-renderable topology. A producer must publish a new version when
+// draw resources, group metadata, or skeleton binding changes for this ID.
 struct RenderableDefinition
 {
 	ERenderType pipeline_render_type = ERenderType::COLOR;
@@ -31,8 +33,10 @@ struct RenderableDefinition
 	float opacity = 1.0f;
 	bool casts_shadow = true;
 	bool render_on_top = false;
-	// Asset-local placement applied after the owning object's model transform.
-	glm::mat4 local_transform{ 1.0f };
+	RenderableID id{ 0 };
+	RenderDefinitionVersion version = 0;
+	std::optional<ObjectID> object_id;
+	std::optional<SkeletonID> skeleton_id;
 	MeshHandle mesh_owner;
 	std::vector<MaterialHandle> material_owners;
 
@@ -55,31 +59,16 @@ struct RenderableDefinition
 			ids.push_back(MaterialSystem::get_id(owner));
 		return ids;
 	}
-	glm::mat4 get_model_transform(const glm::mat4& object_transform) const
-	{
-		return object_transform * local_transform;
-	}
 };
 
-// Reusable object topology. A producer must publish a new version whenever the
-// renderables or skeleton binding for this ID changes.
-struct RenderObjectDefinition
-{
-	ObjectID id;
-	RenderDefinitionVersion version = 0;
-	std::vector<RenderableDefinition> renderables;
-	std::optional<SkeletonID> skeleton_id;
-};
+using RenderableDefinitionPtr = std::shared_ptr<const RenderableDefinition>;
 
-using RenderObjectDefinitionPtr = std::shared_ptr<const RenderObjectDefinition>;
-
-// Frame-varying object data. parent_index addresses RenderFrame::objects;
-// RENDER_FRAME_NO_PARENT means local_transform is already world-relative.
-struct RenderObjectState
+// Frame-varying instance data. The producer publishes an already composed
+// model transform and effective visibility for each renderable.
+struct RenderableState
 {
-	RenderObjectDefinitionPtr definition;
-	glm::mat4 local_transform{ 1.0f };
-	uint32_t parent_index = RENDER_FRAME_NO_PARENT;
+	RenderableDefinitionPtr definition;
+	glm::mat4 model_transform{ 1.0f };
 	bool visible = true;
 };
 
@@ -116,11 +105,10 @@ struct RenderCameraState
 	glm::vec3 position{ 0.0f };
 };
 
-// The selected light refers to an object in the same frame so its composed
-// transform supplies the light position.
 struct RenderLightState
 {
-	uint32_t object_index = 0;
+	ObjectID object_id;
+	glm::vec3 position{ 0.0f };
 	float intensity = 1.0f;
 	glm::vec3 color{ 1.0f };
 };
@@ -131,7 +119,7 @@ struct RenderFrame
 {
 	uint64_t frame_number = 0;
 	RenderCameraState camera;
-	std::vector<RenderObjectState> objects;
+	std::vector<RenderableState> renderables;
 	std::vector<RenderSkeletonPose> skeletons;
 	std::vector<SDS::ParticleInstanceData> particles;
 	std::optional<RenderLightState> active_light;

@@ -19,6 +19,7 @@ void ECS::serialize(Serializer& out) const
 	ColliderSystem::serialize(out);
 	PhysicsSystem::serialize(out);
 	SkeletalSystem::serialize(out);
+	RenderableSystem::serialize(out);
 	SkeletalAnimationSystem::serialize(out);
 	EquipmentSystem::serialize(out);
 	TileSystem::serialize(out);
@@ -33,6 +34,8 @@ void ECS::deserialize(const Deserializer& in)
 	ColliderSystem::deserialize(in);
 	PhysicsSystem::deserialize(in);
 	SkeletalSystem::deserialize(in);
+	RenderableSystem::deserialize(in);
+	SkeletalSystem::deserialize_bone_attachments(in);
 	SkeletalAnimationSystem::deserialize(in);
 	EquipmentSystem::deserialize(in);
 	TileSystem::deserialize(in);
@@ -50,11 +53,9 @@ void ECS::add_object(Object& object)
 
 void ECS::remove_object(const ObjectID id) 
 {
-	// Stop skeletal animations before removing their skeletons. Otherwise the
-	// next animation tick retains a stale SkeletonID and accesses erased data.
-	SkeletalAnimationSystem::remove_entity(id);
 	EquipmentSystem::remove_entity(id);
 	SkeletalSystem::remove_entity(id);
+	RenderableSystem::remove_object_renderables(id);
 	LightSystem::remove_entity(id);
 	ColliderSystem::remove_entity(id);
 	ClickableSystem::remove_entity(id);
@@ -68,8 +69,17 @@ void ECS::remove_object(const ObjectID id)
 void ECS::reset_preserving_transient_transformations()
 {
 	auto transformations = take_transient_transformations();
+	auto renderables = take_renderables_if([&transformations](const ObjectID id) {
+		return transformations.has_transformation(id);
+	});
+	std::unordered_map<ObjectID, Object*> transient_objects;
+	for (const auto& [id, object] : objects)
+		if (transformations.has_transformation(id))
+			transient_objects.emplace(id, object);
 	*this = ECS{};
 	static_cast<TransformationSystem&>(*this) = std::move(transformations);
+	objects = std::move(transient_objects);
+	restore_renderables(std::move(renderables));
 }
 
 Object& ECS::get_object(const ObjectID id)

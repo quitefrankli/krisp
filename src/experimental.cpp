@@ -376,7 +376,8 @@ void Experimental::process()
     renderable.casts_shadow = true;
     
     // Create an object with the terrain
-    auto& terrain_obj = engine.spawn_object<Object>(std::move(renderable));
+    auto& terrain_obj = engine.spawn_object<Object>();
+    engine.attach_renderable(terrain_obj.get_id(), std::move(renderable));
     terrain_obj.set_name("Perlin Terrain");
     
     // Position it below the camera for good viewing

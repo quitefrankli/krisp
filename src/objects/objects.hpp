@@ -1,14 +1,16 @@
 #pragma once
 
 #include "object.hpp"
+#include "renderable/renderable.hpp"
 
 class ECS;
 
 class Arrow : public Object
 {
 public:
-	Arrow();
+	Arrow() = default;
 	Arrow(Arrow&&) = delete;
+	static Renderable make_renderable();
 
 	void point(ECS& ecs, const glm::vec3& start, const glm::vec3& end);
 
@@ -19,8 +21,9 @@ public:
 class ArcObject : public Object
 {
 public:
-	ArcObject();
+	ArcObject() = default;
 	ArcObject(ArcObject&&) = delete;
+	static Renderable make_renderable();
 
 	static constexpr float INITIAL_OUTER_RAIUS = 1.0f;
 	static constexpr float INITIAL_INNER_RADIUS = 0.8f;

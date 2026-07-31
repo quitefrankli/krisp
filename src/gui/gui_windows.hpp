@@ -430,8 +430,7 @@ public:
 private:
 	struct TextureChange
 	{
-		ObjectID object_id;
-		size_t renderable_index;
+		RenderableID renderable_id;
 		ETextureSemantic semantic;
 		std::optional<std::string> path;
 		bool matte = false;
@@ -447,6 +446,7 @@ private:
 	std::vector<std::string> texture_paths;
 	std::vector<std::string> texture_names;
 	std::vector<std::string> renderable_labels;
+	std::vector<RenderableID> renderable_ids;
 	GuiVar<int> selected_renderable = 0;
 	std::optional<ObjectID> target_object;
 	std::optional<TextureChange> pending_change;

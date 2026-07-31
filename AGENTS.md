@@ -26,6 +26,8 @@
 
 * Refer to README.md for build instructions.
 
+* Krisp is in early development; do not preserve legacy APIs, save formats, or backwards compatibility unless explicitly requested.
+
 * IMPORTANT: For a new, missing, or stale build directory, or after dependency or build-configuration changes, always use the following sequence to set up dependencies and configure a DEBUG Clang build:
   1. `conan install . -pr=conan_clang_profile --build=missing`
   2. `meson setup build --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug`

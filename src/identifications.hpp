@@ -47,6 +47,7 @@ using ObjectID = GenericID<class ObjectIDTag>;
 using EntityID = ObjectID;
 using MeshID = GenericID<class MeshIDTag>;
 using MaterialID = GenericID<class MaterialIDTag>;
+using RenderableID = GenericID<class RenderableIDTag>;
 using SkeletonID = GenericID<class SkeletonIDTag>;
 using AnimationID = GenericID<class AnimationIDTag>;
 
@@ -119,14 +120,9 @@ struct std::hash<ComplexID<T...>>
 	}
 };
 
-// Packs [object, renderable, frame]. The supplied radices describe the maximum
-// renderables per object and frames per renderable.
-using ObjectRenderableFrameID = ComplexID<
-	ComplexIDRadices<
-		CSTS::MAX_RENDERABLES_PER_OBJECT,
-		CSTS::UPPERBOUND_SWAPCHAIN_IMAGES>,
-	ObjectID,
-	uint32_t,
+// Packs [renderable, frame], reserving one frame range per renderable.
+using RenderableFrameID = ComplexID<ComplexIDRadices<CSTS::UPPERBOUND_SWAPCHAIN_IMAGES>,
+	RenderableID,
 	uint32_t>;
 
 // Packs [skeleton, frame], reserving one frame range per skeleton.

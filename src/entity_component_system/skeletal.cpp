@@ -230,22 +230,23 @@ bool BoneAnimation::get_transform(const float animation_stage_secs, Maths::Trans
 
 SkeletonID SkeletalSystem::add_skeleton(const std::vector<Bone>& bones)
 {
+	if (bones.empty())
+		throw std::invalid_argument("SkeletalSystem::add_skeleton: skeleton is empty");
 	const auto id = SkeletonID::generate_new_id();
 	skeletons.emplace(id, bones);
 	return id;
 }
 
-void SkeletalSystem::attach_skeleton(const Entity id, const SkeletonID skeleton_id)
+bool SkeletalSystem::remove_skeleton(const SkeletonID id)
 {
-	if (!skeletons.contains(skeleton_id))
-		throw std::out_of_range("SkeletalSystem::attach_skeleton: skeleton not found");
-	entity_skeletons.insert_or_assign(id, skeleton_id);
-}
-
-std::optional<SkeletonID> SkeletalSystem::get_skeleton_id(const Entity id) const
-{
-	const auto it = entity_skeletons.find(id);
-	return it == entity_skeletons.end() ? std::nullopt : std::optional<SkeletonID>(it->second);
+	if (!skeletons.contains(id))
+		return false;
+	if (get_ecs().references_skeleton(id))
+		throw std::logic_error("SkeletalSystem::remove_skeleton: skeleton is still referenced");
+	get_ecs().stop_animation(id);
+	skeletons.erase(id);
+	ResourceProvenance::erase_skeleton(id);
+	return true;
 }
 
 std::vector<SkeletonID> SkeletalSystem::get_skeleton_ids() const
@@ -259,19 +260,22 @@ std::vector<SkeletonID> SkeletalSystem::get_skeleton_ids() const
 
 bool SkeletalSystem::attach_entity_to_bone(
 	const Entity attached,
-	const Entity skeleton_entity,
+	const RenderableID source_renderable,
 	const std::string_view bone_name,
 	Maths::Transform local_transform)
 {
-	const auto skeleton = get_skeleton_id(skeleton_entity);
-	if (!skeleton || attached == skeleton_entity)
+	if (!get_ecs().has_transformation(attached)
+		|| !get_ecs().has_renderable(source_renderable))
 		return false;
-	const auto& bones = get_skeletal_component(*skeleton).get_bones();
+	const auto& source = get_ecs().get_renderable(source_renderable);
+	if (!source.skeleton_id || source.object_id == attached)
+		return false;
+	const auto& bones = get_skeletal_component(*source.skeleton_id).get_bones();
 	const auto bone = std::ranges::find(bones, bone_name, &Bone::name);
 	if (bone == bones.end())
 		return false;
 	bone_attachments.insert_or_assign(attached, BoneAttachment{
-		.skeleton_entity = skeleton_entity,
+		.source_renderable = source_renderable,
 		.bone_index = static_cast<uint32_t>(std::distance(bones.begin(), bone)),
 		.local_transform = std::move(local_transform),
 	});
@@ -285,25 +289,22 @@ bool SkeletalSystem::detach_entity_from_bone(const Entity attached)
 
 void SkeletalSystem::process(const float)
 {
-	std::unordered_map<Entity, std::vector<glm::mat4>> model_space_poses;
+	std::unordered_map<SkeletonID, std::vector<glm::mat4>> model_space_poses;
 	for (const auto& [attached, attachment] : bone_attachments)
 	{
-		const auto skeleton = get_skeleton_id(attachment.skeleton_entity);
-		if (!skeleton)
+		if (!get_ecs().has_renderable(attachment.source_renderable))
 			continue;
-		auto [pose, inserted] = model_space_poses.try_emplace(attachment.skeleton_entity);
+		const auto& source = get_ecs().get_renderable(attachment.source_renderable);
+		if (!source.skeleton_id)
+			continue;
+		auto [pose, inserted] = model_space_poses.try_emplace(*source.skeleton_id);
 		if (inserted)
-			pose->second = get_skeletal_component(*skeleton).get_model_space_bone_transforms();
+			pose->second = get_skeletal_component(*source.skeleton_id).get_model_space_bone_transforms();
 		if (attachment.bone_index >= pose->second.size())
 			continue;
 
-		const Object& skeleton_object = get_ecs().get_object(attachment.skeleton_entity);
-		glm::mat4 visual_transform = Maths::identity_mat;
-		if (!skeleton_object.renderables.empty())
-			visual_transform = skeleton_object.renderables.front().local_transform.get_mat4();
 		get_ecs().set_transform(attached,
-			get_ecs().get_transform(attachment.skeleton_entity) *
-			visual_transform *
+			get_ecs().get_renderable_transform(attachment.source_renderable) *
 			pose->second[attachment.bone_index] *
 			attachment.local_transform.get_mat4());
 	}
@@ -312,15 +313,13 @@ void SkeletalSystem::process(const float)
 void SkeletalSystem::remove_entity(Entity id)
 {
 	bone_attachments.erase(id);
-	std::erase_if(bone_attachments, [id](const auto& entry)
-	{
-		return entry.second.skeleton_entity == id;
+}
+
+void SkeletalSystem::on_renderable_removed(const RenderableID id)
+{
+	std::erase_if(bone_attachments, [id](const auto& entry) {
+		return entry.second.source_renderable == id;
 	});
-	const auto it = entity_skeletons.find(id);
-	if (it == entity_skeletons.end())
-		return;
-	skeletons.erase(it->second);
-	entity_skeletons.erase(it);
 }
 
 // void SkeletalSystem::add_bone_visualisers(Entity id, const std::vector<Entity>& bones)
@@ -577,13 +576,4 @@ SkeletalAnimationSystem::get_animation_playback(const SkeletonID skeleton_id) co
 		.duration_secs = animation_duration(animations.at(active->second)),
 		.speed = state->second.playback_speed,
 	};
-}
-
-void SkeletalAnimationSystem::remove_entity(Entity id) 
-{
-	if (const auto skeleton_id = get_ecs().get_skeleton_id(id))
-	{
-		active_animations.erase(*skeleton_id);
-		animation_states.erase(*skeleton_id);
-	}
 }

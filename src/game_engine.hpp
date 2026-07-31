@@ -87,7 +87,6 @@ public:
 		auto id = tmp_new_obj->get_id();
 		if (objects.contains(id))
 			throw std::runtime_error("GameEngine::spawn_object: duplicate object id");
-		validate_renderable_resources(*tmp_new_obj);
 		auto result = objects.emplace(id, std::move(tmp_new_obj));
 		Object& new_obj = *(result.first->second);
 		ecs.add_object(new_obj);
@@ -95,6 +94,12 @@ public:
 	}
 
 	Object& spawn_object(std::shared_ptr<Object>&& object);
+	RenderableID attach_renderable(
+		ObjectID object_id, Renderable renderable,
+		std::optional<SkeletonID> skeleton_id = {});
+	std::vector<RenderableID> attach_renderables(
+		ObjectID object_id, std::vector<Renderable> renderables,
+		std::optional<SkeletonID> skeleton_id = {});
 	void spawn_cubemap();
 
 	Object& spawn_particle_emitter(const ParticleEmitterConfig& config);
@@ -103,11 +108,10 @@ public:
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
 	void replace_renderable_texture(
-		ObjectID object_id,
-		size_t renderable_index,
+		RenderableID renderable_id,
 		ETextureSemantic semantic,
 		std::optional<std::string> texture_filename);
-	void set_renderable_specular_matte(ObjectID object_id, size_t renderable_index);
+	void set_renderable_specular_matte(RenderableID renderable_id);
 
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
@@ -152,7 +156,7 @@ private:
 	std::unique_ptr<Experimental> experimental;
 	std::queue<ObjectID> entities_to_delete;
 	std::unordered_set<ObjectID> pending_deletions;
-	std::unordered_map<ObjectID, RenderObjectDefinitionPtr> render_object_definitions;
+	std::unordered_map<RenderableID, RenderableDefinitionPtr> renderable_definitions;
 	std::unordered_map<SkeletonID, RenderSkeletonDefinitionPtr> render_skeleton_definitions;
 	uint64_t next_render_frame_number = 0;
 	RenderDefinitionVersion next_render_definition_version = 1;
@@ -165,11 +169,11 @@ private:
 	void process_objs_to_delete();
 	void publish_completed_render_frame();
 	RenderFrame build_render_frame();
-	RenderObjectDefinitionPtr get_render_object_definition(
-		const Object& object, std::optional<SkeletonID> skeleton_id);
+	RenderableDefinitionPtr get_renderable_definition(
+		RenderableID id, const RenderableAttachment& attachment);
 	RenderSkeletonDefinitionPtr get_render_skeleton_definition(
 		SkeletonID id, const SkeletalRenderStateSnapshot& snapshot);
-	static void validate_renderable_resources(const Object& object);
+	static void validate_renderable_resources(const Renderable& renderable);
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;

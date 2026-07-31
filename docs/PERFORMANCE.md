@@ -47,9 +47,11 @@ resources; callers explicitly register them with `MeshSystem` or
 ## Renderable-local transforms
 
 Rasterization keeps imported asset-node transforms separate from gameplay
-object transforms. Each frame, the CPU precomputes `gameplay * local` into one
-uniform-buffer slot per renderable. Static vertex shaders retain their previous
-matrix workload.
+object transforms. Each frame, the CPU precomputes the optional group's world
+transform multiplied by the renderable-local transform. A standalone
+renderable's local transform is already world-relative. The result is uploaded
+to the shared transform-buffer slot keyed by that `RenderableID`. Static vertex shaders
+retain their previous matrix workload.
 
 Skinned bone buffers now remain in model space so they can be shared by
 renderables. Skinned vertex shaders apply the combined model matrix after
@@ -57,16 +59,19 @@ skinning, adding one matrix-vector transform for positions and equivalent work
 for normals/tangents in lit passes. This is an expected cost; no GPU timing
 measurements have been recorded. The transform separation also increases
 per-frame uniform storage and descriptor-set use in proportion to renderable
-count rather than object count.
+count rather than object count. This is deliberate: the renderable instance is
+the independently replaceable graphics-resource unit.
 
 ## Renderable draw lists
 
-Graphics objects remain the ownership and dynamic-state boundary, while
-topology reconciliation builds flat draw-item lists for rasterization. Opaque,
-masked, overlay, and shadow lists are classified and state-sorted only when
-object or skeleton topology changes. Blended main and overlay items are sorted
-back-to-front each graphics frame using their combined object and renderable
-local transforms.
+Graphics renderables are the ownership and dynamic-state boundary. Topology
+reconciliation builds flat draw-item lists for rasterization and processes
+membership and definition versions per `RenderableID`; changing one attachment
+does not recreate its former object-group peers. Opaque, masked, overlay, and
+shadow lists are classified and state-sorted only when renderable or skeleton
+topology changes. Blended main and overlay items are sorted back-to-front each
+graphics frame using the published world transform, with `RenderableID` as the
+deterministic tie-breaker.
 
 The state order groups pipelines, meshes, and material identities. Command
 recording skips redundant pipeline and vertex/index-buffer binds within a
@@ -74,6 +79,17 @@ render pass; per-draw transform and material descriptor sets are still bound
 for every item. This is expected to reduce CPU command-recording work and
 driver state processing for scenes with repeated state, but no timing
 measurements have been recorded.
+
+## Shared skeleton graphics resources
+
+Skeleton pose and topology are independent from renderable ownership. The
+graphics engine allocates and updates one bone-buffer slot per `SkeletonID` and
+swap-chain frame, then binds it from every renderable attached to that
+skeleton. Multiple skinned mesh primitives or instances can therefore share a
+single pose upload instead of duplicating bone buffers and updates per
+renderable. Descriptor reconciliation remains proportional to the number of
+affected bindings when a skeleton definition changes. No timing measurements
+have been recorded.
 
 ## Skeletal animation cross-fades
 
@@ -108,10 +124,12 @@ pointer indirection per component. No timing measurements have been recorded.
 ## Render-frame publication
 
 The game thread now builds one immutable render snapshot after each update.
-Per-frame work is linear in object count, renderable/material-reference count,
-attached bone count, and live particle count. Object and skeleton definitions
-are compared with cached immutable definitions each update, but their vectors
-and asset handles are copied only when definition content changes.
+Per-frame work is linear in renderable/material-reference count, published
+skeleton-pose size, attached bone count, and live particle count. Renderable
+and skeleton definitions are compared with cached immutable definitions each
+update, but their vectors and asset handles are copied only when definition
+content changes. Grouped renderables perform object lookups to compose
+transforms, visibility, and other object-level behavior.
 
 Current and previous frames remain shared-owned by the publication mailbox, so
 their dynamic vectors and referenced mesh/material assets remain alive until
@@ -125,13 +143,15 @@ owner-based const access. Graphics recording and resource upload therefore do
 not lock or query the mutable asset registries. Registry synchronization is
 limited to ownership lookup/update and the cross-thread retirement handoff.
 
-Graphics-owned objects and their descriptor/buffer topology are reconciled
-only when membership or object/skeleton definition versions change. Dynamic
-camera, visibility, hierarchy-transform, particle, and bone-pose changes reuse
-that topology. Topology changes synchronize the Vulkan device before replacing
-affected resources. Released mesh/material GPU allocations are likewise
-retired only after graphics synchronization; these waits affect the graphics
-thread but never the game publisher.
+Graphics-owned renderables and their descriptor/buffer topology are reconciled
+only when renderable membership or renderable/skeleton definition versions
+change. Dynamic camera, visibility, transform, particle, and bone-pose changes
+reuse that topology. Per-renderable reconciliation limits replacement to the
+changed instance; shared skeleton buffers avoid repeated pose uploads for every
+referencing renderable. Topology changes synchronize the Vulkan device before
+replacing affected resources. Released mesh/material GPU allocations are
+likewise retired only after graphics synchronization; these waits affect the
+graphics thread but never the game publisher.
 
 The unsupported ray-tracing source and shader paths are excluded from builds.
 Its renderer, pipeline, descriptor layouts, device extensions/features, and

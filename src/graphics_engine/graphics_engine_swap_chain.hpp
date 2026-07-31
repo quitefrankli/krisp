@@ -8,8 +8,6 @@
 #include <optional>
 
 
-class GraphicsEngineObject;
-
 struct SwapChainSupportDetails
 {
 	VkSurfaceCapabilitiesKHR capabilities;

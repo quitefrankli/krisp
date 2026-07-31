@@ -111,10 +111,13 @@ public:
 			renderable.local_transform.set_mat4(
 				face_gameplay_forward * renderable.local_transform.get_mat4());
 		}
-		auto& spawned_player = engine.spawn_object<PlayerCharacter>(
-			std::move(mesh->renderables), definition);
+		auto& spawned_player = engine.spawn_object<PlayerCharacter>(definition);
+		const auto player_renderables = engine.attach_renderables(
+			spawned_player.get_id(), std::move(mesh->renderables), skeleton);
+		if (player_renderables.empty())
+			throw std::runtime_error("Player model must contain a renderable");
+		player_skeleton_renderable = player_renderables.front();
 		spawned_player.configure_locomotion(skeleton, locomotion);
-		engine.get_ecs().attach_skeleton(spawned_player.get_id(), skeleton);
 		engine.get_ecs().add_collider(spawned_player.get_id(), std::make_unique<CapsuleCollider>(
 			definition.capsule_radius, definition.capsule_height));
 		engine.get_ecs().add_clickable_entity(spawned_player.get_id());
@@ -123,10 +126,12 @@ public:
 		auto loaded_sword = ResourceLoader::load_model(engine.get_ecs(), sword_model);
 		if (loaded_sword.meshes.empty())
 			throw std::runtime_error("Iron Longsword model contains no meshes");
-		auto& sword = engine.spawn_object<Object>(
-			std::move(loaded_sword.meshes.front().renderables));
+		auto& sword = engine.spawn_object<Object>();
+		engine.attach_renderables(
+			sword.get_id(), std::move(loaded_sword.meshes.front().renderables));
 		sword.set_name("Iron Longsword");
-		if (!engine.get_ecs().equip(spawned_player.get_id(), sword.get_id(), sword_definition))
+		if (!engine.get_ecs().equip(
+			spawned_player.get_id(), *player_skeleton_renderable, sword.get_id(), sword_definition))
 			throw std::runtime_error("Player skeleton is missing the WEAPON bone");
 		player_id = spawned_player.get_id();
 		sword_id = sword.get_id();
@@ -143,7 +148,7 @@ public:
 
 	void on_tick(GameEngine& engine, float) override
 	{
-		if (!player_id || !sword_id)
+		if (!player_id || !sword_id || !player_skeleton_renderable)
 			return;
 
 		auto& ecs = engine.get_ecs();
@@ -151,7 +156,8 @@ public:
 		{
 			if (ecs.equipped_item(*player_id, EquipmentSlot::MainHand))
 				ecs.unequip(*player_id, EquipmentSlot::MainHand);
-			else if (!ecs.equip(*player_id, *sword_id, sword_definition))
+			else if (!ecs.equip(
+				*player_id, *player_skeleton_renderable, *sword_id, sword_definition))
 				throw std::runtime_error("Player skeleton is missing the WEAPON bone");
 		}
 
@@ -176,6 +182,7 @@ private:
 	KrispUiState ui_state;
 	std::optional<EntityID> player_id;
 	std::optional<EntityID> sword_id;
+	std::optional<RenderableID> player_skeleton_renderable;
 	std::optional<AnimationID> attack_animation;
 	EquipmentDefinition sword_definition{
 		.slot = EquipmentSlot::MainHand,
@@ -196,14 +203,16 @@ int main(int argc, char* argv[])
 	floor_renderable.material_owners = {
 		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE))
 	};
-	auto& floor = engine.spawn_object<Object>(std::move(floor_renderable));
+	auto& floor = engine.spawn_object<Object>();
+	engine.attach_renderable(floor.get_id(), std::move(floor_renderable));
 	auto& floor_transform = engine.get_ecs().get_transformation(floor.get_id());
 	floor_transform.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 	floor_transform.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
 	engine.get_ecs().add_collider(floor.get_id(), std::make_unique<BoxCollider>());
 
-	auto& obstacle = engine.spawn_object<Object>(
-		Renderable::make_default(MeshSystem::add(MeshFactory::cube())));
+	auto& obstacle = engine.spawn_object<Object>();
+	engine.attach_renderable(
+		obstacle.get_id(), Renderable::make_default(MeshSystem::add(MeshFactory::cube())));
 	auto& obstacle_transform = engine.get_ecs().get_transformation(obstacle.get_id());
 	obstacle_transform.set_position({ 2.0f, 0.5f, 2.0f });
 	obstacle_transform.set_scale({ 1.0f, 1.0f, 1.0f });
@@ -216,7 +225,8 @@ int main(int argc, char* argv[])
 		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE))
 	};
 	light_renderable.pipeline_render_type = ERenderType::COLOR;
-	auto& light_source = engine.spawn_object<Object>(std::move(light_renderable));
+	auto& light_source = engine.spawn_object<Object>();
+	engine.attach_renderable(light_source.get_id(), std::move(light_renderable));
 	engine.get_ecs().get_transformation(light_source.get_id())
 		.set_position(glm::vec3(0.5f, 6.0f, -3.0f));
 	LightComponent light_component{

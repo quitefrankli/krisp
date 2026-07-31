@@ -22,6 +22,7 @@ sources = [
 	'ecs/orbital_physics_tests.cpp',
 	'ecs/tile_system_tests.cpp',
 	'ecs/equipment_tests.cpp',
+	'ecs/renderable_system_tests.cpp',
 	'scale_gizmo_tests.cpp']
 
 sources += ['serializer_tests.cpp']

@@ -1,4 +1,5 @@
 #include <entity_component_system/ecs.hpp>
+#include <serialization/resource_provenance.hpp>
 #include <serialization/serializer.hpp>
 
 #include <gtest/gtest.h>
@@ -394,8 +395,6 @@ TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
 	child.parent_node = 0;
 	child.relative_transform.set_pos({ 0.0f, 4.0f, 0.0f });
 	const auto id = source.add_skeleton({ root, child });
-	const ObjectID entity(987);
-	source.attach_skeleton(entity, id);
 	Serializer serializer;
 	source.SkeletalSystem::serialize(serializer);
 
@@ -406,7 +405,7 @@ TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
 	EXPECT_EQ(bones[1].parent_node, 0);
 	EXPECT_EQ(bones[1].name, "child");
 	EXPECT_EQ(bones[0].inverse_bind_pose.get_mat4(), root.inverse_bind_pose.get_mat4());
-	EXPECT_EQ(restored.get_skeleton_id(entity), id);
+	EXPECT_TRUE(restored.has_skeleton(id));
 }
 
 TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
@@ -420,21 +419,56 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 	Object prop;
 	source.add_object(character);
 	source.add_object(prop);
-	source.attach_skeleton(character.get_id(), skeleton);
+	auto character_mesh = Renderable::make_default();
+	character_mesh.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	character_mesh.local_transform.set_pos({ 0.0f, 3.0f, 0.0f });
+	const auto source_renderable = source.add_renderable(
+		std::move(character_mesh), character.get_id(), skeleton);
+	const auto& saved_renderable = source.get_renderable(source_renderable).renderable;
+	ResourceProvenance::register_mesh(saved_renderable.get_mesh_id(), { .source = "character.glb" });
+	for (const auto material : saved_renderable.get_material_ids())
+		ResourceProvenance::register_material(material, { .source = "character.glb" });
 	Maths::Transform grip;
 	grip.set_pos({ 1.0f, 0.0f, 0.0f });
 	ASSERT_TRUE(source.attach_entity_to_bone(
-		prop.get_id(), character.get_id(), "Hand", grip));
+		prop.get_id(), source_renderable, "Hand", grip));
 
 	Serializer serializer;
 	source.SkeletalSystem::serialize(serializer);
+	source.RenderableSystem::serialize(serializer);
 	ECS restored;
-	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
 	restored.add_object(character);
 	restored.add_object(prop);
+	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
+	restored.RenderableSystem::deserialize(Deserializer::parse(serializer.emit()));
+	restored.SkeletalSystem::deserialize_bone_attachments(Deserializer::parse(serializer.emit()));
 	restored.SkeletalSystem::process(0.0f);
 
-	EXPECT_EQ(restored.get_position(prop.get_id()), glm::vec3(1.0f, 2.0f, 0.0f));
+	EXPECT_EQ(restored.get_position(prop.get_id()), glm::vec3(1.0f, 5.0f, 0.0f));
+}
+
+TEST(SkeletalSystemSerialization, omits_attachments_that_reference_transient_state)
+{
+	ECS ecs;
+	Object transient_source;
+	transient_source.set_transient(true);
+	Object prop;
+	ecs.add_object(transient_source);
+	ecs.add_object(prop);
+	Bone hand;
+	hand.name = "Hand";
+	const auto skeleton = ecs.add_skeleton({ hand });
+	auto renderable = Renderable::make_default();
+	renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	const auto source = ecs.add_renderable(
+		std::move(renderable), transient_source.get_id(), skeleton);
+	ASSERT_TRUE(ecs.attach_entity_to_bone(prop.get_id(), source, "Hand"));
+	Serializer serializer;
+
+	ecs.SkeletalSystem::serialize(serializer);
+
+	EXPECT_TRUE(
+		Deserializer::parse(serializer.emit()).child("bone_attachments").elements().empty());
 }
 
 TEST(SkeletalSystemSerialization, invalid_parent_fails_atomically_with_path)

@@ -10,9 +10,8 @@ class ECS;
 class Character : public Object
 {
 public:
-	Character(std::vector<Renderable> renderables);
+	Character() = default;
 
-	void play_looping_animation(ECS& ecs, AnimationID animation);
 	void play_looping_animation(
 		ECS& ecs, SkeletonID skeleton, AnimationID animation, float transition_secs);
 	bool play_one_shot_animation(

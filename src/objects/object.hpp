@@ -1,16 +1,10 @@
 #pragma once
 
-#include "renderable/render_types.hpp" // TODO: come up with a to decouiple this, having graphics engine code here is bad
 #include "identifications.hpp"
-#include "renderable/renderable.hpp"
-#include "entity_component_system/mesh_system.hpp"
-#include "entity_component_system/material_system.hpp"
-#include <vector>
 #include <string>
-#include <utility>
+#include <string_view>
 
 
-class ResourceLoader;
 class Serializer;
 class Deserializer;
 
@@ -19,22 +13,6 @@ class Object
 public:
 	static constexpr std::string_view serialization_type_name = "Object";
 	Object() = default;
-	Object(const Renderable& renderable) :
-		renderables({ renderable })
-	{
-	}
-	Object(Renderable&& renderable) :
-		renderables({ std::move(renderable) })
-	{
-	}
-	Object(const std::vector<Renderable>& renderables) :
-		renderables(renderables)
-	{
-	}
-	Object(std::vector<Renderable>&& renderables) :
-		renderables(std::move(renderables))
-	{
-	}
 	Object(const Object& object) = delete;
 	Object(Object&& object) noexcept;
 	virtual ~Object() = default;
@@ -54,8 +32,6 @@ public:
 
 	const std::string& get_name() const { return name; }
 	void set_name(const std::string_view name) { this->name = name; }
-
-	std::vector<Renderable> renderables;
 
 private:
 	ObjectID id = ObjectID::generate_new_id();

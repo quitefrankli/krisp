@@ -61,14 +61,13 @@ TEST(character_tests, looping_animation_is_retained_until_the_clip_changes)
 	const auto rig = make_skeletal_rig_signature(ecs.get_skeletal_component(skeleton).get_bones());
 	const AnimationID idle = ecs.add_skeletal_animation("Idle", { BoneAnimation{} }, rig);
 	const AnimationID walk = ecs.add_skeletal_animation("Walk", { BoneAnimation{} }, rig);
-	Character character({});
+	Character character;
 	ecs.add_object(character);
-	ecs.attach_skeleton(character.get_id(), skeleton);
 
-	character.play_looping_animation(ecs, idle);
-	character.play_looping_animation(ecs, idle);
+	character.play_looping_animation(ecs, skeleton, idle, 0.0f);
+	character.play_looping_animation(ecs, skeleton, idle, 0.0f);
 	EXPECT_EQ(character.get_active_animation(), idle);
-	character.play_looping_animation(ecs, walk);
+	character.play_looping_animation(ecs, skeleton, walk, 0.0f);
 	EXPECT_EQ(character.get_active_animation(), walk);
 
 	ecs.remove_object(character.get_id());
@@ -79,7 +78,7 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 	ECS ecs;
 	PlayerDefinition definition;
 	definition.movement_speed = 2.0f;
-	PlayerCharacter player({}, definition);
+	PlayerCharacter player(definition);
 	ecs.add_object(player);
 
 	Object camera_focus;
@@ -125,7 +124,7 @@ TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relativ
 		.walk_left = clip("walkleft"),
 		.walk_right = clip("walkright"),
 	};
-	PlayerCharacter player({}, PlayerDefinition{});
+	PlayerCharacter player(PlayerDefinition{});
 	ecs.add_object(player);
 	player.configure_locomotion(skeleton, animations);
 
@@ -173,7 +172,7 @@ TEST(player_character_tests, one_shot_action_overrides_then_returns_to_locomotio
 		.walk_right = clip("walkright"),
 	};
 	const AnimationID attack = clip("attack");
-	PlayerCharacter player({}, PlayerDefinition{});
+	PlayerCharacter player(PlayerDefinition{});
 	ecs.add_object(player);
 	player.configure_locomotion(skeleton, animations);
 	Object camera_focus;
@@ -285,18 +284,20 @@ TEST(skeletal_component_tests, bone_attachment_follows_animated_model_space_pose
 	const SkeletonID skeleton = ecs.add_skeleton({ root, hand });
 
 	Renderable renderable;
+	renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	renderable.local_transform.set_pos({ 0.0f, 0.0f, 3.0f });
-	Object character(renderable);
+	Object character;
 	Object prop;
 	ecs.add_object(character);
 	ecs.add_object(prop);
 	ecs.set_position(character.get_id(), { 4.0f, 0.0f, 0.0f });
-	ecs.attach_skeleton(character.get_id(), skeleton);
+	const RenderableID source_renderable = ecs.add_renderable(
+		std::move(renderable), character.get_id(), skeleton);
 
 	Maths::Transform grip;
 	grip.set_pos({ 1.0f, 0.0f, 0.0f });
 	ASSERT_TRUE(ecs.attach_entity_to_bone(
-		prop.get_id(), character.get_id(), "Hand", grip));
+		prop.get_id(), source_renderable, "Hand", grip));
 	ecs.process(0.0f);
 
 	EXPECT_TRUE(glm_equal(

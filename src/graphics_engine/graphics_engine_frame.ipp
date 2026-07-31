@@ -260,9 +260,7 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	if (render_frame.active_light)
 	{
 		const auto& light = *render_frame.active_light;
-		gubo.light_pos = glm::vec3(
-			get_graphics_engine().get_render_object_transform(
-				render_frame.objects[light.object_index].definition->id)[3]);
+		gubo.light_pos = light.position;
 		gubo.lighting_scalar = graphic_settings.light_strength;
 	}
 	else
@@ -305,31 +303,23 @@ void GraphicsEngineFrame::update_uniform_buffer()
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(image_index, gubo);
 
-	// Update the precomputed object × renderable-local transform for each draw.
+	// Update the producer-composed transform for each renderable.
 	SDS::ObjectData object_data{};
-	for (const auto& [id, graphics_object] : get_graphics_engine().get_objects())
+	for (const auto& [id, graphics_renderable] : get_graphics_engine().get_renderables())
 	{
-		const glm::mat4& gameplay_transform = graphics_object->get_model_transform();
-		for (uint32_t renderable_idx = 0; renderable_idx < graphics_object->get_renderables().size(); ++renderable_idx)
-		{
-			object_data.model =
-				graphics_object->get_renderables()[renderable_idx].get_model_transform(gameplay_transform);
-			object_data.mvp = gubo.proj * gubo.view * object_data.model;
-			object_data.rot_mat = glm::mat3(object_data.model);
-			get_rsrc_mgr().write_to_buffer(
-				ObjectRenderableFrameID{graphics_object->get_id(), renderable_idx, image_index},
-				object_data);
-		}
+		object_data.model = graphics_renderable->get_model_transform();
+		object_data.mvp = gubo.proj * gubo.view * object_data.model;
+		object_data.rot_mat = glm::mat3(object_data.model);
+		get_rsrc_mgr().write_to_buffer(RenderableFrameID{id, image_index}, object_data);
+	}
 
-		// All skinned renderables in an object share one skeleton and bone buffer.
-		const auto skeleton_id = graphics_object->get_skeleton_id();
-		if (skeleton_id)
-		{
-			const auto& pose = get_graphics_engine().get_render_skeleton_pose(*skeleton_id);
-			std::vector<SDS::Bone> bones =
-				compose_bone_transforms(pose.local_transforms, *pose.definition);
-			get_rsrc_mgr().write_to_buffer(SkeletonFrameID(*skeleton_id, image_index), bones);
-		}
+	// Skeleton pose resources are shared by every bound renderable and updated once.
+	for (const auto& pose : render_frame.skeletons)
+	{
+		std::vector<SDS::Bone> bones =
+			compose_bone_transforms(pose.local_transforms, *pose.definition);
+		get_rsrc_mgr().write_to_buffer(
+			SkeletonFrameID(pose.definition->id, image_index), bones);
 	}
 }
 

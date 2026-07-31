@@ -50,7 +50,7 @@ struct PlayerLocomotionAnimations
 class PlayerCharacter : public Character
 {
 public:
-	PlayerCharacter(std::vector<Renderable> renderables, PlayerDefinition definition);
+	explicit PlayerCharacter(PlayerDefinition definition);
 
 	static glm::vec3 movement_direction(
 		bool forward, bool backward, bool right, bool left,

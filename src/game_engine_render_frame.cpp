@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <ranges>
 #include <stdexcept>
-#include <unordered_map>
 #include <unordered_set>
 
 
@@ -23,37 +22,29 @@ bool matrices_equal(const glm::mat4& lhs, const glm::mat4& rhs)
 
 bool renderable_matches(
 	const RenderableDefinition& definition,
-	const Renderable& renderable)
+	const RenderableID id,
+	const RenderableAttachment& attachment)
 {
+	const auto& renderable = attachment.renderable;
 	return definition.pipeline_render_type == renderable.pipeline_render_type
 		&& definition.alpha_mode == renderable.alpha_mode
 		&& definition.alpha_cutoff == renderable.alpha_cutoff
 		&& definition.opacity == renderable.opacity
 		&& definition.casts_shadow == renderable.casts_shadow
 		&& definition.render_on_top == renderable.render_on_top
-		&& matrices_equal(definition.local_transform, renderable.local_transform.get_mat4())
+		&& definition.id == id
+		&& definition.object_id == attachment.object_id
+		&& definition.skeleton_id == attachment.skeleton_id
 		&& definition.mesh_owner == renderable.mesh_owner
 		&& definition.material_owners == renderable.material_owners;
 }
 
-bool object_definition_matches(
-	const RenderObjectDefinition& definition,
-	const Object& object,
-	const std::optional<SkeletonID> skeleton_id)
+RenderableDefinition make_renderable_definition(
+	const RenderableID id,
+	const RenderableAttachment& attachment,
+	const RenderDefinitionVersion version)
 {
-	if (definition.id != object.get_id()
-		|| definition.skeleton_id != skeleton_id
-		|| definition.renderables.size() != object.renderables.size())
-		return false;
-
-	for (size_t index = 0; index < object.renderables.size(); ++index)
-		if (!renderable_matches(definition.renderables[index], object.renderables[index]))
-			return false;
-	return true;
-}
-
-RenderableDefinition make_renderable_definition(const Renderable& renderable)
-{
+	const auto& renderable = attachment.renderable;
 	return {
 		.pipeline_render_type = renderable.pipeline_render_type,
 		.alpha_mode = renderable.alpha_mode,
@@ -61,7 +52,10 @@ RenderableDefinition make_renderable_definition(const Renderable& renderable)
 		.opacity = renderable.opacity,
 		.casts_shadow = renderable.casts_shadow,
 		.render_on_top = renderable.render_on_top,
-		.local_transform = renderable.local_transform.get_mat4(),
+		.id = id,
+		.version = version,
+		.object_id = attachment.object_id,
+		.skeleton_id = attachment.skeleton_id,
 		.mesh_owner = renderable.mesh_owner,
 		.material_owners = renderable.material_owners,
 	};
@@ -86,27 +80,18 @@ bool skeleton_definition_matches(
 }
 
 
-RenderObjectDefinitionPtr GameEngine::get_render_object_definition(
-	const Object& object,
-	const std::optional<SkeletonID> skeleton_id)
+RenderableDefinitionPtr GameEngine::get_renderable_definition(
+	const RenderableID id,
+	const RenderableAttachment& attachment)
 {
-	const auto cached = render_object_definitions.find(object.get_id());
-	if (cached != render_object_definitions.end()
-		&& object_definition_matches(*cached->second, object, skeleton_id))
+	const auto cached = renderable_definitions.find(id);
+	if (cached != renderable_definitions.end()
+		&& renderable_matches(*cached->second, id, attachment))
 		return cached->second;
 
-	std::vector<RenderableDefinition> renderables;
-	renderables.reserve(object.renderables.size());
-	for (const auto& renderable : object.renderables)
-		renderables.push_back(make_renderable_definition(renderable));
-
-	auto definition = std::make_shared<const RenderObjectDefinition>(RenderObjectDefinition{
-		.id = object.get_id(),
-		.version = next_render_definition_version++,
-		.renderables = std::move(renderables),
-		.skeleton_id = skeleton_id,
-	});
-	render_object_definitions.insert_or_assign(object.get_id(), definition);
+	auto definition = std::make_shared<const RenderableDefinition>(
+		make_renderable_definition(id, attachment, next_render_definition_version++));
+	renderable_definitions.insert_or_assign(id, definition);
 	return definition;
 }
 
@@ -146,51 +131,18 @@ RenderFrame GameEngine::build_render_frame()
 		.position = camera->get_position(),
 	};
 
-	std::vector<const Object*> ordered_objects;
-	ordered_objects.reserve(objects.size());
-	for (const auto& [_, object] : objects)
-		ordered_objects.push_back(object.get());
-	std::ranges::sort(ordered_objects, {}, [](const Object* object) {
-		return object->get_id().get_underlying();
-	});
-	if (ordered_objects.size() >= RENDER_FRAME_NO_PARENT)
-		throw std::runtime_error("GameEngine::build_render_frame: too many objects");
-
-	std::unordered_map<ObjectID, uint32_t> object_indices;
-	object_indices.reserve(ordered_objects.size());
-	for (uint32_t index = 0; index < ordered_objects.size(); ++index)
-		object_indices.emplace(ordered_objects[index]->get_id(), index);
-
-	frame.objects.reserve(ordered_objects.size());
+	const auto renderable_ids = ecs.get_renderable_ids();
+	frame.renderables.reserve(renderable_ids.size());
 	std::vector<SkeletonID> attached_skeletons;
-	for (const Object* object : ordered_objects)
+	for (const RenderableID id : renderable_ids)
 	{
-		const auto& transform = ecs.get_transformation(object->get_id());
-		const auto skeleton_id = ecs.get_skeleton_id(object->get_id());
-		if (skeleton_id)
-			attached_skeletons.push_back(*skeleton_id);
-
-		uint32_t parent_index = RENDER_FRAME_NO_PARENT;
-		glm::mat4 local_transform;
-		if (const auto parent_id = transform.get_parent_id())
-		{
-			const auto parent = object_indices.find(*parent_id);
-			if (parent != object_indices.end())
-			{
-				parent_index = parent->second;
-				local_transform = transform.get_relative_transform();
-			}
-			else
-				local_transform = transform.get_transform();
-		}
-		else
-			local_transform = transform.get_transform();
-
-		frame.objects.push_back({
-			.definition = get_render_object_definition(*object, skeleton_id),
-			.local_transform = local_transform,
-			.parent_index = parent_index,
-			.visible = object->get_visibility(),
+		const auto& attachment = ecs.get_renderable(id);
+		if (attachment.skeleton_id)
+			attached_skeletons.push_back(*attachment.skeleton_id);
+		frame.renderables.push_back({
+			.definition = get_renderable_definition(id, attachment),
+			.model_transform = ecs.get_renderable_transform(id),
+			.visible = ecs.get_renderable_visibility(id),
 		});
 	}
 
@@ -211,20 +163,20 @@ RenderFrame GameEngine::build_render_frame()
 	if (ecs.has_light_source())
 	{
 		const ObjectID light_id = ecs.get_global_light_source();
-		const auto object = object_indices.find(light_id);
-		if (object == object_indices.end())
+		if (!ecs.has_object(light_id))
 			throw std::runtime_error(
 				"GameEngine::build_render_frame: active light object is missing");
 		const LightComponent* component = ecs.get_light_component(light_id);
 		frame.active_light = RenderLightState{
-			.object_index = object->second,
+			.object_id = light_id,
+			.position = glm::vec3(ecs.get_transform(light_id)[3]),
 			.intensity = component->intensity,
 			.color = component->color,
 		};
 	}
 
-	std::erase_if(render_object_definitions, [this](const auto& entry) {
-		return !objects.contains(entry.first);
+	std::erase_if(renderable_definitions, [this](const auto& entry) {
+		return !ecs.has_renderable(entry.first);
 	});
 	const auto live_skeleton_ids = ecs.get_skeleton_ids();
 	const std::unordered_set<SkeletonID> live_skeletons(

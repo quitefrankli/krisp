@@ -12,7 +12,7 @@
 #include <vector>
 
 
-class GraphicsEngineObject;
+class GraphicsRenderable;
 
 enum class RenderableDrawClass
 {
@@ -28,8 +28,7 @@ struct RenderSortKey
 	EAlphaMode alpha_mode;
 	MeshID mesh_id;
 	std::vector<MaterialID> material_ids;
-	ObjectID object_id;
-	uint32_t renderable_index;
+	RenderableID renderable_id;
 
 	bool operator<(const RenderSortKey& other) const;
 };
@@ -37,19 +36,16 @@ struct RenderSortKey
 RenderableDrawClass classify_renderable(const RenderableDefinition& renderable);
 bool renderable_casts_shadow(const RenderableDefinition& renderable);
 RenderSortKey make_render_sort_key(
-	ObjectID object_id,
-	uint32_t renderable_index,
+	RenderableID renderable_id,
 	const RenderableDefinition& renderable);
 float renderable_distance_squared(
 	const glm::vec3& camera_position,
-	const glm::mat4& object_transform,
-	const RenderableDefinition& renderable);
+	const glm::mat4& model_transform);
 
 struct GraphicsDrawItem
 {
-	const GraphicsEngineObject* object;
+	const GraphicsRenderable* graphics_renderable;
 	const RenderableDefinition* renderable;
-	uint32_t renderable_index;
 	RenderSortKey sort_key;
 };
 
@@ -57,7 +53,7 @@ class GraphicsDrawLists
 {
 public:
 	void rebuild(
-		const std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject>>& objects);
+		const std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>>& renderables);
 
 	const std::vector<GraphicsDrawItem>& all() const { return items; }
 	const std::vector<const GraphicsDrawItem*>& opaque() const { return opaque_items; }

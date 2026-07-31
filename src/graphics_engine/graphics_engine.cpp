@@ -47,7 +47,7 @@ GraphicsEngine::~GraphicsEngine()
 {
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
-	objects.clear(); // must be cleared before the logical device is destroyed
+	renderables.clear(); // must be cleared before the logical device is destroyed
 }
 
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
@@ -166,15 +166,21 @@ void GraphicsEngine::accept_latest_render_frame()
 
 	const RenderFramePtr next_frame = publication->current;
 	const RenderFramePtr previous_frame = accepted_render_frame;
+	for (const auto& state : next_frame->renderables)
+		if (!state.definition)
+			throw std::runtime_error("GraphicsEngine: renderable definition is empty");
+	for (const auto& pose : next_frame->skeletons)
+		if (!pose.definition)
+			throw std::runtime_error("GraphicsEngine: skeleton definition is empty");
 	bool topology_changed = !accepted_render_frame
-		|| accepted_render_frame->objects.size() != next_frame->objects.size()
+		|| accepted_render_frame->renderables.size() != next_frame->renderables.size()
 		|| accepted_render_frame->skeletons.size() != next_frame->skeletons.size();
 	if (!topology_changed)
 	{
-		for (const auto& state : next_frame->objects)
+		for (const auto& state : next_frame->renderables)
 		{
-			const auto existing = objects.find(state.definition->id);
-			if (existing == objects.end()
+			const auto existing = renderables.find(state.definition->id);
+			if (existing == renderables.end()
 				|| existing->second->get_definition_version() != state.definition->version)
 			{
 				topology_changed = true;
@@ -204,35 +210,38 @@ void GraphicsEngine::accept_latest_render_frame()
 		vkDeviceWaitIdle(get_logical_device());
 
 	accepted_render_frame = next_frame;
-	render_object_indices.clear();
-	render_object_indices.reserve(accepted_render_frame->objects.size());
-	std::vector<glm::mat4> local_transforms;
-	std::vector<uint32_t> parent_indices;
-	local_transforms.reserve(accepted_render_frame->objects.size());
-	parent_indices.reserve(accepted_render_frame->objects.size());
-	for (uint32_t index = 0; index < accepted_render_frame->objects.size(); ++index)
+	renderable_indices.clear();
+	renderable_indices.reserve(accepted_render_frame->renderables.size());
+	for (uint32_t index = 0; index < accepted_render_frame->renderables.size(); ++index)
 	{
-		const auto& state = accepted_render_frame->objects[index];
-		render_object_indices.emplace(state.definition->id, index);
-		local_transforms.push_back(state.local_transform);
-		parent_indices.push_back(state.parent_index);
+		const auto& state = accepted_render_frame->renderables[index];
+		if (!renderable_indices.emplace(state.definition->id, index).second)
+			throw std::runtime_error("GraphicsEngine: duplicate renderable ID");
 	}
-	object_transforms = compose_transform_hierarchy(local_transforms, parent_indices);
 
 	render_skeleton_indices.clear();
 	render_skeleton_indices.reserve(accepted_render_frame->skeletons.size());
 	for (uint32_t index = 0; index < accepted_render_frame->skeletons.size(); ++index)
-		render_skeleton_indices.emplace(
-			accepted_render_frame->skeletons[index].definition->id, index);
+	{
+		const auto& pose = accepted_render_frame->skeletons[index];
+		if (!render_skeleton_indices.emplace(pose.definition->id, index).second)
+			throw std::runtime_error("GraphicsEngine: duplicate skeleton ID");
+	}
+	for (const auto& state : accepted_render_frame->renderables)
+		if (state.definition->skeleton_id
+			&& !render_skeleton_indices.contains(*state.definition->skeleton_id))
+		{
+			throw std::runtime_error("GraphicsEngine: renderable references a missing skeleton");
+		}
 
 	if (!topology_changed)
 		return;
 
-	reconcile_render_objects(*accepted_render_frame, previous_frame.get());
+	reconcile_renderables(*accepted_render_frame, previous_frame.get());
 
 }
 
-void GraphicsEngine::reconcile_render_objects(
+void GraphicsEngine::reconcile_renderables(
 	const RenderFrame& frame,
 	const RenderFrame* previous_frame)
 {
@@ -264,54 +273,69 @@ void GraphicsEngine::reconcile_render_objects(
 		}
 	}
 
-	std::unordered_map<ObjectID, RenderObjectDefinitionPtr> definitions;
-	definitions.reserve(frame.objects.size());
-	for (const auto& state : frame.objects)
+	std::unordered_map<RenderableID, RenderableDefinitionPtr> definitions;
+	definitions.reserve(frame.renderables.size());
+	for (const auto& state : frame.renderables)
 		definitions.emplace(state.definition->id, state.definition);
 
-	std::vector<ObjectID> objects_to_recreate;
-	objects_to_recreate.reserve(objects.size());
-	for (const auto& [id, object] : objects)
+	std::vector<RenderableID> renderables_to_recreate;
+	renderables_to_recreate.reserve(renderables.size());
+	for (const auto& [id, renderable] : renderables)
 	{
 		const auto definition = definitions.find(id);
 		const bool definition_changed = definition == definitions.end()
-			|| object->get_definition_version() != definition->second->version;
-		const auto skeleton_id = object->get_skeleton_id();
+			|| renderable->get_definition_version() != definition->second->version;
+		const auto skeleton_id = renderable->get_skeleton_id();
 		if (definition_changed
 			|| (skeleton_id && changed_skeletons.contains(*skeleton_id)))
 		{
-			objects_to_recreate.push_back(id);
+			renderables_to_recreate.push_back(id);
 		}
 	}
-	for (const ObjectID id : objects_to_recreate)
-		cleanup_entity(id);
+	for (const RenderableID id : renderables_to_recreate)
+		cleanup_renderable(id);
 
-	for (const auto& state : frame.objects)
+	for (const SkeletonID id : changed_skeletons)
 	{
-		if (objects.contains(state.definition->id))
+		if (graphics_skeleton_versions.contains(id))
+			for (uint32_t frame_index = 0; frame_index < get_num_swapchain_images(); ++frame_index)
+				get_rsrc_mgr().free_buffer(SkeletonFrameID{id, frame_index});
+		graphics_skeleton_versions.erase(id);
+	}
+	for (const auto& pose : frame.skeletons)
+	{
+		const SkeletonID id = pose.definition->id;
+		if (graphics_skeleton_versions.contains(id))
+			continue;
+		const size_t size = sizeof(SDS::Bone) * pose.definition->bones.size();
+		for (uint32_t frame_index = 0; frame_index < get_num_swapchain_images(); ++frame_index)
+			get_rsrc_mgr().reserve_buffer(SkeletonFrameID{id, frame_index}, size);
+		graphics_skeleton_versions.emplace(id, pose.definition->version);
+	}
+
+	for (const auto& state : frame.renderables)
+	{
+		if (renderables.contains(state.definition->id))
 			continue;
 
-		auto graphics_object =
-			std::make_unique<GraphicsEngineObject>(*this, state.definition);
-		spawn_object_create_buffers(*graphics_object);
-		spawn_object_create_dsets(*graphics_object);
-		objects.emplace(state.definition->id, std::move(graphics_object));
+		auto graphics_renderable =
+			std::make_unique<GraphicsRenderable>(*this, state.definition);
+		create_renderable_buffers(*graphics_renderable);
+		create_renderable_dsets(*graphics_renderable);
+		renderables.emplace(state.definition->id, std::move(graphics_renderable));
 	}
 
-	for (auto it = offscreen_rendering_objects.begin();
-		it != offscreen_rendering_objects.end();)
+	offscreen_rendering_objects.clear();
+	for (const ObjectID id : offscreen_rendering_object_ids)
 	{
-		const auto object = objects.find(it->first);
-		if (object == objects.end())
-			it = offscreen_rendering_objects.erase(it);
-		else
-		{
-			it->second = object->second.get();
-			++it;
-		}
+		std::vector<GraphicsRenderable*> matches;
+		for (auto& [_, renderable] : renderables)
+			if (renderable->get_object_id() == id)
+				matches.push_back(renderable.get());
+		offscreen_rendering_objects.emplace(id, std::move(matches));
 	}
 
-	draw_lists.rebuild(objects);
+	draw_lists.rebuild(renderables);
 }
 
 void GraphicsEngine::retire_unused_resources()
@@ -347,20 +371,11 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 	throw std::runtime_error("failed to find suitable memory type!");
 };
 
-void GraphicsEngine::cleanup_entity(const ObjectID id)
+void GraphicsEngine::cleanup_renderable(const RenderableID id)
 {
-	auto& obj = get_object(id);
-
 	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
-	{
-		for (uint32_t renderable_idx = 0; renderable_idx < obj.get_renderables().size(); ++renderable_idx)
-			get_rsrc_mgr().free_buffer(ObjectRenderableFrameID{id, renderable_idx, frame_idx});
-		if (const auto skeleton_id = obj.get_skeleton_id())
-		{
-			get_rsrc_mgr().free_buffer(SkeletonFrameID{*skeleton_id, frame_idx});
-		}
-	}
-	objects.erase(id);
+		get_rsrc_mgr().free_buffer(RenderableFrameID{id, frame_idx});
+	renderables.erase(id);
 }
 
 void GraphicsEngine::recreate_swap_chain()
@@ -665,83 +680,60 @@ VkFormat GraphicsEngine::find_depth_format()
 }
 
 
-void GraphicsEngine::spawn_object_create_buffers(GraphicsEngineObject& graphics_object)
+void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_renderable)
 {
-	// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be 
+	// vertex buffer doesn't change per frame so unlike uniform buffer it doesn't need to be
 	// per frame resource and therefore we only need 1 copy
-	auto& rsrc_mgr = get_rsrc_mgr();
-	const auto skeleton_id = graphics_object.get_skeleton_id();
+	auto &rsrc_mgr = get_rsrc_mgr();
+	const auto &renderable = graphics_renderable.get_definition();
+	// reserve and write to mesh buffer (actually vertex and index buffers)
+	const auto &mesh = renderable.get_mesh();
+	rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
 
-	for (const auto& renderable : graphics_object.get_renderables())
+	// reserve and write to materials buffer
+	switch (renderable.pipeline_render_type)
 	{
-		// reserve and write to mesh buffer (actually vertex and index buffers)
-		const auto& mesh = renderable.get_mesh();
-		rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
-
-		// reserve and write to materials buffer
-		switch (renderable.pipeline_render_type)
-		{
-			case ERenderType::COLOR:
-			case ERenderType::SKINNED_COLOR:
-			{
-				const FlatMatGroup flat_mat_group(renderable.material_owners);
-				const auto* material =
-					dynamic_cast<const ColorMaterial*>(&renderable.get_material(0));
-				if (!material)
-					throw std::runtime_error(fmt::format(
-						"GraphicsEngine: material {} is not a ColorMaterial",
-						flat_mat_group.color_mat.get_underlying()));
-				rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material->data);
-				break;
-			}
-			default:
-				break;
-		}
+	case ERenderType::COLOR:
+	case ERenderType::SKINNED_COLOR: {
+		const FlatMatGroup flat_mat_group(renderable.material_owners);
+		const auto *material = dynamic_cast<const ColorMaterial *>(&renderable.get_material(0));
+		if (!material)
+			throw std::runtime_error(fmt::format("GraphicsEngine: material {} is not a ColorMaterial",
+			                                     flat_mat_group.color_mat.get_underlying()));
+		rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material->data);
+		break;
+	}
+	default:
+		break;
 	}
 
 	// these buffers are dynamic (changing between frames) and therefore requires duplicate buffers per swapchain image
 	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
-		for (uint32_t renderable_idx = 0; renderable_idx < graphics_object.get_renderables().size(); ++renderable_idx)
-			rsrc_mgr.reserve_buffer(
-				ObjectRenderableFrameID{graphics_object.get_id(), renderable_idx, frame_idx},
-				sizeof(SDS::ObjectData));
-
-		// allocate one set of bone matrices shared by all skinned renderables in the object
-		if (skeleton_id)
-		{
-			const size_t bone_data_size = sizeof(SDS::Bone)
-				* get_render_skeleton_pose(*skeleton_id).definition->bones.size();
-			rsrc_mgr.reserve_buffer(SkeletonFrameID{*skeleton_id, frame_idx}, bone_data_size);
-		}
+		rsrc_mgr.reserve_buffer(RenderableFrameID{graphics_renderable.get_id(), frame_idx}, sizeof(SDS::ObjectData));
 	}
 
 	// Ray-tracing buffer mapping is unsupported:
 	// SDS::BufferMapEntry buffer_map;
 	// buffer_map.vertex_offset =
-	//     rsrc_mgr.get_vertex_buffer_offset(graphics_object.get_id());
+	//     rsrc_mgr.get_vertex_buffer_offset(renderable.get_mesh_id());
 	// buffer_map.index_offset =
-	//     rsrc_mgr.get_index_buffer_offset(graphics_object.get_id());
-	// rsrc_mgr.write_to_mapping_buffer(graphics_object.get_id(), buffer_map);
+	//     rsrc_mgr.get_index_buffer_offset(renderable.get_mesh_id());
 }
 
-void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
+void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_renderable)
 {
-	// Each renderable gets a per-frame transform set; skinned renderables also
-	// reference the skeleton buffer shared by their owning object.
-	std::vector<std::vector<VkDescriptorSet>> renderable_frame_dsets(object.get_renderables().size());
-	const auto skeleton_id = object.get_skeleton_id();
-	for (uint32_t renderable_idx = 0; renderable_idx < object.get_renderables().size(); ++renderable_idx)
+	std::vector<VkDescriptorSet> frame_dsets;
+	const auto skeleton_id = graphics_renderable.get_skeleton_id();
+	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
 	{
-		for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
-		{
-			VkDescriptorSet new_descriptor_set =
-				get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_renderable_frame_dset_layout());
-			std::vector<VkWriteDescriptorSet> descriptor_writes;
+		VkDescriptorSet new_descriptor_set =
+			get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_renderable_frame_dset_layout());
+		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
-			VkDescriptorBufferInfo buffer_info{};
-			const GraphicsBuffer::Slot buffer_slot = get_rsrc_mgr().get_buffer_slot(
-				ObjectRenderableFrameID{object.get_id(), renderable_idx, frame_idx});
+		VkDescriptorBufferInfo buffer_info{};
+		const GraphicsBuffer::Slot buffer_slot =
+			get_rsrc_mgr().get_buffer_slot(RenderableFrameID{graphics_renderable.get_id(), frame_idx});
 		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
 		buffer_info.offset = buffer_slot.offset;
 		buffer_info.range = buffer_slot.size;
@@ -754,178 +746,158 @@ void GraphicsEngine::spawn_object_create_dsets(GraphicsEngineObject& object)
 		uniform_buffer_dset_write.pBufferInfo = &buffer_info;
 		descriptor_writes.push_back(uniform_buffer_dset_write);
 
-			if (skeleton_id)
-			{
-				const GraphicsBuffer::Slot bone_slot =
-					get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*skeleton_id, frame_idx});
-				VkDescriptorBufferInfo bone_buffer_info{};
-				bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
-				bone_buffer_info.offset = bone_slot.offset;
-				bone_buffer_info.range = bone_slot.size;
-				VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				bone_buffer_dset_write.dstSet = new_descriptor_set;
-				bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
-				bone_buffer_dset_write.dstArrayElement = 0;
-				bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-				bone_buffer_dset_write.descriptorCount = 1;
-				bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
-				descriptor_writes.push_back(bone_buffer_dset_write);
-			}
-
-			vkUpdateDescriptorSets(get_logical_device(),
-				descriptor_writes.size(),
-				descriptor_writes.data(),
-				0,
-				nullptr);
-			renderable_frame_dsets[renderable_idx].push_back(new_descriptor_set);
+		if (skeleton_id)
+		{
+			const GraphicsBuffer::Slot bone_slot =
+				get_rsrc_mgr().get_buffer_slot(SkeletonFrameID{*skeleton_id, frame_idx});
+			VkDescriptorBufferInfo bone_buffer_info{};
+			bone_buffer_info.buffer = get_rsrc_mgr().get_bone_buffer();
+			bone_buffer_info.offset = bone_slot.offset;
+			bone_buffer_info.range = bone_slot.size;
+			VkWriteDescriptorSet bone_buffer_dset_write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			bone_buffer_dset_write.dstSet = new_descriptor_set;
+			bone_buffer_dset_write.dstBinding = SDS::RASTERIZATION_BONE_DATA_BINDING;
+			bone_buffer_dset_write.dstArrayElement = 0;
+			bone_buffer_dset_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			bone_buffer_dset_write.descriptorCount = 1;
+			bone_buffer_dset_write.pBufferInfo = &bone_buffer_info;
+			descriptor_writes.push_back(bone_buffer_dset_write);
 		}
-	}
-	object.set_renderable_frame_dsets(std::move(renderable_frame_dsets));
 
-	// per renderable descriptor set
+		vkUpdateDescriptorSets(get_logical_device(), descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
+		frame_dsets.push_back(new_descriptor_set);
+	}
+	graphics_renderable.set_frame_dsets(std::move(frame_dsets));
+
 	// TODO: we need to cache the dsets for each material/texture
-	std::vector<VkDescriptorSet> renderable_dsets;
-	for (const RenderableDefinition& renderable : object.get_renderables())
-	{
-		// TODO: we need to split the renderable dset layout to a material only one and a texture only one
-		// however this is a lot of work and will involve creating a new pipeline
-		VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_renderable_dset_layout());
-		std::vector<VkWriteDescriptorSet> descriptor_writes;
+	const RenderableDefinition &renderable = graphics_renderable.get_definition();
+	// TODO: we need to split the renderable dset layout to a material only one and a texture only one
+	// however this is a lot of work and will involve creating a new pipeline
+	VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_renderable_dset_layout());
+	std::vector<VkWriteDescriptorSet> descriptor_writes;
 
-		// TODO: after resolving above todo, need to move this within the below switch statement
-		const GraphicsBuffer::Slot mat_slot = [&]()
+	// TODO: after resolving above todo, need to move this within the below switch statement
+	const GraphicsBuffer::Slot mat_slot = [&]() {
+		if (renderable.pipeline_render_type != ERenderType::COLOR &&
+		    renderable.pipeline_render_type != ERenderType::SKINNED_COLOR)
 		{
-			if (renderable.pipeline_render_type != ERenderType::COLOR
-				&& renderable.pipeline_render_type != ERenderType::SKINNED_COLOR)
-			{
-				// TODO: this needs to be properly fixed
-				GraphicsBuffer::Slot slot;
-				slot.offset = 0;
-				slot.size = 4; // this is just a dummy value
-				return slot;
-			}
-
-			const FlatMatGroup flat_material_group(renderable.material_owners);
-			return get_rsrc_mgr().get_buffer_slot(flat_material_group.color_mat);
-		}();
-		VkDescriptorBufferInfo material_buffer_info{};
-		material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
-		material_buffer_info.offset = mat_slot.offset;
-		material_buffer_info.range = mat_slot.size;
-		VkWriteDescriptorSet material_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		material_buffer_dset.dstSet = new_descriptor_set;
-		material_buffer_dset.dstBinding = SDS::RASTERIZATION_MATERIAL_DATA_BINDING;
-		material_buffer_dset.dstArrayElement = 0;
-		material_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		material_buffer_dset.descriptorCount = 1;
-		material_buffer_dset.pBufferInfo = &material_buffer_info;
-		descriptor_writes.push_back(material_buffer_dset);
-
-		switch (renderable.pipeline_render_type)
-		{
-			case ERenderType::CUBEMAP:
-			{
-				VkDescriptorImageInfo image_info{};
-				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				// some useful links when we get up to this part
-				// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
-				// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
-				// for texture seams and more indepth texture atlas https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
-				// descriptor set layout frequency https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
-				const CubeMapMatGroup cube_map_mat_group(renderable.material_owners);
-				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_cubemap_texture(cube_map_mat_group);
-				image_info.imageView = texture.get_texture_image_view();
-				image_info.sampler = texture.get_texture_sampler();
-
-				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
-				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
-				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				combined_image_sampler_descriptor_set.descriptorCount = 1;
-				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-
-				vkUpdateDescriptorSets(get_logical_device(),
-						static_cast<uint32_t>(descriptor_writes.size()), 
-						descriptor_writes.data(), 
-						0, 
-						nullptr);
-				break;
-			}
-			case ERenderType::STANDARD:
-			case ERenderType::SKINNED:
-			{
-				VkDescriptorImageInfo image_info{};
-				image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const TexturedMatGroup textured_mat_group(renderable.material_owners);
-				const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(
-					textured_mat_group.get_material_owner(textured_mat_group.base_color_mat),
-					ETextureSamplerType::ADDR_MODE_REPEAT);
-				image_info.imageView = texture.get_texture_image_view();
-				image_info.sampler = texture.get_texture_sampler();
-
-				VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
-				combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
-				combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-				combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				combined_image_sampler_descriptor_set.descriptorCount = 1;
-				combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-				descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-
-				VkDescriptorImageInfo normal_image_info{};
-				normal_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const GraphicsEngineTexture& normal_texture = textured_mat_group.normal_mat.has_value()
-					? get_texture_mgr().fetch_texture(
-						textured_mat_group.get_material_owner(*textured_mat_group.normal_mat),
-						ETextureSamplerType::ADDR_MODE_REPEAT)
-					: get_texture_mgr().fetch_flat_normal_texture();
-				normal_image_info.imageView = normal_texture.get_texture_image_view();
-				normal_image_info.sampler = normal_texture.get_texture_sampler();
-
-				VkWriteDescriptorSet normal_sampler_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				normal_sampler_descriptor.dstSet = new_descriptor_set;
-				normal_sampler_descriptor.dstBinding = SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING;
-				normal_sampler_descriptor.dstArrayElement = 0;
-				normal_sampler_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				normal_sampler_descriptor.descriptorCount = 1;
-				normal_sampler_descriptor.pImageInfo = &normal_image_info;
-				descriptor_writes.push_back(normal_sampler_descriptor);
-
-				VkDescriptorImageInfo specular_info{};
-				specular_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				const GraphicsEngineTexture& specular_texture = textured_mat_group.specular_mat
-					? get_texture_mgr().fetch_texture(
-						textured_mat_group.get_material_owner(*textured_mat_group.specular_mat),
-						ETextureSamplerType::ADDR_MODE_REPEAT)
-					: get_texture_mgr().fetch_white_texture();
-				specular_info.imageView = specular_texture.get_texture_image_view();
-				specular_info.sampler = specular_texture.get_texture_sampler();
-				VkWriteDescriptorSet specular_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-				specular_descriptor.dstSet = new_descriptor_set;
-				specular_descriptor.dstBinding = SDS::RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING;
-				specular_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-				specular_descriptor.descriptorCount = 1;
-				specular_descriptor.pImageInfo = &specular_info;
-				descriptor_writes.push_back(specular_descriptor);
-
-				vkUpdateDescriptorSets(get_logical_device(),
-						static_cast<uint32_t>(descriptor_writes.size()), 
-						descriptor_writes.data(), 
-						0, 
-						nullptr);
-				break;
-			}
-			default:
-				vkUpdateDescriptorSets(get_logical_device(),
-						static_cast<uint32_t>(descriptor_writes.size()), 
-						descriptor_writes.data(), 
-						0, 
-						nullptr);
+			// TODO: this needs to be properly fixed
+			GraphicsBuffer::Slot slot;
+			slot.offset = 0;
+			slot.size = 4; // this is just a dummy value
+			return slot;
 		}
 
-		renderable_dsets.push_back(new_descriptor_set);
+		const FlatMatGroup flat_material_group(renderable.material_owners);
+		return get_rsrc_mgr().get_buffer_slot(flat_material_group.color_mat);
+	}();
+	VkDescriptorBufferInfo material_buffer_info{};
+	material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
+	material_buffer_info.offset = mat_slot.offset;
+	material_buffer_info.range = mat_slot.size;
+	VkWriteDescriptorSet material_buffer_dset{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	material_buffer_dset.dstSet = new_descriptor_set;
+	material_buffer_dset.dstBinding = SDS::RASTERIZATION_MATERIAL_DATA_BINDING;
+	material_buffer_dset.dstArrayElement = 0;
+	material_buffer_dset.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	material_buffer_dset.descriptorCount = 1;
+	material_buffer_dset.pBufferInfo = &material_buffer_info;
+	descriptor_writes.push_back(material_buffer_dset);
+
+	switch (renderable.pipeline_render_type)
+	{
+	case ERenderType::CUBEMAP: {
+		VkDescriptorImageInfo image_info{};
+		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		// some useful links when we get up to this part
+		// https://gamedev.stackexchange.com/questions/146982/compressed-vs-uncompressed-textures-differences
+		// https://stackoverflow.com/questions/27345340/how-do-i-render-multiple-textures-in-modern-opengl
+		// for texture seams and more indepth texture atlas
+		// https://www.pluralsight.com/blog/film-games/understanding-uvs-love-them-or-hate-them-theyre-essential-to-know
+		// descriptor set layout frequency
+		// https://stackoverflow.com/questions/50986091/what-is-the-best-way-of-dealing-with-textures-for-a-same-shader-in-vulkan
+		const CubeMapMatGroup cube_map_mat_group(renderable.material_owners);
+		const GraphicsEngineTexture &texture = get_texture_mgr().fetch_cubemap_texture(cube_map_mat_group);
+		image_info.imageView = texture.get_texture_image_view();
+		image_info.sampler = texture.get_texture_sampler();
+
+		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
+		combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+		combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+		combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		combined_image_sampler_descriptor_set.descriptorCount = 1;
+		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+		descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+
+		vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(descriptor_writes.size()),
+		                       descriptor_writes.data(), 0, nullptr);
+		break;
 	}
-	object.set_renderable_dsets(renderable_dsets);
+	case ERenderType::STANDARD:
+	case ERenderType::SKINNED: {
+		VkDescriptorImageInfo image_info{};
+		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		const TexturedMatGroup textured_mat_group(renderable.material_owners);
+		const GraphicsEngineTexture &texture =
+			get_texture_mgr().fetch_texture(textured_mat_group.get_material_owner(textured_mat_group.base_color_mat),
+		                                    ETextureSamplerType::ADDR_MODE_REPEAT);
+		image_info.imageView = texture.get_texture_image_view();
+		image_info.sampler = texture.get_texture_sampler();
+
+		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
+		combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
+		combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
+		combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		combined_image_sampler_descriptor_set.descriptorCount = 1;
+		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
+		descriptor_writes.push_back(combined_image_sampler_descriptor_set);
+
+		VkDescriptorImageInfo normal_image_info{};
+		normal_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		const GraphicsEngineTexture &normal_texture =
+			textured_mat_group.normal_mat.has_value()
+				? get_texture_mgr().fetch_texture(textured_mat_group.get_material_owner(*textured_mat_group.normal_mat),
+		                                          ETextureSamplerType::ADDR_MODE_REPEAT)
+				: get_texture_mgr().fetch_flat_normal_texture();
+		normal_image_info.imageView = normal_texture.get_texture_image_view();
+		normal_image_info.sampler = normal_texture.get_texture_sampler();
+
+		VkWriteDescriptorSet normal_sampler_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		normal_sampler_descriptor.dstSet = new_descriptor_set;
+		normal_sampler_descriptor.dstBinding = SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING;
+		normal_sampler_descriptor.dstArrayElement = 0;
+		normal_sampler_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		normal_sampler_descriptor.descriptorCount = 1;
+		normal_sampler_descriptor.pImageInfo = &normal_image_info;
+		descriptor_writes.push_back(normal_sampler_descriptor);
+
+		VkDescriptorImageInfo specular_info{};
+		specular_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		const GraphicsEngineTexture &specular_texture =
+			textured_mat_group.specular_mat ? get_texture_mgr().fetch_texture(textured_mat_group.get_material_owner(
+																				  *textured_mat_group.specular_mat),
+		                                                                      ETextureSamplerType::ADDR_MODE_REPEAT)
+											: get_texture_mgr().fetch_white_texture();
+		specular_info.imageView = specular_texture.get_texture_image_view();
+		specular_info.sampler = specular_texture.get_texture_sampler();
+		VkWriteDescriptorSet specular_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+		specular_descriptor.dstSet = new_descriptor_set;
+		specular_descriptor.dstBinding = SDS::RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING;
+		specular_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		specular_descriptor.descriptorCount = 1;
+		specular_descriptor.pImageInfo = &specular_info;
+		descriptor_writes.push_back(specular_descriptor);
+
+		vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(descriptor_writes.size()),
+		                       descriptor_writes.data(), 0, nullptr);
+		break;
+	}
+	default:
+		vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(descriptor_writes.size()),
+		                       descriptor_writes.data(), 0, nullptr);
+	}
+
+	graphics_renderable.set_dset(new_descriptor_set);
 }

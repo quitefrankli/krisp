@@ -34,11 +34,14 @@ public:
 	static const ImportedResourceProvenance* material(MaterialID id);
 	static const ImportedResourceProvenance* skeleton(SkeletonID id);
 	static const ImportedResourceProvenance* animation(AnimationID id);
+	static std::optional<MeshID> find_mesh(const ImportedResourceProvenance& provenance);
+	static std::optional<MaterialID> find_material(const ImportedResourceProvenance& provenance);
 	static std::optional<SkeletonID> find_skeleton(const ImportedResourceProvenance& provenance);
 	static std::optional<AnimationID> find_animation(const ImportedResourceProvenance& provenance);
 
 	static void erase_mesh(MeshID id);
 	static void erase_material(MaterialID id);
+	static void erase_skeleton(SkeletonID id);
 	static void erase_animation(AnimationID id);
 	static void clear();
 };

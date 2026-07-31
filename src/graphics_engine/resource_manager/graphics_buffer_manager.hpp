@@ -5,7 +5,6 @@
 #include "graphics_buffer.hpp"
 #include "shared_data_structures.hpp"
 #include "identifications.hpp"
-#include "graphics_engine/graphics_engine_object.hpp"
 
 #include <vector>
 
@@ -20,10 +19,10 @@ public:
 	GraphicsBufferManager(GraphicsEngine& engine);
 	virtual ~GraphicsBufferManager() override;
 
-	void reserve_buffer(ObjectRenderableFrameID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
+	void reserve_buffer(RenderableFrameID id, size_t size) { reserve_buffer(uniform_buffer, id.get_underlying(), size); }
 	void reserve_buffer(SkeletonFrameID id, size_t size) { reserve_buffer(bone_buffer, id.get_underlying(), size); }
 
-	void free_buffer(ObjectRenderableFrameID id) { free_buffer(uniform_buffer, id.get_underlying()); }
+	void free_buffer(RenderableFrameID id) { free_buffer(uniform_buffer, id.get_underlying()); }
 	void free_buffer(MeshID id) { free_buffer(vertex_buffer, id.get_underlying()); free_buffer(index_buffer, id.get_underlying()); }
 	void free_buffer(MaterialID id) { free_buffer(materials_buffer, id.get_underlying()); }
 	void free_buffer(SkeletonFrameID id) { free_buffer(bone_buffer, id.get_underlying()); }
@@ -50,7 +49,7 @@ public:
 	void write_to_buffer(MeshID id, const Mesh& mesh);
 	void write_to_buffer(MaterialID id, const SDS::MaterialData& material);
 	void write_to_buffer(SkeletonFrameID id, const std::vector<SDS::Bone>& bones);
-	void write_to_buffer(ObjectRenderableFrameID id, const SDS::ObjectData& ubos);
+	void write_to_buffer(RenderableFrameID id, const SDS::ObjectData& ubos);
 	void write_to_global_uniform_buffer(uint32_t id, const SDS::GlobalData& ubo);
 #if 0
 	void write_to_mapping_buffer(ObjectID id, const SDS::BufferMapEntry& entry);
@@ -58,7 +57,7 @@ public:
 
 	GraphicsBuffer::Slot get_vertex_buffer_slot(MeshID id) const { return vertex_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_index_buffer_slot(MeshID id) const { return index_buffer.get_slot(id.get_underlying()); }
-	GraphicsBuffer::Slot get_buffer_slot(ObjectRenderableFrameID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
+	GraphicsBuffer::Slot get_buffer_slot(RenderableFrameID id) const { return uniform_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_buffer_slot(MaterialID id) const { return materials_buffer.get_slot(id.get_underlying()); }
 	GraphicsBuffer::Slot get_buffer_slot(SkeletonFrameID id) const { return bone_buffer.get_slot(id.get_underlying()); }
 

@@ -24,6 +24,13 @@ Renderable make_debug_renderable(MeshHandle mesh_owner)
 	return renderable;
 }
 
+Object& spawn_debug_renderable_object(GameEngine& engine, Renderable renderable)
+{
+	auto& object = engine.spawn_object<Object>();
+	engine.attach_renderable(object.get_id(), std::move(renderable));
+	return object;
+}
+
 glm::quat quad_normal_to_rotation(const glm::vec3& normal)
 {
 	const glm::vec3 normalized_normal = glm::normalize(normal);
@@ -63,6 +70,7 @@ bool ray_triangle_intersection(const Maths::Ray& ray,
 Object& RayCollider::spawn_debug_object(GameEngine& engine) const
 {
 	auto& obj = engine.spawn_object<Arrow>();
+	engine.attach_renderable(obj.get_id(), Arrow::make_renderable());
 	obj.point(engine.get_ecs(), data.origin, data.origin + data.direction * data.length);
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
@@ -116,7 +124,7 @@ Maths::Quad QuadCollider::get_data() const
 Object& QuadCollider::spawn_debug_object(GameEngine& engine) const
 {	
 	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
-	Object& obj = engine.spawn_object<Object>(renderable);
+	Object& obj = spawn_debug_renderable_object(engine, std::move(renderable));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
 	return obj;
@@ -179,7 +187,7 @@ Maths::Sphere SphereCollider::get_data() const
 
 Object& SphereCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Object>(make_debug_renderable(
+	Object& obj = spawn_debug_renderable_object(engine, make_debug_renderable(
 		MeshSystem::add(MeshFactory::sphere(
 			MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::UV_SPHERE, 64))));
 	obj.set_name("Collider Visual");
@@ -273,7 +281,7 @@ bool CapsuleCollider::check_collision(const RayCollider& ray, glm::vec3& out_int
 
 Object& CapsuleCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Object>(
+	Object& obj = spawn_debug_renderable_object(engine,
 		make_debug_renderable(MeshSystem::add(MeshFactory::capsule(radius, height))));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
@@ -312,7 +320,7 @@ bool BoxCollider::check_collision(const RayCollider& ray, glm::vec3& out_interse
 Object& BoxCollider::spawn_debug_object(GameEngine& engine) const
 {
 	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
-	Object& obj = engine.spawn_object<Object>(renderable);
+	Object& obj = spawn_debug_renderable_object(engine, std::move(renderable));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
 	return obj;
@@ -391,7 +399,7 @@ bool MeshCollider::check_collision(const RayCollider& ray, glm::vec3& out_inters
 
 Object& MeshCollider::spawn_debug_object(GameEngine& engine) const
 {
-	Object& obj = engine.spawn_object<Object>(
+	Object& obj = spawn_debug_renderable_object(engine,
 		make_debug_renderable(MeshSystem::add(MeshFactory::cube())));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);

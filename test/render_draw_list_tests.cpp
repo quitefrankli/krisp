@@ -17,8 +17,7 @@ RenderableDefinition make_renderable(
 	const ERenderType render_type,
 	const EAlphaMode alpha_mode,
 	const bool casts_shadow,
-	const bool render_on_top,
-	const glm::vec3 local_offset = {})
+	const bool render_on_top)
 {
 	auto mesh = MeshSystem::add(MeshFactory::cube());
 	auto material = MaterialSystem::add(std::make_unique<ColorMaterial>());
@@ -27,7 +26,6 @@ RenderableDefinition make_renderable(
 		.alpha_mode = alpha_mode,
 		.casts_shadow = casts_shadow,
 		.render_on_top = render_on_top,
-		.local_transform = glm::translate(glm::mat4(1.0f), local_offset),
 		.mesh_owner = std::move(mesh),
 		.material_owners = { std::move(material) },
 	};
@@ -61,29 +59,28 @@ TEST(RenderDrawList, state_sort_key_is_deterministic)
 		ERenderType::STANDARD, EAlphaMode::MASK, true, false);
 
 	std::vector keys{
-		make_render_sort_key(ObjectID(9), 1, second),
-		make_render_sort_key(ObjectID(4), 0, first),
-		make_render_sort_key(ObjectID(3), 0, first),
+		make_render_sort_key(RenderableID(9), second),
+		make_render_sort_key(RenderableID(4), first),
+		make_render_sort_key(RenderableID(3), first),
 	};
 	std::sort(keys.begin(), keys.end());
 
 	EXPECT_EQ(keys[0].render_type, ERenderType::STANDARD);
-	EXPECT_EQ(keys[1].object_id, ObjectID(3));
-	EXPECT_EQ(keys[2].object_id, ObjectID(4));
+	EXPECT_EQ(keys[1].renderable_id, RenderableID(3));
+	EXPECT_EQ(keys[2].renderable_id, RenderableID(4));
 }
 
-TEST(RenderDrawList, blended_distance_uses_renderable_local_transform)
+TEST(RenderDrawList, blended_distance_uses_composed_model_transform)
 {
 	const auto renderable = make_renderable(
 		ERenderType::STANDARD,
 		EAlphaMode::BLEND,
 		true,
-		false,
-		glm::vec3(0.0f, 0.0f, 5.0f));
-	const glm::mat4 object_transform =
+		false);
+	const glm::mat4 model_transform =
 		glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 2.0f));
 
 	EXPECT_FLOAT_EQ(
-		renderable_distance_squared({}, object_transform, renderable),
-		49.0f);
+		renderable_distance_squared({}, model_transform),
+		4.0f);
 }

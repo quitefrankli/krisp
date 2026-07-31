@@ -2,7 +2,7 @@
 #include "renderable/render_types.hpp"
 #include "shared_data_structures.hpp"
 #include "graphics_engine/pipeline/pipeline_id.hpp"
-#include "graphics_engine/graphics_engine_object.hpp"
+#include "graphics_engine/graphics_renderable.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "camera.hpp"
 #include "objects/object.hpp"
@@ -152,10 +152,11 @@ void RasterizationRenderer::submit_draw_commands(
 			? EPipelineModifier::UNLIT_BASE_COLOR
 			: EPipelineModifier::NONE;
 	const auto is_stenciled = [&stenciled_ids](const GraphicsDrawItem& item) {
-		return stenciled_ids.contains(item.sort_key.object_id);
+		const auto object_id = item.graphics_renderable->get_object_id();
+		return object_id && stenciled_ids.contains(*object_id);
 	};
 	const auto skip_regular_draw = [&](const GraphicsDrawItem& item) {
-		return !item.object->get_visibility()
+		return !item.graphics_renderable->get_visibility()
 			|| (get_graphics_engine().render_mode == ERenderMode::RASTERIZED
 				&& is_stenciled(item));
 	};
@@ -163,8 +164,8 @@ void RasterizationRenderer::submit_draw_commands(
 		draw_renderable(
 			command_buffer,
 			*item.renderable,
-			item.object->get_renderable_frame_dset(frame_index, item.renderable_index),
-			item.object->get_renderable_dsets()[item.renderable_index],
+			item.graphics_renderable->get_frame_dset(frame_index),
+			item.graphics_renderable->get_dset(),
 			item_modifier);
 	};
 
@@ -183,12 +184,10 @@ void RasterizationRenderer::submit_draw_commands(
 	{
 		const float lhs_distance = renderable_distance_squared(
 			camera_position,
-			lhs->object->get_model_transform(),
-			*lhs->renderable);
+			lhs->graphics_renderable->get_model_transform());
 		const float rhs_distance = renderable_distance_squared(
 			camera_position,
-			rhs->object->get_model_transform(),
-			*rhs->renderable);
+			rhs->graphics_renderable->get_model_transform());
 		if (lhs_distance != rhs_distance)
 			return lhs_distance > rhs_distance;
 		return lhs->sort_key < rhs->sort_key;
@@ -205,7 +204,7 @@ void RasterizationRenderer::submit_draw_commands(
 		std::vector<const GraphicsDrawItem*> stencil_items;
 		stencil_items.reserve(draw_lists.all().size());
 		for (const auto& item : draw_lists.all())
-			if (item.object->get_visibility() && is_stenciled(item))
+			if (item.graphics_renderable->get_visibility() && is_stenciled(item))
 				stencil_items.push_back(&item);
 		std::ranges::sort(stencil_items, [](const auto* lhs, const auto* rhs) {
 			return lhs->sort_key < rhs->sort_key;

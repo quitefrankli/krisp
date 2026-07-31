@@ -340,9 +340,9 @@ GuiObjectSpawner::GuiObjectSpawner() :
 	mapping = {
 		{"cube", spawning_function_type([this](GameEngine& engine)
 			{
-				auto& obj = engine.template spawn_object<Object>(
-					Renderable::make_default(MeshSystem::add(
-						MeshFactory::cube(MeshFactory::EVertexType::COLOR))));
+				auto& obj = engine.template spawn_object<Object>();
+				engine.attach_renderable(obj.get_id(), Renderable::make_default(
+					MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::COLOR))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
@@ -357,11 +357,10 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				renderable.mesh_owner = std::move(mesh_owner);
 				renderable.material_owners = { std::move(material_owner) };
 
-				auto obj = std::make_shared<Object>(std::move(renderable));
-				engine.get_ecs().add_object(*obj);
-				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<BoxCollider>());
-				engine.get_ecs().add_clickable_entity(obj->get_id());
-				engine.spawn_object(std::move(obj));
+				auto& obj = engine.template spawn_object<Object>();
+				engine.attach_renderable(obj.get_id(), std::move(renderable));
+				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
+				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
 		{"diffuse_cube", spawning_function_type([this](GameEngine& engine)
@@ -374,17 +373,17 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				auto material_owner = MaterialSystem::add(
 					std::make_unique<ColorMaterial>(std::move(material)));
 				renderable.material_owners = { std::move(material_owner) };
-				auto obj = std::make_shared<Object>(std::move(renderable));
-				engine.get_ecs().add_object(*obj);
-				engine.get_ecs().add_collider(obj->get_id(), std::make_unique<BoxCollider>());
-				engine.get_ecs().add_clickable_entity(obj->get_id());
-				engine.spawn_object(std::move(obj));
+				auto& obj = engine.template spawn_object<Object>();
+				engine.attach_renderable(obj.get_id(), std::move(renderable));
+				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
+				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
 		{"sphere", spawning_function_type([this](GameEngine& engine)
 			{
-				auto& obj = engine.template spawn_object<Object>(
-					Renderable::make_default(MeshSystem::add(MeshFactory::sphere(
+				auto& obj = engine.template spawn_object<Object>();
+				engine.attach_renderable(obj.get_id(), Renderable::make_default(
+					MeshSystem::add(MeshFactory::sphere(
 						MeshFactory::EVertexType::COLOR, 
 						MeshFactory::GenerationMethod::ICO_SPHERE, 
 						100))));
@@ -394,8 +393,9 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		},
 		{"physics sphere", spawning_function_type([this](GameEngine& engine)
 			{
-				auto& obj = engine.template spawn_object<Object>(
-					Renderable::make_default(MeshSystem::add(MeshFactory::sphere(
+				auto& obj = engine.template spawn_object<Object>();
+				engine.attach_renderable(obj.get_id(), Renderable::make_default(
+					MeshSystem::add(MeshFactory::sphere(
 						MeshFactory::EVertexType::COLOR,
 						MeshFactory::GenerationMethod::ICO_SPHERE))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
@@ -513,8 +513,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 		{
 			auto object = std::make_shared<Object>();
 			object->set_name(model_name);
-			engine.get_ecs().get_transformation(object->get_id())
-				.set_transform(loaded_model.onload_transform.get_mat4());
+			std::vector<Renderable> renderables;
 			for (auto& loaded_mesh : loaded_model.meshes)
 			{
 				for (size_t index = 0; index < loaded_mesh.renderables.size(); ++index)
@@ -524,24 +523,27 @@ void GuiModelSpawner::process(GameEngine& engine)
 						renderable.get_mesh_id(), renderable.local_transform.get_mat4());
 					renderable.mesh_owner = std::move(baked_mesh);
 					renderable.local_transform = {};
-					object->renderables.push_back(std::move(renderable));
+					renderables.push_back(std::move(renderable));
 				}
 			}
 			Object& spawned_object = engine.spawn_object(std::move(object));
+			engine.get_ecs().get_transformation(spawned_object.get_id())
+				.set_transform(loaded_model.onload_transform.get_mat4());
+			engine.attach_renderables(spawned_object.get_id(), std::move(renderables));
 			engine.get_ecs().add_mesh_collider(spawned_object.get_id());
 			engine.get_ecs().add_clickable_entity(spawned_object.get_id());
 			return;
 		}
 
-		for (const auto& loaded_mesh : loaded_model.meshes)
+		for (auto& loaded_mesh : loaded_model.meshes)
 		{
-			auto mesh = std::make_shared<Object>(loaded_mesh.renderables);
-			engine.get_ecs().get_transformation(mesh->get_id())
-				.set_transform(loaded_model.onload_transform.get_mat4());
+			auto mesh = std::make_shared<Object>();
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
-			if (loaded_mesh.skeleton_id)
-				engine.get_ecs().attach_skeleton(object.get_id(), *loaded_mesh.skeleton_id);
+			engine.get_ecs().get_transformation(object.get_id())
+				.set_transform(loaded_model.onload_transform.get_mat4());
+			engine.attach_renderables(
+				object.get_id(), std::move(loaded_mesh.renderables), loaded_mesh.skeleton_id);
 			engine.get_ecs().add_mesh_collider(object.get_id());
 			engine.get_ecs().add_clickable_entity(object.get_id());
 		}
@@ -1184,9 +1186,18 @@ void GuiAnimationSelector::process(GameEngine& engine)
 	target_status = "Select a skinned object";
 	if (const auto* selected_object = engine.get_gizmo().get_selected_object())
 	{
-		selected_skeleton = engine.get_ecs().get_skeleton_id(selected_object->get_id());
+		std::vector<SkeletonID> skeletons;
+		for (const RenderableID id : engine.get_ecs().get_renderable_ids(selected_object->get_id()))
+			if (const auto skeleton = engine.get_ecs().get_renderable(id).skeleton_id)
+				skeletons.push_back(*skeleton);
+		std::ranges::sort(skeletons);
+		skeletons.erase(std::ranges::unique(skeletons).begin(), skeletons.end());
+		if (skeletons.size() == 1)
+			selected_skeleton = skeletons.front();
 		if (selected_skeleton)
 			target_status = "Target: " + selected_object->get_name();
+		else if (skeletons.size() > 1)
+			target_status = "Selected object has multiple skeletons";
 		else
 			target_status = "Selected object is not skinned";
 	}
@@ -1517,10 +1528,10 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		try
 		{
 			if (change.matte)
-				engine.set_renderable_specular_matte(change.object_id, change.renderable_index);
+				engine.set_renderable_specular_matte(change.renderable_id);
 			else
 				engine.replace_renderable_texture(
-					change.object_id, change.renderable_index, change.semantic, std::move(change.path));
+					change.renderable_id, change.semantic, std::move(change.path));
 			load_error.reset();
 		}
 		catch (const ResourceLoadError& error)
@@ -1536,6 +1547,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	const auto previous_target = target_object;
 	target_object.reset();
 	renderable_labels.clear();
+	renderable_ids.clear();
 	compatible = false;
 	diffuse_label = "(none)";
 	normal_label = "(none)";
@@ -1553,9 +1565,11 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	target_status = object->get_name().empty()
 		? fmt::format("Object {}", object->get_id().get_underlying())
 		: object->get_name();
-	for (size_t index = 0; index < object->renderables.size(); ++index)
+	renderable_ids = engine.get_ecs().get_renderable_ids(object->get_id());
+	for (size_t index = 0; index < renderable_ids.size(); ++index)
 	{
-		const auto& renderable = object->renderables[index];
+		const auto& renderable =
+			engine.get_ecs().get_renderable(renderable_ids[index]).renderable;
 		renderable_labels.push_back(fmt::format(
 			"Mesh {} (ID {})", index + 1, renderable.get_mesh_id().get_underlying()));
 	}
@@ -1566,7 +1580,8 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	}
 	selected_renderable.value = std::clamp(
 		selected_renderable.value, 0, static_cast<int>(renderable_labels.size()) - 1);
-	const auto& renderable = object->renderables[selected_renderable.value];
+	const auto& renderable = engine.get_ecs()
+		.get_renderable(renderable_ids[selected_renderable.value]).renderable;
 	compatible = renderable.pipeline_render_type == ERenderType::STANDARD
 		|| renderable.pipeline_render_type == ERenderType::SKINNED;
 	if (!compatible)
@@ -1621,16 +1636,16 @@ void GuiMaterialEditor::draw_texture_section(
 		const char* glossy_label = semantic == ETextureSemantic::SPECULAR ? "(glossy)" : "(none)";
 		if (ImGui::Selectable(glossy_label, current_label == glossy_label))
 			pending_change = TextureChange{
-				*target_object, static_cast<size_t>(selected_renderable.value), semantic, std::nullopt };
+				renderable_ids.at(selected_renderable.value), semantic, std::nullopt };
 		if (semantic == ETextureSemantic::SPECULAR
 			&& ImGui::Selectable("(matte)", current_label == "(matte)"))
 			pending_change = TextureChange{
-				*target_object, static_cast<size_t>(selected_renderable.value), semantic, std::nullopt, true };
+				renderable_ids.at(selected_renderable.value), semantic, std::nullopt, true };
 		for (size_t index = 0; index < texture_paths.size(); ++index)
 		{
 			if (ImGui::Selectable(texture_names[index].c_str(), current_label == texture_names[index]))
 				pending_change = TextureChange{
-					*target_object, static_cast<size_t>(selected_renderable.value), semantic, texture_paths[index] };
+					renderable_ids.at(selected_renderable.value), semantic, texture_paths[index] };
 			if (ImGui::IsItemHovered())
 				ImGui::SetTooltip("%s", texture_names[index].c_str());
 		}

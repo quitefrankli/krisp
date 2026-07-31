@@ -8,7 +8,7 @@
 #include "graphics_engine_device.hpp"
 #include "resource_manager/graphics_resource_manager.hpp"
 #include "graphics_engine_commands.hpp"
-#include "graphics_engine_object.hpp"
+#include "graphics_renderable.hpp"
 #include "render_draw_list.hpp"
 #include "graphics_engine_texture_manager.hpp"
 #include "graphics_engine_gui_manager.hpp"
@@ -30,7 +30,7 @@
 
 
 class Analytics;
-class GraphicsEngineObject;
+class GraphicsRenderable;
 class VideoRecorder;
 
 class GraphicsEngine : public GraphicsEngineBase
@@ -49,16 +49,16 @@ public:
 public: // getters and setters
 	VkExtent2D get_extent();
 	App::Window& get_window();
-	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject>>& get_objects() 
+	std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>>& get_renderables()
 	{ 
-		return objects; 
+		return renderables;
 	}
 	const GraphicsDrawLists& get_draw_lists() const { return draw_lists; }
-	std::unordered_map<ObjectID, GraphicsEngineObject*>& get_offscreen_rendering_objects() 
+	std::unordered_map<ObjectID, std::vector<GraphicsRenderable*>>& get_offscreen_rendering_objects()
 	{ 
 		return offscreen_rendering_objects; 
 	}
-	GraphicsEngineObject& get_object(ObjectID id) { return *objects.at(id); }
+	GraphicsRenderable& get_renderable(RenderableID id) { return *renderables.at(id); }
 	auto& get_stenciled_object_ids() { return stenciled_objects; }
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
 	VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
@@ -91,30 +91,27 @@ public: // getters and setters
 	float get_fps() const final { return fps; }
 	static constexpr VkSampleCountFlagBits get_msaa_samples() { return VK_SAMPLE_COUNT_4_BIT; }
 	const RenderFrame& get_render_frame() const { return *accepted_render_frame; }
-	const RenderObjectState& get_render_object_state(ObjectID id) const
+	const RenderableState& get_renderable_state(RenderableID id) const
 	{
-		return accepted_render_frame->objects.at(render_object_indices.at(id));
-	}
-	const glm::mat4& get_render_object_transform(ObjectID id) const
-	{
-		return object_transforms.at(render_object_indices.at(id));
+		return accepted_render_frame->renderables.at(renderable_indices.at(id));
 	}
 	const RenderSkeletonPose& get_render_skeleton_pose(SkeletonID id) const
 	{
 		return accepted_render_frame->skeletons.at(render_skeleton_indices.at(id));
 	}
-	void cleanup_entity(const ObjectID id);
+	void cleanup_renderable(RenderableID id);
 
 private:
 	bool should_shutdown = false;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
-	std::unordered_map<ObjectID, std::unique_ptr<GraphicsEngineObject>> objects;
+	std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>> renderables;
 	GraphicsDrawLists draw_lists;
 	std::unordered_set<ObjectID> stenciled_objects;
 	// currently used for OffscreenGuiViewportRenderer, in future we should have a scene system
 	// and this would be a separate scene
-	std::unordered_map<ObjectID, GraphicsEngineObject*> offscreen_rendering_objects;
+	std::unordered_map<ObjectID, std::vector<GraphicsRenderable*>> offscreen_rendering_objects;
+	std::unordered_set<ObjectID> offscreen_rendering_object_ids;
 	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
 	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 	std::unique_ptr<Analytics> FPS_tracker;
@@ -177,9 +174,9 @@ public: // thread safe
 private: // core components
 	App::Window& window;
 	RenderFramePtr accepted_render_frame;
-	std::unordered_map<ObjectID, uint32_t> render_object_indices;
+	std::unordered_map<RenderableID, uint32_t> renderable_indices;
 	std::unordered_map<SkeletonID, uint32_t> render_skeleton_indices;
-	std::vector<glm::mat4> object_transforms;
+	std::unordered_map<SkeletonID, RenderDefinitionVersion> graphics_skeleton_versions;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
@@ -201,10 +198,10 @@ public: // commands
 
 private:
 	void accept_latest_render_frame();
-	void reconcile_render_objects(
+	void reconcile_renderables(
 		const RenderFrame& frame,
 		const RenderFrame* previous_frame);
 	void retire_unused_resources();
-	void spawn_object_create_buffers(GraphicsEngineObject& obj);
-	void spawn_object_create_dsets(GraphicsEngineObject& obj);
+	void create_renderable_buffers(GraphicsRenderable& renderable);
+	void create_renderable_dsets(GraphicsRenderable& renderable);
 };

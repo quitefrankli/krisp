@@ -101,6 +101,10 @@ public:
 		TransformationPersistence persistence = TransformationPersistence::Persistent);
 	void remove_transformation(EntityID id);
 	bool has_transformation(EntityID id) const { return components.contains(id); }
+	bool is_transient_transformation(EntityID id) const
+	{
+		return component(id).persistence == TransformationPersistence::Transient;
+	}
 	TransformationComponent& get_transformation(EntityID id);
 	const TransformationComponent& get_transformation(EntityID id) const;
 

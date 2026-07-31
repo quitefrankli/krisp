@@ -1,6 +1,7 @@
 #pragma once
 
 #include "skeletal.hpp"
+#include "renderable_system.hpp"
 #include "equipment.hpp"
 #include "light_source.hpp"
 #include "collider_ecs.hpp"
@@ -18,6 +19,7 @@
 
 
 class ECS :
+	public RenderableSystem,
 	public SkeletalSystem,
 	public SkeletalAnimationSystem,
 	public EquipmentSystem,
@@ -50,6 +52,7 @@ public:
 	// Used by ECSComponents
 	Object& get_object(const ObjectID id);
 	const Object& get_object(const ObjectID id) const;
+	bool has_object(const ObjectID id) const { return objects.contains(id); }
 
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);

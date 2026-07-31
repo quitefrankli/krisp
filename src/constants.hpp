@@ -10,7 +10,6 @@ namespace CSTS // short for Constants
 	// The actual value is only known at runtime, if the actual value exeeds the upperbound
 	// the program will throw and this value would need to be increased
 	constexpr uint32_t UPPERBOUND_SWAPCHAIN_IMAGES = 4;
-	constexpr uint32_t MAX_RENDERABLES_PER_OBJECT = 64;
 	
 	// Driver may return a number greater than this value
 	// in such an event the program will adust to to use provided value
