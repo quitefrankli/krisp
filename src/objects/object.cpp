@@ -2,6 +2,7 @@
 #include "serialization/serializer.hpp"
 
 #include <algorithm>
+#include <limits>
 
 
 Object::Object(Object&& other) noexcept :
@@ -21,8 +22,11 @@ void Object::serialize(Serializer& out) const
 
 void Object::deserialize(const Deserializer& in)
 {
-	id = ObjectID(in.read<uint64_t>("id"));
-	ObjectID::set_next_id(std::max(ObjectID::get_next_id(), id.get_underlying() + 1));
+	const uint64_t restored_id = in.read<uint64_t>("id");
+	if (restored_id == std::numeric_limits<uint64_t>::max())
+		throw SerializationError("Cannot advance ObjectID counter beyond uint64 maximum at " + in.path());
+	id = ObjectID(restored_id);
+	ObjectID::set_next_id(std::max(ObjectID::get_next_id(), restored_id + 1));
 	name = in.read<std::string>("name");
 	bVisible = in.read<bool>("visible");
 }

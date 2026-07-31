@@ -1,6 +1,6 @@
 # Krisp
 
-[A high-performance C++/Vulkan game engine](https://nabicat.site/hammock/krisp/krisp)
+A high-performance C++/Vulkan game engine.
 
 # Requirements
 
@@ -12,6 +12,12 @@
 * glslc: shader compiler `mamba: shaderc`
 * vulkan: graphics api + sdk -> check if it's available via `vulkaninfo`
 * validation layers: `install vulkan-validationlayers`
+* FFmpeg development libraries: `avcodec`, `avformat`, `avutil`, and `swscale`
+  (for example, Debian/Ubuntu packages `libavcodec-dev`, `libavformat-dev`,
+  `libavutil-dev`, and `libswscale-dev`)
+
+Video recording additionally requires an FFmpeg installation with the
+`libx264` encoder enabled.
 
 ## Building
 
@@ -31,7 +37,11 @@ Run the application with:
 build/applications/krisp/krisp
 ```
 
-(during initial setup these flags can be useful -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True)
+If Conan must install missing system packages during initial setup, use:
+
+```bash
+conan install . -pr=conan_clang_profile --build=missing -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo=True
+```
 
 ## Testing
 

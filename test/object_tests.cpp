@@ -9,6 +9,7 @@
 #include <glm/gtx/string_cast.hpp>
 #include <fmt/core.h>
 
+#include <limits>
 #include <ranges>
 
 
@@ -24,6 +25,17 @@ TEST(ObjectSerialization, excludes_transformation_and_parenting_state)
 	EXPECT_EQ(std::ranges::find(fields, "parent_id"), fields.end());
 	EXPECT_EQ(std::ranges::find(fields, "aabb"), fields.end());
 	EXPECT_EQ(std::ranges::find(fields, "renderables"), fields.end());
+}
+
+TEST(ObjectSerialization, rejects_id_that_cannot_advance_counter)
+{
+	Serializer serializer;
+	serializer.write("id", std::numeric_limits<std::uint64_t>::max());
+	serializer.write("name", "invalid");
+	serializer.write("visible", true);
+
+	Object object;
+	EXPECT_THROW(object.deserialize(Deserializer::parse(serializer.emit())), SerializationError);
 }
 
 TEST(RenderableTransform, composes_gameplay_before_asset_local_transform)

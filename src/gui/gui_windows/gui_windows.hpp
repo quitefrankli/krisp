@@ -2,7 +2,6 @@
 
 #include "maths.hpp"
 #include "identifications.hpp"
-#include "entity_component_system/skeletal.hpp"
 #include "renderable/render_types.hpp"
 #include "save_file_store.hpp"
 
@@ -12,8 +11,6 @@
 #include <vector>
 #include <filesystem>
 #include <optional>
-#include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <mutex>
 #include <array>
@@ -21,7 +18,6 @@
 
 class GameEngine;
 struct KeyInput;
-enum class ETextureSemantic;
 
 enum class GuiPanelDock
 {
@@ -168,27 +164,6 @@ private:
 	const float button_height = 20.0f;
 };
 
-class GuiModelSpawner : public EngineUiWindow
-{
-public:
-	GuiModelSpawner();
-
-	virtual void process(GameEngine& engine) override;
-	virtual void draw() override;
-
-private:
-	void refresh_models();
-
-	std::vector<std::string> models;
-	std::vector<std::string> model_paths;
-	GuiVar<int> selected_model = 0;
-	GuiVar<bool> merge_imported_meshes = false;
-	std::optional<std::string> model_to_spawn;
-	bool should_refresh_models = false;
-	bool model_dropdown_open = false;
-	std::optional<std::string> load_error;
-};
-
 class AudioSource;
 
 class GuiMusic : public EngineUiWindow
@@ -244,56 +219,6 @@ private:
 	};
 };
 
-class Object;
-class GuiDebug : public EngineUiWindow
-{
-public:
-	GuiDebug();
-	virtual void process(GameEngine& engine) override;
-	virtual void draw() override;
-	bool consume_screenshot_request()
-	{
-		const bool request = should_take_screenshot;
-		should_take_screenshot = false;
-		return request;
-	}
-
-	bool consume_start_recording_request()
-	{
-		const bool r = should_start_recording;
-		should_start_recording = false;
-		return r;
-	}
-
-	bool consume_stop_recording_request()
-	{
-		const bool r = should_stop_recording;
-		should_stop_recording = false;
-		return r;
-	}
-
-	void set_is_recording(bool v) { is_recording = v; }
-
-private:
-	void sync_collider_visualisers(GameEngine& engine);
-	void clear_collider_visualisers(GameEngine& engine);
-
-	bool should_refresh_objects_list = false;
-	bool should_toggle_pause = false;
-	bool should_take_screenshot = false;
-	bool should_start_recording = false;
-	bool should_stop_recording = false;
-	bool is_recording = false;
-	bool is_paused = false;
-	std::vector<ObjectID> object_ids;
-	std::vector<std::string> object_ids_strs;
-	GuiVar<ObjectID> selected_object = ObjectID(0);
-	GuiVar<bool> show_bone_visualisers = false;
-	GuiVar<bool> show_collider_visualisers = false;
-	std::unordered_map<EntityID, ObjectID> collider_visualiser_ids;
-	std::string filter_text = std::string(1024, '\0');
-};
-
 class GuiPhotoBase
 {
 public:
@@ -304,7 +229,7 @@ public:
 
 protected:
 	// width/height
-	float get_aspect_ratio() const { return float(true_dims.x) / float(true_dims.y); } 
+	float get_aspect_ratio() const { return float(true_dims.x) / float(true_dims.y); }
 	// IMPORTANT, call this between ImGui::Begin and ImGui::End
 	void draw();
 
@@ -358,107 +283,4 @@ private:
 	// it can take the quad renderer some time to catchup after a transition is requested
 	int cycles_before_draw = 0;
 	requester_t slice_requester;
-};
-
-class GuiAnimationSelector : public EngineUiWindow
-{
-public:
-	using AnimationChoice = std::pair<AnimationID, std::string>;
-
-	GuiAnimationSelector();
-	virtual void process(GameEngine& engine) override;
-	virtual void draw() override;
-	bool handle_key_input(const KeyInput& input);
-	static std::vector<AnimationChoice> sort_animation_choices(std::vector<AnimationChoice> choices);
-	static std::vector<AnimationChoice> animation_choices_for_rig(
-		const std::unordered_map<AnimationID, SkeletalAnimation>& animations,
-		const SkeletalRigSignature& rig_signature);
-	static bool animation_source_is_loaded(
-		const std::unordered_map<AnimationID, SkeletalAnimation>& animations,
-		const SkeletalRigSignature& rig_signature,
-		std::string_view source);
-	static std::optional<AnimationID> cycle_animation_choice(
-		const std::vector<AnimationChoice>& choices,
-		std::optional<AnimationID> current,
-		int direction);
-
-private:
-	struct AnimationFileLoadRequest
-	{
-		SkeletonID skeleton;
-		std::string path;
-	};
-
-	void refresh_animation_files();
-
-	std::vector<std::string> animation_paths;
-	std::optional<SkeletonID> selected_skeleton;
-	std::vector<AnimationChoice> animation_choices;
-	std::optional<AnimationFileLoadRequest> pending_animation_file;
-	int selected_animation_path = -1;
-	bool should_refresh_animation_files = false;
-	std::optional<AnimationID> selected_animation;
-	std::string selected_animation_name = "(select clip)";
-	std::string target_status = "Select a skinned object";
-	std::optional<std::string> load_error;
-	bool loop = false;
-	bool should_play = false;
-	bool should_stop = false;
-	std::optional<bool> loop_request;
-	std::optional<bool> pause_request;
-	std::optional<float> speed_request;
-	std::optional<float> seek_request_secs;
-	float pending_step_secs = 0.0f;
-	float elapsed_secs = 0.0f;
-	float duration_secs = 0.0f;
-	float playback_speed = SkeletalAnimationSystem::DEFAULT_PLAYBACK_SPEED;
-	bool paused = false;
-	bool playback_active = false;
-	// process() runs on the game thread while draw() runs on the graphics
-	// thread. All selector state, including the cached animation IDs, is shared.
-	std::mutex state_mutex;
-};
-
-class GuiMaterialEditor : public EngineUiWindow
-{
-public:
-	GuiMaterialEditor();
-	void process(GameEngine& engine) override;
-	void draw() override;
-
-private:
-	struct TextureChange
-	{
-		RenderableID renderable_id;
-		ETextureSemantic semantic;
-		std::optional<std::string> path;
-		bool matte = false;
-	};
-
-	void refresh_textures();
-	void draw_texture_section(
-		const char* title,
-		ETextureSemantic semantic,
-		const std::string& current_label,
-		bool& dropdown_was_open);
-
-	std::vector<std::string> texture_paths;
-	std::vector<std::string> texture_names;
-	std::vector<std::string> renderable_labels;
-	std::vector<RenderableID> renderable_ids;
-	GuiVar<int> selected_renderable = 0;
-	std::optional<ObjectID> target_object;
-	std::optional<TextureChange> pending_change;
-	std::optional<std::string> load_error;
-	std::string target_status = "Select an object";
-	std::string diffuse_label = "(none)";
-	std::string normal_label = "(none)";
-	std::string specular_label = "(glossy)";
-	bool compatible = false;
-	bool should_refresh_textures = false;
-	bool diffuse_dropdown_open = false;
-	bool normal_dropdown_open = false;
-	bool specular_dropdown_open = false;
-	// process() runs on the game thread while draw() runs on the graphics thread.
-	std::mutex state_mutex;
 };

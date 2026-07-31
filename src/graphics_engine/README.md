@@ -14,8 +14,8 @@ loop.
 | `graphics_engine_frame.*` | Records and submits one frame's command buffer; owns its fences, semaphores, and per-frame resources. |
 | `render_draw_list.*` | Caches renderable-level pass classification and state ordering for reconciled topology. |
 | `resource_manager/` | Allocates command buffers and GPU buffers, and manages descriptor sets. |
-| `pipeline/` | Builds and caches Vulkan graphics/compute pipelines and their layouts. |
-| `renderers/` | Implements rendering passes such as shadow maps, rasterization, ray tracing, compositing, particles, and ImGui. |
+| `pipeline/` | Builds and caches Vulkan graphics pipelines and their layouts. |
+| `renderers/` | Implements shadow-map, rasterization, compositing, particle, and ImGui passes. |
 | `graphics_renderable.*` | Holds graphics-owned state and resources for one immutable renderable definition. |
 | `graphics_engine_texture*` | Loads, uploads, samples, and owns texture resources. |
 | `raytracing.*` | Dormant implementation; ray tracing is unsupported and excluded from builds. |

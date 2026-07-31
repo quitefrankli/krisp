@@ -349,21 +349,7 @@ Object& GameEngine::spawn_object(std::shared_ptr<Object>&& object)
 	Object& new_obj = *(it.first->second);
 	ecs.add_object(new_obj);
 
-	// TODO: fix visualisers if skinned object
-	// std::vector<ObjectID> visualisers;
-	// const glm::quat bone_rotator = glm::angleAxis(-Maths::PI/2.0f, Maths::right_vec);
-	// for (const auto& bone : bones)
-	// {
-	// 	Object& obj = spawn_object<Object>(ShapeFactory::arrow());
-	// 	for (auto& shape : obj.get_shapes())
-	// 	{
-	// 		// gltf models have bones pointing upwards by default
-	// 		shape->transform_vertices(bone_rotator);
-	// 	}
-	// 	obj.set_visibility(false);
-	// 	visualisers.push_back(obj.get_id());
-	// }
-	// ecs.add_bone_visualisers(object->get_id(), visualisers);
+	// TODO: restore bone visualizers using skeletal renderable attachments.
 
 	return new_obj;
 }

@@ -1,7 +1,11 @@
 #pragma once
 
-#include "gui_windows.hpp"
-#include "persistent_gui_windows.hpp"
+#include "gui_windows/gui_windows.hpp"
+#include "gui_windows/gui_animation_selector.hpp"
+#include "gui_windows/gui_debug.hpp"
+#include "gui_windows/gui_material_editor.hpp"
+#include "gui_windows/gui_model_spawner.hpp"
+#include "gui_windows/persistent_gui_windows.hpp"
 
 #include <vector>
 #include <memory>

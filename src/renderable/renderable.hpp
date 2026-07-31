@@ -10,7 +10,8 @@
 #include <vector>
 
 
-// A renderable encapsulates per-draw information; object-level state such as the skeleton lives on Object.
+// A renderable encapsulates per-draw resource data. Object grouping and an
+// optional skeleton binding live on the ECS RenderableAttachment.
 // There are multiple materials because we may need multiple maps i.e. texture, normal, uv maps
 struct Renderable
 {

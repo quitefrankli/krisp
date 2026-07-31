@@ -31,7 +31,7 @@ ecs:
 
 | Section | Contents |
 | --- | --- |
-| `engine` | Pause and camera-input settings. |
+| `engine` | Pause, game-mode, and camera-input settings. |
 | `camera` | Camera transform, mode, and projection state. |
 | `objects` | Registered scene object type, identity, name, and visibility metadata. |
 | `ecs` | Persistent component systems, including renderable attachments, skeletons, animation, and bone attachments. |
@@ -163,7 +163,7 @@ and resolve it before restoring dependent attachments.
 
 Parsing plus object-type and duplicate-`ObjectID` validation happen before the
 current scene is reset. Errors found later, such as a missing imported resource,
-raise `SerializationError` after reset has begun. The pause guard resumes
-graphics, but the game-side scene may contain only the successfully restored
-prefix. Callers must report the failure and must not treat the scene as
-successfully loaded.
+raise `SerializationError` after reset has begun. Graphics continues rendering
+its previously accepted immutable frame, but the game-side scene may contain
+only the successfully restored prefix. Callers must report the failure and must
+not treat the scene as successfully loaded.

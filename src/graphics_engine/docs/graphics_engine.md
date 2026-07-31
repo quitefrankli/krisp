@@ -4,17 +4,25 @@ The graphics engine aims to abstract away the specific graphics api from the res
 
 It's supplemented with "submodules", which are sub components of the graphics engine i.e. GraphicsResourceManager, PipelineManager.
 
-Each submodule inherit from a BaseSubModule that features a nice interface that gives access to most of the graphics engine and other components.
+Most submodules inherit from `GraphicsEngineBaseModule`, which provides access
+to the owning graphics engine and its shared Vulkan services.
 
 ## Submodules
 
-### RendererManger
+### RendererManager
 
-Holds a collection of renderers, each renderer has its own renderpass. Since we are using multiple in flight frames, each renderer is also required to hold multiple sets of attachments and framebuffers.
+Holds the renderer set. The shadow-map, rasterization, quad, and ImGui renderers
+own their pass-specific resources for every in-flight frame. Particle rendering
+records inside the rasterization pass and reuses that render pass rather than
+owning a separate one.
 
-The renderers themselves aren't responsible for synchronisation or uniform buffer updates e.t.c. these are all done by each swapchain frame (which is also responsible for calling the renderers' draw method)
+Frame synchronization and shared uniform updates belong to
+`GraphicsEngineFrame`; renderers own only their pass-specific resource updates
+and command recording.
 
-The renderers request rendering by calling each renderer and providing a `command_buffer` that each renderer then submits commands into
+`GraphicsEngineFrame` records the passes in order by calling each active
+renderer with the frame command buffer. Each renderer appends its commands to
+that buffer.
 
 ## Frame synchronization and resource retirement
 

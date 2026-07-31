@@ -3,7 +3,8 @@
 `Character` and `PlayerCharacter` currently provide a small object-oriented
 bridge for the Krisp playable-character demo. `PlayerCharacter` provides
 camera-relative movement, collision sliding, and ground snapping. Animation
-integration is intentionally deferred.
+integration supports directional locomotion clips with smooth transitions and
+one-shot action overrides.
 
 ## TODO: move character behaviour to ECS
 

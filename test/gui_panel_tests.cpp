@@ -1,4 +1,5 @@
-#include "gui/gui_windows.hpp"
+#include "gui/gui_windows/gui_windows.hpp"
+#include "gui/gui_windows/gui_animation_selector.hpp"
 #include "gui/gui_manager.hpp"
 #include "gui/application_ui_manager.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"

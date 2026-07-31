@@ -81,7 +81,7 @@ struct SkeletalAnimation
 	SkeletalRigSignature rig_signature;
 };
 
-// A coherent render-facing copy captured while holding the pose mutex.
+// A coherent render-facing copy of the game-thread-owned local pose.
 struct SkeletalRenderStateSnapshot
 {
 	std::vector<uint32_t> parent_indices;

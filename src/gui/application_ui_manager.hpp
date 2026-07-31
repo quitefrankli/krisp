@@ -1,6 +1,6 @@
 #pragma once
 
-#include "gui_windows.hpp"
+#include "gui_windows/gui_windows.hpp"
 
 #include <array>
 #include <memory>

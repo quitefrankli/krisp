@@ -1,4 +1,4 @@
-#include "gui/gui_windows.hpp"
+#include "gui/gui_windows/gui_windows.hpp"
 
 #include <gtest/gtest.h>
 

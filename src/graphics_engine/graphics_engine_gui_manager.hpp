@@ -3,7 +3,7 @@
 #include "graphics_engine_base_module.hpp"
 #include "gui/gui_manager.hpp"
 #include "gui/application_ui_manager.hpp"
-#include "gui/gui_windows.hpp"
+#include "gui/gui_windows/gui_windows.hpp"
 #include "analytics.hpp"
 #include "entity_component_system/material_system.hpp"
 
