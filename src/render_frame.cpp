@@ -75,12 +75,70 @@ void RenderFrameMailbox::publish_completed(RenderFramePtr frame)
 	if (!frame)
 		throw std::invalid_argument("RenderFrameMailbox::publish_completed: frame is empty");
 
+	std::unordered_map<RenderableID, const RenderableDefinition*>
+		next_renderable_definitions;
+	next_renderable_definitions.reserve(frame->renderables.size());
+	for (const auto& state : frame->renderables)
+	{
+		if (!state.definition)
+			throw std::invalid_argument(
+				"RenderFrameMailbox::publish_completed: renderable definition is empty");
+		const RenderableID id = state.definition->id;
+		if (!next_renderable_definitions.emplace(id, state.definition.get()).second)
+			throw std::logic_error(
+				"RenderFrameMailbox::publish_completed: duplicate renderable ID");
+		if (const auto active = active_renderable_definitions.find(id);
+			active != active_renderable_definitions.end())
+		{
+			if (active->second != state.definition.get())
+				throw std::logic_error(
+					"RenderFrameMailbox::publish_completed: renderable definition changed for an existing ID");
+		}
+		else if (seen_renderable_ids.contains(id))
+		{
+			throw std::logic_error(
+				"RenderFrameMailbox::publish_completed: retired renderable ID was reintroduced");
+		}
+	}
+
+	std::unordered_map<SkeletonID, const RenderSkeletonDefinition*>
+		next_skeleton_definitions;
+	next_skeleton_definitions.reserve(frame->skeletons.size());
+	for (const auto& pose : frame->skeletons)
+	{
+		if (!pose.definition)
+			throw std::invalid_argument(
+				"RenderFrameMailbox::publish_completed: skeleton definition is empty");
+		const SkeletonID id = pose.definition->id;
+		if (!next_skeleton_definitions.emplace(id, pose.definition.get()).second)
+			throw std::logic_error(
+				"RenderFrameMailbox::publish_completed: duplicate skeleton ID");
+		if (const auto active = active_skeleton_definitions.find(id);
+			active != active_skeleton_definitions.end())
+		{
+			if (active->second != pose.definition.get())
+				throw std::logic_error(
+					"RenderFrameMailbox::publish_completed: skeleton definition changed for an existing ID");
+		}
+		else if (seen_skeleton_ids.contains(id))
+		{
+			throw std::logic_error(
+				"RenderFrameMailbox::publish_completed: retired skeleton ID was reintroduced");
+		}
+	}
+
 	const CompletedRenderFramesPtr previous_publication =
 		latest.load(std::memory_order_acquire);
 	auto publication = std::make_shared<const CompletedRenderFrames>(CompletedRenderFrames{
 		.current = std::move(frame),
 		.previous = previous_publication ? previous_publication->current : nullptr,
 	});
+	for (const auto& [id, _] : next_renderable_definitions)
+		seen_renderable_ids.insert(id);
+	for (const auto& [id, _] : next_skeleton_definitions)
+		seen_skeleton_ids.insert(id);
+	active_renderable_definitions = std::move(next_renderable_definitions);
+	active_skeleton_definitions = std::move(next_skeleton_definitions);
 	latest.store(std::move(publication), std::memory_order_release);
 }
 

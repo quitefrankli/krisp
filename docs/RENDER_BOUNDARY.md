@@ -6,13 +6,18 @@ latest-wins mailbox. Publication never waits for graphics, and loading the
 latest publication never waits for the game thread.
 
 Each frame contains all state needed by rasterization: camera and light state,
-particle instances, one state and immutable versioned definition per
+particle instances, one state and immutable definition per
 `RenderableID`, and animated bone poses keyed by `SkeletonID`. A renderable
 definition retains its mesh and material handles and records optional
 `ObjectID` grouping metadata and an optional skeleton binding. Renderable state
 contains its already-composed world transform and effective visibility.
 
-`RenderableID` is the stable topology identity across the boundary. `ObjectID`
+`RenderableID` is an immutable topology identity across the boundary. Mesh,
+materials, pipeline, grouping metadata, and skeleton binding cannot change for
+that ID; replacement creates a new ID. `SkeletonID` likewise identifies one
+immutable bone hierarchy and inverse-bind layout, while its pose remains
+mutable. The mailbox rejects changed definitions and retired-ID
+reintroduction. `ObjectID`
 is not a graphics ownership key: graphics uses it only to group renderables for
 object-level controls such as stencil selection, previews, and active-light
 shadow suppression. Effective object visibility is composed before publication.
@@ -26,20 +31,19 @@ published during a slow draw, only the newest is accepted by the next graphics
 iteration.
 
 Graphics-owned renderables are reconciled independently when renderable
-membership or definition versions change. Changing or removing one attachment
+membership changes. Replacing or removing one attachment
 does not recreate other renderables in its object group. Dynamic-only frames
 reuse the existing transform buffers and descriptor sets.
 
 Skeleton GPU resources are independently keyed by `SkeletonID`. One bone-buffer
 slot per skeleton and swap-chain frame is updated from the published pose and
 bound by every renderable that references that skeleton. Skeleton membership
-or definition changes reconcile the affected shared skeleton resource and its
-referencing descriptors without making a skeleton the owner of a renderable.
+changes reconcile the affected shared skeleton resource without making a
+skeleton the owner of a renderable.
 
-Topology replacement currently waits for graphics-device synchronization
-before replacing affected resources. Mesh and material GPU allocations are
-retired by the graphics thread after their final immutable CPU owner is
-released and the device is synchronized.
+Removed renderable, skeleton, mesh, and material GPU allocations are retired by
+the graphics thread after the last potentially referencing submission fence
+completes; topology reconciliation does not wait for the entire device.
 
 The graphics command queue is not a scene-state channel. It remains only for
 control operations such as shutdown, render-mode changes, previews, and

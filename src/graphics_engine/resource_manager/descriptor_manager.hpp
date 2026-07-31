@@ -56,26 +56,33 @@ private:
 	void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
 #endif
 
-	static constexpr int MAX_LOW_FREQ_DESCRIPTOR_SETS = CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
-	static constexpr int MAX_HIGH_FREQ_DESCRIPTOR_SETS = 8000; // per-frame renderable transforms + materials/textures
+	static constexpr uint32_t MAX_LOW_FREQ_DESCRIPTOR_SETS =
+		CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
+	static constexpr uint32_t MAX_RENDERABLE_INSTANCES =
+		GraphicsBufferManager::NUM_EXPECTED_RENDERABLES
+		* CSTS::MAX_CONCURRENT_RENDER_RESOURCE_SETS;
+	static constexpr uint32_t MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS =
+		MAX_RENDERABLE_INSTANCES * CSTS::UPPERBOUND_SWAPCHAIN_IMAGES;
+	static constexpr uint32_t MAX_RENDERABLE_DESCRIPTOR_SETS =
+		MAX_RENDERABLE_INSTANCES;
 #if 0
 	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000;
 	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
 #endif
-	static constexpr int MAX_STORAGE_BUFFER_DESCRIPTOR_SETS = 8000;
-
-	// i.e. sphere uses 1 uniform while cube uses 6 per descriptor set
-	static constexpr int MAX_UNIFORMS_PER_DESCRIPTOR_SET = 10;
-	static constexpr int MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET = 10;
-	static constexpr int MAX_IMGUI_DESCRIPTOR_SETS = 50;
-
-	// upper bound for descriptor sets, statically checked
-	static constexpr int MAX_DESCRIPTOR_SETS = 10000;
-
-	static_assert(
-		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS + 
-		MAX_IMGUI_DESCRIPTOR_SETS <= MAX_DESCRIPTOR_SETS, 
-		"GraphicsResourceManager: too many descriptor sets!");
+	static constexpr uint32_t MAX_UNIFORM_BUFFER_DESCRIPTORS =
+		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS;
+	static constexpr uint32_t MAX_STORAGE_BUFFER_DESCRIPTORS =
+		MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS + MAX_RENDERABLE_DESCRIPTOR_SETS;
+	static constexpr uint32_t MAX_COMBINED_IMAGE_SAMPLER_DESCRIPTORS =
+		3 * MAX_RENDERABLE_DESCRIPTOR_SETS;
+	static constexpr uint32_t MAX_ENGINE_DESCRIPTOR_SETS = 64;
+	static constexpr uint32_t MAX_IMGUI_DESCRIPTOR_SETS = 50;
+	static constexpr uint32_t MAX_DESCRIPTOR_SETS =
+		MAX_LOW_FREQ_DESCRIPTOR_SETS
+		+ MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS
+		+ MAX_RENDERABLE_DESCRIPTOR_SETS
+		+ MAX_ENGINE_DESCRIPTOR_SETS
+		+ MAX_IMGUI_DESCRIPTOR_SETS;
 #if 0
 	static_assert(
 		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS +

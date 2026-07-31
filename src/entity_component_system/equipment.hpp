@@ -42,6 +42,7 @@ public:
 protected:
 	void remove_entity(Entity id);
 	void on_renderable_removed(RenderableID id);
+	void on_renderable_replaced(RenderableID old_id, RenderableID new_id);
 	friend class RenderableSystem;
 
 private:

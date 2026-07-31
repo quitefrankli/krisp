@@ -15,16 +15,16 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 
 inline constexpr uint32_t RENDER_FRAME_NO_PARENT = std::numeric_limits<uint32_t>::max();
-using RenderDefinitionVersion = uint64_t;
 
 // Frame-independent draw data. The handles keep the immutable CPU assets alive
 // for as long as a published definition can be retained by a consumer.
-// Reusable per-renderable topology. A producer must publish a new version when
-// draw resources, group metadata, or skeleton binding changes for this ID.
+// Immutable topology for one RenderableID. Structural changes require a new ID.
 struct RenderableDefinition
 {
 	ERenderType pipeline_render_type = ERenderType::COLOR;
@@ -34,7 +34,6 @@ struct RenderableDefinition
 	bool casts_shadow = true;
 	bool render_on_top = false;
 	RenderableID id{ 0 };
-	RenderDefinitionVersion version = 0;
 	std::optional<ObjectID> object_id;
 	std::optional<SkeletonID> skeleton_id;
 	MeshHandle mesh_owner;
@@ -80,12 +79,10 @@ struct RenderBoneDefinition
 	glm::mat4 inverse_bind_pose{ 1.0f };
 };
 
-// Reusable skeleton topology. A producer must publish a new version whenever
-// the bone hierarchy or inverse bind poses for this ID change.
+// Immutable topology for one SkeletonID. A different rig requires a new ID.
 struct RenderSkeletonDefinition
 {
 	SkeletonID id;
-	RenderDefinitionVersion version = 0;
 	std::vector<RenderBoneDefinition> bones;
 };
 
@@ -160,10 +157,18 @@ public:
 	// One producer publishes completed immutable frames. Concurrent consumers
 	// may retain any returned publication without explicit waiting. Publishing
 	// replaces an unconsumed frame: the latest publication always wins.
+	// Definition identity is enforced across every publication: an active ID must
+	// retain the same definition, and a retired ID cannot be reintroduced.
 	void publish_completed(RenderFramePtr frame);
 	// Returns empty before the first publication.
 	CompletedRenderFramesPtr load_latest() const;
 
 private:
 	std::atomic<CompletedRenderFramesPtr> latest;
+	std::unordered_map<RenderableID, const RenderableDefinition*>
+		active_renderable_definitions;
+	std::unordered_map<SkeletonID, const RenderSkeletonDefinition*>
+		active_skeleton_definitions;
+	std::unordered_set<RenderableID> seen_renderable_ids;
+	std::unordered_set<SkeletonID> seen_skeleton_ids;
 };

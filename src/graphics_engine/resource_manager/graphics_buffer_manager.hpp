@@ -99,7 +99,10 @@ public:
 	// in bytes, takes average size different vertex types
 	static constexpr size_t VERTEX_BUFFER_CAPACITY = (sizeof(SDS::ColorVertex) + sizeof(SDS::TexVertex)) * 1e6;
 	static constexpr size_t INDEX_BUFFER_CAPACITY = sizeof(uint32_t) * 1e7;
-	static constexpr size_t UNIFORM_BUFFER_CAPACITY = sizeof(SDS::ObjectData) * NUM_EXPECTED_RENDERABLES * NUM_EXPECTED_FRAMES;
+	static constexpr size_t UNIFORM_BUFFER_CAPACITY =
+		sizeof(SDS::ObjectData) * NUM_EXPECTED_RENDERABLES
+		* CSTS::UPPERBOUND_SWAPCHAIN_IMAGES
+		* CSTS::MAX_CONCURRENT_RENDER_RESOURCE_SETS;
 	static constexpr size_t MATERIALS_BUFFER_CAPACITY = sizeof(SDS::MaterialData) * NUM_EXPECTED_RENDERABLES;
 	// 100 is here to get around the min uniform buffer alignment requirement
 	static constexpr size_t GLOBAL_UNIFORM_BUFFER_CAPACITY = sizeof(SDS::GlobalData) * CSTS::UPPERBOUND_SWAPCHAIN_IMAGES * 100;
@@ -111,8 +114,8 @@ public:
 	static constexpr size_t INITIAL_STAGING_BUFFER_CAPACITY = 1e4; // staging buffer capacity dynamically grows
 
 private:
-	void reserve_buffer(GraphicsBuffer& buffer, uint64_t id, size_t size);
-	void free_buffer(GraphicsBuffer& buffer, uint64_t id);
+	void reserve_buffer(GraphicsBuffer& buffer, GraphicsBuffer::SlotID id, size_t size);
+	void free_buffer(GraphicsBuffer& buffer, GraphicsBuffer::SlotID id);
 	void update_buffer_stats();
 
 #if 0 // Ray tracing is unsupported; retain its required buffer flags.

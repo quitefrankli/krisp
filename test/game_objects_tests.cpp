@@ -303,15 +303,15 @@ TEST(skeletal_component_tests, bone_attachment_follows_animated_model_space_pose
 	EXPECT_TRUE(glm_equal(
 		ecs.get_position(prop.get_id()), glm::vec3(5.0f, 2.0f, 3.0f)));
 
-	ecs.get_skeletal_component(skeleton).get_bones()[1]
-		.relative_transform.set_pos({ 0.0f, 4.0f, 0.0f });
+	ecs.get_skeletal_component(skeleton).get_bone_local_transform(1)
+		.set_pos({ 0.0f, 4.0f, 0.0f });
 	ecs.process(0.0f);
 	EXPECT_TRUE(glm_equal(
 		ecs.get_position(prop.get_id()), glm::vec3(5.0f, 4.0f, 3.0f)));
 
 	ASSERT_TRUE(ecs.detach_entity_from_bone(prop.get_id()));
-	ecs.get_skeletal_component(skeleton).get_bones()[1]
-		.relative_transform.set_pos({ 0.0f, 6.0f, 0.0f });
+	ecs.get_skeletal_component(skeleton).get_bone_local_transform(1)
+		.set_pos({ 0.0f, 6.0f, 0.0f });
 	ecs.process(0.0f);
 	EXPECT_TRUE(glm_equal(
 		ecs.get_position(prop.get_id()), glm::vec3(5.0f, 4.0f, 3.0f)));

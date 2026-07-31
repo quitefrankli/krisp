@@ -42,9 +42,10 @@ public:
 	std::vector<RenderableID> get_renderable_ids(ObjectID object_id) const;
 
 	bool remove_renderable(RenderableID id);
-	void set_renderable(RenderableID id, Renderable renderable);
-	void set_renderable_object(RenderableID id, std::optional<ObjectID> object_id);
-	void set_renderable_skeleton(RenderableID id, std::optional<SkeletonID> skeleton_id);
+	// Structural fields are immutable for an ID. Replacement preserves grouping,
+	// skeleton binding, and visibility, but returns a fresh ID.
+	RenderableID replace_renderable(RenderableID id, Renderable renderable);
+	void set_renderable_local_transform(RenderableID id, Maths::Transform transform);
 	void set_renderable_visibility(RenderableID id, bool visible);
 	glm::mat4 get_renderable_transform(RenderableID id) const;
 	bool get_renderable_visibility(RenderableID id) const;
@@ -63,6 +64,7 @@ private:
 	void validate_attachment(const Renderable& renderable,
 		std::optional<ObjectID> object_id, std::optional<SkeletonID> skeleton_id) const;
 	void notify_removing(RenderableID id);
+	void notify_replacing(RenderableID old_id, RenderableID new_id);
 
 	AttachmentMap renderables;
 };

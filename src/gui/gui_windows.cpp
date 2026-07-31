@@ -1527,11 +1527,13 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		pending_change.reset();
 		try
 		{
+			RenderableID replacement_id = change.renderable_id;
 			if (change.matte)
-				engine.set_renderable_specular_matte(change.renderable_id);
+				replacement_id = engine.set_renderable_specular_matte(change.renderable_id);
 			else
-				engine.replace_renderable_texture(
+				replacement_id = engine.replace_renderable_texture(
 					change.renderable_id, change.semantic, std::move(change.path));
+			std::ranges::replace(renderable_ids, change.renderable_id, replacement_id);
 			load_error.reset();
 		}
 		catch (const ResourceLoadError& error)

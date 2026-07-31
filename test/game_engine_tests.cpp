@@ -195,17 +195,19 @@ TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definiti
 
 	auto changed_renderable = engine.get_ecs().get_renderable(child_renderable).renderable;
 	changed_renderable.casts_shadow = false;
-	engine.get_ecs().set_renderable(child_renderable, std::move(changed_renderable));
+	const RenderableID replacement_id = engine.get_ecs().replace_renderable(
+		child_renderable, std::move(changed_renderable));
 	engine.main_loop(0.1f);
 	const auto definition_frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	const auto replacement = find_render_object(*definition_frame, child.get_id()).definition;
 	EXPECT_NE(replacement, first_definition);
-	EXPECT_GT(replacement->version, first_definition->version);
+	EXPECT_EQ(replacement->id, replacement_id);
+	EXPECT_FALSE(engine.get_ecs().has_renderable(child_renderable));
 	EXPECT_FALSE(replacement->casts_shadow);
 }
 
-TEST_F(GameEngineTests, snapshots_skeleton_pose_and_versions_only_definition_changes)
+TEST_F(GameEngineTests, snapshots_skeleton_pose_with_immutable_definitions)
 {
 	Bone root;
 	root.relative_transform.set_pos({ 1.0f, 0.0f, 0.0f });
@@ -228,8 +230,8 @@ TEST_F(GameEngineTests, snapshots_skeleton_pose_and_versions_only_definition_cha
 	ASSERT_EQ(first_definition->bones.size(), 2);
 	EXPECT_EQ(first_definition->bones[1].parent_index, 0);
 
-	auto& live_bones = engine.get_ecs().get_skeletal_component(skeleton_id).get_bones();
-	live_bones[1].relative_transform.set_pos({ 0.0f, 3.0f, 0.0f });
+	engine.get_ecs().get_skeletal_component(skeleton_id)
+		.get_bone_local_transform(1).set_pos({ 0.0f, 3.0f, 0.0f });
 	engine.main_loop(0.1f);
 	const auto pose_frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
@@ -239,25 +241,20 @@ TEST_F(GameEngineTests, snapshots_skeleton_pose_and_versions_only_definition_cha
 		changed_pose.local_transforms[1],
 		glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 3.0f, 0.0f))));
 
-	live_bones[1].inverse_bind_pose.set_pos({ 0.0f, -2.0f, 0.0f });
-	engine.main_loop(0.1f);
-	const auto definition_frame =
-		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
-	const auto replacement = find_render_skeleton(*definition_frame, skeleton_id).definition;
-	EXPECT_NE(replacement, first_definition);
-	EXPECT_GT(replacement->version, first_definition->version);
-
 	const auto first_object_definition =
-		find_renderable(*definition_frame, renderable_id).definition;
+		find_renderable(*pose_frame, renderable_id).definition;
 	const SkeletonID replacement_skeleton = engine.get_ecs().add_skeleton({ root });
-	engine.get_ecs().set_renderable_skeleton(renderable_id, replacement_skeleton);
+	auto replacement_renderable =
+		engine.get_ecs().get_renderable(renderable_id).renderable;
+	const RenderableID replacement_renderable_id = engine.get_ecs().add_renderable(
+		std::move(replacement_renderable), object.get_id(), replacement_skeleton);
+	engine.get_ecs().remove_renderable(renderable_id);
 	engine.main_loop(0.1f);
 	const auto binding_frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	const auto replacement_object_definition =
-		find_renderable(*binding_frame, renderable_id).definition;
+		find_renderable(*binding_frame, replacement_renderable_id).definition;
 	EXPECT_NE(replacement_object_definition, first_object_definition);
-	EXPECT_GT(replacement_object_definition->version, first_object_definition->version);
 	EXPECT_EQ(replacement_object_definition->skeleton_id, replacement_skeleton);
 }
 
@@ -1065,16 +1062,16 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 	first.pipeline_render_type = ERenderType::STANDARD;
 	Renderable second = first;
 	auto& object = engine.spawn_object<Object>();
-	const auto renderable_ids = engine.attach_renderables(
+	auto renderable_ids = engine.attach_renderables(
 		object.get_id(), std::vector<Renderable>{ first, second });
 	old_diffuse_owner.reset();
 	old_normal_owner.reset();
 	const auto old_diffuse_owners = old_diffuse_owner.use_count();
-	engine.replace_renderable_texture(
+	renderable_ids[0] = engine.replace_renderable_texture(
 		renderable_ids[0], ETextureSemantic::BASE_COLOR, "texture5.jpg");
 	EXPECT_EQ(old_diffuse_owner.use_count(), old_diffuse_owners);
 
-	engine.replace_renderable_texture(
+	renderable_ids[1] = engine.replace_renderable_texture(
 		renderable_ids[1], ETextureSemantic::BASE_COLOR, "texture4.png");
 
 	const auto& first_attachment = engine.get_ecs().get_renderable(renderable_ids[0]).renderable;
@@ -1102,10 +1099,10 @@ TEST_F(GameEngineTests, texture_replacement_with_procedural_material_is_not_seri
 	auto model = ResourceLoader::load_model(engine.get_ecs(), "static_mesh_textured.gltf");
 	ASSERT_EQ(model.meshes.size(), 1);
 	auto& object = engine.spawn_object<Object>();
-	const auto renderable_ids = engine.attach_renderables(
+	auto renderable_ids = engine.attach_renderables(
 		object.get_id(), model.meshes[0].renderables);
 
-	engine.replace_renderable_texture(
+	renderable_ids[0] = engine.replace_renderable_texture(
 		renderable_ids[0], ETextureSemantic::BASE_COLOR, "texture4.png");
 	ResourceProvenance::erase_material(
 		engine.get_ecs().get_renderable(renderable_ids[0]).renderable.get_material_id(0));
@@ -1128,21 +1125,22 @@ TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 	renderable.material_owners = { diffuse_owner, normal_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
 	auto& object = spawn_renderable_object(engine, renderable);
-	const RenderableID renderable_id = only_renderable_id(engine, object.get_id());
+	RenderableID renderable_id = only_renderable_id(engine, object.get_id());
 	renderable = {};
 	diffuse_owner.reset();
 	normal_owner.reset();
 
-	engine.replace_renderable_texture(
+	renderable_id = engine.replace_renderable_texture(
 		renderable_id, ETextureSemantic::NORMAL, std::nullopt);
 	const auto& attachment = engine.get_ecs().get_renderable(renderable_id).renderable;
 	ASSERT_EQ(attachment.get_material_ids(), (MatVec{ diffuse }));
 	EXPECT_FALSE(MaterialSystem::contains(normal));
 
-	engine.replace_renderable_texture(
+	renderable_id = engine.replace_renderable_texture(
 		renderable_id, ETextureSemantic::BASE_COLOR, std::nullopt);
-	const auto white = attachment.get_material_id(0);
-	EXPECT_EQ(attachment.get_material_ids(), (MatVec{ white }));
+	const auto& white_attachment = engine.get_ecs().get_renderable(renderable_id).renderable;
+	const auto white = white_attachment.get_material_id(0);
+	EXPECT_EQ(white_attachment.get_material_ids(), (MatVec{ white }));
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(MaterialSystem::get(white)).source, "(none)");
 	EXPECT_FALSE(MaterialSystem::contains(diffuse));
 
@@ -1164,11 +1162,11 @@ TEST_F(GameEngineTests, replaces_specular_maps)
 	renderable.material_owners = { diffuse_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
 	auto& object = spawn_renderable_object(engine, renderable);
-	const RenderableID renderable_id = only_renderable_id(engine, object.get_id());
+	RenderableID renderable_id = only_renderable_id(engine, object.get_id());
 	renderable = {};
 	diffuse_owner.reset();
 
-	engine.replace_renderable_texture(
+	renderable_id = engine.replace_renderable_texture(
 		renderable_id, ETextureSemantic::SPECULAR,
 		"texture4.png");
 	const TexturedMatGroup group(
@@ -1194,11 +1192,11 @@ TEST_F(GameEngineTests, texture_replacement_matches_owners_by_semantic)
 	renderable.material_owners = { specular_owner, diffuse_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
 	auto& object = spawn_renderable_object(engine, std::move(renderable));
-	const RenderableID renderable_id = only_renderable_id(engine, object.get_id());
+	RenderableID renderable_id = only_renderable_id(engine, object.get_id());
 	diffuse_owner.reset();
 	specular_owner.reset();
 
-	engine.replace_renderable_texture(
+	renderable_id = engine.replace_renderable_texture(
 		renderable_id, ETextureSemantic::BASE_COLOR, "texture4.png");
 
 	const TexturedMatGroup group(
@@ -1218,11 +1216,11 @@ TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
 	renderable.material_owners = { diffuse_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
 	auto& object = spawn_renderable_object(engine, renderable);
-	const RenderableID renderable_id = only_renderable_id(engine, object.get_id());
+	RenderableID renderable_id = only_renderable_id(engine, object.get_id());
 	renderable = {};
 	diffuse_owner.reset();
 
-	engine.set_renderable_specular_matte(renderable_id);
+	renderable_id = engine.set_renderable_specular_matte(renderable_id);
 
 	const TexturedMatGroup group(
 		engine.get_ecs().get_renderable(renderable_id).renderable.material_owners);

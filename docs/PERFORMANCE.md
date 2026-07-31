@@ -66,7 +66,7 @@ the independently replaceable graphics-resource unit.
 
 Graphics renderables are the ownership and dynamic-state boundary. Topology
 reconciliation builds flat draw-item lists for rasterization and processes
-membership and definition versions per `RenderableID`; changing one attachment
+immutable membership per `RenderableID`; replacing one attachment with a new ID
 does not recreate its former object-group peers. Opaque, masked, overlay, and
 shadow lists are classified and state-sorted only when renderable or skeleton
 topology changes. Blended main and overlay items are sorted back-to-front each
@@ -88,8 +88,8 @@ swap-chain frame, then binds it from every renderable attached to that
 skeleton. Multiple skinned mesh primitives or instances can therefore share a
 single pose upload instead of duplicating bone buffers and updates per
 renderable. Descriptor reconciliation remains proportional to the number of
-affected bindings when a skeleton definition changes. No timing measurements
-have been recorded.
+new bindings when a skeleton identity is replaced. No timing measurements have
+been recorded.
 
 ## Skeletal animation cross-fades
 
@@ -125,10 +125,10 @@ pointer indirection per component. No timing measurements have been recorded.
 
 The game thread now builds one immutable render snapshot after each update.
 Per-frame work is linear in renderable/material-reference count, published
-skeleton-pose size, attached bone count, and live particle count. Renderable
-and skeleton definitions are compared with cached immutable definitions each
-update, but their vectors and asset handles are copied only when definition
-content changes. Grouped renderables perform object lookups to compose
+skeleton-pose size, attached bone count, and live particle count. Cached
+renderable and skeleton definitions are checked each update to enforce that a
+definition never changes for an existing ID; structural replacement instead
+creates a new ID. Grouped renderables perform object lookups to compose
 transforms, visibility, and other object-level behavior.
 
 Current and previous frames remain shared-owned by the publication mailbox, so
@@ -144,14 +144,31 @@ not lock or query the mutable asset registries. Registry synchronization is
 limited to ownership lookup/update and the cross-thread retirement handoff.
 
 Graphics-owned renderables and their descriptor/buffer topology are reconciled
-only when renderable membership or renderable/skeleton definition versions
-change. Dynamic camera, visibility, transform, particle, and bone-pose changes
-reuse that topology. Per-renderable reconciliation limits replacement to the
-changed instance; shared skeleton buffers avoid repeated pose uploads for every
-referencing renderable. Topology changes synchronize the Vulkan device before
-replacing affected resources. Released mesh/material GPU allocations are
-likewise retired only after graphics synchronization; these waits affect the
-graphics thread but never the game publisher.
+only when immutable renderable or skeleton membership changes. Dynamic camera,
+visibility, transform, particle, and bone-pose changes reuse that topology.
+Per-renderable reconciliation limits replacement to the changed identity;
+shared skeleton buffers avoid repeated pose uploads for every referencing
+renderable.
+
+Topology replacement and unused mesh/material cleanup do not call
+`vkDeviceWaitIdle()`. Each graphics-queue submission receives a monotonically
+increasing serial associated with its frame fence. Once that fence has been
+waited, the completed serial advances; graphics-queue ordering also establishes
+that all earlier serials have completed. Resources removed from current
+topology are placed in a retirement batch tagged with the latest submitted
+serial and released only after that serial is complete.
+
+Removed and replacement renderable or skeleton identities can consequently
+coexist while an earlier frame still references the removed identity. This
+avoids a device-wide runtime stall during frequent topology changes, at the
+expected cost of temporarily retaining superseded GPU allocations. The
+per-renderable uniform buffer and descriptor pool include capacity for the
+active topology plus one retired resource set per possible in-flight swapchain
+image; this increases reserved GPU memory relative to immediate destruction.
+Shutdown still uses
+`vkDeviceWaitIdle()` before flushing every remaining retirement batch. This
+retirement path does not change the synchronization used by one-time staging
+and upload commands. No timing or peak-memory measurements have been recorded.
 
 The unsupported ray-tracing source and shader paths are excluded from builds.
 Its renderer, pipeline, descriptor layouts, device extensions/features, and

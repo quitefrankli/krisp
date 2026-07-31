@@ -498,7 +498,7 @@ void GameEngine::unhighlight_object(const Object& object)
 	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object.get_id()));
 }
 
-void GameEngine::replace_renderable_texture(
+RenderableID GameEngine::replace_renderable_texture(
 	const RenderableID renderable_id,
 	const ETextureSemantic semantic,
 	std::optional<std::string> texture_filename)
@@ -537,7 +537,7 @@ void GameEngine::replace_renderable_texture(
 	}();
 
 	if (old && *old == replacement)
-		return;
+		return renderable_id;
 
 	if (semantic == ETextureSemantic::BASE_COLOR)
 		diffuse = replacement;
@@ -572,10 +572,11 @@ void GameEngine::replace_renderable_texture(
 			: take_old_owner(*current.specular_mat));
 	renderable.material_owners = std::move(updated_owners);
 	old_owners.clear();
-	ecs.set_renderable(renderable_id, std::move(renderable));
+	return ecs.replace_renderable(renderable_id, std::move(renderable));
 }
 
-void GameEngine::set_renderable_specular_matte(const RenderableID renderable_id)
+RenderableID GameEngine::set_renderable_specular_matte(
+	const RenderableID renderable_id)
 {
 	if (!ecs.has_renderable(renderable_id))
 		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable not found");
@@ -588,7 +589,7 @@ void GameEngine::set_renderable_specular_matte(const RenderableID renderable_id)
 	auto matte_owner = MaterialSystem::add(MaterialFactory::fetch_black_texture());
 	const MaterialID matte = MaterialSystem::get_id(matte_owner);
 	if (current.specular_mat && *current.specular_mat == matte)
-		return;
+		return renderable_id;
 
 	auto old_owners = std::move(renderable.material_owners);
 	const auto take_old_owner = [&old_owners](const MaterialID id)
@@ -609,7 +610,7 @@ void GameEngine::set_renderable_specular_matte(const RenderableID renderable_id)
 	updated_owners.push_back(std::move(matte_owner));
 	renderable.material_owners = std::move(updated_owners);
 	old_owners.clear();
-	ecs.set_renderable(renderable_id, std::move(renderable));
+	return ecs.replace_renderable(renderable_id, std::move(renderable));
 }
 
 EngineUiManager& GameEngine::get_gui_manager()

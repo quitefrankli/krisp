@@ -16,6 +16,11 @@ namespace CSTS // short for Constants
 	constexpr uint32_t DESIRED_SWAPCHAIN_IMAGES = 3;
 	static_assert(DESIRED_SWAPCHAIN_IMAGES <= UPPERBOUND_SWAPCHAIN_IMAGES);
 
+	// One active resource set plus the greatest possible number still referenced
+	// by in-flight swapchain submissions.
+	constexpr uint32_t MAX_CONCURRENT_RENDER_RESOURCE_SETS =
+		UPPERBOUND_SWAPCHAIN_IMAGES + 1;
+
 	// The default msaa used throughout
 	const uint32_t MSAA_SAMPLE_COUNT = 4;	
 };

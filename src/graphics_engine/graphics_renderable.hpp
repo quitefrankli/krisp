@@ -6,11 +6,23 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <vector>
+
+
+struct GraphicsRenderableResources
+{
+	RenderableID id;
+	uint32_t frame_allocation_count = 0;
+	VkDescriptorSet dset = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> frame_dsets;
+};
 
 class GraphicsRenderable : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsRenderable(GraphicsEngine& engine, RenderableDefinitionPtr definition);
+	GraphicsRenderable(
+		GraphicsEngine& engine,
+		RenderableDefinitionPtr definition);
 	~GraphicsRenderable();
 
 	GraphicsRenderable() = delete;
@@ -20,9 +32,11 @@ public:
 	GraphicsRenderable& operator=(GraphicsRenderable&&) = delete;
 
 	RenderableID get_id() const { return definition->id; }
+	uint32_t get_frame_allocation_count() const { return frame_allocation_count; }
+	void record_frame_allocation() { ++frame_allocation_count; }
+	GraphicsRenderableResources take_graphics_resources() noexcept;
 	std::optional<ObjectID> get_object_id() const { return definition->object_id; }
 	std::optional<SkeletonID> get_skeleton_id() const;
-	RenderDefinitionVersion get_definition_version() const { return definition->version; }
 	const RenderableDefinition& get_definition() const { return *definition; }
 	bool get_visibility() const;
 	const glm::mat4& get_model_transform() const;
@@ -37,6 +51,7 @@ public:
 
 private:
 	RenderableDefinitionPtr definition;
+	uint32_t frame_allocation_count;
 	VkDescriptorSet dset = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> frame_dsets;
 };

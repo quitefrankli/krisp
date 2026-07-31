@@ -47,7 +47,32 @@ GraphicsEngine::~GraphicsEngine()
 {
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
-	renderables.clear(); // must be cleared before the logical device is destroyed
+	renderables.clear();
+	for (const auto& [id, frame_allocation_count] : graphics_skeleton_frame_counts)
+	{
+		for (uint32_t frame_index = 0;
+			frame_index < frame_allocation_count; ++frame_index)
+		{
+			get_rsrc_mgr().free_buffer(SkeletonFrameID{id, frame_index});
+		}
+	}
+	graphics_skeleton_frame_counts.clear();
+	for (auto& resources : retirement_queue.release_all())
+		release_retired_resources(std::move(resources));
+}
+
+SubmissionSerial GraphicsEngine::register_graphics_submission()
+{
+	if (last_submitted_serial == std::numeric_limits<SubmissionSerial>::max())
+		throw std::overflow_error("GraphicsEngine: graphics submission serial overflow");
+	return ++last_submitted_serial;
+}
+
+void GraphicsEngine::complete_graphics_submission(const SubmissionSerial serial)
+{
+	completed_submission_serial = std::max(completed_submission_serial, serial);
+	for (auto& resources : retirement_queue.release_completed(completed_submission_serial))
+		release_retired_resources(std::move(resources));
 }
 
 QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
@@ -165,7 +190,6 @@ void GraphicsEngine::accept_latest_render_frame()
 		return;
 
 	const RenderFramePtr next_frame = publication->current;
-	const RenderFramePtr previous_frame = accepted_render_frame;
 	for (const auto& state : next_frame->renderables)
 		if (!state.definition)
 			throw std::runtime_error("GraphicsEngine: renderable definition is empty");
@@ -178,36 +202,21 @@ void GraphicsEngine::accept_latest_render_frame()
 	if (!topology_changed)
 	{
 		for (const auto& state : next_frame->renderables)
-		{
-			const auto existing = renderables.find(state.definition->id);
-			if (existing == renderables.end()
-				|| existing->second->get_definition_version() != state.definition->version)
+			if (!renderables.contains(state.definition->id))
 			{
 				topology_changed = true;
 				break;
 			}
-		}
 	}
 	if (!topology_changed)
 	{
 		for (const auto& pose : next_frame->skeletons)
-		{
-			const auto previous = std::ranges::find_if(
-				accepted_render_frame->skeletons,
-				[&pose](const RenderSkeletonPose& candidate) {
-					return candidate.definition->id == pose.definition->id;
-				});
-			if (previous == accepted_render_frame->skeletons.end()
-				|| previous->definition->version != pose.definition->version)
+			if (!graphics_skeleton_frame_counts.contains(pose.definition->id))
 			{
 				topology_changed = true;
 				break;
 			}
-		}
 	}
-
-	if (topology_changed)
-		vkDeviceWaitIdle(get_logical_device());
 
 	accepted_render_frame = next_frame;
 	renderable_indices.clear();
@@ -237,80 +246,77 @@ void GraphicsEngine::accept_latest_render_frame()
 	if (!topology_changed)
 		return;
 
-	reconcile_renderables(*accepted_render_frame, previous_frame.get());
+	reconcile_topology(*accepted_render_frame);
 
 }
 
-void GraphicsEngine::reconcile_renderables(
-	const RenderFrame& frame,
-	const RenderFrame* previous_frame)
+void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 {
-	std::unordered_set<SkeletonID> changed_skeletons;
-	if (previous_frame)
-	{
-		for (const auto& pose : frame.skeletons)
-		{
-			const auto previous = std::ranges::find_if(
-				previous_frame->skeletons,
-				[&pose](const RenderSkeletonPose& candidate) {
-					return candidate.definition->id == pose.definition->id;
-				});
-			if (previous == previous_frame->skeletons.end()
-				|| previous->definition->version != pose.definition->version)
-			{
-				changed_skeletons.insert(pose.definition->id);
-			}
-		}
-		for (const auto& pose : previous_frame->skeletons)
-		{
-			const bool still_present = std::ranges::any_of(
-				frame.skeletons,
-				[&pose](const RenderSkeletonPose& candidate) {
-					return candidate.definition->id == pose.definition->id;
-				});
-			if (!still_present)
-				changed_skeletons.insert(pose.definition->id);
-		}
-	}
+	RetiredGraphicsResources retired;
 
-	std::unordered_map<RenderableID, RenderableDefinitionPtr> definitions;
-	definitions.reserve(frame.renderables.size());
+	std::unordered_set<RenderableID> renderable_ids;
+	renderable_ids.reserve(frame.renderables.size());
 	for (const auto& state : frame.renderables)
-		definitions.emplace(state.definition->id, state.definition);
+		renderable_ids.insert(state.definition->id);
+	std::unordered_set<SkeletonID> skeleton_ids;
+	skeleton_ids.reserve(frame.skeletons.size());
+	for (const auto& pose : frame.skeletons)
+		skeleton_ids.insert(pose.definition->id);
 
-	std::vector<RenderableID> renderables_to_recreate;
-	renderables_to_recreate.reserve(renderables.size());
-	for (const auto& [id, renderable] : renderables)
+	retired.renderables.reserve(renderables.size());
+	for (auto it = renderables.begin(); it != renderables.end();)
 	{
-		const auto definition = definitions.find(id);
-		const bool definition_changed = definition == definitions.end()
-			|| renderable->get_definition_version() != definition->second->version;
-		const auto skeleton_id = renderable->get_skeleton_id();
-		if (definition_changed
-			|| (skeleton_id && changed_skeletons.contains(*skeleton_id)))
+		if (renderable_ids.contains(it->first))
 		{
-			renderables_to_recreate.push_back(id);
+			++it;
+			continue;
 		}
+		auto removed = renderables.extract(it++);
+		retired.renderables.push_back(removed.mapped()->take_graphics_resources());
 	}
-	for (const RenderableID id : renderables_to_recreate)
-		cleanup_renderable(id);
 
-	for (const SkeletonID id : changed_skeletons)
+	retired.skeletons.reserve(graphics_skeleton_frame_counts.size());
+	for (auto it = graphics_skeleton_frame_counts.begin();
+		it != graphics_skeleton_frame_counts.end();)
 	{
-		if (graphics_skeleton_versions.contains(id))
-			for (uint32_t frame_index = 0; frame_index < get_num_swapchain_images(); ++frame_index)
-				get_rsrc_mgr().free_buffer(SkeletonFrameID{id, frame_index});
-		graphics_skeleton_versions.erase(id);
+		if (skeleton_ids.contains(it->first))
+		{
+			++it;
+			continue;
+		}
+		auto removed = graphics_skeleton_frame_counts.extract(it++);
+		retired.skeletons.push_back(
+			GraphicsSkeletonResources{removed.key(), removed.mapped()});
 	}
+	enqueue_retirement(std::move(retired));
+
 	for (const auto& pose : frame.skeletons)
 	{
 		const SkeletonID id = pose.definition->id;
-		if (graphics_skeleton_versions.contains(id))
+		if (graphics_skeleton_frame_counts.contains(id))
 			continue;
+		const uint32_t frame_allocation_count = get_num_swapchain_images();
 		const size_t size = sizeof(SDS::Bone) * pose.definition->bones.size();
-		for (uint32_t frame_index = 0; frame_index < get_num_swapchain_images(); ++frame_index)
-			get_rsrc_mgr().reserve_buffer(SkeletonFrameID{id, frame_index}, size);
-		graphics_skeleton_versions.emplace(id, pose.definition->version);
+		uint32_t reserved_frame_count = 0;
+		try
+		{
+			for (; reserved_frame_count < frame_allocation_count; ++reserved_frame_count)
+			{
+				get_rsrc_mgr().reserve_buffer(
+					SkeletonFrameID{id, reserved_frame_count}, size);
+			}
+		}
+		catch (...)
+		{
+			for (uint32_t frame_index = 0;
+				frame_index < reserved_frame_count; ++frame_index)
+			{
+				get_rsrc_mgr().free_buffer(
+					SkeletonFrameID{id, frame_index});
+			}
+			throw;
+		}
+		graphics_skeleton_frame_counts.emplace(id, frame_allocation_count);
 	}
 
 	for (const auto& state : frame.renderables)
@@ -345,13 +351,50 @@ void GraphicsEngine::retire_unused_resources()
 	if (retired_materials.empty() && retired_meshes.empty())
 		return;
 
-	vkDeviceWaitIdle(get_logical_device());
-	for (const MaterialID id : retired_materials)
+	RetiredGraphicsResources retired;
+	retired.materials = std::move(retired_materials);
+	retired.meshes = std::move(retired_meshes);
+	enqueue_retirement(std::move(retired));
+}
+
+void GraphicsEngine::enqueue_retirement(RetiredGraphicsResources resources)
+{
+	if (resources.empty())
+		return;
+	retirement_queue.enqueue(last_submitted_serial, std::move(resources));
+	for (auto& completed : retirement_queue.release_completed(completed_submission_serial))
+		release_retired_resources(std::move(completed));
+}
+
+void GraphicsEngine::release_retired_resources(RetiredGraphicsResources resources)
+{
+	for (auto& renderable : resources.renderables)
+	{
+		for (uint32_t frame_index = 0;
+			frame_index < renderable.frame_allocation_count; ++frame_index)
+		{
+			get_rsrc_mgr().free_buffer(
+				RenderableFrameID{renderable.id, frame_index});
+		}
+		if (renderable.dset != VK_NULL_HANDLE)
+			get_rsrc_mgr().free_dset(renderable.dset);
+		get_rsrc_mgr().free_dsets(renderable.frame_dsets);
+	}
+	for (const auto& skeleton : resources.skeletons)
+	{
+		for (uint32_t frame_index = 0;
+			frame_index < skeleton.frame_allocation_count; ++frame_index)
+		{
+			get_rsrc_mgr().free_buffer(
+				SkeletonFrameID{skeleton.id, frame_index});
+		}
+	}
+	for (const MaterialID id : resources.materials)
 	{
 		get_rsrc_mgr().free_buffer(id);
 		get_texture_mgr().free_texture(id);
 	}
-	for (const MeshID id : retired_meshes)
+	for (const MeshID id : resources.meshes)
 		get_rsrc_mgr().free_buffer(id);
 }
 
@@ -371,13 +414,6 @@ int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags
 	throw std::runtime_error("failed to find suitable memory type!");
 };
 
-void GraphicsEngine::cleanup_renderable(const RenderableID id)
-{
-	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
-		get_rsrc_mgr().free_buffer(RenderableFrameID{id, frame_idx});
-	renderables.erase(id);
-}
-
 void GraphicsEngine::recreate_swap_chain()
 {
 	// TODO:
@@ -389,8 +425,6 @@ void GraphicsEngine::recreate_swap_chain()
     //     glfwGetFramebufferSize(get_window(), &width, &height);
     //     glfwWaitEvents();
     // }
-
-	// vkDeviceWaitIdle(get_logical_device()); // we want to wait until resource is no longer in use
 
 	// swap_chain.reset();
 }
@@ -708,9 +742,13 @@ void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_rend
 	}
 
 	// these buffers are dynamic (changing between frames) and therefore requires duplicate buffers per swapchain image
-	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
+	const uint32_t frame_allocation_count = get_num_swapchain_images();
+	for (uint32_t frame_idx = 0; frame_idx < frame_allocation_count; ++frame_idx)
 	{
-		rsrc_mgr.reserve_buffer(RenderableFrameID{graphics_renderable.get_id(), frame_idx}, sizeof(SDS::ObjectData));
+		rsrc_mgr.reserve_buffer(
+			RenderableFrameID{graphics_renderable.get_id(), frame_idx},
+			sizeof(SDS::ObjectData));
+		graphics_renderable.record_frame_allocation();
 	}
 
 	// Ray-tracing buffer mapping is unsupported:
@@ -723,17 +761,22 @@ void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_rend
 
 void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_renderable)
 {
-	std::vector<VkDescriptorSet> frame_dsets;
+	const std::vector<VkDescriptorSetLayout> frame_layouts(
+		graphics_renderable.get_frame_allocation_count(),
+		get_rsrc_mgr().get_per_renderable_frame_dset_layout());
+	graphics_renderable.set_frame_dsets(get_rsrc_mgr().reserve_dsets(frame_layouts));
 	const auto skeleton_id = graphics_renderable.get_skeleton_id();
-	for (uint32_t frame_idx = 0; frame_idx < get_num_swapchain_images(); ++frame_idx)
+	for (uint32_t frame_idx = 0;
+		frame_idx < graphics_renderable.get_frame_allocation_count(); ++frame_idx)
 	{
-		VkDescriptorSet new_descriptor_set =
-			get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_per_renderable_frame_dset_layout());
+		const VkDescriptorSet new_descriptor_set =
+			graphics_renderable.get_frame_dset(frame_idx);
 		std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 		VkDescriptorBufferInfo buffer_info{};
 		const GraphicsBuffer::Slot buffer_slot =
-			get_rsrc_mgr().get_buffer_slot(RenderableFrameID{graphics_renderable.get_id(), frame_idx});
+			get_rsrc_mgr().get_buffer_slot(
+				RenderableFrameID{graphics_renderable.get_id(), frame_idx});
 		buffer_info.buffer = get_rsrc_mgr().get_uniform_buffer();
 		buffer_info.offset = buffer_slot.offset;
 		buffer_info.range = buffer_slot.size;
@@ -765,15 +808,14 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 		}
 
 		vkUpdateDescriptorSets(get_logical_device(), descriptor_writes.size(), descriptor_writes.data(), 0, nullptr);
-		frame_dsets.push_back(new_descriptor_set);
 	}
-	graphics_renderable.set_frame_dsets(std::move(frame_dsets));
 
 	// TODO: we need to cache the dsets for each material/texture
 	const RenderableDefinition &renderable = graphics_renderable.get_definition();
 	// TODO: we need to split the renderable dset layout to a material only one and a texture only one
 	// however this is a lot of work and will involve creating a new pipeline
 	VkDescriptorSet new_descriptor_set = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_renderable_dset_layout());
+	graphics_renderable.set_dset(new_descriptor_set);
 	std::vector<VkWriteDescriptorSet> descriptor_writes;
 
 	// TODO: after resolving above todo, need to move this within the below switch statement
@@ -899,5 +941,4 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 		                       descriptor_writes.data(), 0, nullptr);
 	}
 
-	graphics_renderable.set_dset(new_descriptor_set);
 }

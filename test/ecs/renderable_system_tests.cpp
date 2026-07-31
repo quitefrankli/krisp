@@ -4,6 +4,8 @@
 
 #include <gtest/gtest.h>
 
+#include <type_traits>
+
 
 TEST(RenderableSystem, composes_group_and_local_state_but_supports_standalone_renderables)
 {
@@ -20,6 +22,10 @@ TEST(RenderableSystem, composes_group_and_local_state_but_supports_standalone_re
 
 	EXPECT_EQ(glm::vec3(ecs.get_renderable_transform(grouped_id)[3]), glm::vec3(2.0f, 3.0f, 0.0f));
 	EXPECT_EQ(glm::vec3(ecs.get_renderable_transform(standalone_id)[3]), glm::vec3(0.0f, 0.0f, 4.0f));
+	Maths::Transform changed_local_transform;
+	changed_local_transform.set_pos({ 0.0f, 5.0f, 0.0f });
+	ecs.set_renderable_local_transform(grouped_id, changed_local_transform);
+	EXPECT_EQ(glm::vec3(ecs.get_renderable_transform(grouped_id)[3]), glm::vec3(2.0f, 5.0f, 0.0f));
 	EXPECT_TRUE(ecs.get_renderable_visibility(grouped_id));
 	group.set_visibility(false);
 	EXPECT_FALSE(ecs.get_renderable_visibility(grouped_id));
@@ -55,17 +61,28 @@ TEST(RenderableSystem, enforces_per_renderable_skeleton_binding_and_shared_lifet
 	EXPECT_EQ(ResourceProvenance::skeleton(skeleton), nullptr);
 }
 
-TEST(RenderableSystem, rejects_an_invalid_payload_update_without_mutating_the_attachment)
+TEST(RenderableSystem, replaces_structural_state_with_a_new_identity)
 {
+	static_assert(std::is_same_v<
+		decltype(std::declval<ECS&>().get_renderable(RenderableID{})),
+		const RenderableAttachment&>);
 	ECS ecs;
 	const auto id = ecs.add_renderable(Renderable::make_default());
 	auto invalid = ecs.get_renderable(id).renderable;
 	invalid.pipeline_render_type = ERenderType::SKINNED_COLOR;
 
-	EXPECT_THROW(ecs.set_renderable(id, std::move(invalid)), std::invalid_argument);
+	EXPECT_THROW(ecs.replace_renderable(id, std::move(invalid)), std::invalid_argument);
 	EXPECT_EQ(
 		ecs.get_renderable(id).renderable.pipeline_render_type,
 		ERenderType::COLOR);
+
+	auto replacement = ecs.get_renderable(id).renderable;
+	replacement.casts_shadow = false;
+	const RenderableID replacement_id =
+		ecs.replace_renderable(id, std::move(replacement));
+	EXPECT_NE(replacement_id, id);
+	EXPECT_FALSE(ecs.has_renderable(id));
+	EXPECT_FALSE(ecs.get_renderable(replacement_id).renderable.casts_shadow);
 }
 
 TEST(RenderableSystem, object_removal_cascades_only_its_renderables)

@@ -68,7 +68,6 @@ TEST(RenderFrame, composes_bone_hierarchy_and_inverse_bind_poses)
 {
 	RenderSkeletonDefinition definition{
 		.id = SkeletonID(8),
-		.version = 3,
 		.bones = {
 			{ .parent_index = RENDER_FRAME_NO_PARENT, .inverse_bind_pose = translation({ -1.0f, 0.0f, 0.0f }) },
 			{ .parent_index = 0, .inverse_bind_pose = translation({ 0.0f, 0.0f, 4.0f }) },
@@ -95,10 +94,9 @@ TEST(RenderFrame, immutable_definitions_retain_mesh_and_material_assets)
 	const MeshID mesh_id = MeshSystem::get_id(mesh);
 	const MaterialID material_id = MaterialSystem::get_id(material);
 
-	auto definition = std::make_shared<const RenderableDefinition>(RenderableDefinition{
+		auto definition = std::make_shared<const RenderableDefinition>(RenderableDefinition{
 		.pipeline_render_type = ERenderType::SKINNED_COLOR,
 		.id = RenderableID(5),
-		.version = 9,
 		.object_id = ObjectID(12),
 		.skeleton_id = SkeletonID(8),
 		.mesh_owner = mesh,
@@ -112,7 +110,6 @@ TEST(RenderFrame, immutable_definitions_retain_mesh_and_material_assets)
 		decltype(definition->get_mesh()), const Mesh&>);
 	static_assert(std::is_same_v<
 		decltype(definition->get_material(0)), const Material&>);
-	EXPECT_EQ(definition->version, 9);
 	EXPECT_EQ(definition->object_id, ObjectID(12));
 	EXPECT_EQ(definition->skeleton_id, SkeletonID(8));
 	EXPECT_EQ(definition->get_mesh().get_id(), mesh_id);
@@ -129,7 +126,6 @@ TEST(RenderFrame, renderable_state_is_already_composed)
 {
 	auto definition = std::make_shared<const RenderableDefinition>(RenderableDefinition{
 		.id = RenderableID(4),
-		.version = 1,
 		.object_id = ObjectID(2),
 	});
 	RenderFrame frame{
@@ -186,4 +182,60 @@ TEST(RenderFrameMailbox, rejects_empty_completed_frames)
 	RenderFrameMailbox mailbox;
 	EXPECT_THROW(mailbox.publish_completed(nullptr), std::invalid_argument);
 	EXPECT_EQ(mailbox.load_latest(), nullptr);
+}
+
+TEST(RenderFrameMailbox, enforces_immutable_renderable_identity)
+{
+	RenderFrameMailbox mailbox;
+	const auto definition = std::make_shared<const RenderableDefinition>(
+		RenderableDefinition{ .id = RenderableID(41) });
+	mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+		.renderables = {{ .definition = definition }},
+	}));
+	mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+		.renderables = {{ .definition = definition, .visible = false }},
+	}));
+
+	const auto changed_definition = std::make_shared<const RenderableDefinition>(
+		RenderableDefinition{ .id = RenderableID(41), .casts_shadow = false });
+	EXPECT_THROW(
+		mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+			.renderables = {{ .definition = changed_definition }},
+		})),
+		std::logic_error);
+
+	mailbox.publish_completed(std::make_shared<const RenderFrame>());
+	EXPECT_THROW(
+		mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+			.renderables = {{ .definition = definition }},
+		})),
+		std::logic_error);
+}
+
+TEST(RenderFrameMailbox, enforces_immutable_skeleton_identity)
+{
+	RenderFrameMailbox mailbox;
+	const auto definition = std::make_shared<const RenderSkeletonDefinition>(
+		RenderSkeletonDefinition{ .id = SkeletonID(17) });
+	mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+		.skeletons = {{ .definition = definition }},
+	}));
+
+	const auto changed_definition = std::make_shared<const RenderSkeletonDefinition>(
+		RenderSkeletonDefinition{
+			.id = SkeletonID(17),
+			.bones = {{ .parent_index = RENDER_FRAME_NO_PARENT }},
+		});
+	EXPECT_THROW(
+		mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+			.skeletons = {{ .definition = changed_definition }},
+		})),
+		std::logic_error);
+
+	mailbox.publish_completed(std::make_shared<const RenderFrame>());
+	EXPECT_THROW(
+		mailbox.publish_completed(std::make_shared<const RenderFrame>(RenderFrame{
+			.skeletons = {{ .definition = definition }},
+		})),
+		std::logic_error);
 }

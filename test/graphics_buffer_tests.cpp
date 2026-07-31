@@ -51,6 +51,17 @@ TEST_F(GraphicsBufferFixture, overfill_buffer)
 	EXPECT_THROW(buffer1.reserve_slot(id++, 90), std::runtime_error);
 }
 
+TEST_F(GraphicsBufferFixture, preserves_64_bit_slot_ids)
+{
+	const GraphicsBuffer::SlotID low_id = 7;
+	const GraphicsBuffer::SlotID high_id = (GraphicsBuffer::SlotID{1} << 32) + low_id;
+
+	EXPECT_EQ(buffer1.reserve_slot(low_id, 10), 0);
+	EXPECT_EQ(buffer1.reserve_slot(high_id, 10), 10);
+	EXPECT_EQ(buffer1.get_offset(low_id), 0);
+	EXPECT_EQ(buffer1.get_offset(high_id), 10);
+}
+
 TEST_F(GraphicsBufferFixture, buffer_simple_defragmentation)
 {
 	uint32_t id = 0;

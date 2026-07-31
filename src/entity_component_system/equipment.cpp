@@ -114,6 +114,15 @@ void EquipmentSystem::on_renderable_removed(const RenderableID id)
 		unequip(wearer, slot);
 }
 
+void EquipmentSystem::on_renderable_replaced(
+	const RenderableID old_id, const RenderableID new_id)
+{
+	for (auto& [_, slots] : equipment)
+		for (auto& equipped : slots)
+			if (equipped && equipped->source_renderable == old_id)
+				equipped->source_renderable = new_id;
+}
+
 void EquipmentSystem::serialize(Serializer& out) const
 {
 	auto entries = out.sequence("equipment_system");

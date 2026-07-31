@@ -12,6 +12,7 @@ sources = [
 	'resource_loader_tests.cpp',
 	'render_frame_tests.cpp',
 	'render_draw_list_tests.cpp',
+	'submission_retirement_queue_tests.cpp',
 	'graphics_buffer_tests.cpp',
 	'camera_tests.cpp',
 	'game_objects_tests.cpp',

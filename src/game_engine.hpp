@@ -107,11 +107,11 @@ public:
 	void delete_object(ObjectID id);
 	void highlight_object(const Object& object);
 	void unhighlight_object(const Object& object);
-	void replace_renderable_texture(
+	RenderableID replace_renderable_texture(
 		RenderableID renderable_id,
 		ETextureSemantic semantic,
 		std::optional<std::string> texture_filename);
-	void set_renderable_specular_matte(RenderableID renderable_id);
+	RenderableID set_renderable_specular_matte(RenderableID renderable_id);
 
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
@@ -159,7 +159,6 @@ private:
 	std::unordered_map<RenderableID, RenderableDefinitionPtr> renderable_definitions;
 	std::unordered_map<SkeletonID, RenderSkeletonDefinitionPtr> render_skeleton_definitions;
 	uint64_t next_render_frame_number = 0;
-	RenderDefinitionVersion next_render_definition_version = 1;
 
 private:
 	void init();

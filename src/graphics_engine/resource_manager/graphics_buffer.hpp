@@ -11,6 +11,7 @@ class GraphicsBuffer
 {
 public:
 	using offset_t = uint32_t;
+	using SlotID = uint64_t;
 
 	GraphicsBuffer(
 		VkBuffer buffer,
@@ -32,23 +33,23 @@ public:
 		uint32_t capacity; // this is only for alignment requirements, for real data size refer to above
 	};
 
-	void free_slot(uint32_t slot_id);
-	offset_t reserve_slot(uint32_t id, uint32_t size);
-	std::byte* map_slot(uint32_t id, VkDevice device);
+	void free_slot(SlotID slot_id);
+	offset_t reserve_slot(SlotID id, uint32_t size);
+	std::byte* map_slot(SlotID id, VkDevice device);
 	void unmap_slot(VkDevice device);
 
 	size_t get_capacity() const { return capacity; }
 	size_t get_filled_capacity() const { return filled_capacity; }
-	offset_t get_offset(uint32_t id) const;
+	offset_t get_offset(SlotID id) const;
 	VkBuffer get_buffer() const { return buffer; }
 	VkDeviceMemory get_memory() const { return memory; }
 	const std::string& get_name() const { return name; }
-	Slot get_slot(uint32_t id) const;
-	bool has_slot(uint32_t id) const { return filled_slots.contains(id); }
+	Slot get_slot(SlotID id) const;
+	bool has_slot(SlotID id) const { return filled_slots.contains(id); }
 
 private:
 	// map of id to slot, id is typically object-id
-	std::unordered_map<uint32_t, Slot> filled_slots;
+	std::unordered_map<SlotID, Slot> filled_slots;
 
 	// map of offset to slot, offset is the offset in the buffer
 	// these slots are unused and to ready to be picked

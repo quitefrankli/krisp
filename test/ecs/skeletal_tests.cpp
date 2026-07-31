@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 
+#include <type_traits>
+
 namespace
 {
 struct SkeletalAnimationFixture
@@ -34,6 +36,13 @@ struct SkeletalAnimationFixture
 	SkeletonID skeleton_id;
 	AnimationID animation_id;
 };
+}
+
+TEST(SkeletalSystem, exposes_only_const_bone_topology)
+{
+	static_assert(std::is_same_v<
+		decltype(std::declval<SkeletalComponent&>().get_bones()),
+		const std::vector<Bone>&>);
 }
 
 TEST(SkeletalAnimationSystem, pauses_seeks_and_steps_within_clip_bounds)

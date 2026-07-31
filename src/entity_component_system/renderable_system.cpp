@@ -109,6 +109,13 @@ void RenderableSystem::notify_removing(const RenderableID id)
 	get_ecs().EquipmentSystem::on_renderable_removed(id);
 }
 
+void RenderableSystem::notify_replacing(
+	const RenderableID old_id, const RenderableID new_id)
+{
+	get_ecs().SkeletalSystem::on_renderable_replaced(old_id, new_id);
+	get_ecs().EquipmentSystem::on_renderable_replaced(old_id, new_id);
+}
+
 bool RenderableSystem::remove_renderable(const RenderableID id)
 {
 	if (!renderables.contains(id))
@@ -118,11 +125,30 @@ bool RenderableSystem::remove_renderable(const RenderableID id)
 	return true;
 }
 
-void RenderableSystem::set_renderable(const RenderableID id, Renderable renderable)
+RenderableID RenderableSystem::replace_renderable(
+	const RenderableID id, Renderable renderable)
 {
-	auto& attachment = renderables.at(id);
+	const auto& attachment = renderables.at(id);
 	validate_attachment(renderable, attachment.object_id, attachment.skeleton_id);
-	attachment.renderable = std::move(renderable);
+	const auto object_id = attachment.object_id;
+	const auto skeleton_id = attachment.skeleton_id;
+	const bool visible = attachment.visible;
+	const RenderableID replacement_id = RenderableID::generate_new_id();
+	renderables.emplace(replacement_id, RenderableAttachment{
+		.renderable = std::move(renderable),
+		.object_id = object_id,
+		.skeleton_id = skeleton_id,
+		.visible = visible,
+	});
+	notify_replacing(id, replacement_id);
+	renderables.erase(id);
+	return replacement_id;
+}
+
+void RenderableSystem::set_renderable_local_transform(
+	const RenderableID id, Maths::Transform transform)
+{
+	renderables.at(id).renderable.local_transform = std::move(transform);
 }
 
 void RenderableSystem::remove_object_renderables(const ObjectID id)
@@ -152,26 +178,6 @@ void RenderableSystem::restore_renderables(AttachmentMap values)
 {
 	for (auto& node : values)
 		renderables.insert(std::move(node));
-}
-
-void RenderableSystem::set_renderable_object(
-	const RenderableID id, const std::optional<ObjectID> object_id)
-{
-	auto& attachment = renderables.at(id);
-	validate_attachment(attachment.renderable, object_id, attachment.skeleton_id);
-	if (attachment.object_id != object_id)
-		get_ecs().EquipmentSystem::on_renderable_removed(id);
-	attachment.object_id = object_id;
-}
-
-void RenderableSystem::set_renderable_skeleton(
-	const RenderableID id, const std::optional<SkeletonID> skeleton_id)
-{
-	auto& attachment = renderables.at(id);
-	validate_attachment(attachment.renderable, attachment.object_id, skeleton_id);
-	if (attachment.skeleton_id != skeleton_id)
-		notify_removing(id);
-	attachment.skeleton_id = skeleton_id;
 }
 
 void RenderableSystem::set_renderable_visibility(const RenderableID id, const bool visible)

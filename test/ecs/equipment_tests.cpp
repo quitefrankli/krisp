@@ -66,6 +66,29 @@ TEST(EquipmentSystem, equips_queries_and_follows_bone_pose)
 		glm::vec3(2.0f, 1.0f, 0.0f));
 }
 
+TEST(EquipmentSystem, renderable_replacement_remaps_equipment_references)
+{
+	EquipmentFixture fixture;
+	ASSERT_TRUE(fixture.ecs.equip(
+		fixture.wearer.get_id(), fixture.wearer_renderable,
+		fixture.first_item.get_id(), fixture.definition()));
+	auto replacement =
+		fixture.ecs.get_renderable(fixture.wearer_renderable).renderable;
+	fixture.wearer_renderable = fixture.ecs.replace_renderable(
+		fixture.wearer_renderable, std::move(replacement));
+	fixture.ecs.process(0.0f);
+
+	Serializer serializer;
+	EXPECT_NO_THROW(fixture.ecs.serialize(serializer));
+	EXPECT_EQ(
+		fixture.ecs.get_position(fixture.first_item.get_id()),
+		glm::vec3(2.0f, 1.0f, 0.0f));
+	EXPECT_EQ(
+		fixture.ecs.equipped_item(
+			fixture.wearer.get_id(), EquipmentSlot::MainHand),
+		fixture.first_item.get_id());
+}
+
 TEST(EquipmentSystem, replacement_and_moving_item_keep_one_global_location)
 {
 	EquipmentFixture fixture;

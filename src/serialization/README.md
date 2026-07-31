@@ -49,7 +49,7 @@ resolved from provenance and may change across loads:
 - An object owns gameplay grouping state only. It does not own renderables or
   skeleton state.
 - `renderable_system` owns each renderable attachment. Its record includes the
-  persistent `RenderableID`, optional group `ObjectID`, local transform,
+  immutable `RenderableID`, optional group `ObjectID`, local transform,
   instance visibility, draw and pipeline data, resource provenance, and
   optional `SkeletonID` binding.
 - The skeletal system independently owns skeleton topology, pose, and animation
@@ -126,7 +126,9 @@ renderable no longer exists.
 Loading does not pause or command the graphics thread. Graphics may continue to
 render its previously accepted immutable frame while restoration runs. Once
 the next completed frame is published, graphics accepts the coherent restored
-scene and reconciles renderable membership and versioned definitions.
+scene and reconciles immutable renderable and skeleton membership. A restored
+ID cannot replace a different definition or reintroduce an ID that graphics has
+already observed as retired.
 
 ## `Serializer` and `Deserializer`
 

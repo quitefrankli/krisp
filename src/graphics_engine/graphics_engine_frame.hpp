@@ -3,6 +3,7 @@
 #include "graphics_engine_base_module.hpp"
 #include "identifications.hpp"
 #include "analytics.hpp"
+#include "submission_retirement_queue.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -60,6 +61,7 @@ private:
 	// these track for each swap chain image and checks if an inflight frame is currently using it
 	VkFence fence_frame_inflight = VK_NULL_HANDLE; // signals when the command buffer finishes executing or when an inflight frame is finished
 	VkFence fence_image_inflight = VK_NULL_HANDLE; // check if a frame in flight is already using a swapchain image 
+	std::optional<SubmissionSerial> submission_serial;
 
 	static int global_image_index;
 

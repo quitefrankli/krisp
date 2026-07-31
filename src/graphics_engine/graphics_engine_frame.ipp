@@ -53,6 +53,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	render_finished_semaphore(std::move(frame.render_finished_semaphore)),
 	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
 	fence_image_inflight(std::move(frame.fence_image_inflight)),
+	submission_serial(std::move(frame.submission_serial)),
 	analytics(std::move(frame.analytics)),
 	screenshot_staging_buffer(std::move(frame.screenshot_staging_buffer)),
 	screenshot_path(std::move(frame.screenshot_path)),
@@ -92,8 +93,6 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 
 void GraphicsEngineFrame::update_command_buffer()
 {
-	// wait until command buffer is not used anymore i.e. when frame is no longer inflight
-	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
 	VkCommandBufferResetFlags reset_flags = 0;
 	vkResetCommandBuffer(command_buffer, reset_flags);
 
@@ -146,8 +145,18 @@ void GraphicsEngineFrame::draw()
 
 	analytics.start();
 	// CPU-GPU synchronisation for in flight images
-	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
+	if (vkWaitForFences(
+			get_logical_device(), 1, &fence_frame_inflight, VK_TRUE,
+			std::numeric_limits<uint64_t>::max()) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to wait for in-flight frame!");
+	}
 	analytics.stop();
+	if (submission_serial)
+	{
+		get_graphics_engine().complete_graphics_submission(*submission_serial);
+		submission_serial.reset();
+	}
 
 	update_command_buffer();
 
@@ -214,6 +223,7 @@ void GraphicsEngineFrame::draw()
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
+	submission_serial = get_graphics_engine().register_graphics_submission();
 
 	//
 	// Presentation
@@ -305,12 +315,14 @@ void GraphicsEngineFrame::update_uniform_buffer()
 
 	// Update the producer-composed transform for each renderable.
 	SDS::ObjectData object_data{};
-	for (const auto& [id, graphics_renderable] : get_graphics_engine().get_renderables())
+	for (const auto& [_, graphics_renderable] : get_graphics_engine().get_renderables())
 	{
 		object_data.model = graphics_renderable->get_model_transform();
 		object_data.mvp = gubo.proj * gubo.view * object_data.model;
 		object_data.rot_mat = glm::mat3(object_data.model);
-		get_rsrc_mgr().write_to_buffer(RenderableFrameID{id, image_index}, object_data);
+		get_rsrc_mgr().write_to_buffer(
+			RenderableFrameID{graphics_renderable->get_id(), image_index},
+			object_data);
 	}
 
 	// Skeleton pose resources are shared by every bound renderable and updated once.
@@ -319,7 +331,8 @@ void GraphicsEngineFrame::update_uniform_buffer()
 		std::vector<SDS::Bone> bones =
 			compose_bone_transforms(pose.local_transforms, *pose.definition);
 		get_rsrc_mgr().write_to_buffer(
-			SkeletonFrameID(pose.definition->id, image_index), bones);
+			SkeletonFrameID(pose.definition->id, image_index),
+			bones);
 	}
 }
 

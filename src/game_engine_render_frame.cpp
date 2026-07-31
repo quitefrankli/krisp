@@ -41,8 +41,7 @@ bool renderable_matches(
 
 RenderableDefinition make_renderable_definition(
 	const RenderableID id,
-	const RenderableAttachment& attachment,
-	const RenderDefinitionVersion version)
+	const RenderableAttachment& attachment)
 {
 	const auto& renderable = attachment.renderable;
 	return {
@@ -53,7 +52,6 @@ RenderableDefinition make_renderable_definition(
 		.casts_shadow = renderable.casts_shadow,
 		.render_on_top = renderable.render_on_top,
 		.id = id,
-		.version = version,
 		.object_id = attachment.object_id,
 		.skeleton_id = attachment.skeleton_id,
 		.mesh_owner = renderable.mesh_owner,
@@ -85,12 +83,16 @@ RenderableDefinitionPtr GameEngine::get_renderable_definition(
 	const RenderableAttachment& attachment)
 {
 	const auto cached = renderable_definitions.find(id);
-	if (cached != renderable_definitions.end()
-		&& renderable_matches(*cached->second, id, attachment))
+	if (cached != renderable_definitions.end())
+	{
+		if (!renderable_matches(*cached->second, id, attachment))
+			throw std::logic_error(
+				"GameEngine: renderable topology changed without replacing its ID");
 		return cached->second;
+	}
 
 	auto definition = std::make_shared<const RenderableDefinition>(
-		make_renderable_definition(id, attachment, next_render_definition_version++));
+		make_renderable_definition(id, attachment));
 	renderable_definitions.insert_or_assign(id, definition);
 	return definition;
 }
@@ -100,9 +102,13 @@ RenderSkeletonDefinitionPtr GameEngine::get_render_skeleton_definition(
 	const SkeletalRenderStateSnapshot& snapshot)
 {
 	const auto cached = render_skeleton_definitions.find(id);
-	if (cached != render_skeleton_definitions.end()
-		&& skeleton_definition_matches(*cached->second, snapshot))
+	if (cached != render_skeleton_definitions.end())
+	{
+		if (!skeleton_definition_matches(*cached->second, snapshot))
+			throw std::logic_error(
+				"GameEngine: skeleton topology changed without replacing its ID");
 		return cached->second;
+	}
 
 	std::vector<RenderBoneDefinition> bones;
 	bones.reserve(snapshot.parent_indices.size());
@@ -114,7 +120,6 @@ RenderSkeletonDefinitionPtr GameEngine::get_render_skeleton_definition(
 
 	auto definition = std::make_shared<const RenderSkeletonDefinition>(RenderSkeletonDefinition{
 		.id = id,
-		.version = next_render_definition_version++,
 		.bones = std::move(bones),
 	});
 	render_skeleton_definitions.insert_or_assign(id, definition);

@@ -120,12 +120,12 @@ struct std::hash<ComplexID<T...>>
 	}
 };
 
-// Packs [renderable, frame], reserving one frame range per renderable.
+// Per-frame allocation identities. RenderableID and SkeletonID are immutable,
+// never-reintroduced resource identities.
 using RenderableFrameID = ComplexID<ComplexIDRadices<CSTS::UPPERBOUND_SWAPCHAIN_IMAGES>,
 	RenderableID,
 	uint32_t>;
 
-// Packs [skeleton, frame], reserving one frame range per skeleton.
 using SkeletonFrameID = ComplexID<ComplexIDRadices<CSTS::UPPERBOUND_SWAPCHAIN_IMAGES>,
-								  SkeletonID, 
-								  uint32_t>;
+	SkeletonID,
+	uint32_t>;

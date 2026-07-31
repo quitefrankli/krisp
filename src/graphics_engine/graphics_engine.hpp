@@ -14,6 +14,7 @@
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
 #include "renderers/renderer_manager.hpp"
+#include "submission_retirement_queue.hpp"
 // #include "raytracing.hpp" // Ray tracing is unsupported.
 #include "vulkan_wrappers.hpp"
 #include "window.hpp"
@@ -32,6 +33,26 @@
 class Analytics;
 class GraphicsRenderable;
 class VideoRecorder;
+
+struct GraphicsSkeletonResources
+{
+	SkeletonID id;
+	uint32_t frame_allocation_count;
+};
+
+struct RetiredGraphicsResources
+{
+	std::vector<GraphicsRenderableResources> renderables;
+	std::vector<GraphicsSkeletonResources> skeletons;
+	std::vector<MaterialID> materials;
+	std::vector<MeshID> meshes;
+
+	bool empty() const
+	{
+		return renderables.empty() && skeletons.empty()
+			&& materials.empty() && meshes.empty();
+	}
+};
 
 class GraphicsEngine : public GraphicsEngineBase
 {
@@ -99,7 +120,8 @@ public: // getters and setters
 	{
 		return accepted_render_frame->skeletons.at(render_skeleton_indices.at(id));
 	}
-	void cleanup_renderable(RenderableID id);
+	SubmissionSerial register_graphics_submission();
+	void complete_graphics_submission(SubmissionSerial serial);
 
 private:
 	bool should_shutdown = false;
@@ -176,7 +198,10 @@ private: // core components
 	RenderFramePtr accepted_render_frame;
 	std::unordered_map<RenderableID, uint32_t> renderable_indices;
 	std::unordered_map<SkeletonID, uint32_t> render_skeleton_indices;
-	std::unordered_map<SkeletonID, RenderDefinitionVersion> graphics_skeleton_versions;
+	std::unordered_map<SkeletonID, uint32_t> graphics_skeleton_frame_counts;
+	SubmissionRetirementQueue<RetiredGraphicsResources> retirement_queue;
+	SubmissionSerial last_submitted_serial = 0;
+	SubmissionSerial completed_submission_serial = 0;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
@@ -198,10 +223,10 @@ public: // commands
 
 private:
 	void accept_latest_render_frame();
-	void reconcile_renderables(
-		const RenderFrame& frame,
-		const RenderFrame* previous_frame);
+	void reconcile_topology(const RenderFrame& frame);
 	void retire_unused_resources();
+	void enqueue_retirement(RetiredGraphicsResources resources);
+	void release_retired_resources(RetiredGraphicsResources resources);
 	void create_renderable_buffers(GraphicsRenderable& renderable);
 	void create_renderable_dsets(GraphicsRenderable& renderable);
 };

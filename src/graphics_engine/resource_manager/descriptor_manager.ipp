@@ -236,13 +236,12 @@ void GraphicsDescriptorManager::create_descriptor_pool()
 {
 	VkDescriptorPoolSize uniform_buffer_pool_size{};
 	uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	// max number of uniform buffers per descriptor set
-	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORMS_PER_DESCRIPTOR_SET * MAX_HIGH_FREQ_DESCRIPTOR_SETS;
+	uniform_buffer_pool_size.descriptorCount = MAX_UNIFORM_BUFFER_DESCRIPTORS;
 
 	VkDescriptorPoolSize combined_image_sampler_pool_size{};
 	combined_image_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	// max number of combined image samplers per descriptor set
-	combined_image_sampler_pool_size.descriptorCount = MAX_COMBINED_IMAGE_SAMPLERS_PER_DESCRIPTOR_SET * MAX_HIGH_FREQ_DESCRIPTOR_SETS;
+	combined_image_sampler_pool_size.descriptorCount =
+		MAX_COMBINED_IMAGE_SAMPLER_DESCRIPTORS + MAX_ENGINE_DESCRIPTOR_SETS;
 
 #if 0 // Ray tracing is unsupported.
 	VkDescriptorPoolSize tlas_pool_size{};
@@ -257,7 +256,7 @@ void GraphicsDescriptorManager::create_descriptor_pool()
 	// for meshes, materials and bones
 	VkDescriptorPoolSize storage_buffer_pool_size{};
 	storage_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	storage_buffer_pool_size.descriptorCount = MAX_STORAGE_BUFFER_DESCRIPTOR_SETS;
+	storage_buffer_pool_size.descriptorCount = MAX_STORAGE_BUFFER_DESCRIPTORS;
 
 	std::vector<VkDescriptorPoolSize> pool_sizes {
 		uniform_buffer_pool_size, 

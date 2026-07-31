@@ -350,13 +350,15 @@ void GraphicsBufferManager::stage_data_to_image(
 	get_graphics_engine().end_single_time_commands(command_buffer);
 }
 
-void GraphicsBufferManager::reserve_buffer(GraphicsBuffer& buffer, uint64_t id, size_t size)
+void GraphicsBufferManager::reserve_buffer(
+	GraphicsBuffer& buffer, const GraphicsBuffer::SlotID id, const size_t size)
 {
 	buffer.reserve_slot(id, size);
 	update_buffer_stats();
 }
 
-void GraphicsBufferManager::free_buffer(GraphicsBuffer& buffer, uint64_t id)
+void GraphicsBufferManager::free_buffer(
+	GraphicsBuffer& buffer, const GraphicsBuffer::SlotID id)
 {
 	if (!buffer.has_slot(id))
 	{

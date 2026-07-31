@@ -99,8 +99,17 @@ public:
 	SkeletalComponent& operator=(const SkeletalComponent&) = delete;
 	SkeletalComponent& operator=(SkeletalComponent&&) = delete;
 
-	std::vector<Bone>& get_bones() { return bones; }
+	// Bone definitions are immutable; only local pose transforms are mutable.
 	const std::vector<Bone>& get_bones() const { return bones; }
+	Maths::Transform& get_bone_local_transform(size_t index)
+	{
+		return bones.at(index).relative_transform;
+	}
+	const Maths::Transform& get_bone_local_transform(size_t index) const
+	{
+		return bones.at(index).relative_transform;
+	}
+	void reset_pose();
 	// Bone transforms after hierarchy composition, before inverse bind-pose
 	// multiplication. These are suitable for gameplay pose adjustments such as IK.
 	std::vector<glm::mat4> get_model_space_bone_transforms() const;
@@ -132,6 +141,7 @@ public:
 		Maths::Transform local_transform = {});
 	bool detach_entity_from_bone(Entity attached);
 	void on_renderable_removed(RenderableID id);
+	void on_renderable_replaced(RenderableID old_id, RenderableID new_id);
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);
 	void deserialize_bone_attachments(const Deserializer& in);
