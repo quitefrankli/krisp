@@ -45,32 +45,19 @@ protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 };
 
-#if 0 // Ray tracing is unsupported; retain this implementation for future repair.
-class RaytracingPipeline : public GraphicsEnginePipeline
-{
-public:
-	RaytracingPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "simple_raytracer"; }
-	virtual void initialise() override;
-
-private:
-	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
-};
-#endif
-
-class LightWeightOffscreenPipeline : public GraphicsEnginePipeline
-{
-public:
-	LightWeightOffscreenPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
-
-protected:
-	virtual std::string_view get_shader_name() const override { return "color"; }
-	virtual VkSampleCountFlagBits get_msaa_sample_count() override { return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT; }
-	virtual VkRenderPass get_render_pass() override;
-	virtual VkExtent2D get_extent() override;
-};
+// For ray tracing:
+// class RaytracingPipeline : public GraphicsEnginePipeline
+// {
+// public:
+// 	RaytracingPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+//
+// protected:
+// 	virtual std::string_view get_shader_name() const override { return "simple_raytracer"; }
+// 	virtual void initialise() override;
+//
+// private:
+// 	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shader_groups;
+// };
 
 class SkinnedPipeline : public GraphicsEnginePipeline
 {

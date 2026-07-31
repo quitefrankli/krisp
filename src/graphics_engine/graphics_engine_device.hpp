@@ -3,9 +3,8 @@
 #include "graphics_engine_base_module.hpp"
 
 #include <vulkan/vulkan.hpp>
-#if 0 // Ray tracing is unsupported; retained for future repair.
-#include <vulkan/vulkan_beta.h>
-#endif
+// For ray tracing:
+// #include <vulkan/vulkan_beta.h>
 
 #include <optional>
 
@@ -24,13 +23,12 @@ public:
 	VkSampleCountFlagBits get_max_usable_msaa();
 
 	const VkPhysicalDeviceProperties2& get_physical_device_properties();
-#if 0 // Ray tracing is unsupported; retained for future repair.
-	VkDeviceAddress get_buffer_device_address(VkBuffer buffer);
-	VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_ray_tracing_properties() const
-	{
-		return ray_tracing_properties;
-	}
-#endif
+	// For ray tracing:
+	// VkDeviceAddress get_buffer_device_address(VkBuffer buffer);
+	// VkPhysicalDeviceRayTracingPipelinePropertiesKHR get_ray_tracing_properties() const
+	// {
+	// 	return ray_tracing_properties;
+	// }
 
 private:
 	
@@ -47,8 +45,7 @@ private:
 	bool check_device_extension_support(VkPhysicalDevice device);
 
 	std::optional<VkPhysicalDeviceProperties2> physical_device_properties;
-#if 0 // Ray tracing is unsupported; retained for future repair.
-	VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_properties{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
-#endif
+	// For ray tracing:
+	// VkPhysicalDeviceRayTracingPipelinePropertiesKHR ray_tracing_properties{
+	// 	VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR};
 };

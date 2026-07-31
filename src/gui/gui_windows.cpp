@@ -328,8 +328,7 @@ void GuiGraphicsSettings::process(GameEngine& engine)
 
 	if (render_mode.changed)
 	{
-		engine.get_graphics_engine().enqueue_cmd(
-			std::make_unique<SetRenderModeCmd>(render_mode.value));
+		engine.set_render_mode(render_mode.value);
 		render_mode.changed = false;
 	}
 }

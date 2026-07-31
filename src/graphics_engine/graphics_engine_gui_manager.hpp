@@ -31,12 +31,6 @@ public:
 		engine_ui_active.store(engine_active, std::memory_order_release);
 		application_ui_active.store(application_active, std::memory_order_release);
 	}
-	void update_preview_window(
-		GuiPhotoBase& gui, 
-		VkSampler sampler, 
-		VkImageView image_view, 
-		const glm::uvec2& dimensions);
-
 	void setup_imgui();
 	void draw_workspace();
 	void draw_application_ui();

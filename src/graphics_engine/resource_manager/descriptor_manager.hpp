@@ -34,27 +34,23 @@ public: // accessors for specific descriptors/layouts
 		return per_renderable_frame_dset_layout;
 	}
 	const VkDescriptorSetLayout& get_renderable_dset_layout() const { return renderable_dset_layout; }
-#if 0 // Ray tracing is unsupported; retained for future repair.
-	const VkDescriptorSetLayout& get_mesh_data_dset_layout() const { return mesh_data_dset_layout; }
-	const VkDescriptorSetLayout& get_raytracing_tlas_dset_layout() const { return raytracing_tlas_dset_layout; }
-#endif
+	// For ray tracing:
+	// const VkDescriptorSetLayout& get_mesh_data_dset_layout() const { return mesh_data_dset_layout; }
+	// const VkDescriptorSetLayout& get_raytracing_tlas_dset_layout() const { return raytracing_tlas_dset_layout; }
 
 	std::vector<VkDescriptorSetLayout> get_rasterization_descriptor_set_layouts() const;
-#if 0
-	std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
-#endif
+	// For ray tracing:
+	// std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
 
 	VkDescriptorSet get_global_dset(uint32_t frame_idx) const { return global_dsets[frame_idx]; }
-#if 0
-	VkDescriptorSet get_mesh_data_dset() const { return mesh_data_dset; }
-#endif
+	// For ray tracing:
+	// VkDescriptorSet get_mesh_data_dset() const { return mesh_data_dset; }
 
 private:
 	void setup_descriptor_set_layouts();
 	void allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets);
-#if 0
-	void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
-#endif
+	// For ray tracing:
+	// void allocate_mesh_data_dset(VkBuffer mapping_buffer, VkBuffer vertex_buffer, VkBuffer index_buffer);
 
 	static constexpr uint32_t MAX_LOW_FREQ_DESCRIPTOR_SETS =
 		CSTS::UPPERBOUND_SWAPCHAIN_IMAGES; // for GUBO i.e. camera & lighting
@@ -65,10 +61,9 @@ private:
 		MAX_RENDERABLE_INSTANCES * CSTS::UPPERBOUND_SWAPCHAIN_IMAGES;
 	static constexpr uint32_t MAX_RENDERABLE_DESCRIPTOR_SETS =
 		MAX_RENDERABLE_INSTANCES;
-#if 0
-	static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000;
-	static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
-#endif
+	// For ray tracing:
+	// static constexpr int MAX_RAY_TRACING_DESCRIPTOR_SETS = 1000;
+	// static constexpr int MAX_MESH_DATA_DESCRIPTOR_SETS = 1;
 	static constexpr uint32_t MAX_UNIFORM_BUFFER_DESCRIPTORS =
 		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS;
 	static constexpr uint32_t MAX_STORAGE_BUFFER_DESCRIPTORS =
@@ -83,13 +78,12 @@ private:
 		+ MAX_RENDERABLE_DESCRIPTOR_SETS
 		+ MAX_ENGINE_DESCRIPTOR_SETS
 		+ MAX_IMGUI_DESCRIPTOR_SETS;
-#if 0
-	static_assert(
-		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS +
-		MAX_RAY_TRACING_DESCRIPTOR_SETS + MAX_MESH_DATA_DESCRIPTOR_SETS +
-		MAX_IMGUI_DESCRIPTOR_SETS <= MAX_DESCRIPTOR_SETS,
-		"GraphicsResourceManager: too many descriptor sets!");
-#endif
+	// For ray tracing:
+	// static_assert(
+	// 	MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_HIGH_FREQ_DESCRIPTOR_SETS +
+	// 	MAX_RAY_TRACING_DESCRIPTOR_SETS + MAX_MESH_DATA_DESCRIPTOR_SETS +
+	// 	MAX_IMGUI_DESCRIPTOR_SETS <= MAX_DESCRIPTOR_SETS,
+	// 	"GraphicsResourceManager: too many descriptor sets!");
 
 	VkDescriptorPool descriptor_pool;
 	std::vector<VkDescriptorSetLayout> all_dset_layouts;
@@ -97,15 +91,13 @@ private:
 	VkDescriptorSetLayout shadow_map_dset_layout;
 	VkDescriptorSetLayout per_renderable_frame_dset_layout;
 	VkDescriptorSetLayout renderable_dset_layout;
-#if 0
-	VkDescriptorSetLayout mesh_data_dset_layout;
-	VkDescriptorSetLayout raytracing_tlas_dset_layout;
-#endif
+	// For ray tracing:
+	// VkDescriptorSetLayout mesh_data_dset_layout;
+	// VkDescriptorSetLayout raytracing_tlas_dset_layout;
 
 	// 1 dset per swapchain frame, currently only used for camera and global lighting
 	std::vector<VkDescriptorSet> global_dsets;
-#if 0
-	VkDescriptorSet mesh_data_dset;
-#endif
+	// For ray tracing:
+	// VkDescriptorSet mesh_data_dset;
 
 };

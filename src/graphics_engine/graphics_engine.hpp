@@ -7,7 +7,6 @@
 #include "graphics_engine_instance.hpp"
 #include "graphics_engine_device.hpp"
 #include "resource_manager/graphics_resource_manager.hpp"
-#include "graphics_engine_commands.hpp"
 #include "graphics_renderable.hpp"
 #include "render_draw_list.hpp"
 #include "graphics_engine_texture_manager.hpp"
@@ -23,9 +22,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include <atomic>
 #include <vector>
-#include <mutex>
-#include <queue>
 #include <unordered_set>
 #include <optional>
 
@@ -62,10 +60,10 @@ public:
 	virtual ~GraphicsEngine() override;
 
 	void run() final;
-	void shutdown() { should_shutdown = true; }
-
-public:
-	ERenderMode render_mode = ERenderMode::RASTERIZED;
+	void request_shutdown() final
+	{
+		should_shutdown.store(true, std::memory_order_release);
+	}
 
 public: // getters and setters
 	VkExtent2D get_extent();
@@ -75,12 +73,12 @@ public: // getters and setters
 		return renderables;
 	}
 	const GraphicsDrawLists& get_draw_lists() const { return draw_lists; }
-	std::unordered_map<ObjectID, std::vector<GraphicsRenderable*>>& get_offscreen_rendering_objects()
-	{ 
-		return offscreen_rendering_objects; 
-	}
 	GraphicsRenderable& get_renderable(RenderableID id) { return *renderables.at(id); }
-	auto& get_stenciled_object_ids() { return stenciled_objects; }
+	ERenderMode get_render_mode() const { return get_render_frame().view.render_mode; }
+	const auto& get_stenciled_object_ids() const
+	{
+		return get_render_frame().view.stenciled_objects;
+	}
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
 	VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
 	VkInstance& get_instance() { return instance.get(); }
@@ -124,18 +122,11 @@ public: // getters and setters
 	void complete_graphics_submission(SubmissionSerial serial);
 
 private:
-	bool should_shutdown = false;
+	std::atomic<bool> should_shutdown = false;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>> renderables;
 	GraphicsDrawLists draw_lists;
-	std::unordered_set<ObjectID> stenciled_objects;
-	// currently used for OffscreenGuiViewportRenderer, in future we should have a scene system
-	// and this would be a separate scene
-	std::unordered_map<ObjectID, std::vector<GraphicsRenderable*>> offscreen_rendering_objects;
-	std::unordered_set<ObjectID> offscreen_rendering_object_ids;
-	std::mutex ge_cmd_q_mutex; // TODO when this becomes a performance bottleneck, we should swap this for a Single Producer Single Producer Lock-Free Queue
-	std::queue<std::unique_ptr<GraphicsEngineCommand>> ge_cmd_q;
 	std::unique_ptr<Analytics> FPS_tracker;
 	std::optional<VkFormat> depth_format;
 	float fps = 0.0f;
@@ -190,9 +181,6 @@ public: // other
 	int find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
-public: // thread safe
-	void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd) final;
-
 private: // core components
 	App::Window& window;
 	RenderFramePtr accepted_render_frame;
@@ -213,13 +201,6 @@ private: // core components
 	// GraphicsEngineRayTracing raytracing_component;
 	GraphicsEngineGuiManager gui_manager;
 	std::unique_ptr<VideoRecorder> video_recorder;
-
-public: // commands
-	void handle_command(StencilObjectCmd& cmd) final;
-	void handle_command(UnStencilObjectCmd& cmd) final;
-	void handle_command(ShutdownCmd& cmd) final;
-	void handle_command(SetRenderModeCmd& cmd) final;
-	void handle_command(PreviewObjectsCmd& cmd) final;
 
 private:
 	void accept_latest_render_frame();

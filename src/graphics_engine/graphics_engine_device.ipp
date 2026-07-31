@@ -181,22 +181,20 @@ void GraphicsEngineDevice::print_physical_device_settings()
 {
 	const auto& properties = get_physical_device_properties();
 
-#if 0 // Ray tracing is unsupported; retain its diagnostic for future repair.
-	LOG_INFO(Utility::get_logger(),
-			 "Physical Device Properties: maxBoundDescriptorSets: {}, maxMSAA_Samples: {}, "
-			 "maxRayRecursionDepth: {}, minStorageBufferOffsetAlignment: {}",
-			 properties.properties.limits.maxBoundDescriptorSets,
-			 int(get_max_usable_msaa()),
-			 ray_tracing_properties.maxRayRecursionDepth,
-			 size_t(properties.properties.limits.minStorageBufferOffsetAlignment));
-#else
+	// For ray tracing:
+	// LOG_INFO(Utility::get_logger(),
+	// 		 "Physical Device Properties: maxBoundDescriptorSets: {}, maxMSAA_Samples: {}, "
+	// 		 "maxRayRecursionDepth: {}, minStorageBufferOffsetAlignment: {}",
+	// 		 properties.properties.limits.maxBoundDescriptorSets,
+	// 		 int(get_max_usable_msaa()),
+	// 		 ray_tracing_properties.maxRayRecursionDepth,
+	// 		 size_t(properties.properties.limits.minStorageBufferOffsetAlignment));
 	LOG_INFO(Utility::get_logger(),
 			 "Physical Device Properties: maxBoundDescriptorSets: {}, maxMSAA_Samples: {}, "
 			 "minStorageBufferOffsetAlignment: {}",
 			 properties.properties.limits.maxBoundDescriptorSets,
 			 int(get_max_usable_msaa()),
 			 size_t(properties.properties.limits.minStorageBufferOffsetAlignment));
-#endif
 }
 
 const VkPhysicalDeviceProperties2& GraphicsEngineDevice::get_physical_device_properties()
@@ -205,23 +203,21 @@ const VkPhysicalDeviceProperties2& GraphicsEngineDevice::get_physical_device_pro
 	{
 		physical_device_properties = VkPhysicalDeviceProperties2{};
 		physical_device_properties->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-#if 0 // Ray tracing is unsupported.
-		physical_device_properties->pNext = &ray_tracing_properties;
-#endif
+		// For ray tracing:
+		// physical_device_properties->pNext = &ray_tracing_properties;
 		vkGetPhysicalDeviceProperties2(get_physical_device(), &physical_device_properties.value());
 	}
 
 	return physical_device_properties.value();
 }
 
-#if 0 // Ray tracing is unsupported; retained for future repair.
-VkDeviceAddress GraphicsEngineDevice::get_buffer_device_address(VkBuffer buffer)
-{
-	VkBufferDeviceAddressInfo info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
-	info.buffer = buffer;
-	return vkGetBufferDeviceAddress(get_logical_device(), &info);
-}
-#endif
+// For ray tracing:
+// VkDeviceAddress GraphicsEngineDevice::get_buffer_device_address(VkBuffer buffer)
+// {
+// 	VkBufferDeviceAddressInfo info{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+// 	info.buffer = buffer;
+// 	return vkGetBufferDeviceAddress(get_logical_device(), &info);
+// }
 
 std::vector<const char*> GraphicsEngineDevice::get_required_extensions()
 {
@@ -229,11 +225,10 @@ std::vector<const char*> GraphicsEngineDevice::get_required_extensions()
 
 	required_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	// Ray-tracing extensions are intentionally not requested while unsupported.
-#if 0
-	required_device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
-	required_device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
-	required_device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
-#endif
+	// For ray tracing:
+	// required_device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+	// required_device_extensions.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+	// required_device_extensions.push_back(VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME);
 
 #ifdef _DEBUG
 	// TODO: enable if want shader printf
@@ -245,19 +240,18 @@ std::vector<const char*> GraphicsEngineDevice::get_required_extensions()
 
 VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 {
-#if 0 // Ray tracing is unsupported; retained for future repair.
-	static VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
-	acceleration_structure_features.accelerationStructure = true;
-
-	static VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
-	ray_tracing_pipeline_features.rayTracingPipeline = true;
-
-	static VkPhysicalDeviceVulkan12Features device_features12{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
-	device_features12.bufferDeviceAddress = true;
-#endif
+	// For ray tracing:
+	// static VkPhysicalDeviceAccelerationStructureFeaturesKHR acceleration_structure_features{
+	// 	VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR};
+	// acceleration_structure_features.accelerationStructure = true;
+	//
+	// static VkPhysicalDeviceRayTracingPipelineFeaturesKHR ray_tracing_pipeline_features{
+	// 	VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR};
+	// ray_tracing_pipeline_features.rayTracingPipeline = true;
+	//
+	// static VkPhysicalDeviceVulkan12Features device_features12{
+	// 	VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
+	// device_features12.bufferDeviceAddress = true;
 
 	// special features, we request
 	static VkPhysicalDeviceFeatures2 device_features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
@@ -267,11 +261,10 @@ VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 	device_features2.features.textureCompressionBC = true;
 	device_features2.pNext = nullptr;
 
-#if 0
-	device_features2.pNext = &device_features12;
-	device_features12.pNext = &acceleration_structure_features;
-	acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
-#endif
+	// For ray tracing:
+	// device_features2.pNext = &device_features12;
+	// device_features12.pNext = &acceleration_structure_features;
+	// acceleration_structure_features.pNext = &ray_tracing_pipeline_features;
 
 	return &device_features2;
 }

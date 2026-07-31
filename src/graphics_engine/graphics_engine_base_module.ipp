@@ -49,11 +49,10 @@ GraphicsBuffer GraphicsEngineBaseModule::create_buffer(
 		std::move(name));
 }
 
-#if 0 // Ray tracing is unsupported; retained for future repair.
-VkDeviceAddress GraphicsEngineBaseModule::get_buffer_device_address(
-	const GraphicsBuffer& buffer)
-{
-	return graphics_engine.get_device_module().get_buffer_device_address(
-		buffer.get_buffer());
-}
-#endif
+// For ray tracing:
+// VkDeviceAddress GraphicsEngineBaseModule::get_buffer_device_address(
+// 	const GraphicsBuffer& buffer)
+// {
+// 	return graphics_engine.get_device_module().get_buffer_device_address(
+// 		buffer.get_buffer());
+// }

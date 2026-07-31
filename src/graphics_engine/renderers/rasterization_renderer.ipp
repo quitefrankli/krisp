@@ -146,9 +146,9 @@ void RasterizationRenderer::submit_draw_commands(
 	const auto& draw_lists = get_graphics_engine().get_draw_lists();
 	const auto& stenciled_ids = get_graphics_engine().get_stenciled_object_ids();
 	const EPipelineModifier modifier =
-		get_graphics_engine().render_mode == ERenderMode::WIREFRAME
+		get_graphics_engine().get_render_mode() == ERenderMode::WIREFRAME
 		? EPipelineModifier::WIREFRAME
-		: get_graphics_engine().render_mode == ERenderMode::UNLIT_BASE_COLOR
+		: get_graphics_engine().get_render_mode() == ERenderMode::UNLIT_BASE_COLOR
 			? EPipelineModifier::UNLIT_BASE_COLOR
 			: EPipelineModifier::NONE;
 	const auto is_stenciled = [&stenciled_ids](const GraphicsDrawItem& item) {
@@ -157,7 +157,7 @@ void RasterizationRenderer::submit_draw_commands(
 	};
 	const auto skip_regular_draw = [&](const GraphicsDrawItem& item) {
 		return !item.graphics_renderable->get_visibility()
-			|| (get_graphics_engine().render_mode == ERenderMode::RASTERIZED
+			|| (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED
 				&& is_stenciled(item));
 	};
 	const auto draw_item = [&](const GraphicsDrawItem& item, const EPipelineModifier item_modifier) {
@@ -199,7 +199,7 @@ void RasterizationRenderer::submit_draw_commands(
 		if (!skip_regular_draw(*item))
 			draw_item(*item, modifier);
 	
-	if (get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
+	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)
 	{
 		std::vector<const GraphicsDrawItem*> stencil_items;
 		stencil_items.reserve(draw_lists.all().size());
@@ -239,7 +239,7 @@ void RasterizationRenderer::submit_draw_commands(
 	}
 
 	// Render particles within the same render pass (skip in wireframe mode)
-	if (get_graphics_engine().render_mode == ERenderMode::RASTERIZED)
+	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)
 	{
 		auto& particle_renderer = static_cast<ParticleRenderer&>(
 			get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::PARTICLE));

@@ -88,32 +88,6 @@ private:
 	using Renderer::get_logical_device;
 };
 
-// for things such as minimaps, object previews e.t.c.
-class OffscreenGuiViewportRenderer : public Renderer
-{
-public:
-	OffscreenGuiViewportRenderer(GraphicsEngine& engine);
-	~OffscreenGuiViewportRenderer();
-
-	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
-	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
-	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::OFFSCREEN_GUI_VIEWPORT; }
-	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return color_attachments[frame_idx].image_view; };
-	virtual VkExtent2D get_extent() override;
-
-private:
-	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
-	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
-	void create_render_pass();
-
-	std::vector<RenderingAttachment> color_attachments;
-	std::vector<RenderingAttachment> depth_attachments;
-
-	using Renderer::get_graphics_engine;
-	using Renderer::get_rsrc_mgr;
-	using Renderer::get_logical_device;
-};
-
 class ShadowMapRenderer : public Renderer
 {
 public:

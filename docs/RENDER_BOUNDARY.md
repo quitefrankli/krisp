@@ -11,6 +11,8 @@ particle instances, one state and immutable definition per
 definition retains its mesh and material handles and records optional
 `ObjectID` grouping metadata and an optional skeleton binding. Renderable state
 contains its already-composed world transform and effective visibility.
+The frame also carries complete presentation state: the desired raster render
+mode and the full set of object IDs that receive stencil highlighting.
 
 `RenderableID` is an immutable topology identity across the boundary. Mesh,
 materials, pipeline, grouping metadata, and skeleton binding cannot change for
@@ -19,9 +21,9 @@ immutable bone hierarchy and inverse-bind layout, while its pose remains
 mutable. The mailbox rejects changed definitions and retired-ID
 reintroduction. `ObjectID`
 is not a graphics ownership key: graphics uses it only to group renderables for
-object-level controls such as stencil selection, previews, and active-light
+object-level controls such as stencil selection and active-light
 shadow suppression. Effective object visibility is composed before publication.
-Standalone renderables have no group and are unaffected by object commands.
+Standalone renderables have no group and are unaffected by object-level state.
 
 The graphics thread loads at most one completed publication at the start of a
 graphics-loop iteration. It retains that same `shared_ptr<const RenderFrame>`
@@ -45,10 +47,9 @@ Removed renderable, skeleton, mesh, and material GPU allocations are retired by
 the graphics thread after the last potentially referencing submission fence
 completes; topology reconciliation does not wait for the entire device.
 
-The graphics command queue is not a scene-state channel. It remains only for
-control operations such as shutdown, render-mode changes, previews, and
-ID-only stencil selection. Graphics code must not read mutable game objects,
-the ECS, or the game camera.
+There is no second game-to-graphics state queue. Presentation state is part of
+the immutable frame, while shutdown uses a dedicated atomic stop request.
+Graphics code must not read mutable game objects, the ECS, or the game camera.
 
 Ray tracing is currently unsupported and excluded from C++, shader, pipeline,
 renderer, descriptor, and device-feature setup. The supported render boundary

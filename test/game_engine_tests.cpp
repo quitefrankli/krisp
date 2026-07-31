@@ -167,6 +167,40 @@ TEST_F(GameEngineTests, publishes_initial_and_post_update_render_frames)
 	EXPECT_EQ(updated->previous, initial->current);
 }
 
+TEST_F(GameEngineTests, publishes_complete_render_view_state)
+{
+	auto& first = engine.spawn_object<Object>();
+	auto& second = engine.spawn_object<Object>();
+
+	engine.highlight_object(first);
+	engine.highlight_object(second);
+	engine.set_render_mode(ERenderMode::WIREFRAME);
+	engine.main_loop(0.1f);
+
+	const auto highlighted =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_EQ(highlighted->view.render_mode, ERenderMode::WIREFRAME);
+	EXPECT_EQ(highlighted->view.stenciled_objects,
+		(std::unordered_set<ObjectID>{ first.get_id(), second.get_id() }));
+
+	engine.unhighlight_object(first);
+	engine.main_loop(0.1f);
+
+	const auto updated =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_EQ(updated->view.stenciled_objects,
+		(std::unordered_set<ObjectID>{ second.get_id() }));
+}
+
+TEST_F(GameEngineTests, shutdown_requests_the_graphics_thread_to_stop)
+{
+	EXPECT_FALSE(get_mock_gfx().shutdown_requested);
+
+	engine.shutdown();
+
+	EXPECT_TRUE(get_mock_gfx().shutdown_requested);
+}
+
 TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definitions)
 {
 	auto& parent = engine.spawn_object<Object>();

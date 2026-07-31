@@ -9,7 +9,7 @@ loop.
 
 | Area | Responsibility |
 | --- | --- |
-| `graphics_engine.*` | Top-level coordinator: owns the render loop, queues, graphics renderables, and submodules. |
+| `graphics_engine.*` | Top-level coordinator: owns the render loop, frame mailbox, graphics renderables, and submodules. |
 | `graphics_engine_instance/device/swap_chain.*` | Creates the Vulkan instance, surface, device, queues, swap chain, and per-swap-chain frames. |
 | `graphics_engine_frame.*` | Records and submits one frame's command buffer; owns its fences, semaphores, and per-frame resources. |
 | `render_draw_list.*` | Caches renderable-level pass classification and state ordering for reconciled topology. |
@@ -30,7 +30,6 @@ GameEngine completed-frame publication
         |
         v
 GraphicsEngine::run
-  ├─ process control-only graphics commands
   ├─ acquire and retain the newest completed snapshot
   ├─ reconcile immutable renderable/skeleton membership and draw lists when needed
   ├─ retire newly unused mesh and material allocations
@@ -89,9 +88,11 @@ frame-retirement mechanism.
   producers that violate this contract.
 - The latest-wins mailbox lets either thread advance independently. A slow
   graphics loop drops intermediate publications instead of blocking updates.
-- The command queue carries controls only; stencil commands carry an
-  `ObjectID`, not a game-object reference. This ID is optional renderable
-  grouping metadata rather than a graphics-resource ownership key.
+- Each snapshot contains the complete render mode and stencil-selection state,
+  so dropping an intermediate publication cannot lose a state transition.
+  Stencil entries are `ObjectID` grouping metadata rather than graphics-resource
+  ownership keys.
+- Graphics shutdown is a dedicated atomic stop request rather than frame state.
 - Swap-chain frames own transient per-frame synchronization and command
   resources; long-lived device resources belong to the relevant manager or
   renderer. Superseded long-lived resources transfer to serial-gated retirement

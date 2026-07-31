@@ -7,7 +7,6 @@
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
 #include "gui/application_ui_manager.hpp"
-#include "graphics_engine/graphics_engine_commands.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
 #include "window.hpp"
 #include "entity_component_system/ecs.hpp"
@@ -53,6 +52,7 @@ public: // getters and setters
 	PlayerCharacter* get_active_player() const { return active_player; }
 	void set_game_mode(EGameMode mode);
 	void toggle_game_mode();
+	void set_render_mode(ERenderMode mode);
 	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }
 
 public:
@@ -78,8 +78,6 @@ public:
 	void save_scene(std::string_view save_name) const;
 	void load_scene(std::string_view save_name);
 	
-	void send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd);
-
 	template<typename object_t, typename... Args>
 	object_t& spawn_object(Args&&... args)
 	{
@@ -133,8 +131,6 @@ public:
 	std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() { return objects; }
 	const std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() const { return objects; }
 
-	void preview_objs_in_gui(const std::vector<ObjectID>& objs, GuiPhotoBase& gui_window);
-
 private:
 	std::unique_ptr<App::Window> window;
 	AudioEnginePimpl audio_engine;
@@ -158,6 +154,7 @@ private:
 	std::unordered_set<ObjectID> pending_deletions;
 	std::unordered_map<RenderableID, RenderableDefinitionPtr> renderable_definitions;
 	std::unordered_map<SkeletonID, RenderSkeletonDefinitionPtr> render_skeleton_definitions;
+	RenderViewState render_view_state;
 	uint64_t next_render_frame_number = 0;
 
 private:

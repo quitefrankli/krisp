@@ -170,6 +170,16 @@ Shutdown still uses
 retirement path does not change the synchronization used by one-time staging
 and upload commands. No timing or peak-memory measurements have been recorded.
 
+The snapshot also copies the complete stencil-selection set and render mode.
+This adds work linear in the number of highlighted object IDs, which is
+expected to remain small. It replaces per-change heap allocation, queue locking,
+and virtual dispatch in the former graphics-command path. Shutdown uses a
+dedicated atomic stop request. No timing measurements have been recorded.
+
+The unused offscreen object-preview renderer and pipeline are no longer created,
+removing their fixed startup Vulkan resources. No memory measurements have been
+recorded.
+
 The unsupported ray-tracing source and shader paths are excluded from builds.
 Its renderer, pipeline, descriptor layouts, device extensions/features, and
 mapping buffer are not created, reducing fixed startup/device resource

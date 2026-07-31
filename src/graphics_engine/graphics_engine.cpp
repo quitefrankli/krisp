@@ -131,26 +131,13 @@ void GraphicsEngine::run() {
 		analytics.text = "GraphicsEngine: avg loop processing period (excluding sleep)";
 		FPS_tracker->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
-		while (!should_shutdown)
+		while (!should_shutdown.load(std::memory_order_acquire))
 		{
 			// for FPS
 			FPS_tracker->stop();
 			FPS_tracker->start();
 
 			analytics.start();
-
-			while (true)
-			{
-				std::unique_ptr<GraphicsEngineCommand> command;
-				{
-					std::lock_guard lock(ge_cmd_q_mutex);
-					if (ge_cmd_q.empty())
-						break;
-					command = std::move(ge_cmd_q.front());
-					ge_cmd_q.pop();
-				}
-				command->process(this);
-			}
 
 			accept_latest_render_frame();
 			retire_unused_resources();
@@ -331,16 +318,6 @@ void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 		renderables.emplace(state.definition->id, std::move(graphics_renderable));
 	}
 
-	offscreen_rendering_objects.clear();
-	for (const ObjectID id : offscreen_rendering_object_ids)
-	{
-		std::vector<GraphicsRenderable*> matches;
-		for (auto& [_, renderable] : renderables)
-			if (renderable->get_object_id() == id)
-				matches.push_back(renderable.get());
-		offscreen_rendering_objects.emplace(id, std::move(matches));
-	}
-
 	draw_lists.rebuild(renderables);
 }
 
@@ -427,12 +404,6 @@ void GraphicsEngine::recreate_swap_chain()
     // }
 
 	// swap_chain.reset();
-}
-
-void GraphicsEngine::enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
-{
-	std::lock_guard<std::mutex> lock(ge_cmd_q_mutex);
-	ge_cmd_q.push(std::move(cmd));
 }
 
 VkCommandBuffer GraphicsEngine::begin_single_time_commands()

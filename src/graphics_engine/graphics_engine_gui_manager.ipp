@@ -258,29 +258,6 @@ void GraphicsEngineGuiManager::build_default_layout(ImGuiID dockspace_id, const 
 	ImGui::DockBuilderFinish(dockspace_id);
 }
 
-void GraphicsEngineGuiManager::update_preview_window(
-	GuiPhotoBase& gui,
-	VkSampler sampler,
-	VkImageView image_view,
-	const glm::uvec2& dimensions)
-{
-	// for caching dsets
-	static std::unordered_map<VkImageView, VkDescriptorSet> dsets;
-	const auto it = dsets.find(image_view);
-	if (it != dsets.end())
-	{
-		gui.update(it->second, dimensions);
-		return;
-	}
-
-	VkDescriptorSet dset = dsets.emplace(image_view, ImGui_ImplVulkan_AddTexture(
-		sampler, 
-		image_view, 
-		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)).first->second;
-
-	gui.update(dset, dimensions);
-}
-
 void GraphicsEngineGuiManager::setup_imgui()
 {
 	ImGui::CreateContext();

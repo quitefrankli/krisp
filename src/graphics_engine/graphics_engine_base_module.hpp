@@ -39,9 +39,8 @@ public:
 		VkMemoryPropertyFlags memory_flags,
 		uint32_t alignment = 1,
 		std::string name = "");
-#if 0 // Ray tracing is unsupported; retained for future repair.
-	virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);
-#endif
+	// For ray tracing:
+	// virtual VkDeviceAddress get_buffer_device_address(const GraphicsBuffer& buffer);
 
 protected:
 	// for derived classes that we may not want to call destructor on because of a std::move

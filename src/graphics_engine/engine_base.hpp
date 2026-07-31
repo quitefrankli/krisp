@@ -1,6 +1,5 @@
 #pragma once
 
-#include "graphics_engine_commands.hpp"
 #include "render_frame.hpp"
 
 #include <utility>
@@ -14,13 +13,7 @@ class GraphicsEngineBase
 public:
 	virtual ~GraphicsEngineBase() = default;
 
-	virtual void handle_command(StencilObjectCmd& cmd) {}
-	virtual void handle_command(UnStencilObjectCmd& cmd) {}
-	virtual void handle_command(ShutdownCmd& cmd) {}
-	virtual void handle_command(SetRenderModeCmd& cmd) {}
-	virtual void handle_command(PreviewObjectsCmd& cmd) {}
-
-	virtual void enqueue_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd) = 0;
+	virtual void request_shutdown() = 0;
 	virtual float get_fps() const = 0;
 	virtual EngineUiManager& get_gui_manager() = 0;
 	virtual void set_application_ui_manager(ApplicationUiManager*) {}

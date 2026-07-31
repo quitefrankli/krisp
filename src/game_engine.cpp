@@ -8,7 +8,6 @@
 #include "camera.hpp"
 #include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
-#include "graphics_engine/graphics_engine_commands.hpp"
 #include "utility.hpp"
 #include "analytics.hpp"
 #include "interface/gizmo.hpp"
@@ -322,6 +321,13 @@ void GameEngine::toggle_game_mode()
 		? EGameMode::NORMAL : EGameMode::EDITOR);
 }
 
+void GameEngine::set_render_mode(const ERenderMode mode)
+{
+	render_view_state.render_mode = mode == ERenderMode::RAYTRACING
+		? ERenderMode::RASTERIZED
+		: mode;
+}
+
 void GameEngine::shutdown_impl()
 {
 	if (should_shutdown)
@@ -330,7 +336,7 @@ void GameEngine::shutdown_impl()
 	}
 
 	should_shutdown = true;
-	graphics_engine->enqueue_cmd(std::make_unique<ShutdownCmd>());
+	graphics_engine->request_shutdown();
 }
 
 GameEngine::~GameEngine() = default;
@@ -454,6 +460,7 @@ void GameEngine::process_objs_to_delete()
 		}
 		ecs.remove_object(id);
 		objects.erase(id);
+		render_view_state.stenciled_objects.erase(id);
 	}
 }
 
@@ -476,6 +483,7 @@ void GameEngine::reset_scene_state()
 	graphics_engine->set_ui_layers_active(true, false);
 	entities_to_delete = {};
 	pending_deletions.clear();
+	render_view_state.stenciled_objects.clear();
 	ResourceProvenance::clear();
 	tile_renderable.reset();
 	configure_ecs();
@@ -490,12 +498,12 @@ void GameEngine::reset_scene_state()
 
 void GameEngine::highlight_object(const Object& object)
 {
-	graphics_engine->enqueue_cmd(std::make_unique<StencilObjectCmd>(object.get_id()));
+	render_view_state.stenciled_objects.insert(object.get_id());
 }
 
 void GameEngine::unhighlight_object(const Object& object)
 {
-	graphics_engine->enqueue_cmd(std::make_unique<UnStencilObjectCmd>(object.get_id()));
+	render_view_state.stenciled_objects.erase(object.get_id());
 }
 
 RenderableID GameEngine::replace_renderable_texture(
@@ -618,11 +626,6 @@ EngineUiManager& GameEngine::get_gui_manager()
 	return graphics_engine->get_gui_manager();
 }
 
-void GameEngine::send_graphics_cmd(std::unique_ptr<GraphicsEngineCommand>&& cmd)
-{
-	graphics_engine->enqueue_cmd(std::move(cmd));
-}
-
 uint32_t GameEngine::get_window_width()
 {
 	return window->get_width();
@@ -636,13 +639,6 @@ uint32_t GameEngine::get_window_height()
 Maths::Ray GameEngine::get_mouse_ray() const
 {
 	return camera->get_ray(mouse->get_curr_pos());
-}
-
-void GameEngine::preview_objs_in_gui(
-	const std::vector<ObjectID>& objs,
-	GuiPhotoBase& gui_window)
-{
-	send_graphics_cmd(std::make_unique<PreviewObjectsCmd>(objs, gui_window));
 }
 
 Gizmo& GameEngine::get_gizmo() { return *gizmo; }

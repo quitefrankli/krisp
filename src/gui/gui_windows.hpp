@@ -238,9 +238,8 @@ private:
 		{ "index buffer", {} },
 		{ "uniform buffer", {} },
 		{ "materials buffer", {} },
-#if 0 // Ray tracing is unsupported; retain its mapping-buffer statistic.
-		{ "mapping buffer", {} },
-#endif
+		// For ray tracing:
+		// { "mapping buffer", {} },
 		{ "bone buffer", {} }
 	};
 };

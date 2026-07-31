@@ -2,7 +2,6 @@
 #include "rasterization_renderer.ipp"
 #include "gui_renderer.ipp"
 // #include "raytracing_renderer.ipp" // Ray tracing is unsupported.
-#include "offscreen_gui_viewport_renderer.ipp"
 #include "shadowmap_renderer.ipp"
 #include "quad_renderer.ipp"
 #include "particle_renderer.ipp"

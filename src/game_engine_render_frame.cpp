@@ -130,6 +130,7 @@ RenderFrame GameEngine::build_render_frame()
 {
 	RenderFrame frame;
 	frame.frame_number = next_render_frame_number;
+	frame.view = render_view_state;
 	frame.camera = {
 		.view = camera->get_view(),
 		.projection = camera->get_projection(),

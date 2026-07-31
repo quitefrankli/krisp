@@ -7,8 +7,6 @@ graphics_sources = files('graphics_engine/video_recorder.cpp',
 						 'graphics_engine/resource_manager/graphics_resource_manager.cpp',
 						 'graphics_engine/resource_manager/graphics_buffer.cpp',
 						 'graphics_engine/graphics_engine.cpp',
-						 'graphics_engine/graphics_engine_commands.cpp',
-						 'graphics_engine/engine_commands_handler.cpp',
 						 'graphics_engine/submodules.cpp')
 
 ecs_sources = files('entity_component_system/skeletal_serialization.cpp',

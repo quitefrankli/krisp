@@ -113,15 +113,13 @@ void GraphicsEngineFrame::update_command_buffer()
 		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 	};
 	// Ray tracing is unsupported:
-	// if (get_graphics_engine().render_mode == ERenderMode::RAYTRACING)
+	// if (get_graphics_engine().get_render_mode() == ERenderMode::RAYTRACING)
 	//     submit_draw_commands(ERendererType::RAYTRACING);
-	if (get_graphics_engine().render_mode != ERenderMode::UNLIT_BASE_COLOR)
+	if (get_graphics_engine().get_render_mode() != ERenderMode::UNLIT_BASE_COLOR)
 		submit_draw_commands(ERendererType::SHADOW_MAP);
 	submit_draw_commands(ERendererType::RASTERIZATION);
 	// Note: Particle rendering is now done within the RasterizationRenderer
 	submit_draw_commands(ERendererType::QUAD);
-	// submit_draw_commands(ERendererType::OFFSCREEN_GUI_VIEWPORT);
-
 	maybe_prepare_screenshot_capture();
 
 	if (!screenshot_staging_buffer.has_value())

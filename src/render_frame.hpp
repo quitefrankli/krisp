@@ -110,11 +110,20 @@ struct RenderLightState
 	glm::vec3 color{ 1.0f };
 };
 
+// Complete presentation state for a frame. This is state rather than an event
+// stream so skipped mailbox publications cannot lose control changes.
+struct RenderViewState
+{
+	ERenderMode render_mode = ERenderMode::RASTERIZED;
+	std::unordered_set<ObjectID> stenciled_objects;
+};
+
 // One coherent, completed render snapshot. Consumers only receive const shared
 // ownership, so they may retain a frame without observing subsequent writes.
 struct RenderFrame
 {
 	uint64_t frame_number = 0;
+	RenderViewState view;
 	RenderCameraState camera;
 	std::vector<RenderableState> renderables;
 	std::vector<RenderSkeletonPose> skeletons;
