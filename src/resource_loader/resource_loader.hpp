@@ -89,6 +89,7 @@ public:
 	};
 
 	static MaterialHandle fetch_texture(
+		MaterialSystem& materials,
 		std::string_view filename,
 		ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
 	static LoadedModel load_model(ECS& ecs, std::string_view filename);
@@ -105,9 +106,11 @@ private:
 	};
 
 	MaterialHandle load_texture(
+		MaterialSystem& materials,
 		const std::filesystem::path& file_path,
 		ETextureSemantic semantic);
 	LoadedMaterial load_material(
+		MaterialSystem& materials,
 		const tinygltf::Primitive& primitive,
 		const tinygltf::Model& model,
 		std::vector<MaterialHandle>& owners);

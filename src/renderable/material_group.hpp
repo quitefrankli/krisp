@@ -23,7 +23,7 @@ struct FlatMatGroup : public MaterialGroup
 	FlatMatGroup(const std::span<const MaterialHandle> mats)
 	{
 		assert(mats.size() == 1);
-		color_mat = MaterialSystem::get_id(mats[0]);
+		color_mat = mats[0]->get_id();
 	}
 
 	MatVec get_materials() const
@@ -74,12 +74,12 @@ struct CubeMapMatGroup : public MaterialGroup
 
 	MaterialID get_material_id(size_t index) const
 	{
-		return MaterialSystem::get_id(material_owners[index]);
+		return material_owners[index]->get_id();
 	}
 
 	const Material& get_material(size_t index) const
 	{
-		return MaterialSystem::get(material_owners[index]);
+		return material_owners[index]->get();
 	}
 
 	std::span<const MaterialHandle> material_owners;

@@ -41,7 +41,7 @@ GraphicsEngine::GraphicsEngine(App::Window& window_) :
 		}, 1, CSTS::TRACKER_LOG_PERIOD_SECONDS);
 }
 
-GraphicsEngine::~GraphicsEngine() 
+GraphicsEngine::~GraphicsEngine()
 {
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
@@ -88,15 +88,15 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 		return present_support;
 	};
 
-	if (queueFamilyCount == 0) 
+	if (queueFamilyCount == 0)
 	{
 		throw std::runtime_error("failed to find any vulkan queue families!");
 	}
 
 	// if there is only one queue family, we can use it for both graphics and present
-	if (queueFamilyCount == 1) 
+	if (queueFamilyCount == 1)
 	{
-		if (!(queueFamilies[0].queueFlags & VK_QUEUE_GRAPHICS_BIT) || !check_present_support(0)) 
+		if (!(queueFamilies[0].queueFlags & VK_QUEUE_GRAPHICS_BIT) || !check_present_support(0))
 		{
 			throw std::runtime_error("single queue family does not support graphics or present operations!");
 		}
@@ -322,8 +322,8 @@ void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 
 void GraphicsEngine::retire_unused_resources()
 {
-	auto retired_materials = MaterialSystem::take_retired();
-	auto retired_meshes = MeshSystem::take_retired();
+	auto retired_materials = get_material_system().take_retired();
+	auto retired_meshes = get_mesh_system().take_retired();
 	if (retired_materials.empty() && retired_meshes.empty())
 		return;
 
@@ -566,13 +566,13 @@ void GraphicsEngine::transition_image_layout(
 		return old_layout == x && new_layout == y;
 	};
 	VkPipelineStageFlags sourceStage, destinationStage;
-	if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)) 
+	if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
 	{
 		barrier.srcAccessMask = 0;
 		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)) 
+	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
 	{
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -602,7 +602,7 @@ void GraphicsEngine::transition_image_layout(
 		barrier.dstAccessMask = 0;
 		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	} else 
+	} else
 	{
 		throw std::runtime_error("unsupported image layout transition!");
 	}
@@ -611,7 +611,7 @@ void GraphicsEngine::transition_image_layout(
 		command_buffer,
 		sourceStage, // which pipeline stage the operation should occur before the barrier
 		destinationStage, // pipeline stage in which the operation will wait on the barrier
-		0, // 
+		0, //
 		0,
 		nullptr,
 		0,
@@ -650,8 +650,8 @@ VkFormat GraphicsEngine::find_depth_format()
 	if (!depth_format)
 	{
 		const auto find_supported_format = [&](
-			std::vector<VkFormat> candidates, 
-			VkImageTiling tiling, 
+			std::vector<VkFormat> candidates,
+			VkImageTiling tiling,
 			VkFormatFeatureFlags features)
 		{
 			for (VkFormat format : candidates)

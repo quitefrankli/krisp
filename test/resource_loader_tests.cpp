@@ -64,6 +64,21 @@ TEST(ResourceLoaderOwnership, skeletal_state_is_registered_in_the_supplied_ecs)
 	EXPECT_THROW(unrelated.get_skeletal_component(skeleton), std::out_of_range);
 }
 
+TEST(ResourceLoaderOwnership, texture_cache_never_crosses_material_stores)
+{
+	ECS first;
+	ECS second;
+	const auto first_owner = ResourceLoader::fetch_texture(
+		first.get_material_system(), "texture.jpg");
+	const auto second_owner = ResourceLoader::fetch_texture(
+		second.get_material_system(), "texture.jpg");
+
+	EXPECT_NE(first_owner, second_owner);
+	EXPECT_TRUE(first.get_material_system().owns(first_owner));
+	EXPECT_TRUE(second.get_material_system().owns(second_owner));
+	EXPECT_FALSE(first.get_material_system().owns(second_owner));
+}
+
 namespace
 {
 class GeneratedDDS
@@ -203,9 +218,9 @@ TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
 	const auto missing_texture = "does_not_exist.png";
 
 	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, missing_model), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::fetch_texture(missing_texture), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), missing_texture), ResourceLoadError);
 	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, "/tmp/model.glb"), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::fetch_texture("../texture.png"), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), "../texture.png"), ResourceLoadError);
 }
 
 TEST(ResourceLoaderErrors, rejects_accessor_data_outside_its_buffer_view)
@@ -279,24 +294,24 @@ TEST_F(ResourceLoaderECS, bone_relative_transforms)
 
 	// mid bone
 	ASSERT_TRUE(glm_equal(
-		get_bones()[1].relative_transform.get_mat4(), 
+		get_bones()[1].relative_transform.get_mat4(),
 		glm::translate(Maths::identity_mat, Maths::up_vec)));
-		
+
 	// tip bone
 	ASSERT_TRUE(glm_equal(
-		get_bones()[2].relative_transform.get_mat4(), 
+		get_bones()[2].relative_transform.get_mat4(),
 		glm::translate(Maths::identity_mat, Maths::up_vec)));
 
 	// right bone
 	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_pos(), Maths::up_vec));
 	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_scale(), Maths::identity_vec));
 	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_orient(), Maths::zRot90));
-	
+
 	// left bone
 	ASSERT_TRUE(glm_equal(get_bones()[4].relative_transform.get_pos(), Maths::up_vec));
 	ASSERT_TRUE(glm_equal(get_bones()[4].relative_transform.get_scale(), Maths::identity_vec));
 	ASSERT_TRUE(glm_equal(
-		get_bones()[4].relative_transform.get_orient(), 
+		get_bones()[4].relative_transform.get_orient(),
 		glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
 }
 
@@ -370,7 +385,7 @@ TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[2]),
 		glm::angleAxis(-Maths::PI/4.0f, Maths::forward_vec)));
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[3]), Maths::identity_quat));
-		
+
 	// tip bone
 	ASSERT_TRUE(pos_checker(bone_animations[2], Maths::up_vec));
 	ASSERT_EQ(bone_animations[2].rotation_track.keys.size(), 4);
@@ -384,7 +399,7 @@ TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 	// right bone
 	ASSERT_TRUE(pos_checker(bone_animations[3], Maths::up_vec));
 	ASSERT_TRUE(quat_checker(bone_animations[3], Maths::zRot90));
-	
+
 	// left bone
 	ASSERT_TRUE(pos_checker(bone_animations[4], Maths::up_vec));
 	ASSERT_TRUE(quat_checker(bone_animations[4], glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
@@ -569,8 +584,8 @@ TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material
 {
 	const std::string texture_path = "texture.jpg";
 
-	const auto first = ResourceLoader::fetch_texture(texture_path);
-	const auto second = ResourceLoader::fetch_texture(texture_path);
+	const auto first = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
+	const auto second = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
 
 	ASSERT_EQ(first, second);
 	EXPECT_EQ(first.use_count(), 2);
@@ -581,24 +596,24 @@ TEST(ResourceLoaderTextures, caches_texture_variants_by_semantic_and_recovers_st
 	constexpr uint32_t DXT5 = 0x35545844;
 	GeneratedDDS dds(4, 4, 1, DXT5);
 	const auto texture_path = dds.filename();
-	auto base_color = ResourceLoader::fetch_texture(
+	auto base_color = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(),
 		texture_path, ETextureSemantic::BASE_COLOR);
-	const auto normal = ResourceLoader::fetch_texture(
+	const auto normal = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(),
 		texture_path, ETextureSemantic::NORMAL);
-	EXPECT_NE(MaterialSystem::get_id(base_color), MaterialSystem::get_id(normal));
+	EXPECT_NE(base_color->get_id(), normal->get_id());
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(base_color))).semantic,
+		general_loader_ecs.get_material_system().get(base_color->get_id())).semantic,
 		ETextureSemantic::BASE_COLOR);
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(normal))).semantic,
+		general_loader_ecs.get_material_system().get(normal->get_id())).semantic,
 		ETextureSemantic::NORMAL);
 
-	const MaterialID released = MaterialSystem::get_id(base_color);
+	const MaterialID released = base_color->get_id();
 	base_color.reset();
-	EXPECT_FALSE(MaterialSystem::contains(released));
-	const auto reloaded = ResourceLoader::fetch_texture(
+	EXPECT_FALSE(general_loader_ecs.get_material_system().contains(released));
+	const auto reloaded = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(),
 		texture_path, ETextureSemantic::BASE_COLOR);
-	EXPECT_NE(MaterialSystem::get_id(reloaded), released);
+	EXPECT_NE(reloaded->get_id(), released);
 	EXPECT_EQ(reloaded.use_count(), 1);
 }
 
@@ -606,9 +621,9 @@ TEST(ResourceLoaderTextures, loads_generated_bc3_dds_with_complete_mip_chain)
 {
 	constexpr uint32_t DXT5 = 0x35545844;
 	GeneratedDDS dds(8, 8, 4, DXT5);
-	const auto material = ResourceLoader::fetch_texture(dds.filename());
+	const auto material = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), dds.filename());
 	const auto& loaded = static_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(material)));
+		general_loader_ecs.get_material_system().get(material->get_id()));
 
 	EXPECT_EQ(loaded.width, 8);
 	EXPECT_EQ(loaded.height, 8);
@@ -627,8 +642,8 @@ TEST(ResourceLoaderTextures, rejects_unsupported_or_truncated_dds_files)
 	GeneratedDDS unsupported(4, 4, 1, DXT1);
 	GeneratedDDS truncated(8, 8, 4, DXT5, 111);
 
-	EXPECT_THROW(ResourceLoader::fetch_texture(unsupported.filename()), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::fetch_texture(truncated.filename()), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), unsupported.filename()), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), truncated.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderTextures, loads_external_dds_references_from_generated_glb)
@@ -645,9 +660,9 @@ TEST(ResourceLoaderTextures, loads_external_dds_references_from_generated_glb)
 	const auto& material_owners = model.meshes[0].renderables[0].material_owners;
 	ASSERT_EQ(material_owners.size(), 2);
 	const auto& base_color = dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(material_owners[0])));
+		general_loader_ecs.get_material_system().get(material_owners[0]->get_id()));
 	const auto& normal = dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(material_owners[1])));
+		general_loader_ecs.get_material_system().get(material_owners[1]->get_id()));
 	EXPECT_EQ(base_color.format, ETextureFormat::BC3);
 	EXPECT_EQ(base_color.semantic, ETextureSemantic::BASE_COLOR);
 	EXPECT_EQ(base_color.mip_sizes, (std::vector<size_t>{ 64, 16, 16, 16 }));
@@ -669,18 +684,18 @@ TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
 	ASSERT_FALSE(model.meshes[0].skeleton_id.has_value());
 
 	ASSERT_EQ(renderable.material_owners.size(), 1);
-	const auto& material = MaterialSystem::get(MaterialSystem::get_id(renderable.material_owners[0]));
+	const auto& material = general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id());
 	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
 	ASSERT_NE(tex_material, nullptr);
 	ASSERT_EQ(tex_material->width, 2);
 	ASSERT_EQ(tex_material->height, 2);
-	const auto* mesh_origin = ResourceProvenance::mesh(MeshSystem::get_id(renderable.mesh_owner));
+	const auto* mesh_origin = ResourceProvenance::mesh(renderable.mesh_owner->get_id());
 	ASSERT_NE(mesh_origin, nullptr);
 	EXPECT_EQ(std::filesystem::path(mesh_origin->source).filename(), "static_mesh_textured.gltf");
 	EXPECT_EQ(mesh_origin->node, 0);
 	EXPECT_EQ(mesh_origin->primitive, 0);
 	const auto* material_origin = ResourceProvenance::material(
-		MaterialSystem::get_id(renderable.material_owners[0]));
+		renderable.material_owners[0]->get_id());
 	ASSERT_NE(material_origin, nullptr);
 	EXPECT_EQ(std::filesystem::path(material_origin->source).filename(), "static_mesh_textured.gltf");
 }
@@ -702,7 +717,7 @@ TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps)
 
 	ASSERT_TRUE(group.specular_mat);
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(*group.specular_mat)).semantic,
+		general_loader_ecs.get_material_system().get(*group.specular_mat)).semantic,
 		ETextureSemantic::SPECULAR);
 }
 
@@ -746,7 +761,7 @@ TEST(ResourceLoaderSpecularMaps, imports_specular_map_without_base_color_texture
 	const TexturedMatGroup group(renderable.material_owners);
 	EXPECT_TRUE(group.specular_mat);
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(group.base_color_mat)).source, "(none)");
+		general_loader_ecs.get_material_system().get(group.base_color_mat)).source, "(none)");
 }
 
 TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses_cached_material)
@@ -757,15 +772,15 @@ TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
 
-	const auto first_mat_id = MaterialSystem::get_id(model.meshes[0].renderables[0].material_owners[0]);
-	const auto second_mat_id = MaterialSystem::get_id(model.meshes[0].renderables[1].material_owners[0]);
+	const auto first_mat_id = model.meshes[0].renderables[0].material_owners[0]->get_id();
+	const auto second_mat_id = model.meshes[0].renderables[1].material_owners[0]->get_id();
 	ASSERT_EQ(first_mat_id, second_mat_id);
 	const auto& first_owner = model.meshes[0].renderables[0].material_owners[0];
 	const auto& second_owner = model.meshes[0].renderables[1].material_owners[0];
 	EXPECT_EQ(first_owner, second_owner);
 	EXPECT_EQ(first_owner.use_count(), 2);
 
-	const auto& material = MaterialSystem::get(first_mat_id);
+	const auto& material = general_loader_ecs.get_material_system().get(first_mat_id);
 	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
 	ASSERT_NE(tex_material, nullptr);
 	ASSERT_EQ(tex_material->width, 2);
@@ -791,13 +806,13 @@ TEST(ResourceLoaderNormalMaps, missing_tangents_can_be_generated)
 	const auto& renderable = model.meshes[0].renderables[0];
 	ASSERT_EQ(renderable.material_owners.size(), 2);
 	const auto& base_material = dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(renderable.material_owners[0])));
+		general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id()));
 	const auto& normal_material = dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(MaterialSystem::get_id(renderable.material_owners[1])));
+		general_loader_ecs.get_material_system().get(renderable.material_owners[1]->get_id()));
 	EXPECT_EQ(base_material.semantic, ETextureSemantic::BASE_COLOR);
 	EXPECT_EQ(normal_material.semantic, ETextureSemantic::NORMAL);
 
-	const auto& mesh = dynamic_cast<const TexMesh&>(MeshSystem::get(MeshSystem::get_id(renderable.mesh_owner)));
+	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	ASSERT_FALSE(mesh.get_vertices().empty());
 	for (const auto& vertex : mesh.get_vertices())
 	{
@@ -821,7 +836,7 @@ TEST(ResourceLoaderNormalMaps, invalid_tangents_are_regenerated)
 	const auto path = "normal_mapped_invalid_tangents.gltf";
 	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
 	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const TexMesh&>(MeshSystem::get(MeshSystem::get_id(renderable.mesh_owner)));
+	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	for (const auto& vertex : mesh.get_vertices())
 	{
 		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
@@ -837,7 +852,7 @@ TEST(ResourceLoaderNormalMaps, authored_tangents_are_preserved_and_scale_warns)
 	const auto path = "normal_mapped_authored_tangents.gltf";
 	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
 	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const TexMesh&>(MeshSystem::get(MeshSystem::get_id(renderable.mesh_owner)));
+	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	for (const auto& vertex : mesh.get_vertices())
 		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
 	ASSERT_EQ(model.warnings.size(), 1);
@@ -882,7 +897,7 @@ TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
 	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
 	ASSERT_TRUE(model.meshes[0].skeleton_id.has_value());
 	ASSERT_EQ(renderable.material_owners.size(), 2);
-	const auto& mesh = dynamic_cast<const SkinnedMesh&>(MeshSystem::get(MeshSystem::get_id(renderable.mesh_owner)));
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	ASSERT_EQ(mesh.get_vertices().size(), 3);
 	for (const auto& vertex : mesh.get_vertices())
 		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
@@ -899,10 +914,10 @@ TEST(ResourceLoaderSkinnedColor, imports_color_material_without_texture_upload)
 	EXPECT_TRUE(model.meshes[0].skeleton_id.has_value());
 	ASSERT_EQ(renderable.material_owners.size(), 1);
 	const auto* material = dynamic_cast<const ColorMaterial*>(
-		&MaterialSystem::get(MaterialSystem::get_id(renderable.material_owners[0])));
+		&general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id()));
 	ASSERT_NE(material, nullptr);
 	EXPECT_TRUE(glm_equal(material->data.diffuse, glm::vec3(0.25f, 0.5f, 0.75f)));
-	EXPECT_NE(dynamic_cast<const SkinnedMesh*>(&MeshSystem::get(MeshSystem::get_id(renderable.mesh_owner))), nullptr);
+	EXPECT_NE(dynamic_cast<const SkinnedMesh*>(&general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id())), nullptr);
 }
 
 TEST(ResourceLoaderSkinning, rejects_more_than_four_bone_influences_per_vertex)
@@ -926,7 +941,7 @@ TEST(ResourceLoaderNormalMaps, skinned_mesh_can_generate_missing_tangents)
 	const auto path = "skinned_normal_mapped_missing_tangents.gltf";
 	const auto model = ResourceLoader::load_model(general_loader_ecs, path, options);
 	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const SkinnedMesh&>(MeshSystem::get(MeshSystem::get_id(renderable.mesh_owner)));
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	ASSERT_FALSE(mesh.get_vertices().empty());
 	for (const auto& vertex : mesh.get_vertices())
 	{
@@ -951,7 +966,7 @@ TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
 			ASSERT_EQ(renderable.pipeline_render_type, ERenderType::COLOR);
 			ASSERT_FALSE(mesh.skeleton_id.has_value());
 			ASSERT_EQ(renderable.material_owners.size(), 1);
-			const auto& material = MaterialSystem::get(MaterialSystem::get_id(renderable.material_owners[0]));
+			const auto& material = general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id());
 			ASSERT_NE(dynamic_cast<const ColorMaterial*>(&material), nullptr);
 		}
 	}
@@ -994,7 +1009,7 @@ TEST(ResourceLoaderVariants, generates_normals_for_non_indexed_interleaved_trian
 	const auto model = ResourceLoader::load_model(general_loader_ecs, "import_variants.gltf");
 
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
-	const auto& mesh = MeshSystem::get(MeshSystem::get_id(model.meshes[0].renderables[0].mesh_owner));
+	const auto& mesh = general_loader_ecs.get_mesh_system().get(model.meshes[0].renderables[0].mesh_owner->get_id());
 	EXPECT_EQ(mesh.get_num_unique_vertices(), 4);
 	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 1, 2, 2, 1, 3 }));
 	ASSERT_EQ(model.warnings.size(), 4);

@@ -46,8 +46,8 @@ GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	init();
 }
 
-GameEngine::GameEngine(std::unique_ptr<App::Window> win, 
-					   std::unique_ptr<IApplication> app, 
+GameEngine::GameEngine(std::unique_ptr<App::Window> win,
+					   std::unique_ptr<IApplication> app,
 					   std::unique_ptr<GraphicsEngineBase> gfx_engine) :
 	window(std::move(win)),
 	mouse(std::make_unique<Mouse>(*window)),
@@ -59,18 +59,20 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 
 void GameEngine::init()
 {
+	graphics_engine->bind_resource_systems(
+		ecs.get_mesh_system(), ecs.get_material_system());
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
 	graphics_engine->set_ui_layers_active(true, false);
 	auto camera_focus_object = std::make_shared<Object>();
 	camera_focus_object->set_transient(true);
 	auto& camera_focus = spawn_object(std::move(camera_focus_object));
 	attach_renderable(camera_focus.get_id(),
-		Renderable::make_default(MeshSystem::add(MeshFactory::sphere())));
+		Renderable::make_default(ecs, ecs.get_mesh_system().add(MeshFactory::sphere())));
 	auto camera_upvector_object = std::make_shared<Arrow>();
 	camera_upvector_object->set_transient(true);
 	auto& camera_upvector = static_cast<Arrow&>(spawn_object(
 		std::shared_ptr<Object>(std::move(camera_upvector_object))));
-	attach_renderable(camera_upvector.get_id(), Arrow::make_renderable());
+	attach_renderable(camera_upvector.get_id(), Arrow::make_renderable(ecs));
 	camera = std::make_unique<Camera>(
 		ecs,
 		Listener(audio_engine),
@@ -81,7 +83,7 @@ void GameEngine::init()
 	window->setup_callbacks(*this);
 	camera->look_at(Maths::zero_vec, glm::vec3(0.0f, 3.0f, -3.0f));
 	experimental = std::make_unique<Experimental>(*this);
-	
+
 	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
 	TPS_counter = std::make_unique<Analytics>("TPS Tracker", [this](float tps) {
 		set_tps(float(1e6) / tps);
@@ -98,7 +100,7 @@ void GameEngine::configure_ecs()
 	ecs.set_tile_spawner([this]() -> Object&
 	{
 		MaterialHandle new_tile_material;
-		if (!tile_renderable || !MaterialSystem::contains(tile_renderable->get_material_id(0)))
+		if (!tile_renderable || !ecs.get_material_system().contains(tile_renderable->get_material_id(0)))
 		{
 			ColorMaterial mat{};
 			mat.data.ambient = glm::vec3(0.45f) / SDS::AMBIENT_STRENGTH;
@@ -106,9 +108,9 @@ void GameEngine::configure_ecs()
 			mat.data.specular = Maths::zero_vec;
 			mat.data.emissive = Maths::zero_vec;
 			mat.data.shininess = 0.0f;
-			
-			new_tile_material = MaterialSystem::add(std::make_unique<ColorMaterial>(mat));
-			auto tile_mesh = MeshSystem::add(MeshFactory::cube());
+
+			new_tile_material = ecs.get_material_system().add(std::make_unique<ColorMaterial>(mat));
+			auto tile_mesh = ecs.get_mesh_system().add(MeshFactory::cube());
 			tile_renderable = Renderable{
 				.pipeline_render_type = ERenderType::COLOR,
 				.mesh_owner = std::move(tile_mesh),
@@ -127,7 +129,7 @@ void GameEngine::run()
 	graphics_engine_thread = std::thread(&GraphicsEngineBase::run, graphics_engine.get());
 	Utility::sleep(std::chrono::milliseconds(100));
 
-	try 
+	try
 	{
 		application->on_begin(*this);
 		gizmo->init();
@@ -379,24 +381,24 @@ void GameEngine::spawn_cubemap()
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.casts_shadow = false;
-	auto mesh_owner = MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::COLOR));
+	auto mesh_owner = ecs.get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::COLOR));
 	renderable.mesh_owner = std::move(mesh_owner);
 	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })
 	{
-		renderable.material_owners.push_back(ResourceLoader::fetch_texture(
+		renderable.material_owners.push_back(ResourceLoader::fetch_texture(ecs.get_material_system(),
 			fmt::format("skybox/{}.jpg", texture_name)));
 	}
 	auto& object = spawn_object<Object>();
 	attach_renderable(object.get_id(), std::move(renderable));
 }
 
-void GameEngine::validate_renderable_resources(const Renderable& renderable)
+void GameEngine::validate_renderable_resources(const Renderable& renderable) const
 {
-	if (!renderable.mesh_owner || !MeshSystem::contains(renderable.get_mesh_id()))
+	if (!renderable.mesh_owner || !ecs.get_mesh_system().contains(renderable.get_mesh_id()))
 		throw std::runtime_error("GameEngine::attach_renderable: mesh owner is missing or invalid");
 	for (const auto& material_owner : renderable.material_owners)
 	{
-		if (!material_owner || !MaterialSystem::contains(MaterialSystem::get_id(material_owner)))
+		if (!material_owner || !ecs.get_material_system().contains(material_owner->get_id()))
 			throw std::runtime_error("GameEngine::attach_renderable: material owner is missing or invalid");
 	}
 }
@@ -404,7 +406,7 @@ void GameEngine::validate_renderable_resources(const Renderable& renderable)
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
 {
 	auto& obj = spawn_object<Object>();
-	attach_renderable(obj.get_id(), Renderable::make_default());
+	attach_renderable(obj.get_id(), Renderable::make_default(ecs));
 	ecs.get_transformation(obj.get_id()).set_scale(glm::vec3(0.2f));
 	obj.set_visibility(false);
 	ecs.spawn_particle_emitter(obj.get_id(), config);
@@ -428,7 +430,7 @@ void GameEngine::process_objs_to_delete()
 		if (!objects.contains(id))
 			continue;
 
-		// TODO: fix visualisers		
+		// TODO: fix visualisers
 		// if (ecs.has_skeletal_component(id))
 		// {
 		// 	const auto& bone_visualisers = ecs.get_skeletal_component(id).get_visualisers();
@@ -437,7 +439,7 @@ void GameEngine::process_objs_to_delete()
 		// 		delete_object(bone_visualiser);
 		// 	}
 		// }
-		
+
 		ecs.remove_clickable_entity(id);
 		const Object& object = *get_object(id);
 		if (&object == active_player)
@@ -512,12 +514,12 @@ RenderableID GameEngine::replace_renderable_texture(
 	std::optional<MaterialID> normal = current.normal_mat;
 	std::optional<MaterialID> specular = current.specular_mat;
 	auto replacement_owner = texture_filename
-		? ResourceLoader::fetch_texture(*texture_filename, semantic)
+		? ResourceLoader::fetch_texture(ecs.get_material_system(), *texture_filename, semantic)
 		: semantic == ETextureSemantic::BASE_COLOR
-			? MaterialSystem::add(MaterialFactory::fetch_white_texture())
+			? ecs.get_material_system().add(MaterialFactory::fetch_white_texture())
 			: MaterialHandle{};
 	const MaterialID replacement = replacement_owner
-		? MaterialSystem::get_id(replacement_owner)
+		? replacement_owner->get_id()
 		: MaterialID{};
 	const std::optional<MaterialID> old = [&]() -> std::optional<MaterialID>
 	{
@@ -545,7 +547,7 @@ RenderableID GameEngine::replace_renderable_texture(
 	const auto take_old_owner = [&old_owners](const MaterialID id)
 	{
 		const auto found = std::ranges::find_if(old_owners, [id](const MaterialHandle& owner) {
-			return owner && MaterialSystem::get_id(owner) == id;
+			return owner && owner->get_id() == id;
 		});
 		if (found == old_owners.end())
 			throw std::runtime_error(
@@ -581,8 +583,8 @@ RenderableID GameEngine::set_renderable_specular_matte(
 		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable does not support textures");
 
 	const TexturedMatGroup current(renderable.material_owners);
-	auto matte_owner = MaterialSystem::add(MaterialFactory::fetch_black_texture());
-	const MaterialID matte = MaterialSystem::get_id(matte_owner);
+	auto matte_owner = ecs.get_material_system().add(MaterialFactory::fetch_black_texture());
+	const MaterialID matte = matte_owner->get_id();
 	if (current.specular_mat && *current.specular_mat == matte)
 		return renderable_id;
 
@@ -590,7 +592,7 @@ RenderableID GameEngine::set_renderable_specular_matte(
 	const auto take_old_owner = [&old_owners](const MaterialID id)
 	{
 		const auto found = std::ranges::find_if(old_owners, [id](const MaterialHandle& owner) {
-			return owner && MaterialSystem::get_id(owner) == id;
+			return owner && owner->get_id() == id;
 		});
 		if (found == old_owners.end())
 			throw std::runtime_error(

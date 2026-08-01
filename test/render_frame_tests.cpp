@@ -89,10 +89,12 @@ TEST(RenderFrame, composes_bone_hierarchy_and_inverse_bind_poses)
 
 TEST(RenderFrame, immutable_definitions_retain_mesh_and_material_assets)
 {
-	auto mesh = MeshSystem::add(MeshFactory::cube());
-	auto material = MaterialSystem::add(std::make_unique<ColorMaterial>());
-	const MeshID mesh_id = MeshSystem::get_id(mesh);
-	const MaterialID material_id = MaterialSystem::get_id(material);
+	MeshSystem meshes;
+	MaterialSystem materials;
+	auto mesh = meshes.add(MeshFactory::cube());
+	auto material = materials.add(std::make_unique<ColorMaterial>());
+	const MeshID mesh_id = mesh->get_id();
+	const MaterialID material_id = material->get_id();
 
 		auto definition = std::make_shared<const RenderableDefinition>(RenderableDefinition{
 		.pipeline_render_type = ERenderType::SKINNED_COLOR,
@@ -114,12 +116,12 @@ TEST(RenderFrame, immutable_definitions_retain_mesh_and_material_assets)
 	EXPECT_EQ(definition->skeleton_id, SkeletonID(8));
 	EXPECT_EQ(definition->get_mesh().get_id(), mesh_id);
 	EXPECT_EQ(definition->get_material(0).get_id(), material_id);
-	EXPECT_TRUE(MeshSystem::contains(mesh_id));
-	EXPECT_TRUE(MaterialSystem::contains(material_id));
+	EXPECT_TRUE(meshes.contains(mesh_id));
+	EXPECT_TRUE(materials.contains(material_id));
 
 	definition.reset();
-	EXPECT_FALSE(MeshSystem::contains(mesh_id));
-	EXPECT_FALSE(MaterialSystem::contains(material_id));
+	EXPECT_FALSE(meshes.contains(mesh_id));
+	EXPECT_FALSE(materials.contains(material_id));
 }
 
 TEST(RenderFrame, renderable_state_is_already_composed)

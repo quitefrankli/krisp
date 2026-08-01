@@ -283,7 +283,7 @@ TEST(skeletal_component_tests, bone_attachment_follows_animated_model_space_pose
 	hand.relative_transform.set_pos({ 0.0f, 2.0f, 0.0f });
 	const SkeletonID skeleton = ecs.add_skeleton({ root, hand });
 
-	Renderable renderable;
+	Renderable renderable = Renderable::make_default(ecs);
 	renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	renderable.local_transform.set_pos({ 0.0f, 0.0f, 3.0f });
 	Object character;

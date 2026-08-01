@@ -10,13 +10,13 @@
 #include <iostream>
 
 
-Renderable Arrow::make_renderable()
+Renderable Arrow::make_renderable(ECS& ecs)
 {
 	const int nVertices = 8;
 	Renderable renderable;
-	renderable.mesh_owner = MeshSystem::add(MeshFactory::arrow(INITIAL_RADIUS, nVertices));
+	renderable.mesh_owner = ecs.get_mesh_system().add(MeshFactory::arrow(INITIAL_RADIUS, nVertices));
 	renderable.material_owners.push_back(
-		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW)));
+		ecs.get_material_system().add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW)));
 	return renderable;
 }
 
@@ -34,14 +34,14 @@ void Arrow::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)
 	transform.set_scale(scale);
 }
 
-Renderable ArcObject::make_renderable()
+Renderable ArcObject::make_renderable(ECS& ecs)
 {
 	const int nVertices = 8;
-	
+
 	Renderable renderable;
-	renderable.mesh_owner = MeshSystem::add(
+	renderable.mesh_owner = ecs.get_mesh_system().add(
 		MeshFactory::arc(nVertices, INITIAL_OUTER_RAIUS, INITIAL_INNER_RADIUS));
 	renderable.material_owners.push_back(
-		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC)));
+		ecs.get_material_system().add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC)));
 	return renderable;
 }

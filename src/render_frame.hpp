@@ -39,23 +39,23 @@ struct RenderableDefinition
 	MeshHandle mesh_owner;
 	std::vector<MaterialHandle> material_owners;
 
-	MeshID get_mesh_id() const { return MeshSystem::get_id(mesh_owner); }
+	MeshID get_mesh_id() const { return mesh_owner->get_id(); }
 	// Direct owner-based access keeps graphics reads off the mutable registries.
-	const Mesh& get_mesh() const { return MeshSystem::get(mesh_owner); }
+	const Mesh& get_mesh() const { return mesh_owner->get(); }
 	MaterialID get_material_id(size_t index) const
 	{
-		return MaterialSystem::get_id(material_owners.at(index));
+		return material_owners.at(index)->get_id();
 	}
 	const Material& get_material(size_t index) const
 	{
-		return MaterialSystem::get(material_owners.at(index));
+		return material_owners.at(index)->get();
 	}
 	std::vector<MaterialID> get_material_ids() const
 	{
 		std::vector<MaterialID> ids;
 		ids.reserve(material_owners.size());
 		for (const auto& owner : material_owners)
-			ids.push_back(MaterialSystem::get_id(owner));
+			ids.push_back(owner->get_id());
 		return ids;
 	}
 };

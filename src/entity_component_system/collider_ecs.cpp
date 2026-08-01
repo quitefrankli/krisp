@@ -20,13 +20,13 @@ std::string collider_path(const std::size_t index, const std::string_view field)
 }
 
 
-void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider) 
+void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider)
 {
 	add_collider(id, std::move(collider), Maths::Transform{});
 }
 
-void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider, 
-								  const Maths::Transform& offset) 
+void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& collider,
+								  const Maths::Transform& offset)
 {
 	add_collider(id, std::move(collider), offset, ColliderPersistence::Persistent);
 }
@@ -44,16 +44,15 @@ void ColliderSystem::add_collider(EntityID id, std::unique_ptr<Collider>&& colli
 
 void ColliderSystem::add_mesh_collider(const EntityID id, const ColliderPersistence persistence)
 {
-	std::vector<MeshID> mesh_ids;
+	std::vector<MeshHandle> meshes;
 	bool has_triangles = false;
 	bool has_bounds = false;
 	AABB combined_bounds;
 	for (const auto renderable_id : get_ecs().get_renderable_ids(id))
 	{
 		const auto& renderable = get_ecs().get_renderable(renderable_id).renderable;
-		const auto mesh_id = renderable.get_mesh_id();
-		const auto& pick_data = MeshSystem::get(mesh_id).get_pick_data();
-		mesh_ids.push_back(mesh_id);
+		const auto& pick_data = renderable.mesh_owner->get().get_pick_data();
+		meshes.push_back(renderable.mesh_owner);
 		has_triangles = has_triangles || pick_data.has_triangles();
 		if (!pick_data.has_bounds())
 			continue;
@@ -67,7 +66,7 @@ void ColliderSystem::add_mesh_collider(const EntityID id, const ColliderPersiste
 	}
 
 	if (has_triangles)
-		add_collider(id, std::make_unique<MeshCollider>(std::move(mesh_ids)), {}, persistence);
+		add_collider(id, std::make_unique<MeshCollider>(std::move(meshes)), {}, persistence);
 	else if (has_bounds)
 		add_collider(id, std::make_unique<BoxCollider>(combined_bounds), {}, persistence);
 	else
@@ -204,10 +203,11 @@ void ColliderSystem::deserialize(const Deserializer& in)
 				Serialization::read_vec3(data, "minimum"),
 				Serialization::read_vec3(data, "maximum")));
 		} else if (type == "mesh") {
-			std::vector<MeshID> mesh_ids;
+			std::vector<MeshHandle> meshes;
 			for (const auto& mesh_id : data.child("mesh_ids").elements())
-				mesh_ids.emplace_back(mesh_id.as<std::uint64_t>());
-			collider = std::make_unique<MeshCollider>(std::move(mesh_ids));
+				meshes.push_back(get_ecs().get_mesh_system().acquire(
+					MeshID(mesh_id.as<std::uint64_t>())));
+			collider = std::make_unique<MeshCollider>(std::move(meshes));
 		} else {
 			throw SerializationError("Unsupported collider type at " + collider_path(index, "type"));
 		}

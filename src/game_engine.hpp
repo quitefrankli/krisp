@@ -66,8 +66,8 @@ public:
 
 protected:
 	GameEngine(std::unique_ptr<IApplication> application);
-	GameEngine(std::unique_ptr<App::Window> window, 
-			   std::unique_ptr<IApplication> application, 
+	GameEngine(std::unique_ptr<App::Window> window,
+			   std::unique_ptr<IApplication> application,
 			   std::unique_ptr<GraphicsEngineBase> graphics_engine);
 
 public:
@@ -77,7 +77,7 @@ public:
 	void reset_scene();
 	void save_scene(std::string_view save_name) const;
 	void load_scene(std::string_view save_name);
-	
+
 	template<typename object_t, typename... Args>
 	object_t& spawn_object(Args&&... args)
 	{
@@ -169,7 +169,7 @@ private:
 		RenderableID id, const RenderableAttachment& attachment);
 	RenderSkeletonDefinitionPtr get_render_skeleton_definition(
 		SkeletonID id, const SkeletalRenderStateSnapshot& snapshot);
-	static void validate_renderable_resources(const Renderable& renderable);
+	void validate_renderable_resources(const Renderable& renderable) const;
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
 	bool paused = false;

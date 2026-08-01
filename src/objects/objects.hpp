@@ -10,7 +10,7 @@ class Arrow : public Object
 public:
 	Arrow() = default;
 	Arrow(Arrow&&) = delete;
-	static Renderable make_renderable();
+	static Renderable make_renderable(ECS& ecs);
 
 	void point(ECS& ecs, const glm::vec3& start, const glm::vec3& end);
 
@@ -23,7 +23,7 @@ class ArcObject : public Object
 public:
 	ArcObject() = default;
 	ArcObject(ArcObject&&) = delete;
-	static Renderable make_renderable();
+	static Renderable make_renderable(ECS& ecs);
 
 	static constexpr float INITIAL_OUTER_RAIUS = 1.0f;
 	static constexpr float INITIAL_INNER_RADIUS = 0.8f;

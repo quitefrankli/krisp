@@ -33,8 +33,8 @@ class TestableGameEngine : public GameEngine
 {
 public:
 	TestableGameEngine() :
-		GameEngine(std::make_unique<MockWindow>(), 
-				   std::make_unique<DummyApplication>(), 
+		GameEngine(std::make_unique<MockWindow>(),
+				   std::make_unique<DummyApplication>(),
 				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
 	{
 	}
@@ -204,7 +204,7 @@ TEST_F(GameEngineTests, shutdown_requests_the_graphics_thread_to_stop)
 TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definitions)
 {
 	auto& parent = engine.spawn_object<Object>();
-	auto& child = spawn_renderable_object(engine, Renderable::make_default());
+	auto& child = spawn_renderable_object(engine, Renderable::make_default(engine.get_ecs()));
 	const RenderableID child_renderable = only_renderable_id(engine, child.get_id());
 	engine.get_ecs().set_position(parent.get_id(), { 2.0f, 0.0f, 0.0f });
 	engine.get_ecs().set_position(child.get_id(), { 2.0f, 3.0f, 0.0f });
@@ -251,7 +251,7 @@ TEST_F(GameEngineTests, snapshots_skeleton_pose_with_immutable_definitions)
 	child.relative_transform.set_pos({ 0.0f, 2.0f, 0.0f });
 	const SkeletonID skeleton_id = engine.get_ecs().add_skeleton({ root, child });
 	auto& object = engine.spawn_object<Object>();
-	auto skinned = Renderable::make_default();
+	auto skinned = Renderable::make_default(engine.get_ecs());
 	skinned.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	const RenderableID renderable_id =
 		engine.attach_renderable(object.get_id(), std::move(skinned), skeleton_id);
@@ -320,7 +320,7 @@ TEST_F(GameEngineTests, snapshots_particles_and_active_light)
 
 TEST_F(GameEngineTests, acknowledged_deletion_updates_latest_frame_without_mutating_history)
 {
-	auto& object = spawn_renderable_object(engine, Renderable::make_default());
+	auto& object = spawn_renderable_object(engine, Renderable::make_default(engine.get_ecs()));
 	const ObjectID id = object.get_id();
 	engine.main_loop(0.1f);
 	const auto before_deletion =
@@ -543,8 +543,8 @@ TEST_F(GameEngineTests, scene_save_rejects_procedural_meshes)
 {
 	ColorMaterial color;
 	color.data.diffuse = { 0.2f, 0.3f, 0.4f };
-	auto original_owner = MaterialSystem::add(std::make_unique<ColorMaterial>(color));
-	auto mesh_owner = MeshSystem::add(MeshFactory::cube());
+	auto original_owner = engine.get_ecs().get_material_system().add(std::make_unique<ColorMaterial>(color));
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::cube());
 	Renderable renderable{ .pipeline_render_type = ERenderType::COLOR,
 		.mesh_owner = mesh_owner, .material_owners = { original_owner } };
 	spawn_renderable_object(engine, renderable);
@@ -574,9 +574,9 @@ TEST_F(GameEngineTests, scene_load_is_visible_in_the_next_completed_snapshot)
 
 TEST_F(GameEngineTests, scene_save_rejects_procedural_materials)
 {
-	auto original_owner = ResourceLoader::fetch_texture("texture1.jpg");
-	auto mesh_owner = MeshSystem::add(MeshFactory::cube());
-	ResourceProvenance::register_mesh(MeshSystem::get_id(mesh_owner), {
+	auto original_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture1.jpg");
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::cube());
+	ResourceProvenance::register_mesh(mesh_owner->get_id(), {
 		.source = "static_mesh_textured.gltf", .scene = 0, .node = 0, .primitive = 0 });
 	Renderable renderable{ .pipeline_render_type = ERenderType::STANDARD,
 		.mesh_owner = mesh_owner, .material_owners = { original_owner } };
@@ -614,8 +614,8 @@ TEST_F(GameEngineTests, scene_round_trips_imported_mesh_and_embedded_material_by
 	const auto restored_ids = engine.get_ecs().get_renderable_ids(restored->get_id());
 	ASSERT_EQ(restored_ids.size(), 1);
 	const auto& restored_renderable = engine.get_ecs().get_renderable(restored_ids.front()).renderable;
-	EXPECT_TRUE(MeshSystem::contains(restored_renderable.get_mesh_id()));
-	EXPECT_TRUE(MaterialSystem::contains(restored_renderable.get_material_id(0)));
+	EXPECT_TRUE(engine.get_ecs().get_mesh_system().contains(restored_renderable.get_mesh_id()));
+	EXPECT_TRUE(engine.get_ecs().get_material_system().contains(restored_renderable.get_material_id(0)));
 }
 
 TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_provenance)
@@ -794,9 +794,9 @@ TEST_F(GameEngineTests, reset_scene_preserves_transient_helpers_and_removes_scen
 	for (const auto* helper : helpers)
 		EXPECT_EQ(engine.get_object(helper->get_id()), helper);
 	for (const MeshID mesh_id : helper_meshes)
-		EXPECT_TRUE(MeshSystem::contains(mesh_id));
+		EXPECT_TRUE(engine.get_ecs().get_mesh_system().contains(mesh_id));
 	for (const MaterialID material_id : helper_materials)
-		EXPECT_TRUE(MaterialSystem::contains(material_id));
+		EXPECT_TRUE(engine.get_ecs().get_material_system().contains(material_id));
 }
 
 TEST_F(GameEngineTests, scene_serialization_omits_transient_helpers)
@@ -904,12 +904,12 @@ TEST_F(GameEngineTests, spawning_and_deleting_objects)
 
 TEST_F(GameEngineTests, resource_cleanup)
 {
-	MeshSystem::take_retired();
-	MaterialSystem::take_retired();
-	auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
-	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
-	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
-	const MaterialID material_id = MaterialSystem::get_id(material_owner);
+	engine.get_ecs().get_mesh_system().take_retired();
+	engine.get_ecs().get_material_system().take_retired();
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::icosahedron());
+	auto material_owner = engine.get_ecs().get_material_system().add(std::make_unique<ColorMaterial>());
+	const MeshID mesh_id = mesh_owner->get_id();
+	const MaterialID material_id = material_owner->get_id();
 	Renderable renderable;
 	renderable.mesh_owner = mesh_owner;
 	renderable.material_owners = { material_owner };
@@ -922,19 +922,19 @@ TEST_F(GameEngineTests, resource_cleanup)
 	engine.delete_object(obj_id);
 	engine.main_loop(1.0f);
 
-	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ mesh_id }));
-	EXPECT_EQ(MaterialSystem::take_retired(), (std::vector<MaterialID>{ material_id }));
+	EXPECT_EQ(engine.get_ecs().get_mesh_system().take_retired(), (std::vector<MeshID>{ mesh_id }));
+	EXPECT_EQ(engine.get_ecs().get_material_system().take_retired(), (std::vector<MaterialID>{ material_id }));
 }
 
 TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 {
-	MeshSystem::take_retired();
-	MaterialSystem::take_retired();
-	auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
-	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
-	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
-	const MaterialID material_id = MaterialSystem::get_id(material_owner);
-	auto external_material_owner = MaterialSystem::acquire(material_id);
+	engine.get_ecs().get_mesh_system().take_retired();
+	engine.get_ecs().get_material_system().take_retired();
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::icosahedron());
+	auto material_owner = engine.get_ecs().get_material_system().add(std::make_unique<ColorMaterial>());
+	const MeshID mesh_id = mesh_owner->get_id();
+	const MaterialID material_id = material_owner->get_id();
+	auto external_material_owner = engine.get_ecs().get_material_system().acquire(material_id);
 	Renderable renderable;
 	renderable.mesh_owner = mesh_owner;
 	renderable.material_owners = { material_owner };
@@ -947,20 +947,20 @@ TEST_F(GameEngineTests, dont_cleanup_resource_if_not_ready)
 	engine.delete_object(obj_id);
 	engine.main_loop(1.0f);
 
-	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ mesh_id }));
-	EXPECT_TRUE(MaterialSystem::take_retired().empty());
+	EXPECT_EQ(engine.get_ecs().get_mesh_system().take_retired(), (std::vector<MeshID>{ mesh_id }));
+	EXPECT_TRUE(engine.get_ecs().get_material_system().take_retired().empty());
 	external_material_owner.reset();
-	EXPECT_EQ(MaterialSystem::take_retired(), (std::vector<MaterialID>{ material_id }));
+	EXPECT_EQ(engine.get_ecs().get_material_system().take_retired(), (std::vector<MaterialID>{ material_id }));
 }
 
 TEST_F(GameEngineTests, shared_renderable_resources_are_retained_for_each_spawned_object)
 {
-	MeshSystem::take_retired();
-	MaterialSystem::take_retired();
-	auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
-	auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
-	const MeshID mesh_id = MeshSystem::get_id(mesh_owner);
-	const MaterialID material_id = MaterialSystem::get_id(material_owner);
+	engine.get_ecs().get_mesh_system().take_retired();
+	engine.get_ecs().get_material_system().take_retired();
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::icosahedron());
+	auto material_owner = engine.get_ecs().get_material_system().add(std::make_unique<ColorMaterial>());
+	const MeshID mesh_id = mesh_owner->get_id();
+	const MaterialID material_id = material_owner->get_id();
 	Renderable renderable{
 		.mesh_owner = mesh_owner,
 		.material_owners = { material_owner },
@@ -978,41 +978,41 @@ TEST_F(GameEngineTests, shared_renderable_resources_are_retained_for_each_spawne
 
 	engine.delete_object(first_id);
 	engine.main_loop(1.0f);
-	EXPECT_TRUE(MeshSystem::contains(mesh_id));
-	EXPECT_TRUE(MaterialSystem::contains(material_id));
+	EXPECT_TRUE(engine.get_ecs().get_mesh_system().contains(mesh_id));
+	EXPECT_TRUE(engine.get_ecs().get_material_system().contains(material_id));
 
 	engine.delete_object(second_id);
 	engine.main_loop(1.0f);
-	EXPECT_TRUE(MeshSystem::contains(mesh_id));
-	EXPECT_TRUE(MaterialSystem::contains(material_id));
+	EXPECT_TRUE(engine.get_ecs().get_mesh_system().contains(mesh_id));
+	EXPECT_TRUE(engine.get_ecs().get_material_system().contains(material_id));
 	EXPECT_FALSE(mesh_lifetime.expired());
 	EXPECT_FALSE(material_lifetime.expired());
 
 	// The last frame containing the object remains available as "previous".
 	// Advancing once releases its immutable definition and retained assets.
 	engine.main_loop(1.0f);
-	EXPECT_FALSE(MeshSystem::contains(mesh_id));
-	EXPECT_FALSE(MaterialSystem::contains(material_id));
+	EXPECT_FALSE(engine.get_ecs().get_mesh_system().contains(mesh_id));
+	EXPECT_FALSE(engine.get_ecs().get_material_system().contains(material_id));
 	EXPECT_TRUE(mesh_lifetime.expired());
 	EXPECT_TRUE(material_lifetime.expired());
 
-	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ mesh_id }));
-	EXPECT_EQ(MaterialSystem::take_retired(), (std::vector<MaterialID>{ material_id }));
+	EXPECT_EQ(engine.get_ecs().get_mesh_system().take_retired(), (std::vector<MeshID>{ mesh_id }));
+	EXPECT_EQ(engine.get_ecs().get_material_system().take_retired(), (std::vector<MaterialID>{ material_id }));
 }
 
 TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 {
-	MeshSystem::take_retired();
-	MaterialSystem::take_retired();
+	engine.get_ecs().get_mesh_system().take_retired();
+	engine.get_ecs().get_material_system().take_retired();
 	std::vector<MeshID> mesh_ids;
 	std::vector<MaterialID> material_ids;
 	std::vector<ObjectID> object_ids;
 	for (int i = 0; i < 2; ++i)
 	{
-		auto mesh_owner = MeshSystem::add(MeshFactory::icosahedron());
-		auto material_owner = MaterialSystem::add(std::make_unique<ColorMaterial>());
-		mesh_ids.push_back(MeshSystem::get_id(mesh_owner));
-		material_ids.push_back(MaterialSystem::get_id(material_owner));
+		auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::icosahedron());
+		auto material_owner = engine.get_ecs().get_material_system().add(std::make_unique<ColorMaterial>());
+		mesh_ids.push_back(mesh_owner->get_id());
+		material_ids.push_back(material_owner->get_id());
 		Renderable renderable;
 		renderable.mesh_owner = mesh_owner;
 		renderable.material_owners = { material_owner };
@@ -1023,8 +1023,8 @@ TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 		engine.delete_object(object_id);
 	engine.main_loop(1.0f);
 
-	auto retired_meshes = MeshSystem::take_retired();
-	auto retired_materials = MaterialSystem::take_retired();
+	auto retired_meshes = engine.get_ecs().get_mesh_system().take_retired();
+	auto retired_materials = engine.get_ecs().get_material_system().take_retired();
 	std::ranges::sort(retired_meshes);
 	std::ranges::sort(retired_materials);
 	std::ranges::sort(mesh_ids);
@@ -1035,7 +1035,7 @@ TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 
 TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_safe)
 {
-	MaterialSystem::take_retired();
+	engine.get_ecs().get_material_system().take_retired();
 	const auto path = "normal_mapped_shared_material.gltf";
 	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
@@ -1048,18 +1048,18 @@ TEST_F(GameEngineTests, deleting_imported_object_with_shared_normal_material_is_
 	engine.delete_object(object.get_id());
 	engine.main_loop(1.0f);
 
-	EXPECT_TRUE(MaterialSystem::take_retired().empty());
-	EXPECT_TRUE(MaterialSystem::contains(material_ids[0]));
-	EXPECT_TRUE(MaterialSystem::contains(material_ids[1]));
+	EXPECT_TRUE(engine.get_ecs().get_material_system().take_retired().empty());
+	EXPECT_TRUE(engine.get_ecs().get_material_system().contains(material_ids[0]));
+	EXPECT_TRUE(engine.get_ecs().get_material_system().contains(material_ids[1]));
 
 	model = {};
-	auto retired_materials = MaterialSystem::take_retired();
+	auto retired_materials = engine.get_ecs().get_material_system().take_retired();
 	std::ranges::sort(retired_materials);
 	auto expected_materials = material_ids;
 	std::ranges::sort(expected_materials);
 	EXPECT_EQ(retired_materials, expected_materials);
-	EXPECT_FALSE(MaterialSystem::contains(material_ids[0]));
-	EXPECT_FALSE(MaterialSystem::contains(material_ids[1]));
+	EXPECT_FALSE(engine.get_ecs().get_material_system().contains(material_ids[0]));
+	EXPECT_FALSE(engine.get_ecs().get_material_system().contains(material_ids[1]));
 }
 
 TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
@@ -1085,13 +1085,13 @@ TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 
 TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slots)
 {
-	auto old_diffuse_owner = ResourceLoader::fetch_texture("texture5.jpg");
-	auto old_normal_owner = ResourceLoader::fetch_texture(
+	auto old_diffuse_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture5.jpg");
+	auto old_normal_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(),
 		"texture6.jpg", ETextureSemantic::NORMAL);
-	const MaterialID old_diffuse = MaterialSystem::get_id(old_diffuse_owner);
-	const MaterialID old_normal = MaterialSystem::get_id(old_normal_owner);
+	const MaterialID old_diffuse = old_diffuse_owner->get_id();
+	const MaterialID old_normal = old_normal_owner->get_id();
 	Renderable first;
-	first.mesh_owner = MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
+	first.mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	first.material_owners = { old_diffuse_owner, old_normal_owner };
 	first.pipeline_render_type = ERenderType::STANDARD;
 	Renderable second = first;
@@ -1116,7 +1116,7 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 	EXPECT_EQ(second_attachment.get_material_id(1), old_normal);
 	EXPECT_NE(replacement_id, old_diffuse);
 	const auto& replacement =
-		dynamic_cast<const TextureMaterial&>(MaterialSystem::get(replacement_id));
+		dynamic_cast<const TextureMaterial&>(engine.get_ecs().get_material_system().get(replacement_id));
 	EXPECT_EQ(replacement.semantic, ETextureSemantic::BASE_COLOR);
 
 	engine.main_loop(0.1f);
@@ -1149,12 +1149,12 @@ TEST_F(GameEngineTests, texture_replacement_with_procedural_material_is_not_seri
 
 TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 {
-	auto diffuse_owner = ResourceLoader::fetch_texture("texture2.jpg");
-	auto normal_owner = ResourceLoader::fetch_texture("texture3.jpg", ETextureSemantic::NORMAL);
-	const MaterialID diffuse = MaterialSystem::get_id(diffuse_owner);
-	const MaterialID normal = MaterialSystem::get_id(normal_owner);
+	auto diffuse_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture2.jpg");
+	auto normal_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture3.jpg", ETextureSemantic::NORMAL);
+	const MaterialID diffuse = diffuse_owner->get_id();
+	const MaterialID normal = normal_owner->get_id();
 	Renderable renderable;
-	renderable.mesh_owner = MeshSystem::add(
+	renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
 		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	renderable.material_owners = { diffuse_owner, normal_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
@@ -1168,15 +1168,15 @@ TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 		renderable_id, ETextureSemantic::NORMAL, std::nullopt);
 	const auto& attachment = engine.get_ecs().get_renderable(renderable_id).renderable;
 	ASSERT_EQ(attachment.get_material_ids(), (MatVec{ diffuse }));
-	EXPECT_FALSE(MaterialSystem::contains(normal));
+	EXPECT_FALSE(engine.get_ecs().get_material_system().contains(normal));
 
 	renderable_id = engine.replace_renderable_texture(
 		renderable_id, ETextureSemantic::BASE_COLOR, std::nullopt);
 	const auto& white_attachment = engine.get_ecs().get_renderable(renderable_id).renderable;
 	const auto white = white_attachment.get_material_id(0);
 	EXPECT_EQ(white_attachment.get_material_ids(), (MatVec{ white }));
-	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(MaterialSystem::get(white)).source, "(none)");
-	EXPECT_FALSE(MaterialSystem::contains(diffuse));
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(engine.get_ecs().get_material_system().get(white)).source, "(none)");
+	EXPECT_FALSE(engine.get_ecs().get_material_system().contains(diffuse));
 
 	engine.main_loop(0.1f);
 	const auto frame =
@@ -1188,10 +1188,10 @@ TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)
 
 TEST_F(GameEngineTests, replaces_specular_maps)
 {
-	auto diffuse_owner = ResourceLoader::fetch_texture("texture2.jpg");
-	const MaterialID diffuse = MaterialSystem::get_id(diffuse_owner);
+	auto diffuse_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture2.jpg");
+	const MaterialID diffuse = diffuse_owner->get_id();
 	Renderable renderable;
-	renderable.mesh_owner = MeshSystem::add(
+	renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
 		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	renderable.material_owners = { diffuse_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
@@ -1216,12 +1216,12 @@ TEST_F(GameEngineTests, replaces_specular_maps)
 
 TEST_F(GameEngineTests, texture_replacement_matches_owners_by_semantic)
 {
-	auto diffuse_owner = ResourceLoader::fetch_texture("texture2.jpg");
-	auto specular_owner = MaterialSystem::add(MaterialFactory::fetch_black_texture());
-	const MaterialID old_diffuse = MaterialSystem::get_id(diffuse_owner);
-	const MaterialID specular = MaterialSystem::get_id(specular_owner);
+	auto diffuse_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture2.jpg");
+	auto specular_owner = engine.get_ecs().get_material_system().add(MaterialFactory::fetch_black_texture());
+	const MaterialID old_diffuse = diffuse_owner->get_id();
+	const MaterialID specular = specular_owner->get_id();
 	Renderable renderable;
-	renderable.mesh_owner = MeshSystem::add(
+	renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
 		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	renderable.material_owners = { specular_owner, diffuse_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
@@ -1237,15 +1237,15 @@ TEST_F(GameEngineTests, texture_replacement_matches_owners_by_semantic)
 		engine.get_ecs().get_renderable(renderable_id).renderable.material_owners);
 	EXPECT_NE(group.base_color_mat, old_diffuse);
 	EXPECT_EQ(group.specular_mat, specular);
-	EXPECT_FALSE(MaterialSystem::contains(old_diffuse));
+	EXPECT_FALSE(engine.get_ecs().get_material_system().contains(old_diffuse));
 }
 
 TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
 {
-	auto diffuse_owner = ResourceLoader::fetch_texture("texture2.jpg");
-	const MaterialID diffuse = MaterialSystem::get_id(diffuse_owner);
+	auto diffuse_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture2.jpg");
+	const MaterialID diffuse = diffuse_owner->get_id();
 	Renderable renderable;
-	renderable.mesh_owner = MeshSystem::add(
+	renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
 		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	renderable.material_owners = { diffuse_owner };
 	renderable.pipeline_render_type = ERenderType::STANDARD;
@@ -1260,7 +1260,7 @@ TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
 		engine.get_ecs().get_renderable(renderable_id).renderable.material_owners);
 	ASSERT_TRUE(group.specular_mat);
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		MaterialSystem::get(*group.specular_mat)).source, "(matte)");
+		engine.get_ecs().get_material_system().get(*group.specular_mat)).source, "(matte)");
 	engine.main_loop(0.1f);
 	const auto frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
@@ -1271,10 +1271,10 @@ TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
 
 TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
 {
-	auto material_owner = ResourceLoader::fetch_texture("texture1.jpg");
-	const MaterialID material = MaterialSystem::get_id(material_owner);
+	auto material_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture1.jpg");
+	const MaterialID material = material_owner->get_id();
 	Renderable textured;
-	textured.mesh_owner = MeshSystem::add(
+	textured.mesh_owner = engine.get_ecs().get_mesh_system().add(
 		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	textured.material_owners = { material_owner };
 	textured.pipeline_render_type = ERenderType::STANDARD;
@@ -1291,8 +1291,8 @@ TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)
 		"does_not_exist.png"), ResourceLoadError);
 	EXPECT_EQ(engine.get_ecs().get_renderable(renderable_id).renderable.get_material_ids(), original);
 
-	Renderable colour = Renderable::make_default(
-		MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::COLOR)));
+	Renderable colour = Renderable::make_default(engine.get_ecs(),
+		engine.get_ecs().get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::COLOR)));
 	auto& colour_object = spawn_renderable_object(engine, colour);
 	EXPECT_THROW(engine.replace_renderable_texture(
 		only_renderable_id(engine, colour_object.get_id()),

@@ -5,9 +5,9 @@ scene as YAML. The game scene and ECS are the source of truth; graphics state
 is rebuilt from them after loading.
 
 The main implementation is in
-[`game_engine.cpp`](../game_engine.cpp). Generic YAML traversal lives in
-[`serializer.hpp`](serializer.hpp), while imported-resource identity is
-tracked by [`resource_provenance.hpp`](resource_provenance.hpp).
+[`game_engine.cpp`](../src/game_engine.cpp). Generic YAML traversal lives in
+[`serializer.hpp`](../src/serialization/serializer.hpp), while imported-resource identity is
+tracked by [`resource_provenance.hpp`](../src/serialization/resource_provenance.hpp).
 
 Krisp's save format follows the current architecture only. There is no legacy
 object-owned-renderable or entity-level-skeleton migration path; incompatible

@@ -104,9 +104,9 @@ void TranslationGizmo::init()
 	const std::array destinations = { &xAxis, &yAxis, &zAxis };
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto renderable = Arrow::make_renderable();
+		auto renderable = Arrow::make_renderable(engine.get_ecs());
 		renderable.material_owners[0] =
-			MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
+			engine.get_ecs().get_material_system().add(MaterialFactory::fetch_preset(axis_materials[i]));
 		renderable.casts_shadow = false;
 		renderable.render_on_top = true;
 		auto axis = std::make_shared<Arrow>();
@@ -132,7 +132,7 @@ bool TranslationGizmo::check_collision(const Maths::Ray& ray)
 	}
 
 	// assume active_axis has been cleared already
-	
+
 	Object* closest_axis = get_closest_clicked_axis(ray);
 	if (closest_axis)
 	{
@@ -174,8 +174,8 @@ void RotationGizmo::init()
 	const std::array destinations = { &xAxisNorm, &yAxisNorm, &zAxisNorm };
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto renderable = ArcObject::make_renderable();
-		renderable.material_owners[0] = MaterialSystem::add(
+		auto renderable = ArcObject::make_renderable(engine.get_ecs());
+		renderable.material_owners[0] = engine.get_ecs().get_material_system().add(
 			MaterialFactory::fetch_preset(rotation_axis_materials[i]));
 		renderable.casts_shadow = false;
 		renderable.render_on_top = true;
@@ -203,9 +203,9 @@ bool RotationGizmo::check_collision(const Maths::Ray& ray)
 	{
 		return false;
 	}
-	
+
 	// assume active_axis has been cleared already
-	
+
 	Object* closest_axis = get_closest_clicked_axis(ray);
 	if (closest_axis)
 	{
@@ -230,7 +230,7 @@ void RotationGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 
 	const auto p2 = Maths::ray_plane_intersection(r2, plane);
 	const auto quat = Maths::RotationBetweenVectors(
-		glm::normalize(p1-plane.offset), 
+		glm::normalize(p1-plane.offset),
 		glm::normalize(p2-plane.offset),
 		plane.normal);
 	transformation(engine, gizmo).set_rotation(
@@ -252,9 +252,9 @@ void ScaleGizmo::init()
 	const std::array destinations = { &xAxis, &yAxis, &zAxis };
 	for (size_t i = 0; i < destinations.size(); ++i)
 	{
-		auto renderable = ScaleGizmoObj::make_renderable();
+		auto renderable = ScaleGizmoObj::make_renderable(engine.get_ecs());
 		renderable.material_owners[0] =
-			MaterialSystem::add(MaterialFactory::fetch_preset(axis_materials[i]));
+			engine.get_ecs().get_material_system().add(MaterialFactory::fetch_preset(axis_materials[i]));
 		renderable.casts_shadow = false;
 		renderable.render_on_top = true;
 		auto axis = std::make_shared<ScaleGizmoObj>(directions[i]);
@@ -277,9 +277,9 @@ void ScaleGizmo::init()
 		auto indices = cube.get_indices();
 		constexpr float CUBE_SIZE = 0.3f;
 		transform_vertices(vertices, glm::scale(glm::mat4(1.0f), glm::vec3(CUBE_SIZE)));
-		auto mesh_owner = MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
-		auto renderable = Renderable::make_default(std::move(mesh_owner));
-		auto material_owner = MaterialSystem::add(
+		auto mesh_owner = engine.get_ecs().get_mesh_system().add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
+		auto renderable = Renderable::make_default(engine.get_ecs(), std::move(mesh_owner));
+		auto material_owner = engine.get_ecs().get_material_system().add(
 			MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_UNIFORM_SCALE));
 		renderable.material_owners[0] = std::move(material_owner);
 		renderable.casts_shadow = false;
@@ -386,7 +386,7 @@ void ScaleGizmo::process(const Maths::Ray& r1, const Maths::Ray& r2)
 // Gizmo
 //
 
-Gizmo::Gizmo(GameEngine& engine) : 
+Gizmo::Gizmo(GameEngine& engine) :
 	engine(engine),
 	translation(engine, *this),
 	rotation(engine, *this),
@@ -495,13 +495,13 @@ void Gizmo::delete_object()
 {
 	if (!selected_object)
 		return;
-		
+
 	auto* obj = selected_object;
 	deselect();
 	engine.delete_object(obj->get_id());
 }
 
-void Gizmo::set_scale(const glm::vec3& new_scale) 
+void Gizmo::set_scale(const glm::vec3& new_scale)
 {
 	transformation(engine, translation).set_scale(new_scale);
 	transformation(engine, rotation).set_scale(new_scale);

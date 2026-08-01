@@ -86,32 +86,34 @@ TEST(Basics, SkinnedRenderTypeClassification)
 
 TEST(Basics, TexturedMaterialGroupResolvesOptionalMapsBySemantic)
 {
-	const auto make_texture = [](const ETextureSemantic semantic)
+	MaterialSystem materials;
+	const auto make_texture = [&materials](const ETextureSemantic semantic)
 	{
 		auto texture = std::make_unique<TextureMaterial>();
 		texture->semantic = semantic;
-		return MaterialSystem::add(std::move(texture));
+		return materials.add(std::move(texture));
 	};
 	const auto base = make_texture(ETextureSemantic::BASE_COLOR);
 	const auto specular = make_texture(ETextureSemantic::SPECULAR);
 
 	const std::vector<MaterialHandle> owners{ specular, base };
 	const TexturedMatGroup group(owners);
-	EXPECT_EQ(group.base_color_mat, MaterialSystem::get_id(base));
+	EXPECT_EQ(group.base_color_mat, base->get_id());
 	EXPECT_FALSE(group.normal_mat);
-	EXPECT_EQ(group.specular_mat, MaterialSystem::get_id(specular));
+	EXPECT_EQ(group.specular_mat, specular->get_id());
 	EXPECT_EQ(group.get_materials(), (MatVec{
-		MaterialSystem::get_id(base), MaterialSystem::get_id(specular) }));
+		base->get_id(), specular->get_id() }));
 }
 
 TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)
 {
+	MaterialSystem materials;
 	auto first = std::make_unique<TextureMaterial>();
 	first->semantic = ETextureSemantic::BASE_COLOR;
 	auto second = std::make_unique<TextureMaterial>();
 	second->semantic = ETextureSemantic::BASE_COLOR;
-	const auto first_owner = MaterialSystem::add(std::move(first));
-	const auto second_owner = MaterialSystem::add(std::move(second));
+	const auto first_owner = materials.add(std::move(first));
+	const auto second_owner = materials.add(std::move(second));
 
 	const std::vector<MaterialHandle> owners{ first_owner, second_owner };
 	EXPECT_THROW((void)TexturedMatGroup{ owners }, std::runtime_error);

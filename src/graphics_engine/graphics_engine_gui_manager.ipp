@@ -105,7 +105,7 @@ void GraphicsEngineGuiManager::draw()
 		if (gui_window->is_visible())
 			gui_window->draw();
 	}
-	
+
 	ImGui::Render();
 }
 
@@ -289,7 +289,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 	io.IniFilename = imgui_ini_path.c_str();
 	ImGui::LoadIniSettingsFromDisk(io.IniFilename);
 	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window().get_glfw_window(), true);
-	
+
 	ImGui_ImplVulkan_InitInfo init_info{};
 	init_info.ApiVersion = VK_API_VERSION_1_3;
 	init_info.Instance = get_graphics_engine().get_instance();
@@ -321,7 +321,7 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 	// RenderSlicer will always read from output of QuadRenderer
 	auto& quad_renderer = get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD);
 	VkDescriptorSet dset = ImGui_ImplVulkan_AddTexture(
-		get_graphics_engine().get_texture_mgr().fetch_sampler(ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE), 
+		get_graphics_engine().get_texture_mgr().fetch_sampler(ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE),
 		quad_renderer.get_output_image_view(0),
 		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	engine_ui_manager.render_slicer.update(
@@ -342,17 +342,18 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	const std::string_view texture_filename,
 	GuiPhotoBase& gui_photo)
 {
-	auto texture_owner = ResourceLoader::fetch_texture(texture_filename);
+	auto texture_owner = ResourceLoader::fetch_texture(
+		get_graphics_engine().get_material_system(), texture_filename);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
 		texture_owner,
 		ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
 	gui_texture_owners.push_back(std::move(texture_owner));
-	
+
 	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
 	// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
 	VkDescriptorSet dset = ImGui_ImplVulkan_AddTexture(
 		texture.get_texture_sampler(),
-		texture.get_texture_image_view(), 
+		texture.get_texture_image_view(),
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
 	gui_photo.update(dset, { texture.get_width(), texture.get_height() });

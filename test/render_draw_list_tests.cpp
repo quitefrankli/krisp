@@ -19,8 +19,10 @@ RenderableDefinition make_renderable(
 	const bool casts_shadow,
 	const bool render_on_top)
 {
-	auto mesh = MeshSystem::add(MeshFactory::cube());
-	auto material = MaterialSystem::add(std::make_unique<ColorMaterial>());
+	MeshSystem meshes;
+	MaterialSystem materials;
+	auto mesh = meshes.add(MeshFactory::cube());
+	auto material = materials.add(std::make_unique<ColorMaterial>());
 	return {
 		.pipeline_render_type = render_type,
 		.alpha_mode = alpha_mode,

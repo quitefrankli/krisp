@@ -31,10 +31,10 @@ void ECS::deserialize(const Deserializer& in)
 	ClickableSystem::deserialize(in);
 	HoverableSystem::deserialize(in);
 	LightSystem::deserialize(in);
-	ColliderSystem::deserialize(in);
 	PhysicsSystem::deserialize(in);
 	SkeletalSystem::deserialize(in);
 	RenderableSystem::deserialize(in);
+	ColliderSystem::deserialize(in);
 	SkeletalSystem::deserialize_bone_attachments(in);
 	SkeletalAnimationSystem::deserialize(in);
 	EquipmentSystem::deserialize(in);
@@ -51,7 +51,7 @@ void ECS::add_object(Object& object)
 			: TransformationPersistence::Persistent);
 }
 
-void ECS::remove_object(const ObjectID id) 
+void ECS::remove_object(const ObjectID id)
 {
 	EquipmentSystem::remove_entity(id);
 	SkeletalSystem::remove_entity(id);
@@ -76,7 +76,11 @@ void ECS::reset_preserving_transient_transformations()
 	for (const auto& [id, object] : objects)
 		if (transformations.has_transformation(id))
 			transient_objects.emplace(id, object);
+	auto meshes = std::move(mesh_system);
+	auto materials = std::move(material_system);
 	*this = ECS{};
+	mesh_system = std::move(meshes);
+	material_system = std::move(materials);
 	static_cast<TransformationSystem&>(*this) = std::move(transformations);
 	objects = std::move(transient_objects);
 	restore_renderables(std::move(renderables));

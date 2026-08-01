@@ -18,10 +18,10 @@ struct EquipmentFixture
 		hand.name = "hand";
 		hand.relative_transform.set_pos({ 2.0f, 0.0f, 0.0f });
 		const auto skeleton = ecs.add_skeleton({ hand });
-		auto wearer_mesh = Renderable::make_default();
+		auto wearer_mesh = Renderable::make_default(ecs);
 		wearer_mesh.pipeline_render_type = ERenderType::SKINNED_COLOR;
 		wearer_renderable = ecs.add_renderable(std::move(wearer_mesh), wearer.get_id(), skeleton);
-		auto other_mesh = Renderable::make_default();
+		auto other_mesh = Renderable::make_default(ecs);
 		other_mesh.pipeline_render_type = ERenderType::SKINNED_COLOR;
 		other_wearer_renderable = ecs.add_renderable(
 			std::move(other_mesh), other_wearer.get_id(), skeleton);

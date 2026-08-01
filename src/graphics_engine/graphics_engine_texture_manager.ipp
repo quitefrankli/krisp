@@ -23,17 +23,17 @@ VkFormat texture_format(const TextureMaterial& material)
 
 const TextureMaterial& require_texture_material(const MaterialHandle& owner)
 {
-	const auto* material = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(owner));
+	const auto* material = dynamic_cast<const TextureMaterial*>(&owner->get());
 	if (!material)
 		throw std::runtime_error(fmt::format(
 			"GraphicsEngineTextureManager: material {} is not a TextureMaterial",
-			MaterialSystem::get_id(owner).get_underlying()));
+			owner->get_id().get_underlying()));
 	return *material;
 }
 }
 
 
-GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) : 
+GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine)
 {
 	LOG_INFO(Utility::get_logger(),
@@ -108,7 +108,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 	const MaterialHandle& material_owner,
 	ETextureSamplerType sampler_type)
 {
-	const MaterialID id = MaterialSystem::get_id(material_owner);
+	const MaterialID id = material_owner->get_id();
 	if (texture_units.contains(id))
 	{
 		auto& texture = texture_units.at(id);
@@ -176,7 +176,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 	create_cubemap_texture_image(material_group, texture_image, texture_image_memory);
 
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
-		texture_image, 
+		texture_image,
 		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_VIEW_TYPE_CUBE,
@@ -184,21 +184,21 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 	VkSampler texture_sampler = fetch_sampler(ETextureSamplerType::ADDR_MODE_REPEAT);
 
 	GraphicsEngineTexture texture_object(
-		texture_image, 
-		texture_image_memory, 
-		texture_image_view, 
-		texture_sampler, 
+		texture_image,
+		texture_image_memory,
+		texture_image_view,
+		texture_sampler,
 		glm::uvec3(width, height, channels));
 	return texture_units.emplace(representative_id, std::move(texture_object)).first->second;
 }
 
-void GraphicsEngineTextureManager::free_texture(MaterialID id) 
+void GraphicsEngineTextureManager::free_texture(MaterialID id)
 {
 	if (!texture_units.contains(id))
 	{
 		return;
 	}
-	
+
 	texture_units.at(id).destroy(get_logical_device());
 	texture_units.erase(id);
 }
@@ -216,7 +216,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	VkDeviceMemory texture_image_memory;
 	const auto dim = create_texture_image(material, texture_image, texture_image_memory);
 	VkImageView texture_image_view = get_graphics_engine().create_image_view(
-		texture_image, 
+		texture_image,
 		format,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_VIEW_TYPE_2D,
@@ -246,8 +246,8 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	}
 
 	get_graphics_engine().create_image(
-		material.width, 
-		material.height, 
+		material.width,
+		material.height,
 		texture_format(material),
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
@@ -266,8 +266,8 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 		nullptr, 1, mip_levels);
 
 	get_rsrc_mgr().stage_data_to_image(
-		texture_image, 
-		material.width, 
+		texture_image,
+		material.width,
 		material.height,
 		static_cast<size_t>(size),
 		[&material, &size](std::byte* destination)
@@ -309,8 +309,8 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 	}
 
 	get_graphics_engine().create_image(
-		width, 
-		height, 
+		width,
+		height,
 		VK_FORMAT_R8G8B8A8_SRGB, // we may want to reconsider SRGB, for other maps such as normal and specular maps they should be linear
 		VK_IMAGE_TILING_OPTIMAL,
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
@@ -324,15 +324,15 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 	// copy the staging buffer to the texture image,
 	// undefined image layout works because we don't care about the contents before performing copy
 	get_graphics_engine().transition_image_layout(
-		texture_image, 
-		VK_IMAGE_LAYOUT_UNDEFINED, 
+		texture_image,
+		VK_IMAGE_LAYOUT_UNDEFINED,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		nullptr,
 		num_textures);
 
 	get_rsrc_mgr().stage_data_to_image(
-		texture_image, 
-		width, 
+		texture_image,
+		width,
 		height,
 		static_cast<size_t>(image_size),
 		[num_textures, &material_group, &layer_size](std::byte* destination)
@@ -354,8 +354,8 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 
 	// transition one more time for shader access
 	get_graphics_engine().transition_image_layout(
-		texture_image, 
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+		texture_image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		nullptr,
 		num_textures);
@@ -375,7 +375,7 @@ VkSampler GraphicsEngineTextureManager::create_texture_sampler(ETextureSamplerTy
 	default:
 		throw std::invalid_argument("unsupported texture sampler type!");
 	}
-	
+
 	VkSamplerCreateInfo sampler_info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
 	sampler_info.minFilter = VK_FILTER_LINEAR; // how to interpolate texels that are minimised, solves undersampling
@@ -400,7 +400,7 @@ VkSampler GraphicsEngineTextureManager::create_texture_sampler(ETextureSamplerTy
 	if (vkCreateSampler(get_logical_device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create texture sampler!");
-	}	
+	}
 
 	return texture_sampler;
 }

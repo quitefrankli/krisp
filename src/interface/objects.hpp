@@ -10,7 +10,7 @@ class ScaleGizmoObj : public Object
 public:
 	ScaleGizmoObj(const glm::vec3& original_axis);
 	ScaleGizmoObj(ScaleGizmoObj&&) = delete;
-	static Renderable make_renderable();
+	static Renderable make_renderable(ECS& ecs);
 
 	void point(ECS& ecs, const glm::vec3& start, const glm::vec3& end);
 

@@ -26,19 +26,21 @@ const ImportedResourceProvenance* ResourceProvenance::mesh(MeshID id) { return f
 const ImportedResourceProvenance* ResourceProvenance::material(MaterialID id) { return find(materials, id); }
 const ImportedResourceProvenance* ResourceProvenance::skeleton(SkeletonID id) { return find(skeletons, id); }
 const ImportedResourceProvenance* ResourceProvenance::animation(AnimationID id) { return find(animations, id); }
-std::optional<MeshID> ResourceProvenance::find_mesh(const ImportedResourceProvenance& provenance)
+std::optional<MeshID> ResourceProvenance::find_mesh(
+	const MeshSystem& mesh_system, const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : meshes)
-		if (MeshSystem::contains(id)
+		if (mesh_system.contains(id)
 			&& value.source == provenance.source && value.scene == provenance.scene
 			&& value.node == provenance.node && value.primitive == provenance.primitive)
 			return id;
 	return std::nullopt;
 }
-std::optional<MaterialID> ResourceProvenance::find_material(const ImportedResourceProvenance& provenance)
+std::optional<MaterialID> ResourceProvenance::find_material(
+	const MaterialSystem& material_system, const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : materials)
-		if (MaterialSystem::contains(id)
+		if (material_system.contains(id)
 			&& value.source == provenance.source && value.scene == provenance.scene
 			&& value.node == provenance.node && value.primitive == provenance.primitive
 			&& value.material == provenance.material && value.texture == provenance.texture)

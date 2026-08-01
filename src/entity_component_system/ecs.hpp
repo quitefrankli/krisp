@@ -12,6 +12,8 @@
 #include "tile_system.hpp"
 #include "transformation_system.hpp"
 #include "objects/object.hpp"
+#include "material_system.hpp"
+#include "mesh_system.hpp"
 
 #include <unordered_map>
 #include <memory>
@@ -43,6 +45,10 @@ public:
 
 	virtual ECS& get_ecs() override { return *this; }
 	virtual const ECS& get_ecs() const override { return *this; }
+	MeshSystem& get_mesh_system() { return mesh_system; }
+	const MeshSystem& get_mesh_system() const { return mesh_system; }
+	MaterialSystem& get_material_system() { return material_system; }
+	const MaterialSystem& get_material_system() const { return material_system; }
 
 	// Used by GameEngine
 	void add_object(Object& object);
@@ -58,5 +64,7 @@ public:
 	void deserialize(const Deserializer& in);
 
 private:
+	MeshSystem mesh_system;
+	MaterialSystem material_system;
 	std::unordered_map<ObjectID, Object*> objects;
 };

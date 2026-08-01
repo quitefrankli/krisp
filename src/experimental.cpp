@@ -22,7 +22,7 @@
 
 void spawn_test_particles(GameEngine& engine);
 MeshPtr generate_terrain_mesh(int grid_size, float scale, float height_scale, MaterialID texture_mat_id);
-MaterialHandle generate_terrain_texture(int width, int height);
+MaterialHandle generate_terrain_texture(MaterialSystem& materials, int width, int height);
 
 // Simple Perlin noise implementation for terrain generation
 class PerlinNoise
@@ -53,14 +53,14 @@ public:
     PerlinNoise(uint32_t seed = 0)
     {
         permutation.resize(PERMUTATION_SIZE * 2);
-        
+
         // Initialize permutation table
         std::iota(permutation.begin(), permutation.begin() + PERMUTATION_SIZE, 0);
-        
+
         // Shuffle with seed
         std::mt19937 generator(seed);
         std::shuffle(permutation.begin(), permutation.begin() + PERMUTATION_SIZE, generator);
-        
+
         // Duplicate for overflow safety
         for (int i = 0; i < PERMUTATION_SIZE; i++)
         {
@@ -131,30 +131,30 @@ struct ProceduralTextureData : public TextureData
 
     ProceduralTextureData(size_t size) : data(size) {}
 
-    virtual std::byte* get() override 
-    { 
-        return data.data(); 
+    virtual std::byte* get() override
+    {
+        return data.data();
     }
 };
 
 // Generate a colorful terrain texture using Perlin noise
-MaterialHandle generate_terrain_texture(int width, int height)
+MaterialHandle generate_terrain_texture(MaterialSystem& materials, int width, int height)
 {
     PerlinNoise perlin(42);
     PerlinNoise color_variation(123);
-    
+
     TextureMaterial material;
     material.width = width;
     material.height = height;
     material.channels = 4; // RGBA
     material.data_len = width * height * 4;
-    
+
     auto texture_data = std::make_unique<ProceduralTextureData>(material.data_len);
     auto* pixels = reinterpret_cast<uint8_t*>(texture_data->get());
-    
+
     const int octaves = 4;
     const float scale = 4.0f; // Texture coordinate scale
-    
+
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
@@ -162,17 +162,17 @@ MaterialHandle generate_terrain_texture(int width, int height)
             // Normalize to 0-1 range
             float nx = (x / (float)width) * scale;
             float ny = (y / (float)height) * scale;
-            
+
             // Get height value for biome determination
             float height_val = perlin.octave_noise(nx, ny, octaves, 0.5f);
             height_val += perlin.octave_noise(nx * 2.0f, ny * 2.0f, 2, 0.5f) * 0.3f;
             float normalized_height = (height_val + 1.0f) * 0.5f;
-            
+
             // Biome noise for color patches
             float biome_noise = color_variation.octave_noise(nx * 0.5f, ny * 0.5f, 2, 0.5f);
-            
+
             glm::vec3 color;
-            
+
             if (normalized_height < 0.15f)
             {
                 // Water level - deep blue to turquoise
@@ -200,14 +200,14 @@ MaterialHandle generate_terrain_texture(int width, int height)
                 glm::vec3 grass_dark(0.1f, 0.5f, 0.1f);
                 glm::vec3 grass_bright(0.4f, 0.8f, 0.2f);
                 glm::vec3 grass_golden(0.6f, 0.7f, 0.1f);
-                
+
                 float t = (normalized_height - 0.35f) / 0.2f;
                 if (biome_noise > 0.3f) {
                     color = glm::mix(grass_dark, grass_bright, t);
                 } else {
                     color = glm::mix(grass_dark, grass_golden, t);
                 }
-                
+
                 // Flower patches
                 float flower_noise = color_variation.noise(nx * 12.0f, ny * 12.0f);
                 if (flower_noise > 0.75f) {
@@ -225,7 +225,7 @@ MaterialHandle generate_terrain_texture(int width, int height)
                 glm::vec3 forest_green(0.0f, 0.4f, 0.15f);
                 glm::vec3 autumn_orange(0.9f, 0.5f, 0.1f);
                 glm::vec3 autumn_red(0.8f, 0.2f, 0.1f);
-                
+
                 float t = (normalized_height - 0.55f) / 0.2f;
                 if (biome_noise > 0.4f) {
                     color = glm::mix(forest_green, autumn_orange, t);
@@ -239,14 +239,14 @@ MaterialHandle generate_terrain_texture(int width, int height)
                 glm::vec3 rock_brown(0.5f, 0.35f, 0.2f);
                 glm::vec3 rock_gray(0.5f, 0.5f, 0.55f);
                 glm::vec3 rock_purple(0.4f, 0.35f, 0.5f);
-                
+
                 float t = (normalized_height - 0.75f) / 0.15f;
                 if (biome_noise > 0.0f) {
                     color = glm::mix(rock_brown, rock_gray, t);
                 } else {
                     color = glm::mix(rock_brown, rock_purple, t);
                 }
-                
+
                 color += glm::vec3(0.1f, 0.08f, 0.05f) * color_variation.noise(nx * 8.0f, ny * 8.0f);
             }
             else
@@ -255,22 +255,22 @@ MaterialHandle generate_terrain_texture(int width, int height)
                 glm::vec3 snow_white(0.95f, 0.95f, 0.98f);
                 glm::vec3 ice_blue(0.7f, 0.85f, 0.95f);
                 glm::vec3 snow_pink(0.95f, 0.9f, 0.92f);
-                
+
                 float t = (normalized_height - 0.9f) / 0.1f;
                 if (biome_noise > 0.5f) {
                     color = glm::mix(snow_white, ice_blue, t);
                 } else {
                     color = glm::mix(snow_white, snow_pink, t);
                 }
-                
+
                 color += glm::vec3(0.1f) * std::max(0.0f, color_variation.noise(nx * 32.0f, ny * 32.0f) - 0.5f);
             }
-            
+
             // Fine texture noise
             float texture_noise = color_variation.noise(nx * 24.0f, ny * 24.0f) * 0.08f;
             color += glm::vec3(texture_noise);
             color = glm::clamp(color, 0.0f, 1.0f);
-            
+
             // Write pixel (RGBA)
             int idx = (y * width + x) * 4;
             pixels[idx + 0] = static_cast<uint8_t>(color.r * 255);
@@ -279,9 +279,9 @@ MaterialHandle generate_terrain_texture(int width, int height)
             pixels[idx + 3] = 255; // Full alpha
         }
     }
-    
+
     material.data = std::move(texture_data);
-    return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
+    return materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 }
 
 // Generate a 3D terrain mesh using Perlin noise with texture coordinates
@@ -304,11 +304,11 @@ MeshPtr generate_terrain_mesh(int grid_size, float scale, float height_scale, Ma
 
             // Get height using multiple octaves of Perlin noise
             float height = perlin.octave_noise(nx, nz, octaves, 0.5f);
-            
+
             // Add some finer detail with higher frequency noise
             height += perlin.octave_noise(nx * 2.0f, nz * 2.0f, 2, 0.5f) * 0.3f;
             height += perlin.octave_noise(nx * 4.0f, nz * 4.0f, 1, 0.5f) * 0.15f;
-            
+
             // Scale height
             float y = height * height_scale;
 
@@ -360,36 +360,37 @@ void Experimental::process()
 
     // Generate the terrain texture
     LOG_INFO(Utility::get_logger(), "Generating terrain texture...");
-    auto terrain_texture = generate_terrain_texture(512, 512);
-    
+    auto terrain_texture = generate_terrain_texture(
+		engine.get_ecs().get_material_system(), 512, 512);
+
     // Generate and spawn the terrain mesh with texture
     LOG_INFO(Utility::get_logger(), "Generating terrain mesh...");
     auto terrain_mesh = generate_terrain_mesh(
-		128, 0.05f, 8.0f, MaterialSystem::get_id(terrain_texture));
-    auto mesh_owner = MeshSystem::add(std::move(terrain_mesh));
-    
+		128, 0.05f, 8.0f, terrain_texture->get_id());
+    auto mesh_owner = engine.get_ecs().get_mesh_system().add(std::move(terrain_mesh));
+
     // Create renderable with texture material
     Renderable renderable;
     renderable.mesh_owner = std::move(mesh_owner);
     renderable.material_owners = { std::move(terrain_texture) };
     renderable.pipeline_render_type = ERenderType::STANDARD;
     renderable.casts_shadow = true;
-    
+
     // Create an object with the terrain
     auto& terrain_obj = engine.spawn_object<Object>();
     engine.attach_renderable(terrain_obj.get_id(), std::move(renderable));
     terrain_obj.set_name("Perlin Terrain");
-    
+
     // Position it below the camera for good viewing
     auto& camera = engine.get_camera();
     glm::vec3 camera_pos = camera.get_position();
     // terrain_obj.set_position(glm::vec3(camera_pos.x, camera_pos.y - 15.0f, camera_pos.z));
-    
+
     // Scale it for good visibility
     auto& terrain_transform = engine.get_ecs().get_transformation(terrain_obj.get_id());
     terrain_transform.set_scale(glm::vec3(0.5f, 1.0f, 0.5f));
-    
-    LOG_INFO(Utility::get_logger(), "Spawned Perlin noise terrain at position ({}, {}, {})", 
+
+    LOG_INFO(Utility::get_logger(), "Spawned Perlin noise terrain at position ({}, {}, {})",
              terrain_transform.get_position().x,
              terrain_transform.get_position().y,
              terrain_transform.get_position().z);
@@ -423,20 +424,20 @@ void spawn_test_particles(GameEngine& engine)
     config.rotation_speed_min = -3.0f;
     config.rotation_speed_max = 3.0f;
     config.loop = false;  // One-shot burst
-    
+
     auto& emitter1 = engine.spawn_particle_emitter(config);
     engine.get_ecs().get_transformation(emitter1.get_id())
         .set_position(engine.get_camera().get_position());
-    
+
     // Also spawn a second emitter with different colors slightly offset
     config.start_color = { 0.2f, 0.8f, 1.0f, 1.0f };  // Cyan
     config.end_color = { 0.0f, 0.2f, 1.0f, 0.0f };    // Fade to transparent blue
     config.velocity_min = { -1.0f, 0.0f, -1.0f };
     config.velocity_max = { 1.0f, 3.0f, 1.0f };       // Upward bias
-    
+
     auto& emitter2 = engine.spawn_particle_emitter(config);
     glm::vec3 offset_pos = engine.get_camera().get_position() + glm::vec3(0.5f, 0.0f, 0.0f);
     engine.get_ecs().get_transformation(emitter2.get_id()).set_position(offset_pos);
-    
+
     LOG_INFO(Utility::get_logger(), "Spawned test particles at camera position");
 }

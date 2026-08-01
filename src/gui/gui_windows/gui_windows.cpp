@@ -242,17 +242,17 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"cube", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>();
-				engine.attach_renderable(obj.get_id(), Renderable::make_default(
-					MeshSystem::add(MeshFactory::cube(MeshFactory::EVertexType::COLOR))));
+				engine.attach_renderable(obj.get_id(), Renderable::make_default(engine.get_ecs(),
+					engine.get_ecs().get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::COLOR))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
 		{"textured_cube", spawning_function_type([this](GameEngine& engine)
 			{
-				auto mesh_owner = MeshSystem::add(
+				auto mesh_owner = engine.get_ecs().get_mesh_system().add(
 					MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
-				auto material_owner = ResourceLoader::fetch_texture("texture.jpg");
+				auto material_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture.jpg");
 				Renderable renderable;
 				renderable.pipeline_render_type = ERenderType::STANDARD;
 				renderable.mesh_owner = std::move(mesh_owner);
@@ -269,9 +269,9 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				ColorMaterial material;
 				material.data.shininess = 1.0f;
 				Renderable renderable;
-				renderable.mesh_owner = MeshSystem::add(
+				renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
 					MeshFactory::cube(MeshFactory::EVertexType::COLOR));
-				auto material_owner = MaterialSystem::add(
+				auto material_owner = engine.get_ecs().get_material_system().add(
 					std::make_unique<ColorMaterial>(std::move(material)));
 				renderable.material_owners = { std::move(material_owner) };
 				auto& obj = engine.template spawn_object<Object>();
@@ -283,8 +283,8 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"sphere", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>();
-				engine.attach_renderable(obj.get_id(), Renderable::make_default(
-					MeshSystem::add(MeshFactory::sphere(
+				engine.attach_renderable(obj.get_id(), Renderable::make_default(engine.get_ecs(),
+					engine.get_ecs().get_mesh_system().add(MeshFactory::sphere(
 						MeshFactory::EVertexType::COLOR,
 						MeshFactory::GenerationMethod::ICO_SPHERE,
 						100))));
@@ -295,8 +295,8 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"physics sphere", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>();
-				engine.attach_renderable(obj.get_id(), Renderable::make_default(
-					MeshSystem::add(MeshFactory::sphere(
+				engine.attach_renderable(obj.get_id(), Renderable::make_default(engine.get_ecs(),
+					engine.get_ecs().get_mesh_system().add(MeshFactory::sphere(
 						MeshFactory::EVertexType::COLOR,
 						MeshFactory::GenerationMethod::ICO_SPHERE))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());

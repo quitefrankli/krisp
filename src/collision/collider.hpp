@@ -3,6 +3,7 @@
 #include "maths.hpp"
 #include "collision/bounding_box.hpp"
 #include "identifications.hpp"
+#include "entity_component_system/mesh_system.hpp"
 
 #include <glm/vec2.hpp>
 
@@ -31,7 +32,7 @@ struct Collider
 
 	void set_temporary_transform(const Maths::Transform& transform) const { temporary_transform = transform; }
 	void clear_temporary_transform() const { temporary_transform = Maths::Transform{}; }
-	
+
 protected:
 	const Maths::Transform& get_temporary_transform() const { return temporary_transform; }
 
@@ -129,14 +130,14 @@ private:
 // oriented collider in world space.
 struct MeshCollider : public Collider
 {
-	explicit MeshCollider(std::vector<MeshID> mesh_ids) : mesh_ids(std::move(mesh_ids)) {}
+	explicit MeshCollider(std::vector<MeshHandle> meshes) : meshes(std::move(meshes)) {}
 	virtual ECollider get_type() const override { return ECollider::MESH; }
 	virtual Object& spawn_debug_object(GameEngine& engine) const override;
 	virtual void update_debug_object(GameEngine& engine, Object& object) const override;
 
 	bool check_collision(const RayCollider& ray, glm::vec3& out_intersection) const;
-	const std::vector<MeshID>& get_mesh_ids() const { return mesh_ids; }
+	std::vector<MeshID> get_mesh_ids() const;
 
 private:
-	std::vector<MeshID> mesh_ids;
+	std::vector<MeshHandle> meshes;
 };

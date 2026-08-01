@@ -32,27 +32,43 @@ TEST(MeshFactory, capsule_is_y_aligned_and_rests_at_zero)
 
 TEST(MeshFactory, generated_meshes_have_independent_lifetimes)
 {
-	auto first = MeshSystem::add(MeshFactory::cube());
-	auto second = MeshSystem::add(MeshFactory::cube());
-	const MeshID first_id = MeshSystem::get_id(first);
-	const MeshID second_id = MeshSystem::get_id(second);
+	MeshSystem meshes;
+	auto first = meshes.add(MeshFactory::cube());
+	auto second = meshes.add(MeshFactory::cube());
+	const MeshID first_id = first->get_id();
+	const MeshID second_id = second->get_id();
 
 	EXPECT_NE(first_id, second_id);
-	EXPECT_NE(&MeshSystem::get(first_id), &MeshSystem::get(second_id));
+	EXPECT_NE(&meshes.get(first_id), &meshes.get(second_id));
 
 	first.reset();
-	EXPECT_FALSE(MeshSystem::contains(first_id));
-	EXPECT_TRUE(MeshSystem::contains(second_id));
+	EXPECT_FALSE(meshes.contains(first_id));
+	EXPECT_TRUE(meshes.contains(second_id));
+}
+
+TEST(MeshSystem, stores_are_isolated)
+{
+	MeshSystem first_store;
+	MeshSystem second_store;
+	auto owner = first_store.add(MeshFactory::cube());
+	const MeshID id = owner->get_id();
+
+	EXPECT_TRUE(first_store.contains(id));
+	EXPECT_TRUE(first_store.owns(owner));
+	EXPECT_FALSE(second_store.contains(id));
+	EXPECT_FALSE(second_store.owns(owner));
+	EXPECT_THROW(second_store.acquire(id), std::runtime_error);
 }
 
 TEST(MeshFactory, check_different_id_when_different_params)
 {
-	const auto arrow1 = MeshSystem::add(MeshFactory::arrow(0.05, 8));
-	const auto arrow2 = MeshSystem::add(MeshFactory::arrow(0.05, 16));
-	const auto arrow3 = MeshSystem::add(MeshFactory::arrow(0.05, 16));
-	const auto arrow1_id = MeshSystem::get_id(arrow1);
-	const auto arrow2_id = MeshSystem::get_id(arrow2);
-	const auto arrow3_id = MeshSystem::get_id(arrow3);
+	MeshSystem meshes;
+	const auto arrow1 = meshes.add(MeshFactory::arrow(0.05, 8));
+	const auto arrow2 = meshes.add(MeshFactory::arrow(0.05, 16));
+	const auto arrow3 = meshes.add(MeshFactory::arrow(0.05, 16));
+	const auto arrow1_id = arrow1->get_id();
+	const auto arrow2_id = arrow2->get_id();
+	const auto arrow3_id = arrow3->get_id();
 
 	ASSERT_NE(arrow1_id, arrow2_id);
 	ASSERT_NE(arrow2_id, arrow3_id);
@@ -60,13 +76,14 @@ TEST(MeshFactory, check_different_id_when_different_params)
 
 TEST(MeshSystem, check_num_owners)
 {
-	MeshSystem::take_retired();
-	auto first = MeshSystem::add(MeshFactory::circle());
-	const MeshID first_id = MeshSystem::get_id(first);
+	MeshSystem meshes;
+	meshes.take_retired();
+	auto first = meshes.add(MeshFactory::circle());
+	const MeshID first_id = first->get_id();
 	ASSERT_EQ(first.use_count(), 1);
 
 	{
-		auto second = MeshSystem::acquire(first_id);
+		auto second = meshes.acquire(first_id);
 		ASSERT_EQ(second, first);
 		ASSERT_EQ(first.use_count(), 2);
 
@@ -76,21 +93,22 @@ TEST(MeshSystem, check_num_owners)
 	}
 
 	ASSERT_EQ(first.use_count(), 1);
-	EXPECT_TRUE(MeshSystem::take_retired().empty());
+	EXPECT_TRUE(meshes.take_retired().empty());
 
 	first = {};
-	EXPECT_FALSE(MeshSystem::contains(first_id));
-	EXPECT_EQ(MeshSystem::take_retired(), (std::vector<MeshID>{ first_id }));
-	EXPECT_TRUE(MeshSystem::take_retired().empty());
+	EXPECT_FALSE(meshes.contains(first_id));
+	EXPECT_EQ(meshes.take_retired(), (std::vector<MeshID>{ first_id }));
+	EXPECT_TRUE(meshes.take_retired().empty());
 }
 
 TEST(MeshFactory, owner_controls_generated_mesh_lifetime)
 {
-	auto circle = MeshSystem::add(MeshFactory::circle());
-	const MeshID id = MeshSystem::get_id(circle);
-	EXPECT_TRUE(MeshSystem::contains(id));
+	MeshSystem meshes;
+	auto circle = meshes.add(MeshFactory::circle());
+	const MeshID id = circle->get_id();
+	EXPECT_TRUE(meshes.contains(id));
 	circle.reset();
-	EXPECT_FALSE(MeshSystem::contains(id));
+	EXPECT_FALSE(meshes.contains(id));
 }
 
 TEST(MeshMaths, normal_generation_rejects_incomplete_triangles)

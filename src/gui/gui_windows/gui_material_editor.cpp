@@ -115,11 +115,11 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		return;
 	}
 
-	const auto material_label = [](const MaterialID id)
+	const auto material_label = [&engine](const MaterialID id)
 	{
-		if (!MaterialSystem::contains(id))
+		if (!engine.get_ecs().get_material_system().contains(id))
 			return std::string("(missing material)");
-		const auto* texture = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(id));
+		const auto* texture = dynamic_cast<const TextureMaterial*>(&engine.get_ecs().get_material_system().get(id));
 		if (!texture || texture->source.empty())
 			return fmt::format("Material {}", id.get_underlying());
 		if (texture->source == "(matte)" || texture->source == "(none)")

@@ -39,6 +39,7 @@ std::filesystem::path resolve_resource_filename(std::string_view filename, Resol
 ResourceLoader ResourceLoader::global_resource_loader;
 
 MaterialHandle ResourceLoader::fetch_texture(
+	MaterialSystem& materials,
 	const std::string_view filename,
 	const ETextureSemantic semantic)
 {
@@ -49,13 +50,13 @@ MaterialHandle ResourceLoader::fetch_texture(
 	const auto file_str = file_path.lexically_normal().string();
 	const size_t semantic_index = static_cast<size_t>(semantic);
 	auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
-	if (cached && MaterialSystem::contains(*cached))
-		return MaterialSystem::acquire(*cached);
+	if (cached && materials.contains(*cached))
+		return materials.acquire(*cached);
 	cached.reset();
 
-	auto material = global_resource_loader.load_texture(file_path, semantic);
+	auto material = global_resource_loader.load_texture(materials, file_path, semantic);
 	if (auto* texture = dynamic_cast<TextureMaterial*>(
-		&MaterialSystem::get(MaterialSystem::get_id(material))))
+		&materials.get(material->get_id())))
 		texture->source = filename;
 	return material;
 }
@@ -353,7 +354,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 
 			std::vector<MaterialHandle> material_owners;
 			const auto loaded_material = global_resource_loader.load_material(
-				primitive, model, material_owners);
+				ecs.get_material_system(), primitive, model, material_owners);
 			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");
 			const bool textured = [&]
 			{
@@ -471,15 +472,15 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				mesh = std::make_unique<ColorMesh>(load_color_vertices(positions, normals), std::move(indices));
 				renderable.pipeline_render_type = ERenderType::COLOR;
 			}
-			renderable.mesh_owner = MeshSystem::add(std::move(mesh));
-			const auto mesh_id = MeshSystem::get_id(renderable.mesh_owner);
+			renderable.mesh_owner = ecs.get_mesh_system().add(std::move(mesh));
+			const auto mesh_id = renderable.mesh_owner->get_id();
 			ResourceProvenance::register_mesh(mesh_id, {
 				.source = provenance_source, .scene = scene_index, .node = instance.node_index,
 				.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
 			for (const auto material_id : loaded_material.ids)
 			{
 				const auto* texture = dynamic_cast<const TextureMaterial*>(
-					&MaterialSystem::get(material_id));
+					&ecs.get_material_system().get(material_id));
 				ResourceProvenance::register_material(material_id, {
 					.source = provenance_source, .scene = scene_index, .node = instance.node_index,
 					.primitive = static_cast<int>(primitive_index), .material = primitive.material,

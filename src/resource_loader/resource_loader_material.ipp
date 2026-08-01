@@ -172,6 +172,7 @@ bool load_gltf_image_data(
 }
 
 ResourceLoader::LoadedMaterial ResourceLoader::load_material(
+	MaterialSystem& materials,
 	const tinygltf::Primitive& primitive,
 	const tinygltf::Model& model,
 	std::vector<MaterialHandle>& owners)
@@ -182,7 +183,7 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 		{
 			const auto& material = gltf_material_to_material.at(primitive.material);
 			for (const auto material_id : material.ids)
-				owners.push_back(MaterialSystem::acquire(material_id));
+				owners.push_back(materials.acquire(material_id));
 			return material;
 		}
 
@@ -260,7 +261,7 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 						image.image.size(),
 						image.uri.empty() ? image.name : image.uri);
 					texture_material.semantic = semantic;
-					return MaterialSystem::add(
+					return materials.add(
 						std::make_unique<TextureMaterial>(std::move(texture_material)));
 				}
 				if (image.width <= 0 || image.height <= 0 || image.component < 1 || image.component > 4)
@@ -294,30 +295,30 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 				texture_material.semantic = semantic;
 				texture_material.source = image.uri.empty() ? image.name : image.uri;
 				texture_material.data = std::make_unique<RawTextureDataGLTF>(std::move(rgba));
-				return MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(texture_material)));
+				return materials.add(std::make_unique<TextureMaterial>(std::move(texture_material)));
 			};
 
 			LoadedMaterial loaded;
 			if (color_texture.index >= 0)
 			{
 				owners.push_back(load_gltf_texture(color_texture.index, ETextureSemantic::BASE_COLOR));
-				loaded.ids = { MaterialSystem::get_id(owners.back()) };
+				loaded.ids = { owners.back()->get_id() };
 			}
 			else
 			{
-				owners.push_back(MaterialSystem::add(MaterialFactory::fetch_white_texture()));
-				loaded.ids = { MaterialSystem::get_id(owners.back()) };
+				owners.push_back(materials.add(MaterialFactory::fetch_white_texture()));
+				loaded.ids = { owners.back()->get_id() };
 			}
 			if (normal_texture.index >= 0)
 			{
 				owners.push_back(load_gltf_texture(normal_texture.index, ETextureSemantic::NORMAL));
-				loaded.ids.push_back(MaterialSystem::get_id(owners.back()));
+				loaded.ids.push_back(owners.back()->get_id());
 			}
 
 			if (specular_texture_index)
 			{
 				owners.push_back(load_gltf_texture(*specular_texture_index, ETextureSemantic::SPECULAR));
-				loaded.ids.push_back(MaterialSystem::get_id(owners.back()));
+				loaded.ids.push_back(owners.back()->get_id());
 			}
 			loaded.alpha_mode = alpha_mode;
 			loaded.alpha_cutoff = alpha_cutoff;
@@ -335,20 +336,21 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 			new_material.data.specular = (new_material.data.specular + new_material.data.diffuse)/2.0f;
 			new_material.data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
 
-			owners.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(new_material))));
-			LoadedMaterial loaded{ .ids = { MaterialSystem::get_id(owners.back()) }, .alpha_mode = alpha_mode,
+			owners.push_back(materials.add(std::make_unique<ColorMaterial>(std::move(new_material))));
+			LoadedMaterial loaded{ .ids = { owners.back()->get_id() }, .alpha_mode = alpha_mode,
 				.alpha_cutoff = alpha_cutoff, .opacity = opacity };
 			gltf_material_to_material[primitive.material] = loaded;
 			return loaded;
 		}
 	}
 
-	owners.push_back(MaterialSystem::add(
+	owners.push_back(materials.add(
 		MaterialFactory::fetch_preset(EMaterialPreset::PLASTIC)));
-	return { .ids = { MaterialSystem::get_id(owners.back()) } };
+	return { .ids = { owners.back()->get_id() } };
 }
 
 MaterialHandle ResourceLoader::load_texture(
+	MaterialSystem& materials,
 	const std::filesystem::path& filename,
 	const ETextureSemantic semantic)
 {
@@ -361,9 +363,9 @@ MaterialHandle ResourceLoader::load_texture(
 	{
 		auto material = load_dds_texture(filename);
 		material.semantic = semantic;
-		auto owner = MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
+		auto owner = materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 		texture_name_to_mat_id[filename.lexically_normal().string()][static_cast<size_t>(semantic)] =
-			MaterialSystem::get_id(owner);
+			owner->get_id();
 		return owner;
 	}
 
@@ -388,8 +390,8 @@ MaterialHandle ResourceLoader::load_texture(
 	material.data_len = static_cast<size_t>(material.width) * material.height * material.channels;
 	material.mip_sizes = { material.data_len };
 
-	auto owner = MaterialSystem::add(std::make_unique<TextureMaterial>(std::move(material)));
+	auto owner = materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 	texture_name_to_mat_id[filename.lexically_normal().string()][static_cast<size_t>(semantic)] =
-		MaterialSystem::get_id(owner);
+		owner->get_id();
 	return owner;
 }

@@ -52,6 +52,11 @@ void RenderableSystem::validate_attachment(
 	if (is_skinned_render_type(renderable.pipeline_render_type) != skeleton_id.has_value())
 		throw std::invalid_argument(
 			"RenderableSystem: skinned renderables require exactly one skeleton binding");
+	if (!get_ecs().get_mesh_system().owns(renderable.mesh_owner))
+		throw std::invalid_argument("RenderableSystem: mesh belongs to another ECS");
+	for (const auto& material : renderable.material_owners)
+		if (!get_ecs().get_material_system().owns(material))
+			throw std::invalid_argument("RenderableSystem: material belongs to another ECS");
 }
 
 RenderableID RenderableSystem::add_renderable(
@@ -263,16 +268,18 @@ void RenderableSystem::deserialize(const Deserializer& in)
 		const auto& entry = entries[index];
 		const RenderableID id(entry.read<std::uint64_t>("renderable_id"));
 		Renderable renderable;
-		const auto mesh_id = ResourceProvenance::find_mesh(read_source(entry.child("mesh_source")));
+		const auto mesh_id = ResourceProvenance::find_mesh(
+			get_ecs().get_mesh_system(), read_source(entry.child("mesh_source")));
 		if (!mesh_id)
 			throw SerializationError("Missing imported mesh resource at " + entry.path());
-		renderable.mesh_owner = MeshSystem::acquire(*mesh_id);
+		renderable.mesh_owner = get_ecs().get_mesh_system().acquire(*mesh_id);
 		for (const auto& material : entry.child("material_sources").elements())
 		{
-			const auto material_id = ResourceProvenance::find_material(read_source(material));
+			const auto material_id = ResourceProvenance::find_material(
+				get_ecs().get_material_system(), read_source(material));
 			if (!material_id)
 				throw SerializationError("Missing imported material resource at " + material.path());
-			renderable.material_owners.push_back(MaterialSystem::acquire(*material_id));
+			renderable.material_owners.push_back(get_ecs().get_material_system().acquire(*material_id));
 		}
 		renderable.pipeline_render_type = static_cast<ERenderType>(entry.read<int>("render_type"));
 		renderable.alpha_mode = static_cast<EAlphaMode>(entry.read<int>("alpha_mode"));

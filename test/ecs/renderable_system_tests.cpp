@@ -13,10 +13,10 @@ TEST(RenderableSystem, composes_group_and_local_state_but_supports_standalone_re
 	Object group;
 	ecs.add_object(group);
 	ecs.set_position(group.get_id(), { 2.0f, 0.0f, 0.0f });
-	auto grouped = Renderable::make_default();
+	auto grouped = Renderable::make_default(ecs);
 	grouped.local_transform.set_pos({ 0.0f, 3.0f, 0.0f });
 	const auto grouped_id = ecs.add_renderable(std::move(grouped), group.get_id());
-	auto standalone = Renderable::make_default();
+	auto standalone = Renderable::make_default(ecs);
 	standalone.local_transform.set_pos({ 0.0f, 0.0f, 4.0f });
 	const auto standalone_id = ecs.add_renderable(std::move(standalone));
 
@@ -34,6 +34,15 @@ TEST(RenderableSystem, composes_group_and_local_state_but_supports_standalone_re
 	EXPECT_FALSE(ecs.get_renderable_visibility(standalone_id));
 }
 
+TEST(RenderableSystem, rejects_resources_owned_by_another_ecs)
+{
+	ECS source;
+	ECS target;
+	auto renderable = Renderable::make_default(source);
+
+	EXPECT_THROW(target.add_renderable(std::move(renderable)), std::invalid_argument);
+}
+
 TEST(RenderableSystem, enforces_per_renderable_skeleton_binding_and_shared_lifetime)
 {
 	ECS ecs;
@@ -41,14 +50,14 @@ TEST(RenderableSystem, enforces_per_renderable_skeleton_binding_and_shared_lifet
 	Bone bone;
 	const auto skeleton = ecs.add_skeleton({ bone });
 	ResourceProvenance::register_skeleton(skeleton, { .source = "shared.glb", .skin = 0 });
-	auto missing_skeleton = Renderable::make_default();
+	auto missing_skeleton = Renderable::make_default(ecs);
 	missing_skeleton.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	EXPECT_THROW(ecs.add_renderable(std::move(missing_skeleton)), std::invalid_argument);
-	EXPECT_THROW(ecs.add_renderable(Renderable::make_default(), {}, skeleton), std::invalid_argument);
+	EXPECT_THROW(ecs.add_renderable(Renderable::make_default(ecs), {}, skeleton), std::invalid_argument);
 
-	auto first = Renderable::make_default();
+	auto first = Renderable::make_default(ecs);
 	first.pipeline_render_type = ERenderType::SKINNED_COLOR;
-	auto second = Renderable::make_default();
+	auto second = Renderable::make_default(ecs);
 	second.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	const auto first_id = ecs.add_renderable(std::move(first), {}, skeleton);
 	const auto second_id = ecs.add_renderable(std::move(second), {}, skeleton);
@@ -67,7 +76,7 @@ TEST(RenderableSystem, replaces_structural_state_with_a_new_identity)
 		decltype(std::declval<ECS&>().get_renderable(RenderableID{})),
 		const RenderableAttachment&>);
 	ECS ecs;
-	const auto id = ecs.add_renderable(Renderable::make_default());
+	const auto id = ecs.add_renderable(Renderable::make_default(ecs));
 	auto invalid = ecs.get_renderable(id).renderable;
 	invalid.pipeline_render_type = ERenderType::SKINNED_COLOR;
 
@@ -92,11 +101,11 @@ TEST(RenderableSystem, object_removal_cascades_only_its_renderables)
 	ecs.add_object(group);
 	Bone bone;
 	const auto skeleton = ecs.add_skeleton({ bone });
-	auto grouped_payload = Renderable::make_default();
+	auto grouped_payload = Renderable::make_default(ecs);
 	grouped_payload.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	const auto grouped = ecs.add_renderable(
 		std::move(grouped_payload), group.get_id(), skeleton);
-	const auto standalone = ecs.add_renderable(Renderable::make_default());
+	const auto standalone = ecs.add_renderable(Renderable::make_default(ecs));
 
 	ecs.remove_object(group.get_id());
 	EXPECT_FALSE(ecs.has_renderable(grouped));
@@ -116,11 +125,11 @@ TEST(RenderableSystem, exact_source_renderable_controls_bone_attachment_transfor
 	hand.name = "hand";
 	hand.relative_transform.set_pos({ 0.0f, 2.0f, 0.0f });
 	const auto skeleton = ecs.add_skeleton({ hand });
-	auto first = Renderable::make_default();
+	auto first = Renderable::make_default(ecs);
 	first.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	first.local_transform.set_pos({ 1.0f, 0.0f, 0.0f });
 	ecs.add_renderable(std::move(first), character.get_id(), skeleton);
-	auto second = Renderable::make_default();
+	auto second = Renderable::make_default(ecs);
 	second.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	second.local_transform.set_pos({ 4.0f, 0.0f, 0.0f });
 	const auto source = ecs.add_renderable(std::move(second), character.get_id(), skeleton);
@@ -139,7 +148,7 @@ TEST(RenderableSystem, reset_preserves_transient_grouped_attachments_and_ids)
 	Object transient;
 	transient.set_transient(true);
 	ecs.add_object(transient);
-	const auto id = ecs.add_renderable(Renderable::make_default(), transient.get_id());
+	const auto id = ecs.add_renderable(Renderable::make_default(ecs), transient.get_id());
 	ecs.set_renderable_visibility(id, false);
 
 	ecs.reset_preserving_transient_transformations();
@@ -156,7 +165,7 @@ TEST(RenderableSystem, deserialization_preserves_transient_grouped_attachments)
 	Object transient;
 	transient.set_transient(true);
 	ecs.add_object(transient);
-	const auto id = ecs.add_renderable(Renderable::make_default(), transient.get_id());
+	const auto id = ecs.add_renderable(Renderable::make_default(ecs), transient.get_id());
 	Serializer empty;
 	empty.sequence("renderable_system");
 
@@ -175,7 +184,7 @@ TEST(RenderableSystem, serialization_restores_persistent_id_group_and_imported_s
 	const auto skeleton = ecs.add_skeleton({ bone });
 	ResourceProvenance::register_skeleton(skeleton, {
 		.source = "character.glb", .scene = 0, .node = 2, .skin = 1 });
-	auto renderable = Renderable::make_default();
+	auto renderable = Renderable::make_default(ecs);
 	renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	const auto id = ecs.add_renderable(std::move(renderable), group.get_id(), skeleton);
 	const auto& payload = ecs.get_renderable(id).renderable;

@@ -17,7 +17,8 @@
 namespace
 {
 template<typename MeshType>
-MeshHandle bake_mesh_transform(const MeshType& source, const glm::mat4& transform)
+MeshHandle bake_mesh_transform(
+	MeshSystem& meshes, const MeshType& source, const glm::mat4& transform)
 {
 	auto vertices = source.get_vertices();
 	const glm::mat3 normal_transform = glm::transpose(glm::inverse(glm::mat3(transform)));
@@ -26,18 +27,19 @@ MeshHandle bake_mesh_transform(const MeshType& source, const glm::mat4& transfor
 		vertex.pos = glm::vec3(transform * glm::vec4(vertex.pos, 1.0f));
 		vertex.normal = glm::normalize(normal_transform * vertex.normal);
 	}
-	return MeshSystem::add(std::make_unique<MeshType>(std::move(vertices), source.get_indices()));
+	return meshes.add(std::make_unique<MeshType>(std::move(vertices), source.get_indices()));
 }
 
-MeshHandle bake_mesh_transform(const MeshID mesh_id, const glm::mat4& transform)
+MeshHandle bake_mesh_transform(
+	MeshSystem& meshes, const MeshID mesh_id, const glm::mat4& transform)
 {
-	const Mesh& source = MeshSystem::get(mesh_id);
+	const Mesh& source = meshes.get(mesh_id);
 	if (const auto* mesh = dynamic_cast<const ColorMesh*>(&source))
-		return bake_mesh_transform(*mesh, transform);
+		return bake_mesh_transform(meshes, *mesh, transform);
 	if (const auto* mesh = dynamic_cast<const TexMesh*>(&source))
-		return bake_mesh_transform(*mesh, transform);
+		return bake_mesh_transform(meshes, *mesh, transform);
 	if (const auto* mesh = dynamic_cast<const SkinnedMesh*>(&source))
-		return bake_mesh_transform(*mesh, transform);
+		return bake_mesh_transform(meshes, *mesh, transform);
 	throw std::runtime_error("GuiModelSpawner: unsupported mesh type");
 }
 }
@@ -118,7 +120,7 @@ void GuiModelSpawner::process(GameEngine& engine)
 				for (size_t index = 0; index < loaded_mesh.renderables.size(); ++index)
 				{
 					auto renderable = loaded_mesh.renderables[index];
-					auto baked_mesh = bake_mesh_transform(
+					auto baked_mesh = bake_mesh_transform(engine.get_ecs().get_mesh_system(),
 						renderable.get_mesh_id(), renderable.local_transform.get_mat4());
 					renderable.mesh_owner = std::move(baked_mesh);
 					renderable.local_transform = {};

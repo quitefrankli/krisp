@@ -9,6 +9,7 @@
 
 #include <vector>
 
+class ECS;
 
 // A renderable encapsulates per-draw resource data. Object grouping and an
 // optional skeleton binding live on the ECS RenderableAttachment.
@@ -35,6 +36,6 @@ struct Renderable
 		return gameplay_transform * local_transform.get_mat4();
 	}
 
-	static Renderable make_default();
-	static Renderable make_default(MeshHandle mesh_owner);
+	static Renderable make_default(ECS& ecs);
+	static Renderable make_default(ECS& ecs, MeshHandle mesh_owner);
 };

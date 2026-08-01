@@ -12,9 +12,9 @@
 
 namespace
 {
-Renderable make_debug_renderable(MeshHandle mesh_owner)
+Renderable make_debug_renderable(ECS& ecs, MeshHandle mesh_owner)
 {
-	auto material_owner = MaterialSystem::add(
+	auto material_owner = ecs.get_material_system().add(
 		MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC));
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::COLOR;
@@ -70,7 +70,7 @@ bool ray_triangle_intersection(const Maths::Ray& ray,
 Object& RayCollider::spawn_debug_object(GameEngine& engine) const
 {
 	auto& obj = engine.spawn_object<Arrow>();
-	engine.attach_renderable(obj.get_id(), Arrow::make_renderable());
+	engine.attach_renderable(obj.get_id(), Arrow::make_renderable(engine.get_ecs()));
 	obj.point(engine.get_ecs(), data.origin, data.origin + data.direction * data.length);
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
@@ -122,8 +122,10 @@ Maths::Quad QuadCollider::get_data() const
 }
 
 Object& QuadCollider::spawn_debug_object(GameEngine& engine) const
-{	
-	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
+{
+	auto& ecs = engine.get_ecs();
+	auto renderable = make_debug_renderable(
+		ecs, ecs.get_mesh_system().add(MeshFactory::cube()));
 	Object& obj = spawn_debug_renderable_object(engine, std::move(renderable));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
@@ -188,7 +190,7 @@ Maths::Sphere SphereCollider::get_data() const
 Object& SphereCollider::spawn_debug_object(GameEngine& engine) const
 {
 	Object& obj = spawn_debug_renderable_object(engine, make_debug_renderable(
-		MeshSystem::add(MeshFactory::sphere(
+		engine.get_ecs(), engine.get_ecs().get_mesh_system().add(MeshFactory::sphere(
 			MeshFactory::EVertexType::COLOR, MeshFactory::GenerationMethod::UV_SPHERE, 64))));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
@@ -282,7 +284,8 @@ bool CapsuleCollider::check_collision(const RayCollider& ray, glm::vec3& out_int
 Object& CapsuleCollider::spawn_debug_object(GameEngine& engine) const
 {
 	Object& obj = spawn_debug_renderable_object(engine,
-		make_debug_renderable(MeshSystem::add(MeshFactory::capsule(radius, height))));
+		make_debug_renderable(engine.get_ecs(),
+			engine.get_ecs().get_mesh_system().add(MeshFactory::capsule(radius, height))));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
 	return obj;
@@ -319,7 +322,9 @@ bool BoxCollider::check_collision(const RayCollider& ray, glm::vec3& out_interse
 
 Object& BoxCollider::spawn_debug_object(GameEngine& engine) const
 {
-	auto renderable = make_debug_renderable(MeshSystem::add(MeshFactory::cube()));
+	auto& ecs = engine.get_ecs();
+	auto renderable = make_debug_renderable(
+		ecs, ecs.get_mesh_system().add(MeshFactory::cube()));
 	Object& obj = spawn_debug_renderable_object(engine, std::move(renderable));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
@@ -349,9 +354,9 @@ bool MeshCollider::check_collision(const RayCollider& ray, glm::vec3& out_inters
 
 	bool collided = false;
 	float closest_t = std::numeric_limits<float>::infinity();
-	for (const MeshID mesh_id : mesh_ids)
+	for (const auto& mesh : meshes)
 	{
-		const MeshPickData& data = MeshSystem::get(mesh_id).get_pick_data();
+		const MeshPickData& data = mesh->get().get_pick_data();
 		if (!data.has_triangles())
 			continue;
 		glm::vec3 unused_intersection;
@@ -400,7 +405,8 @@ bool MeshCollider::check_collision(const RayCollider& ray, glm::vec3& out_inters
 Object& MeshCollider::spawn_debug_object(GameEngine& engine) const
 {
 	Object& obj = spawn_debug_renderable_object(engine,
-		make_debug_renderable(MeshSystem::add(MeshFactory::cube())));
+		make_debug_renderable(engine.get_ecs(),
+			engine.get_ecs().get_mesh_system().add(MeshFactory::cube())));
 	obj.set_name("Collider Visual");
 	update_debug_object(engine, obj);
 	return obj;
@@ -410,9 +416,9 @@ void MeshCollider::update_debug_object(GameEngine& engine, Object& obj) const
 {
 	bool has_bounds = false;
 	AABB bounds;
-	for (const MeshID mesh_id : mesh_ids)
+	for (const auto& mesh : meshes)
 	{
-		const auto& data = MeshSystem::get(mesh_id).get_pick_data();
+		const auto& data = mesh->get().get_pick_data();
 		if (!data.has_bounds())
 			continue;
 		if (!has_bounds)
@@ -430,4 +436,13 @@ void MeshCollider::update_debug_object(GameEngine& engine, Object& obj) const
 		get_temporary_transform().get_mat4()
 		* glm::translate(Maths::identity_mat, centre)
 		* glm::scale(Maths::identity_mat, bounds.max_bound - bounds.min_bound));
+}
+
+std::vector<MeshID> MeshCollider::get_mesh_ids() const
+{
+	std::vector<MeshID> ids;
+	ids.reserve(meshes.size());
+	for (const auto& mesh : meshes)
+		ids.push_back(mesh->get_id());
+	return ids;
 }

@@ -11,8 +11,8 @@ TexturedMatGroup::TexturedMatGroup(const std::span<const MaterialHandle> mats) :
 	bool has_base_color = false;
 	for (const auto& owner : mats)
 	{
-		const auto id = MaterialSystem::get_id(owner);
-		const auto* texture = dynamic_cast<const TextureMaterial*>(&MaterialSystem::get(owner));
+		const auto id = owner->get_id();
+		const auto* texture = dynamic_cast<const TextureMaterial*>(&owner->get());
 		if (!texture)
 			throw std::runtime_error("TexturedMatGroup: material is not a texture");
 
@@ -47,7 +47,7 @@ TexturedMatGroup::TexturedMatGroup(const std::span<const MaterialHandle> mats) :
 const MaterialHandle& TexturedMatGroup::get_material_owner(const MaterialID id) const
 {
 	for (const auto& owner : material_owners)
-		if (MaterialSystem::get_id(owner) == id)
+		if (owner->get_id() == id)
 			return owner;
 	throw std::runtime_error("TexturedMatGroup: material owner not found");
 }

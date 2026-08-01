@@ -41,8 +41,8 @@ than using process-wide caches. Repeated calls therefore repeat mesh generation
 or material allocation and consume separate graphics resources. Callers that
 need reuse should retain and share the returned owner instead of invoking a
 factory and registering its result each frame. Factories only construct CPU
-resources; callers explicitly register them with `MeshSystem` or
-`MaterialSystem`. No timing measurements have been recorded.
+resources; callers explicitly register them with the mesh or material store
+owned by their ECS. No timing measurements have been recorded.
 
 ## Renderable-local transforms
 

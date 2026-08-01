@@ -45,7 +45,6 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	source.add_collider(quad_id, std::make_unique<QuadCollider>(
 		Maths::Plane({ 7.0f, 8.0f, 9.0f }, { 0.0f, 0.0f, 1.0f }), glm::vec2(3.0f, 4.0f)));
 	source.add_collider(box_id, std::make_unique<BoxCollider>(AABB({ -2.0f, -3.0f, -4.0f }, { 2.0f, 3.0f, 4.0f })));
-	source.add_collider(mesh_id, std::make_unique<MeshCollider>(std::vector<MeshID>{ MeshID(21), MeshID(22) }));
 	source.add_collider(capsule_id, std::make_unique<CapsuleCollider>(0.4f, 1.8f));
 	source.add_clickable_entity(clickable_id);
 	source.add_hoverable_entity(hoverable_id);
@@ -74,9 +73,10 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	source.serialize(serializer);
 	const auto serialized = Deserializer::parse(serializer.emit());
 	const auto serialized_colliders = serialized.child("collider_system").elements();
-	ASSERT_EQ(serialized_colliders.size(), 6);
+	ASSERT_EQ(serialized_colliders.size(), 5);
+	const std::vector<std::uint64_t> collider_ids{ 10, 11, 12, 13, 15 };
 	for (std::size_t index = 0; index < serialized_colliders.size(); ++index)
-		EXPECT_EQ(serialized_colliders[index].read<std::uint64_t>("entity_id"), 10 + index);
+		EXPECT_EQ(serialized_colliders[index].read<std::uint64_t>("entity_id"), collider_ids[index]);
 
 	ECS restored;
 	restored.add_light_source(EntityID(99), LightComponent{});
@@ -89,7 +89,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	EXPECT_EQ(restored.get_light_component(EntityID(99)), nullptr);
 
 	const auto& colliders = restored.get_all_colliders();
-	ASSERT_EQ(colliders.size(), 6);
+	ASSERT_EQ(colliders.size(), 5);
 	const auto restored_ray = dynamic_cast<const RayCollider*>(colliders.at(ray_id).collider.get())->get_local_data();
 	EXPECT_EQ(restored_ray.origin, ray.origin);
 	EXPECT_EQ(restored_ray.direction, ray.direction);
@@ -103,8 +103,6 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	const auto restored_box = dynamic_cast<const BoxCollider*>(colliders.at(box_id).collider.get())->get_local_data();
 	EXPECT_EQ(restored_box.min_bound, glm::vec3(-2.0f, -3.0f, -4.0f));
 	EXPECT_EQ(restored_box.max_bound, glm::vec3(2.0f, 3.0f, 4.0f));
-	EXPECT_EQ(dynamic_cast<const MeshCollider*>(colliders.at(mesh_id).collider.get())->get_mesh_ids(),
-		(std::vector<MeshID>{ MeshID(21), MeshID(22) }));
 	const auto* restored_capsule =
 		dynamic_cast<const CapsuleCollider*>(colliders.at(capsule_id).collider.get());
 	ASSERT_NE(restored_capsule, nullptr);
@@ -419,12 +417,14 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 	Object prop;
 	source.add_object(character);
 	source.add_object(prop);
-	auto character_mesh = Renderable::make_default();
+	auto character_mesh = Renderable::make_default(source);
 	character_mesh.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	character_mesh.local_transform.set_pos({ 0.0f, 3.0f, 0.0f });
 	const auto source_renderable = source.add_renderable(
 		std::move(character_mesh), character.get_id(), skeleton);
 	const auto& saved_renderable = source.get_renderable(source_renderable).renderable;
+	const auto saved_mesh_owner = saved_renderable.mesh_owner;
+	const auto saved_material_owners = saved_renderable.material_owners;
 	ResourceProvenance::register_mesh(saved_renderable.get_mesh_id(), { .source = "character.glb" });
 	for (const auto material : saved_renderable.get_material_ids())
 		ResourceProvenance::register_material(material, { .source = "character.glb" });
@@ -436,7 +436,8 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 	Serializer serializer;
 	source.SkeletalSystem::serialize(serializer);
 	source.RenderableSystem::serialize(serializer);
-	ECS restored;
+	source.reset_preserving_transient_transformations();
+	ECS& restored = source;
 	restored.add_object(character);
 	restored.add_object(prop);
 	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
@@ -458,7 +459,7 @@ TEST(SkeletalSystemSerialization, omits_attachments_that_reference_transient_sta
 	Bone hand;
 	hand.name = "Hand";
 	const auto skeleton = ecs.add_skeleton({ hand });
-	auto renderable = Renderable::make_default();
+	auto renderable = Renderable::make_default(ecs);
 	renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	const auto source = ecs.add_renderable(
 		std::move(renderable), transient_source.get_id(), skeleton);

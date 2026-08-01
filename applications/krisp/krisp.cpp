@@ -199,9 +199,9 @@ int main(int argc, char* argv[])
 	engine.spawn_cubemap(); // background/horizon
 	Renderable floor_renderable;
 	floor_renderable.pipeline_render_type = ERenderType::COLOR;
-	floor_renderable.mesh_owner = MeshSystem::add(MeshFactory::cube());
+	floor_renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::cube());
 	floor_renderable.material_owners = {
-		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE))
+		engine.get_ecs().get_material_system().add(MaterialFactory::fetch_preset(EMaterialPreset::DIFFUSE))
 	};
 	auto& floor = engine.spawn_object<Object>();
 	engine.attach_renderable(floor.get_id(), std::move(floor_renderable));
@@ -212,7 +212,7 @@ int main(int argc, char* argv[])
 
 	auto& obstacle = engine.spawn_object<Object>();
 	engine.attach_renderable(
-		obstacle.get_id(), Renderable::make_default(MeshSystem::add(MeshFactory::cube())));
+		obstacle.get_id(), Renderable::make_default(engine.get_ecs(), engine.get_ecs().get_mesh_system().add(MeshFactory::cube())));
 	auto& obstacle_transform = engine.get_ecs().get_transformation(obstacle.get_id());
 	obstacle_transform.set_position({ 2.0f, 0.5f, 2.0f });
 	obstacle_transform.set_scale({ 1.0f, 1.0f, 1.0f });
@@ -220,9 +220,9 @@ int main(int argc, char* argv[])
 	engine.get_ecs().add_clickable_entity(obstacle.get_id());
 
 	Renderable light_renderable;
-	light_renderable.mesh_owner = MeshSystem::add(MeshFactory::sphere());
+	light_renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::sphere());
 	light_renderable.material_owners = {
-		MaterialSystem::add(MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE))
+		engine.get_ecs().get_material_system().add(MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE))
 	};
 	light_renderable.pipeline_render_type = ERenderType::COLOR;
 	auto& light_source = engine.spawn_object<Object>();

@@ -52,12 +52,6 @@ unit tests for command ordering, coalescing, capacity/overflow policy, and
 snapshot consistency; run a ThreadSanitizer stress test and record frame/tick
 timings before and after removing the mutex.
 
-## Remove static Material/Mesh Systems
-
-Replace the process-wide `CountableSystem` registries with engine-owned mesh and
-material stores. Preserve explicit shared ownership, stable runtime IDs, and the
-retirement handoff to graphics without introducing global accessors.
-
 ## Add serialization support for procedurally generated meshes and materials
 
 ### Add a cache for procedurally generated meshes and materials

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "identifications.hpp"
+#include "entity_component_system/material_system.hpp"
+#include "entity_component_system/mesh_system.hpp"
 
 #include <filesystem>
 #include <optional>
@@ -34,8 +36,10 @@ public:
 	static const ImportedResourceProvenance* material(MaterialID id);
 	static const ImportedResourceProvenance* skeleton(SkeletonID id);
 	static const ImportedResourceProvenance* animation(AnimationID id);
-	static std::optional<MeshID> find_mesh(const ImportedResourceProvenance& provenance);
-	static std::optional<MaterialID> find_material(const ImportedResourceProvenance& provenance);
+	static std::optional<MeshID> find_mesh(
+		const MeshSystem& meshes, const ImportedResourceProvenance& provenance);
+	static std::optional<MaterialID> find_material(
+		const MaterialSystem& materials, const ImportedResourceProvenance& provenance);
 	static std::optional<SkeletonID> find_skeleton(const ImportedResourceProvenance& provenance);
 	static std::optional<AnimationID> find_animation(const ImportedResourceProvenance& provenance);
 
