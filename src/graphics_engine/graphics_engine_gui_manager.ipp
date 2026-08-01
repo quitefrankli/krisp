@@ -85,6 +85,7 @@ void GraphicsEngineGuiManager::add_render_cmd(VkCommandBuffer& cmd_buffer)
 
 void GraphicsEngineGuiManager::draw()
 {
+	const std::lock_guard lock(engine_ui_manager.state_mutex);
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();

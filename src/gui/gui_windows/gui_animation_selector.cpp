@@ -91,7 +91,6 @@ bool GuiAnimationSelector::handle_key_input(const KeyInput& input)
 	using enum EInputAction;
 	using enum EKeyModifier;
 
-	const std::lock_guard lock(state_mutex);
 	if (!is_visible() || !selected_skeleton || animation_choices.empty()
 		|| input.modifier != NONE
 		|| (input.key != GLFW_KEY_LEFT && input.key != GLFW_KEY_RIGHT))
@@ -115,7 +114,6 @@ bool GuiAnimationSelector::handle_key_input(const KeyInput& input)
 
 void GuiAnimationSelector::process(GameEngine& engine)
 {
-	const std::lock_guard lock(state_mutex);
 	if (should_refresh_animation_files)
 	{
 		should_refresh_animation_files = false;
@@ -320,7 +318,6 @@ void GuiAnimationSelector::process(GameEngine& engine)
 
 void GuiAnimationSelector::draw()
 {
-	const std::lock_guard lock(state_mutex);
 	if (begin())
 	{
 	ImGui::TextWrapped("%s", target_status.c_str());

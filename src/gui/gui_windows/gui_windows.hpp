@@ -12,7 +12,6 @@
 #include <filesystem>
 #include <optional>
 #include <utility>
-#include <mutex>
 #include <array>
 
 
@@ -143,7 +142,6 @@ private:
 	bool status_is_error = false;
 	bool refresh_requested = true;
 	std::array<char, 128> name_buffer{};
-	std::mutex state_mutex;
 };
 
 class GuiObjectSpawner : public EngineUiWindow
@@ -189,7 +187,6 @@ private:
 	std::vector<std::string> songs_paths;
 	std::optional<std::string> audio_to_play;
 	std::optional<std::string> load_error;
-	std::mutex state_mutex;
 };
 
 class GuiStatistics : public EngineUiWindow

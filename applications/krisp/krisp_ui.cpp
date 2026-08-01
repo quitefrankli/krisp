@@ -2,30 +2,30 @@
 
 #include <imgui.h>
 
-#include <utility>
-
 void KrispUiState::publish(const bool moving, const bool main_hand_equipped)
 {
-	const std::lock_guard lock(mutex);
-	current = { moving, main_hand_equipped };
+	const auto state = static_cast<std::uint8_t>(
+		(moving ? MOVING : 0U) | (main_hand_equipped ? MAIN_HAND_EQUIPPED : 0U));
+	current.store(state, std::memory_order_release);
 }
 
 KrispUiState::Snapshot KrispUiState::snapshot() const
 {
-	const std::lock_guard lock(mutex);
-	return current;
+	const auto state = current.load(std::memory_order_acquire);
+	return {
+		.moving = (state & MOVING) != 0,
+		.main_hand_equipped = (state & MAIN_HAND_EQUIPPED) != 0,
+	};
 }
 
 void KrispUiState::request_main_hand_toggle()
 {
-	const std::lock_guard lock(mutex);
-	main_hand_toggle_requested = true;
+	main_hand_toggle_requested.store(true, std::memory_order_release);
 }
 
 bool KrispUiState::take_main_hand_toggle_request()
 {
-	const std::lock_guard lock(mutex);
-	return std::exchange(main_hand_toggle_requested, false);
+	return main_hand_toggle_requested.exchange(false, std::memory_order_acq_rel);
 }
 
 KrispEquipmentWindow::KrispEquipmentWindow(KrispUiState& state) :

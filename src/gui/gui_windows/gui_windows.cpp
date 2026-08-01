@@ -65,7 +65,6 @@ void GuiSaveManager::queue(const Action action, const std::string& name)
 
 void GuiSaveManager::draw()
 {
-	const std::lock_guard lock(state_mutex);
 	if (begin())
 	{
 		if (ImGui::BeginTable("SaveFiles", 2,
@@ -122,12 +121,9 @@ void GuiSaveManager::process(GameEngine& engine)
 {
 	std::optional<Request> request;
 	bool refresh = false;
-	{
-		const std::lock_guard lock(state_mutex);
-		request = std::move(pending);
-		pending.reset();
-		refresh = std::exchange(refresh_requested, false);
-	}
+	request = std::move(pending);
+	pending.reset();
+	refresh = std::exchange(refresh_requested, false);
 	if (!request && !refresh)
 		return;
 
@@ -154,7 +150,6 @@ void GuiSaveManager::process(GameEngine& engine)
 			}
 		}
 		const auto refreshed = store.list();
-		const std::lock_guard lock(state_mutex);
 		entries = refreshed;
 		status = std::move(result);
 		status_is_error = false;
@@ -165,7 +160,6 @@ void GuiSaveManager::process(GameEngine& engine)
 	}
 	catch (const std::exception& error)
 	{
-		const std::lock_guard lock(state_mutex);
 		status = error.what();
 		status_is_error = true;
 	}
@@ -396,15 +390,12 @@ void GuiMusic::process(GameEngine&)
 	float requested_pitch;
 	glm::vec3 requested_position;
 	bool requested_loop;
-	{
-		const std::lock_guard lock(state_mutex);
-		requested_audio = std::move(audio_to_play);
-		audio_to_play.reset();
-		requested_gain = gain;
-		requested_pitch = pitch;
-		requested_position = position;
-		requested_loop = loop;
-	}
+	requested_audio = std::move(audio_to_play);
+	audio_to_play.reset();
+	requested_gain = gain;
+	requested_pitch = pitch;
+	requested_position = position;
+	requested_loop = loop;
 
 	try
 	{
@@ -417,20 +408,17 @@ void GuiMusic::process(GameEngine&)
 			audio_source->set_audio(
 				Utility::get_audio(*requested_audio).string(), AudioLoadMode::STREAM);
 			audio_source->play();
-			const std::lock_guard lock(state_mutex);
 			load_error.reset();
 		}
 	}
 	catch (const std::exception& error)
 	{
-		const std::lock_guard lock(state_mutex);
 		load_error = error.what();
 	}
 }
 
 void GuiMusic::draw()
 {
-	const std::lock_guard lock(state_mutex);
 	if (begin())
 	{
 

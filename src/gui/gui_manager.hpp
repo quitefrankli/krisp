@@ -6,9 +6,11 @@
 #include "gui_windows/gui_material_editor.hpp"
 #include "gui_windows/gui_model_spawner.hpp"
 #include "gui_windows/persistent_gui_windows.hpp"
+#include "application_ui_manager.hpp"
 
 #include <vector>
 #include <memory>
+#include <mutex>
 #include <type_traits>
 #include <unordered_map>
 
@@ -17,6 +19,8 @@
 // GraphicsEngineGuiManager is the sole owner of the ImGui context.
 class EngineUiManager
 {
+	friend class GraphicsEngineGuiManager;
+
 protected:
 	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
 	std::vector<std::unique_ptr<GuiWindow>> persistent_windows;
@@ -91,6 +95,7 @@ public:
 	}
 	bool handle_key_input(const KeyInput& input)
 	{
+		const std::lock_guard lock(state_mutex);
 		return animation_selector.handle_key_input(input);
 	}
 
@@ -110,14 +115,24 @@ public:
 public: // for GameEngine
 	void process(GameEngine& engine)
 	{
+		const std::lock_guard lock(state_mutex);
 		for (auto& gui : gui_windows)
 		{
 			gui->process(engine);
 		}
 	}
+	void process_application(ApplicationUiManager& manager, GameEngine& engine)
+	{
+		const std::lock_guard lock(state_mutex);
+		manager.process(engine);
+	}
 	void process_persistent(GameEngine& engine)
 	{
+		const std::lock_guard lock(state_mutex);
 		for (auto& gui : persistent_windows)
 			gui->process(engine);
 	}
+
+private:
+	std::mutex state_mutex;
 };

@@ -196,3 +196,12 @@ render path reads stable vectors without registry locking. Application windows
 are traversed twice to preserve window-before-overlay ordering; this is linear
 in the typically small number of application UI elements and has not been
 measured.
+
+Engine-window drawing, processing, persistent-window updates, application-window
+processing, and editor keyboard handling share one coarse mutex. This removes
+per-window lock acquisition and also synchronizes windows that previously shared
+plain state without a lock. The graphics and game threads cannot process engine
+UI concurrently, and expensive panel operations such as scene or resource loading
+can therefore stall UI drawing. This temporary trade-off has not been measured;
+keep expensive work out of the critical section when the UI synchronization model
+is refined.

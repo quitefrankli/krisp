@@ -61,7 +61,4 @@ private:
 	float playback_speed = SkeletalAnimationSystem::DEFAULT_PLAYBACK_SPEED;
 	bool paused = false;
 	bool playback_active = false;
-	// process() runs on the game thread while draw() runs on the graphics
-	// thread. All selector state, including the cached animation IDs, is shared.
-	std::mutex state_mutex;
 };

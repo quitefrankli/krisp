@@ -20,11 +20,37 @@ Replace the current Blinn-Phong lighting path with a defined physically based
 material model, including the supported glTF metallic-roughness inputs and an
 image-based-lighting strategy.
 
-## Review GUI and shared-resource synchronization
+## Replace the coarse GUI mutex with asynchronous state exchange
 
-Document the thread ownership of GUI state and the global mesh/material
-registries. Retain locks required for cross-thread access and remove only locks
-shown to be unnecessary.
+The current manager-wide mutex is a temporary correctness boundary between
+game-thread `process()` calls and graphics-thread `draw()` calls. It prevents
+data races, but serializes the two loops and allows scene saves, resource loads,
+and other expensive panel actions to stall GUI rendering.
+
+Replace shared mutable window state with explicit thread ownership:
+
+- The graphics thread exclusively owns ImGui, window visibility, selections,
+  text buffers, and other widget state.
+- The game thread exclusively owns engine state and executes every operation
+  that mutates the scene, ECS, audio, or game/application state.
+- Send discrete UI actions from graphics to game through a bounded SPSC command
+  queue. Coalesce replaceable values such as sliders so stale intermediate
+  updates cannot fill the queue; define explicit overflow handling for actions
+  that must not be dropped.
+- Publish game-to-GUI data as immutable, latest-wins snapshots using a
+  double/triple-buffered mailbox with atomic slot publication. Snapshots should
+  contain only stable IDs and copied display data, never references into mutable
+  engine containers.
+- Keep file and resource work outside synchronization sections. Return its
+  result, refreshed lists, and error status in a later snapshot.
+- Apply the same model to engine panels, persistent overlays, application UI,
+  and editor keyboard commands rather than retaining special cross-thread paths.
+
+Migrate one panel at a time behind shared command/snapshot infrastructure. Once
+all GUI state has a single owner, remove `EngineUiManager::state_mutex`. Add
+unit tests for command ordering, coalescing, capacity/overflow policy, and
+snapshot consistency; run a ThreadSanitizer stress test and record frame/tick
+timings before and after removing the mutex.
 
 ## Remove static Material/Mesh Systems
 

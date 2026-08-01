@@ -3,7 +3,8 @@
 #include <gui/application_ui_manager.hpp>
 
 #include <array>
-#include <mutex>
+#include <atomic>
+#include <cstdint>
 
 class KrispUiState
 {
@@ -20,9 +21,10 @@ public:
 	bool take_main_hand_toggle_request();
 
 private:
-	mutable std::mutex mutex;
-	Snapshot current;
-	bool main_hand_toggle_requested = false;
+	static constexpr std::uint8_t MOVING = 1U << 0U;
+	static constexpr std::uint8_t MAIN_HAND_EQUIPPED = 1U << 1U;
+	std::atomic<std::uint8_t> current = 0;
+	std::atomic<bool> main_hand_toggle_requested = false;
 };
 
 class KrispEquipmentWindow : public ApplicationUiWindow

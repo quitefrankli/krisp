@@ -12,7 +12,6 @@ GuiFPSCounter::GuiFPSCounter() :
 
 void GuiFPSCounter::process(GameEngine& engine)
 {
-	const std::lock_guard lock(mutex);
 	tps = engine.get_tps();
 	fps = engine.get_graphics_engine().get_fps();
 }
@@ -21,11 +20,8 @@ void GuiFPSCounter::draw()
 {
 	float current_fps = 0.0f;
 	float current_tps = 0.0f;
-	{
-		const std::lock_guard lock(mutex);
-		current_fps = fps;
-		current_tps = tps;
-	}
+	current_fps = fps;
+	current_tps = tps;
 	const ImGuiViewport* viewport = ImGui::GetMainViewport();
 	ImGui::SetNextWindowPos(
 		ImVec2(

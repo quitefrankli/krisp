@@ -177,7 +177,7 @@ void GameEngine::main_loop(const float time_delta)
 	if (game_mode == EGameMode::EDITOR)
 		get_gui_manager().process(*this);
 	else
-		application_ui_manager.process(*this);
+		get_gui_manager().process_application(application_ui_manager, *this);
 
 	if (game_mode == EGameMode::NORMAL
 		|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
