@@ -2,6 +2,7 @@
 #include "ecs.hpp"
 #include "serialization/serialization_helpers.hpp"
 #include "serialization/resource_provenance.hpp"
+#include "serialization/scene_resources.hpp"
 #include "resource_loader/resource_loader.hpp"
 
 #include <algorithm>
@@ -157,18 +158,19 @@ void SkeletalSystem::serialize(Serializer& out) const
 	}
 }
 
-void SkeletalSystem::deserialize(const Deserializer& in)
+void SkeletalSystem::deserialize(const Deserializer& in, SceneResourceReader& resources)
 {
 	std::unordered_map<SkeletonID, SkeletalComponent> restored;
 	const auto entries = in.child("skeletal_system").elements();
 	for (std::size_t index = 0; index < entries.size(); ++index) {
 		const auto& entry = entries[index];
-		const SkeletonID id(entry.read<std::uint64_t>("skeleton_id"));
+		const SkeletonID saved_id(entry.read<std::uint64_t>("skeleton_id"));
 		const auto fields = entry.keys();
 		if (std::ranges::find(fields, "imported_source") != fields.end()) {
 			const auto restored_id = ResourceProvenance::find_skeleton(read_imported_source(entry.child("imported_source")));
 			if (!restored_id || !skeletons.contains(*restored_id))
 				throw SerializationError("Missing imported skeleton resource at " + entry.path());
+			resources.register_skeleton_id(saved_id, *restored_id);
 			if (!restored.emplace(*restored_id, skeletons.at(*restored_id)).second)
 				throw SerializationError("Duplicate imported skeleton resource at " + entry.path());
 			continue;
@@ -186,6 +188,8 @@ void SkeletalSystem::deserialize(const Deserializer& in)
 			bones.push_back(std::move(bone));
 		}
 		validate_bones(bones, "$.skeletal_system[" + std::to_string(index) + "].bones");
+		const auto id = SkeletonID::generate_new_id();
+		resources.register_skeleton_id(saved_id, id);
 		if (!restored.emplace(id, SkeletalComponent(bones)).second)
 			throw SerializationError("Duplicate skeleton ID at $.skeletal_system[" + std::to_string(index) + "].skeleton_id");
 	}
@@ -204,7 +208,7 @@ void SkeletalSystem::deserialize(const Deserializer& in)
 	bone_attachments.clear();
 }
 
-void SkeletalSystem::deserialize_bone_attachments(const Deserializer& in)
+void SkeletalSystem::deserialize_bone_attachments(const Deserializer& in, SceneResourceReader& resources)
 {
 	std::unordered_map<Entity, BoneAttachment> restored;
 	const auto root_keys = in.keys();
@@ -214,7 +218,8 @@ void SkeletalSystem::deserialize_bone_attachments(const Deserializer& in)
 	}
 	for (const auto& entry : in.child("bone_attachments").elements()) {
 		const Entity entity(entry.read<std::uint64_t>("entity_id"));
-		const RenderableID source_id(entry.read<std::uint64_t>("source_renderable_id"));
+		const auto source_id = resources.read_renderable_id(
+			RenderableID(entry.read<std::uint64_t>("source_renderable_id")));
 		if (!get_ecs().has_transformation(entity))
 			throw SerializationError("Unknown attached entity at " + entry.path());
 		if (!get_ecs().has_renderable(source_id))
@@ -299,7 +304,7 @@ void SkeletalAnimationSystem::serialize(Serializer& out) const
 		throw SerializationError("Dangling skeletal animation state");
 }
 
-void SkeletalAnimationSystem::deserialize(const Deserializer& in)
+void SkeletalAnimationSystem::deserialize(const Deserializer& in, SceneResourceReader& resources)
 {
 	const auto system = in.child("skeletal_animation_system");
 	std::unordered_map<AnimationID, SkeletalAnimation> restored_animations;
@@ -369,7 +374,8 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in)
 				throw SerializationError("Missing imported skeleton resource at " + entry.path());
 		}
 		const SkeletonID skeleton_id = imported_skeleton
-			? *imported_skeleton : SkeletonID(entry.read<std::uint64_t>("skeleton_id"));
+			? *imported_skeleton
+			: resources.read_skeleton_id(SkeletonID(entry.read<std::uint64_t>("skeleton_id")));
 		const AnimationID saved_animation_id(entry.read<std::uint64_t>("animation_id"));
 		const auto remapped = animation_remap.find(saved_animation_id);
 		if (remapped == animation_remap.end())

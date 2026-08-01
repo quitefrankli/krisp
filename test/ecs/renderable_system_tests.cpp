@@ -1,6 +1,7 @@
 #include <entity_component_system/ecs.hpp>
 #include <serialization/resource_provenance.hpp>
 #include <serialization/serializer.hpp>
+#include "serialization_test_helper.hpp"
 
 #include <gtest/gtest.h>
 
@@ -169,7 +170,7 @@ TEST(RenderableSystem, deserialization_preserves_transient_grouped_attachments)
 	Serializer empty;
 	empty.sequence("renderable_system");
 
-	ecs.RenderableSystem::deserialize(Deserializer::parse(empty.emit()));
+	deserialize_renderables(ecs, Deserializer::parse(empty.emit()));
 
 	ASSERT_TRUE(ecs.has_renderable(id));
 	EXPECT_EQ(ecs.get_renderable(id).object_id, transient.get_id());
@@ -194,12 +195,14 @@ TEST(RenderableSystem, serialization_restores_persistent_id_group_and_imported_s
 		ResourceProvenance::register_material(material, {
 			.source = "character.glb", .scene = 0, .node = 2, .primitive = 0 });
 	Serializer serializer;
-	ecs.RenderableSystem::serialize(serializer);
+	serialize_renderables(ecs, serializer);
 	ecs.set_renderable_visibility(id, false);
 
-	ecs.RenderableSystem::deserialize(Deserializer::parse(serializer.emit()));
-	ASSERT_TRUE(ecs.has_renderable(id));
-	EXPECT_EQ(ecs.get_renderable(id).object_id, group.get_id());
-	EXPECT_EQ(ecs.get_renderable(id).skeleton_id, skeleton);
-	EXPECT_TRUE(ecs.get_renderable(id).visible);
+	deserialize_renderables(ecs, Deserializer::parse(serializer.emit()));
+	const auto restored_ids = ecs.get_renderable_ids(group.get_id());
+	ASSERT_EQ(restored_ids.size(), 1);
+	EXPECT_NE(restored_ids.front(), id);
+	EXPECT_EQ(ecs.get_renderable(restored_ids.front()).object_id, group.get_id());
+	EXPECT_EQ(ecs.get_renderable(restored_ids.front()).skeleton_id, skeleton);
+	EXPECT_TRUE(ecs.get_renderable(restored_ids.front()).visible);
 }

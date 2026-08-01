@@ -9,11 +9,18 @@
 #include <string>
 #include <unordered_map>
 
-// Identity of data imported from a glTF/GLB document.  Runtime IDs are not
-// stable across a scene reload; this record is the stable identity used by
+// Identity of data loaded from an external model or texture. Runtime IDs are
+// not stable across a scene reload; this record is the stable identity used by
 // the scene serializer.
+enum class EExternalResourceKind
+{
+	Model,
+	Texture,
+};
+
 struct ImportedResourceProvenance
 {
+	EExternalResourceKind kind = EExternalResourceKind::Model;
 	std::string source;
 	int scene = -1;
 	int node = -1;

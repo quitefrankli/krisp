@@ -1,6 +1,7 @@
 #include <entity_component_system/ecs.hpp>
 #include <serialization/serializer.hpp>
 #include <serialization/resource_provenance.hpp>
+#include "serialization_test_helper.hpp"
 
 #include <gtest/gtest.h>
 
@@ -79,7 +80,7 @@ TEST(EquipmentSystem, renderable_replacement_remaps_equipment_references)
 	fixture.ecs.process(0.0f);
 
 	Serializer serializer;
-	EXPECT_NO_THROW(fixture.ecs.serialize(serializer));
+	EXPECT_NO_THROW(serialize_ecs(fixture.ecs, serializer));
 	EXPECT_EQ(
 		fixture.ecs.get_position(fixture.first_item.get_id()),
 		glm::vec3(2.0f, 1.0f, 0.0f));
@@ -137,10 +138,10 @@ TEST(EquipmentSystem, serializes_and_restores_equipment)
 	ASSERT_TRUE(source.ecs.equip(source.wearer.get_id(), source.wearer_renderable,
 		source.first_item.get_id(), source.definition(EquipmentSlot::Head)));
 	Serializer serializer;
-	source.ecs.serialize(serializer);
+	serialize_ecs(source.ecs, serializer);
 
 	ASSERT_EQ(source.ecs.unequip(source.wearer.get_id(), EquipmentSlot::Head), source.first_item.get_id());
-	source.ecs.deserialize(Deserializer::parse(serializer.emit()));
+	deserialize_ecs(source.ecs, Deserializer::parse(serializer.emit()));
 	EXPECT_EQ(source.ecs.equipped_item(source.wearer.get_id(), EquipmentSlot::Head), source.first_item.get_id());
 	EXPECT_FALSE(source.ecs.equipped_item(source.wearer.get_id(), EquipmentSlot::MainHand));
 }
@@ -157,9 +158,10 @@ TEST(EquipmentSystem, malformed_attachment_fails_without_replacing_current_equip
 	malformed.replace(malformed.find("attachment_bone: hand"), std::string("attachment_bone: hand").size(),
 		"attachment_bone: missing");
 
-	EXPECT_THROW(
-		fixture.ecs.EquipmentSystem::deserialize(Deserializer::parse(malformed)),
-		SerializationError);
+	SceneResourceReader resources(fixture.ecs, serialization_test_resource_directory());
+	resources.register_renderable_id(fixture.wearer_renderable, fixture.wearer_renderable);
+	EXPECT_THROW(fixture.ecs.EquipmentSystem::deserialize(
+		Deserializer::parse(malformed), resources), SerializationError);
 	EXPECT_EQ(
 		fixture.ecs.equipped_item(fixture.wearer.get_id(), EquipmentSlot::MainHand),
 		fixture.first_item.get_id());
@@ -173,7 +175,8 @@ TEST(EquipmentSystem, checkpoint_without_equipment_clears_current_equipment)
 		fixture.first_item.get_id(), fixture.definition()));
 	Serializer empty;
 
-	fixture.ecs.EquipmentSystem::deserialize(Deserializer::parse(empty.emit()));
+	SceneResourceReader resources(fixture.ecs, serialization_test_resource_directory());
+	fixture.ecs.EquipmentSystem::deserialize(Deserializer::parse(empty.emit()), resources);
 
 	EXPECT_FALSE(fixture.ecs.equipped_item(
 		fixture.wearer.get_id(), EquipmentSlot::MainHand));

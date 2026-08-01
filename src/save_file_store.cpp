@@ -28,7 +28,7 @@ std::string SaveFileStore::validate_name(const std::string_view input)
 
 std::filesystem::path SaveFileStore::path_for(const std::string_view name) const
 {
-	return root / (validate_name(name) + ".yaml");
+	return root / validate_name(name);
 }
 
 std::filesystem::path SaveFileStore::path_for_overwrite(const std::string_view name) const
@@ -38,7 +38,7 @@ std::filesystem::path SaveFileStore::path_for_overwrite(const std::string_view n
 
 bool SaveFileStore::remove(const std::string_view name) const
 {
-	return std::filesystem::remove(path_for(name));
+	return std::filesystem::remove_all(path_for(name)) > 0;
 }
 
 std::string SaveFileStore::format_modified(const std::filesystem::file_time_type modified)
@@ -61,10 +61,13 @@ std::vector<SaveFileEntry> SaveFileStore::list() const
 
 	for (const auto& item : std::filesystem::directory_iterator(root))
 	{
-		if (!item.is_regular_file() || item.path().extension() != ".yaml")
+		if (!item.is_directory() || item.path().filename().string().starts_with(".krisp-save-"))
 			continue;
-		const auto modified = item.last_write_time();
-		entries.push_back({ item.path().stem().string(), item.path(), modified, format_modified(modified) });
+		const auto scene = item.path() / "scene.yaml";
+		if (!std::filesystem::is_regular_file(scene))
+			continue;
+		const auto modified = std::filesystem::last_write_time(scene);
+		entries.push_back({ item.path().filename().string(), item.path(), modified, format_modified(modified) });
 	}
 	std::ranges::sort(entries, [](const auto& lhs, const auto& rhs) {
 		return lhs.modified != rhs.modified ? lhs.modified > rhs.modified : lhs.name < rhs.name;

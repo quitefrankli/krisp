@@ -24,9 +24,10 @@ protected:
 		std::filesystem::remove_all(root);
 	}
 
-	void write(const std::string& filename)
+	void write(const std::string& name)
 	{
-		std::ofstream(root / filename) << "scene: {}\n";
+		std::filesystem::create_directory(root / name);
+		std::ofstream(root / name / "scene.yaml") << "scene: {}\n";
 	}
 
 	std::filesystem::path root;
@@ -36,24 +37,24 @@ protected:
 TEST_F(SaveFileStoreTests, validates_names_and_resolves_save_paths)
 {
 	SaveFileStore store(root);
-	EXPECT_EQ(store.path_for_overwrite(" My Save "), root / "My Save.yaml");
+	EXPECT_EQ(store.path_for_overwrite(" My Save "), root / "My Save");
 
 	for (const auto* invalid : { "", "   ", ".", "..", "slot.yaml", "a/b", "a\\b" })
 		EXPECT_THROW(store.path_for_overwrite(invalid), std::invalid_argument);
 
-	write("existing.yaml");
-	EXPECT_EQ(store.path_for_overwrite("existing"), root / "existing.yaml");
+	write("existing");
+	EXPECT_EQ(store.path_for_overwrite("existing"), root / "existing");
 }
 
 TEST_F(SaveFileStoreTests, lists_only_yaml_files_newest_first)
 {
-	write("older.yaml");
-	write("newer.yaml");
-	write("ignored.txt");
-	std::filesystem::create_directory(root / "directory.yaml");
+	write("older");
+	write("newer");
+	std::ofstream(root / "ignored.yaml") << "scene: {}\n";
+	std::filesystem::create_directory(root / "incomplete");
 	const auto now = std::filesystem::file_time_type::clock::now();
-	std::filesystem::last_write_time(root / "older.yaml", now - std::chrono::hours(1));
-	std::filesystem::last_write_time(root / "newer.yaml", now);
+	std::filesystem::last_write_time(root / "older" / "scene.yaml", now - std::chrono::hours(1));
+	std::filesystem::last_write_time(root / "newer" / "scene.yaml", now);
 
 	const auto entries = SaveFileStore(root).list();
 	ASSERT_EQ(entries.size(), 2u);
@@ -64,10 +65,11 @@ TEST_F(SaveFileStoreTests, lists_only_yaml_files_newest_first)
 
 TEST_F(SaveFileStoreTests, discovers_and_deletes_quicksave_without_escaping_root)
 {
-	write("quicksave.yaml");
+	write("quicksave");
+	std::ofstream(root / "quicksave" / "mesh_1.dat") << "payload";
 	SaveFileStore store(root);
 	ASSERT_EQ(store.list().front().name, "quicksave");
 	EXPECT_TRUE(store.remove("quicksave"));
-	EXPECT_FALSE(std::filesystem::exists(root / "quicksave.yaml"));
+	EXPECT_FALSE(std::filesystem::exists(root / "quicksave"));
 	EXPECT_THROW(store.remove("../outside"), std::invalid_argument);
 }

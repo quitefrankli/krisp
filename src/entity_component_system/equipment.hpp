@@ -7,6 +7,8 @@
 #include <string>
 #include <unordered_map>
 
+class SceneResourceReader;
+
 enum class EquipmentSlot
 {
 	MainHand,
@@ -37,7 +39,7 @@ public:
 	std::optional<Entity> unequip(Entity wearer, EquipmentSlot slot);
 	std::optional<Entity> equipped_item(Entity wearer, EquipmentSlot slot) const;
 	void serialize(Serializer& out) const;
-	void deserialize(const Deserializer& in);
+	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 
 protected:
 	void remove_entity(Entity id);

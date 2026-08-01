@@ -4,6 +4,7 @@
 #include "utility.hpp"
 #include "collision/collision_detector.hpp"
 #include "serialization/serialization_helpers.hpp"
+#include "serialization/scene_resources.hpp"
 
 #include <quill/LogMacros.h>
 
@@ -87,7 +88,7 @@ const Collider* ColliderSystem::get_collider(EntityID id) const
 	return collider;
 }
 
-void ColliderSystem::serialize(Serializer& out) const
+void ColliderSystem::serialize(Serializer& out, SceneResourceWriter& resources) const
 {
 	std::vector<EntityID> ids;
 	ids.reserve(components.size());
@@ -160,9 +161,9 @@ void ColliderSystem::serialize(Serializer& out) const
 			if (!typed)
 				throw SerializationError("Invalid mesh collider at " + collider_path(index, "type"));
 			entry.write("type", "mesh");
-			auto mesh_ids = data.sequence("mesh_ids");
+			auto mesh_ids = data.sequence("meshes");
 			for (const auto mesh_id : typed->get_mesh_ids())
-				mesh_ids.append(mesh_id.get_underlying());
+				resources.write_mesh_reference(mesh_ids.append_map(), mesh_id);
 			break;
 		}
 		default:
@@ -171,7 +172,7 @@ void ColliderSystem::serialize(Serializer& out) const
 	}
 }
 
-void ColliderSystem::deserialize(const Deserializer& in)
+void ColliderSystem::deserialize(const Deserializer& in, SceneResourceReader& resources)
 {
 	std::unordered_map<EntityID, ColliderComponent> restored;
 	const auto entries = in.child("collider_system").elements();
@@ -204,9 +205,8 @@ void ColliderSystem::deserialize(const Deserializer& in)
 				Serialization::read_vec3(data, "maximum")));
 		} else if (type == "mesh") {
 			std::vector<MeshHandle> meshes;
-			for (const auto& mesh_id : data.child("mesh_ids").elements())
-				meshes.push_back(get_ecs().get_mesh_system().acquire(
-					MeshID(mesh_id.as<std::uint64_t>())));
+			for (const auto& mesh : data.child("meshes").elements())
+				meshes.push_back(resources.read_mesh_reference(mesh));
 			collider = std::make_unique<MeshCollider>(std::move(meshes));
 		} else {
 			throw SerializationError("Unsupported collider type at " + collider_path(index, "type"));

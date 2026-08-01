@@ -46,8 +46,14 @@ MaterialHandle ResourceLoader::fetch_texture(
 	if (semantic == ETextureSemantic::COUNT)
 		throw ResourceLoadError("ResourceLoader::fetch_texture: invalid texture semantic");
 	const auto resolved_file_path = resolve_resource_filename(logical_resource_name, Utility::get_texture);
-	return global_resource_loader.load_texture(
+	auto owner = global_resource_loader.load_texture(
 		materials, resolved_file_path, logical_resource_name, semantic);
+	ResourceProvenance::register_material(owner->get_id(), {
+		.kind = EExternalResourceKind::Texture,
+		.source = std::string(logical_resource_name),
+		.texture = static_cast<int>(semantic),
+	});
+	return owner;
 }
 
 namespace

@@ -83,7 +83,7 @@ private:
 
 std::filesystem::path save_path(const std::string_view name)
 {
-	return Utility::get_saves_path() / (std::string(name) + ".yaml");
+	return Utility::get_saves_path() / std::string(name);
 }
 
 size_t count_persistent_objects(const GameEngine& engine)
@@ -539,7 +539,7 @@ TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 	EXPECT_FALSE(renderable.casts_shadow);
 }
 
-TEST_F(GameEngineTests, scene_save_rejects_procedural_meshes)
+TEST_F(GameEngineTests, scene_round_trips_generated_mesh_and_color_material)
 {
 	ColorMaterial color;
 	color.data.diffuse = { 0.2f, 0.3f, 0.4f };
@@ -547,12 +547,120 @@ TEST_F(GameEngineTests, scene_save_rejects_procedural_meshes)
 	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::cube());
 	Renderable renderable{ .pipeline_render_type = ERenderType::COLOR,
 		.mesh_owner = mesh_owner, .material_owners = { original_owner } };
-	spawn_renderable_object(engine, renderable);
+	auto& object = spawn_renderable_object(engine, renderable);
+	engine.get_ecs().add_mesh_collider(object.get_id());
+	const auto object_id = object.get_id();
 	const std::string save_name = "krisp_scene_material_test";
 	const auto path = save_path(save_name);
 
-	EXPECT_THROW(engine.save_scene(save_name), SerializationError);
-	std::filesystem::remove(path);
+	engine.save_scene(save_name);
+	EXPECT_TRUE(std::filesystem::is_regular_file(path / "scene.yaml"));
+	EXPECT_EQ(std::ranges::count_if(std::filesystem::directory_iterator(path), [](const auto& entry) {
+		return entry.path().extension() == ".dat";
+	}), 1);
+	engine.load_scene(save_name);
+	const auto& restored = engine.get_ecs().get_renderable(
+		only_renderable_id(engine, object_id)).renderable;
+	const auto& restored_mesh = dynamic_cast<const ColorMesh&>(restored.mesh_owner->get());
+	const auto& restored_material = dynamic_cast<const ColorMaterial&>(restored.material_owners[0]->get());
+	EXPECT_EQ(restored_mesh.get_indices(), dynamic_cast<const ColorMesh&>(mesh_owner->get()).get_indices());
+	EXPECT_EQ(restored_material.data.diffuse, color.data.diffuse);
+	EXPECT_NE(engine.get_ecs().get_collider(object_id), nullptr);
+	std::filesystem::remove_all(path);
+}
+
+TEST_F(GameEngineTests, scene_load_replaces_renderable_identity_when_resources_are_rebuilt)
+{
+	auto& object = spawn_renderable_object(engine, Renderable::make_default(engine.get_ecs()));
+	const auto old_id = only_renderable_id(engine, object.get_id());
+	const auto object_id = object.get_id();
+	engine.main_loop(0.1f);
+	const std::string save_name = "krisp_scene_renderable_identity_test";
+	const auto path = save_path(save_name);
+	engine.save_scene(save_name);
+
+	engine.load_scene(save_name);
+	const auto restored_ids = engine.get_ecs().get_renderable_ids(object_id);
+	ASSERT_EQ(restored_ids.size(), 1);
+	EXPECT_NE(restored_ids.front(), old_id);
+	EXPECT_NO_THROW(engine.main_loop(0.1f));
+	std::filesystem::remove_all(path);
+}
+
+TEST_F(GameEngineTests, scene_round_trips_generated_texture_payload_and_metadata)
+{
+	auto texture = std::make_unique<TextureMaterial>();
+	texture->width = 2;
+	texture->height = 1;
+	texture->channels = 4;
+	texture->data_len = 8;
+	texture->mip_sizes = { 8 };
+	texture->semantic = ETextureSemantic::NORMAL;
+	texture->source = "generated noise";
+	std::vector<std::byte> pixels{
+		std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4},
+		std::byte{5}, std::byte{6}, std::byte{7}, std::byte{8} };
+	texture->data = std::make_unique<OwnedTextureData>(pixels);
+	auto texture_owner = engine.get_ecs().get_material_system().add(std::move(texture));
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(
+		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
+	Renderable renderable{ .pipeline_render_type = ERenderType::STANDARD,
+		.mesh_owner = mesh_owner, .material_owners = { texture_owner } };
+	auto& object = spawn_renderable_object(engine, renderable);
+	const auto object_id = object.get_id();
+	const std::string save_name = "krisp_scene_generated_texture_test";
+	const auto path = save_path(save_name);
+
+	engine.save_scene(save_name);
+	EXPECT_EQ(std::ranges::count_if(std::filesystem::directory_iterator(path), [](const auto& entry) {
+		return entry.path().extension() == ".dat";
+	}), 2);
+	engine.load_scene(save_name);
+	const auto& restored = dynamic_cast<const TextureMaterial&>(
+		engine.get_ecs().get_renderable(only_renderable_id(engine, object_id))
+			.renderable.material_owners[0]->get());
+	EXPECT_EQ(restored.width, 2u);
+	EXPECT_EQ(restored.height, 1u);
+	EXPECT_EQ(restored.semantic, ETextureSemantic::NORMAL);
+	EXPECT_EQ(restored.source, "generated noise");
+	ASSERT_EQ(restored.data_len, pixels.size());
+	EXPECT_EQ(std::memcmp(restored.data->get(), pixels.data(), pixels.size()), 0);
+	std::filesystem::remove_all(path);
+}
+
+TEST_F(GameEngineTests, scene_round_trips_generated_skinned_mesh)
+{
+	SkinnedVertices vertices(3);
+	vertices[0].pos = { 0.0f, 0.0f, 0.0f };
+	vertices[1].pos = { 1.0f, 0.0f, 0.0f };
+	vertices[2].pos = { 0.0f, 1.0f, 0.0f };
+	for (auto& vertex : vertices) {
+		vertex.normal = { 0.0f, 0.0f, 1.0f };
+		vertex.bone_ids = glm::vec4(0.0f);
+		vertex.bone_weights = { 1.0f, 0.0f, 0.0f, 0.0f };
+	}
+	auto mesh = engine.get_ecs().get_mesh_system().add(
+		std::make_unique<SkinnedMesh>(vertices, VertexIndices{ 0, 1, 2 }));
+	auto material = engine.get_ecs().get_material_system().add(std::make_unique<ColorMaterial>());
+	Bone bone;
+	bone.name = "root";
+	const auto skeleton = engine.get_ecs().add_skeleton({ bone });
+	Renderable renderable{ .pipeline_render_type = ERenderType::SKINNED_COLOR,
+		.mesh_owner = mesh, .material_owners = { material } };
+	auto& object = spawn_renderable_object(engine, std::move(renderable), skeleton);
+	const auto object_id = object.get_id();
+	const std::string save_name = "krisp_scene_generated_skinned_mesh_test";
+	const auto path = save_path(save_name);
+
+	engine.save_scene(save_name);
+	engine.load_scene(save_name);
+	const auto& restored = dynamic_cast<const SkinnedMesh&>(
+		engine.get_ecs().get_renderable(only_renderable_id(engine, object_id))
+			.renderable.mesh_owner->get());
+	ASSERT_EQ(restored.get_vertices().size(), vertices.size());
+	EXPECT_EQ(restored.get_vertices()[2].pos, vertices[2].pos);
+	EXPECT_EQ(restored.get_indices(), (VertexIndices{ 0, 1, 2 }));
+	std::filesystem::remove_all(path);
 }
 
 TEST_F(GameEngineTests, scene_load_is_visible_in_the_next_completed_snapshot)
@@ -566,27 +674,32 @@ TEST_F(GameEngineTests, scene_load_is_visible_in_the_next_completed_snapshot)
 
 	engine.load_scene(save_name);
 	engine.main_loop(0.1f);
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 
 	EXPECT_NE(engine.get_ecs().get_collider(object_id), nullptr);
 	EXPECT_TRUE(engine.get_ecs().get_renderable_ids(object_id).empty());
 }
 
-TEST_F(GameEngineTests, scene_save_rejects_procedural_materials)
+TEST_F(GameEngineTests, scene_references_external_texture_without_embedding_it)
 {
 	auto original_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture1.jpg");
-	auto mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::cube());
-	ResourceProvenance::register_mesh(mesh_owner->get_id(), {
-		.source = "static_mesh_textured.gltf", .scene = 0, .node = 0, .primitive = 0 });
+	auto mesh_owner = engine.get_ecs().get_mesh_system().add(
+		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	Renderable renderable{ .pipeline_render_type = ERenderType::STANDARD,
 		.mesh_owner = mesh_owner, .material_owners = { original_owner } };
 	spawn_renderable_object(engine, renderable);
 	const std::string save_name = "krisp_scene_texture_test";
 	const auto path = save_path(save_name);
 
-	EXPECT_THROW(engine.save_scene(save_name), SerializationError);
-	std::filesystem::remove(path);
-	ResourceProvenance::clear();
+	engine.save_scene(save_name);
+	EXPECT_EQ(std::ranges::count_if(std::filesystem::directory_iterator(path), [](const auto& entry) {
+		return entry.path().extension() == ".dat";
+	}), 1);
+	std::ifstream yaml(path / "scene.yaml");
+	const std::string contents((std::istreambuf_iterator<char>(yaml)), {});
+	EXPECT_NE(contents.find("texture1.jpg"), std::string::npos);
+	EXPECT_NO_THROW(engine.load_scene(save_name));
+	std::filesystem::remove_all(path);
 }
 
 TEST_F(GameEngineTests, scene_round_trips_imported_mesh_and_embedded_material_by_provenance)
@@ -601,14 +714,16 @@ TEST_F(GameEngineTests, scene_round_trips_imported_mesh_and_embedded_material_by
 	const auto path = save_path(save_name);
 
 	engine.save_scene(save_name);
-	std::ifstream yaml(path);
+	std::ifstream yaml(path / "scene.yaml");
 	const std::string contents((std::istreambuf_iterator<char>(yaml)), {});
-	EXPECT_NE(contents.find("mesh_source:"), std::string::npos);
-	EXPECT_EQ(contents.find("mesh_id:"), std::string::npos);
+	EXPECT_NE(contents.find("kind: model"), std::string::npos);
+	EXPECT_EQ(std::ranges::count_if(std::filesystem::directory_iterator(path), [](const auto& entry) {
+		return entry.path().extension() == ".dat";
+	}), 0);
 	EXPECT_EQ(contents.find("source: image"), std::string::npos);
 
 	EXPECT_NO_THROW(engine.load_scene(save_name));
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 	const auto* restored = engine.get_object(object_id);
 	ASSERT_NE(restored, nullptr);
 	const auto restored_ids = engine.get_ecs().get_renderable_ids(restored->get_id());
@@ -637,13 +752,13 @@ TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_pro
 	const auto path = save_path(save_name);
 
 	engine.save_scene(save_name);
-	std::ifstream yaml(path);
+	std::ifstream yaml(path / "scene.yaml");
 	const std::string contents((std::istreambuf_iterator<char>(yaml)), {});
 	EXPECT_NE(contents.find("imported_source:"), std::string::npos);
 	EXPECT_EQ(contents.find("key_frames:"), std::string::npos);
 
 	EXPECT_NO_THROW(engine.load_scene(save_name));
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 	const auto* restored = engine.get_object(object_id);
 	ASSERT_NE(restored, nullptr);
 	const auto restored_ids = engine.get_ecs().get_renderable_ids(restored->get_id());
@@ -662,7 +777,7 @@ TEST_F(GameEngineTests, scene_round_trips_an_unbound_imported_skeleton)
 
 	engine.save_scene(save_name);
 	EXPECT_NO_THROW(engine.load_scene(save_name));
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 
 	const auto skeletons = engine.get_ecs().get_skeleton_ids();
 	ASSERT_EQ(skeletons.size(), 1);
@@ -688,7 +803,7 @@ TEST_F(GameEngineTests, scene_round_trips_looping_standalone_animation_by_proven
 
 	engine.save_scene(save_name);
 	EXPECT_NO_THROW(engine.load_scene(save_name));
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 	const auto restored_ids = engine.get_ecs().get_renderable_ids(object_id);
 	ASSERT_FALSE(restored_ids.empty());
 	const auto restored_skeleton = engine.get_ecs().get_renderable(restored_ids.front()).skeleton_id;
@@ -711,7 +826,7 @@ TEST_F(GameEngineTests, scene_load_restores_camera_state)
 	camera.set_mode(Camera::Mode::ORBIT);
 	camera.toggle_projection();
 	engine.load_scene(save_name);
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 
 	EXPECT_TRUE(glm_equal(camera.get_position(), glm::vec3(-4.0f, 5.0f, -6.0f)));
 	EXPECT_TRUE(glm_equal(camera.get_focus(), glm::vec3(1.0f, 2.0f, 3.0f)));
@@ -732,7 +847,7 @@ TEST_F(GameEngineTests, scene_load_ignores_transient_gizmo_parent)
 	engine.save_scene(save_name);
 	EXPECT_FALSE(engine.get_gizmo().is_active());
 	EXPECT_NO_THROW(engine.load_scene(save_name));
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 
 	const auto* restored = engine.get_object(object_id);
 	ASSERT_NE(restored, nullptr);
@@ -807,11 +922,11 @@ TEST_F(GameEngineTests, scene_serialization_omits_transient_helpers)
 	const auto path = save_path(save_name);
 
 	engine.save_scene(save_name);
-	std::ifstream stream(path);
+	std::ifstream stream(path / "scene.yaml");
 	std::ostringstream contents;
 	contents << stream.rdbuf();
 	const auto saved = Deserializer::parse(contents.str());
-	std::filesystem::remove(path);
+	std::filesystem::remove_all(path);
 
 	EXPECT_EQ(saved.child("objects").elements().size(), 1);
 	const auto keys = saved.keys();
@@ -1131,7 +1246,7 @@ TEST_F(GameEngineTests, replaces_renderable_textures_independently_and_preserves
 		(MatVec{ replacement_id, old_normal }));
 }
 
-TEST_F(GameEngineTests, texture_replacement_with_procedural_material_is_not_serializable)
+TEST_F(GameEngineTests, texture_without_external_provenance_is_embedded)
 {
 	auto model = ResourceLoader::load_model(engine.get_ecs(), "static_mesh_textured.gltf");
 	ASSERT_EQ(model.meshes.size(), 1);
@@ -1146,8 +1261,11 @@ TEST_F(GameEngineTests, texture_replacement_with_procedural_material_is_not_seri
 
 	const std::string save_name = "krisp_scene_replaced_texture_test";
 	const auto path = save_path(save_name);
-	EXPECT_THROW(engine.save_scene(save_name), SerializationError);
-	std::filesystem::remove(path);
+	EXPECT_NO_THROW(engine.save_scene(save_name));
+	EXPECT_EQ(std::ranges::count_if(std::filesystem::directory_iterator(path), [](const auto& entry) {
+		return entry.path().filename().string().starts_with("texture_");
+	}), 1);
+	std::filesystem::remove_all(path);
 }
 
 TEST_F(GameEngineTests, removes_normal_and_uses_white_for_missing_diffuse)

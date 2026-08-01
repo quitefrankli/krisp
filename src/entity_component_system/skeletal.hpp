@@ -15,6 +15,7 @@ using Entity = ObjectID;
 class ECS;
 class Serializer;
 class Deserializer;
+class SceneResourceReader;
 
 struct Bone
 {
@@ -143,8 +144,8 @@ public:
 	void on_renderable_removed(RenderableID id);
 	void on_renderable_replaced(RenderableID old_id, RenderableID new_id);
 	void serialize(Serializer& out) const;
-	void deserialize(const Deserializer& in);
-	void deserialize_bone_attachments(const Deserializer& in);
+	void deserialize(const Deserializer& in, SceneResourceReader& resources);
+	void deserialize_bone_attachments(const Deserializer& in, SceneResourceReader& resources);
 
 protected:
 	void remove_entity(Entity id);
@@ -201,7 +202,7 @@ public:
 	bool is_animation_compatible(SkeletonID skeleton_id, AnimationID animation_id) const;
 	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
 	void serialize(Serializer& out) const;
-	void deserialize(const Deserializer& in);
+	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 
 private:
 	struct AnimationState

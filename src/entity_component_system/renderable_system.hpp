@@ -12,6 +12,8 @@
 class ECS;
 class Serializer;
 class Deserializer;
+class SceneResourceWriter;
+class SceneResourceReader;
 
 struct RenderableAttachment
 {
@@ -51,8 +53,8 @@ public:
 	bool get_renderable_visibility(RenderableID id) const;
 
 	bool references_skeleton(SkeletonID id) const;
-	void serialize(Serializer& out) const;
-	void deserialize(const Deserializer& in);
+	void serialize(Serializer& out, SceneResourceWriter& resources) const;
+	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 
 protected:
 	using AttachmentMap = std::unordered_map<RenderableID, RenderableAttachment>;

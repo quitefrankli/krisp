@@ -46,3 +46,7 @@ conan install . -pr=conan_clang_profile --build=missing -c tools.system.package_
 ## Testing
 
 `meson test -C build -j 6`
+
+## Documentation
+
+Additional documentation and design notes are available in [`docs/`](docs/).

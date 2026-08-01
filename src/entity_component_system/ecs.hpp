@@ -19,6 +19,8 @@
 #include <memory>
 #include <limits>
 
+class SceneResourceWriter;
+class SceneResourceReader;
 
 class ECS :
 	public RenderableSystem,
@@ -60,8 +62,8 @@ public:
 	const Object& get_object(const ObjectID id) const;
 	bool has_object(const ObjectID id) const { return objects.contains(id); }
 
-	void serialize(Serializer& out) const;
-	void deserialize(const Deserializer& in);
+	void serialize(Serializer& out, SceneResourceWriter& resources) const;
+	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 
 private:
 	MeshSystem mesh_system;

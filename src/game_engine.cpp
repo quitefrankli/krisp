@@ -20,6 +20,7 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "serialization/resource_provenance.hpp"
+#include "serialization/scene_resources.hpp"
 #include "save_file_store.hpp"
 #include "constants.hpp"
 
@@ -635,49 +636,82 @@ Gizmo& GameEngine::get_gizmo() { return *gizmo; }
 void GameEngine::save_scene(const std::string_view save_name) const
 {
 	const auto path = SaveFileStore(Utility::get_saves_path()).path_for_overwrite(save_name);
-	gizmo->deselect();
-	Serializer document;
-	auto engine_state = document.map("engine");
-	engine_state.write("paused", paused);
-	engine_state.write("game_mode", static_cast<int>(game_mode));
-	engine_state.write("camera_orbit_with_right_mouse", camera_orbit_with_right_mouse);
-	auto saved_camera = document.map("camera");
-	camera->serialize(saved_camera);
-	auto saved_objects = document.sequence("objects");
-	for (const auto& [_, object] : objects)
-	{
-		if (object->is_transient())
-			continue;
-		if (!TypeRegistry::contains(object->serialization_type()))
-			throw SerializationError("Unsupported object type at $.objects: " + std::string(object->serialization_type()));
-		auto saved = saved_objects.append_map();
-		object->serialize(saved);
-	}
-	auto saved_ecs = document.map("ecs");
-	ecs.serialize(saved_ecs);
-
 	std::filesystem::create_directories(path.parent_path());
-	const auto temporary = path.string() + ".tmp";
+	const auto nonce = std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
+	const auto staging = path.parent_path() / (".krisp-save-stage-" + nonce);
+	const auto backup = path.parent_path() / (".krisp-save-backup-" + nonce);
+	std::filesystem::create_directory(staging);
+	const auto remove_without_throwing = [](const std::filesystem::path& target)
 	{
-		std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
-		if (!stream)
-			throw SerializationError("Unable to open scene temporary file: " + temporary);
-		stream << document.emit();
-		if (!stream)
-			throw SerializationError("Unable to write scene temporary file: " + temporary);
+		std::error_code ignored;
+		std::filesystem::remove_all(target, ignored);
+	};
+	try
+	{
+		gizmo->deselect();
+		Serializer document;
+		document.write("version", 1);
+		SceneResourceWriter resources(document, ecs, staging);
+		auto engine_state = document.map("engine");
+		engine_state.write("paused", paused);
+		engine_state.write("game_mode", static_cast<int>(game_mode));
+		engine_state.write("camera_orbit_with_right_mouse", camera_orbit_with_right_mouse);
+		auto saved_camera = document.map("camera");
+		camera->serialize(saved_camera);
+		auto saved_objects = document.sequence("objects");
+		for (const auto &[_, object] : objects)
+		{
+			if (object->is_transient())
+				continue;
+			if (!TypeRegistry::contains(object->serialization_type()))
+				throw SerializationError("Unsupported object type at $.objects: " +
+				                         std::string(object->serialization_type()));
+			auto saved = saved_objects.append_map();
+			object->serialize(saved);
+		}
+		auto saved_ecs = document.map("ecs");
+		ecs.serialize(saved_ecs, resources);
+
+		const auto temporary = staging / "scene.yaml.tmp";
+		{
+			std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
+			if (!stream)
+				throw SerializationError("Unable to open scene temporary file: " + temporary.string());
+			stream << document.emit();
+			if (!stream)
+				throw SerializationError("Unable to write scene temporary file: " + temporary.string());
+		}
+		std::filesystem::rename(temporary, staging / "scene.yaml");
+		if (std::filesystem::exists(path))
+			std::filesystem::rename(path, backup);
+		try
+		{
+			std::filesystem::rename(staging, path);
+		} catch (...)
+		{
+			if (std::filesystem::exists(backup))
+				std::filesystem::rename(backup, path);
+			throw;
+		}
+		remove_without_throwing(backup);
+	} catch (...)
+	{
+		remove_without_throwing(staging);
+		throw;
 	}
-	std::filesystem::rename(temporary, path);
 }
 
 void GameEngine::load_scene(const std::string_view save_name)
 {
 	const auto path = SaveFileStore(Utility::get_saves_path()).path_for_overwrite(save_name);
-	std::ifstream stream(path, std::ios::binary);
+	std::ifstream stream(path / "scene.yaml", std::ios::binary);
 	if (!stream)
-		throw SerializationError("Unable to open scene: " + path.string());
+		throw SerializationError("Unable to open scene: " + (path / "scene.yaml").string());
 	std::ostringstream contents;
 	contents << stream.rdbuf();
 	const auto document = Deserializer::parse(contents.str());
+	if (document.read<int>("version") != 1)
+		throw SerializationError("Unsupported scene version");
 
 	std::vector<Deserializer> saved_objects;
 	std::unordered_map<ObjectID, bool> ids;
@@ -691,29 +725,8 @@ void GameEngine::load_scene(const std::string_view save_name)
 		saved_objects.push_back(saved);
 	}
 	reset_scene_state();
-	std::unordered_map<std::string, ResourceLoader::LoadedModel> imported_models;
-	const auto load_imported_model = [&](const Deserializer& source) -> const ResourceLoader::LoadedModel&
-	{
-		const auto path = source.read<std::string>("path");
-		const auto scene = source.read<int>("scene");
-		const auto cache_key = path + "#" + std::to_string(scene);
-		if (const auto it = imported_models.find(cache_key); it != imported_models.end())
-			return it->second;
-		ResourceLoader::LoadOptions options;
-		if (scene >= 0)
-			options.scene_index = scene;
-		options.generate_missing_tangents = true;
-		return imported_models.emplace(
-			cache_key, ResourceLoader::load_model(ecs, path, options)).first->second;
-	};
-	for (const auto& saved : document.child("ecs").child("skeletal_system").elements())
-	{
-		const auto fields = saved.keys();
-		if (std::ranges::find(fields, "imported_source") != fields.end())
-			load_imported_model(saved.child("imported_source"));
-	}
-	for (const auto& saved : document.child("ecs").child("renderable_system").elements())
-		load_imported_model(saved.child("mesh_source"));
+	SceneResourceReader resources(ecs, path);
+	resources.prepare(document);
 	for (auto& saved : saved_objects)
 	{
 		auto object = TypeRegistry::create(saved.read<std::string>("type"));
@@ -722,7 +735,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 		objects.emplace(id, object);
 		ecs.add_object(*object);
 	}
-	ecs.deserialize(document.child("ecs"));
+	ecs.deserialize(document.child("ecs"), resources);
 	const auto engine_state = document.child("engine");
 	paused = engine_state.read<bool>("paused");
 	const auto saved_game_mode = static_cast<EGameMode>(engine_state.read<int>("game_mode"));

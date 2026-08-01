@@ -23,6 +23,8 @@ struct ColliderComponent
 };
 
 class ECS;
+class SceneResourceWriter;
+class SceneResourceReader;
 class ColliderSystem
 {
 public:
@@ -42,8 +44,8 @@ public:
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::optional<EntityID> ignored = std::nullopt) const;
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::span<const EntityID> candidates) const;
 	const std::unordered_map<EntityID, ColliderComponent>& get_all_colliders() const { return components; }
-	void serialize(Serializer& out) const;
-	void deserialize(const Deserializer& in);
+	void serialize(Serializer& out, SceneResourceWriter& resources) const;
+	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 
 protected:
 	void remove_entity(EntityID id) { components.erase(id); }

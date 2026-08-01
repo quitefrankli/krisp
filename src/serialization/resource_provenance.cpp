@@ -31,7 +31,7 @@ std::optional<MeshID> ResourceProvenance::find_mesh(
 {
 	for (const auto& [id, value] : meshes)
 		if (mesh_system.contains(id)
-			&& value.source == provenance.source && value.scene == provenance.scene
+			&& value.kind == provenance.kind && value.source == provenance.source && value.scene == provenance.scene
 			&& value.node == provenance.node && value.primitive == provenance.primitive)
 			return id;
 	return std::nullopt;
@@ -41,7 +41,7 @@ std::optional<MaterialID> ResourceProvenance::find_material(
 {
 	for (const auto& [id, value] : materials)
 		if (material_system.contains(id)
-			&& value.source == provenance.source && value.scene == provenance.scene
+			&& value.kind == provenance.kind && value.source == provenance.source && value.scene == provenance.scene
 			&& value.node == provenance.node && value.primitive == provenance.primitive
 			&& value.material == provenance.material && value.texture == provenance.texture)
 			return id;
@@ -50,7 +50,7 @@ std::optional<MaterialID> ResourceProvenance::find_material(
 std::optional<SkeletonID> ResourceProvenance::find_skeleton(const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : skeletons)
-		if (value.source == provenance.source && value.scene == provenance.scene && value.node == provenance.node
+		if (value.kind == provenance.kind && value.source == provenance.source && value.scene == provenance.scene && value.node == provenance.node
 			&& value.skin == provenance.skin)
 			return id;
 	return std::nullopt;
@@ -58,7 +58,7 @@ std::optional<SkeletonID> ResourceProvenance::find_skeleton(const ImportedResour
 std::optional<AnimationID> ResourceProvenance::find_animation(const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : animations)
-		if (value.source == provenance.source && value.skin == provenance.skin && value.animation == provenance.animation)
+		if (value.kind == provenance.kind && value.source == provenance.source && value.skin == provenance.skin && value.animation == provenance.animation)
 			return id;
 	return std::nullopt;
 }

@@ -26,6 +26,8 @@
 
 * Refer to README.md for build instructions.
 
+* Refer to `docs/` for additional documentation and design notes.
+
 * Krisp is in early development; do not preserve legacy APIs, save formats, or backwards compatibility unless explicitly requested.
 
 * IMPORTANT: For a new, missing, or stale build directory, or after dependency or build-configuration changes, always use the following sequence to set up dependencies and configure a DEBUG Clang build:

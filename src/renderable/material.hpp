@@ -34,6 +34,7 @@ public:
 		data.specular = white;
 		data.emissive = black;
 		data.shininess = 32.0f;
+		data.texture_flags = 0;
 	}
 
 	SDS::MaterialData data;
@@ -43,6 +44,15 @@ struct TextureData
 {
 	virtual ~TextureData() = default;
 	virtual std::byte* get() = 0;
+};
+
+struct OwnedTextureData final : TextureData
+{
+	explicit OwnedTextureData(std::vector<std::byte> bytes) : bytes(std::move(bytes)) {}
+	std::byte* get() override { return bytes.data(); }
+
+private:
+	std::vector<std::byte> bytes;
 };
 
 enum class ETextureSemantic

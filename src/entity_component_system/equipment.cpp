@@ -1,6 +1,7 @@
 #include "equipment.hpp"
 #include "ecs.hpp"
 #include "serialization/serialization_helpers.hpp"
+#include "serialization/scene_resources.hpp"
 
 #include <algorithm>
 #include <ranges>
@@ -151,7 +152,7 @@ void EquipmentSystem::serialize(Serializer& out) const
 			}
 }
 
-void EquipmentSystem::deserialize(const Deserializer& in)
+void EquipmentSystem::deserialize(const Deserializer& in, SceneResourceReader& resources)
 {
 	const auto keys = in.keys();
 	if (std::ranges::find(keys, "equipment_system") == keys.end()) {
@@ -176,7 +177,8 @@ void EquipmentSystem::deserialize(const Deserializer& in)
 		auto& destination = restored[wearer][slot_index(slot)];
 		if (destination || !restored_locations.emplace(item, std::pair{ wearer, slot }).second)
 			throw SerializationError("Duplicate equipment entry at $.equipment_system[" + std::to_string(index) + "]");
-		const RenderableID source_renderable(entry.read<std::uint64_t>("source_renderable_id"));
+		const auto source_renderable = resources.read_renderable_id(
+			RenderableID(entry.read<std::uint64_t>("source_renderable_id")));
 		if (!get_ecs().has_renderable(source_renderable)
 			|| get_ecs().get_renderable(source_renderable).object_id != wearer)
 			throw SerializationError("Invalid equipment source renderable at " + entry.path());

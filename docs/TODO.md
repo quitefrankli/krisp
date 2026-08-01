@@ -51,7 +51,3 @@ all GUI state has a single owner, remove `EngineUiManager::state_mutex`. Add
 unit tests for command ordering, coalescing, capacity/overflow policy, and
 snapshot consistency; run a ThreadSanitizer stress test and record frame/tick
 timings before and after removing the mutex.
-
-## Add serialization support for procedurally generated meshes and materials
-
-### Add a cache for procedurally generated meshes and materials

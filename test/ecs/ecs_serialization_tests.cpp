@@ -1,6 +1,7 @@
 #include <entity_component_system/ecs.hpp>
 #include <serialization/resource_provenance.hpp>
 #include <serialization/serializer.hpp>
+#include "serialization_test_helper.hpp"
 
 #include <gtest/gtest.h>
 #include <glm/gtc/matrix_transform.hpp>
@@ -70,7 +71,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 		"aggregate_idle", { BoneAnimation{} }, make_skeletal_rig_signature({ aggregate_bone }));
 
 	Serializer serializer;
-	source.serialize(serializer);
+	serialize_ecs(source, serializer);
 	const auto serialized = Deserializer::parse(serializer.emit());
 	const auto serialized_colliders = serialized.child("collider_system").elements();
 	ASSERT_EQ(serialized_colliders.size(), 5);
@@ -80,7 +81,7 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 
 	ECS restored;
 	restored.add_light_source(EntityID(99), LightComponent{});
-	restored.deserialize(serialized);
+	deserialize_ecs(restored, serialized);
 
 	const auto* light = restored.get_light_component(mesh_id);
 	ASSERT_NE(light, nullptr);
@@ -118,12 +119,15 @@ TEST(EcsSerialization, round_trips_selected_systems_as_an_exact_checkpoint)
 	EXPECT_EQ(restored_physics->acceleration, physics.acceleration);
 	EXPECT_EQ(restored_physics->_net_force, physics._net_force);
 	EXPECT_EQ(restored.get_gravity_system().get_gravity_type(), GravitySystem::GravityType::TRUE);
-	EXPECT_EQ(restored.get_skeletal_component(aggregate_skeleton).get_bones()[0].name, "aggregate_root");
+	const auto restored_skeletons = restored.get_skeleton_ids();
+	ASSERT_EQ(restored_skeletons.size(), 1);
+	EXPECT_NE(restored_skeletons.front(), aggregate_skeleton);
+	EXPECT_EQ(restored.get_skeletal_component(restored_skeletons.front()).get_bones()[0].name, "aggregate_root");
 	EXPECT_TRUE(restored.get_skeletal_animations().contains(aggregate_animation));
 	EXPECT_EQ(restored.get_tile_coord(aggregate_object.get_id(), "aggregate"), TileCoord(2, 3));
 
 	Serializer restored_serializer;
-	restored.serialize(restored_serializer);
+	serialize_ecs(restored, restored_serializer);
 	const auto restored_document = Deserializer::parse(restored_serializer.emit());
 	EXPECT_EQ(restored_document.child("clickable_system").elements()[0].read<std::uint64_t>("entity_id"),
 		clickable_id.get_underlying());
@@ -168,7 +172,7 @@ TEST(EcsSerialization, rejects_unsupported_polymorphic_types)
 	ecs.add_collider(EntityID(1), std::make_unique<UnsupportedCollider>());
 	Serializer collider_serializer;
 	try {
-		ecs.ColliderSystem::serialize(collider_serializer);
+		serialize_colliders(ecs, collider_serializer);
 		FAIL() << "Expected unsupported collider to fail";
 	} catch (const SerializationError& error) {
 		EXPECT_NE(std::string(error.what()).find("$.collider_system[0].type"), std::string::npos);
@@ -177,7 +181,7 @@ TEST(EcsSerialization, rejects_unsupported_polymorphic_types)
 		"collider_system:\n"
 		"  - {entity_id: 2, type: cone, data: {}}\n");
 	try {
-		ecs.ColliderSystem::deserialize(unknown_collider);
+		deserialize_colliders(ecs, unknown_collider);
 		FAIL() << "Expected unknown collider type to fail";
 	} catch (const SerializationError& error) {
 		EXPECT_NE(std::string(error.what()).find("$.collider_system[0].type"), std::string::npos);
@@ -273,11 +277,11 @@ TEST(ColliderSystemSerialization, round_trip_replaces_local_geometry)
 	source.add_collider(EntityID(2), std::make_unique<SphereCollider>(
 		Maths::Sphere({ 1.0f, 2.0f, 3.0f }, 4.0f)));
 	Serializer serializer;
-	source.ColliderSystem::serialize(serializer);
+	serialize_colliders(source, serializer);
 
 	ECS restored;
 	restored.add_collider(EntityID(1), std::make_unique<BoxCollider>());
-	restored.ColliderSystem::deserialize(Deserializer::parse(serializer.emit()));
+	deserialize_colliders(restored, Deserializer::parse(serializer.emit()));
 	ASSERT_EQ(restored.get_all_colliders().size(), 1);
 	const auto* sphere = dynamic_cast<const SphereCollider*>(
 		restored.get_all_colliders().at(EntityID(2)).collider.get());
@@ -292,10 +296,10 @@ TEST(ColliderSystemSerialization, transient_colliders_are_not_serialized)
 	ecs.add_collider(EntityID(1), std::make_unique<BoxCollider>());
 	ecs.add_collider(EntityID(2), std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
 	Serializer serializer;
-	ecs.ColliderSystem::serialize(serializer);
+	serialize_colliders(ecs, serializer);
 
 	ECS restored;
-	restored.ColliderSystem::deserialize(Deserializer::parse(serializer.emit()));
+	deserialize_colliders(restored, Deserializer::parse(serializer.emit()));
 	EXPECT_TRUE(restored.get_all_colliders().contains(EntityID(1)));
 	EXPECT_FALSE(restored.get_all_colliders().contains(EntityID(2)));
 }
@@ -305,12 +309,12 @@ TEST(ColliderSystemSerialization, deserialization_preserves_transient_colliders)
 	ECS source;
 	source.add_collider(EntityID(2), std::make_unique<SphereCollider>());
 	Serializer serializer;
-	source.ColliderSystem::serialize(serializer);
+	serialize_colliders(source, serializer);
 
 	ECS restored;
 	restored.add_collider(EntityID(1), std::make_unique<BoxCollider>(), {}, ColliderPersistence::Transient);
 	restored.add_collider(EntityID(3), std::make_unique<BoxCollider>());
-	restored.ColliderSystem::deserialize(Deserializer::parse(serializer.emit()));
+	deserialize_colliders(restored, Deserializer::parse(serializer.emit()));
 
 	EXPECT_TRUE(restored.get_all_colliders().contains(EntityID(1)));
 	EXPECT_TRUE(restored.get_all_colliders().contains(EntityID(2)));
@@ -326,7 +330,7 @@ TEST(ColliderSystemSerialization, duplicate_ids_fail_atomically_with_path)
 		"  - {entity_id: 2, type: sphere, data: {origin: {x: 0, y: 0, z: 0}, radius: 1}}\n"
 		"  - {entity_id: 2, type: sphere, data: {origin: {x: 0, y: 0, z: 0}, radius: 1}}\n");
 	try {
-		ecs.ColliderSystem::deserialize(duplicate);
+		deserialize_colliders(ecs, duplicate);
 		FAIL() << "Expected duplicate collider ID to fail";
 	} catch (const SerializationError& error) {
 		EXPECT_NE(std::string(error.what()).find("$.collider_system[1].entity_id"), std::string::npos);
@@ -397,13 +401,15 @@ TEST(SkeletalSystemSerialization, round_trips_bone_hierarchy_and_matrices)
 	source.SkeletalSystem::serialize(serializer);
 
 	ECS restored;
-	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
-	const auto& bones = restored.get_skeletal_component(id).get_bones();
+	SceneResourceReader resources(restored, serialization_test_resource_directory());
+	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()), resources);
+	const auto restored_id = resources.read_skeleton_id(id);
+	const auto& bones = restored.get_skeletal_component(restored_id).get_bones();
 	ASSERT_EQ(bones.size(), 2);
 	EXPECT_EQ(bones[1].parent_node, 0);
 	EXPECT_EQ(bones[1].name, "child");
 	EXPECT_EQ(bones[0].inverse_bind_pose.get_mat4(), root.inverse_bind_pose.get_mat4());
-	EXPECT_TRUE(restored.has_skeleton(id));
+	EXPECT_TRUE(restored.has_skeleton(restored_id));
 }
 
 TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
@@ -435,14 +441,17 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 
 	Serializer serializer;
 	source.SkeletalSystem::serialize(serializer);
-	source.RenderableSystem::serialize(serializer);
+	serialize_renderables(source, serializer);
 	source.reset_preserving_transient_transformations();
 	ECS& restored = source;
 	restored.add_object(character);
 	restored.add_object(prop);
-	restored.SkeletalSystem::deserialize(Deserializer::parse(serializer.emit()));
-	restored.RenderableSystem::deserialize(Deserializer::parse(serializer.emit()));
-	restored.SkeletalSystem::deserialize_bone_attachments(Deserializer::parse(serializer.emit()));
+	const auto saved = Deserializer::parse(serializer.emit());
+	SceneResourceReader resources(restored, serialization_test_resource_directory());
+	resources.prepare(saved);
+	restored.SkeletalSystem::deserialize(saved, resources);
+	restored.RenderableSystem::deserialize(saved, resources);
+	restored.SkeletalSystem::deserialize_bone_attachments(saved, resources);
 	restored.SkeletalSystem::process(0.0f);
 
 	EXPECT_EQ(restored.get_position(prop.get_id()), glm::vec3(1.0f, 5.0f, 0.0f));
@@ -482,7 +491,8 @@ TEST(SkeletalSystemSerialization, invalid_parent_fails_atomically_with_path)
 	std::string malformed = serializer.emit();
 	malformed.replace(malformed.find("parent_index: ~"), std::string("parent_index: ~").size(), "parent_index: 9");
 	try {
-		ecs.SkeletalSystem::deserialize(Deserializer::parse(malformed));
+		SceneResourceReader resources(ecs, serialization_test_resource_directory());
+		ecs.SkeletalSystem::deserialize(Deserializer::parse(malformed), resources);
 		FAIL() << "Expected invalid bone parent to fail";
 	} catch (const SerializationError& error) {
 		EXPECT_NE(std::string(error.what()).find("parent_index"), std::string::npos);
@@ -514,14 +524,16 @@ TEST(SkeletalAnimationSystemSerialization, round_trips_tracks_and_active_playbac
 	source.SkeletalAnimationSystem::serialize(animations);
 
 	ECS restored;
-	restored.SkeletalSystem::deserialize(Deserializer::parse(skeletons.emit()));
-	restored.SkeletalAnimationSystem::deserialize(Deserializer::parse(animations.emit()));
+	SceneResourceReader resources(restored, serialization_test_resource_directory());
+	restored.SkeletalSystem::deserialize(Deserializer::parse(skeletons.emit()), resources);
+	restored.SkeletalAnimationSystem::deserialize(Deserializer::parse(animations.emit()), resources);
+	const auto restored_skeleton_id = resources.read_skeleton_id(skeleton_id);
 	ASSERT_TRUE(restored.get_skeletal_animations().contains(animation_id));
 	EXPECT_EQ(restored.get_skeletal_animations().at(animation_id).source, "model.glb");
-	ASSERT_TRUE(restored.get_animation_playback(skeleton_id));
-	EXPECT_FLOAT_EQ(restored.get_animation_playback(skeleton_id)->speed, 0.5f);
+	ASSERT_TRUE(restored.get_animation_playback(restored_skeleton_id));
+	EXPECT_FLOAT_EQ(restored.get_animation_playback(restored_skeleton_id)->speed, 0.5f);
 	restored.SkeletalAnimationSystem::process(0.25f);
-	EXPECT_FLOAT_EQ(restored.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x, 0.5f);
+	EXPECT_FLOAT_EQ(restored.get_skeletal_component(restored_skeleton_id).get_bones()[0].relative_transform.get_pos().x, 0.5f);
 }
 
 TEST(SkeletalAnimationSystemSerialization, unknown_interpolation_fails_atomically)
@@ -537,7 +549,9 @@ TEST(SkeletalAnimationSystemSerialization, unknown_interpolation_fails_atomicall
 	std::string malformed = serializer.emit();
 	malformed.replace(malformed.find("interpolation: linear"), std::string("interpolation: linear").size(),
 		"interpolation: unknown");
-	EXPECT_THROW(ecs.SkeletalAnimationSystem::deserialize(Deserializer::parse(malformed)), SerializationError);
+	SceneResourceReader resources(ecs, serialization_test_resource_directory());
+	EXPECT_THROW(ecs.SkeletalAnimationSystem::deserialize(
+		Deserializer::parse(malformed), resources), SerializationError);
 	EXPECT_TRUE(ecs.get_skeletal_animations().contains(id));
 }
 

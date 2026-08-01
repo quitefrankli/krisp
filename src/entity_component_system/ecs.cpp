@@ -10,34 +10,34 @@ void ECS::process(const float delta_secs)
 	ParticleSystem::process(delta_secs);
 }
 
-void ECS::serialize(Serializer& out) const
+void ECS::serialize(Serializer& out, SceneResourceWriter& resources) const
 {
 	TransformationSystem::serialize(out);
 	ClickableSystem::serialize(out);
 	HoverableSystem::serialize(out);
 	LightSystem::serialize(out);
-	ColliderSystem::serialize(out);
+	ColliderSystem::serialize(out, resources);
 	PhysicsSystem::serialize(out);
 	SkeletalSystem::serialize(out);
-	RenderableSystem::serialize(out);
+	RenderableSystem::serialize(out, resources);
 	SkeletalAnimationSystem::serialize(out);
 	EquipmentSystem::serialize(out);
 	TileSystem::serialize(out);
 }
 
-void ECS::deserialize(const Deserializer& in)
+void ECS::deserialize(const Deserializer& in, SceneResourceReader& resources)
 {
 	TransformationSystem::deserialize(in);
 	ClickableSystem::deserialize(in);
 	HoverableSystem::deserialize(in);
 	LightSystem::deserialize(in);
 	PhysicsSystem::deserialize(in);
-	SkeletalSystem::deserialize(in);
-	RenderableSystem::deserialize(in);
-	ColliderSystem::deserialize(in);
-	SkeletalSystem::deserialize_bone_attachments(in);
-	SkeletalAnimationSystem::deserialize(in);
-	EquipmentSystem::deserialize(in);
+	SkeletalSystem::deserialize(in, resources);
+	RenderableSystem::deserialize(in, resources);
+	ColliderSystem::deserialize(in, resources);
+	SkeletalSystem::deserialize_bone_attachments(in, resources);
+	SkeletalAnimationSystem::deserialize(in, resources);
+	EquipmentSystem::deserialize(in, resources);
 	TileSystem::deserialize(in);
 }
 
