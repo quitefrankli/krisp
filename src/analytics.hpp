@@ -29,9 +29,10 @@ public:
 	};
 
 	// period in seconds for logging to occur
-	Analytics(const int period = 5);
+	Analytics(std::string text, int period = 5);
 
 	Analytics(
+		std::string text,
 		std::function<void(float)>&& on_log,
 		int callback_period = 1,
 		int log_period = 5);
@@ -52,7 +53,7 @@ public:
 	void quick_timer_start();
 	void quick_timer_stop();
 	void quick_timer_stop(const std::string& mesg);
-	std::string text;
+	const std::string text;
 
 private:
 	std::chrono::time_point<std::chrono::system_clock> log_cycle_start;

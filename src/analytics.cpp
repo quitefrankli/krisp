@@ -10,14 +10,19 @@
 
 using namespace std::chrono;
 
-Analytics::Analytics(const int period) : LOG_PERIOD(period), CALLBACK_PERIOD(period)
+Analytics::Analytics(std::string text_, const int period) :
+	text(std::move(text_)),
+	LOG_PERIOD(period),
+	CALLBACK_PERIOD(period)
 {
 }
 
 Analytics::Analytics(
+	std::string text_,
 	std::function<void(float)>&& on_log,
 	const int callback_period,
 	const int log_period) :
+	text(std::move(text_)),
 	LOG_PERIOD(log_period),
 	CALLBACK_PERIOD(callback_period),
 	on_log_period(std::move(on_log))
@@ -74,12 +79,14 @@ void Analytics::stop()
 	}
 	if (now - log_cycle_start > LOG_PERIOD)
 	{
-		const float average = static_cast<float>(statistics.average());
+		constexpr double microseconds_per_millisecond = 1000.0;
+		const double average = statistics.average() / microseconds_per_millisecond;
 		LOG_INFO(Utility::get_logger(),
-			"{} avg {:.2f} microseconds, std dev {:.2f} microseconds, "
-			"min {:.2f} microseconds, max {:.2f} microseconds",
-			text, average, statistics.standard_deviation(),
-			statistics.minimum(), statistics.maximum());
+			"{} avg {:.2f} ms, std dev {:.2f} ms, min {:.2f} ms, max {:.2f} ms",
+			text, average,
+			statistics.standard_deviation() / microseconds_per_millisecond,
+			statistics.minimum() / microseconds_per_millisecond,
+			statistics.maximum() / microseconds_per_millisecond);
 		log_cycle_start = now;
 		statistics.reset();
 	}

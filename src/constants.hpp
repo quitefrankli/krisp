@@ -23,4 +23,6 @@ namespace CSTS // short for Constants
 
 	// The default msaa used throughout
 	const uint32_t MSAA_SAMPLE_COUNT = 4;	
+
+	constexpr int TRACKER_LOG_PERIOD_SECONDS = 30;
 };

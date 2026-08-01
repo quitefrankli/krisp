@@ -21,7 +21,6 @@
 #include <vector>
 #include <iostream>
 
-
 GraphicsEngine::GraphicsEngine(App::Window& window_) :
 	window(window_),
 	instance(*this),
@@ -36,11 +35,10 @@ GraphicsEngine::GraphicsEngine(App::Window& window_) :
 	gui_manager(*this),
 	video_recorder(std::make_unique<VideoRecorder>())
 {
-	FPS_tracker = std::make_unique<Analytics>(
+	FPS_tracker = std::make_unique<Analytics>("FPS Tracker",
 		[this](float fps) {
 			set_fps(fps = float(1e6) / fps);
-		}, 1);
-	FPS_tracker->text = "FPS Tracker";
+		}, 1, CSTS::TRACKER_LOG_PERIOD_SECONDS);
 }
 
 GraphicsEngine::~GraphicsEngine() 
@@ -127,8 +125,9 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 
 void GraphicsEngine::run() {
 	try {
-		Analytics analytics(60);
-		analytics.text = "GraphicsEngine: avg loop processing period (excluding sleep)";
+		Analytics analytics(
+			"GraphicsEngine: avg loop processing period (excluding sleep)",
+			CSTS::TRACKER_LOG_PERIOD_SECONDS);
 		FPS_tracker->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
 		while (!should_shutdown.load(std::memory_order_acquire))

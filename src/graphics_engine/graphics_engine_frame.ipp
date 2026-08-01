@@ -25,7 +25,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 	presentation_image(presentation_image),
 	swap_chain(parent_swapchain),
 	image_index(global_image_index++),
-	analytics(60)
+	analytics(std::string("Frame ") + std::to_string(image_index), 60)
 {
 	presentation_image_view = get_graphics_engine().create_image_view(
 		presentation_image, 
@@ -38,8 +38,6 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 
 	create_synchronisation_objects();
 	command_buffer = get_rsrc_mgr().create_command_buffer();
-
-	analytics.text = std::string("Frame ") + std::to_string(image_index);
 }
 
 GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :

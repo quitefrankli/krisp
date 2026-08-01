@@ -21,6 +21,7 @@
 #include "renderable/mesh_factory.hpp"
 #include "serialization/resource_provenance.hpp"
 #include "save_file_store.hpp"
+#include "constants.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -82,10 +83,9 @@ void GameEngine::init()
 	experimental = std::make_unique<Experimental>(*this);
 	
 	get_gui_manager().template spawn_gui<GuiMusic>(audio_engine.create_source());
-	TPS_counter = std::make_unique<Analytics>([this](float tps) {
+	TPS_counter = std::make_unique<Analytics>("TPS Tracker", [this](float tps) {
 		set_tps(float(1e6) / tps);
-	}, 1);
-	TPS_counter->text = "TPS Counter";
+	}, 1, CSTS::TRACKER_LOG_PERIOD_SECONDS);
 
 	configure_ecs();
 	application->create_ui(*this, application_ui_manager);
@@ -132,8 +132,9 @@ void GameEngine::run()
 		application->on_begin(*this);
 		gizmo->init();
 
-		Analytics analytics(60);
-		analytics.text = "GameEngine: avg loop processing period (excluding sleep)";
+		Analytics analytics(
+			"GameEngine: avg loop processing period (excluding sleep)",
+			CSTS::TRACKER_LOG_PERIOD_SECONDS);
 
 		std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
 
