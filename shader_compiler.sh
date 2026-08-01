@@ -29,7 +29,7 @@ compile_shader_dir()
 	src_dir=$2
 	build_dir=$OUTPUT_DIR/$shader_name
 
-	echo "compiling [$shader_name] shaders from [$src_dir] to [$build_dir]"
+	echo "compiling [$shader_name] shaders"
 
 	mkdir -p $build_dir
 
