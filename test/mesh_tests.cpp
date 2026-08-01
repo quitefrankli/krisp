@@ -6,6 +6,14 @@
 
 #include <gtest/gtest.h>
 
+#include <type_traits>
+#include <utility>
+
+
+static_assert(std::is_same_v<
+	decltype(std::declval<MeshSystem&>().get(std::declval<MeshID>())),
+	const Mesh&>);
+
 
 TEST(MeshFactory, circle)
 {

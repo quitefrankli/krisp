@@ -1083,7 +1083,7 @@ TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 	EXPECT_NO_THROW(engine.main_loop(0.1f));
 }
 
-TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slots)
+TEST_F(GameEngineTests, replaces_renderable_textures_independently_and_preserves_other_slots)
 {
 	auto old_diffuse_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture5.jpg");
 	auto old_normal_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(),
@@ -1110,7 +1110,10 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 
 	const auto& first_attachment = engine.get_ecs().get_renderable(renderable_ids[0]).renderable;
 	const auto& second_attachment = engine.get_ecs().get_renderable(renderable_ids[1]).renderable;
-	EXPECT_EQ(first_attachment.get_material_ids(), (MatVec{ old_diffuse, old_normal }));
+	ASSERT_EQ(first_attachment.material_owners.size(), 2);
+	const MaterialID first_replacement_id = first_attachment.get_material_id(0);
+	EXPECT_NE(first_replacement_id, old_diffuse);
+	EXPECT_EQ(first_attachment.get_material_id(1), old_normal);
 	ASSERT_EQ(second_attachment.material_owners.size(), 2);
 	const MaterialID replacement_id = second_attachment.get_material_id(0);
 	EXPECT_EQ(second_attachment.get_material_id(1), old_normal);
@@ -1123,7 +1126,7 @@ TEST_F(GameEngineTests, replaces_one_renderable_texture_and_preserves_other_slot
 	const auto frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	EXPECT_EQ(find_renderable(*frame, renderable_ids[0]).definition->get_material_ids(),
-		(MatVec{ old_diffuse, old_normal }));
+		(MatVec{ first_replacement_id, old_normal }));
 	EXPECT_EQ(find_renderable(*frame, renderable_ids[1]).definition->get_material_ids(),
 		(MatVec{ replacement_id, old_normal }));
 }

@@ -12,6 +12,13 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
+#include <type_traits>
+#include <utility>
+
+
+static_assert(std::is_same_v<
+	decltype(std::declval<MaterialSystem&>().get(std::declval<MaterialID>())),
+	const Material&>);
 
 TEST(AnalyticsStatistics, tracks_average_standard_deviation_and_range)
 {

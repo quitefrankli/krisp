@@ -4,5 +4,6 @@
 #include "renderable/mesh.hpp"
 
 
-using MeshSystem = CountableSystem<MeshID, Mesh>;
+// Meshes are mutable while constructed and become immutable when registered.
+using MeshSystem = CountableSystem<MeshID, const Mesh>;
 using MeshHandle = MeshSystem::HandlePtr;

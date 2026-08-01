@@ -4,5 +4,6 @@
 #include "renderable/material.hpp"
 
 
-using MaterialSystem = CountableSystem<MaterialID, Material>;
+// Materials are mutable while constructed and become immutable when registered.
+using MaterialSystem = CountableSystem<MaterialID, const Material>;
 using MaterialHandle = MaterialSystem::HandlePtr;
