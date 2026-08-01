@@ -15,7 +15,6 @@
 #include <optional>
 #include <filesystem>
 #include <stdexcept>
-#include <array>
 
 
 class Object;
@@ -90,7 +89,7 @@ public:
 
 	static MaterialHandle fetch_texture(
 		MaterialSystem& materials,
-		std::string_view filename,
+		std::string_view logical_resource_name,
 		ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
 	static LoadedModel load_model(ECS& ecs, std::string_view filename);
 	static LoadedModel load_model(ECS& ecs, std::string_view filename, const LoadOptions& options);
@@ -107,7 +106,10 @@ private:
 
 	MaterialHandle load_texture(
 		MaterialSystem& materials,
-		const std::filesystem::path& file_path,
+		// Resolved filesystem path used to read the texture data.
+		const std::filesystem::path& resolved_file_path,
+		// Caller-facing name retained as TextureMaterial provenance.
+		std::string_view logical_resource_name,
 		ETextureSemantic semantic);
 	LoadedMaterial load_material(
 		MaterialSystem& materials,
@@ -116,8 +118,6 @@ private:
 		std::vector<MaterialHandle>& owners);
 
 private:
-	static constexpr size_t texture_semantic_count = static_cast<size_t>(ETextureSemantic::COUNT);
-	std::unordered_map<std::string, std::array<std::optional<MaterialID>, texture_semantic_count>> texture_name_to_mat_id;
 	std::unordered_map<int, LoadedMaterial> gltf_material_to_material;
 
 	static ResourceLoader global_resource_loader;

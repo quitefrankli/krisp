@@ -64,7 +64,7 @@ TEST(ResourceLoaderOwnership, skeletal_state_is_registered_in_the_supplied_ecs)
 	EXPECT_THROW(unrelated.get_skeletal_component(skeleton), std::out_of_range);
 }
 
-TEST(ResourceLoaderOwnership, texture_cache_never_crosses_material_stores)
+TEST(ResourceLoaderOwnership, texture_loading_registers_with_the_supplied_material_store)
 {
 	ECS first;
 	ECS second;
@@ -580,18 +580,23 @@ TEST(BoneAnimationInterpolation, step_holds_and_cubic_spline_uses_tangents)
 	EXPECT_TRUE(glm_equal(result.get_scale(), glm::vec3(3.0f)));
 }
 
-TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_returns_same_material_id)
+TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_registers_independent_materials)
 {
 	const std::string texture_path = "texture.jpg";
 
 	const auto first = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
 	const auto second = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
 
-	ASSERT_EQ(first, second);
-	EXPECT_EQ(first.use_count(), 2);
+	ASSERT_NE(first, second);
+	EXPECT_EQ(first.use_count(), 1);
+	EXPECT_EQ(second.use_count(), 1);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
+		general_loader_ecs.get_material_system().get(first->get_id())).source, texture_path);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
+		general_loader_ecs.get_material_system().get(second->get_id())).source, texture_path);
 }
 
-TEST(ResourceLoaderTextures, caches_texture_variants_by_semantic_and_recovers_stale_entries)
+TEST(ResourceLoaderTextures, loads_texture_variants_by_semantic)
 {
 	constexpr uint32_t DXT5 = 0x35545844;
 	GeneratedDDS dds(4, 4, 1, DXT5);

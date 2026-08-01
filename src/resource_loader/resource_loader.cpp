@@ -40,25 +40,14 @@ ResourceLoader ResourceLoader::global_resource_loader;
 
 MaterialHandle ResourceLoader::fetch_texture(
 	MaterialSystem& materials,
-	const std::string_view filename,
+	const std::string_view logical_resource_name,
 	const ETextureSemantic semantic)
 {
 	if (semantic == ETextureSemantic::COUNT)
 		throw ResourceLoadError("ResourceLoader::fetch_texture: invalid texture semantic");
-	const auto file_path = resolve_resource_filename(filename, Utility::get_texture);
-
-	const auto file_str = file_path.lexically_normal().string();
-	const size_t semantic_index = static_cast<size_t>(semantic);
-	auto& cached = global_resource_loader.texture_name_to_mat_id[file_str][semantic_index];
-	if (cached && materials.contains(*cached))
-		return materials.acquire(*cached);
-	cached.reset();
-
-	auto material = global_resource_loader.load_texture(materials, file_path, semantic);
-	if (auto* texture = dynamic_cast<TextureMaterial*>(
-		&materials.get(material->get_id())))
-		texture->source = filename;
-	return material;
+	const auto resolved_file_path = resolve_resource_filename(logical_resource_name, Utility::get_texture);
+	return global_resource_loader.load_texture(
+		materials, resolved_file_path, logical_resource_name, semantic);
 }
 
 namespace

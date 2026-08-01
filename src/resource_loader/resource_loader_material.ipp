@@ -351,28 +351,27 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 
 MaterialHandle ResourceLoader::load_texture(
 	MaterialSystem& materials,
-	const std::filesystem::path& filename,
+	const std::filesystem::path& resolved_file_path,
+	const std::string_view logical_resource_name,
 	const ETextureSemantic semantic)
 {
-	if (!std::filesystem::exists(filename))
+	if (!std::filesystem::exists(resolved_file_path))
 	{
-		throw ResourceLoadError(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", filename.string()));
+		throw ResourceLoadError(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", resolved_file_path.string()));
 	}
 
-	if (filename.extension() == ".dds")
+	if (resolved_file_path.extension() == ".dds")
 	{
-		auto material = load_dds_texture(filename);
+		auto material = load_dds_texture(resolved_file_path);
 		material.semantic = semantic;
-		auto owner = materials.add(std::make_unique<TextureMaterial>(std::move(material)));
-		texture_name_to_mat_id[filename.lexically_normal().string()][static_cast<size_t>(semantic)] =
-			owner->get_id();
-		return owner;
+		material.source = logical_resource_name;
+		return materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 	}
 
 	TextureMaterial material;
 	material.semantic = semantic;
-	material.source = filename.lexically_normal().string();
-	const auto filename_str = filename.string();
+	material.source = logical_resource_name;
+	const auto filename_str = resolved_file_path.string();
 	material.data = std::make_unique<RawTextureDataSTB>(stbi_load(
 		filename_str.c_str(),
 		(int*)(&material.width),
@@ -390,8 +389,5 @@ MaterialHandle ResourceLoader::load_texture(
 	material.data_len = static_cast<size_t>(material.width) * material.height * material.channels;
 	material.mip_sizes = { material.data_len };
 
-	auto owner = materials.add(std::make_unique<TextureMaterial>(std::move(material)));
-	texture_name_to_mat_id[filename.lexically_normal().string()][static_cast<size_t>(semantic)] =
-		owner->get_id();
-	return owner;
+	return materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 }
