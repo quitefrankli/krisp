@@ -155,10 +155,13 @@ TEST(Basics, CompositedTextureMaterialSupportsSeveralLayersAndRejectsNesting)
 		sources.push_back(materials.add(std::move(source)));
 	}
 
-	const std::vector<TextureCompositionLayer> layers{
-		{ .source = sources[0] }, { .source = sources[1] }, { .source = sources[2] } };
+	constexpr uint32_t expected_max_layers = 64;
+	std::vector<TextureCompositionLayer> layers;
+	layers.reserve(expected_max_layers);
+	for (uint32_t index = 0; index < expected_max_layers; ++index)
+		layers.push_back({ .source = sources[index % sources.size()] });
 	auto composition = std::make_unique<CompositedTextureMaterial>(16, 8, layers);
-	EXPECT_EQ(composition->layers.size(), 3);
+	EXPECT_EQ(composition->layers.size(), expected_max_layers);
 	EXPECT_EQ(composition->width, 16u);
 	EXPECT_EQ(composition->height, 8u);
 	const auto composition_owner = materials.add(std::move(composition));
@@ -175,12 +178,6 @@ TEST(Basics, CompositedTextureMaterialSupportsSeveralLayersAndRejectsNesting)
 		(void)CompositedTextureMaterial(16, 8, {
 			TextureCompositionLayer{ .source = sources[0], .scale = { 0.0f, 1.0f } } }),
 		std::invalid_argument);
-	EXPECT_THROW(
-		(void)CompositedTextureMaterial(16, 8, {
-			TextureCompositionLayer{ .source = sources[0] },
-			TextureCompositionLayer{ .source = sources[1] },
-			TextureCompositionLayer{ .source = sources[2] },
-			TextureCompositionLayer{ .source = sources[0] },
-		}),
-		std::invalid_argument);
+	layers.push_back({ .source = sources[0] });
+	EXPECT_THROW((void)CompositedTextureMaterial(16, 8, layers), std::invalid_argument);
 }

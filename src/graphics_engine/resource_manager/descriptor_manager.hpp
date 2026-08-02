@@ -68,12 +68,12 @@ private:
 		MAX_LOW_FREQ_DESCRIPTOR_SETS + MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS;
 	static constexpr uint32_t MAX_STORAGE_BUFFER_DESCRIPTORS =
 		MAX_RENDERABLE_FRAME_DESCRIPTOR_SETS + MAX_RENDERABLE_DESCRIPTOR_SETS;
+	// Texture composition is rare and consumes one set per layer. Keep a small
+	// engine-wide allowance instead of reserving the layer maximum for every
+	// possible renderable.
+	static constexpr uint32_t MAX_COMPOSITOR_DESCRIPTOR_SETS = 128;
 	static constexpr uint32_t MAX_COMBINED_IMAGE_SAMPLER_DESCRIPTORS =
-		6 * MAX_RENDERABLE_DESCRIPTOR_SETS;
-	// Material validation enforces this same per-renderable layer bound. Each
-	// compositor layer owns one sampled-image descriptor set.
-	static constexpr uint32_t MAX_COMPOSITOR_DESCRIPTOR_SETS =
-		CSTS::MAX_TEXTURE_COMPOSITION_LAYERS * MAX_RENDERABLE_DESCRIPTOR_SETS;
+		6 * MAX_RENDERABLE_DESCRIPTOR_SETS + MAX_COMPOSITOR_DESCRIPTOR_SETS;
 	static constexpr uint32_t MAX_ENGINE_DESCRIPTOR_SETS = 64;
 	static constexpr uint32_t MAX_IMGUI_DESCRIPTOR_SETS = 50;
 	static constexpr uint32_t MAX_DESCRIPTOR_SETS =

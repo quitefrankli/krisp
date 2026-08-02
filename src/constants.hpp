@@ -21,11 +21,10 @@ namespace CSTS // short for Constants
 	constexpr uint32_t MAX_CONCURRENT_RENDER_RESOURCE_SETS =
 		UPPERBOUND_SWAPCHAIN_IMAGES + 1;
 
-	// A texture composition consumes one compositor descriptor set per layer,
-	// including its bottom/base texture. Keep recipe validation and descriptor
-	// pool sizing tied to this value so valid recipes always fit the reserved
-	// per-renderable GPU capacity.
-	constexpr uint32_t MAX_TEXTURE_COMPOSITION_LAYERS = 3;
+	// Includes the bottom/base texture. Composition is an exceptional one-time
+	// operation, so its descriptor capacity is managed independently from the
+	// maximum renderable count.
+	constexpr uint32_t MAX_TEXTURE_COMPOSITION_LAYERS = 64;
 
 	// The default msaa used throughout
 	const uint32_t MSAA_SAMPLE_COUNT = 4;	

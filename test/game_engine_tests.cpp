@@ -1439,10 +1439,20 @@ TEST_F(GameEngineTests, composites_base_color_into_new_immutable_material_and_re
 	EXPECT_TRUE(std::ranges::all_of(flattened_composition.layers, [](const auto& layer) {
 		return dynamic_cast<const TextureMaterial*>(&layer.source->get()) != nullptr;
 	}));
-	EXPECT_THROW(engine.composite_renderable_base_color(flattened, {
+	std::vector<TextureCompositionOverlay> remaining_overlays(
+		CSTS::MAX_TEXTURE_COMPOSITION_LAYERS - flattened_composition.layers.size(),
+		{ .texture_filename = "texture1.jpg" });
+	const RenderableID capped = engine.composite_renderable_base_color(
+		flattened, std::move(remaining_overlays));
+	const TexturedMatGroup capped_group(
+		engine.get_ecs().get_renderable(capped).renderable.material_owners);
+	const auto& capped_composition = dynamic_cast<const CompositedTextureMaterial&>(
+		engine.get_ecs().get_material_system().get(capped_group.base_color_mat));
+	EXPECT_EQ(capped_composition.layers.size(), CSTS::MAX_TEXTURE_COMPOSITION_LAYERS);
+	EXPECT_THROW(engine.composite_renderable_base_color(capped, {
 		{ .texture_filename = "texture1.jpg" },
 	}), std::invalid_argument);
-	EXPECT_TRUE(engine.get_ecs().has_renderable(flattened));
+	EXPECT_TRUE(engine.get_ecs().has_renderable(capped));
 }
 
 TEST_F(GameEngineTests, replacing_composited_diffuse_discards_overlays_and_preserves_other_slots)
