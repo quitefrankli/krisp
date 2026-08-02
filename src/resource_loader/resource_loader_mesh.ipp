@@ -14,6 +14,42 @@
 
 namespace GltfImport
 {
+// glTF is right-handed with -X pointing right; Krisp is left-handed with +X
+// pointing right. Reflect X once at the import boundary and keep engine data
+// entirely in Krisp's basis thereafter.
+inline glm::vec3 to_krisp_basis(glm::vec3 value)
+{
+	value.x = -value.x;
+	return value;
+}
+
+inline glm::vec4 tangent_to_krisp_basis(glm::vec4 value)
+{
+	value.x = -value.x;
+	value.w = -value.w;
+	return value;
+}
+
+inline glm::vec4 quaternion_to_krisp_basis(glm::vec4 value)
+{
+	value.y = -value.y;
+	value.z = -value.z;
+	return value;
+}
+
+inline glm::mat4 to_krisp_basis(const glm::mat4& value)
+{
+	glm::mat4 basis(1.0f);
+	basis[0][0] = -1.0f;
+	return basis * value * basis;
+}
+
+inline void reverse_triangle_winding(std::vector<uint32_t>& indices)
+{
+	for (size_t triangle = 0; triangle + 2 < indices.size(); triangle += 3)
+		std::swap(indices[triangle + 1], indices[triangle + 2]);
+}
+
 inline size_t component_size(const int component_type)
 {
 	switch (component_type)

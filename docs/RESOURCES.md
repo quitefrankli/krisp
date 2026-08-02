@@ -5,6 +5,11 @@ preferred for self-contained assets. Pass a resource-relative filename without
 `..` components. Krisp searches `resources/<project>/meshes` first and
 `resources/default/meshes` second.
 
+glTF resources are converted from glTF's right-handed coordinate system to
+Krisp's left-handed coordinate system during import. The conversion covers
+mesh attributes and winding, node transforms, skin bind data, and animation
+tracks. Texture coordinates and image pixels retain their glTF orientation.
+
 A mesh file must contain at least one scene. Krisp loads the default scene, or
 the first scene when no default is specified, and creates one loaded mesh for
 each mesh node in that scene. A selected scene without mesh nodes returns an

@@ -153,12 +153,27 @@ static std::vector<ImportedAnimation> import_animations(
 			auto& bone_animation = new_bone_animations[joint_idx];
 			if (channel.target_path == "rotation")
 			{
+				for (auto& key : sampler_data.keys)
+				{
+					key.value = GltfImport::quaternion_to_krisp_basis(key.value);
+					key.in_tangent = GltfImport::quaternion_to_krisp_basis(key.in_tangent);
+					key.out_tangent = GltfImport::quaternion_to_krisp_basis(key.out_tangent);
+				}
 				bone_animation.rotation_track.interpolation = sampler_data.interpolation;
 				for (const auto& key : sampler_data.keys)
 					bone_animation.rotation_track.keys.push_back({ key.time, key.value, key.in_tangent, key.out_tangent });
 			}
 			else
 			{
+				if (channel.target_path == "translation")
+				{
+					for (auto& key : sampler_data.keys)
+					{
+						key.value.x = -key.value.x;
+						key.in_tangent.x = -key.in_tangent.x;
+						key.out_tangent.x = -key.out_tangent.x;
+					}
+				}
 				auto& track = channel.target_path == "translation"
 					? bone_animation.translation_track : bone_animation.scale_track;
 				track.interpolation = sampler_data.interpolation;

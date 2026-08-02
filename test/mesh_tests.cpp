@@ -6,6 +6,8 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
+#include <ranges>
 #include <type_traits>
 #include <utility>
 
@@ -25,8 +27,47 @@ TEST(MeshFactory, circle)
 TEST(MeshFactory, cube)
 {
 	auto cube = MeshFactory::cube();
-	ASSERT_EQ(cube->get_num_unique_vertices(), 28); // TODO: this should be 24 and even better 8
-	ASSERT_EQ(cube->get_num_vertex_indices(), 42);
+	ASSERT_EQ(cube->get_num_unique_vertices(), 24);
+	ASSERT_EQ(cube->get_num_vertex_indices(), 36);
+}
+
+TEST(MeshFactory, textured_cube_has_readable_face_uvs)
+{
+	const auto cube = MeshFactory::cube(MeshFactory::EVertexType::TEXTURE);
+	const auto& textured = static_cast<const TexMesh&>(*cube);
+	const std::array expected_faces{
+		std::pair{ glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(-1.0f, 0.0f, 0.0f) },
+		std::pair{ glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f) },
+		std::pair{ glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(1.0f, 0.0f, 0.0f) },
+		std::pair{ glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f) },
+		std::pair{ glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f) },
+		std::pair{ glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(-1.0f, 0.0f, 0.0f) },
+	};
+
+	ASSERT_EQ(textured.get_vertices().size(), expected_faces.size() * 4);
+	for (size_t face = 0; face < expected_faces.size(); ++face)
+	{
+		const auto& [expected_normal, expected_u_direction] = expected_faces[face];
+		const auto first = textured.get_vertices().begin() + static_cast<std::ptrdiff_t>(face * 4);
+		for (auto vertex = first; vertex != first + 4; ++vertex)
+		{
+			EXPECT_TRUE(glm_equal(vertex->normal, expected_normal));
+			EXPECT_TRUE(glm_equal(glm::vec3(vertex->tangent), expected_u_direction));
+			EXPECT_FLOAT_EQ(vertex->tangent.w, 1.0f);
+		}
+
+		const auto u0 = std::ranges::find_if(first, first + 4, [](const SDS::TexVertex& vertex)
+		{
+			return vertex.texCoord == glm::vec2(0.0f, 0.0f);
+		});
+		const auto u1 = std::ranges::find_if(first, first + 4, [](const SDS::TexVertex& vertex)
+		{
+			return vertex.texCoord == glm::vec2(1.0f, 0.0f);
+		});
+		ASSERT_NE(u0, first + 4);
+		ASSERT_NE(u1, first + 4);
+		EXPECT_GT(glm::dot(u1->pos - u0->pos, expected_u_direction), 0.0f);
+	}
 }
 
 TEST(MeshFactory, capsule_is_y_aligned_and_rests_at_zero)

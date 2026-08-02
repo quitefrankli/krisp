@@ -11,6 +11,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include <cmath>
 #include <fstream>
 
 namespace
@@ -241,6 +242,113 @@ TEST(ResourceLoaderErrors, rejects_accessor_stride_smaller_than_its_element)
 	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
 }
 
+TEST(ResourceLoaderCoordinates, converts_static_mesh_basis_without_changing_uvs)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "static_mesh_textured.gltf");
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+
+	ASSERT_EQ(mesh.get_vertices().size(), 3);
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[0].pos, glm::vec3(0.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].pos, glm::vec3(-1.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[2].pos, glm::vec3(-0.5f, 1.0f, 0.0f)));
+	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 2, 1 }));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[0].texCoord, glm::vec2(0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].texCoord, glm::vec2(1.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[2].texCoord, glm::vec2(0.5f, 1.0f)));
+}
+
+TEST(ResourceLoaderCoordinates, converts_static_node_translation_and_rotation)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["nodes"][0]["translation"] = { 2.0, 0.0, 0.0 };
+		document["nodes"][0]["rotation"] = {
+			0.0, 0.0, std::sin(Maths::PI / 4.0f), std::cos(Maths::PI / 4.0f) };
+	});
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& transform = model.meshes[0].renderables[0].local_transform;
+
+	EXPECT_TRUE(glm_equal(transform.get_pos(), glm::vec3(-2.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(
+		transform.get_orient(), glm::angleAxis(-Maths::PI / 2.0f, Maths::forward_vec)));
+}
+
+TEST(ResourceLoaderCoordinates, converts_and_composes_nested_matrix_nodes)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["scenes"][0]["nodes"] = { 0 };
+		document["nodes"] = {
+			{
+				{ "children", { 1 } },
+				{ "matrix", {
+					0.0, 1.0, 0.0, 0.0,
+					-1.0, 0.0, 0.0, 0.0,
+					0.0, 0.0, 1.0, 0.0,
+					2.0, 0.0, 0.0, 1.0 } }
+			},
+			{
+				{ "mesh", 0 },
+				{ "translation", { 1.0, 0.0, 0.0 } }
+			}
+		};
+	});
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& transform = model.meshes[0].renderables[0].local_transform;
+
+	EXPECT_TRUE(glm_equal(transform.get_pos(), glm::vec3(-2.0f, 1.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(
+		transform.get_orient(), glm::angleAxis(-Maths::PI / 2.0f, Maths::forward_vec)));
+}
+
+TEST(ResourceLoaderCoordinates, converts_skinned_mesh_and_bind_pose_basis)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "gltf_basis_skinned.gltf");
+	const auto& loaded_mesh = model.meshes[0];
+	const auto& renderable = loaded_mesh.renderables[0];
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	const auto& bone = ecs.get_skeletal_component(*loaded_mesh.skeleton_id).get_bones()[0];
+
+	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 2, 1 }));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].pos, glm::vec3(-1.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[0].normal, glm::vec3(-1.0f, 0.0f, 0.0f)));
+	EXPECT_EQ(mesh.get_vertices()[0].bone_ids, glm::vec4(0.0f));
+	EXPECT_EQ(mesh.get_vertices()[0].bone_weights, glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+	EXPECT_TRUE(glm_equal(bone.relative_transform.get_pos(), glm::vec3(-2.0f, 0.0f, 0.0f)));
+	EXPECT_TRUE(glm_equal(bone.inverse_bind_pose.get_pos(), glm::vec3(-2.0f, 0.0f, 0.0f)));
+}
+
+TEST(ResourceLoaderCoordinates, converts_cubic_animation_values_and_tangents)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "gltf_basis_skinned.gltf");
+	const auto loaded = ResourceLoader::load_animations(
+		ecs, "gltf_basis_cubic_animation.gltf", *model.meshes[0].skeleton_id);
+	ASSERT_EQ(loaded.animations.size(), 1);
+	const auto& animation = ecs.get_skeletal_animations().at(loaded.animations[0]).bone_animations[0];
+
+	ASSERT_EQ(animation.translation_track.interpolation, BoneAnimation::Interpolation::CUBIC_SPLINE);
+	ASSERT_EQ(animation.translation_track.keys.size(), 2);
+	EXPECT_TRUE(glm_equal(animation.translation_track.keys[0].in_tangent, glm::vec3(-1.0f, 2.0f, 3.0f)));
+	EXPECT_TRUE(glm_equal(animation.translation_track.keys[0].value, glm::vec3(-2.0f, 3.0f, 4.0f)));
+	EXPECT_TRUE(glm_equal(animation.translation_track.keys[0].out_tangent, glm::vec3(-5.0f, 6.0f, 7.0f)));
+
+	ASSERT_EQ(animation.rotation_track.interpolation, BoneAnimation::Interpolation::CUBIC_SPLINE);
+	ASSERT_EQ(animation.rotation_track.keys.size(), 2);
+	EXPECT_TRUE(glm_equal(animation.rotation_track.keys[0].in_tangent, glm::vec4(0.1f, -0.2f, -0.3f, 0.4f)));
+	EXPECT_TRUE(glm_equal(animation.rotation_track.keys[0].out_tangent, glm::vec4(0.5f, -0.6f, -0.7f, 0.8f)));
+	EXPECT_TRUE(glm_equal(
+		animation.rotation_track.keys[1].value,
+		glm::vec4(0.0f, 0.0f, -std::sqrt(0.5f), std::sqrt(0.5f))));
+}
+
 TEST(ResourceLoaderMaterials, imports_gltf_alpha_modes_and_opacity)
 {
 	MutatedGltf masked([](nlohmann::json& document)
@@ -305,14 +413,16 @@ TEST_F(ResourceLoaderECS, bone_relative_transforms)
 	// right bone
 	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_pos(), Maths::up_vec));
 	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_scale(), Maths::identity_vec));
-	ASSERT_TRUE(glm_equal(get_bones()[3].relative_transform.get_orient(), Maths::zRot90));
+	ASSERT_TRUE(glm_equal(
+		get_bones()[3].relative_transform.get_orient(),
+		glm::angleAxis(-Maths::PI / 2.0f, Maths::forward_vec)));
 
 	// left bone
 	ASSERT_TRUE(glm_equal(get_bones()[4].relative_transform.get_pos(), Maths::up_vec));
 	ASSERT_TRUE(glm_equal(get_bones()[4].relative_transform.get_scale(), Maths::identity_vec));
 	ASSERT_TRUE(glm_equal(
 		get_bones()[4].relative_transform.get_orient(),
-		glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
+		Maths::zRot90));
 }
 
 TEST_F(ResourceLoaderECS, model_load_ignores_animations)
@@ -381,9 +491,9 @@ TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 	ASSERT_EQ(bone_animations[1].rotation_track.keys.size(), 4);
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[0]), Maths::identity_quat));
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[1]),
-		glm::angleAxis(Maths::PI/4.0f, Maths::forward_vec)));
-	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[2]),
 		glm::angleAxis(-Maths::PI/4.0f, Maths::forward_vec)));
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[2]),
+		glm::angleAxis(Maths::PI/4.0f, Maths::forward_vec)));
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[1].rotation_track.keys[3]), Maths::identity_quat));
 
 	// tip bone
@@ -391,18 +501,19 @@ TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 	ASSERT_EQ(bone_animations[2].rotation_track.keys.size(), 4);
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[0]), Maths::identity_quat));
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[1]),
-		glm::angleAxis(Maths::PI/8.0f, Maths::forward_vec)));
-	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[2]),
 		glm::angleAxis(-Maths::PI/8.0f, Maths::forward_vec)));
+	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[2]),
+		glm::angleAxis(Maths::PI/8.0f, Maths::forward_vec)));
 	ASSERT_TRUE(glm_equal(key_quat(bone_animations[2].rotation_track.keys[3]), Maths::identity_quat));
 
 	// right bone
 	ASSERT_TRUE(pos_checker(bone_animations[3], Maths::up_vec));
-	ASSERT_TRUE(quat_checker(bone_animations[3], Maths::zRot90));
+	ASSERT_TRUE(quat_checker(
+		bone_animations[3], glm::angleAxis(-Maths::PI / 2.0f, Maths::forward_vec)));
 
 	// left bone
 	ASSERT_TRUE(pos_checker(bone_animations[4], Maths::up_vec));
-	ASSERT_TRUE(quat_checker(bone_animations[4], glm::angleAxis(-Maths::PI/2.0f, Maths::forward_vec)));
+	ASSERT_TRUE(quat_checker(bone_animations[4], Maths::zRot90));
 }
 
 TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_name)
@@ -431,7 +542,7 @@ TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_n
 	ASSERT_EQ(root_animation.bone_animations[0].translation_track.keys.size(), 2);
 	EXPECT_TRUE(glm_equal(
 		root_animation.bone_animations[0].translation_track.keys.back().value,
-		glm::vec3(2.0f, 0.0f, 0.0f)));
+		glm::vec3(-2.0f, 0.0f, 0.0f)));
 	EXPECT_TRUE(root_animation.bone_animations[1].translation_track.keys.empty());
 
 	const auto& mid_animation = ecs.get_skeletal_animations().at(*mid_turn);
@@ -439,6 +550,11 @@ TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_n
 		mid_animation.bone_animations[1].rotation_track.interpolation,
 		BoneAnimation::Interpolation::STEP);
 	EXPECT_TRUE(mid_animation.bone_animations[0].rotation_track.keys.empty());
+	ASSERT_EQ(mid_animation.bone_animations[1].rotation_track.keys.size(), 2);
+	const auto& rotation = mid_animation.bone_animations[1].rotation_track.keys.back().value;
+	EXPECT_TRUE(glm_equal(
+		glm::quat(rotation.w, rotation.x, rotation.y, rotation.z),
+		glm::angleAxis(-Maths::PI / 2.0f, Maths::forward_vec)));
 
 	const auto reloaded = ResourceLoader::load_animations(ecs, path, skeleton_id);
 	ASSERT_EQ(reloaded.animations.size(), 2);
@@ -495,7 +611,7 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->duration_secs, 1.0f);
 	EXPECT_TRUE(glm_equal(
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
-		glm::vec3(1.0f, 0.0f, 0.0f)));
+		glm::vec3(-1.0f, 0.0f, 0.0f)));
 
 	ecs.set_animation_paused(skeleton_id, true);
 	EXPECT_TRUE(ecs.get_animation_playback(skeleton_id)->paused);
@@ -503,7 +619,7 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 0.25f);
 	EXPECT_NEAR(
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x,
-		0.5f, 0.0001f);
+		-0.5f, 0.0001f);
 	ecs.seek_animation(skeleton_id, -1.0f);
 	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 0.0f);
 	ecs.seek_animation(skeleton_id, 2.0f);
@@ -512,15 +628,15 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 	ecs.process(0.25f);
 	EXPECT_TRUE(glm_equal(
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
-		glm::vec3(1.0f, 0.0f, 0.0f)));
+		glm::vec3(-1.0f, 0.0f, 0.0f)));
 	ecs.step_animation(skeleton_id, 1.0f / 30.0f);
 	const float stepped_forward =
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x;
-	EXPECT_GT(stepped_forward, 1.0f);
+	EXPECT_LT(stepped_forward, -1.0f);
 	ecs.step_animation(skeleton_id, -1.0f / 30.0f);
 	EXPECT_NEAR(
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos().x,
-		1.0f, 0.0001f);
+		-1.0f, 0.0001f);
 
 	ecs.set_animation_looping(skeleton_id, false);
 	ecs.set_animation_paused(skeleton_id, false);
@@ -824,6 +940,7 @@ TEST(ResourceLoaderNormalMaps, missing_tangents_can_be_generated)
 		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
 		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
 		EXPECT_TRUE(vertex.tangent.w == 1.0f || vertex.tangent.w == -1.0f);
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
 	}
 	ASSERT_EQ(model.warnings.size(), 1);
 	EXPECT_NE(model.warnings[0].message.find("generated missing tangents"), std::string::npos);
@@ -859,7 +976,7 @@ TEST(ResourceLoaderNormalMaps, authored_tangents_are_preserved_and_scale_warns)
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	for (const auto& vertex : mesh.get_vertices())
-		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
 	ASSERT_EQ(model.warnings.size(), 1);
 	EXPECT_NE(model.warnings[0].message.find("normalTexture.scale"), std::string::npos);
 
@@ -905,7 +1022,9 @@ TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
 	const auto& mesh = dynamic_cast<const SkinnedMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	ASSERT_EQ(mesh.get_vertices().size(), 3);
 	for (const auto& vertex : mesh.get_vertices())
-		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f)));
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
+	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 2, 1 }));
+	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].pos, glm::vec3(-1.0f, 0.0f, 0.0f)));
 }
 
 TEST(ResourceLoaderSkinnedColor, imports_color_material_without_texture_upload)
@@ -988,10 +1107,10 @@ TEST(ResourceLoaderVariants, scene_nodes_create_distinct_mesh_instances)
 	ASSERT_EQ(model.meshes[1].renderables.size(), 1);
 	EXPECT_TRUE(glm_equal(
 		model.meshes[0].renderables[0].local_transform.get_pos(),
-		glm::vec3(3.0f, 0.0f, 0.0f)));
+		glm::vec3(-3.0f, 0.0f, 0.0f)));
 	EXPECT_TRUE(glm_equal(
 		model.meshes[1].renderables[0].local_transform.get_pos(),
-		glm::vec3(-1.0f, 2.0f, 0.0f)));
+		glm::vec3(1.0f, 2.0f, 0.0f)));
 }
 
 TEST(ResourceLoaderVariants, explicit_scene_selection_uses_requested_scene)
@@ -1016,7 +1135,7 @@ TEST(ResourceLoaderVariants, generates_normals_for_non_indexed_interleaved_trian
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& mesh = general_loader_ecs.get_mesh_system().get(model.meshes[0].renderables[0].mesh_owner->get_id());
 	EXPECT_EQ(mesh.get_num_unique_vertices(), 4);
-	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 1, 2, 2, 1, 3 }));
+	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 2, 1, 2, 3, 1 }));
 	ASSERT_EQ(model.warnings.size(), 4);
 }
 

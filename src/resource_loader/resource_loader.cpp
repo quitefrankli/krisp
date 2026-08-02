@@ -88,22 +88,22 @@ Maths::Transform node_transform(const tinygltf::Node& node)
 {
 	Maths::Transform transform;
 	if (!node.matrix.empty())
-	{
 		transform.set_mat4(glm::make_mat4(node.matrix.data()));
-		return transform;
+	else
+	{
+		if (!node.translation.empty())
+			transform.set_pos({ node.translation[0], node.translation[1], node.translation[2] });
+		if (!node.rotation.empty())
+			transform.set_orient({
+				static_cast<float>(node.rotation[3]),
+				static_cast<float>(node.rotation[0]),
+				static_cast<float>(node.rotation[1]),
+				static_cast<float>(node.rotation[2])
+			});
+		if (!node.scale.empty())
+			transform.set_scale({ node.scale[0], node.scale[1], node.scale[2] });
 	}
-	if (!node.translation.empty())
-		transform.set_pos({ node.translation[0], node.translation[1], node.translation[2] });
-	if (!node.rotation.empty())
-		transform.set_orient({
-			static_cast<float>(node.rotation[3]),
-			static_cast<float>(node.rotation[0]),
-			static_cast<float>(node.rotation[1]),
-			static_cast<float>(node.rotation[2])
-		});
-	if (!node.scale.empty())
-		transform.set_scale({ node.scale[0], node.scale[1], node.scale[2] });
-	return transform;
+	return Maths::Transform(GltfImport::to_krisp_basis(transform.get_mat4()));
 }
 
 struct NodeInstance
@@ -221,7 +221,7 @@ std::vector<Bone> load_bones(const tinygltf::Model& model, const int skin_index)
 			glm::mat4 matrix(1.0f);
 			for (size_t component = 0; component < 16; ++component)
 				reinterpret_cast<float*>(&matrix)[component] = matrices.number(joint, component);
-			bones[joint].inverse_bind_pose.set_mat4(matrix);
+			bones[joint].inverse_bind_pose.set_mat4(GltfImport::to_krisp_basis(matrix));
 		}
 	}
 
@@ -328,15 +328,22 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			const auto position_it = primitive.attributes.find("POSITION");
 			if (position_it == primitive.attributes.end())
 				throw ResourceLoadError("ResourceLoader: primitive is missing POSITION");
-			const auto positions = GltfImport::read_vec3(model, position_it->second);
+			auto positions = GltfImport::read_vec3(model, position_it->second);
+			for (auto& position : positions)
+				position = GltfImport::to_krisp_basis(position);
 			auto indices = GltfImport::read_indices(model, primitive, positions.size());
 			if (primitive.mode != TINYGLTF_MODE_TRIANGLES)
 				add_warning(result, options, "ResourceLoader: converted a non-triangle primitive to triangles");
 			indices = GltfImport::triangles_from(primitive, std::move(indices), options.allow_non_triangle_primitives);
+			GltfImport::reverse_triangle_winding(indices);
 
 			std::vector<glm::vec3> normals;
 			if (GltfImport::has_attribute(primitive, "NORMAL"))
+			{
 				normals = GltfImport::read_vec3(model, primitive.attributes.at("NORMAL"));
+				for (auto& normal : normals)
+					normal = glm::normalize(GltfImport::to_krisp_basis(normal));
+			}
 			else if (options.generate_missing_normals)
 			{
 				add_warning(result, options, "ResourceLoader: generated missing normals");
@@ -381,6 +388,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				if (GltfImport::has_attribute(primitive, "TANGENT"))
 				{
 					tangents = GltfImport::read_vec4(model, primitive.attributes.at("TANGENT"));
+					for (auto& tangent : tangents)
+						tangent = GltfImport::tangent_to_krisp_basis(tangent);
 					if (tangents.size() != positions.size())
 						throw ResourceLoadError("ResourceLoader: POSITION and TANGENT counts differ");
 					const bool tangents_valid = std::all_of(
