@@ -2,6 +2,7 @@
 
 #include <shared_data_structures.hpp>
 #include <renderable/material.hpp>
+#include <renderable/composited_texture_material.hpp>
 #include <renderable/material_group.hpp>
 #include <renderable/render_types.hpp>
 #include <entity_component_system/material_system.hpp>
@@ -124,4 +125,62 @@ TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)
 
 	const std::vector<MaterialHandle> owners{ first_owner, second_owner };
 	EXPECT_THROW((void)TexturedMatGroup{ owners }, std::runtime_error);
+}
+
+TEST(Basics, TexturedMaterialGroupAcceptsCompositedBaseColor)
+{
+	MaterialSystem materials;
+	auto source = std::make_unique<TextureMaterial>();
+	source->width = 8;
+	source->height = 4;
+	const auto source_owner = materials.add(std::move(source));
+	auto composition = std::make_unique<CompositedTextureMaterial>(
+		8, 4, std::vector<TextureCompositionLayer>{ { .source = source_owner } });
+	const auto composition_owner = materials.add(std::move(composition));
+
+	const std::vector<MaterialHandle> owners{ composition_owner };
+	const TexturedMatGroup group(owners);
+	EXPECT_EQ(group.base_color_mat, composition_owner->get_id());
+}
+
+TEST(Basics, CompositedTextureMaterialSupportsSeveralLayersAndRejectsNesting)
+{
+	MaterialSystem materials;
+	std::vector<MaterialHandle> sources;
+	for (int index = 0; index < 3; ++index)
+	{
+		auto source = std::make_unique<TextureMaterial>();
+		source->width = 16;
+		source->height = 8;
+		sources.push_back(materials.add(std::move(source)));
+	}
+
+	const std::vector<TextureCompositionLayer> layers{
+		{ .source = sources[0] }, { .source = sources[1] }, { .source = sources[2] } };
+	auto composition = std::make_unique<CompositedTextureMaterial>(16, 8, layers);
+	EXPECT_EQ(composition->layers.size(), 3);
+	EXPECT_EQ(composition->width, 16u);
+	EXPECT_EQ(composition->height, 8u);
+	const auto composition_owner = materials.add(std::move(composition));
+
+	EXPECT_THROW(
+		(void)CompositedTextureMaterial(16, 8, {
+			TextureCompositionLayer{ .source = composition_owner } }),
+		std::invalid_argument);
+	EXPECT_THROW(
+		(void)CompositedTextureMaterial(8, 8, {
+			TextureCompositionLayer{ .source = sources[0] } }),
+		std::invalid_argument);
+	EXPECT_THROW(
+		(void)CompositedTextureMaterial(16, 8, {
+			TextureCompositionLayer{ .source = sources[0], .scale = { 0.0f, 1.0f } } }),
+		std::invalid_argument);
+	EXPECT_THROW(
+		(void)CompositedTextureMaterial(16, 8, {
+			TextureCompositionLayer{ .source = sources[0] },
+			TextureCompositionLayer{ .source = sources[1] },
+			TextureCompositionLayer{ .source = sources[2] },
+			TextureCompositionLayer{ .source = sources[0] },
+		}),
+		std::invalid_argument);
 }

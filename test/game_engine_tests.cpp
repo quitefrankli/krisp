@@ -9,6 +9,7 @@
 #include "mock_window.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "renderable/material_factory.hpp"
+#include "renderable/composited_texture_material.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "serialization/serializer.hpp"
@@ -1388,6 +1389,92 @@ TEST_F(GameEngineTests, sets_a_matte_specular_fallback)
 	const TexturedMatGroup snapshot_group(
 		find_renderable(*frame, renderable_id).definition->material_owners);
 	EXPECT_EQ(snapshot_group.specular_mat, group.specular_mat);
+}
+
+TEST_F(GameEngineTests, composites_base_color_into_new_immutable_material_and_renderable)
+{
+	auto diffuse = ResourceLoader::fetch_texture(
+		engine.get_ecs().get_material_system(), "texture2.jpg");
+	auto normal = ResourceLoader::fetch_texture(
+		engine.get_ecs().get_material_system(), "texture3.jpg", ETextureSemantic::NORMAL);
+	Renderable renderable;
+	renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
+		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
+	renderable.material_owners = { diffuse, normal };
+	renderable.pipeline_render_type = ERenderType::STANDARD;
+	renderable.alpha_mode = EAlphaMode::MASK;
+	auto& object = spawn_renderable_object(engine, renderable);
+	const RenderableID old_id = only_renderable_id(engine, object.get_id());
+	const MaterialID old_base = diffuse->get_id();
+	const MaterialID normal_id = normal->get_id();
+
+	const RenderableID replacement = engine.composite_renderable_base_color(old_id, {
+		{ .texture_filename = "texture4.png", .centre = { 0.25f, 0.75f },
+		  .scale = { 0.5f, 0.25f }, .rotation_radians = 0.4f,
+		  .tint = { 0.2f, 0.4f, 0.6f }, .opacity = 0.7f },
+	});
+
+	EXPECT_NE(replacement, old_id);
+	EXPECT_FALSE(engine.get_ecs().has_renderable(old_id));
+	const auto& replaced = engine.get_ecs().get_renderable(replacement).renderable;
+	EXPECT_EQ(replaced.alpha_mode, EAlphaMode::MASK);
+	const TexturedMatGroup group(replaced.material_owners);
+	EXPECT_EQ(group.normal_mat, normal_id);
+	EXPECT_NE(group.base_color_mat, old_base);
+	const auto& composition = dynamic_cast<const CompositedTextureMaterial&>(
+		engine.get_ecs().get_material_system().get(group.base_color_mat));
+	ASSERT_EQ(composition.layers.size(), 2);
+	EXPECT_EQ(composition.layers.front().source->get_id(), old_base);
+	EXPECT_EQ(composition.layers[1].centre, glm::vec2(0.25f, 0.75f));
+	EXPECT_FLOAT_EQ(composition.layers[1].opacity, 0.7f);
+
+	const RenderableID flattened = engine.composite_renderable_base_color(replacement, {
+		{ .texture_filename = "texture5.jpg" },
+	});
+	const TexturedMatGroup flattened_group(
+		engine.get_ecs().get_renderable(flattened).renderable.material_owners);
+	const auto& flattened_composition = dynamic_cast<const CompositedTextureMaterial&>(
+		engine.get_ecs().get_material_system().get(flattened_group.base_color_mat));
+	EXPECT_EQ(flattened_composition.layers.size(), 3);
+	EXPECT_TRUE(std::ranges::all_of(flattened_composition.layers, [](const auto& layer) {
+		return dynamic_cast<const TextureMaterial*>(&layer.source->get()) != nullptr;
+	}));
+	EXPECT_THROW(engine.composite_renderable_base_color(flattened, {
+		{ .texture_filename = "texture1.jpg" },
+	}), std::invalid_argument);
+	EXPECT_TRUE(engine.get_ecs().has_renderable(flattened));
+}
+
+TEST_F(GameEngineTests, replacing_composited_diffuse_discards_overlays_and_preserves_other_slots)
+{
+	auto diffuse = ResourceLoader::fetch_texture(
+		engine.get_ecs().get_material_system(), "texture2.jpg");
+	auto normal = ResourceLoader::fetch_texture(
+		engine.get_ecs().get_material_system(), "texture3.jpg", ETextureSemantic::NORMAL);
+	const MaterialID normal_id = normal->get_id();
+	Renderable renderable;
+	renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
+		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
+	renderable.material_owners = { diffuse, normal };
+	renderable.pipeline_render_type = ERenderType::STANDARD;
+	auto& object = spawn_renderable_object(engine, renderable);
+	RenderableID renderable_id = only_renderable_id(engine, object.get_id());
+
+	renderable_id = engine.composite_renderable_base_color(renderable_id, {
+		{ .texture_filename = "texture4.png" },
+	});
+	const RenderableID composed_id = renderable_id;
+	renderable_id = engine.replace_renderable_texture(
+		renderable_id, ETextureSemantic::BASE_COLOR, "texture1.jpg");
+
+	EXPECT_NE(renderable_id, composed_id);
+	EXPECT_FALSE(engine.get_ecs().has_renderable(composed_id));
+	const TexturedMatGroup group(
+		engine.get_ecs().get_renderable(renderable_id).renderable.material_owners);
+	EXPECT_EQ(group.normal_mat, normal_id);
+	const auto& base = engine.get_ecs().get_material_system().get(group.base_color_mat);
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(base).source, "texture1.jpg");
+	EXPECT_EQ(dynamic_cast<const CompositedTextureMaterial*>(&base), nullptr);
 }
 
 TEST_F(GameEngineTests, rejected_texture_replacements_leave_materials_unchanged)

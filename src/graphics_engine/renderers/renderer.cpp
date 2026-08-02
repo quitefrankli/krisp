@@ -104,9 +104,13 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 
 	if (primary_pipeline_type == ERenderType::STANDARD || primary_pipeline_type == ERenderType::SKINNED)
 	{
+		const TexturedMatGroup materials(renderable.material_owners);
+		const auto& base_material = materials.get_material_owner(materials.base_color_mat)->get();
+		const auto& sampled_material = dynamic_cast<const SampledMaterial&>(base_material);
 		const SDS::AlphaMaterialData alpha_data{
 			.alpha_cutoff = renderable.alpha_mode == EAlphaMode::MASK ? renderable.alpha_cutoff : 0.0f,
 			.opacity = renderable.opacity,
+			.premultiplied_base_color = sampled_material.is_premultiplied() ? 1 : 0,
 		};
 		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
 			0, sizeof(alpha_data), &alpha_data);

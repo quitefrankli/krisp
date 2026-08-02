@@ -11,8 +11,10 @@
 
 #include <imgui.h>
 #include <fmt/core.h>
+#include <glm/trigonometric.hpp>
 
 #include <algorithm>
+#include <cmath>
 
 using GuiWindowDetail::draw_resource_load_error;
 using GuiWindowDetail::report_resource_load_error;
@@ -28,6 +30,11 @@ void GuiMaterialEditor::refresh_textures()
 	texture_paths = Utility::get_all_textures();
 	std::ranges::sort(texture_paths);
 	texture_names = texture_paths;
+}
+
+void GuiMaterialEditor::reset_overlay_draft()
+{
+	overlay_draft = {};
 }
 
 void GuiMaterialEditor::process(GameEngine& engine)
@@ -63,6 +70,28 @@ void GuiMaterialEditor::process(GameEngine& engine)
 				"Material Editor failed to update material", ResourceLoadError(error.what()));
 		}
 	}
+	if (pending_overlay)
+	{
+		auto change = std::move(*pending_overlay);
+		pending_overlay.reset();
+		try
+		{
+			const RenderableID replacement_id = engine.composite_renderable_base_color(
+				change.renderable_id, { std::move(change.overlay) });
+			std::ranges::replace(renderable_ids, change.renderable_id, replacement_id);
+			reset_overlay_draft();
+			load_error.reset();
+		}
+		catch (const ResourceLoadError& error)
+		{
+			load_error = report_resource_load_error("Material Editor failed to load overlay", error);
+		}
+		catch (const std::runtime_error& error)
+		{
+			load_error = report_resource_load_error(
+				"Material Editor failed to apply overlay", ResourceLoadError(error.what()));
+		}
+	}
 	const auto previous_target = target_object;
 	target_object.reset();
 	renderable_labels.clear();
@@ -74,6 +103,9 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	const Object* object = engine.get_gizmo().get_selected_object();
 	if (!object)
 	{
+		if (overlay_draft_target)
+			reset_overlay_draft();
+		overlay_draft_target.reset();
 		target_status = "Select an object with the gizmo";
 		return;
 	}
@@ -99,8 +131,14 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	}
 	selected_renderable.value = std::clamp(
 		selected_renderable.value, 0, static_cast<int>(renderable_labels.size()) - 1);
+	const RenderableID selected_id = renderable_ids[selected_renderable.value];
+	if (overlay_draft_target != selected_id)
+	{
+		reset_overlay_draft();
+		overlay_draft_target = selected_id;
+	}
 	const auto& renderable = engine.get_ecs()
-		.get_renderable(renderable_ids[selected_renderable.value]).renderable;
+		.get_renderable(selected_id).renderable;
 	compatible = renderable.pipeline_render_type == ERenderType::STANDARD
 		|| renderable.pipeline_render_type == ERenderType::SKINNED;
 	if (!compatible)
@@ -119,7 +157,20 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	{
 		if (!engine.get_ecs().get_material_system().contains(id))
 			return std::string("(missing material)");
-		const auto* texture = dynamic_cast<const TextureMaterial*>(&engine.get_ecs().get_material_system().get(id));
+		const auto& material = engine.get_ecs().get_material_system().get(id);
+		if (const auto* composition = dynamic_cast<const CompositedTextureMaterial*>(&material))
+		{
+			const auto& bottom = dynamic_cast<const TextureMaterial&>(
+				composition->layers.front().source->get());
+			const std::filesystem::path source(bottom.source);
+			const std::string base = source.filename().empty()
+				? bottom.source
+				: source.filename().string();
+			const size_t overlay_count = composition->layers.size() - 1;
+			return fmt::format("{} + {} overlay{}", base, overlay_count,
+				overlay_count == 1 ? "" : "s");
+		}
+		const auto* texture = dynamic_cast<const TextureMaterial*>(&material);
 		if (!texture || texture->source.empty())
 			return fmt::format("Material {}", id.get_underlying());
 		if (texture->source == "(matte)" || texture->source == "(none)")
@@ -173,6 +224,64 @@ void GuiMaterialEditor::draw_texture_section(
 	ImGui::PopID();
 }
 
+void GuiMaterialEditor::draw_overlay_section()
+{
+	if (!ImGui::CollapsingHeader("Diffuse Overlay", ImGuiTreeNodeFlags_DefaultOpen))
+		return;
+	ImGui::PushID("Diffuse Overlay");
+	const char* preview = overlay_draft.texture_filename.empty()
+		? "(select texture)"
+		: overlay_draft.texture_filename.c_str();
+	const bool dropdown_open = ImGui::BeginCombo("Texture", preview);
+	if (dropdown_open && !overlay_dropdown_open)
+		should_refresh_textures = true;
+	overlay_dropdown_open = dropdown_open;
+	if (dropdown_open)
+	{
+		for (size_t index = 0; index < texture_paths.size(); ++index)
+		{
+			if (ImGui::Selectable(texture_names[index].c_str(),
+				overlay_draft.texture_filename == texture_paths[index]))
+				overlay_draft.texture_filename = texture_paths[index];
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("%s", texture_names[index].c_str());
+		}
+		ImGui::EndCombo();
+	}
+
+	ImGui::InputFloat2("Centre (UV)", &overlay_draft.centre.x);
+	ImGui::InputFloat2("Scale", &overlay_draft.scale.x);
+	float rotation_degrees = glm::degrees(overlay_draft.rotation_radians);
+	if (ImGui::InputFloat("Rotation (degrees)", &rotation_degrees))
+		overlay_draft.rotation_radians = glm::radians(rotation_degrees);
+	ImGui::ColorEdit3("Tint", &overlay_draft.tint.x);
+	ImGui::SliderFloat("Opacity", &overlay_draft.opacity, 0.0f, 1.0f);
+
+	const auto finite_vec2 = [](const glm::vec2& value) {
+		return std::isfinite(value.x) && std::isfinite(value.y);
+	};
+	const bool valid_tint = std::isfinite(overlay_draft.tint.x)
+		&& std::isfinite(overlay_draft.tint.y)
+		&& std::isfinite(overlay_draft.tint.z)
+		&& overlay_draft.tint.x >= 0.0f && overlay_draft.tint.x <= 1.0f
+		&& overlay_draft.tint.y >= 0.0f && overlay_draft.tint.y <= 1.0f
+		&& overlay_draft.tint.z >= 0.0f && overlay_draft.tint.z <= 1.0f;
+	const bool valid = !overlay_draft.texture_filename.empty()
+		&& finite_vec2(overlay_draft.centre)
+		&& finite_vec2(overlay_draft.scale)
+		&& overlay_draft.scale.x > 0.0f && overlay_draft.scale.y > 0.0f
+		&& std::isfinite(overlay_draft.rotation_radians)
+		&& valid_tint
+		&& std::isfinite(overlay_draft.opacity)
+		&& overlay_draft.opacity >= 0.0f && overlay_draft.opacity <= 1.0f;
+	ImGui::BeginDisabled(!valid);
+	if (ImGui::Button("Apply Overlay"))
+		pending_overlay = OverlayChange{
+			renderable_ids.at(selected_renderable.value), overlay_draft };
+	ImGui::EndDisabled();
+	ImGui::PopID();
+}
+
 void GuiMaterialEditor::draw()
 {
 	if (begin())
@@ -200,6 +309,7 @@ void GuiMaterialEditor::draw()
 			ETextureSemantic::SPECULAR,
 			specular_label,
 			specular_dropdown_open);
+		draw_overlay_section();
 		ImGui::EndDisabled();
 		draw_resource_load_error(load_error);
 	}

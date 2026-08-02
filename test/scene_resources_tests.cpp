@@ -1,5 +1,6 @@
 #include <entity_component_system/ecs.hpp>
 #include <renderable/material.hpp>
+#include <renderable/composited_texture_material.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <serialization/resource_provenance.hpp>
 #include <serialization/scene_resources.hpp>
@@ -147,6 +148,56 @@ TEST_F(SceneResourcesTests, round_trips_color_material_and_raw_texture)
 	EXPECT_EQ(texture_value.source, "generated");
 	ASSERT_EQ(texture_value.data_len, pixels.size());
 	EXPECT_EQ(std::memcmp(texture_value.data->get(), pixels.data(), pixels.size()), 0);
+}
+
+TEST_F(SceneResourcesTests, round_trips_composited_texture_recipe_without_pixel_payload)
+{
+	ECS source;
+	std::vector<MaterialHandle> texture_owners;
+	for (int index = 0; index < 3; ++index)
+	{
+		auto texture = std::make_unique<TextureMaterial>();
+		texture->width = 2;
+		texture->height = 1;
+		texture->channels = 4;
+		texture->data_len = 8;
+		texture->mip_sizes = { 8 };
+		texture->data = std::make_unique<OwnedTextureData>(std::vector<std::byte>(8));
+		texture_owners.push_back(source.get_material_system().add(std::move(texture)));
+	}
+	std::vector<TextureCompositionLayer> layers{
+		{ .source = texture_owners[0] },
+		{ .source = texture_owners[1], .centre = { 0.25f, 0.75f },
+		  .scale = { 0.5f, 0.25f }, .rotation_radians = 0.3f,
+		  .tint = { 0.2f, 0.4f, 0.6f }, .opacity = 0.7f },
+		{ .source = texture_owners[2] },
+	};
+	auto composition = source.get_material_system().add(
+		std::make_unique<CompositedTextureMaterial>(2, 1, std::move(layers)));
+
+	Serializer document;
+	SceneResourceWriter writer(document, source, directory);
+	writer.write_material_reference(document.map("material"), composition->get_id());
+	const auto saved = Deserializer::parse(document.emit());
+	EXPECT_EQ(saved.child("resources").child("materials").elements().size(), 4);
+	EXPECT_EQ(std::ranges::count_if(std::filesystem::directory_iterator(directory), [](const auto& entry) {
+		return entry.path().extension() == ".dat";
+	}), 3);
+
+	ECS restored;
+	SceneResourceReader reader(restored, directory);
+	reader.prepare(saved);
+	const auto restored_owner = reader.read_material_reference(saved.child("material"));
+	const auto& restored_composition = dynamic_cast<const CompositedTextureMaterial&>(
+		restored_owner->get());
+	ASSERT_EQ(restored_composition.layers.size(), 3);
+	EXPECT_EQ(restored_composition.width, 2u);
+	EXPECT_EQ(restored_composition.height, 1u);
+	EXPECT_EQ(restored_composition.layers[1].centre, glm::vec2(0.25f, 0.75f));
+	EXPECT_EQ(restored_composition.layers[1].scale, glm::vec2(0.5f, 0.25f));
+	EXPECT_FLOAT_EQ(restored_composition.layers[1].rotation_radians, 0.3f);
+	EXPECT_EQ(restored_composition.layers[1].tint, glm::vec3(0.2f, 0.4f, 0.6f));
+	EXPECT_FLOAT_EQ(restored_composition.layers[1].opacity, 0.7f);
 }
 
 TEST_F(SceneResourcesTests, rejects_truncated_mesh_data)

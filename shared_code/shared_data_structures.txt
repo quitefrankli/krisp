@@ -27,6 +27,16 @@ struct AlphaMaterialData
 {
 	ALIGN(4) float alpha_cutoff;
 	ALIGN(4) float opacity;
+	ALIGN(4) int premultiplied_base_color;
+};
+
+// Inputs for one layer's one-time composition-generation draw. These are not
+// pushed every frame; later frames sample the cached composited GPU texture.
+struct TextureCompositorPushConstant
+{
+	ALIGN(16) VEC4 placement;
+	ALIGN(16) VEC4 tint_opacity;
+	ALIGN(4) float rotation_radians;
 };
 
 // be vary of alignment issues

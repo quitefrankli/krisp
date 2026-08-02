@@ -10,6 +10,7 @@
 #include "graphics_renderable.hpp"
 #include "render_draw_list.hpp"
 #include "graphics_engine_texture_manager.hpp"
+#include "texture_compositor.hpp"
 #include "graphics_engine_gui_manager.hpp"
 #include "pipeline/pipeline_manager.hpp"
 #include "renderers/renderer_manager.hpp"
@@ -90,6 +91,7 @@ public: // getters and setters
 	VkCommandPool& get_command_pool() { return get_rsrc_mgr().get_command_pool(); }
 	GraphicsEnginePipelineManager& get_pipeline_mgr() { return pipeline_mgr; }
 	GraphicsEngineTextureManager& get_texture_mgr() { return texture_mgr; }
+	TextureCompositor& get_texture_compositor() { return texture_compositor; }
 	// GraphicsEngineRayTracing& get_raytracing_module() { return raytracing_component; }
 	GraphicsEngineGuiManager& get_graphics_gui_manager() { return gui_manager; }
 	EngineUiManager& get_gui_manager() final { return gui_manager.get_engine_ui_manager(); }
@@ -198,6 +200,7 @@ private: // core components
 	RendererManager renderer_mgr;
 	GraphicsEngineSwapChain swap_chain;
 	GraphicsEnginePipelineManager pipeline_mgr;
+	TextureCompositor texture_compositor;
 	// GraphicsEngineRayTracing raytracing_component;
 	GraphicsEngineGuiManager gui_manager;
 	std::unique_ptr<VideoRecorder> video_recorder;

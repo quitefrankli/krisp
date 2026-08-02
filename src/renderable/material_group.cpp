@@ -12,7 +12,7 @@ TexturedMatGroup::TexturedMatGroup(const std::span<const MaterialHandle> mats) :
 	for (const auto& owner : mats)
 	{
 		const auto id = owner->get_id();
-		const auto* texture = dynamic_cast<const TextureMaterial*>(&owner->get());
+		const auto* texture = dynamic_cast<const SampledMaterial*>(&owner->get());
 		if (!texture)
 			throw std::runtime_error("TexturedMatGroup: material is not a texture");
 

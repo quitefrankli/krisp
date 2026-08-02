@@ -19,6 +19,7 @@ remain disabled.
 | `renderers/` | Implements shadow-map, rasterization, quad/compositing, particle, and ImGui rendering. |
 | `graphics_renderable.*` | Holds graphics-owned state and resources for one immutable renderable definition. |
 | `graphics_engine_texture*` | Loads, uploads, samples, and owns texture resources. |
+| `texture_compositor.*` | Generates immutable GPU-only base-colour textures from ordered texture layers. |
 | `video_recorder.*` | Manages video recording fed by per-frame image capture. |
 | `raytracing.*` | Dormant implementation excluded from supported build and execution paths. |
 
@@ -38,6 +39,7 @@ GraphicsEngine::run
   |-- update GUI
   `-- SwapChain / GraphicsEngineFrame::draw
        |-- wait for the frame fence and complete its submission serial
+       |-- generate newly introduced texture compositions
        |-- record renderer commands
        |-- acquire the swap-chain image
        |-- update per-frame uniforms
@@ -45,8 +47,9 @@ GraphicsEngine::run
        `-- present on the present queue
 ```
 
-Normal command recording runs the shadow-map pass when lighting is enabled,
-then rasterization, quad/compositing, and ImGui. Particle rendering records
+Normal command recording generates pending texture compositions first, then
+runs the shadow-map pass when lighting is enabled, followed by rasterization,
+quad/post-processing, and ImGui. Particle rendering records
 inside the rasterization pass rather than using a separate pass. Screenshot
 capture is prepared after compositing and omits ImGui for that frame; recording
 capture is prepared after ImGui. Every scene pass reads the single snapshot

@@ -110,6 +110,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	{
 		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 	};
+	get_graphics_engine().get_texture_compositor().record_pending(command_buffer);
 	// Ray tracing is unsupported:
 	// if (get_graphics_engine().get_render_mode() == ERenderMode::RAYTRACING)
 	//     submit_draw_commands(ERendererType::RAYTRACING);

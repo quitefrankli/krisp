@@ -19,11 +19,11 @@ struct RenderingAttachment
 
 	void destroy(VkDevice device)
 	{
-		if (image_memory)
-			vkFreeMemory(device, image_memory, nullptr);
-		if (image)
-			vkDestroyImage(device, image, nullptr);
 		if (image_view)
 			vkDestroyImageView(device, image_view, nullptr);
+		if (image)
+			vkDestroyImage(device, image, nullptr);
+		if (image_memory)
+			vkFreeMemory(device, image_memory, nullptr);
 	}
 };

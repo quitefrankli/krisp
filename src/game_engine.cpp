@@ -611,6 +611,66 @@ RenderableID GameEngine::set_renderable_specular_matte(
 	return ecs.replace_renderable(renderable_id, std::move(renderable));
 }
 
+RenderableID GameEngine::composite_renderable_base_color(
+	const RenderableID renderable_id,
+	std::vector<TextureCompositionOverlay> overlays)
+{
+	if (!ecs.has_renderable(renderable_id))
+		throw std::runtime_error("GameEngine::composite_renderable_base_color: renderable not found");
+	if (overlays.empty())
+		throw std::invalid_argument("GameEngine::composite_renderable_base_color: overlays are empty");
+	auto renderable = ecs.get_renderable(renderable_id).renderable;
+	if (renderable.pipeline_render_type != ERenderType::STANDARD
+		&& renderable.pipeline_render_type != ERenderType::SKINNED)
+		throw std::runtime_error(
+			"GameEngine::composite_renderable_base_color: renderable does not support textures");
+
+	const TexturedMatGroup current(renderable.material_owners);
+	const MaterialHandle& base_owner = current.get_material_owner(current.base_color_mat);
+	const auto* sampled_base = dynamic_cast<const SampledMaterial*>(&base_owner->get());
+	if (!sampled_base || sampled_base->semantic != ETextureSemantic::BASE_COLOR)
+		throw std::runtime_error(
+			"GameEngine::composite_renderable_base_color: invalid base-colour material");
+
+	std::vector<TextureCompositionLayer> layers;
+	if (const auto* existing = dynamic_cast<const CompositedTextureMaterial*>(&base_owner->get()))
+		layers = existing->layers;
+	else
+		layers.push_back(TextureCompositionLayer{ .source = base_owner });
+	if (layers.size() > CSTS::MAX_TEXTURE_COMPOSITION_LAYERS
+		|| overlays.size() > CSTS::MAX_TEXTURE_COMPOSITION_LAYERS - layers.size())
+		throw std::invalid_argument(
+			"GameEngine::composite_renderable_base_color: composition supports at most "
+			+ std::to_string(CSTS::MAX_TEXTURE_COMPOSITION_LAYERS) + " total layers");
+	layers.reserve(layers.size() + overlays.size());
+	for (auto& overlay : overlays)
+	{
+		auto source = ResourceLoader::fetch_texture(
+			ecs.get_material_system(), overlay.texture_filename, ETextureSemantic::BASE_COLOR);
+		layers.push_back({
+			.source = std::move(source),
+			.centre = overlay.centre,
+			.scale = overlay.scale,
+			.rotation_radians = overlay.rotation_radians,
+			.tint = overlay.tint,
+			.opacity = overlay.opacity,
+		});
+	}
+
+	auto composed_owner = ecs.get_material_system().add(
+		std::make_unique<CompositedTextureMaterial>(
+			sampled_base->width, sampled_base->height, std::move(layers)));
+	std::vector<MaterialHandle> owners;
+	owners.reserve(3);
+	owners.push_back(std::move(composed_owner));
+	if (current.normal_mat)
+		owners.push_back(current.get_material_owner(*current.normal_mat));
+	if (current.specular_mat)
+		owners.push_back(current.get_material_owner(*current.specular_mat));
+	renderable.material_owners = std::move(owners);
+	return ecs.replace_renderable(renderable_id, std::move(renderable));
+}
+
 EngineUiManager& GameEngine::get_gui_manager()
 {
 	return graphics_engine->get_gui_manager();

@@ -85,3 +85,24 @@ prevents the game and graphics threads from processing engine UI concurrently.
 Scene or resource loading inside the critical section can therefore stall UI
 drawing; keep expensive operations outside it when refining this synchronization
 model.
+
+## Runtime texture composition
+
+Immutable base-colour compositions are generated once on the GPU when their
+material first becomes live. Work scales with output pixel count multiplied by
+layer count because each layer is one full-output draw. All newly introduced
+compositions are generated before the first scene pass that can sample them, so
+introducing many compositions together may cause a one-frame GPU workload spike.
+Recipes are capped at three total layers, including the bottom/base texture, to
+match the compositor descriptor capacity reserved per renderable.
+
+Each cached output is an uncompressed, single-mip RGBA8 image. Expected image
+memory is therefore approximately `width * height * 4` bytes before allocator
+overhead; a 1024-by-1024 composition uses about 4 MiB. Outputs are shared by
+renderables that share a composition material and are retired after their final
+referencing graphics submission completes.
+
+Composed textures intentionally have no mipmaps. Minification may therefore
+alias or shimmer; composition output resolution and layer count are the primary
+quality, memory, and generation-cost controls until measurements justify a
+different design.

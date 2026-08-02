@@ -69,16 +69,21 @@ enum class ETextureFormat
 	BC3,
 };
 
-struct TextureMaterial : public Material
+struct SampledMaterial : public Material
+{
+	ETextureSemantic semantic = ETextureSemantic::BASE_COLOR;
+	uint32_t width = 0;
+	uint32_t height = 0;
+	virtual bool is_premultiplied() const { return false; }
+};
+
+struct TextureMaterial : public SampledMaterial
 {
 	std::unique_ptr<TextureData> data;
 	size_t data_len = 0;
-	uint32_t width = 0;
-	uint32_t height = 0;
 	uint32_t channels = 4; 
 	ETextureFormat format = ETextureFormat::RGBA8;
 	std::vector<size_t> mip_sizes;
 	std::string source;
 	uint32_t texture_id = 0;
-	ETextureSemantic semantic = ETextureSemantic::BASE_COLOR;
 };

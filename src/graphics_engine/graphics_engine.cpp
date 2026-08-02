@@ -9,6 +9,7 @@
 #include "entity_component_system/material_system.hpp"
 #include "constants.hpp"
 #include "renderable/material_group.hpp"
+#include "renderable/composited_texture_material.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -31,6 +32,7 @@ GraphicsEngine::GraphicsEngine(App::Window& window_) :
 	renderer_mgr(*this),
 	swap_chain(*this),
 	pipeline_mgr(*this),
+	texture_compositor(*this),
 	// raytracing_component(*this),
 	gui_manager(*this),
 	video_recorder(std::make_unique<VideoRecorder>())
@@ -369,6 +371,7 @@ void GraphicsEngine::release_retired_resources(RetiredGraphicsResources resource
 	{
 		get_rsrc_mgr().free_buffer(id);
 		get_texture_mgr().free_texture(id);
+		get_texture_compositor().free_texture(id);
 	}
 	for (const MeshID id : resources.meshes)
 		get_rsrc_mgr().free_buffer(id);
@@ -851,11 +854,21 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 		VkDescriptorImageInfo image_info{};
 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		const TexturedMatGroup textured_mat_group(renderable.material_owners);
-		const GraphicsEngineTexture &texture =
-			get_texture_mgr().fetch_texture(textured_mat_group.get_material_owner(textured_mat_group.base_color_mat),
-		                                    ETextureSamplerType::ADDR_MODE_REPEAT);
-		image_info.imageView = texture.get_texture_image_view();
-		image_info.sampler = texture.get_texture_sampler();
+		const auto& base_owner = textured_mat_group.get_material_owner(
+			textured_mat_group.base_color_mat);
+		if (dynamic_cast<const CompositedTextureMaterial*>(&base_owner->get()))
+		{
+			const auto texture = get_texture_compositor().resolve(base_owner);
+			image_info.imageView = texture.image_view;
+			image_info.sampler = texture.sampler;
+		}
+		else
+		{
+			const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(
+				base_owner, ETextureSamplerType::ADDR_MODE_REPEAT);
+			image_info.imageView = texture.get_texture_image_view();
+			image_info.sampler = texture.get_texture_sampler();
+		}
 
 		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
 		combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;

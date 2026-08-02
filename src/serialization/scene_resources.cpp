@@ -4,6 +4,7 @@
 #include "resource_loader/resource_loader.hpp"
 #include "serialization/resource_provenance.hpp"
 #include "serialization/serialization_helpers.hpp"
+#include "renderable/composited_texture_material.hpp"
 
 #include <array>
 #include <bit>
@@ -474,6 +475,24 @@ void SceneResourceWriter::write_generated_material(const MaterialID id)
 	const auto &material = ecs.get_material_system().get(id);
 	auto entry = materials.append_map();
 	entry.write("id", id.get_underlying());
+	if (const auto* composition = dynamic_cast<const CompositedTextureMaterial*>(&material))
+	{
+		entry.write("type", "composited_texture");
+		entry.write("width", composition->width);
+		entry.write("height", composition->height);
+		auto layers = entry.sequence("layers");
+		for (const auto& layer : composition->layers)
+		{
+			auto saved_layer = layers.append_map();
+			write_material_reference(saved_layer.map("source"), layer.source->get_id());
+			Serialization::write_vec2(saved_layer, "centre", layer.centre);
+			Serialization::write_vec2(saved_layer, "scale", layer.scale);
+			saved_layer.write("rotation_radians", layer.rotation_radians);
+			Serialization::write_vec3(saved_layer, "tint", layer.tint);
+			saved_layer.write("opacity", layer.opacity);
+		}
+		return;
+	}
 	if (const auto *color = dynamic_cast<const ColorMaterial *>(&material))
 	{
 		// Color materials are small structured values, so keeping their parameters
@@ -622,11 +641,38 @@ void SceneResourceReader::prepare(const Deserializer &document)
 			texture->data = std::make_unique<OwnedTextureData>(read_payload(file, texture->data_len));
 			material = std::move(texture);
 		}
+		else if (type == "composited_texture")
+		{
+			continue;
+		}
 		else
 		{
 			throw SerializationError("Unsupported generated material type at " + entry.path());
 		}
 		if (!materials.emplace(id, ecs.get_material_system().add(std::move(material))).second)
+			throw SerializationError("Duplicate generated material resource at " + entry.path());
+	}
+	for (const auto& entry : saved_resources.child("materials").elements())
+	{
+		if (entry.read<std::string>("type") != "composited_texture")
+			continue;
+		const auto id = entry.read<std::uint64_t>("id");
+		std::vector<TextureCompositionLayer> layers;
+		for (const auto& saved_layer : entry.child("layers").elements())
+		{
+			layers.push_back({
+				.source = read_material_reference(saved_layer.child("source")),
+				.centre = Serialization::read_vec2(saved_layer, "centre"),
+				.scale = Serialization::read_vec2(saved_layer, "scale"),
+				.rotation_radians = saved_layer.read<float>("rotation_radians"),
+				.tint = Serialization::read_vec3(saved_layer, "tint"),
+				.opacity = saved_layer.read<float>("opacity"),
+			});
+		}
+		auto composition = std::make_unique<CompositedTextureMaterial>(
+			entry.read<std::uint32_t>("width"), entry.read<std::uint32_t>("height"),
+			std::move(layers));
+		if (!materials.emplace(id, ecs.get_material_system().add(std::move(composition))).second)
 			throw SerializationError("Duplicate generated material resource at " + entry.path());
 	}
 }

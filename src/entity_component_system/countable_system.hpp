@@ -162,11 +162,17 @@ private:
 
 		void remove(IDType id) noexcept
 		{
+			std::unique_ptr<ContentType> removed_content;
 			{
 				const std::lock_guard lock(registry_mutex);
 				owners.erase(id);
-				contents.erase(id);
+				auto removed = contents.extract(id);
+				if (!removed.empty())
+					removed_content = std::move(removed.mapped());
 			}
+			// Content may own handles into this registry. Destroy it without holding
+			// registry_mutex so nested handle retirement cannot deadlock.
+			removed_content.reset();
 			{
 				const std::lock_guard lock(retired_mutex);
 				retired.push_back(id);

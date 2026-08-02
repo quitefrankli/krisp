@@ -42,7 +42,9 @@ float compute_shadow_factor(const vec3 normal, const vec3 light_dir)
 
 void main()
 {
-	const vec4 base_color = texture(tex_sampler, frag_tex_coord);
+	vec4 base_color = texture(tex_sampler, frag_tex_coord);
+	if (alpha_material.data.premultiplied_base_color != 0)
+		base_color.rgb = base_color.a > 0.0 ? base_color.rgb / base_color.a : vec3(0.0);
 	const float alpha = base_color.a * alpha_material.data.opacity;
 	if (alpha < alpha_material.data.alpha_cutoff)
 		discard;

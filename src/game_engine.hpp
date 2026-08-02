@@ -12,6 +12,7 @@
 #include "entity_component_system/ecs.hpp"
 #include "graphics_engine/engine_base.hpp"
 #include "render_frame.hpp"
+#include "renderable/composited_texture_material.hpp"
 
 #include <atomic>
 #include <thread>
@@ -110,6 +111,9 @@ public:
 		ETextureSemantic semantic,
 		std::optional<std::string> texture_filename);
 	RenderableID set_renderable_specular_matte(RenderableID renderable_id);
+	RenderableID composite_renderable_base_color(
+		RenderableID renderable_id,
+		std::vector<TextureCompositionOverlay> overlays);
 
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
