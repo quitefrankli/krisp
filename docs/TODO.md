@@ -16,9 +16,63 @@ thread.
 
 ## Add a PBR material and lighting path
 
-Replace the current Blinn-Phong lighting path with a defined physically based
-material model, including the supported glTF metallic-roughness inputs and an
-image-based-lighting strategy.
+Replace the current Blinn-Phong path with a glTF metallic-roughness PBR path.
+Use a Cook-Torrance microfacet BRDF with GGX/Trowbridge-Reitz normal
+distribution, Smith masking-shadowing, and Fresnel-Schlick reflectance. Keep
+the material evaluation and BRDF functions in shared shader code so static,
+skinned, textured, and constant-colour variants do not duplicate the lighting
+model.
+
+Define one coherent PBR material that owns its scalar factors and references
+its optional textures. The initial supported properties should be:
+
+- base-colour factor and sRGB texture;
+- metallic and roughness factors and the linear packed metallic-roughness
+  texture;
+- linear normal texture and normal scale;
+- emissive factor and sRGB texture;
+- linear occlusion texture and strength; and
+- alpha mode, alpha cutoff, opacity, and double-sided state.
+
+Import those properties according to glTF rather than translating them into
+ambient, diffuse, specular, and shininess values. Treat
+`KHR_materials_specular` as an optional extension to dielectric reflectance,
+not as a legacy specular map. Update generated materials, presets, resource
+provenance, scene serialization, fallback textures, and the material editor to
+use the same PBR contract. No migration for old save data is required.
+
+Give direct lights defined colour, intensity, and inverse-square distance
+attenuation. Initially retaining the single active point light is acceptable.
+Its direct contribution should combine energy-conserving Lambertian diffuse
+with Cook-Torrance specular, then apply the existing visibility/shadow term.
+Correct normal and tangent transforms for non-uniform scaling before relying on
+the sharper PBR highlights.
+
+Perform lighting in linear high-dynamic-range (HDR) colour. Render the scene to
+a floating-point attachment so values above 1.0 are preserved, then apply
+exposure and tone mapping before encoding the result into the sRGB swap-chain
+image. Integrate screenshots, video capture, particles, overlays, and GUI
+composition at deliberate points in this output path. HDR here describes the
+internal lighting pipeline and does not require HDR display output.
+
+Add image-based lighting after the direct-light path is correct. Support an HDR
+environment source, diffuse irradiance, a roughness-prefiltered specular
+cubemap, and a BRDF integration lookup texture. The existing sRGB skybox may be
+displayed by the same environment but is not itself sufficient lighting data.
+
+Implement in this order:
+
+1. Introduce the PBR material contract and import, serialization, and editor
+   support for the chosen glTF subset.
+2. Correct texture colour spaces, normal transforms, and point-light radiometry.
+3. Add the shared Cook-Torrance GGX/Smith/Schlick direct-light evaluation.
+4. Add the floating-point scene target, exposure, tone mapping, and final sRGB
+   presentation pass.
+5. Add HDR environment preprocessing and split-sum image-based lighting.
+6. Validate with focused material/import tests and reference scenes covering
+   dielectrics, metals, roughness extremes, normal maps, emissive materials, and
+   alpha modes; profile the added texture samples and render passes and record
+   material findings in `docs/PERFORMANCE.md`.
 
 ## Replace the coarse GUI mutex with asynchronous state exchange
 
