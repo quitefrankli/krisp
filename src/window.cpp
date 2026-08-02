@@ -68,7 +68,8 @@ static void key_callback(GLFWwindow* window, int key, int scan_code, int action,
 	if (ImGui::GetIO().WantCaptureKeyboard)
 	{
 		ImGui_ImplGlfw_KeyCallback(window, key, scan_code, action, mode);
-		return;
+		if (key != GLFW_KEY_F1)
+			return;
 	}
 
 	static int _trigger_count = 0;

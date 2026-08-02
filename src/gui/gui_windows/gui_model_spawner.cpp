@@ -63,7 +63,7 @@ void GuiModelSpawner::refresh_models()
 	model_paths = Utility::get_all_models();
 	std::ranges::sort(model_paths);
 
-	models = model_paths;
+	model_tree = GuiWindowDetail::build_resource_tree(model_paths);
 
 	selected_model = 0;
 	if (selected_path)
@@ -163,14 +163,15 @@ void GuiModelSpawner::draw()
 
 	if (dropdown_open)
 	{
-		for (int i = 0; i < static_cast<int>(models.size()); i++)
+		const std::optional<size_t> current = selected_model.value >= 0
+			&& selected_model.value < static_cast<int>(model_paths.size())
+			? std::optional<size_t>(selected_model.value) : std::nullopt;
+		if (const auto selected = GuiWindowDetail::draw_resource_tree(
+			model_tree, model_paths, current))
 		{
-			if (ImGui::Selectable(models[i].c_str(), i == selected_model.value))
-			{
-				selected_model = i;
-				selected_model.changed = true;
-				model_to_spawn = model_paths[i];
-			}
+			selected_model = static_cast<int>(*selected);
+			selected_model.changed = true;
+			model_to_spawn = model_paths[*selected];
 		}
 		ImGui::EndCombo();
 	}

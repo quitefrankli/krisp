@@ -4,6 +4,7 @@
 #include "identifications.hpp"
 #include "renderable/render_types.hpp"
 #include "save_file_store.hpp"
+#include "gui_window_helpers.hpp"
 
 #include <map>
 #include <string>
@@ -183,8 +184,8 @@ private:
 	glm::vec3 position{};
 	bool loop = false;
 	GuiVar<int> selected_song = 0;
-	std::vector<std::string> songs;
 	std::vector<std::string> songs_paths;
+	GuiWindowDetail::ResourceTree songs_tree;
 	std::optional<std::string> audio_to_play;
 	std::optional<std::string> load_error;
 };
@@ -248,8 +249,8 @@ public:
 private:
 	void refresh_textures();
 
-	std::vector<std::string> photos;
 	std::vector<std::string> photo_paths;
+	GuiWindowDetail::ResourceTree photo_tree;
 	bool should_show = false;
 	bool should_refresh_textures = false;
 	bool texture_dropdown_open = false;

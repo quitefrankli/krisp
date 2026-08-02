@@ -7,7 +7,9 @@
 #include "gui_windows/gui_model_spawner.hpp"
 #include "gui_windows/persistent_gui_windows.hpp"
 #include "application_ui_manager.hpp"
+#include "input.hpp"
 
+#include <GLFW/glfw3.h>
 #include <vector>
 #include <memory>
 #include <mutex>
@@ -93,10 +95,15 @@ public:
 	{
 		statistics.update_buffer_capacities(capacities);
 	}
-	bool handle_key_input(const KeyInput& input)
+	bool handle_key_input(const KeyInput& input, const bool editor_shortcuts_active)
 	{
 		const std::lock_guard lock(state_mutex);
-		return animation_selector.handle_key_input(input);
+		if (input.eq(GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::PRESS))
+		{
+			fps_counter.set_visible(!fps_counter.is_visible());
+			return true;
+		}
+		return editor_shortcuts_active && animation_selector.handle_key_input(input);
 	}
 
 	// references the EngineUiManager::gui_windows

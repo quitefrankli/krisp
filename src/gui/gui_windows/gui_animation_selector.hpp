@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gui_windows.hpp"
+#include "gui_window_helpers.hpp"
 
 #include "entity_component_system/skeletal.hpp"
 
@@ -39,6 +40,7 @@ private:
 	void refresh_animation_files();
 
 	std::vector<std::string> animation_paths;
+	GuiWindowDetail::ResourceTree animation_tree;
 	std::optional<SkeletonID> selected_skeleton;
 	std::vector<AnimationChoice> animation_choices;
 	std::optional<AnimationFileLoadRequest> pending_animation_file;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gui_windows.hpp"
+#include "gui_window_helpers.hpp"
 #include "renderable/composited_texture_material.hpp"
 
 enum class ETextureSemantic;
@@ -36,7 +37,7 @@ private:
 	void draw_overlay_section();
 
 	std::vector<std::string> texture_paths;
-	std::vector<std::string> texture_names;
+	GuiWindowDetail::ResourceTree texture_tree;
 	std::vector<std::string> renderable_labels;
 	std::vector<RenderableID> renderable_ids;
 	GuiVar<int> selected_renderable = 0;

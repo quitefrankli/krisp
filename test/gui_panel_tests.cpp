@@ -1,10 +1,13 @@
 #include "gui/gui_windows/gui_windows.hpp"
 #include "gui/gui_windows/gui_animation_selector.hpp"
+#include "gui/gui_windows/gui_window_helpers.hpp"
 #include "gui/gui_manager.hpp"
 #include "gui/application_ui_manager.hpp"
 #include "audio_engine/audio_engine_pimpl.hpp"
+#include "input.hpp"
 
 #include <gtest/gtest.h>
+#include <GLFW/glfw3.h>
 
 namespace
 {
@@ -61,6 +64,49 @@ TEST(GuiPanel, fps_counter_is_the_only_persistent_engine_ui)
 	ASSERT_EQ(manager.get_persistent_windows().size(), 1u);
 	EXPECT_EQ(manager.get_persistent_windows().front().get(), &manager.fps_counter);
 	EXPECT_TRUE(manager.fps_counter.is_visible());
+}
+
+TEST(GuiPanel, f1_toggles_fps_counter_globally_on_unmodified_press_only)
+{
+	EngineUiManager manager;
+
+	EXPECT_TRUE(manager.handle_key_input(
+		{ GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::PRESS }, false));
+	EXPECT_FALSE(manager.fps_counter.is_visible());
+	EXPECT_FALSE(manager.handle_key_input(
+		{ GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::RELEASE }, false));
+	EXPECT_FALSE(manager.handle_key_input(
+		{ GLFW_KEY_F1, EKeyModifier::SHIFT, EInputAction::PRESS }, false));
+	EXPECT_FALSE(manager.fps_counter.is_visible());
+	EXPECT_TRUE(manager.handle_key_input(
+		{ GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::PRESS }, false));
+	EXPECT_TRUE(manager.fps_counter.is_visible());
+}
+
+TEST(GuiResourceTree, groups_nested_paths_and_preserves_source_indices)
+{
+	const auto tree = GuiWindowDetail::build_resource_tree({
+		"Zulu.png",
+		"characters/villains/orc.png",
+		"alpha.png",
+		"Characters/hero.png",
+	});
+
+	ASSERT_EQ(tree.size(), 4u);
+	EXPECT_EQ(tree[0].name, "Characters");
+	ASSERT_EQ(tree[0].children.size(), 1u);
+	EXPECT_EQ(tree[0].children[0].name, "hero.png");
+	EXPECT_EQ(tree[0].children[0].resource_index, 3u);
+	EXPECT_EQ(tree[1].name, "characters");
+	ASSERT_EQ(tree[1].children.size(), 1u);
+	EXPECT_EQ(tree[1].children[0].name, "villains");
+	ASSERT_EQ(tree[1].children[0].children.size(), 1u);
+	EXPECT_EQ(tree[1].children[0].children[0].name, "orc.png");
+	EXPECT_EQ(tree[1].children[0].children[0].resource_index, 1u);
+	EXPECT_EQ(tree[2].name, "alpha.png");
+	EXPECT_EQ(tree[2].resource_index, 2u);
+	EXPECT_EQ(tree[3].name, "Zulu.png");
+	EXPECT_EQ(tree[3].resource_index, 0u);
 }
 
 TEST(GuiPanel, visibility_can_be_restored_after_closing)

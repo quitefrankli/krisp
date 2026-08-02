@@ -26,8 +26,8 @@ void GuiFPSCounter::draw()
 	ImGui::SetNextWindowPos(
 		ImVec2(
 			viewport->WorkPos.x + viewport->WorkSize.x - 12.0f,
-			viewport->WorkPos.y + viewport->WorkSize.y - 12.0f),
-		ImGuiCond_Always, ImVec2(1.0f, 1.0f));
+			viewport->WorkPos.y + 12.0f),
+		ImGuiCond_Always, ImVec2(1.0f, 0.0f));
 	ImGui::SetNextWindowSize(ImVec2(190.0f, 104.0f), ImGuiCond_Always);
 	ImGui::SetNextWindowBgAlpha(0.90f);
 	ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.025f, 0.035f, 0.055f, 0.90f));

@@ -29,7 +29,7 @@ void GuiMaterialEditor::refresh_textures()
 {
 	texture_paths = Utility::get_all_textures();
 	std::ranges::sort(texture_paths);
-	texture_names = texture_paths;
+	texture_tree = GuiWindowDetail::build_resource_tree(texture_paths);
 }
 
 void GuiMaterialEditor::reset_overlay_draft()
@@ -162,12 +162,8 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		{
 			const auto& bottom = dynamic_cast<const TextureMaterial&>(
 				composition->layers.front().source->get());
-			const std::filesystem::path source(bottom.source);
-			const std::string base = source.filename().empty()
-				? bottom.source
-				: source.filename().string();
 			const size_t overlay_count = composition->layers.size() - 1;
-			return fmt::format("{} + {} overlay{}", base, overlay_count,
+			return fmt::format("{} + {} overlay{}", bottom.source, overlay_count,
 				overlay_count == 1 ? "" : "s");
 		}
 		const auto* texture = dynamic_cast<const TextureMaterial*>(&material);
@@ -175,8 +171,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 			return fmt::format("Material {}", id.get_underlying());
 		if (texture->source == "(matte)" || texture->source == "(none)")
 			return texture->source;
-		const std::filesystem::path source(texture->source);
-		return source.filename().empty() ? texture->source : source.filename().string();
+		return texture->source;
 	};
 	const TexturedMatGroup materials(renderable.material_owners);
 	diffuse_label = material_label(materials.base_color_mat);
@@ -211,13 +206,15 @@ void GuiMaterialEditor::draw_texture_section(
 			&& ImGui::Selectable("(matte)", current_label == "(matte)"))
 			pending_change = TextureChange{
 				renderable_ids.at(selected_renderable.value), semantic, std::nullopt, true };
-		for (size_t index = 0; index < texture_paths.size(); ++index)
+		const auto current = std::ranges::find(texture_paths, current_label);
+		const std::optional<size_t> current_index = current == texture_paths.end()
+			? std::nullopt
+			: std::optional<size_t>(std::distance(texture_paths.begin(), current));
+		if (const auto selected = GuiWindowDetail::draw_resource_tree(
+			texture_tree, texture_paths, current_index))
 		{
-			if (ImGui::Selectable(texture_names[index].c_str(), current_label == texture_names[index]))
-				pending_change = TextureChange{
-					renderable_ids.at(selected_renderable.value), semantic, texture_paths[index] };
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("%s", texture_names[index].c_str());
+			pending_change = TextureChange{
+				renderable_ids.at(selected_renderable.value), semantic, texture_paths[*selected] };
 		}
 		ImGui::EndCombo();
 	}
@@ -238,13 +235,15 @@ void GuiMaterialEditor::draw_overlay_section()
 	overlay_dropdown_open = dropdown_open;
 	if (dropdown_open)
 	{
-		for (size_t index = 0; index < texture_paths.size(); ++index)
+		const auto current = std::ranges::find(
+			texture_paths, overlay_draft.texture_filename);
+		const std::optional<size_t> current_index = current == texture_paths.end()
+			? std::nullopt
+			: std::optional<size_t>(std::distance(texture_paths.begin(), current));
+		if (const auto selected = GuiWindowDetail::draw_resource_tree(
+			texture_tree, texture_paths, current_index))
 		{
-			if (ImGui::Selectable(texture_names[index].c_str(),
-				overlay_draft.texture_filename == texture_paths[index]))
-				overlay_draft.texture_filename = texture_paths[index];
-			if (ImGui::IsItemHovered())
-				ImGui::SetTooltip("%s", texture_names[index].c_str());
+			overlay_draft.texture_filename = texture_paths[*selected];
 		}
 		ImGui::EndCombo();
 	}

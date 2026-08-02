@@ -1,6 +1,7 @@
 #pragma once
 
 #include "gui_windows.hpp"
+#include "gui_window_helpers.hpp"
 
 class GuiModelSpawner : public EngineUiWindow
 {
@@ -13,8 +14,8 @@ public:
 private:
 	void refresh_models();
 
-	std::vector<std::string> models;
 	std::vector<std::string> model_paths;
+	GuiWindowDetail::ResourceTree model_tree;
 	GuiVar<int> selected_model = 0;
 	GuiVar<bool> merge_imported_meshes = false;
 	std::optional<std::string> model_to_spawn;

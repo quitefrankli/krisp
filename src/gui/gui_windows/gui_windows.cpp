@@ -353,7 +353,7 @@ GuiMusic::GuiMusic(AudioSource&& audio_source) :
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
 	songs_paths = sort_paths(Utility::get_all_audio());
-	songs = songs_paths;
+	songs_tree = GuiWindowDetail::build_resource_tree(songs_paths);
 }
 
 GuiMusic::~GuiMusic() = default;
@@ -428,15 +428,16 @@ void GuiMusic::draw()
 	ImGui::Checkbox("Loop", &loop);
 	const auto selected = selected_path(songs_paths, selected_song);
 	const std::string preview = selected.value_or("No audio files found");
-	if (!songs.empty() && ImGui::BeginCombo("Audio", preview.c_str()))
+	if (!songs_paths.empty() && ImGui::BeginCombo("Audio", preview.c_str()))
 	{
-		for (int i = 0; i < songs.size(); i++)
+		const std::optional<size_t> current = selected_song.value >= 0
+			&& selected_song.value < static_cast<int>(songs_paths.size())
+			? std::optional<size_t>(selected_song.value) : std::nullopt;
+		if (const auto selected_index = GuiWindowDetail::draw_resource_tree(
+			songs_tree, songs_paths, current))
 		{
-			if (ImGui::Selectable(songs[i].c_str(), i == selected_song))
-			{
-				selected_song = i;
-				selected_song.changed = true;
-			}
+			selected_song = static_cast<int>(*selected_index);
+			selected_song.changed = true;
 		}
 		ImGui::EndCombo();
 	}
@@ -521,7 +522,7 @@ void GuiPhoto::refresh_textures()
 	photo_paths = Utility::get_all_textures();
 	std::ranges::sort(photo_paths);
 
-	photos = photo_paths;
+	photo_tree = GuiWindowDetail::build_resource_tree(photo_paths);
 
 	selected_image = 0;
 	if (selected_path)
@@ -560,14 +561,15 @@ void GuiPhoto::draw()
 
 	if (dropdown_open)
 	{
-		for (int i = 0; i < static_cast<int>(photos.size()); i++)
+		const std::optional<size_t> current = selected_image.value >= 0
+			&& selected_image.value < static_cast<int>(photo_paths.size())
+			? std::optional<size_t>(selected_image.value) : std::nullopt;
+		if (const auto selected = GuiWindowDetail::draw_resource_tree(
+			photo_tree, photo_paths, current))
 		{
-			if (ImGui::Selectable(photos[i].c_str(), i == selected_image.value))
-			{
-				selected_image = i;
-				selected_image.changed = true;
-				texture_to_show = photo_paths[i];
-			}
+			selected_image = static_cast<int>(*selected);
+			selected_image.changed = true;
+			texture_to_show = photo_paths[*selected];
 		}
 		ImGui::EndCombo();
 	}

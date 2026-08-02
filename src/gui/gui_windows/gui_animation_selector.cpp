@@ -32,6 +32,7 @@ void GuiAnimationSelector::refresh_animation_files()
 {
 	animation_paths = Utility::get_all_animations();
 	std::ranges::sort(animation_paths);
+	animation_tree = GuiWindowDetail::build_resource_tree(animation_paths);
 }
 
 std::vector<GuiAnimationSelector::AnimationChoice> GuiAnimationSelector::sort_animation_choices(
@@ -329,16 +330,16 @@ void GuiAnimationSelector::draw()
 		? animation_paths[selected_animation_path].c_str() : "(select file)";
 	if (ImGui::BeginCombo("Animation files", selected_file_name))
 	{
-		for (int index = 0; index < static_cast<int>(animation_paths.size()); ++index)
+		const std::optional<size_t> current = selected_animation_path >= 0
+			&& selected_animation_path < static_cast<int>(animation_paths.size())
+			? std::optional<size_t>(selected_animation_path) : std::nullopt;
+		if (const auto selected = GuiWindowDetail::draw_resource_tree(
+			animation_tree, animation_paths, current))
 		{
-			const bool selected = selected_animation_path == index;
-			if (ImGui::Selectable(animation_paths[index].c_str(), selected))
-			{
-				selected_animation_path = index;
-				if (selected_skeleton)
-					pending_animation_file = AnimationFileLoadRequest{
-						.skeleton = *selected_skeleton, .path = animation_paths[index] };
-			}
+			selected_animation_path = static_cast<int>(*selected);
+			if (selected_skeleton)
+				pending_animation_file = AnimationFileLoadRequest{
+					.skeleton = *selected_skeleton, .path = animation_paths[*selected] };
 		}
 		ImGui::EndCombo();
 	}
