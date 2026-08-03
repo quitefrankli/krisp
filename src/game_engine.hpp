@@ -55,6 +55,8 @@ public: // getters and setters
 	void toggle_game_mode();
 	void set_render_mode(ERenderMode mode);
 	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }
+	void set_free_camera_movement(bool enabled) { free_camera_movement = enabled; }
+	void set_normal_mode_cursor_captured(bool captured) { normal_mode_cursor_captured = captured; }
 
 public:
 	template<typename AppT, typename... Args>
@@ -180,6 +182,8 @@ private:
 	EGameMode game_mode = EGameMode::EDITOR;
 	PlayerCharacter* active_player = nullptr;
 	bool camera_orbit_with_right_mouse = false;
+	bool free_camera_movement = false;
+	bool normal_mode_cursor_captured = true;
 
 public: // callbacks
 	virtual void scroll_callback(double yoffset, bool gui_wants_input = false) override;

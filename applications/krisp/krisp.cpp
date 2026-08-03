@@ -118,8 +118,10 @@ public:
 			throw std::runtime_error("Player model must contain a renderable");
 		player_skeleton_renderable = player_renderables.front();
 		spawned_player.configure_locomotion(skeleton, locomotion);
-		engine.get_ecs().add_collider(spawned_player.get_id(), std::make_unique<CapsuleCollider>(
-			definition.capsule_radius, definition.capsule_height));
+		engine.get_ecs().add_rigid_body(spawned_player.get_id(), RigidBodyDefinition{
+			.shape = CapsulePhysicsShape{definition.capsule_radius, definition.capsule_height},
+			.motion = PhysicsMotionType::Kinematic,
+		});
 		engine.get_ecs().add_clickable_entity(spawned_player.get_id());
 		spawned_player.set_name("Player");
 
@@ -208,7 +210,9 @@ int main(int argc, char* argv[])
 	auto& floor_transform = engine.get_ecs().get_transformation(floor.get_id());
 	floor_transform.set_scale(glm::vec3(100.0f, 0.1f, 100.0f));
 	floor_transform.set_position(glm::vec3(0.0f, -0.05f, 0.0f));
-	engine.get_ecs().add_collider(floor.get_id(), std::make_unique<BoxCollider>());
+	engine.get_ecs().add_rigid_body(floor.get_id(), RigidBodyDefinition{
+		.shape = BoxPhysicsShape{{50.0f, 0.05f, 50.0f}},
+	});
 
 	auto& obstacle = engine.spawn_object<Object>();
 	engine.attach_renderable(
@@ -216,7 +220,7 @@ int main(int argc, char* argv[])
 	auto& obstacle_transform = engine.get_ecs().get_transformation(obstacle.get_id());
 	obstacle_transform.set_position({ 2.0f, 0.5f, 2.0f });
 	obstacle_transform.set_scale({ 1.0f, 1.0f, 1.0f });
-	engine.get_ecs().add_collider(obstacle.get_id(), std::make_unique<BoxCollider>());
+	engine.get_ecs().add_rigid_body(obstacle.get_id(), RigidBodyDefinition{});
 	engine.get_ecs().add_clickable_entity(obstacle.get_id());
 
 	Renderable light_renderable;
@@ -234,7 +238,9 @@ int main(int argc, char* argv[])
 		.color = { 1.0f, 0.9f, 0.2f }
 	};
 	engine.get_ecs().add_light_source(light_source.get_id(), light_component);
-	engine.get_ecs().add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
+	engine.get_ecs().add_rigid_body(light_source.get_id(), RigidBodyDefinition{
+		.shape = SpherePhysicsShape{0.5f}, .participation = PhysicsParticipation::QueryOnly,
+	});
 	engine.get_ecs().add_clickable_entity(light_source.get_id());
 
 	engine.run();

@@ -30,4 +30,8 @@ namespace CSTS // short for Constants
 	const uint32_t MSAA_SAMPLE_COUNT = 4;	
 
 	constexpr int TRACKER_LOG_PERIOD_SECONDS = 30;
+
+	// Zero keeps Jolt on the calling thread. Positive values create exactly
+	// this many dedicated physics worker threads.
+	constexpr uint32_t PHYSICS_WORKER_THREADS = 0;
 };

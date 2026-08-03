@@ -105,3 +105,11 @@ all GUI state has a single owner, remove `EngineUiManager::state_mutex`. Add
 unit tests for command ordering, coalescing, capacity/overflow policy, and
 snapshot consistency; run a ThreadSanitizer stress test and record frame/tick
 timings before and after removing the mutex.
+
+## Expand Jolt integration
+
+- Add a native Jolt debug renderer for collision shapes and remove dependence
+  on the retired engine collider visualizer.
+- Add engine-owned APIs for constraints, vehicles, ragdolls, and soft bodies
+  when an application needs them.
+- Add static triangle-mesh shapes and Jolt `CharacterVirtual` locomotion.

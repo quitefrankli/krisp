@@ -37,6 +37,7 @@ class ECS :
 	public TransformationSystem
 {
 public:
+	using ColliderSystem::raycast;
 	ECS() = default;
 	ECS(const ECS&) = delete;
 	ECS& operator=(const ECS&) = delete;

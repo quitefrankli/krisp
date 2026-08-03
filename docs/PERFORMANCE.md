@@ -109,3 +109,16 @@ Composed textures intentionally have no mipmaps. Minification may therefore
 alias or shimmer; composition output resolution and layer count are the primary
 quality, memory, and generation-cost controls until measurements justify a
 different design.
+
+## Jolt physics
+
+Physics advances at 60 Hz and retains at most four fixed steps of accumulated
+frame time. This keeps simulation results stable while bounding recovery work
+after a slow frame. Jolt jobs run on the available worker threads and each world
+owns a 10 MiB temporary allocator. Body, pair, and contact capacities are fixed
+at 65,536, 65,536, and 10,240 respectively.
+
+Continuous collision detection is opt-in and is enabled for billiard balls;
+ordinary bodies use cheaper discrete motion. External transform edits teleport
+bodies into Jolt before stepping. Shape changes should be batched because they
+require body reconstruction.

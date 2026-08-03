@@ -979,7 +979,9 @@ TEST_F(GameEngineTests, reset_scene_replaces_ecs_state_and_preserves_its_address
 	const ObjectID object_id = object.get_id();
 	engine.get_ecs().add_light_source(object.get_id(), LightComponent{});
 	engine.get_ecs().add_collider(object.get_id(), std::make_unique<BoxCollider>());
-	engine.get_ecs().add_physics_entity(object.get_id(), PhysicsComponent{});
+	engine.get_ecs().add_rigid_body(object.get_id(), RigidBodyDefinition{
+		.motion = PhysicsMotionType::Dynamic,
+	});
 	engine.get_ecs().spawn_particle_emitter(object.get_id(), ParticleEmitterConfig{});
 	Bone root;
 	root.name = "Root";
@@ -994,7 +996,7 @@ TEST_F(GameEngineTests, reset_scene_replaces_ecs_state_and_preserves_its_address
 	EXPECT_FALSE(engine.get_ecs().has_light_source());
 	EXPECT_TRUE(engine.get_ecs().get_all_colliders().empty());
 	EXPECT_TRUE(engine.get_ecs().get_skeletal_animations().empty());
-	EXPECT_EQ(engine.get_ecs()._get_physics_component(object_id), nullptr);
+	EXPECT_FALSE(engine.get_ecs().has_rigid_body(object_id));
 	std::vector<SDS::ParticleInstanceData> particles;
 	engine.get_ecs().prepare_render_data(particles);
 	EXPECT_TRUE(particles.empty());

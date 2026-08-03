@@ -183,7 +183,7 @@ void GameEngine::main_loop(const float time_delta)
 	else
 		get_gui_manager().process_application(application_ui_manager, *this);
 
-	if (game_mode == EGameMode::NORMAL
+	if ((game_mode == EGameMode::NORMAL && !free_camera_movement)
 		|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
 	{
 		// if (window->is_shift_down())
@@ -232,7 +232,7 @@ void GameEngine::main_loop(const float time_delta)
 		}
 	}
 
-	if (game_mode == EGameMode::EDITOR)
+	if (game_mode == EGameMode::EDITOR || free_camera_movement)
 		camera->process_keyboard_movement(keyboard, time_delta);
 	// I just realised there is a MUCH more efficient method of doing this
 	// all we need to do is find intersection point of ray with plane of tileset
@@ -315,7 +315,7 @@ void GameEngine::set_game_mode(const EGameMode mode)
 			active_player->get_definition().camera_focus_offset,
 			active_player->get_definition().camera_horizontal_offset);
 	}
-	window->set_cursor_captured(true);
+	window->set_cursor_captured(normal_mode_cursor_captured);
 	mouse->update_pos();
 }
 

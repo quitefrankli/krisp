@@ -21,8 +21,8 @@ public:
 		
 		ecs.set_position(object2.get_id(), glm::vec3(1.0f, 1.0f, 1.0f));
 
-		ecs.add_collider(object1.get_id(), std::make_unique<SphereCollider>(Maths::Sphere{}));
-		ecs.add_collider(object2.get_id(), std::make_unique<SphereCollider>(Maths::Sphere{}));
+		ecs.add_rigid_body(object1.get_id(), RigidBodyDefinition{ .shape = SpherePhysicsShape{0.5f} });
+		ecs.add_rigid_body(object2.get_id(), RigidBodyDefinition{ .shape = SpherePhysicsShape{0.5f} });
 
 		ecs.add_clickable_entity(object1.get_id());
 		ecs.add_clickable_entity(object2.get_id());

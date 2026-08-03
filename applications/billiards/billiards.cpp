@@ -31,6 +31,8 @@ constexpr float BALL_Y = TABLE_SURFACE_Y + BALL_RADIUS;
 constexpr float CUE_LENGTH = 3.0f;
 constexpr float CUE_GAP = 0.08f;
 constexpr float MAX_PULLBACK = 1.2f;
+constexpr float DRAG_DISTANCE_FOR_MAX_POWER = 2.4f;
+constexpr float MAX_SHOT_IMPULSE = 3.2f;
 constexpr glm::vec3 CUE_BALL_START{-2.5f, BALL_Y, 0.0f};
 constexpr glm::vec3 RACK_APEX{2.0f, BALL_Y, 0.0f};
 
@@ -82,34 +84,56 @@ public:
 
 		engine.spawn_cubemap();
 		set_fixed_camera(engine);
-		engine.set_camera_orbit_with_right_mouse(false);
+		engine.set_free_camera_movement(true);
+		engine.set_camera_orbit_with_right_mouse(true);
+		engine.set_normal_mode_cursor_captured(false);
 		engine.set_game_mode(EGameMode::NORMAL);
 		reset_rack();
 	}
 
 	void on_tick(GameEngine& engine, float) override
 	{
-		// NORMAL mode updates the camera from mouse motion before application ticks.
-		// Restore the diagnostic view before projecting the cursor onto the table.
-		set_fixed_camera(engine);
 		if (ui_state.take_reset_request())
 			reset_rack();
+		for (auto& ball : balls) {
+			if (engine.get_ecs().is_body_enabled(ball.id)
+				&& engine.get_ecs().get_position(ball.id).y < 0.0f) {
+				engine.get_ecs().set_body_enabled(ball.id, false);
+				++pocketed_balls;
+			}
+		}
+		if (!engine.get_ecs().is_body_enabled(balls.front().id)
+			&& std::ranges::all_of(balls.begin() + 1, balls.end(), [&engine](const SpawnedObject& ball) {
+				return !engine.get_ecs().is_body_enabled(ball.id) || !engine.get_ecs().is_body_active(ball.id);
+			})) {
+			engine.get_ecs().set_body_enabled(balls.front().id, true);
+			engine.get_ecs().teleport_body(balls.front().id, CUE_BALL_START);
+			if (pocketed_balls > 0) --pocketed_balls;
+		}
+		balls_at_rest = std::ranges::all_of(balls, [&engine](const SpawnedObject& ball) {
+			return !engine.get_ecs().is_body_enabled(ball.id) || !engine.get_ecs().is_body_active(ball.id);
+		});
+		if (balls_at_rest && cue_hidden_after_shot) {
+			set_cue_visible(true);
+			cue_hidden_after_shot = false;
+		}
+		ui_state.publish_status(balls_at_rest, pocketed_balls);
 
 		const auto table_point = mouse_table_point(engine);
 		if (!table_point)
 			return;
 
-		if (!charging)
+		if (!charging && balls_at_rest)
 		{
-			const glm::vec3 direction = flattened_direction(CUE_BALL_START, *table_point);
+			const glm::vec3 direction = flattened_direction(engine.get_ecs().get_position(balls.front().id), *table_point);
 			if (glm::length2(direction) > 0.0f)
 				aim_direction = direction;
 		}
 		else
 		{
 			const float pullback = std::clamp(
-				glm::dot(charge_origin - *table_point, aim_direction), 0.0f, MAX_PULLBACK);
-			preview_power = pullback / MAX_PULLBACK;
+				glm::dot(charge_origin - *table_point, aim_direction), 0.0f, DRAG_DISTANCE_FOR_MAX_POWER);
+			preview_power = pullback / DRAG_DISTANCE_FOR_MAX_POWER;
 			ui_state.publish_power(preview_power);
 		}
 		update_cue();
@@ -122,10 +146,11 @@ public:
 
 		if (input.action == EInputAction::PRESS)
 		{
+			if (!balls_at_rest || !engine.get_ecs().is_body_enabled(balls.front().id)) return;
 			const auto table_point = mouse_table_point(engine);
 			if (!table_point)
 				return;
-			const glm::vec3 direction = flattened_direction(CUE_BALL_START, *table_point);
+			const glm::vec3 direction = flattened_direction(engine.get_ecs().get_position(balls.front().id), *table_point);
 			if (glm::length2(direction) == 0.0f)
 				return;
 			aim_direction = direction;
@@ -134,6 +159,9 @@ public:
 		}
 		else if (input.action == EInputAction::RELEASE && charging)
 		{
+			engine.get_ecs().add_impulse(balls.front().id, aim_direction * (preview_power * MAX_SHOT_IMPULSE));
+			set_cue_visible(false);
+			cue_hidden_after_shot = true;
 			charging = false;
 			preview_power = 0.0f;
 			ui_state.publish_power(0.0f);
@@ -187,8 +215,9 @@ private:
 	{
 		spawn_primitive(cube_mesh, wood_material, { 0.0f, 0.2f, 0.0f },
 			{ TABLE_LENGTH + 1.1f, 0.8f, TABLE_WIDTH + 1.1f }, "Table base");
-		spawn_primitive(cube_mesh, felt_material, { 0.0f, 0.58f, 0.0f },
+		auto& felt = spawn_primitive(cube_mesh, felt_material, { 0.0f, 0.58f, 0.0f },
 			{ TABLE_LENGTH, 0.14f, TABLE_WIDTH }, "Playing surface");
+		add_static_box(felt.get_id(), { TABLE_LENGTH * 0.5f, 0.07f, TABLE_WIDTH * 0.5f });
 
 		constexpr float rail_height = 0.32f;
 		constexpr float rail_thickness = 0.32f;
@@ -198,16 +227,20 @@ private:
 		const float long_segment_offset = side_gap * 0.5f + long_segment_length * 0.5f;
 		for (const float z : { -TABLE_WIDTH * 0.5f, TABLE_WIDTH * 0.5f })
 		{
-			for (const float x : { -long_segment_offset, long_segment_offset })
-				spawn_primitive(cube_mesh, wood_material,
+			for (const float x : { -long_segment_offset, long_segment_offset }) {
+				auto& rail = spawn_primitive(cube_mesh, wood_material,
 					{ x, TABLE_SURFACE_Y + rail_height * 0.5f, z },
 					{ long_segment_length, rail_height, rail_thickness }, "Long rail");
+				add_static_box(rail.get_id(), { long_segment_length * 0.5f, rail_height * 0.5f, rail_thickness * 0.5f });
+			}
 		}
 		const float short_rail_length = TABLE_WIDTH - 2.0f * corner_gap;
-		for (const float x : { -TABLE_LENGTH * 0.5f, TABLE_LENGTH * 0.5f })
-			spawn_primitive(cube_mesh, wood_material,
+		for (const float x : { -TABLE_LENGTH * 0.5f, TABLE_LENGTH * 0.5f }) {
+			auto& rail = spawn_primitive(cube_mesh, wood_material,
 				{ x, TABLE_SURFACE_Y + rail_height * 0.5f, 0.0f },
 				{ rail_thickness, rail_height, short_rail_length }, "Short rail");
+			add_static_box(rail.get_id(), { rail_thickness * 0.5f, rail_height * 0.5f, short_rail_length * 0.5f });
+		}
 
 		constexpr float pocket_radius = 0.34f;
 		const std::array<glm::vec3, 6> pockets{{
@@ -221,6 +254,20 @@ private:
 		for (const auto& position : pockets)
 			spawn_primitive(circle_mesh, pocket_material, position,
 				glm::vec3(pocket_radius * 2.0f), "Pocket");
+	}
+
+	void add_static_box(ObjectID id, glm::vec3 half_extents)
+	{
+		engine->get_ecs().add_rigid_body(id, RigidBodyDefinition{ .shape = BoxPhysicsShape{half_extents} });
+	}
+
+	void add_ball_body(ObjectID id)
+	{
+		engine->get_ecs().add_rigid_body(id, RigidBodyDefinition{
+			.shape = SpherePhysicsShape{BALL_RADIUS}, .motion = PhysicsMotionType::Dynamic,
+			.quality = PhysicsMotionQuality::Continuous, .mass = 0.17f, .friction = 0.18f,
+			.restitution = 0.92f, .linear_damping = 0.22f, .angular_damping = 0.12f,
+		});
 	}
 
 	void spawn_balls()
@@ -242,6 +289,7 @@ private:
 		auto& cue_ball = spawn_primitive(sphere_mesh, ball_materials[0], CUE_BALL_START,
 			glm::vec3(BALL_RADIUS * 2.0f), "Cue ball");
 		balls.push_back({ cue_ball.get_id(), CUE_BALL_START });
+		add_ball_body(cue_ball.get_id());
 
 		constexpr float row_spacing = BALL_RADIUS * 1.82f;
 		constexpr float column_spacing = BALL_RADIUS * 2.08f;
@@ -255,6 +303,7 @@ private:
 				auto& ball = spawn_primitive(sphere_mesh, ball_materials[ball_index], position,
 					glm::vec3(BALL_RADIUS * 2.0f), "Object ball " + std::to_string(ball_index));
 				balls.push_back({ ball.get_id(), position });
+				add_ball_body(ball.get_id());
 				++ball_index;
 			}
 		}
@@ -282,7 +331,14 @@ private:
 	void reset_rack()
 	{
 		for (const auto& ball : balls)
-			engine->get_ecs().get_transformation(ball.id).set_position(ball.initial_position);
+		{
+			engine->get_ecs().set_body_enabled(ball.id, true);
+			engine->get_ecs().teleport_body(ball.id, ball.initial_position);
+		}
+		pocketed_balls = 0;
+		balls_at_rest = true;
+		set_cue_visible(true);
+		cue_hidden_after_shot = false;
 		charging = false;
 		preview_power = 0.0f;
 		aim_direction = Maths::right_vec;
@@ -297,8 +353,14 @@ private:
 		const float pullback = preview_power * MAX_PULLBACK;
 		const float distance = BALL_RADIUS + CUE_GAP + CUE_LENGTH * 0.5f + pullback;
 		auto& transform = engine->get_ecs().get_transformation(*cue_id);
-		transform.set_position(CUE_BALL_START - aim_direction * distance);
+		transform.set_position(engine->get_ecs().get_position(balls.front().id) - aim_direction * distance);
 		transform.set_rotation(Maths::RotationBetweenVectors(Maths::up_vec, aim_direction));
+	}
+
+	void set_cue_visible(const bool visible)
+	{
+		if (cue_id)
+			engine->get_object(*cue_id)->set_visibility(visible);
 	}
 
 	static glm::vec3 flattened_direction(const glm::vec3& origin, const glm::vec3& target)
@@ -342,6 +404,9 @@ private:
 	glm::vec3 charge_origin{};
 	float preview_power = 0.0f;
 	bool charging = false;
+	bool balls_at_rest = true;
+	bool cue_hidden_after_shot = false;
+	std::size_t pocketed_balls = 0;
 };
 }
 

@@ -301,7 +301,10 @@ GuiObjectSpawner::GuiObjectSpawner() :
 						MeshFactory::GenerationMethod::ICO_SPHERE))));
 				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<SphereCollider>());
 				engine.get_ecs().add_clickable_entity(obj.get_id());
-				engine.get_ecs().add_physics_entity(obj.get_id(), PhysicsComponent{});
+				engine.get_ecs().add_rigid_body(obj.get_id(), RigidBodyDefinition{
+					.shape = SpherePhysicsShape{0.5f},
+					.motion = PhysicsMotionType::Dynamic,
+				});
 			})
 		}
 	};

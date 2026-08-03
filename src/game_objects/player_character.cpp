@@ -147,7 +147,7 @@ void PlayerCharacter::resolve_horizontal_movement(ECS& ecs, glm::vec3 displaceme
 		const glm::vec3 probe_origin = position + Maths::up_vec * height;
 		Maths::Ray ray(probe_origin, direction);
 		ray.length = distance + definition.capsule_radius;
-		const auto hit = ecs.raycast(ray, get_id());
+		const auto hit = ecs.PhysicsSystem::raycast(ray, get_id());
 		if (!hit.bCollided || glm::distance(probe_origin, hit.intersection) > ray.length)
 			continue;
 		glm::vec3 normal = position - hit.intersection;
@@ -168,7 +168,7 @@ void PlayerCharacter::snap_to_ground(ECS& ecs)
 		transform.get_position() + Maths::up_vec * definition.ground_snap_distance,
 		-Maths::up_vec);
 	ray.length = definition.ground_snap_distance + definition.capsule_height;
-	const auto hit = ecs.raycast(ray, get_id());
+	const auto hit = ecs.PhysicsSystem::raycast(ray, get_id());
 	if (hit.bCollided && glm::distance(ray.origin, hit.intersection) <= ray.length)
 	{
 		auto position = transform.get_position();

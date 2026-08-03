@@ -10,6 +10,8 @@ add_project_arguments(
 	'-DGLM_FORCE_DEPTH_ZERO_TO_ONE', # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 	'-DQUILL_FMT_EXTERNAL=ON',
 	'-DGLM_ENABLE_EXPERIMENTAL',
+	# Match the SIMD feature set used by the Conan Jolt package.
+	'-msse4.2', '-mavx2', '-mf16c', '-mfma', '-mlzcnt', '-mbmi',
 	'-std=gnu++20',
 	language: 'cpp')
 if get_option('buildtype') == 'debug'
@@ -34,6 +36,7 @@ conan_dependencies = [
     dependency('magic_enum', required: true),
 	dependency('miniaudio', required: true),
 	dependency('perlinnoise', required: true),
+	dependency('joltphysics', required: true),
 ]
 
 cc = meson.get_compiler('cpp')

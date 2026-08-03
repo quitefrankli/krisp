@@ -30,6 +30,13 @@ bool BilliardsUiState::take_reset_request()
 	return std::exchange(reset_requested, false);
 }
 
+void BilliardsUiState::publish_status(bool at_rest, std::size_t pocketed)
+{
+	const std::lock_guard lock(mutex);
+	balls_at_rest = at_rest;
+	pocketed_balls = pocketed;
+}
+
 BilliardsControlsWindow::BilliardsControlsWindow(BilliardsUiState& state) :
 	ApplicationUiWindow({ "billiards_controls", "Billiards Physics Testbed" }),
 	state(state)
@@ -37,8 +44,11 @@ BilliardsControlsWindow::BilliardsControlsWindow(BilliardsUiState& state) :
 
 void BilliardsControlsWindow::draw_contents()
 {
-	ImGui::TextUnformatted("Physics backend: pending Jolt");
-	ImGui::TextUnformatted("Shot preview only - balls are static");
+	ImGui::TextUnformatted("Physics backend: Jolt 5.2");
+	{
+		const std::lock_guard lock(state.mutex);
+		ImGui::Text("Balls: %s | Pocketed: %zu", state.balls_at_rest ? "at rest" : "moving", state.pocketed_balls);
+	}
 	ImGui::Separator();
 	ImGui::TextWrapped("Move the mouse to aim. Hold the left mouse button and drag away from the shot to preview power.");
 	const float preview_power = state.power();
