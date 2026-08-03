@@ -57,6 +57,16 @@ TEST(GuiPanel, save_manager_is_registered_and_visible_by_default)
 	EXPECT_TRUE(manager.save_manager.is_visible());
 }
 
+TEST(GuiPanel, mesh_editor_is_registered_hidden_and_docked_right)
+{
+	EngineUiManager manager;
+
+	EXPECT_EQ(manager.mesh_editor.get_panel_info().id, "mesh_editor");
+	EXPECT_EQ(manager.mesh_editor.get_panel_info().title, "Mesh Editor");
+	EXPECT_EQ(manager.mesh_editor.get_panel_info().default_dock, GuiPanelDock::RIGHT);
+	EXPECT_FALSE(manager.mesh_editor.is_visible());
+}
+
 TEST(GuiPanel, fps_counter_is_the_only_persistent_engine_ui)
 {
 	EngineUiManager manager;

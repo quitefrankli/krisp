@@ -7,6 +7,7 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
 
+#include <string>
 #include <vector>
 
 class ECS;
@@ -16,6 +17,7 @@ class ECS;
 // There are multiple materials because we may need multiple maps i.e. texture, normal, uv maps
 struct Renderable
 {
+	std::string name;
 	ERenderType pipeline_render_type = ERenderType::COLOR; // TODO: this default value is not good, it should be unassigned
 	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
 	float alpha_cutoff = 0.5f;

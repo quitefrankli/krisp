@@ -90,6 +90,20 @@ TEST(EquipmentSystem, renderable_replacement_remaps_equipment_references)
 		fixture.first_item.get_id());
 }
 
+TEST(EquipmentSystem, clone_replacement_cleans_up_displaced_equipment_references)
+{
+	EquipmentFixture fixture;
+	ASSERT_TRUE(fixture.ecs.equip(
+		fixture.wearer.get_id(), fixture.wearer_renderable,
+		fixture.first_item.get_id(), fixture.definition()));
+
+	fixture.ecs.replace_renderable_with_clone(
+		fixture.wearer_renderable, fixture.other_wearer_renderable);
+
+	EXPECT_FALSE(fixture.ecs.equipped_item(
+		fixture.wearer.get_id(), EquipmentSlot::MainHand));
+}
+
 TEST(EquipmentSystem, replacement_and_moving_item_keep_one_global_location)
 {
 	EquipmentFixture fixture;

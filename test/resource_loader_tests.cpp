@@ -1105,6 +1105,8 @@ TEST(ResourceLoaderVariants, scene_nodes_create_distinct_mesh_instances)
 	EXPECT_EQ(model.meshes[1].name, "Left instance");
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	ASSERT_EQ(model.meshes[1].renderables.size(), 1);
+	EXPECT_EQ(model.meshes[0].renderables[0].name, "Right instance");
+	EXPECT_EQ(model.meshes[1].renderables[0].name, "Left instance");
 	EXPECT_TRUE(glm_equal(
 		model.meshes[0].renderables[0].local_transform.get_pos(),
 		glm::vec3(-3.0f, 0.0f, 0.0f)));

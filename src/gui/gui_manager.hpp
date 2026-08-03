@@ -4,6 +4,7 @@
 #include "gui_windows/gui_animation_selector.hpp"
 #include "gui_windows/gui_debug.hpp"
 #include "gui_windows/gui_material_editor.hpp"
+#include "gui_windows/gui_mesh_editor.hpp"
 #include "gui_windows/gui_model_spawner.hpp"
 #include "gui_windows/persistent_gui_windows.hpp"
 #include "application_ui_manager.hpp"
@@ -40,7 +41,8 @@ public:
 		photo(spawn_gui<GuiPhoto>()),
 		render_slicer(spawn_gui<GuiRenderSlicer>()),
 		animation_selector(spawn_gui<GuiAnimationSelector>()),
-		material_editor(spawn_gui<GuiMaterialEditor>())
+		material_editor(spawn_gui<GuiMaterialEditor>()),
+		mesh_editor(spawn_gui<GuiMeshEditor>())
 	{
 	}
 
@@ -118,6 +120,7 @@ public:
 	GuiRenderSlicer& render_slicer;
 	GuiAnimationSelector& animation_selector;
 	GuiMaterialEditor& material_editor;
+	GuiMeshEditor& mesh_editor;
 
 public: // for GameEngine
 	void process(GameEngine& engine)

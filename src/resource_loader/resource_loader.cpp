@@ -426,6 +426,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			}
 
 			Renderable renderable;
+			renderable.name = loaded_mesh.name;
 			MeshPtr mesh;
 			if (skeleton.has_value())
 			{

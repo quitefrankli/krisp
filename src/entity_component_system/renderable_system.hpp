@@ -37,6 +37,9 @@ public:
 		std::vector<Renderable> renderables,
 		std::optional<ObjectID> object_id = {},
 		std::optional<SkeletonID> skeleton_id = {});
+	RenderableID clone_renderable(
+		RenderableID source_id,
+		std::optional<ObjectID> object_id = {});
 
 	bool has_renderable(RenderableID id) const { return renderables.contains(id); }
 	const RenderableAttachment& get_renderable(RenderableID id) const { return renderables.at(id); }
@@ -47,6 +50,10 @@ public:
 	// Structural fields are immutable for an ID. Replacement preserves grouping,
 	// skeleton binding, and visibility, but returns a fresh ID.
 	RenderableID replace_renderable(RenderableID id, Renderable renderable);
+	// Clones the source payload and skeleton binding into the target's object
+	// group, preserves target visibility, and deletes the target.
+	RenderableID replace_renderable_with_clone(
+		RenderableID target_id, RenderableID source_id);
 	void set_renderable_local_transform(RenderableID id, Maths::Transform transform);
 	void set_renderable_visibility(RenderableID id, bool visible);
 	glm::mat4 get_renderable_transform(RenderableID id) const;

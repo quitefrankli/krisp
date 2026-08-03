@@ -89,6 +89,17 @@ std::vector<RenderableID> RenderableSystem::add_renderables(
 	return ids;
 }
 
+RenderableID RenderableSystem::clone_renderable(
+	const RenderableID source_id,
+	const std::optional<ObjectID> object_id)
+{
+	const auto source = renderables.at(source_id);
+	const auto clone_id = add_renderable(
+		source.renderable, object_id, source.skeleton_id);
+	renderables.at(clone_id).visible = source.visible;
+	return clone_id;
+}
+
 std::vector<RenderableID> RenderableSystem::get_renderable_ids() const
 {
 	std::vector<RenderableID> ids;
@@ -148,6 +159,26 @@ RenderableID RenderableSystem::replace_renderable(
 	});
 	notify_replacing(id, replacement_id);
 	renderables.erase(id);
+	return replacement_id;
+}
+
+RenderableID RenderableSystem::replace_renderable_with_clone(
+	const RenderableID target_id,
+	const RenderableID source_id)
+{
+	const auto target = renderables.at(target_id);
+	const auto source = renderables.at(source_id);
+	validate_attachment(source.renderable, target.object_id, source.skeleton_id);
+
+	const RenderableID replacement_id = RenderableID::generate_new_id();
+	renderables.emplace(replacement_id, RenderableAttachment{
+		.renderable = source.renderable,
+		.object_id = target.object_id,
+		.skeleton_id = source.skeleton_id,
+		.visible = target.visible,
+	});
+	notify_removing(target_id);
+	renderables.erase(target_id);
 	return replacement_id;
 }
 
@@ -223,6 +254,7 @@ void RenderableSystem::serialize(Serializer& out, SceneResourceWriter& resources
 			continue;
 		auto entry = entries.append_map();
 		entry.write("renderable_id", id.get_underlying());
+		entry.write("name", attachment.renderable.name);
 		if (attachment.object_id)
 			entry.write("object_id", attachment.object_id->get_underlying());
 		else
@@ -263,6 +295,7 @@ void RenderableSystem::deserialize(const Deserializer& in, SceneResourceReader& 
 		const auto id = RenderableID::generate_new_id();
 		resources.register_renderable_id(saved_id, id);
 		Renderable renderable;
+		renderable.name = entry.read<std::string>("name");
 		renderable.mesh_owner = resources.read_mesh_reference(entry.child("mesh"));
 		for (const auto& material : entry.child("materials").elements())
 			renderable.material_owners.push_back(resources.read_material_reference(material));

@@ -121,8 +121,9 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	{
 		const auto& renderable =
 			engine.get_ecs().get_renderable(renderable_ids[index]).renderable;
-		renderable_labels.push_back(fmt::format(
-			"Mesh {} (ID {})", index + 1, renderable.get_mesh_id().get_underlying()));
+		renderable_labels.push_back(renderable.name.empty()
+			? fmt::format("Mesh {} (ID {})", index + 1, renderable.get_mesh_id().get_underlying())
+			: fmt::format("{} (ID {})", renderable.name, renderable.get_mesh_id().get_underlying()));
 	}
 	if (renderable_labels.empty())
 	{

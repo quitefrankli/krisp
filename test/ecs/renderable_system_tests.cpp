@@ -95,6 +95,124 @@ TEST(RenderableSystem, replaces_structural_state_with_a_new_identity)
 	EXPECT_FALSE(ecs.get_renderable(replacement_id).renderable.casts_shadow);
 }
 
+TEST(RenderableSystem, clones_renderable_attachment_into_an_object)
+{
+	ECS ecs;
+	Object source_object;
+	Object target_object;
+	ecs.add_object(source_object);
+	ecs.add_object(target_object);
+	Bone bone;
+	const auto skeleton = ecs.add_skeleton({ bone });
+	auto source = Renderable::make_default(ecs);
+	source.name = "Source mesh";
+	source.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	const auto source_id = ecs.add_renderable(
+		std::move(source), source_object.get_id(), skeleton);
+	ecs.set_renderable_visibility(source_id, false);
+
+	const auto clone_id = ecs.clone_renderable(source_id, target_object.get_id());
+
+	EXPECT_NE(clone_id, source_id);
+	EXPECT_TRUE(ecs.has_renderable(source_id));
+	const auto& clone = ecs.get_renderable(clone_id);
+	EXPECT_EQ(clone.object_id, target_object.get_id());
+	EXPECT_EQ(clone.skeleton_id, skeleton);
+	EXPECT_FALSE(clone.visible);
+	EXPECT_EQ(clone.renderable.name, "Source mesh");
+	EXPECT_EQ(clone.renderable.mesh_owner, ecs.get_renderable(source_id).renderable.mesh_owner);
+	EXPECT_EQ(clone.renderable.material_owners,
+		ecs.get_renderable(source_id).renderable.material_owners);
+}
+
+TEST(RenderableSystem, replaces_with_a_clone_using_source_binding_and_target_visibility)
+{
+	ECS ecs;
+	Object source_object;
+	Object target_object;
+	ecs.add_object(source_object);
+	ecs.add_object(target_object);
+	Bone bone;
+	const auto skeleton = ecs.add_skeleton({ bone });
+	auto source = Renderable::make_default(ecs);
+	source.name = "Replacement mesh";
+	source.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	const auto source_id = ecs.add_renderable(
+		std::move(source), source_object.get_id(), skeleton);
+	const auto target_id = ecs.add_renderable(
+		Renderable::make_default(ecs), target_object.get_id());
+	ecs.set_renderable_visibility(target_id, false);
+
+	const auto replacement_id = ecs.replace_renderable_with_clone(target_id, source_id);
+
+	EXPECT_FALSE(ecs.has_renderable(target_id));
+	EXPECT_TRUE(ecs.has_renderable(source_id));
+	const auto& replacement = ecs.get_renderable(replacement_id);
+	EXPECT_EQ(replacement.object_id, target_object.get_id());
+	EXPECT_EQ(replacement.skeleton_id, skeleton);
+	EXPECT_FALSE(replacement.visible);
+	EXPECT_EQ(replacement.renderable.name, "Replacement mesh");
+}
+
+TEST(RenderableSystem, clone_failures_leave_renderables_unchanged)
+{
+	ECS ecs;
+	Object target_object;
+	ecs.add_object(target_object);
+	const auto target_id = ecs.add_renderable(
+		Renderable::make_default(ecs), target_object.get_id());
+	const auto initial_ids = ecs.get_renderable_ids();
+
+	EXPECT_THROW(
+		ecs.clone_renderable(RenderableID(999999), target_object.get_id()),
+		std::out_of_range);
+	EXPECT_THROW(
+		ecs.replace_renderable_with_clone(target_id, RenderableID(999999)),
+		std::out_of_range);
+	EXPECT_EQ(ecs.get_renderable_ids(), initial_ids);
+}
+
+TEST(RenderableSystem, clone_replacement_supports_the_same_source_and_target)
+{
+	ECS ecs;
+	Object object;
+	ecs.add_object(object);
+	auto renderable = Renderable::make_default(ecs);
+	renderable.name = "Self replacement";
+	const auto id = ecs.add_renderable(std::move(renderable), object.get_id());
+
+	const auto replacement_id = ecs.replace_renderable_with_clone(id, id);
+
+	EXPECT_NE(replacement_id, id);
+	EXPECT_FALSE(ecs.has_renderable(id));
+	ASSERT_TRUE(ecs.has_renderable(replacement_id));
+	EXPECT_EQ(ecs.get_renderable(replacement_id).object_id, object.get_id());
+	EXPECT_EQ(ecs.get_renderable(replacement_id).renderable.name, "Self replacement");
+}
+
+TEST(RenderableSystem, clone_replacement_cleans_up_displaced_bone_attachments)
+{
+	ECS ecs;
+	Object object;
+	Object attached;
+	ecs.add_object(object);
+	ecs.add_object(attached);
+	Bone bone;
+	bone.name = "hand";
+	const auto skeleton = ecs.add_skeleton({ bone });
+	auto source = Renderable::make_default(ecs);
+	source.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	const auto source_id = ecs.add_renderable(std::move(source), {}, skeleton);
+	auto target = Renderable::make_default(ecs);
+	target.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	const auto target_id = ecs.add_renderable(std::move(target), object.get_id(), skeleton);
+	ASSERT_TRUE(ecs.attach_entity_to_bone(attached.get_id(), target_id, "hand"));
+
+	ecs.replace_renderable_with_clone(target_id, source_id);
+
+	EXPECT_FALSE(ecs.detach_entity_from_bone(attached.get_id()));
+}
+
 TEST(RenderableSystem, object_removal_cascades_only_its_renderables)
 {
 	ECS ecs;

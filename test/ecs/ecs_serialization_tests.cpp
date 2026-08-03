@@ -424,6 +424,7 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 	source.add_object(character);
 	source.add_object(prop);
 	auto character_mesh = Renderable::make_default(source);
+	character_mesh.name = "Character body";
 	character_mesh.pipeline_render_type = ERenderType::SKINNED_COLOR;
 	character_mesh.local_transform.set_pos({ 0.0f, 3.0f, 0.0f });
 	const auto source_renderable = source.add_renderable(
@@ -454,6 +455,9 @@ TEST(SkeletalSystemSerialization, round_trips_bone_attachments)
 	restored.SkeletalSystem::deserialize_bone_attachments(saved, resources);
 	restored.SkeletalSystem::process(0.0f);
 
+	ASSERT_EQ(restored.get_renderable_ids(character.get_id()).size(), 1);
+	EXPECT_EQ(restored.get_renderable(
+		restored.get_renderable_ids(character.get_id()).front()).renderable.name, "Character body");
 	EXPECT_EQ(restored.get_position(prop.get_id()), glm::vec3(1.0f, 5.0f, 0.0f));
 }
 
