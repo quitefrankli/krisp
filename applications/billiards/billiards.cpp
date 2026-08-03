@@ -33,6 +33,8 @@ constexpr float CUE_GAP = 0.08f;
 constexpr float MAX_PULLBACK = 1.2f;
 constexpr float DRAG_DISTANCE_FOR_MAX_POWER = 2.4f;
 constexpr float MAX_SHOT_IMPULSE = 3.2f;
+constexpr float ROLLING_RESISTANCE = 0.55f;
+constexpr float ROLLING_STOP_SPEED = 0.04f;
 constexpr glm::vec3 CUE_BALL_START{-2.5f, BALL_Y, 0.0f};
 constexpr glm::vec3 RACK_APEX{2.0f, BALL_Y, 0.0f};
 
@@ -49,6 +51,13 @@ ColorMaterial make_material(const glm::vec3& color, const float shininess = 24.0
 	material.data.diffuse = color;
 	material.data.specular = glm::vec3(0.35f);
 	material.data.shininess = shininess;
+	return material;
+}
+
+ColorMaterial make_felt_material()
+{
+	auto material = make_material({ 0.03f, 0.34f, 0.16f }, 1.0f);
+	material.data.specular = glm::vec3(0.0f);
 	return material;
 }
 
@@ -91,10 +100,11 @@ public:
 		reset_rack();
 	}
 
-	void on_tick(GameEngine& engine, float) override
+	void on_tick(GameEngine& engine, float delta_secs) override
 	{
 		if (ui_state.take_reset_request())
 			reset_rack();
+		apply_rolling_resistance(engine, delta_secs);
 		for (auto& ball : balls) {
 			if (engine.get_ecs().is_body_enabled(ball.id)
 				&& engine.get_ecs().get_position(ball.id).y < 0.0f) {
@@ -173,6 +183,35 @@ public:
 	void on_key_press(GameEngine&, const KeyInput&) override {}
 
 private:
+	void apply_rolling_resistance(GameEngine& engine, const float delta_secs)
+	{
+		for (const auto& ball : balls) {
+			if (!engine.get_ecs().is_body_enabled(ball.id)) continue;
+			const auto position = engine.get_ecs().get_position(ball.id);
+			auto velocity = engine.get_ecs().get_linear_velocity(ball.id);
+			if (std::abs(position.y - BALL_Y) > 0.02f || std::abs(velocity.y) > 0.1f) continue;
+
+			const glm::vec2 horizontal{velocity.x, velocity.z};
+			const float speed = glm::length(horizontal);
+			if (speed == 0.0f) continue;
+			const float speed_reduction = ROLLING_RESISTANCE * std::max(delta_secs, 0.0f);
+			if (speed <= std::max(speed_reduction, ROLLING_STOP_SPEED)) {
+				velocity.x = 0.0f;
+				velocity.z = 0.0f;
+				engine.get_ecs().set_linear_velocity(ball.id, velocity);
+				engine.get_ecs().set_angular_velocity(ball.id, glm::vec3(0.0f));
+				continue;
+			}
+
+			const float retained_speed = speed - speed_reduction;
+			velocity.x *= retained_speed / speed;
+			velocity.z *= retained_speed / speed;
+			engine.get_ecs().set_linear_velocity(ball.id, velocity);
+			engine.get_ecs().set_angular_velocity(ball.id,
+				engine.get_ecs().get_angular_velocity(ball.id) * (retained_speed / speed));
+		}
+	}
+
 	void create_resources()
 	{
 		auto& ecs = engine->get_ecs();
@@ -182,7 +221,7 @@ private:
 		cylinder_mesh = ecs.get_mesh_system().add(MeshFactory::cylinder({}, 24));
 
 		felt_material = ecs.get_material_system().add(
-			std::make_unique<ColorMaterial>(make_material({ 0.03f, 0.34f, 0.16f }, 8.0f)));
+			std::make_unique<ColorMaterial>(make_felt_material()));
 		wood_material = ecs.get_material_system().add(
 			std::make_unique<ColorMaterial>(make_material({ 0.24f, 0.09f, 0.035f })));
 		pocket_material = ecs.get_material_system().add(
@@ -217,6 +256,7 @@ private:
 			{ TABLE_LENGTH + 1.1f, 0.8f, TABLE_WIDTH + 1.1f }, "Table base");
 		auto& felt = spawn_primitive(cube_mesh, felt_material, { 0.0f, 0.58f, 0.0f },
 			{ TABLE_LENGTH, 0.14f, TABLE_WIDTH }, "Playing surface");
+		felt_id = felt.get_id();
 		add_static_box(felt.get_id(), { TABLE_LENGTH * 0.5f, 0.07f, TABLE_WIDTH * 0.5f });
 
 		constexpr float rail_height = 0.32f;
@@ -241,7 +281,6 @@ private:
 				{ rail_thickness, rail_height, short_rail_length }, "Short rail");
 			add_static_box(rail.get_id(), { rail_thickness * 0.5f, rail_height * 0.5f, short_rail_length * 0.5f });
 		}
-
 		constexpr float pocket_radius = 0.34f;
 		const std::array<glm::vec3, 6> pockets{{
 			{ -TABLE_LENGTH * 0.5f, TABLE_SURFACE_Y + 0.005f, -TABLE_WIDTH * 0.5f },
@@ -268,6 +307,7 @@ private:
 			.quality = PhysicsMotionQuality::Continuous, .mass = 0.17f, .friction = 0.18f,
 			.restitution = 0.92f, .linear_damping = 0.22f, .angular_damping = 0.12f,
 		});
+		engine->get_ecs().set_contact_restitution(id, *felt_id, 0.05f);
 	}
 
 	void spawn_balls()
@@ -399,6 +439,7 @@ private:
 	MaterialHandle cue_material;
 	std::vector<MaterialHandle> ball_materials;
 	std::vector<SpawnedObject> balls;
+	std::optional<ObjectID> felt_id;
 	std::optional<ObjectID> cue_id;
 	glm::vec3 aim_direction = Maths::right_vec;
 	glm::vec3 charge_origin{};

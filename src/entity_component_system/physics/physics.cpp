@@ -116,6 +116,25 @@ class ::PhysicsSystem::Impl final : public ContactListener
 {
 public:
 	struct BodyRecord { BodyID body; RigidBodyDefinition definition; glm::vec3 published_position; glm::quat published_rotation; };
+	struct EntityPair
+	{
+		EntityID first;
+		EntityID second;
+		auto operator<=>(const EntityPair&) const = default;
+	};
+	struct EntityPairHash
+	{
+		std::size_t operator()(const EntityPair& pair) const
+		{
+			const auto first = std::hash<EntityID>{}(pair.first);
+			const auto second = std::hash<EntityID>{}(pair.second);
+			return first ^ (second + 0x9e3779b9 + (first << 6) + (first >> 2));
+		}
+	};
+	static EntityPair ordered_pair(EntityID first, EntityID second)
+	{
+		return first < second ? EntityPair{first, second} : EntityPair{second, first};
+	}
 
 	Impl() : runtime_ref(runtime()), allocator(10 * 1024 * 1024), jobs(make_job_system())
 	{
@@ -141,7 +160,12 @@ public:
 		}, d.shape);
 	}
 
-	void OnContactAdded(const Body& a, const Body& b, const ContactManifold&, ContactSettings&) override { add_event(PhysicsContactType::Begin, a, b); }
+	void OnContactAdded(const Body& a, const Body& b, const ContactManifold&, ContactSettings& settings) override
+	{
+		const auto override = restitution_overrides.find(ordered_pair(EntityID(a.GetUserData()), EntityID(b.GetUserData())));
+		if (override != restitution_overrides.end()) settings.mCombinedRestitution = override->second;
+		add_event(PhysicsContactType::Begin, a, b);
+	}
 	void OnContactRemoved(const SubShapeIDPair& pair) override
 	{
 		const auto& lock = world.GetBodyLockInterfaceNoLock();
@@ -160,6 +184,7 @@ public:
 	std::unique_ptr<JobSystem> jobs;
 	JPH::PhysicsSystem world;
 	std::unordered_map<EntityID, BodyRecord> bodies;
+	std::unordered_map<EntityPair, float, EntityPairHash> restitution_overrides;
 	std::vector<PhysicsContactEvent> events, pending_events;
 	std::mutex event_mutex;
 	float accumulator = 0.0f;
@@ -201,6 +226,9 @@ void ::PhysicsSystem::remove_rigid_body(EntityID id)
 	if (api.IsAdded(it->second.body)) api.RemoveBody(it->second.body);
 	api.DestroyBody(it->second.body);
 	impl->bodies.erase(it);
+	std::erase_if(impl->restitution_overrides, [id](const auto& entry) {
+		return entry.first.first == id || entry.first.second == id;
+	});
 }
 bool ::PhysicsSystem::has_rigid_body(EntityID id) const { return impl->bodies.contains(id); }
 void ::PhysicsSystem::set_body_enabled(EntityID id, bool enabled)
@@ -219,8 +247,19 @@ void ::PhysicsSystem::teleport_body(EntityID id, glm::vec3 p, glm::quat q, bool 
 }
 void ::PhysicsSystem::set_linear_velocity(EntityID id, glm::vec3 v) { impl->world.GetBodyInterface().SetLinearVelocity(impl->bodies.at(id).body, to_jolt(v)); }
 glm::vec3 PhysicsSystem::get_linear_velocity(EntityID id) const { return to_glm(impl->world.GetBodyInterface().GetLinearVelocity(impl->bodies.at(id).body)); }
+void ::PhysicsSystem::set_angular_velocity(EntityID id, glm::vec3 v) { impl->world.GetBodyInterface().SetAngularVelocity(impl->bodies.at(id).body, to_jolt(v)); }
+glm::vec3 PhysicsSystem::get_angular_velocity(EntityID id) const { return to_glm(impl->world.GetBodyInterface().GetAngularVelocity(impl->bodies.at(id).body)); }
 void ::PhysicsSystem::add_impulse(EntityID id, glm::vec3 v) { impl->world.GetBodyInterface().AddImpulse(impl->bodies.at(id).body, to_jolt(v)); }
 bool ::PhysicsSystem::is_body_active(EntityID id) const { return impl->world.GetBodyInterface().IsActive(impl->bodies.at(id).body); }
+void ::PhysicsSystem::set_contact_restitution(EntityID first, EntityID second, float restitution)
+{
+	if (restitution < 0.0f) throw std::invalid_argument("Contact restitution cannot be negative");
+	impl->restitution_overrides.insert_or_assign(Impl::ordered_pair(first, second), restitution);
+}
+void ::PhysicsSystem::clear_contact_restitution(EntityID first, EntityID second)
+{
+	impl->restitution_overrides.erase(Impl::ordered_pair(first, second));
+}
 void ::PhysicsSystem::set_gravity(glm::vec3 g) { impl->world.SetGravity(to_jolt(g)); }
 glm::vec3 PhysicsSystem::get_gravity() const { return to_glm(impl->world.GetGravity()); }
 
