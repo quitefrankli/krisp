@@ -21,6 +21,11 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 
 layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform samplerCube shadow_map;
 
+layout(push_constant) uniform AlphaMaterialBuffer
+{
+	AlphaMaterialData data;
+} alpha_material;
+
 float compute_shadow_factor(vec3 normal, vec3 light_dir)
 {
 	const vec3 frag_to_light = frag_pos - global_data.data.light_pos;
@@ -43,5 +48,5 @@ void main()
 	const vec3 emissive = EMISSIVE_STRENGTH * mat_data.data.emissive;
 	out_color = vec4(
 		ambient + (diffuse + specular) * compute_shadow_factor(normal, light_dir) + emissive,
-		1.0);
+		alpha_material.data.opacity);
 }

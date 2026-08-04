@@ -53,7 +53,6 @@ Vec3 to_jolt(glm::vec3 v) { return {v.x, v.y, v.z}; }
 RVec3 to_jolt_r(glm::vec3 v) { return {v.x, v.y, v.z}; }
 Quat to_jolt(glm::quat q) { return {q.x, q.y, q.z, q.w}; }
 glm::vec3 to_glm(Vec3Arg v) { return {v.GetX(), v.GetY(), v.GetZ()}; }
-
 class Layers final : public BroadPhaseLayerInterface, public ObjectVsBroadPhaseLayerFilter, public ObjectLayerPairFilter
 {
 public:
@@ -115,7 +114,13 @@ std::unique_ptr<JobSystem> make_job_system()
 class ::PhysicsSystem::Impl final : public ContactListener
 {
 public:
-	struct BodyRecord { BodyID body; RigidBodyDefinition definition; glm::vec3 published_position; glm::quat published_rotation; };
+	struct BodyRecord
+	{
+		BodyID body;
+		RigidBodyDefinition definition;
+		glm::vec3 published_position;
+		glm::quat published_rotation;
+	};
 	struct EntityPair
 	{
 		EntityID first;
@@ -313,6 +318,45 @@ DetectedEntityCollision PhysicsSystem::raycast(const Maths::Ray& ray, std::span<
 	return best;
 }
 std::span<const PhysicsContactEvent> PhysicsSystem::get_contact_events() const { return impl->events; }
+std::vector<PhysicsDebugBody> PhysicsSystem::get_debug_bodies() const
+{
+	std::vector<PhysicsDebugBody> bodies;
+	bodies.reserve(impl->bodies.size());
+	for (const auto& [entity, record] : impl->bodies) {
+		BodyLockRead lock(impl->world.GetBodyLockInterface(), record.body);
+		if (!lock.Succeeded() || !lock.GetBody().IsInBroadPhase()) continue;
+		const Body& body = lock.GetBody();
+		const Quat rotation = body.GetRotation();
+		bodies.push_back({entity, record.body.GetIndexAndSequenceNumber(),
+			to_glm(Vec3(body.GetCenterOfMassPosition())),
+			{rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()}});
+	}
+	return bodies;
+}
+
+std::vector<PhysicsDebugTriangle> PhysicsSystem::get_debug_shape_triangles(EntityID id) const
+{
+	constexpr int batch_size = 256;
+	std::vector<PhysicsDebugTriangle> triangles;
+	JPH::Float3 vertices[batch_size * 3];
+	const auto found = impl->bodies.find(id);
+	if (found == impl->bodies.end()) return triangles;
+	BodyLockRead lock(impl->world.GetBodyLockInterface(), found->second.body);
+	if (!lock.Succeeded()) return triangles;
+	const auto* shape = lock.GetBody().GetShape();
+	JPH::Shape::GetTrianglesContext context;
+	shape->GetTrianglesStart(context, shape->GetLocalBounds(), Vec3::sZero(), Quat::sIdentity(),
+		Vec3::sReplicate(1.0f));
+	for (int count; (count = shape->GetTrianglesNext(context, batch_size, vertices)) > 0; ) {
+		triangles.reserve(triangles.size() + count);
+		for (int triangle = 0; triangle < count; ++triangle) {
+			const auto* v = vertices + triangle * 3;
+			triangles.push_back({{{v[0].x, v[0].y, v[0].z},
+				{v[1].x, v[1].y, v[1].z}, {v[2].x, v[2].y, v[2].z}}});
+		}
+	}
+	return triangles;
+}
 
 void ::PhysicsSystem::serialize(Serializer& out) const
 {

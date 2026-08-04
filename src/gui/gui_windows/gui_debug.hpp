@@ -1,8 +1,10 @@
 #pragma once
 
 #include "gui_windows.hpp"
+#include "entity_component_system/material_system.hpp"
 
 #include <unordered_map>
+#include <unordered_set>
 
 class GuiDebug : public EngineUiWindow
 {
@@ -34,8 +36,9 @@ public:
 	void set_is_recording(bool value) { is_recording = value; }
 
 private:
-	void sync_collider_visualisers(GameEngine& engine);
-	void clear_collider_visualisers(GameEngine& engine);
+	struct PhysicsVisual { ObjectID object; uint32_t body_id; };
+	void refresh_physics_visualiser(GameEngine& engine);
+	void clear_physics_visualiser(GameEngine& engine);
 
 	bool should_refresh_objects_list = false;
 	bool should_toggle_pause = false;
@@ -49,6 +52,8 @@ private:
 	GuiVar<ObjectID> selected_object = ObjectID(0);
 	GuiVar<bool> show_bone_visualisers = false;
 	GuiVar<bool> show_collider_visualisers = false;
-	std::unordered_map<EntityID, ObjectID> collider_visualiser_ids;
+	std::unordered_map<EntityID, PhysicsVisual> physics_visuals;
+	std::unordered_set<EntityID> suppressed_physics_visuals;
+	std::vector<MaterialHandle> physics_visual_materials;
 	std::string filter_text = std::string(1024, '\0');
 };

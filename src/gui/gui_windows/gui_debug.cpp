@@ -4,31 +4,22 @@
 #include "game_engine.hpp"
 #include "interface/gizmo.hpp"
 #include "objects/objects.hpp"
+#include "renderable/mesh.hpp"
 
 #include <imgui.h>
 
+#include <array>
 #include <unordered_set>
 
 namespace
 {
-Object& get_or_spawn_collider_visual(
-	GameEngine& engine,
-	std::unordered_map<EntityID, ObjectID>& collider_visualiser_ids,
-	const EntityID collider_entity,
-	const Collider& collider)
-{
-	auto it = collider_visualiser_ids.find(collider_entity);
-	if (it != collider_visualiser_ids.end())
-	{
-		if (auto* existing = engine.get_object(it->second))
-			return *existing;
-		collider_visualiser_ids.erase(it);
-	}
-
-	Object& visual = collider.spawn_debug_object(engine);
-	collider_visualiser_ids.emplace(collider_entity, visual.get_id());
-	return visual;
-}
+constexpr std::array<glm::vec3, 10> collider_colors{{
+	{0.15f, 0.85f, 1.00f}, {1.00f, 0.35f, 0.25f}, {0.35f, 1.00f, 0.40f},
+	{1.00f, 0.80f, 0.20f}, {0.75f, 0.40f, 1.00f}, {1.00f, 0.35f, 0.75f},
+	{0.25f, 0.55f, 1.00f}, {0.95f, 0.60f, 0.20f}, {0.30f, 1.00f, 0.75f},
+	{0.80f, 0.85f, 0.95f},
+}};
+constexpr float collider_opacity = 0.35f;
 }
 
 GuiDebug::GuiDebug() :
@@ -73,7 +64,7 @@ void GuiDebug::process(GameEngine& engine)
 	{
 		if (!show_collider_visualisers.value)
 		{
-			clear_collider_visualisers(engine);
+			clear_physics_visualiser(engine);
 		}
 
 		show_collider_visualisers.changed = false;
@@ -81,7 +72,7 @@ void GuiDebug::process(GameEngine& engine)
 
 	if (show_collider_visualisers.value)
 	{
-		sync_collider_visualisers(engine);
+		refresh_physics_visualiser(engine);
 	}
 
 	if (should_refresh_objects_list)
@@ -177,45 +168,84 @@ void GuiDebug::draw()
 	end();
 }
 
-void GuiDebug::sync_collider_visualisers(GameEngine& engine)
+void GuiDebug::refresh_physics_visualiser(GameEngine& engine)
 {
-	std::unordered_set<EntityID> seen;
-
-	for (const auto& [entity_id, component] : engine.get_ecs().get_all_colliders())
-	{
-		if (component.persistence == ColliderPersistence::Transient)
-			continue;
-		seen.insert(entity_id);
-
-		const Collider* collider = engine.get_ecs().get_collider(entity_id);
-		if (!collider)
-		{
-			continue;
+	auto& ecs = engine.get_ecs();
+	if (physics_visual_materials.empty()) {
+		physics_visual_materials.reserve(collider_colors.size());
+		for (const glm::vec3 color : collider_colors) {
+			auto material = std::make_unique<ColorMaterial>();
+			material->data.ambient = Maths::zero_vec;
+			material->data.diffuse = Maths::zero_vec;
+			material->data.specular = Maths::zero_vec;
+			material->data.emissive = color;
+			physics_visual_materials.push_back(ecs.get_material_system().add(std::move(material)));
 		}
-
-		Object& visual = get_or_spawn_collider_visual(engine, collider_visualiser_ids, entity_id, *collider);
-		collider->update_debug_object(engine, visual);
 	}
 
-	for (auto it = collider_visualiser_ids.begin(); it != collider_visualiser_ids.end(); )
-	{
-		if (seen.contains(it->first))
-		{
-			++it;
+	std::unordered_set<EntityID> seen;
+	for (const auto& body : ecs.get_debug_bodies()) {
+		seen.insert(body.entity);
+		auto found = physics_visuals.find(body.entity);
+		if (found != physics_visuals.end() && found->second.body_id != body.body_id) {
+			engine.delete_object(found->second.object);
+			physics_visuals.erase(found);
+			suppressed_physics_visuals.insert(body.entity);
 			continue;
 		}
+		if (suppressed_physics_visuals.contains(body.entity)) continue;
+		if (found == physics_visuals.end()) {
+			const auto triangles = ecs.get_debug_shape_triangles(body.entity);
+			if (triangles.empty()) continue;
+			ColorVertices vertices;
+			VertexIndices indices;
+			vertices.reserve(triangles.size() * 3);
+			indices.reserve(triangles.size() * 3);
+			for (const auto& triangle : triangles) {
+				const glm::vec3 normal = glm::normalize(glm::cross(
+					triangle.vertices[1] - triangle.vertices[0], triangle.vertices[2] - triangle.vertices[0]));
+				for (const glm::vec3 vertex : triangle.vertices) {
+					indices.push_back(static_cast<uint32_t>(vertices.size()));
+					vertices.push_back({vertex, normal});
+				}
+			}
+			auto& object = engine.spawn_object<Object>();
+			object.set_name("Jolt Collision Shape");
+			object.set_transient(true);
+			Renderable renderable;
+			renderable.pipeline_render_type = ERenderType::COLOR;
+			renderable.alpha_mode = EAlphaMode::BLEND;
+			renderable.opacity = collider_opacity;
+			renderable.casts_shadow = false;
+			renderable.render_on_top = true;
+			renderable.mesh_owner = ecs.get_mesh_system().add(
+				std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
+			renderable.material_owners.push_back(physics_visual_materials[
+				std::hash<EntityID>{}(body.entity) % physics_visual_materials.size()]);
+			engine.attach_renderable(object.get_id(), std::move(renderable));
+			found = physics_visuals.emplace(body.entity,
+				PhysicsVisual{object.get_id(), body.body_id}).first;
+		}
+		auto& transform = ecs.get_transformation(found->second.object);
+		transform.set_position(body.position);
+		transform.set_rotation(body.rotation);
+	}
 
-		engine.delete_object(it->second);
-		it = collider_visualiser_ids.erase(it);
+	for (auto it = physics_visuals.begin(); it != physics_visuals.end(); ) {
+		if (seen.contains(it->first)) {
+			++it;
+		} else {
+			engine.delete_object(it->second.object);
+			it = physics_visuals.erase(it);
+		}
 	}
 }
 
-void GuiDebug::clear_collider_visualisers(GameEngine& engine)
+void GuiDebug::clear_physics_visualiser(GameEngine& engine)
 {
-	for (const auto& [_, visual_id] : collider_visualiser_ids)
-	{
-		engine.delete_object(visual_id);
-	}
-
-	collider_visualiser_ids.clear();
+	for (const auto& [_, visual] : physics_visuals)
+		engine.delete_object(visual.object);
+	physics_visuals.clear();
+	suppressed_physics_visuals.clear();
+	physics_visual_materials.clear();
 }

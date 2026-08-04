@@ -53,6 +53,14 @@ struct RigidBodyDefinition
 // the next call to process().
 enum class PhysicsContactType { Begin, End };
 struct PhysicsContactEvent { PhysicsContactType type; EntityID first; EntityID second; };
+struct PhysicsDebugTriangle { glm::vec3 vertices[3]; };
+struct PhysicsDebugBody
+{
+	EntityID entity;
+	uint32_t body_id;
+	glm::vec3 position;
+	glm::quat rotation;
+};
 
 // Owns the Jolt simulation and synchronizes rigid bodies with ECS transforms.
 class PhysicsSystem
@@ -94,6 +102,8 @@ public:
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::optional<EntityID> ignored = std::nullopt) const;
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::span<const EntityID> candidates) const;
 	std::span<const PhysicsContactEvent> get_contact_events() const;
+	std::vector<PhysicsDebugBody> get_debug_bodies() const;
+	std::vector<PhysicsDebugTriangle> get_debug_shape_triangles(EntityID id) const;
 
 	void serialize(Serializer& out) const;
 	void deserialize(const Deserializer& in);

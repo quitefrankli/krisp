@@ -115,6 +115,16 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
 			0, sizeof(alpha_data), &alpha_data);
 	}
+	else if (primary_pipeline_type == ERenderType::COLOR || primary_pipeline_type == ERenderType::SKINNED_COLOR)
+	{
+		const SDS::AlphaMaterialData alpha_data{
+			.alpha_cutoff = 0.0f,
+			.opacity = renderable.opacity,
+			.premultiplied_base_color = 0,
+		};
+		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
+			0, sizeof(alpha_data), &alpha_data);
+	}
 
 	vkCmdDrawIndexed(command_buffer,
 					 mesh.get_num_vertex_indices(),
