@@ -2,7 +2,28 @@
 #include "serialization/serialization_helpers.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <stdexcept>
 #include <vector>
+
+void validate_light_component(const LightComponent& light)
+{
+	if (!std::isfinite(light.intensity) || light.intensity < 0.0f)
+		throw std::invalid_argument("Light intensity must be finite and non-negative");
+	if (!std::isfinite(light.color.r) || light.color.r < 0.0f
+		|| !std::isfinite(light.color.g) || light.color.g < 0.0f
+		|| !std::isfinite(light.color.b) || light.color.b < 0.0f)
+		throw std::invalid_argument(
+			"Light linear RGB color must be finite and non-negative");
+}
+
+void LightSystem::add_light_source(
+	const ObjectID id,
+	const LightComponent& new_light)
+{
+	validate_light_component(new_light);
+	lights.emplace(id, new_light);
+}
 
 void LightSystem::serialize(Serializer& out) const
 {
@@ -32,6 +53,12 @@ void LightSystem::deserialize(const Deserializer& in)
 		LightComponent light;
 		light.intensity = entry.read<float>("intensity");
 		light.color = Serialization::read_vec3(entry, "color");
+		try {
+			validate_light_component(light);
+		} catch (const std::invalid_argument& error) {
+			throw SerializationError("Invalid light at $.light_system["
+				+ std::to_string(index) + "]: " + error.what());
+		}
 		if (!restored.emplace(id, light).second) {
 			throw SerializationError("Duplicate light entity at $.light_system["
 				+ std::to_string(index) + "].entity_id");

@@ -16,7 +16,7 @@ remain disabled.
 | `render_draw_list.*` | Caches renderable-level pass classification and state ordering for reconciled topology. |
 | `resource_manager/` | Allocates command buffers and GPU buffers, and manages descriptor sets. |
 | `pipeline/` | Builds and caches Vulkan graphics pipelines and their layouts. |
-| `renderers/` | Implements shadow-map, rasterization, quad/compositing, particle, and ImGui rendering. |
+| `renderers/` | Implements shadow-map, HDR rasterization, presentation, quad, particle, and ImGui rendering. |
 | `graphics_renderable.*` | Holds graphics-owned state and resources for one immutable renderable definition. |
 | `graphics_engine_texture*` | Loads, uploads, samples, and owns texture resources. |
 | `texture_compositor.*` | Generates immutable GPU-only base-colour textures from ordered texture layers. |
@@ -39,7 +39,7 @@ GraphicsEngine::run
   |-- update GUI
   `-- SwapChain / GraphicsEngineFrame::draw
        |-- wait for the frame fence and complete its submission serial
-       |-- generate newly introduced texture compositions
+       |-- generate utility texture compositions
        |-- record renderer commands
        |-- acquire the swap-chain image
        |-- update per-frame uniforms
@@ -47,13 +47,22 @@ GraphicsEngine::run
        `-- present on the present queue
 ```
 
-Normal command recording generates pending texture compositions first, then
-runs the shadow-map pass when lighting is enabled, followed by rasterization,
-quad/post-processing, and ImGui. Particle rendering records
-inside the rasterization pass rather than using a separate pass. Screenshot
-capture is prepared after compositing and omits ImGui for that frame; recording
-capture is prepared after ImGui. Every scene pass reads the single snapshot
-retained for that graphics iteration.
+Normal command recording generates pending utility texture compositions first,
+then runs the point-light shadow-map pass when lighting is enabled. Scene
+geometry, overlays, and particles render into the linear RGBA16F raster target.
+The presentation pass applies exposure and ACES-inspired tone mapping into the
+sRGB swap-chain image, followed by the diagnostic quad and ImGui. Screenshot
+copy occurs after presentation and before ImGui; recording copy occurs after
+ImGui. Every scene pass reads the single snapshot retained for that graphics
+iteration.
+
+Stage 1 PBR uploads one glTF-native factor-only material record per lit
+renderable. Static and skinned lit paths share the metallic-roughness BRDF.
+Direct point-light radiance uses the published light colour and intensity with
+inverse-square attenuation; the shadow map supplies visibility and full
+occlusion contributes no direct light. Material shaders produce unclamped
+scene-linear output and leave exposure, tone mapping, and display encoding to
+the presentation pass.
 
 ## Deferred GPU resource retirement
 

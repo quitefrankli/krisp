@@ -87,8 +87,6 @@ std::string semantic_name(const ETextureSemantic semantic)
 		return "base_color";
 	case ETextureSemantic::NORMAL:
 		return "normal";
-	case ETextureSemantic::SPECULAR:
-		return "specular";
 	case ETextureSemantic::COUNT:
 		break;
 	}
@@ -102,8 +100,6 @@ ETextureSemantic read_semantic(const Deserializer &in)
 		return ETextureSemantic::BASE_COLOR;
 	if (value == "normal")
 		return ETextureSemantic::NORMAL;
-	if (value == "specular")
-		return ETextureSemantic::SPECULAR;
 	throw SerializationError("Unsupported texture semantic at " + in.path());
 }
 
@@ -493,18 +489,15 @@ void SceneResourceWriter::write_generated_material(const MaterialID id)
 		}
 		return;
 	}
-	if (const auto *color = dynamic_cast<const ColorMaterial *>(&material))
+	if (const auto *pbr = dynamic_cast<const PbrMaterial *>(&material))
 	{
-		// Color materials are small structured values, so keeping their parameters
+		// PBR materials are small structured values, so keeping their parameters
 		// in YAML is more readable than creating another binary resource.
-		entry.write("type", "color");
+		entry.write("type", "pbr");
 		auto parameters = entry.map("parameters");
-		Serialization::write_vec3(parameters, "ambient", color->data.ambient);
-		Serialization::write_vec3(parameters, "diffuse", color->data.diffuse);
-		Serialization::write_vec3(parameters, "specular", color->data.specular);
-		Serialization::write_vec3(parameters, "emissive", color->data.emissive);
-		parameters.write("shininess", color->data.shininess);
-		parameters.write("texture_flags", color->data.texture_flags);
+		Serialization::write_vec4(parameters, "base_color_factor", pbr->data.base_color_factor);
+		parameters.write("metallic_factor", pbr->data.metallic_factor);
+		parameters.write("roughness_factor", pbr->data.roughness_factor);
 		return;
 	}
 	const auto *texture = dynamic_cast<const TextureMaterial *>(&material);
@@ -610,17 +603,21 @@ void SceneResourceReader::prepare(const Deserializer &document)
 		const auto id = entry.read<std::uint64_t>("id");
 		std::unique_ptr<Material> material;
 		const auto type = entry.read<std::string>("type");
-		if (type == "color")
+		if (type == "pbr")
 		{
-			auto color = std::make_unique<ColorMaterial>();
 			const auto parameters = entry.child("parameters");
-			color->data.ambient = Serialization::read_vec3(parameters, "ambient");
-			color->data.diffuse = Serialization::read_vec3(parameters, "diffuse");
-			color->data.specular = Serialization::read_vec3(parameters, "specular");
-			color->data.emissive = Serialization::read_vec3(parameters, "emissive");
-			color->data.shininess = parameters.read<float>("shininess");
-			color->data.texture_flags = parameters.read<int>("texture_flags");
-			material = std::move(color);
+			try
+			{
+				material = std::make_unique<PbrMaterial>(
+					Serialization::read_vec4(parameters, "base_color_factor"),
+					parameters.read<float>("metallic_factor"),
+					parameters.read<float>("roughness_factor"));
+			}
+			catch (const std::invalid_argument& error)
+			{
+				throw SerializationError(
+					"Invalid PBR material at " + entry.path() + ": " + error.what());
+			}
 		}
 		else if (type == "texture")
 		{

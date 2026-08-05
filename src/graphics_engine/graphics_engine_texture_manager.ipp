@@ -3,7 +3,6 @@
 #include "graphics_engine_texture_manager.hpp"
 #include "entity_component_system/material_system.hpp"
 
-#include <array>
 #include <fmt/format.h>
 
 
@@ -43,11 +42,6 @@ GraphicsEngineTextureManager::GraphicsEngineTextureManager(GraphicsEngine& engin
 
 GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 {
-	if (flat_normal_texture.has_value())
-		flat_normal_texture->destroy(get_logical_device());
-	if (white_texture.has_value())
-		white_texture->destroy(get_logical_device());
-
 	for (auto& [texture_id, texture_unit] : texture_units)
 	{
 		texture_unit.destroy(get_logical_device());
@@ -57,51 +51,6 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 	{
 		vkDestroySampler(get_logical_device(), sampler, nullptr);
 	}
-}
-
-GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_flat_normal_texture()
-{
-	if (!flat_normal_texture.has_value())
-	{
-		struct FlatNormalData : TextureData
-		{
-			std::array<std::byte, 4> pixels{
-				std::byte{128}, std::byte{128}, std::byte{255}, std::byte{255} };
-			std::byte* get() override { return pixels.data(); }
-		};
-
-		TextureMaterial material;
-		material.data = std::make_unique<FlatNormalData>();
-		material.data_len = 4;
-		material.width = 1;
-		material.height = 1;
-		material.channels = 4;
-		material.semantic = ETextureSemantic::NORMAL;
-		flat_normal_texture.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
-	}
-	return *flat_normal_texture;
-}
-
-GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_white_texture()
-{
-	if (!white_texture)
-	{
-		struct WhiteData : TextureData
-		{
-			std::array<std::byte, 4> pixels{
-				std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255} };
-			std::byte* get() override { return pixels.data(); }
-		};
-		TextureMaterial material;
-		material.data = std::make_unique<WhiteData>();
-		material.data_len = 4;
-		material.width = 1;
-		material.height = 1;
-		material.channels = 4;
-		material.semantic = ETextureSemantic::SPECULAR;
-		white_texture.emplace(create_texture(material, ETextureSamplerType::ADDR_MODE_REPEAT));
-	}
-	return *white_texture;
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(

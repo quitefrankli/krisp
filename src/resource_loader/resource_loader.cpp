@@ -5,7 +5,6 @@
 #include "entity_component_system/ecs.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
-#include "renderable/material_factory.hpp"
 #include "serialization/resource_provenance.hpp"
 #include "utility.hpp"
 
@@ -279,6 +278,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	const int scene_index = options.scene_index.value_or(model.defaultScene >= 0 ? model.defaultScene : 0);
 	if (scene_index < 0 || scene_index >= static_cast<int>(model.scenes.size()))
 		throw ResourceLoadError("ResourceLoader::load_model: requested scene is out of range");
+	validate_factor_only_gltf_materials(model);
 
 	LoadedModel result;
 	if (!document.warning.empty())
@@ -287,14 +287,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 		add_warning(result, options,
 			"ResourceLoader::load_model: animations were ignored; use ResourceLoader::load_animations to load them explicitly");
 	global_resource_loader.gltf_material_to_material.clear();
-	for (size_t material_index = 0; material_index < model.materials.size(); ++material_index)
-	{
-		const auto& normal_texture = model.materials[material_index].normalTexture;
-		if (normal_texture.index >= 0 && std::abs(normal_texture.scale - 1.0) > 0.00001)
-			add_warning(result, options, fmt::format(
-				"ResourceLoader: material {} normalTexture.scale={} is not supported; using 1.0",
-				material_index, normal_texture.scale));
-	}
 
 	std::unordered_map<int, std::vector<Bone>> skins;
 	for (const NodeInstance& instance : collect_mesh_nodes(model, model.scenes[scene_index]))
@@ -357,74 +349,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			std::vector<MaterialHandle> material_owners;
 			const auto loaded_material = global_resource_loader.load_material(
 				ecs.get_material_system(), primitive, model, material_owners);
-			const bool has_texcoords = GltfImport::has_attribute(primitive, "TEXCOORD_0");
-			const bool textured = [&]
-			{
-				if (primitive.material < 0)
-					return false;
-				const auto& material = model.materials.at(primitive.material);
-				if (material.pbrMetallicRoughness.baseColorTexture.index >= 0)
-					return true;
-				const auto extension = material.extensions.find("KHR_materials_specular");
-				return extension != material.extensions.end() && extension->second.IsObject()
-					&& (extension->second.Has("specularTexture")
-						|| extension->second.Has("specularColorTexture"));
-			}();
-			const bool normal_mapped = primitive.material >= 0 &&
-				model.materials.at(primitive.material).normalTexture.index >= 0;
-			if (normal_mapped && !has_texcoords)
-				throw ResourceLoadError("ResourceLoader: normal-mapped primitive is missing TEXCOORD_0");
-
-			auto texcoords = has_texcoords
-				? GltfImport::read_vec2(model, primitive.attributes.at("TEXCOORD_0"))
-				: std::vector<glm::vec2>(positions.size(), glm::vec2(0.0f));
-			if (texcoords.size() != positions.size())
-				throw ResourceLoadError("ResourceLoader: POSITION and TEXCOORD_0 counts differ");
-
-			std::vector<glm::vec4> tangents(positions.size(), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
-			std::optional<GltfImport::TangentRemap> tangent_remap;
-			if (normal_mapped)
-			{
-				if (GltfImport::has_attribute(primitive, "TANGENT"))
-				{
-					tangents = GltfImport::read_vec4(model, primitive.attributes.at("TANGENT"));
-					for (auto& tangent : tangents)
-						tangent = GltfImport::tangent_to_krisp_basis(tangent);
-					if (tangents.size() != positions.size())
-						throw ResourceLoadError("ResourceLoader: POSITION and TANGENT counts differ");
-					const bool tangents_valid = std::all_of(
-						tangents.begin(), tangents.end(), [](const glm::vec4& tangent)
-					{
-						const glm::vec3 tangent_xyz(tangent);
-						return std::isfinite(tangent.x) && std::isfinite(tangent.y) && std::isfinite(tangent.z) &&
-							std::isfinite(tangent.w) && glm::length(tangent_xyz) >= 0.00001f &&
-							std::abs(std::abs(tangent.w) - 1.0f) <= 0.00001f;
-					});
-					if (!tangents_valid)
-					{
-						if (!options.generate_missing_tangents)
-							throw ResourceLoadError("ResourceLoader: primitive contains an invalid TANGENT");
-						add_warning(result, options, "ResourceLoader: regenerated invalid tangents");
-						tangent_remap = GltfImport::generate_tangents(positions, normals, texcoords, indices);
-					}
-					else
-					{
-						for (auto& tangent : tangents)
-						{
-							const glm::vec3 tangent_xyz(tangent);
-							tangent = glm::vec4(glm::normalize(tangent_xyz), tangent.w < 0.0f ? -1.0f : 1.0f);
-						}
-					}
-				}
-				else if (!options.generate_missing_tangents)
-					throw ResourceLoadError("ResourceLoader: normal-mapped primitive is missing TANGENT");
-				else
-				{
-					add_warning(result, options, "ResourceLoader: generated missing tangents");
-					tangent_remap = GltfImport::generate_tangents(positions, normals, texcoords, indices);
-				}
-			}
-
 			Renderable renderable;
 			renderable.name = loaded_mesh.name;
 			MeshPtr mesh;
@@ -444,36 +368,18 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					throw ResourceLoadError("ResourceLoader: skinned primitive is missing JOINTS_0 or WEIGHTS_0");
 				auto joints = GltfImport::read_vec4(model, primitive.attributes.at("JOINTS_0"), false);
 				auto weights = GltfImport::read_vec4(model, primitive.attributes.at("WEIGHTS_0"));
-				if (texcoords.size() != positions.size() || joints.size() != positions.size() || weights.size() != positions.size())
+				if (joints.size() != positions.size() || weights.size() != positions.size())
 					throw ResourceLoadError("ResourceLoader: skinned vertex attribute counts differ");
-				if (tangent_remap.has_value())
-				{
-					mesh = std::make_unique<SkinnedMesh>(
-						load_skinned_vertices(positions, normals, texcoords, *tangent_remap, joints, weights),
-						std::move(tangent_remap->indices));
-				}
-				else
-					mesh = std::make_unique<SkinnedMesh>(
-						load_skinned_vertices(positions, normals, texcoords, tangents, joints, weights),
-						std::move(indices));
-				renderable.pipeline_render_type = textured
-					? ERenderType::SKINNED : ERenderType::SKINNED_COLOR;
-			}
-			else if (textured && has_texcoords)
-			{
-				if (tangent_remap.has_value())
-					mesh = std::make_unique<TexMesh>(
-						load_tex_vertices(positions, normals, texcoords, *tangent_remap),
-						std::move(tangent_remap->indices));
-				else
-					mesh = std::make_unique<TexMesh>(
-						load_tex_vertices(positions, normals, texcoords, tangents), std::move(indices));
-				renderable.pipeline_render_type = ERenderType::STANDARD;
+				const std::vector<glm::vec2> texcoords(positions.size(), glm::vec2(0.0f));
+				const std::vector<glm::vec4> tangents(
+					positions.size(), glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+				mesh = std::make_unique<SkinnedMesh>(
+					load_skinned_vertices(positions, normals, texcoords, tangents, joints, weights),
+					std::move(indices));
+				renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
 			}
 			else
 			{
-				if (textured)
-					add_warning(result, options, "ResourceLoader: textured primitive has no TEXCOORD_0; imported as a colour mesh");
 				mesh = std::make_unique<ColorMesh>(load_color_vertices(positions, normals), std::move(indices));
 				renderable.pipeline_render_type = ERenderType::COLOR;
 			}
@@ -484,17 +390,12 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
 			for (const auto material_id : loaded_material.ids)
 			{
-				const auto* texture = dynamic_cast<const TextureMaterial*>(
-					&ecs.get_material_system().get(material_id));
 				ResourceProvenance::register_material(material_id, {
 					.source = provenance_source, .scene = scene_index, .node = instance.node_index,
 					.primitive = static_cast<int>(primitive_index), .material = primitive.material,
-					.texture = texture ? static_cast<int>(texture->semantic) : -1, .skin = node.skin });
+					.texture = -1, .skin = node.skin });
 			}
 			renderable.material_owners = std::move(material_owners);
-			renderable.alpha_mode = loaded_material.alpha_mode;
-			renderable.alpha_cutoff = loaded_material.alpha_cutoff;
-			renderable.opacity = loaded_material.opacity;
 			renderable.local_transform.set_mat4(instance.world_transform);
 			loaded_mesh.renderables.push_back(std::move(renderable));
 		}

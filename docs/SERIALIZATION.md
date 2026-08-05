@@ -25,8 +25,13 @@ Resources are classified by `ImportedResourceProvenance`:
   source can select a mesh, material, skeleton, or animation; a texture source
   identifies a standalone image and its semantic. External bytes are not copied.
 - Resources without provenance were generated inside Krisp. Generated meshes
-  and texture payloads are stored once as `.dat` files; color-material
+  and texture payloads are stored once as `.dat` files; factor-only PBR material
   parameters are written directly in YAML. References preserve resource sharing.
+
+Generated PBR materials store glTF-native `base_color_factor`,
+`metallic_factor`, and `roughness_factor` values. The early-development scene
+format does not translate the removed ambient, diffuse, specular, emissive, or
+shininess fields; saves using that legacy schema are unsupported.
 
 Mesh files have a magic value, format version, vertex layout, counts, canonical
 little-endian vertex fields, and `uint32` indices. Texture files contain the raw

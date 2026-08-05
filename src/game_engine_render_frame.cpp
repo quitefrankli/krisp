@@ -173,6 +173,7 @@ RenderFrame GameEngine::build_render_frame()
 			throw std::runtime_error(
 				"GameEngine::build_render_frame: active light object is missing");
 		const LightComponent* component = ecs.get_light_component(light_id);
+		validate_light_component(*component);
 		frame.active_light = RenderLightState{
 			.object_id = light_id,
 			.position = glm::vec3(ecs.get_transform(light_id)[3]),

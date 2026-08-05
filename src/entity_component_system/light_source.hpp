@@ -10,14 +10,18 @@
 
 struct LightComponent
 {
-	float intensity = 1.0f;
-	glm::vec3 color = { 1.0f, 0.9f, 0.2f };
+	float intensity = 1.0f; // scene-linear point-light intensity
+	glm::vec3 color = { 1.0f, 1.0f, 1.0f }; // linear RGB
 };
+
+// Throws std::invalid_argument unless intensity and linear RGB are finite and
+// non-negative. Zero intensity and black lights are valid.
+void validate_light_component(const LightComponent& light);
 
 class LightSystem
 {
 public:
-	void add_light_source(const ObjectID id, const LightComponent& new_light) { lights.emplace(id, new_light); }
+	void add_light_source(ObjectID id, const LightComponent& new_light);
 	void remove_light_source(const ObjectID id) { lights.erase(id); }
 	bool has_light_source() const { return !lights.empty(); }
 

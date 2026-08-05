@@ -1,5 +1,84 @@
 #include "../../shared_code/shared_data_structures.glsl"
 
+const float PI = 3.14159265358979323846;
+const float MIN_PERCEPTUAL_ROUGHNESS = 0.04;
+const float MIN_LIGHT_DISTANCE_SQUARED = 0.0001;
+
+vec3 get_direction_to_point_light(
+	const vec3 fragment_position,
+	const vec3 light_position)
+{
+	const vec3 to_light = light_position - fragment_position;
+	return to_light * inversesqrt(max(
+		dot(to_light, to_light), MIN_LIGHT_DISTANCE_SQUARED));
+}
+
+
+// Khronos glTF 2.0 metallic-roughness BRDF. The returned value includes NdotL,
+// but not incident radiance or shadow visibility.
+vec3 evaluate_gltf_metallic_roughness_brdf(
+	const MaterialData material,
+	const vec3 normal,
+	const vec3 view_dir,
+	const vec3 light_dir)
+{
+	const float metallic = clamp(material.metallic_factor, 0.0, 1.0);
+	const float perceptual_roughness = clamp(
+		material.roughness_factor, MIN_PERCEPTUAL_ROUGHNESS, 1.0);
+	const float alpha_roughness = perceptual_roughness * perceptual_roughness;
+	const float alpha_squared = alpha_roughness * alpha_roughness;
+	const vec3 base_color = material.base_color_factor.rgb;
+
+	const float n_dot_l = clamp(dot(normal, light_dir), 0.0, 1.0);
+	const float n_dot_v = clamp(dot(normal, view_dir), 0.0, 1.0);
+	const vec3 half_sum = light_dir + view_dir;
+	const vec3 half_vector = half_sum * inversesqrt(max(
+		dot(half_sum, half_sum), 0.000001));
+	const float n_dot_h = clamp(dot(normal, half_vector), 0.0, 1.0);
+	const float v_dot_h = clamp(dot(view_dir, half_vector), 0.0, 1.0);
+
+	const vec3 f0 = mix(vec3(0.04), base_color, metallic);
+	const vec3 fresnel = f0 + (vec3(1.0) - f0) * pow(1.0 - v_dot_h, 5.0);
+
+	const float distribution_denominator =
+		n_dot_h * n_dot_h * (alpha_squared - 1.0) + 1.0;
+	const float distribution = alpha_squared
+		/ (PI * distribution_denominator * distribution_denominator);
+
+	// Height-correlated Smith masking-shadowing from the glTF reference BRDF.
+	const float ggx_view = n_dot_l * sqrt(
+		n_dot_v * n_dot_v * (1.0 - alpha_squared) + alpha_squared);
+	const float ggx_light = n_dot_v * sqrt(
+		n_dot_l * n_dot_l * (1.0 - alpha_squared) + alpha_squared);
+	const float visibility = 0.5 / max(ggx_view + ggx_light, 0.000001);
+
+	const vec3 diffuse = (vec3(1.0) - fresnel)
+		* (1.0 - metallic) * base_color / PI;
+	const vec3 specular = fresnel * visibility * distribution;
+	return (diffuse + specular) * n_dot_l;
+}
+
+vec3 evaluate_gltf_point_light(
+	const MaterialData material,
+	const vec3 normal,
+	const vec3 view_dir,
+	const vec3 fragment_position,
+	const vec3 light_position,
+	const vec3 light_color,
+	const float light_intensity,
+	out vec3 light_dir)
+{
+	const vec3 to_light = light_position - fragment_position;
+	const float distance_squared = max(
+		dot(to_light, to_light), MIN_LIGHT_DISTANCE_SQUARED);
+	light_dir = get_direction_to_point_light(
+		fragment_position, light_position);
+	const vec3 incident_radiance = light_color
+		* max(light_intensity, 0.0) / distance_squared;
+	return evaluate_gltf_metallic_roughness_brdf(
+		material, normal, view_dir, light_dir) * incident_radiance;
+}
+
 
 float get_phong_spec(vec3 lightDir, vec3 norm, vec3 viewDir, float shininess)
 {
@@ -24,6 +103,8 @@ float get_point_shadow_factor(
 	const float shadow_far_plane)
 {
 	const float current_depth = length(frag_to_light);
+	if (current_depth <= 0.000001)
+		return 1.0;
 	const float bias = max(0.03 * (1.0 - dot(normal, light_dir)), 0.003);
 	const vec3 lookup_dir = normalize(frag_to_light);
 
@@ -75,6 +156,5 @@ float get_point_shadow_factor(
 		visibility += (sample_depth - bias) > closest_depth ? 0.0 : 1.0;
 	}
 
-	// Preserve a small amount of direct light in fully shadowed regions.
-	return mix(0.05, 1.0, visibility / 16.0);
+	return visibility / 16.0;
 }

@@ -5,7 +5,6 @@
 #include "entity_component_system/material_system.hpp"
 
 #include <cassert>
-#include <optional>
 #include <span>
 
 
@@ -32,30 +31,6 @@ struct FlatMatGroup : public MaterialGroup
 	}
 
 	MaterialID color_mat;
-};
-
-struct TexturedMatGroup : public MaterialGroup
-{
-	TexturedMatGroup() = default;
-	explicit TexturedMatGroup(std::span<const MaterialHandle> mats);
-	const MaterialHandle& get_material_owner(MaterialID id) const;
-
-	MatVec get_materials() const
-	{
-		MatVec materials{ base_color_mat };
-		if (normal_mat.has_value())
-			materials.push_back(*normal_mat);
-		if (specular_mat.has_value())
-			materials.push_back(*specular_mat);
-		return materials;
-	}
-
-	MaterialID base_color_mat;
-	std::optional<MaterialID> normal_mat;
-	std::optional<MaterialID> specular_mat;
-
-private:
-	std::span<const MaterialHandle> material_owners;
 };
 
 struct CubeMapMatGroup : public MaterialGroup

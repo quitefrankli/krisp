@@ -3,7 +3,6 @@
 #include <shared_data_structures.hpp>
 #include <renderable/material.hpp>
 #include <renderable/composited_texture_material.hpp>
-#include <renderable/material_group.hpp>
 #include <renderable/render_types.hpp>
 #include <entity_component_system/material_system.hpp>
 #include <analytics.hpp>
@@ -12,6 +11,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <chrono>
+#include <limits>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -73,15 +73,25 @@ TEST(UtilityResources, collected_resources_are_filenames)
 }
 
 
-TEST(Basics, MaterialMoveCtor)
+TEST(Basics, PbrMaterialDefaultsAndMoveAreDeterministic)
 {
-	ColorMaterial material;
-	material.data.shininess = 2.5f;
+	PbrMaterial material;
+	EXPECT_TRUE(glm_equal(material.data.base_color_factor, glm::vec4(1.0f)));
+	EXPECT_FLOAT_EQ(material.data.metallic_factor, 1.0f);
+	EXPECT_FLOAT_EQ(material.data.roughness_factor, 1.0f);
 
-	std::unique_ptr<Material> ptr = std::make_unique<ColorMaterial>(std::move(material));
-	auto& material2 = static_cast<ColorMaterial&>(*ptr);
+	material.data.roughness_factor = 0.25f;
+	std::unique_ptr<Material> ptr = std::make_unique<PbrMaterial>(std::move(material));
+	const auto& moved = static_cast<const PbrMaterial&>(*ptr);
+	EXPECT_FLOAT_EQ(moved.data.roughness_factor, 0.25f);
+}
 
-	ASSERT_EQ(material2.data.shininess, 2.5f);
+TEST(Basics, PbrMaterialRejectsInvalidFactors)
+{
+	EXPECT_THROW((void)PbrMaterial(glm::vec4(-0.1f), 0.0f, 1.0f), std::invalid_argument);
+	EXPECT_THROW((void)PbrMaterial(glm::vec4(1.0f), 1.1f, 1.0f), std::invalid_argument);
+	EXPECT_THROW((void)PbrMaterial(
+		glm::vec4(std::numeric_limits<float>::quiet_NaN()), 0.0f, 1.0f), std::invalid_argument);
 }
 
 TEST(Basics, SkinnedRenderTypeClassification)
@@ -90,57 +100,6 @@ TEST(Basics, SkinnedRenderTypeClassification)
 	EXPECT_TRUE(is_skinned_render_type(ERenderType::SKINNED_COLOR));
 	EXPECT_FALSE(is_skinned_render_type(ERenderType::COLOR));
 	EXPECT_FALSE(is_skinned_render_type(ERenderType::STANDARD));
-}
-
-TEST(Basics, TexturedMaterialGroupResolvesOptionalMapsBySemantic)
-{
-	MaterialSystem materials;
-	const auto make_texture = [&materials](const ETextureSemantic semantic)
-	{
-		auto texture = std::make_unique<TextureMaterial>();
-		texture->semantic = semantic;
-		return materials.add(std::move(texture));
-	};
-	const auto base = make_texture(ETextureSemantic::BASE_COLOR);
-	const auto specular = make_texture(ETextureSemantic::SPECULAR);
-
-	const std::vector<MaterialHandle> owners{ specular, base };
-	const TexturedMatGroup group(owners);
-	EXPECT_EQ(group.base_color_mat, base->get_id());
-	EXPECT_FALSE(group.normal_mat);
-	EXPECT_EQ(group.specular_mat, specular->get_id());
-	EXPECT_EQ(group.get_materials(), (MatVec{
-		base->get_id(), specular->get_id() }));
-}
-
-TEST(Basics, TexturedMaterialGroupRejectsDuplicateSemantics)
-{
-	MaterialSystem materials;
-	auto first = std::make_unique<TextureMaterial>();
-	first->semantic = ETextureSemantic::BASE_COLOR;
-	auto second = std::make_unique<TextureMaterial>();
-	second->semantic = ETextureSemantic::BASE_COLOR;
-	const auto first_owner = materials.add(std::move(first));
-	const auto second_owner = materials.add(std::move(second));
-
-	const std::vector<MaterialHandle> owners{ first_owner, second_owner };
-	EXPECT_THROW((void)TexturedMatGroup{ owners }, std::runtime_error);
-}
-
-TEST(Basics, TexturedMaterialGroupAcceptsCompositedBaseColor)
-{
-	MaterialSystem materials;
-	auto source = std::make_unique<TextureMaterial>();
-	source->width = 8;
-	source->height = 4;
-	const auto source_owner = materials.add(std::move(source));
-	auto composition = std::make_unique<CompositedTextureMaterial>(
-		8, 4, std::vector<TextureCompositionLayer>{ { .source = source_owner } });
-	const auto composition_owner = materials.add(std::move(composition));
-
-	const std::vector<MaterialHandle> owners{ composition_owner };
-	const TexturedMatGroup group(owners);
-	EXPECT_EQ(group.base_color_mat, composition_owner->get_id());
 }
 
 TEST(Basics, CompositedTextureMaterialSupportsSeveralLayersAndRejectsNesting)

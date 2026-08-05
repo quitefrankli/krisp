@@ -41,6 +41,6 @@ void main()
 		get_bone_matrix(bone_ids.w) * bone_weights.w;
 	const mat4 model_skin = object_data.data.model * skin_matrix;
 	frag_pos = (model_skin * vec4(in_position, 1.0)).xyz;
-	surface_normal = (model_skin * vec4(in_normal, 0.0)).xyz;
+	surface_normal = transpose(inverse(mat3(model_skin))) * in_normal;
 	gl_Position = global_data.data.proj * global_data.data.view * vec4(frag_pos, 1.0);
 }

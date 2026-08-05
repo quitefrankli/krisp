@@ -105,14 +105,12 @@ TEST_F(SceneResourcesTests, round_trips_all_generated_mesh_layouts_and_deduplica
 	EXPECT_EQ(restored_color, duplicate_color);
 }
 
-TEST_F(SceneResourcesTests, round_trips_color_material_and_raw_texture)
+TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 {
 	ECS source;
-	auto color = std::make_unique<ColorMaterial>();
-	color->data.ambient = {0.1f, 0.2f, 0.3f};
-	color->data.diffuse = {0.4f, 0.5f, 0.6f};
-	color->data.shininess = 7.5f;
-	auto color_owner = source.get_material_system().add(std::move(color));
+	auto pbr = std::make_unique<PbrMaterial>(
+		glm::vec4(0.1f, 0.2f, 0.3f, 0.4f), 0.6f, 0.7f);
+	auto pbr_owner = source.get_material_system().add(std::move(pbr));
 	auto texture = std::make_unique<TextureMaterial>();
 	texture->width = 2;
 	texture->height = 1;
@@ -129,21 +127,21 @@ TEST_F(SceneResourcesTests, round_trips_color_material_and_raw_texture)
 	Serializer document;
 	SceneResourceWriter writer(document, source, directory);
 	auto references = document.sequence("references");
-	writer.write_material_reference(references.append_map(), color_owner->get_id());
+	writer.write_material_reference(references.append_map(), pbr_owner->get_id());
 	writer.write_material_reference(references.append_map(), texture_owner->get_id());
 	const auto saved = Deserializer::parse(document.emit());
 	ECS restored;
 	SceneResourceReader reader(restored, directory);
 	reader.prepare(saved);
 	const auto restored_references = saved.child("references").elements();
-	const auto restored_color = reader.read_material_reference(restored_references[0]);
+	const auto restored_pbr = reader.read_material_reference(restored_references[0]);
 	const auto restored_texture = reader.read_material_reference(restored_references[1]);
-	const auto &color_value = dynamic_cast<const ColorMaterial &>(restored_color->get());
+	const auto &pbr_value = dynamic_cast<const PbrMaterial &>(restored_pbr->get());
 	const auto &texture_value = dynamic_cast<const TextureMaterial &>(restored_texture->get());
 
-	EXPECT_EQ(color_value.data.ambient, glm::vec3(0.1f, 0.2f, 0.3f));
-	EXPECT_EQ(color_value.data.diffuse, glm::vec3(0.4f, 0.5f, 0.6f));
-	EXPECT_EQ(color_value.data.shininess, 7.5f);
+	EXPECT_EQ(pbr_value.data.base_color_factor, glm::vec4(0.1f, 0.2f, 0.3f, 0.4f));
+	EXPECT_EQ(pbr_value.data.metallic_factor, 0.6f);
+	EXPECT_EQ(pbr_value.data.roughness_factor, 0.7f);
 	EXPECT_EQ(texture_value.semantic, ETextureSemantic::NORMAL);
 	EXPECT_EQ(texture_value.source, "generated");
 	ASSERT_EQ(texture_value.data_len, pixels.size());

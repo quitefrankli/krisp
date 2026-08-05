@@ -12,15 +12,9 @@
 
 struct MaterialData
 {
-	ALIGN(16) VEC3 ambient;
-	ALIGN(16) VEC3 diffuse;
-	ALIGN(16) VEC3 specular;
-	ALIGN(16) VEC3 emissive;
-	ALIGN(4) float shininess;
-
-	// TODO: branching in glsl is expensive especially with storage buffers
-	// we should convert MaterialData to a uniform buffer in the future
-	ALIGN(4) int texture_flags; // uses boolean packing
+	ALIGN(16) VEC4 base_color_factor;
+	ALIGN(4) float metallic_factor;
+	ALIGN(4) float roughness_factor;
 };
 
 struct AlphaMaterialData
@@ -54,8 +48,9 @@ struct GlobalData
 	MAT4 shadow_view_proj_mats[6]; // point light cubemap faces
     ALIGN(16) VEC3 view_pos; // camera eye
     ALIGN(16) VEC3 light_pos;
+	ALIGN(16) VEC3 light_color;
+	ALIGN(4) float light_intensity;
 	ALIGN(4) float shadow_far_plane;
-    ALIGN(4) float lighting_scalar;
 };
 
 // in glsl this refers to the set index in the layout, in c++ this refers to the descriptor set offset

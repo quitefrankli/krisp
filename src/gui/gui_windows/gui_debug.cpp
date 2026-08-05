@@ -174,11 +174,7 @@ void GuiDebug::refresh_physics_visualiser(GameEngine& engine)
 	if (physics_visual_materials.empty()) {
 		physics_visual_materials.reserve(collider_colors.size());
 		for (const glm::vec3 color : collider_colors) {
-			auto material = std::make_unique<ColorMaterial>();
-			material->data.ambient = Maths::zero_vec;
-			material->data.diffuse = Maths::zero_vec;
-			material->data.specular = Maths::zero_vec;
-			material->data.emissive = color;
+			auto material = std::make_unique<PbrMaterial>(glm::vec4(color, 1.0f), 0.0f, 1.0f);
 			physics_visual_materials.push_back(ecs.get_material_system().add(std::move(material)));
 		}
 	}

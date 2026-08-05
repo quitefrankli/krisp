@@ -14,63 +14,20 @@ tests. Once all callers use those operations, remove the remaining mutable pose
 reference. Add synchronization only if pose mutation is later moved off the game
 thread.
 
-## Add a PBR material and lighting path
+## Extend PBR beyond the factor-only baseline
 
-Replace the current Blinn-Phong path with a glTF metallic-roughness PBR path.
-Use a Cook-Torrance microfacet BRDF with GGX/Trowbridge-Reitz normal
-distribution, Smith masking-shadowing, and Fresnel-Schlick reflectance. Keep
-the material evaluation and BRDF functions in shared shader code so static,
-skinned, textured, and constant-colour variants do not duplicate the lighting
-model.
+Stage 1 establishes the glTF-native, factor-only metallic-roughness contract
+and direct point-light BRDF. Keep that baseline stable until its reference scene
+has been evaluated. A later stage may add material textures and image-based
+lighting, but should introduce only the interfaces required by that work rather
+than anticipating them in the Stage 1 material model.
 
-Define one coherent PBR material that owns its scalar factors and references
-its optional textures. The initial supported properties should be:
-
-- base-colour factor and sRGB texture;
-- metallic and roughness factors and the linear packed metallic-roughness
-  texture;
-- linear normal texture and normal scale;
-- emissive factor and sRGB texture;
-- linear occlusion texture and strength; and
-- alpha mode, alpha cutoff, opacity, and double-sided state.
-
-Import those properties according to glTF rather than translating them into
-ambient, diffuse, specular, and shininess values. Treat
-`KHR_materials_specular` as an optional extension to dielectric reflectance,
-not as a legacy specular map. Update generated materials, presets, resource
-provenance, scene serialization, fallback textures, and the material editor to
-use the same PBR contract. No migration for old save data is required.
-
-Give direct lights defined colour, intensity, and inverse-square distance
-attenuation. Initially retaining the single active point light is acceptable.
-Its direct contribution should combine energy-conserving Lambertian diffuse
-with Cook-Torrance specular, then apply the existing visibility/shadow term.
-Correct normal and tangent transforms for non-uniform scaling before relying on
-the sharper PBR highlights.
-
-The renderer already performs lighting in linear high-dynamic-range colour,
-resolves to a floating-point scene image, and applies manual exposure plus
-ACES-inspired tone mapping before sRGB presentation. Screenshots and video are
-captured from the tone-mapped output; particles and overlays are HDR scene
-content, while the GUI is composed afterward in SDR. HDR display output remains
-out of scope.
-
-Add image-based lighting after the direct-light path is correct. Support an HDR
-environment source, diffuse irradiance, a roughness-prefiltered specular
-cubemap, and a BRDF integration lookup texture. The existing sRGB skybox may be
-displayed by the same environment but is not itself sufficient lighting data.
-
-Implement in this order:
-
-1. Introduce the PBR material contract and import, serialization, and editor
-   support for the chosen glTF subset.
-2. Correct texture colour spaces, normal transforms, and point-light radiometry.
-3. Add the shared Cook-Torrance GGX/Smith/Schlick direct-light evaluation.
-4. Add HDR environment preprocessing and split-sum image-based lighting.
-5. Validate with focused material/import tests and reference scenes covering
-   dielectrics, metals, roughness extremes, normal maps, emissive materials, and
-   alpha modes; profile the added texture samples and render passes and record
-   material findings in `docs/PERFORMANCE.md`.
+When that stage begins, decide its exact glTF subset before implementation.
+Likely work includes texture colour-space rules, tangent-space normal mapping,
+environment preprocessing, diffuse irradiance, roughness-prefiltered specular
+lighting, and a BRDF integration lookup texture. Emissive output, alpha modes,
+double-sided rendering, and material extensions remain separate scope choices,
+not implied requirements.
 
 ## Replace the coarse GUI mutex with asynchronous state exchange
 

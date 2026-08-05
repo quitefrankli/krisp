@@ -11,9 +11,6 @@ layout(location=3) in vec4 surface_tangent;
 
 layout(location = 0) out vec4 out_color;
 
-const vec3 light_color = vec3(1.0, 1.0, 1.0);
-
-
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING) uniform sampler2D tex_sampler;
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING) uniform sampler2D normal_sampler;
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING) uniform sampler2D specular_sampler;
@@ -47,18 +44,21 @@ void main()
 		discard;
 	vec3 color = base_color.rgb;
 
-	// ambient
-	vec3 ambient = color * 0.03;
-	
     // diffuse 
 	vec3 geometric_normal = normalize(surface_normal);
 	vec3 tangent = normalize(surface_tangent.xyz - geometric_normal * dot(surface_tangent.xyz, geometric_normal));
 	vec3 bitangent = cross(geometric_normal, tangent) * surface_tangent.w;
 	vec3 tangent_normal = texture(normal_sampler, frag_tex_coord).xyz * 2.0 - 1.0;
 	vec3 norm = normalize(mat3(tangent, bitangent, geometric_normal) * tangent_normal);
-    vec3 lightDir = normalize(global_data.data.light_pos - frag_pos);
+    const vec3 to_light = global_data.data.light_pos - frag_pos;
+	const float distance_squared = max(
+		dot(to_light, to_light), MIN_LIGHT_DISTANCE_SQUARED);
+	const vec3 lightDir = get_direction_to_point_light(
+		frag_pos, global_data.data.light_pos);
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * color * global_data.data.lighting_scalar;
+	const vec3 incident_radiance = global_data.data.light_color
+		* max(global_data.data.light_intensity, 0.0) / distance_squared;
+    vec3 diffuse = diff * color * incident_radiance;
     
     // specular
     vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
@@ -67,10 +67,10 @@ void main()
 	// this is not good so we only emit specular is diffuse > 0
 	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, default_specular_factor) : 0.0;
 	const vec4 specular_sample = texture(specular_sampler, frag_tex_coord);
-	const vec3 specular = light_color * specular_sample.rgb * specular_sample.a
-		* (SPECULAR_STRENGTH * global_data.data.lighting_scalar * spec);
+	const vec3 specular = incident_radiance * specular_sample.rgb * specular_sample.a
+		* (SPECULAR_STRENGTH * spec);
 
 	out_color = vec4(
-		ambient + (diffuse + specular) * compute_shadow_factor(geometric_normal, lightDir),
+		(diffuse + specular) * compute_shadow_factor(geometric_normal, lightDir),
 		alpha);
 }

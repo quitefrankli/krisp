@@ -37,25 +37,20 @@ float compute_shadow_factor(vec3 normal, vec3 lightDir)
 
 void main()
 {
-	// ambient
-	const vec3 ambient = AMBIENT_STRENGTH * mat_data.data.ambient;
-	
-    // diffuse 
-    const vec3 norm = normalize(surface_normal);
-    const vec3 lightDir = normalize(global_data.data.light_pos - frag_pos);
-    const float diff = max(dot(norm, lightDir), 0.0);
-    const vec3 diffuse = diff * DIFFUSE_STRENGTH * global_data.data.lighting_scalar * mat_data.data.diffuse;
-    
-    // specular
-    const vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
-	// in phong model, specular can have value on the opposite face 
-	// this is not good so we only emit specular is diffuse > 0
-	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, mat_data.data.shininess) : 0.0;
-    const vec3 specular = mat_data.data.specular * (SPECULAR_STRENGTH * spec * global_data.data.lighting_scalar);
-
-	// emissive
-	const vec3 emissive = EMISSIVE_STRENGTH * mat_data.data.emissive;
-        
-	out_color = vec4(ambient + (diffuse + specular) * compute_shadow_factor(norm, lightDir) + emissive,
-		alpha_material.data.opacity);
+	const vec3 normal = normalize(surface_normal);
+	const vec3 view_dir = normalize(global_data.data.view_pos - frag_pos);
+	vec3 light_dir;
+	const vec3 direct_light = evaluate_gltf_point_light(
+		mat_data.data,
+		normal,
+		view_dir,
+		frag_pos,
+		global_data.data.light_pos,
+		global_data.data.light_color,
+		global_data.data.light_intensity,
+		light_dir);
+	const float alpha = mat_data.data.base_color_factor.a
+		* alpha_material.data.opacity;
+	out_color = vec4(
+		direct_light * compute_shadow_factor(normal, light_dir), alpha);
 }

@@ -111,7 +111,6 @@ public:
 	virtual void process(GameEngine& engine) override;
 
 public:
-	float light_strength = 1.0f;
 	GuiVar<int> selected_camera_projection = 0;
 	GuiVar<ERenderMode> render_mode = ERenderMode::RASTERIZED;
 	GuiVar<float> exposure_ev = 0.0f;

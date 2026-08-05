@@ -25,5 +25,4 @@ class MaterialFactory
 public:
 	static std::unique_ptr<Material> fetch_preset(EMaterialPreset preset);
 	static std::unique_ptr<Material> fetch_white_texture();
-	static std::unique_ptr<Material> fetch_black_texture();
 };

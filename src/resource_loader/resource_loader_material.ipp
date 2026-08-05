@@ -1,7 +1,6 @@
 #include "resource_loader.hpp"
 #include "renderable/material.hpp"
 #include "entity_component_system/material_system.hpp"
-#include "renderable/material_factory.hpp"
 
 #include <stb_image.h>
 #include <tiny_gltf.h>
@@ -32,22 +31,6 @@ struct RawTextureDataSTB : public TextureData
 
 private:
 	std::byte* data;
-};
-
-struct RawTextureDataGLTF : public TextureData
-{
-	RawTextureDataGLTF(std::vector<unsigned char> data) :
-		data(std::move(data))
-	{
-	}
-
-	virtual std::byte* get() override
-	{
-		return reinterpret_cast<std::byte*>(data.data());
-	}
-
-private:
-	std::vector<unsigned char> data;
 };
 
 struct RawTextureDataDDS : public TextureData
@@ -171,6 +154,65 @@ bool load_gltf_image_data(
 		user_data);
 }
 
+namespace
+{
+std::string gltf_material_label(const tinygltf::Material& material, const size_t index)
+{
+	return material.name.empty()
+		? fmt::format("{}", index)
+		: fmt::format("{} ('{}')", index, material.name);
+}
+
+void validate_factor_only_gltf_material(const tinygltf::Material& material, const size_t index)
+{
+	const auto label = gltf_material_label(material, index);
+	const auto reject = [&label](const std::string_view feature)
+	{
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: material {} uses unsupported feature {}", label, feature));
+	};
+	const auto& pbr = material.pbrMetallicRoughness;
+	if (pbr.baseColorTexture.index >= 0)
+		reject("baseColorTexture");
+	if (pbr.metallicRoughnessTexture.index >= 0)
+		reject("metallicRoughnessTexture");
+	if (material.normalTexture.index >= 0)
+		reject("normalTexture");
+	if (material.occlusionTexture.index >= 0)
+		reject("occlusionTexture");
+	if (material.emissiveTexture.index >= 0)
+		reject("emissiveTexture");
+	if (std::ranges::any_of(material.emissiveFactor, [](const double factor)
+		{ return factor != 0.0; }))
+		reject("emissiveFactor");
+	if (material.alphaMode != "OPAQUE")
+		reject(fmt::format("alphaMode '{}'", material.alphaMode));
+	if (material.doubleSided)
+		reject("doubleSided");
+	if (!material.extensions.empty())
+		reject(fmt::format("extension '{}'", material.extensions.begin()->first));
+	if (!pbr.extensions.empty())
+		reject(fmt::format("pbrMetallicRoughness extension '{}'", pbr.extensions.begin()->first));
+
+	const auto valid_factor = [](const double factor)
+	{
+		return std::isfinite(factor) && factor >= 0.0 && factor <= 1.0;
+	};
+	if (pbr.baseColorFactor.size() != 4 || !std::ranges::all_of(pbr.baseColorFactor, valid_factor))
+		reject("baseColorFactor outside [0, 1]");
+	if (!valid_factor(pbr.metallicFactor))
+		reject("metallicFactor outside [0, 1]");
+	if (!valid_factor(pbr.roughnessFactor))
+		reject("roughnessFactor outside [0, 1]");
+}
+
+void validate_factor_only_gltf_materials(const tinygltf::Model& model)
+{
+	for (size_t index = 0; index < model.materials.size(); ++index)
+		validate_factor_only_gltf_material(model.materials[index], index);
+}
+}
+
 ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 	MaterialSystem& materials,
 	const tinygltf::Primitive& primitive,
@@ -179,6 +221,9 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 {
 	if (primitive.material >= 0)
 	{
+		if (primitive.material >= static_cast<int>(model.materials.size()))
+			throw ResourceLoadError(fmt::format(
+				"ResourceLoader: primitive references invalid material {}", primitive.material));
 		if (gltf_material_to_material.contains(primitive.material))
 		{
 			const auto& material = gltf_material_to_material.at(primitive.material);
@@ -188,164 +233,24 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 		}
 
 		const auto& mat = model.materials[primitive.material];
-		EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
-		if (mat.alphaMode == "MASK")
-			alpha_mode = EAlphaMode::MASK;
-		else if (mat.alphaMode == "BLEND")
-			alpha_mode = EAlphaMode::BLEND;
-		else if (mat.alphaMode != "OPAQUE")
-			throw ResourceLoadError(fmt::format(
-				"ResourceLoader: material {} has unsupported alphaMode '{}'", primitive.material, mat.alphaMode));
-		const float alpha_cutoff = static_cast<float>(mat.alphaCutoff);
-		const float opacity = static_cast<float>(mat.pbrMetallicRoughness.baseColorFactor[3]);
-		const auto& color_texture = mat.pbrMetallicRoughness.baseColorTexture;
-		const auto& normal_texture = mat.normalTexture;
-		const auto specular_extension_it = mat.extensions.find("KHR_materials_specular");
-		if (specular_extension_it != mat.extensions.end() && !specular_extension_it->second.IsObject())
-			throw ResourceLoadError("ResourceLoader: KHR_materials_specular must be an object");
-		std::optional<int> specular_texture_index;
-		if (specular_extension_it != mat.extensions.end())
-		{
-			const auto& extension = specular_extension_it->second;
-			const auto read_specular_texture = [&](const char* name)
-			{
-				if (!extension.Has(name))
-					return;
-				const auto& info = extension.Get(name);
-				if (!info.IsObject() || !info.Has("index") || !info.Get("index").IsNumber())
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: KHR_materials_specular.{} is invalid", name));
-				if (info.Has("texCoord") && !info.Get("texCoord").IsNumber())
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: KHR_materials_specular.{}.texCoord must be numeric", name));
-				const int tex_coord = info.Has("texCoord") ? info.Get("texCoord").GetNumberAsInt() : 0;
-				if (tex_coord != 0)
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: {} uses unsupported TEXCOORD_{}", name, tex_coord));
-				const int index = info.Get("index").GetNumberAsInt();
-				if (specular_texture_index && *specular_texture_index != index)
-					throw ResourceLoadError(
-						"ResourceLoader: only one packed specular texture is supported per material");
-				specular_texture_index = index;
-			};
-			read_specular_texture("specularTexture");
-			read_specular_texture("specularColorTexture");
-		}
-		const bool has_specular_texture = specular_texture_index.has_value();
-		if (normal_texture.index >= 0 && color_texture.index < 0)
-			throw ResourceLoadError(fmt::format(
-				"ResourceLoader: material {} has a normal texture but no base-color texture",
-				primitive.material));
-		if (normal_texture.index >= 0 && normal_texture.texCoord != 0)
-			throw ResourceLoadError(fmt::format(
-				"ResourceLoader: material {} normal texture uses unsupported TEXCOORD_{}",
-				primitive.material, normal_texture.texCoord));
-
-		if (color_texture.index >= 0 || has_specular_texture)
-		{
-			const auto load_gltf_texture = [&](const int texture_index, const ETextureSemantic semantic)
-			{
-				if (texture_index < 0 || texture_index >= static_cast<int>(model.textures.size()))
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: material {} references an invalid texture", primitive.material));
-				const auto& texture = model.textures[texture_index];
-				if (texture.source < 0 || texture.source >= static_cast<int>(model.images.size()))
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: texture {} references an invalid image", texture_index));
-				const tinygltf::Image& image = model.images[texture.source];
-				if (image.as_is && image.image.size() >= 4
-					&& std::equal(image.image.begin(), image.image.begin() + 4, "DDS "))
-				{
-					auto texture_material = load_dds_texture_data(
-						image.image.data(),
-						image.image.size(),
-						image.uri.empty() ? image.name : image.uri);
-					texture_material.semantic = semantic;
-					return materials.add(
-						std::make_unique<TextureMaterial>(std::move(texture_material)));
-				}
-				if (image.width <= 0 || image.height <= 0 || image.component < 1 || image.component > 4)
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: texture {} has unsupported image dimensions or channels", texture_index));
-				const size_t pixel_count = static_cast<size_t>(image.width) * image.height;
-				if (image.image.size() < pixel_count * static_cast<size_t>(image.component))
-					throw ResourceLoadError(fmt::format(
-						"ResourceLoader: texture {} image data is truncated", texture_index));
-				std::vector<unsigned char> rgba(pixel_count * 4);
-				for (size_t pixel = 0; pixel < pixel_count; ++pixel)
-				{
-					const auto* source = image.image.data() + pixel * image.component;
-					auto* destination = rgba.data() + pixel * 4;
-					if (image.component == 1 || image.component == 2)
-						destination[0] = destination[1] = destination[2] = source[0];
-					else
-					{
-						destination[0] = source[0];
-						destination[1] = source[1];
-						destination[2] = source[2];
-					}
-					destination[3] = image.component == 2 ? source[1]
-						: image.component == 4 ? source[3] : 255;
-				}
-				TextureMaterial texture_material;
-				texture_material.width = image.width;
-				texture_material.height = image.height;
-				texture_material.channels = 4;
-				texture_material.data_len = rgba.size();
-				texture_material.semantic = semantic;
-				texture_material.source = image.uri.empty() ? image.name : image.uri;
-				texture_material.data = std::make_unique<RawTextureDataGLTF>(std::move(rgba));
-				return materials.add(std::make_unique<TextureMaterial>(std::move(texture_material)));
-			};
-
-			LoadedMaterial loaded;
-			if (color_texture.index >= 0)
-			{
-				owners.push_back(load_gltf_texture(color_texture.index, ETextureSemantic::BASE_COLOR));
-				loaded.ids = { owners.back()->get_id() };
-			}
-			else
-			{
-				owners.push_back(materials.add(MaterialFactory::fetch_white_texture()));
-				loaded.ids = { owners.back()->get_id() };
-			}
-			if (normal_texture.index >= 0)
-			{
-				owners.push_back(load_gltf_texture(normal_texture.index, ETextureSemantic::NORMAL));
-				loaded.ids.push_back(owners.back()->get_id());
-			}
-
-			if (specular_texture_index)
-			{
-				owners.push_back(load_gltf_texture(*specular_texture_index, ETextureSemantic::SPECULAR));
-				loaded.ids.push_back(owners.back()->get_id());
-			}
-			loaded.alpha_mode = alpha_mode;
-			loaded.alpha_cutoff = alpha_cutoff;
-			loaded.opacity = opacity;
-			gltf_material_to_material[primitive.material] = loaded;
-			return loaded;
-		} else
-		{
-			ColorMaterial new_material;
-			new_material.data.diffuse = glm::vec3(
-				mat.pbrMetallicRoughness.baseColorFactor[0],
-				mat.pbrMetallicRoughness.baseColorFactor[1],
-				mat.pbrMetallicRoughness.baseColorFactor[2]);
-			new_material.data.ambient = new_material.data.diffuse;
-			new_material.data.specular = (new_material.data.specular + new_material.data.diffuse)/2.0f;
-			new_material.data.shininess = 1 - mat.pbrMetallicRoughness.roughnessFactor;
-
-			owners.push_back(materials.add(std::make_unique<ColorMaterial>(std::move(new_material))));
-			LoadedMaterial loaded{ .ids = { owners.back()->get_id() }, .alpha_mode = alpha_mode,
-				.alpha_cutoff = alpha_cutoff, .opacity = opacity };
-			gltf_material_to_material[primitive.material] = loaded;
-			return loaded;
-		}
+		const auto& pbr = mat.pbrMetallicRoughness;
+		auto material = std::make_unique<PbrMaterial>(
+			glm::vec4(
+				static_cast<float>(pbr.baseColorFactor[0]),
+				static_cast<float>(pbr.baseColorFactor[1]),
+				static_cast<float>(pbr.baseColorFactor[2]),
+				static_cast<float>(pbr.baseColorFactor[3])),
+			static_cast<float>(pbr.metallicFactor),
+			static_cast<float>(pbr.roughnessFactor));
+		owners.push_back(materials.add(std::move(material)));
+		LoadedMaterial loaded{
+			.ids = { owners.back()->get_id() },
+		};
+		gltf_material_to_material[primitive.material] = loaded;
+		return loaded;
 	}
 
-	owners.push_back(materials.add(
-		MaterialFactory::fetch_preset(EMaterialPreset::PLASTIC)));
+	owners.push_back(materials.add(std::make_unique<PbrMaterial>()));
 	return { .ids = { owners.back()->get_id() } };
 }
 

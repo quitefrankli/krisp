@@ -22,7 +22,7 @@ RenderableDefinition make_renderable(
 	MeshSystem meshes;
 	MaterialSystem materials;
 	auto mesh = meshes.add(MeshFactory::cube());
-	auto material = materials.add(std::make_unique<ColorMaterial>());
+	auto material = materials.add(std::make_unique<PbrMaterial>());
 	return {
 		.pipeline_render_type = render_type,
 		.alpha_mode = alpha_mode,

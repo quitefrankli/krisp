@@ -11,5 +11,5 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_M
 
 void main()
 {
-	out_color = vec4(mat_data.data.diffuse, 1.0);
+	out_color = mat_data.data.base_color_factor;
 }

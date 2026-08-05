@@ -16,8 +16,8 @@ have not been measured.
 ## Point-light shadow filtering
 
 Rasterized point-light shadows use 16-tap Poisson-disc PCF in
-`shaders/library/library.glsl`, shared by the color, texture, skinned-color, and
-skinned-texture pipelines.
+`shaders/library/library.glsl`, shared by the static-color and skinned-color lit
+pipelines.
 
 - Each lit fragment performs 16 cubemap depth samples; these are expected to
   dominate the filter cost. Moving from 9 to 16 taps increased sample count and
@@ -25,14 +25,49 @@ skinned-texture pipelines.
 - Each tap normalizes its lookup direction and applies receiver-plane depth
   correction. This costs additional arithmetic but avoids concentric
   self-shadowing on large flat receivers.
-- Textured materials use the geometric normal for shadow correction so normal
-  maps do not destabilize shadow depth.
 
 Reducing the sample count is the primary quality/performance control. Keep the
 loop bound and visibility divisor synchronized with the kernel size. Increasing
 `texel_size` softens edges but exposes undersampling more readily. If profiling
 shows arithmetic pressure, hoist loop invariants and test whether lookup
 normalization can be reduced without restoring artifacts.
+
+Potential optimizations, in priority order after GPU profiling:
+
+- Skip shadow-map sampling when `N dot L <= 0` or the active light intensity is
+  zero. Direct illumination is already zero in those cases, so the current 16
+  cubemap samples cannot affect the result. The branch should be coherent over
+  broad unlit surface regions, but its practical benefit has not been measured.
+- Reduce the PCF sample count only if timestamp or shader-profiler evidence
+  identifies shadow filtering as a material bottleneck. Revalidate shadow
+  stability and edge quality whenever changing the kernel.
+
+## Factor-only metallic-roughness shading
+
+The static-color and skinned-color lit pipelines evaluate the glTF
+metallic-roughness BRDF per fragment. Compared with their former Blinn-Phong
+shading, this adds GGX distribution and correlated Smith visibility arithmetic,
+including several square roots, while retaining the existing 16-tap point-light
+shadow filter. This is a modeled cost and has not been measured.
+
+Point-light radiance now uses inverse-square attenuation. Static and skinned
+color vertices also compute an inverse-transpose normal matrix so non-uniformly
+scaled models shade correctly. The static transform could be precomputed on the
+CPU if profiling shows the per-vertex inverse to be material; the skinned path
+requires a normal transform derived from each vertex's blended skin matrix.
+
+Potential normal-transform optimizations:
+
+- Precompute and upload the static normal matrix once per renderable transform
+  instead of evaluating `inverse(mat3(model))` for every static vertex.
+- Retain the per-vertex inverse-transpose for skinned meshes unless a cheaper
+  formulation is proven correct for blended bones and non-uniform scaling.
+  Performance alone is not sufficient justification for approximating this
+  transform.
+
+`MaterialData` is reduced from legacy Blinn-Phong properties to a 32-byte,
+factor-only GPU record. This lowers material-buffer storage and upload
+bandwidth; the practical effect has not been measured.
 
 ## Render preparation and command recording
 

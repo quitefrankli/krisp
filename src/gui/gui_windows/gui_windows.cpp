@@ -189,7 +189,6 @@ void GuiGraphicsSettings::draw()
 	if (begin())
 	{
 
-	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
 	exposure_ev.changed |= ImGui::SliderFloat(
 		"exposure", &exposure_ev.value, -10.0f, 10.0f, "%.1f EV");
 	ImGui::SameLine();
@@ -266,31 +265,13 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
-		{"textured_cube", spawning_function_type([this](GameEngine& engine)
-			{
-				auto mesh_owner = engine.get_ecs().get_mesh_system().add(
-					MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
-				auto material_owner = ResourceLoader::fetch_texture(engine.get_ecs().get_material_system(), "texture.jpg");
-				Renderable renderable;
-				renderable.pipeline_render_type = ERenderType::STANDARD;
-				renderable.mesh_owner = std::move(mesh_owner);
-				renderable.material_owners = { std::move(material_owner) };
-
-				auto& obj = engine.template spawn_object<Object>();
-				engine.attach_renderable(obj.get_id(), std::move(renderable));
-				engine.get_ecs().add_collider(obj.get_id(), std::make_unique<BoxCollider>());
-				engine.get_ecs().add_clickable_entity(obj.get_id());
-			})
-		},
 		{"diffuse_cube", spawning_function_type([this](GameEngine& engine)
 			{
-				ColorMaterial material;
-				material.data.shininess = 1.0f;
 				Renderable renderable;
 				renderable.mesh_owner = engine.get_ecs().get_mesh_system().add(
 					MeshFactory::cube(MeshFactory::EVertexType::COLOR));
 				auto material_owner = engine.get_ecs().get_material_system().add(
-					std::make_unique<ColorMaterial>(std::move(material)));
+					std::make_unique<PbrMaterial>(glm::vec4(1.0f), 0.0f, 1.0f));
 				renderable.material_owners = { std::move(material_owner) };
 				auto& obj = engine.template spawn_object<Object>();
 				engine.attach_renderable(obj.get_id(), std::move(renderable));

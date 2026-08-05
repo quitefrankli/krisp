@@ -137,53 +137,6 @@ public:
 	std::string filename() const { return path.filename().string(); }
 };
 
-class GeneratedGLBWithDDS
-{
-public:
-	explicit GeneratedGLBWithDDS(const std::filesystem::path& dds_path)
-	{
-		static uint32_t sequence = 0;
-		path = dds_path.parent_path() / fmt::format("krisp_test_dds_{}.glb", sequence++);
-
-		std::ifstream template_file(Utility::get_model("static_mesh_textured.gltf"));
-		nlohmann::json document;
-		template_file >> document;
-		document["images"] = nlohmann::json::array({ {
-			{ "uri", dds_path.filename().string() },
-			{ "name", "generated_dds" },
-		} });
-		document["materials"][0]["normalTexture"] = { { "index", 0 } };
-
-		std::string json = document.dump();
-		while (json.size() % 4 != 0)
-			json.push_back(' ');
-		std::vector<unsigned char> bytes(20 + json.size(), 0);
-		const auto write_u32 = [&bytes](const size_t offset, const uint32_t value)
-		{
-			for (size_t byte = 0; byte < 4; ++byte)
-				bytes[offset + byte] = static_cast<unsigned char>(value >> (byte * 8));
-		};
-		write_u32(0, 0x46546C67); // "glTF"
-		write_u32(4, 2);
-		write_u32(8, static_cast<uint32_t>(bytes.size()));
-		write_u32(12, static_cast<uint32_t>(json.size()));
-		write_u32(16, 0x4E4F534A); // "JSON"
-		std::copy(json.begin(), json.end(), bytes.begin() + 20);
-
-		std::ofstream output(path, std::ios::binary);
-		output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
-	}
-
-	~GeneratedGLBWithDDS()
-	{
-		std::error_code error;
-		std::filesystem::remove(path, error);
-	}
-
-	std::filesystem::path path;
-	std::string filename() const { return path.filename().string(); }
-};
-
 class MutatedGltf
 {
 public:
@@ -197,6 +150,8 @@ public:
 		std::ifstream input(Utility::get_model(template_filename));
 		nlohmann::json document;
 		input >> document;
+		if (template_filename == "static_mesh_textured.gltf")
+			document["materials"][0]["pbrMetallicRoughness"].erase("baseColorTexture");
 		mutate(document);
 		std::ofstream output(path);
 		output << document;
@@ -242,12 +197,13 @@ TEST(ResourceLoaderErrors, rejects_accessor_stride_smaller_than_its_element)
 	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
 }
 
-TEST(ResourceLoaderCoordinates, converts_static_mesh_basis_without_changing_uvs)
+TEST(ResourceLoaderCoordinates, converts_static_mesh_basis)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "static_mesh_textured.gltf");
+	MutatedGltf resource([](nlohmann::json&) {});
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const TexMesh&>(
+	const auto& mesh = dynamic_cast<const ColorMesh&>(
 		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 
 	ASSERT_EQ(mesh.get_vertices().size(), 3);
@@ -255,9 +211,6 @@ TEST(ResourceLoaderCoordinates, converts_static_mesh_basis_without_changing_uvs)
 	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].pos, glm::vec3(-1.0f, 0.0f, 0.0f)));
 	EXPECT_TRUE(glm_equal(mesh.get_vertices()[2].pos, glm::vec3(-0.5f, 1.0f, 0.0f)));
 	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 2, 1 }));
-	EXPECT_TRUE(glm_equal(mesh.get_vertices()[0].texCoord, glm::vec2(0.0f, 0.0f)));
-	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].texCoord, glm::vec2(1.0f, 0.0f)));
-	EXPECT_TRUE(glm_equal(mesh.get_vertices()[2].texCoord, glm::vec2(0.5f, 1.0f)));
 }
 
 TEST(ResourceLoaderCoordinates, converts_static_node_translation_and_rotation)
@@ -349,38 +302,112 @@ TEST(ResourceLoaderCoordinates, converts_cubic_animation_values_and_tangents)
 		glm::vec4(0.0f, 0.0f, -std::sqrt(0.5f), std::sqrt(0.5f))));
 }
 
-TEST(ResourceLoaderMaterials, imports_gltf_alpha_modes_and_opacity)
+TEST(ResourceLoaderMaterials, imports_exact_pbr_factors)
 {
-	MutatedGltf masked([](nlohmann::json& document)
+	MutatedGltf resource([](nlohmann::json& document)
 	{
-		document["materials"][0]["alphaMode"] = "MASK";
-		document["materials"][0]["alphaCutoff"] = 0.25;
-		document["materials"][0]["pbrMetallicRoughness"]["baseColorFactor"] = { 1.0, 1.0, 1.0, 0.6 };
-	});
-	const auto masked_model = ResourceLoader::load_model(general_loader_ecs, masked.filename());
-	const auto& masked_renderable = masked_model.meshes[0].renderables[0];
-	EXPECT_EQ(masked_renderable.alpha_mode, EAlphaMode::MASK);
-	EXPECT_FLOAT_EQ(masked_renderable.alpha_cutoff, 0.25f);
-	EXPECT_FLOAT_EQ(masked_renderable.opacity, 0.6f);
+		auto& material = document["materials"][0];
+		material["name"] = "Exact factors";
+		material["pbrMetallicRoughness"]["baseColorFactor"] = { 0.125, 0.25, 0.5, 0.75 };
+		material["pbrMetallicRoughness"]["metallicFactor"] = 0.375;
+		material["pbrMetallicRoughness"]["roughnessFactor"] = 0.625;
+	}, "skinned_color.gltf");
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& owner = renderable.material_owners[0];
+	const auto& material = dynamic_cast<const PbrMaterial&>(
+		ecs.get_material_system().get(owner->get_id()));
+	EXPECT_TRUE(glm_equal(material.data.base_color_factor, glm::vec4(0.125f, 0.25f, 0.5f, 0.75f)));
+	EXPECT_FLOAT_EQ(material.data.metallic_factor, 0.375f);
+	EXPECT_FLOAT_EQ(material.data.roughness_factor, 0.625f);
+	EXPECT_FLOAT_EQ(renderable.opacity, 1.0f);
+}
 
-	MutatedGltf blended([](nlohmann::json& document)
+TEST(ResourceLoaderMaterials, primitives_without_material_use_gltf_pbr_defaults)
+{
+	MutatedGltf resource([](nlohmann::json& document)
 	{
-		document["materials"][0]["alphaMode"] = "BLEND";
+		document.erase("materials");
+		document["meshes"][0]["primitives"][0].erase("material");
 	});
-	const auto blended_model = ResourceLoader::load_model(general_loader_ecs, blended.filename());
-	const auto& blended_renderable = blended_model.meshes[0].renderables[0];
-	EXPECT_EQ(blended_renderable.alpha_mode, EAlphaMode::BLEND);
-	EXPECT_FLOAT_EQ(blended_renderable.alpha_cutoff, 0.5f);
-	EXPECT_FLOAT_EQ(blended_renderable.opacity, 1.0f);
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& owner = model.meshes[0].renderables[0].material_owners[0];
+	const auto& material = dynamic_cast<const PbrMaterial&>(
+		ecs.get_material_system().get(owner->get_id()));
+	EXPECT_TRUE(glm_equal(material.data.base_color_factor, glm::vec4(1.0f)));
+	EXPECT_FLOAT_EQ(material.data.metallic_factor, 1.0f);
+	EXPECT_FLOAT_EQ(material.data.roughness_factor, 1.0f);
+}
 
-	MutatedGltf skinned([](nlohmann::json& document)
+TEST(ResourceLoaderMaterials, rejects_unsupported_material_features_with_material_context)
+{
+	using Mutation = std::function<void(nlohmann::json&)>;
+	const std::vector<std::pair<std::string, Mutation>> cases{
+		{ "baseColorTexture", [](auto& material) {
+			material["pbrMetallicRoughness"]["baseColorTexture"] = { { "index", 0 } }; } },
+		{ "metallicRoughnessTexture", [](auto& material) {
+			material["pbrMetallicRoughness"]["metallicRoughnessTexture"] = { { "index", 0 } }; } },
+		{ "normalTexture", [](auto& material) { material["normalTexture"] = { { "index", 0 } }; } },
+		{ "occlusionTexture", [](auto& material) { material["occlusionTexture"] = { { "index", 0 } }; } },
+		{ "emissiveTexture", [](auto& material) { material["emissiveTexture"] = { { "index", 0 } }; } },
+		{ "emissiveFactor", [](auto& material) { material["emissiveFactor"] = { 0.0, 0.1, 0.0 }; } },
+		{ "alphaMode", [](auto& material) { material["alphaMode"] = "MASK"; } },
+		{ "doubleSided", [](auto& material) { material["doubleSided"] = true; } },
+		{ "KHR_materials_specular", [](auto& material) {
+			material["extensions"]["KHR_materials_specular"] = { { "specularFactor", 0.5 } }; } },
+		{ "metallicFactor outside", [](auto& material) {
+			material["pbrMetallicRoughness"]["metallicFactor"] = 1.1; } },
+	};
+
+	for (const auto& [feature, mutate] : cases)
 	{
-		document["materials"][0]["alphaMode"] = "MASK";
-	}, "skinned_normal_mapped.gltf");
-	const auto skinned_model = ResourceLoader::load_model(general_loader_ecs, skinned.filename());
-	const auto& skinned_renderable = skinned_model.meshes[0].renderables[0];
-	EXPECT_EQ(skinned_renderable.pipeline_render_type, ERenderType::SKINNED);
-	EXPECT_EQ(skinned_renderable.alpha_mode, EAlphaMode::MASK);
+		SCOPED_TRACE(feature);
+		MutatedGltf resource([&](nlohmann::json& document)
+		{
+			auto& material = document["materials"][0];
+			material["name"] = "Unsupported material";
+			mutate(material);
+		});
+		try
+		{
+			ECS ecs;
+			(void)ResourceLoader::load_model(ecs, resource.filename());
+			FAIL() << "Expected ResourceLoadError";
+		}
+		catch (const ResourceLoadError& error)
+		{
+			const std::string message(error.what());
+			EXPECT_NE(message.find("Unsupported material"), std::string::npos);
+			EXPECT_NE(message.find(feature), std::string::npos);
+		}
+	}
+}
+
+TEST(ResourceLoaderMaterials, rejects_unsupported_unused_material_before_importing_asset)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["materials"].push_back({
+			{ "name", "Unused textured material" },
+			{ "pbrMetallicRoughness", {
+				{ "baseColorTexture", { { "index", 0 } } },
+			} },
+		});
+	});
+	try
+	{
+		ECS ecs;
+		(void)ResourceLoader::load_model(ecs, resource.filename());
+		FAIL() << "Expected ResourceLoadError";
+	}
+	catch (const ResourceLoadError& error)
+	{
+		const std::string message(error.what());
+		EXPECT_NE(message.find("Unused textured material"), std::string::npos);
+		EXPECT_NE(message.find("baseColorTexture"), std::string::npos);
+	}
 }
 
 // test loading .gltf file with bones into std::vector<Bone>
@@ -389,7 +416,7 @@ TEST_F(ResourceLoaderECS, load_bones)
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& renderable = model.meshes[0].renderables[0];
-	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
+	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED_COLOR);
 	const auto skeleton_id = model.meshes[0].skeleton_id.value();
 	const auto& skeleton = ecs.get_skeletal_component(skeleton_id);
 	ASSERT_EQ(skeleton.get_bones().size(), 5);
@@ -767,267 +794,7 @@ TEST(ResourceLoaderTextures, rejects_unsupported_or_truncated_dds_files)
 	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), truncated.filename()), ResourceLoadError);
 }
 
-TEST(ResourceLoaderTextures, loads_external_dds_references_from_generated_glb)
-{
-	constexpr uint32_t DXT5 = 0x35545844;
-	GeneratedDDS dds(8, 8, 4, DXT5);
-	GeneratedGLBWithDDS glb(dds.path);
-	ResourceLoader::LoadOptions options;
-	options.generate_missing_tangents = true;
-	const auto model = ResourceLoader::load_model(general_loader_ecs, glb.filename(), options);
-
-	ASSERT_EQ(model.meshes.size(), 1);
-	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
-	const auto& material_owners = model.meshes[0].renderables[0].material_owners;
-	ASSERT_EQ(material_owners.size(), 2);
-	const auto& base_color = dynamic_cast<const TextureMaterial&>(
-		general_loader_ecs.get_material_system().get(material_owners[0]->get_id()));
-	const auto& normal = dynamic_cast<const TextureMaterial&>(
-		general_loader_ecs.get_material_system().get(material_owners[1]->get_id()));
-	EXPECT_EQ(base_color.format, ETextureFormat::BC3);
-	EXPECT_EQ(base_color.semantic, ETextureSemantic::BASE_COLOR);
-	EXPECT_EQ(base_color.mip_sizes, (std::vector<size_t>{ 64, 16, 16, 16 }));
-	EXPECT_EQ(normal.format, ETextureFormat::BC3);
-	EXPECT_EQ(normal.semantic, ETextureSemantic::NORMAL);
-	EXPECT_EQ(normal.mip_sizes, base_color.mip_sizes);
-}
-
-TEST(ResourceLoaderStaticMesh, single_mesh_with_texture)
-{
-	const auto model_path = "static_mesh_textured.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, model_path);
-
-	ASSERT_EQ(model.meshes.size(), 1);
-	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
-
-	const auto& renderable = model.meshes[0].renderables[0];
-	ASSERT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
-	ASSERT_FALSE(model.meshes[0].skeleton_id.has_value());
-
-	ASSERT_EQ(renderable.material_owners.size(), 1);
-	const auto& material = general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id());
-	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
-	ASSERT_NE(tex_material, nullptr);
-	ASSERT_EQ(tex_material->width, 2);
-	ASSERT_EQ(tex_material->height, 2);
-	const auto* mesh_origin = ResourceProvenance::mesh(renderable.mesh_owner->get_id());
-	ASSERT_NE(mesh_origin, nullptr);
-	EXPECT_EQ(std::filesystem::path(mesh_origin->source).filename(), "static_mesh_textured.gltf");
-	EXPECT_EQ(mesh_origin->node, 0);
-	EXPECT_EQ(mesh_origin->primitive, 0);
-	const auto* material_origin = ResourceProvenance::material(
-		renderable.material_owners[0]->get_id());
-	ASSERT_NE(material_origin, nullptr);
-	EXPECT_EQ(std::filesystem::path(material_origin->source).filename(), "static_mesh_textured.gltf");
-}
-
-TEST(ResourceLoaderSpecularMaps, imports_khr_materials_specular_maps)
-{
-	MutatedGltf resource([](nlohmann::json& document)
-	{
-		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
-			{ "specularFactor", 0.35 },
-			{ "specularColorFactor", { 0.25, 0.5, 0.75 } },
-			{ "specularTexture", { { "index", 0 } } },
-			{ "specularColorTexture", { { "index", 0 } } },
-		};
-	});
-	const auto model = ResourceLoader::load_model(general_loader_ecs, resource.filename());
-	const auto& renderable = model.meshes[0].renderables[0];
-	const TexturedMatGroup group(renderable.material_owners);
-
-	ASSERT_TRUE(group.specular_mat);
-	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		general_loader_ecs.get_material_system().get(*group.specular_mat)).semantic,
-		ETextureSemantic::SPECULAR);
-}
-
-TEST(ResourceLoaderSpecularMaps, rejects_nonzero_specular_texcoord)
-{
-	MutatedGltf resource([](nlohmann::json& document)
-	{
-		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
-			{ "specularTexture", { { "index", 0 }, { "texCoord", 1 } } },
-		};
-	});
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
-}
-
-TEST(ResourceLoaderSpecularMaps, rejects_two_different_specular_files)
-{
-	MutatedGltf resource([](nlohmann::json& document)
-	{
-		document["textures"].push_back(document["textures"][0]);
-		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
-			{ "specularTexture", { { "index", 0 } } },
-			{ "specularColorTexture", { { "index", 1 } } },
-		};
-	});
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
-}
-
-TEST(ResourceLoaderSpecularMaps, imports_specular_map_without_base_color_texture)
-{
-	MutatedGltf resource([](nlohmann::json& document)
-	{
-		document["materials"][0]["pbrMetallicRoughness"].erase("baseColorTexture");
-		document["materials"][0]["extensions"]["KHR_materials_specular"] = {
-			{ "specularTexture", { { "index", 0 } } },
-		};
-	});
-	const auto model = ResourceLoader::load_model(general_loader_ecs, resource.filename());
-	const auto& renderable = model.meshes[0].renderables[0];
-
-	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
-	const TexturedMatGroup group(renderable.material_owners);
-	EXPECT_TRUE(group.specular_mat);
-	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
-		general_loader_ecs.get_material_system().get(group.base_color_mat)).source, "(none)");
-}
-
-TEST(ResourceLoaderStaticMesh, shared_textured_material_across_primitives_reuses_cached_material)
-{
-	const auto model_path = "static_mesh_textured_shared_material.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, model_path);
-
-	ASSERT_EQ(model.meshes.size(), 1);
-	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
-
-	const auto first_mat_id = model.meshes[0].renderables[0].material_owners[0]->get_id();
-	const auto second_mat_id = model.meshes[0].renderables[1].material_owners[0]->get_id();
-	ASSERT_EQ(first_mat_id, second_mat_id);
-	const auto& first_owner = model.meshes[0].renderables[0].material_owners[0];
-	const auto& second_owner = model.meshes[0].renderables[1].material_owners[0];
-	EXPECT_EQ(first_owner, second_owner);
-	EXPECT_EQ(first_owner.use_count(), 2);
-
-	const auto& material = general_loader_ecs.get_material_system().get(first_mat_id);
-	const auto* tex_material = dynamic_cast<const TextureMaterial*>(&material);
-	ASSERT_NE(tex_material, nullptr);
-	ASSERT_EQ(tex_material->width, 2);
-	ASSERT_EQ(tex_material->height, 2);
-}
-
-TEST(ResourceLoaderNormalMaps, missing_tangents_fail_by_default)
-{
-	const auto path = "normal_mapped_missing_tangents.gltf";
-	const ResourceLoader::LoadOptions options;
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, path, options), ResourceLoadError);
-}
-
-TEST(ResourceLoaderNormalMaps, missing_tangents_can_be_generated)
-{
-	ResourceLoader::LoadOptions options;
-	options.generate_missing_tangents = true;
-	const auto path = "normal_mapped_missing_tangents.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path, options);
-
-	ASSERT_EQ(model.meshes.size(), 1);
-	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
-	const auto& renderable = model.meshes[0].renderables[0];
-	ASSERT_EQ(renderable.material_owners.size(), 2);
-	const auto& base_material = dynamic_cast<const TextureMaterial&>(
-		general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id()));
-	const auto& normal_material = dynamic_cast<const TextureMaterial&>(
-		general_loader_ecs.get_material_system().get(renderable.material_owners[1]->get_id()));
-	EXPECT_EQ(base_material.semantic, ETextureSemantic::BASE_COLOR);
-	EXPECT_EQ(normal_material.semantic, ETextureSemantic::NORMAL);
-
-	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
-	ASSERT_FALSE(mesh.get_vertices().empty());
-	for (const auto& vertex : mesh.get_vertices())
-	{
-		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
-		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
-		EXPECT_TRUE(vertex.tangent.w == 1.0f || vertex.tangent.w == -1.0f);
-		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
-	}
-	ASSERT_EQ(model.warnings.size(), 1);
-	EXPECT_NE(model.warnings[0].message.find("generated missing tangents"), std::string::npos);
-}
-
-TEST(ResourceLoaderNormalMaps, invalid_tangents_fail_when_generation_is_disabled)
-{
-	const auto path = "normal_mapped_invalid_tangents.gltf";
-	const ResourceLoader::LoadOptions options;
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, path, options), ResourceLoadError);
-}
-
-TEST(ResourceLoaderNormalMaps, invalid_tangents_are_regenerated)
-{
-	const auto path = "normal_mapped_invalid_tangents.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
-	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
-	for (const auto& vertex : mesh.get_vertices())
-	{
-		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
-		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
-		EXPECT_TRUE(vertex.tangent.w == 1.0f || vertex.tangent.w == -1.0f);
-	}
-	ASSERT_EQ(model.warnings.size(), 1);
-	EXPECT_NE(model.warnings[0].message.find("regenerated invalid tangents"), std::string::npos);
-}
-
-TEST(ResourceLoaderNormalMaps, authored_tangents_are_preserved_and_scale_warns)
-{
-	const auto path = "normal_mapped_authored_tangents.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
-	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const TexMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
-	for (const auto& vertex : mesh.get_vertices())
-		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
-	ASSERT_EQ(model.warnings.size(), 1);
-	EXPECT_NE(model.warnings[0].message.find("normalTexture.scale"), std::string::npos);
-
-	ResourceLoader::LoadOptions strict_options;
-	strict_options.strict = true;
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, path, strict_options), ResourceLoadError);
-}
-
-TEST(ResourceLoaderNormalMaps, shared_material_registers_all_texture_owners)
-{
-	const auto path = "normal_mapped_shared_material.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
-	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
-	const auto first_ids = model.meshes[0].renderables[0].get_material_ids();
-	const auto second_ids = model.meshes[0].renderables[1].get_material_ids();
-	ASSERT_EQ(first_ids, second_ids);
-	ASSERT_EQ(first_ids.size(), 2);
-	for (size_t index = 0; index < first_ids.size(); ++index)
-	{
-		const auto& first_owner = model.meshes[0].renderables[0].material_owners[index];
-		const auto& second_owner = model.meshes[0].renderables[1].material_owners[index];
-		EXPECT_EQ(first_owner, second_owner);
-		EXPECT_EQ(first_owner.use_count(), 2);
-	}
-}
-
-TEST(ResourceLoaderNormalMaps, normal_map_without_base_color_is_rejected)
-{
-	const auto path = "normal_map_without_base_color.gltf";
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, path), ResourceLoadError);
-}
-
-TEST(ResourceLoaderNormalMaps, skinned_mesh_imports_normal_map_and_tangents)
-{
-	const auto path = "skinned_normal_mapped.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
-	ASSERT_EQ(model.meshes.size(), 1);
-	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
-	const auto& renderable = model.meshes[0].renderables[0];
-	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
-	ASSERT_TRUE(model.meshes[0].skeleton_id.has_value());
-	ASSERT_EQ(renderable.material_owners.size(), 2);
-	const auto& mesh = dynamic_cast<const SkinnedMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
-	ASSERT_EQ(mesh.get_vertices().size(), 3);
-	for (const auto& vertex : mesh.get_vertices())
-		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
-	EXPECT_EQ(mesh.get_indices(), (std::vector<uint32_t>{ 0, 2, 1 }));
-	EXPECT_TRUE(glm_equal(mesh.get_vertices()[1].pos, glm::vec3(-1.0f, 0.0f, 0.0f)));
-}
-
-TEST(ResourceLoaderSkinnedColor, imports_color_material_without_texture_upload)
+TEST(ResourceLoaderSkinnedColor, imports_pbr_material_without_texture_upload)
 {
 	const auto path = "skinned_color.gltf";
 	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
@@ -1037,10 +804,12 @@ TEST(ResourceLoaderSkinnedColor, imports_color_material_without_texture_upload)
 	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED_COLOR);
 	EXPECT_TRUE(model.meshes[0].skeleton_id.has_value());
 	ASSERT_EQ(renderable.material_owners.size(), 1);
-	const auto* material = dynamic_cast<const ColorMaterial*>(
+	const auto* material = dynamic_cast<const PbrMaterial*>(
 		&general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id()));
 	ASSERT_NE(material, nullptr);
-	EXPECT_TRUE(glm_equal(material->data.diffuse, glm::vec3(0.25f, 0.5f, 0.75f)));
+	EXPECT_TRUE(glm_equal(material->data.base_color_factor, glm::vec4(0.25f, 0.5f, 0.75f, 1.0f)));
+	EXPECT_FLOAT_EQ(material->data.metallic_factor, 0.0f);
+	EXPECT_FLOAT_EQ(material->data.roughness_factor, 0.5f);
 	EXPECT_NE(dynamic_cast<const SkinnedMesh*>(&general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id())), nullptr);
 }
 
@@ -1055,23 +824,6 @@ TEST(ResourceLoaderSkinning, rejects_more_than_four_bone_influences_per_vertex)
 	catch (const ResourceLoadError& error)
 	{
 		EXPECT_NE(std::string(error.what()).find("maximum of 4 bone influences"), std::string::npos);
-	}
-}
-
-TEST(ResourceLoaderNormalMaps, skinned_mesh_can_generate_missing_tangents)
-{
-	ResourceLoader::LoadOptions options;
-	options.generate_missing_tangents = true;
-	const auto path = "skinned_normal_mapped_missing_tangents.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path, options);
-	const auto& renderable = model.meshes[0].renderables[0];
-	const auto& mesh = dynamic_cast<const SkinnedMesh&>(general_loader_ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
-	ASSERT_FALSE(mesh.get_vertices().empty());
-	for (const auto& vertex : mesh.get_vertices())
-	{
-		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
-		EXPECT_EQ(vertex.bone_ids, glm::vec4(0.0f));
-		EXPECT_EQ(vertex.bone_weights, glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
 	}
 }
 
@@ -1091,7 +843,7 @@ TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
 			ASSERT_FALSE(mesh.skeleton_id.has_value());
 			ASSERT_EQ(renderable.material_owners.size(), 1);
 			const auto& material = general_loader_ecs.get_material_system().get(renderable.material_owners[0]->get_id());
-			ASSERT_NE(dynamic_cast<const ColorMaterial*>(&material), nullptr);
+			ASSERT_NE(dynamic_cast<const PbrMaterial*>(&material), nullptr);
 		}
 	}
 }

@@ -19,6 +19,6 @@ layout(set=RASTERIZATION_PER_RENDERABLE_FRAME_SET_OFFSET, binding=RASTERIZATION_
 void main()
 {
 	gl_Position = object_data.data.mvp * vec4(in_position, 1.0);
-	surface_normal = (object_data.data.model * vec4(in_normal, 0.0)).xyz;
+	surface_normal = transpose(inverse(mat3(object_data.data.model))) * in_normal;
 	frag_pos = (object_data.data.model * vec4(in_position, 1.0)).xyz;
 }

@@ -103,14 +103,8 @@ void GameEngine::configure_ecs()
 		MaterialHandle new_tile_material;
 		if (!tile_renderable || !ecs.get_material_system().contains(tile_renderable->get_material_id(0)))
 		{
-			ColorMaterial mat{};
-			mat.data.ambient = glm::vec3(0.45f) / SDS::AMBIENT_STRENGTH;
-			mat.data.diffuse = Maths::zero_vec;
-			mat.data.specular = Maths::zero_vec;
-			mat.data.emissive = Maths::zero_vec;
-			mat.data.shininess = 0.0f;
-
-			new_tile_material = ecs.get_material_system().add(std::make_unique<ColorMaterial>(mat));
+			new_tile_material = ecs.get_material_system().add(
+				std::make_unique<PbrMaterial>(glm::vec4(0.45f, 0.45f, 0.45f, 1.0f), 0.0f, 1.0f));
 			auto tile_mesh = ecs.get_mesh_system().add(MeshFactory::cube());
 			tile_renderable = Renderable{
 				.pipeline_render_type = ERenderType::COLOR,
@@ -502,178 +496,25 @@ void GameEngine::unhighlight_object(const Object& object)
 	render_view_state.stenciled_objects.erase(object.get_id());
 }
 
-RenderableID GameEngine::replace_renderable_texture(
+RenderableID GameEngine::set_renderable_pbr_material(
 	const RenderableID renderable_id,
-	const ETextureSemantic semantic,
-	std::optional<std::string> texture_filename)
+	const glm::vec4 base_color_factor,
+	const float metallic_factor,
+	const float roughness_factor)
 {
 	if (!ecs.has_renderable(renderable_id))
-		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable not found");
+		throw std::runtime_error("GameEngine::set_renderable_pbr_material: renderable not found");
 	auto renderable = ecs.get_renderable(renderable_id).renderable;
-	if (renderable.pipeline_render_type != ERenderType::STANDARD
-		&& renderable.pipeline_render_type != ERenderType::SKINNED)
-		throw std::runtime_error("GameEngine::replace_renderable_texture: renderable does not support textures");
-	if (semantic == ETextureSemantic::COUNT)
-		throw std::runtime_error("GameEngine::replace_renderable_texture: invalid texture semantic");
-
-	const TexturedMatGroup current(renderable.material_owners);
-	MaterialID diffuse = current.base_color_mat;
-	std::optional<MaterialID> normal = current.normal_mat;
-	std::optional<MaterialID> specular = current.specular_mat;
-	auto replacement_owner = texture_filename
-		? ResourceLoader::fetch_texture(ecs.get_material_system(), *texture_filename, semantic)
-		: semantic == ETextureSemantic::BASE_COLOR
-			? ecs.get_material_system().add(MaterialFactory::fetch_white_texture())
-			: MaterialHandle{};
-	const MaterialID replacement = replacement_owner
-		? replacement_owner->get_id()
-		: MaterialID{};
-	const std::optional<MaterialID> old = [&]() -> std::optional<MaterialID>
+	if (renderable.material_owners.size() != 1
+		|| !dynamic_cast<const PbrMaterial*>(&renderable.material_owners.front()->get()))
 	{
-		switch (semantic)
-		{
-		case ETextureSemantic::BASE_COLOR: return diffuse;
-		case ETextureSemantic::NORMAL: return normal;
-		case ETextureSemantic::SPECULAR: return specular;
-		case ETextureSemantic::COUNT: break;
-		}
-		throw std::runtime_error("GameEngine::replace_renderable_texture: invalid texture semantic");
-	}();
-
-	if (old && *old == replacement)
-		return renderable_id;
-
-	if (semantic == ETextureSemantic::BASE_COLOR)
-		diffuse = replacement;
-	else if (semantic == ETextureSemantic::NORMAL)
-		normal = texture_filename ? std::optional<MaterialID>(replacement) : std::nullopt;
-	else if (semantic == ETextureSemantic::SPECULAR)
-		specular = texture_filename ? std::optional<MaterialID>(replacement) : std::nullopt;
-
-	auto old_owners = std::move(renderable.material_owners);
-	const auto take_old_owner = [&old_owners](const MaterialID id)
-	{
-		const auto found = std::ranges::find_if(old_owners, [id](const MaterialHandle& owner) {
-			return owner && owner->get_id() == id;
-		});
-		if (found == old_owners.end())
-			throw std::runtime_error(
-				"GameEngine::replace_renderable_texture: material owner not found");
-		return std::move(*found);
-	};
-	std::vector<MaterialHandle> updated_owners;
-	updated_owners.reserve(3);
-	updated_owners.push_back(semantic == ETextureSemantic::BASE_COLOR
-		? std::move(replacement_owner)
-		: take_old_owner(current.base_color_mat));
-	if (normal)
-		updated_owners.push_back(semantic == ETextureSemantic::NORMAL
-			? std::move(replacement_owner)
-			: take_old_owner(*current.normal_mat));
-	if (specular)
-		updated_owners.push_back(semantic == ETextureSemantic::SPECULAR
-			? std::move(replacement_owner)
-			: take_old_owner(*current.specular_mat));
-	renderable.material_owners = std::move(updated_owners);
-	old_owners.clear();
-	return ecs.replace_renderable(renderable_id, std::move(renderable));
-}
-
-RenderableID GameEngine::set_renderable_specular_matte(
-	const RenderableID renderable_id)
-{
-	if (!ecs.has_renderable(renderable_id))
-		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable not found");
-	auto renderable = ecs.get_renderable(renderable_id).renderable;
-	if (renderable.pipeline_render_type != ERenderType::STANDARD
-		&& renderable.pipeline_render_type != ERenderType::SKINNED)
-		throw std::runtime_error("GameEngine::set_renderable_specular_matte: renderable does not support textures");
-
-	const TexturedMatGroup current(renderable.material_owners);
-	auto matte_owner = ecs.get_material_system().add(MaterialFactory::fetch_black_texture());
-	const MaterialID matte = matte_owner->get_id();
-	if (current.specular_mat && *current.specular_mat == matte)
-		return renderable_id;
-
-	auto old_owners = std::move(renderable.material_owners);
-	const auto take_old_owner = [&old_owners](const MaterialID id)
-	{
-		const auto found = std::ranges::find_if(old_owners, [id](const MaterialHandle& owner) {
-			return owner && owner->get_id() == id;
-		});
-		if (found == old_owners.end())
-			throw std::runtime_error(
-				"GameEngine::set_renderable_specular_matte: material owner not found");
-		return std::move(*found);
-	};
-	std::vector<MaterialHandle> updated_owners;
-	updated_owners.reserve(3);
-	updated_owners.push_back(take_old_owner(current.base_color_mat));
-	if (current.normal_mat)
-		updated_owners.push_back(take_old_owner(*current.normal_mat));
-	updated_owners.push_back(std::move(matte_owner));
-	renderable.material_owners = std::move(updated_owners);
-	old_owners.clear();
-	return ecs.replace_renderable(renderable_id, std::move(renderable));
-}
-
-RenderableID GameEngine::composite_renderable_base_color(
-	const RenderableID renderable_id,
-	std::vector<TextureCompositionOverlay> overlays)
-{
-	if (!ecs.has_renderable(renderable_id))
-		throw std::runtime_error("GameEngine::composite_renderable_base_color: renderable not found");
-	if (overlays.empty())
-		throw std::invalid_argument("GameEngine::composite_renderable_base_color: overlays are empty");
-	auto renderable = ecs.get_renderable(renderable_id).renderable;
-	if (renderable.pipeline_render_type != ERenderType::STANDARD
-		&& renderable.pipeline_render_type != ERenderType::SKINNED)
 		throw std::runtime_error(
-			"GameEngine::composite_renderable_base_color: renderable does not support textures");
-
-	const TexturedMatGroup current(renderable.material_owners);
-	const MaterialHandle& base_owner = current.get_material_owner(current.base_color_mat);
-	const auto* sampled_base = dynamic_cast<const SampledMaterial*>(&base_owner->get());
-	if (!sampled_base || sampled_base->semantic != ETextureSemantic::BASE_COLOR)
-		throw std::runtime_error(
-			"GameEngine::composite_renderable_base_color: invalid base-colour material");
-
-	std::vector<TextureCompositionLayer> layers;
-	if (const auto* existing = dynamic_cast<const CompositedTextureMaterial*>(&base_owner->get()))
-		layers = existing->layers;
-	else
-		layers.push_back(TextureCompositionLayer{ .source = base_owner });
-	if (layers.size() > CSTS::MAX_TEXTURE_COMPOSITION_LAYERS
-		|| overlays.size() > CSTS::MAX_TEXTURE_COMPOSITION_LAYERS - layers.size())
-		throw std::invalid_argument(
-			"GameEngine::composite_renderable_base_color: composition supports at most "
-			+ std::to_string(CSTS::MAX_TEXTURE_COMPOSITION_LAYERS) + " total layers");
-	layers.reserve(layers.size() + overlays.size());
-	for (auto& overlay : overlays)
-	{
-		auto source = ResourceLoader::fetch_texture(
-			ecs.get_material_system(), overlay.texture_filename, ETextureSemantic::BASE_COLOR);
-		layers.push_back({
-			.source = std::move(source),
-			.centre = overlay.centre,
-			.scale = overlay.scale,
-			.rotation_radians = overlay.rotation_radians,
-			.tint = overlay.tint,
-			.opacity = overlay.opacity,
-		});
+			"GameEngine::set_renderable_pbr_material: renderable does not use one PBR material");
 	}
 
-	auto composed_owner = ecs.get_material_system().add(
-		std::make_unique<CompositedTextureMaterial>(
-			sampled_base->width, sampled_base->height, std::move(layers)));
-	std::vector<MaterialHandle> owners;
-	owners.reserve(3);
-	owners.push_back(std::move(composed_owner));
-	if (current.normal_mat)
-		owners.push_back(current.get_material_owner(*current.normal_mat));
-	if (current.specular_mat)
-		owners.push_back(current.get_material_owner(*current.specular_mat));
-	renderable.material_owners = std::move(owners);
+	auto material = std::make_unique<PbrMaterial>(
+		base_color_factor, metallic_factor, roughness_factor);
+	renderable.material_owners = { ecs.get_material_system().add(std::move(material)) };
 	return ecs.replace_renderable(renderable_id, std::move(renderable));
 }
 

@@ -9,7 +9,6 @@
 #include "entity_component_system/material_system.hpp"
 #include "constants.hpp"
 #include "renderable/material_group.hpp"
-#include "renderable/composited_texture_material.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
@@ -693,6 +692,12 @@ void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_rend
 	// per frame resource and therefore we only need 1 copy
 	auto &rsrc_mgr = get_rsrc_mgr();
 	const auto &renderable = graphics_renderable.get_definition();
+	if (renderable.pipeline_render_type == ERenderType::STANDARD
+		|| renderable.pipeline_render_type == ERenderType::SKINNED)
+	{
+		throw std::runtime_error(
+			"GraphicsEngine: textured lit renderables are unsupported in factor-only PBR");
+	}
 	// reserve and write to mesh buffer (actually vertex and index buffers)
 	const auto &mesh = renderable.get_mesh();
 	rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
@@ -703,9 +708,9 @@ void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_rend
 	case ERenderType::COLOR:
 	case ERenderType::SKINNED_COLOR: {
 		const FlatMatGroup flat_mat_group(renderable.material_owners);
-		const auto *material = dynamic_cast<const ColorMaterial *>(&renderable.get_material(0));
+		const auto *material = dynamic_cast<const PbrMaterial *>(&renderable.get_material(0));
 		if (!material)
-			throw std::runtime_error(fmt::format("GraphicsEngine: material {} is not a ColorMaterial",
+			throw std::runtime_error(fmt::format("GraphicsEngine: material {} is not a PbrMaterial",
 			                                     flat_mat_group.color_mat.get_underlying()));
 		rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material->data);
 		break;
@@ -844,76 +849,6 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 		combined_image_sampler_descriptor_set.descriptorCount = 1;
 		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
 		descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-
-		vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(descriptor_writes.size()),
-		                       descriptor_writes.data(), 0, nullptr);
-		break;
-	}
-	case ERenderType::STANDARD:
-	case ERenderType::SKINNED: {
-		VkDescriptorImageInfo image_info{};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		const TexturedMatGroup textured_mat_group(renderable.material_owners);
-		const auto& base_owner = textured_mat_group.get_material_owner(
-			textured_mat_group.base_color_mat);
-		if (dynamic_cast<const CompositedTextureMaterial*>(&base_owner->get()))
-		{
-			const auto texture = get_texture_compositor().resolve(base_owner);
-			image_info.imageView = texture.image_view;
-			image_info.sampler = texture.sampler;
-		}
-		else
-		{
-			const GraphicsEngineTexture& texture = get_texture_mgr().fetch_texture(
-				base_owner, ETextureSamplerType::ADDR_MODE_REPEAT);
-			image_info.imageView = texture.get_texture_image_view();
-			image_info.sampler = texture.get_texture_sampler();
-		}
-
-		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		combined_image_sampler_descriptor_set.dstSet = new_descriptor_set;
-		combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING;
-		combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-		combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		combined_image_sampler_descriptor_set.descriptorCount = 1;
-		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-		descriptor_writes.push_back(combined_image_sampler_descriptor_set);
-
-		VkDescriptorImageInfo normal_image_info{};
-		normal_image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		const GraphicsEngineTexture &normal_texture =
-			textured_mat_group.normal_mat.has_value()
-				? get_texture_mgr().fetch_texture(textured_mat_group.get_material_owner(*textured_mat_group.normal_mat),
-		                                          ETextureSamplerType::ADDR_MODE_REPEAT)
-				: get_texture_mgr().fetch_flat_normal_texture();
-		normal_image_info.imageView = normal_texture.get_texture_image_view();
-		normal_image_info.sampler = normal_texture.get_texture_sampler();
-
-		VkWriteDescriptorSet normal_sampler_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		normal_sampler_descriptor.dstSet = new_descriptor_set;
-		normal_sampler_descriptor.dstBinding = SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING;
-		normal_sampler_descriptor.dstArrayElement = 0;
-		normal_sampler_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		normal_sampler_descriptor.descriptorCount = 1;
-		normal_sampler_descriptor.pImageInfo = &normal_image_info;
-		descriptor_writes.push_back(normal_sampler_descriptor);
-
-		VkDescriptorImageInfo specular_info{};
-		specular_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		const GraphicsEngineTexture &specular_texture =
-			textured_mat_group.specular_mat ? get_texture_mgr().fetch_texture(textured_mat_group.get_material_owner(
-																				  *textured_mat_group.specular_mat),
-		                                                                      ETextureSamplerType::ADDR_MODE_REPEAT)
-											: get_texture_mgr().fetch_white_texture();
-		specular_info.imageView = specular_texture.get_texture_image_view();
-		specular_info.sampler = specular_texture.get_texture_sampler();
-		VkWriteDescriptorSet specular_descriptor{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		specular_descriptor.dstSet = new_descriptor_set;
-		specular_descriptor.dstBinding = SDS::RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING;
-		specular_descriptor.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		specular_descriptor.descriptorCount = 1;
-		specular_descriptor.pImageInfo = &specular_info;
-		descriptor_writes.push_back(specular_descriptor);
 
 		vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(descriptor_writes.size()),
 		                       descriptor_writes.data(), 0, nullptr);

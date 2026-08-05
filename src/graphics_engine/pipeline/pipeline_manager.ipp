@@ -62,8 +62,8 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		new_pipeline = create_pipeline<ColorPipeline>(id);
 		break;
 	case ERenderType::STANDARD:
-		new_pipeline = create_pipeline<TexturePipeline>(id);
-		break;
+		throw std::runtime_error(
+			"GraphicsEnginePipelineManager: textured lit rendering is unsupported");
 	case ERenderType::CUBEMAP:
 		new_pipeline = create_pipeline<CubemapPipeline>(id);
 		break;
@@ -72,8 +72,8 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		throw std::runtime_error(
 			"GraphicsEnginePipelineManager: ray tracing is unsupported");
 	case ERenderType::SKINNED:
-		new_pipeline = create_pipeline<SkinnedPipeline>(id);
-		break;
+		throw std::runtime_error(
+			"GraphicsEnginePipelineManager: textured lit rendering is unsupported");
 	case ERenderType::SKINNED_COLOR:
 		new_pipeline = create_pipeline<SkinnedColorPipeline>(id);
 		break;

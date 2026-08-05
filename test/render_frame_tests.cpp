@@ -92,7 +92,7 @@ TEST(RenderFrame, immutable_definitions_retain_mesh_and_material_assets)
 	MeshSystem meshes;
 	MaterialSystem materials;
 	auto mesh = meshes.add(MeshFactory::cube());
-	auto material = materials.add(std::make_unique<ColorMaterial>());
+	auto material = materials.add(std::make_unique<PbrMaterial>());
 	const MeshID mesh_id = mesh->get_id();
 	const MaterialID material_id = material->get_id();
 

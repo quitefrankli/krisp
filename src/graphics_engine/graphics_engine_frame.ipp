@@ -254,9 +254,8 @@ void GraphicsEngineFrame::draw()
 void GraphicsEngineFrame::update_uniform_buffer()
 {
 	// update global uniform buffer
-	const auto& graphic_settings = get_graphics_engine().get_graphics_gui_manager().get_graphic_settings();
 	const RenderFrame& render_frame = get_graphics_engine().get_render_frame();
-	SDS::GlobalData gubo;
+	SDS::GlobalData gubo{};
 	gubo.view = render_frame.camera.view;
 	gubo.proj = render_frame.camera.projection;
 	gubo.view_pos = render_frame.camera.position;
@@ -266,12 +265,14 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	{
 		const auto& light = *render_frame.active_light;
 		gubo.light_pos = light.position;
-		gubo.lighting_scalar = graphic_settings.light_strength;
+		gubo.light_color = light.color;
+		gubo.light_intensity = light.intensity;
 	}
 	else
 	{
 		gubo.light_pos = glm::vec3(0.0f, 5.0f, 0.0f);
-		gubo.lighting_scalar = 0.0f;
+		gubo.light_color = glm::vec3(0.0f);
+		gubo.light_intensity = 0.0f;
 	}
 	gubo.shadow_far_plane = 256.0f;
 

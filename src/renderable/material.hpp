@@ -4,8 +4,10 @@
 #include "shared_data_structures.hpp"
 #include "identifications.hpp"
 
-#include <glm/vec3.hpp>
+#include <glm/vec4.hpp>
 
+#include <cmath>
+#include <stdexcept>
 #include <string_view>
 #include <string>
 #include <memory>
@@ -22,22 +24,30 @@ private:
 	const MaterialID id = MaterialID::generate_new_id();
 };
 
-struct ColorMaterial : public Material
+struct PbrMaterial : public Material
 {
 public:
-	ColorMaterial()
+	PbrMaterial() : PbrMaterial(glm::vec4(1.0f), 1.0f, 1.0f) {}
+	PbrMaterial(
+		const glm::vec4 base_color_factor,
+		const float metallic_factor,
+		const float roughness_factor)
 	{
-		static const glm::vec3 white = glm::vec3(1.0f);
-		static const glm::vec3 black = glm::vec3(0.0f);
-		data.ambient = white;
-		data.diffuse = white;
-		data.specular = white;
-		data.emissive = black;
-		data.shininess = 32.0f;
-		data.texture_flags = 0;
+		const auto valid_factor = [](const float factor)
+		{
+			return std::isfinite(factor) && factor >= 0.0f && factor <= 1.0f;
+		};
+		if (!valid_factor(base_color_factor.r) || !valid_factor(base_color_factor.g)
+			|| !valid_factor(base_color_factor.b) || !valid_factor(base_color_factor.a)
+			|| !valid_factor(metallic_factor) || !valid_factor(roughness_factor))
+			throw std::invalid_argument("PbrMaterial factors must be finite and in [0, 1]");
+
+		data.base_color_factor = base_color_factor;
+		data.metallic_factor = metallic_factor;
+		data.roughness_factor = roughness_factor;
 	}
 
-	SDS::MaterialData data;
+	SDS::MaterialData data{};
 };
 
 struct TextureData
@@ -59,7 +69,6 @@ enum class ETextureSemantic
 {
 	BASE_COLOR,
 	NORMAL,
-	SPECULAR,
 	COUNT
 };
 

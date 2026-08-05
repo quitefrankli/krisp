@@ -1,3 +1,5 @@
+This document describes Krip's expected resource formats.
+
 ## Mesh files
 
 Mesh resources may be glTF (`.gltf`) or binary glTF (`.glb`); `.glb` is
@@ -20,14 +22,21 @@ Each mesh primitive must provide:
 * `POSITION`;
 * `NORMAL`, unless normal generation is enabled; and
 * matching vertex counts for supplied attributes Krisp imports:
-  `NORMAL`, `TEXCOORD_0`, `TANGENT`, `JOINTS_0`, and `WEIGHTS_0`.
+  `NORMAL`, `JOINTS_0`, and `WEIGHTS_0`.
 
 Triangle primitives are preferred. Other supported glTF primitive modes are
-converted to triangles by the default loader. Textured materials should provide
-`TEXCOORD_0`. Normal-mapped materials require `TEXCOORD_0` and should provide
-valid `TANGENT` data. The convenience `load_model(ecs, filename)` overload
-generates or regenerates tangents when needed. When explicit `LoadOptions` are
-used, tangent generation is disabled unless `generate_missing_tangents` is set.
+converted to triangles by the default loader.
+
+Stage 1 PBR accepts only opaque, single-sided, factor-only glTF metallic-
+roughness materials. Krisp imports `baseColorFactor`, `metallicFactor`, and
+`roughnessFactor` with their glTF defaults and meanings. A declared material
+using textures, emissive output, alpha masking or blending, double-sided
+rendering, or a material extension causes the complete model load to fail with
+a feature-specific error. These features are rejected rather than silently
+approximated; texture sampling is reserved for a later PBR stage.
+
+`TEXCOORD_0` and `TANGENT` attributes may be present, but the Stage 1 model
+loader ignores them because factor-only materials do not sample textures.
 
 ### Skinned meshes
 
