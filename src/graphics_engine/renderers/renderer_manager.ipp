@@ -9,6 +9,7 @@ RendererManager::RendererManager(GraphicsEngine& engine) :
 	renderers[ERendererType::GUI] = std::make_unique<GuiRenderer>(engine);
 	renderers[ERendererType::SHADOW_MAP] = std::make_unique<ShadowMapRenderer>(engine);
 	renderers[ERendererType::QUAD] = std::make_unique<QuadRenderer>(engine);
+	renderers[ERendererType::PRESENTATION] = std::make_unique<PresentationRenderer>(engine);
 	renderers[ERendererType::PARTICLE] = std::make_unique<ParticleRenderer>(engine);
 }
 

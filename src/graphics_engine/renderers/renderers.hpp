@@ -17,7 +17,7 @@ public:
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
-	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
+	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return resolve_attachments.at(frame_idx).image_view; };
 	void set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs);
 
 	// Allow particle renderer to draw within our render pass
@@ -28,16 +28,39 @@ private:
 	using Renderer::get_rsrc_mgr;
 	using Renderer::get_logical_device;
 
-	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
+	static constexpr VkFormat get_image_format() { return VK_FORMAT_R16G16B16A16_SFLOAT; }
 	void create_render_pass();
 
 	std::vector<RenderingAttachment> color_attachments;
+	std::vector<RenderingAttachment> resolve_attachments;
 	std::vector<RenderingAttachment> depth_attachments;
-	// presentation attachment which is also responsible for msaa resolve, is owned by the swapchain
+	// The multisampled scene is resolved to resolve_attachments for presentation sampling.
 
 	std::vector<VkDescriptorSet> shadow_map_dsets;
 
 	VkSampler shadow_map_sampler;
+};
+
+class PresentationRenderer : public Renderer
+{
+public:
+	PresentationRenderer(GraphicsEngine& engine);
+	~PresentationRenderer();
+
+	void allocate_per_frame_resources(VkImage, VkImageView presentation_image_view) override;
+	void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
+	constexpr ERendererType get_renderer_type() const override { return ERendererType::PRESENTATION; }
+	VkImageView get_output_image_view(uint32_t) override { return nullptr; }
+	VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
+
+private:
+	// Converts the resolved linear HDR scene into the SDR sRGB swap-chain image.
+	// GUI composition happens in the following render pass and is not tone-mapped.
+	void create_render_pass();
+	// One immutable scene input descriptor per in-flight swap-chain image avoids
+	// descriptor updates while a previous frame may still be using it.
+	std::vector<VkDescriptorSet> scene_inputs;
+	VkSampler scene_sampler = VK_NULL_HANDLE;
 };
 
 class GuiRenderer : public Renderer

@@ -9,6 +9,7 @@
 #include "particle_renderer.ipp"
 
 #include <algorithm>
+#include <array>
 
 
 RasterizationRenderer::RasterizationRenderer(GraphicsEngine& engine) :
@@ -23,6 +24,10 @@ RasterizationRenderer::~RasterizationRenderer()
 	{
 		color_attachment.destroy(get_graphics_engine().get_logical_device());
 	}
+	for (auto& resolve_attachment : resolve_attachments)
+	{
+		resolve_attachment.destroy(get_graphics_engine().get_logical_device());
+	}
 	for (auto& depth_attachment : depth_attachments)
 	{
 		depth_attachment.destroy(get_graphics_engine().get_logical_device());
@@ -31,7 +36,7 @@ RasterizationRenderer::~RasterizationRenderer()
 	vkDestroySampler(this->get_logical_device(), shadow_map_sampler, nullptr);
 }
 
-void RasterizationRenderer::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
+void RasterizationRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
 	//
 	// Generate attachments
@@ -53,6 +58,22 @@ void RasterizationRenderer::allocate_per_frame_resources(VkImage presentation_im
 		get_image_format(),
 		VK_IMAGE_ASPECT_COLOR_BIT);
 
+	RenderingAttachment resolve_attachment;
+	get_graphics_engine().create_image(
+		extent.width,
+		extent.height,
+		get_image_format(),
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		resolve_attachment.image,
+		resolve_attachment.image_memory,
+		VK_SAMPLE_COUNT_1_BIT);
+	resolve_attachment.image_view = get_graphics_engine().create_image_view(
+		resolve_attachment.image,
+		get_image_format(),
+		VK_IMAGE_ASPECT_COLOR_BIT);
+
 	RenderingAttachment depth_attachment;
 	const VkFormat depth_format = get_graphics_engine().find_depth_format();
 	get_graphics_engine().create_image(
@@ -71,6 +92,7 @@ void RasterizationRenderer::allocate_per_frame_resources(VkImage presentation_im
 		VK_IMAGE_ASPECT_DEPTH_BIT);
 
 	color_attachments.push_back(color_attachment);
+	resolve_attachments.push_back(resolve_attachment);
 	depth_attachments.push_back(depth_attachment);
 
 	//
@@ -79,7 +101,7 @@ void RasterizationRenderer::allocate_per_frame_resources(VkImage presentation_im
 	std::vector<VkImageView> attachments { 
 		color_attachment.image_view, // main attachment color image_view, that shaders write to
 		depth_attachment.image_view, // depth buffer image_view
-		presentation_image_view // for presentation (msaa resolve is also applied at this step)
+		resolve_attachment.image_view
 	};
 
 	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
@@ -352,7 +374,7 @@ void RasterizationRenderer::create_render_pass()
     color_attachment_resolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     color_attachment_resolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     color_attachment_resolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment_resolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    color_attachment_resolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
 	VkAttachmentReference color_attachment_resolve_ref{};
 	color_attachment_resolve_ref.attachment = 2;
@@ -371,7 +393,8 @@ void RasterizationRenderer::create_render_pass()
 	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
 
 	// render pass
-	VkSubpassDependency dependency{};
+	std::array<VkSubpassDependency, 2> dependencies{};
+	auto& dependency = dependencies[0];
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependency.dstSubpass = 0;
 	// depth image is accessed early in the frament test pipeline stage
@@ -379,6 +402,13 @@ void RasterizationRenderer::create_render_pass()
 	dependency.srcAccessMask = 0;
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	auto& presentation_dependency = dependencies[1];
+	presentation_dependency.srcSubpass = 0;
+	presentation_dependency.dstSubpass = VK_SUBPASS_EXTERNAL;
+	presentation_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	presentation_dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	presentation_dependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	presentation_dependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
 	std::vector<VkAttachmentDescription> attachments{ color_attachment, depth_attachment, color_attachment_resolve };
 	VkRenderPassCreateInfo render_pass_create_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
@@ -386,8 +416,8 @@ void RasterizationRenderer::create_render_pass()
 	render_pass_create_info.pAttachments = attachments.data();
 	render_pass_create_info.subpassCount = 1;
 	render_pass_create_info.pSubpasses = &subpass;
-	render_pass_create_info.dependencyCount = 1;
-	render_pass_create_info.pDependencies = &dependency;
+	render_pass_create_info.dependencyCount = dependencies.size();
+	render_pass_create_info.pDependencies = dependencies.data();
 	
 	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &this->render_pass) != VK_SUCCESS)
 	{

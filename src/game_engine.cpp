@@ -332,6 +332,11 @@ void GameEngine::set_render_mode(const ERenderMode mode)
 		: mode;
 }
 
+void GameEngine::set_exposure_ev(const float exposure_ev)
+{
+	render_view_state.exposure_ev = std::clamp(exposure_ev, -10.0f, 10.0f);
+}
+
 void GameEngine::shutdown_impl()
 {
 	if (should_shutdown)
@@ -474,6 +479,7 @@ void GameEngine::reset_scene_state()
 	entities_to_delete = {};
 	pending_deletions.clear();
 	render_view_state.stenciled_objects.clear();
+	render_view_state.exposure_ev = 0.0f;
 	ResourceProvenance::clear();
 	tile_renderable.reset();
 	configure_ecs();
@@ -710,12 +716,13 @@ void GameEngine::save_scene(const std::string_view save_name) const
 	{
 		gizmo->deselect();
 		Serializer document;
-		document.write("version", 1);
 		SceneResourceWriter resources(document, ecs, staging);
 		auto engine_state = document.map("engine");
 		engine_state.write("paused", paused);
 		engine_state.write("game_mode", static_cast<int>(game_mode));
 		engine_state.write("camera_orbit_with_right_mouse", camera_orbit_with_right_mouse);
+		auto render_settings = document.map("render_settings");
+		render_settings.write("exposure_ev", render_view_state.exposure_ev);
 		auto saved_camera = document.map("camera");
 		camera->serialize(saved_camera);
 		auto saved_objects = document.sequence("objects");
@@ -770,8 +777,6 @@ void GameEngine::load_scene(const std::string_view save_name)
 	std::ostringstream contents;
 	contents << stream.rdbuf();
 	const auto document = Deserializer::parse(contents.str());
-	if (document.read<int>("version") != 1)
-		throw SerializationError("Unsupported scene version");
 
 	std::vector<Deserializer> saved_objects;
 	std::unordered_map<ObjectID, bool> ids;
@@ -800,6 +805,7 @@ void GameEngine::load_scene(const std::string_view save_name)
 	paused = engine_state.read<bool>("paused");
 	const auto saved_game_mode = static_cast<EGameMode>(engine_state.read<int>("game_mode"));
 	camera_orbit_with_right_mouse = engine_state.read<bool>("camera_orbit_with_right_mouse");
+	set_exposure_ev(document.child("render_settings").read<float>("exposure_ev"));
 	camera->deserialize(document.child("camera"));
 	set_game_mode(saved_game_mode);
 	application->on_scene_loaded(*this);

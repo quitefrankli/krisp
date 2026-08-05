@@ -48,12 +48,12 @@ with Cook-Torrance specular, then apply the existing visibility/shadow term.
 Correct normal and tangent transforms for non-uniform scaling before relying on
 the sharper PBR highlights.
 
-Perform lighting in linear high-dynamic-range (HDR) colour. Render the scene to
-a floating-point attachment so values above 1.0 are preserved, then apply
-exposure and tone mapping before encoding the result into the sRGB swap-chain
-image. Integrate screenshots, video capture, particles, overlays, and GUI
-composition at deliberate points in this output path. HDR here describes the
-internal lighting pipeline and does not require HDR display output.
+The renderer already performs lighting in linear high-dynamic-range colour,
+resolves to a floating-point scene image, and applies manual exposure plus
+ACES-inspired tone mapping before sRGB presentation. Screenshots and video are
+captured from the tone-mapped output; particles and overlays are HDR scene
+content, while the GUI is composed afterward in SDR. HDR display output remains
+out of scope.
 
 Add image-based lighting after the direct-light path is correct. Support an HDR
 environment source, diffuse irradiance, a roughness-prefiltered specular
@@ -66,10 +66,8 @@ Implement in this order:
    support for the chosen glTF subset.
 2. Correct texture colour spaces, normal transforms, and point-light radiometry.
 3. Add the shared Cook-Torrance GGX/Smith/Schlick direct-light evaluation.
-4. Add the floating-point scene target, exposure, tone mapping, and final sRGB
-   presentation pass.
-5. Add HDR environment preprocessing and split-sum image-based lighting.
-6. Validate with focused material/import tests and reference scenes covering
+4. Add HDR environment preprocessing and split-sum image-based lighting.
+5. Validate with focused material/import tests and reference scenes covering
    dielectrics, metals, roughness extremes, normal maps, emissive materials, and
    alpha modes; profile the added texture samples and render passes and record
    material findings in `docs/PERFORMANCE.md`.

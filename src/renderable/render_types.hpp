@@ -12,6 +12,7 @@ enum class ERenderType
 	SKINNED, // for skinned meshes
 	SKINNED_COLOR, // skinned mesh with a colour material and no textures
 	QUAD,
+	PRESENTATION,
 	PARTICLE, // billboard particles
 };
 

@@ -551,6 +551,46 @@ std::vector<VkPushConstantRange> QuadPipeline::get_push_constant_ranges() const
 	return { push_constant_range };
 }
 
+VkRenderPass PresentationPipeline::get_render_pass()
+{
+	return get_graphics_engine().get_renderer_mgr()
+		.get_renderer(ERendererType::PRESENTATION).get_render_pass();
+}
+
+VkExtent2D PresentationPipeline::get_extent()
+{
+	return get_graphics_engine().get_renderer_mgr()
+		.get_renderer(ERendererType::PRESENTATION).get_extent();
+}
+
+std::vector<VkDescriptorSetLayout> PresentationPipeline::get_expected_dset_layouts()
+{
+	// The rasterizer's single-sample RGBA16F resolve image is the sole input.
+	VkDescriptorSetLayoutBinding binding{};
+	binding.binding = 0;
+	binding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	binding.descriptorCount = 1;
+	binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	return {get_rsrc_mgr().request_dset_layout({binding})};
+}
+
+std::vector<VkPushConstantRange> PresentationPipeline::get_push_constant_ranges() const
+{
+	VkPushConstantRange range{};
+	range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	range.size = sizeof(SDS::PresentationPushConstant);
+	return {range};
+}
+
+VkPipelineDepthStencilStateCreateInfo PresentationPipeline::get_depth_stencil_create_info() const
+{
+	// The full-screen pass has no depth attachment and must cover every pixel.
+	VkPipelineDepthStencilStateCreateInfo info{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+	info.depthTestEnable = VK_FALSE;
+	info.depthWriteEnable = VK_FALSE;
+	return info;
+}
+
 std::vector<VkVertexInputBindingDescription> ParticlePipeline::get_binding_descriptions() const
 {
 	// Binding 0: Vertex data (unit quad)

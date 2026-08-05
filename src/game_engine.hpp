@@ -54,6 +54,8 @@ public: // getters and setters
 	void set_game_mode(EGameMode mode);
 	void toggle_game_mode();
 	void set_render_mode(ERenderMode mode);
+	void set_exposure_ev(float exposure_ev);
+	float get_exposure_ev() const { return render_view_state.exposure_ev; }
 	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }
 	void set_free_camera_movement(bool enabled) { free_camera_movement = enabled; }
 	void set_normal_mode_cursor_captured(bool captured) { normal_mode_cursor_captured = captured; }

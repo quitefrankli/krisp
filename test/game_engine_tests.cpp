@@ -570,6 +570,21 @@ TEST_F(GameEngineTests, scene_round_trips_generated_mesh_and_color_material)
 	std::filesystem::remove_all(path);
 }
 
+TEST_F(GameEngineTests, scene_round_trips_manual_exposure)
+{
+	const std::string save_name = "krisp_scene_exposure_test";
+	const auto path = save_path(save_name);
+	EXPECT_FLOAT_EQ(engine.get_exposure_ev(), 0.0f);
+	engine.set_exposure_ev(2.3f);
+
+	engine.save_scene(save_name);
+	engine.set_exposure_ev(-4.0f);
+	engine.load_scene(save_name);
+
+	EXPECT_FLOAT_EQ(engine.get_exposure_ev(), 2.3f);
+	std::filesystem::remove_all(path);
+}
+
 TEST_F(GameEngineTests, scene_load_replaces_renderable_identity_when_resources_are_rebuilt)
 {
 	auto& object = spawn_renderable_object(engine, Renderable::make_default(engine.get_ecs()));

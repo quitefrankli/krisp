@@ -114,6 +114,7 @@ public:
 	float light_strength = 1.0f;
 	GuiVar<int> selected_camera_projection = 0;
 	GuiVar<ERenderMode> render_mode = ERenderMode::RASTERIZED;
+	GuiVar<float> exposure_ev = 0.0f;
 
 	ERenderMode get_render_mode() const { return render_mode.value; }
 	bool select_render_mode(ERenderMode mode);

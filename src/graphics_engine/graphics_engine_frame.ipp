@@ -117,14 +117,12 @@ void GraphicsEngineFrame::update_command_buffer()
 	if (get_graphics_engine().get_render_mode() != ERenderMode::UNLIT_BASE_COLOR)
 		submit_draw_commands(ERendererType::SHADOW_MAP);
 	submit_draw_commands(ERendererType::RASTERIZATION);
+	submit_draw_commands(ERendererType::PRESENTATION);
 	// Note: Particle rendering is now done within the RasterizationRenderer
 	submit_draw_commands(ERendererType::QUAD);
 	maybe_prepare_screenshot_capture();
 
-	if (!screenshot_staging_buffer.has_value())
-	{
-		submit_draw_commands(ERendererType::GUI); // ImGui
-	}
+	submit_draw_commands(ERendererType::GUI); // ImGui is composed after the SDR screenshot copy.
 
 	maybe_prepare_recording_capture();
 	

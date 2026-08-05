@@ -4,6 +4,7 @@
 // #include "raytracing_renderer.ipp" // Ray tracing is unsupported.
 #include "shadowmap_renderer.ipp"
 #include "quad_renderer.ipp"
+#include "presentation_renderer.ipp"
 #include "particle_renderer.ipp"
 #include "renderer_manager.ipp"
 #include "graphics_engine/graphics_engine.hpp"

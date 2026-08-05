@@ -160,6 +160,11 @@ struct QuadRendererPushConstant
 	int flags;
 };
 
+struct PresentationPushConstant
+{
+	float exposure_ev;
+};
+
 // Particle data for billboard rendering
 // Uses instance-based rendering for efficiency
 struct ParticleVertex

@@ -21,6 +21,7 @@ enum class ERendererType
 	GUI,
 	SHADOW_MAP,
 	QUAD,
+	PRESENTATION,
 	PARTICLE,
 };
 

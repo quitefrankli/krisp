@@ -205,6 +205,25 @@ protected:
 	virtual std::vector<VkPushConstantRange> get_push_constant_ranges() const override;
 };
 
+class PresentationPipeline : public GraphicsEnginePipeline
+{
+public:
+	PresentationPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+protected:
+	// A vertex-free full-screen triangle samples the resolved HDR scene. Exposure
+	// and tone mapping are fragment work; the sRGB attachment performs encoding.
+	std::string_view get_shader_name() const override { return "presentation"; }
+	std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override { return {}; }
+	std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override { return {}; }
+	VkRenderPass get_render_pass() override;
+	VkExtent2D get_extent() override;
+	VkSampleCountFlagBits get_msaa_sample_count() override { return VK_SAMPLE_COUNT_1_BIT; }
+	std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
+	std::vector<VkPushConstantRange> get_push_constant_ranges() const override;
+	VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+};
+
 template<Stencileable PrimaryPipelineType>
 class StencilPipeline : public GraphicsEnginePipeline
 {

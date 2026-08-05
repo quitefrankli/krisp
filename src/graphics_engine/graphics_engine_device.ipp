@@ -79,6 +79,54 @@ void GraphicsEngineDevice::pick_physical_device()
 			return false;
 		}
 
+		VkFormatProperties hdr_format_properties{};
+		vkGetPhysicalDeviceFormatProperties(
+			device, VK_FORMAT_R16G16B16A16_SFLOAT, &hdr_format_properties);
+		constexpr VkFormatFeatureFlags required_hdr_features =
+			VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT |
+			VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT |
+			VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT;
+		if ((hdr_format_properties.optimalTilingFeatures & required_hdr_features) != required_hdr_features)
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks RGBA16F color-attachment/sample support required for HDR",
+				deviceProperties.deviceName);
+			return false;
+		}
+		VkImageFormatProperties hdr_msaa_properties{};
+		if (vkGetPhysicalDeviceImageFormatProperties(
+				device,
+				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_IMAGE_TYPE_2D,
+				VK_IMAGE_TILING_OPTIMAL,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+				0,
+				&hdr_msaa_properties) != VK_SUCCESS ||
+			!(hdr_msaa_properties.sampleCounts &
+			  static_cast<VkSampleCountFlagBits>(CSTS::MSAA_SAMPLE_COUNT)))
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks the required RGBA16F MSAA sample count",
+				deviceProperties.deviceName);
+			return false;
+		}
+		VkImageFormatProperties hdr_resolve_properties{};
+		if (vkGetPhysicalDeviceImageFormatProperties(
+				device,
+				VK_FORMAT_R16G16B16A16_SFLOAT,
+				VK_IMAGE_TYPE_2D,
+				VK_IMAGE_TILING_OPTIMAL,
+				VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				0,
+				&hdr_resolve_properties) != VK_SUCCESS ||
+			!(hdr_resolve_properties.sampleCounts & VK_SAMPLE_COUNT_1_BIT))
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} cannot create the sampled RGBA16F resolve image",
+				deviceProperties.deviceName);
+			return false;
+		}
+
 		return true;
 	};
 
@@ -91,7 +139,8 @@ void GraphicsEngineDevice::pick_physical_device()
 	}
 
 	if (physicalDevice == VK_NULL_HANDLE) {
-		throw std::runtime_error("failed to find a suitable GPU!");
+		throw std::runtime_error(
+			"failed to find a suitable GPU (HDR requires sampled RGBA16F color attachments)");
 	}
 }
 

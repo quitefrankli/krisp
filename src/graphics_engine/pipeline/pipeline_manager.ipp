@@ -80,6 +80,9 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case ERenderType::QUAD:
 		new_pipeline = create_pipeline<QuadPipeline>(id);
 		break;
+	case ERenderType::PRESENTATION:
+		new_pipeline = create_pipeline<PresentationPipeline>(id);
+		break;
 	case ERenderType::PARTICLE:
 		new_pipeline = create_pipeline<ParticlePipeline>(id);
 		break;

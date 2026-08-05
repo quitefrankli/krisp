@@ -9,10 +9,13 @@
   texture_<id>.dat
 ```
 
-`scene.yaml` contains engine, camera, object, ECS, and resource metadata. The
-game scene and ECS remain the source of truth; graphics state is rebuilt after
-loading. The current format is versioned but intentionally has no legacy
-migration support.
+`scene.yaml` contains engine, render settings, camera, object, ECS, and resource
+metadata. The game scene and ECS remain the source of truth; graphics state is
+rebuilt after loading. The scene format is not versioned during early
+development; saved scenes must match the current schema.
+
+The `render_settings` map stores scene-authored presentation state, currently
+manual exposure in EV stops.
 
 ## Resources
 
@@ -54,8 +57,8 @@ Saving serializes to a staging directory, writes `scene.yaml.tmp`, renames it to
 `scene.yaml`, then atomically exchanges the staged directory with the previous
 save. A failed save restores the previous directory where possible.
 
-Loading validates the version, object types, and duplicate object IDs before
-resetting the scene. It then:
+Loading validates object types and duplicate object IDs before resetting the
+scene. It then:
 
 1. Imports each referenced external model once and reconstructs generated resources.
 2. Restores objects and ECS systems in dependency order.

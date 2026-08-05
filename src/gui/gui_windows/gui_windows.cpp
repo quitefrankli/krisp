@@ -190,6 +190,14 @@ void GuiGraphicsSettings::draw()
 	{
 
 	ImGui::SliderFloat("lighting", &light_strength, 0.0f, 1.0f);
+	exposure_ev.changed |= ImGui::SliderFloat(
+		"exposure", &exposure_ev.value, -10.0f, 10.0f, "%.1f EV");
+	ImGui::SameLine();
+	if (ImGui::Button("Reset##exposure"))
+	{
+		exposure_ev.value = 0.0f;
+		exposure_ev.changed = true;
+	}
 	for (const auto& [label, mode] : std::array{
 		std::pair{ "Rasterized", ERenderMode::RASTERIZED },
 		// std::pair{ "RTX", ERenderMode::RAYTRACING },
@@ -222,6 +230,16 @@ bool GuiGraphicsSettings::select_render_mode(const ERenderMode mode)
 
 void GuiGraphicsSettings::process(GameEngine& engine)
 {
+	if (exposure_ev.changed)
+	{
+		engine.set_exposure_ev(exposure_ev.value);
+		exposure_ev.changed = false;
+	}
+	else
+	{
+		exposure_ev.value = engine.get_exposure_ev();
+	}
+
 	if (selected_camera_projection.changed)
 	{
 		engine.get_camera().toggle_projection();

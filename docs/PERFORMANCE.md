@@ -6,6 +6,13 @@ as expectations until they have been measured.
 No CPU, GPU, frame-time, or peak-memory measurements have been recorded for
 the items below.
 
+## HDR presentation
+
+RGBA16F scene and resolve images use twice the pixel storage and bandwidth of
+the former BGRA8 path; one resolve image remains resident per swap-chain image.
+Presentation adds one full-screen draw and texture sample per pixel. These costs
+have not been measured.
+
 ## Point-light shadow filtering
 
 Rasterized point-light shadows use 16-tap Poisson-disc PCF in
