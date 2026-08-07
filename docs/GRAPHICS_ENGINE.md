@@ -56,13 +56,23 @@ copy occurs after presentation and before ImGui; recording copy occurs after
 ImGui. Every scene pass reads the single snapshot retained for that graphics
 iteration.
 
-Stage 1 PBR uploads one glTF-native factor-only material record per lit
-renderable. Static and skinned lit paths share the metallic-roughness BRDF.
-Direct point-light radiance uses the published light colour and intensity with
-inverse-square attenuation; the shadow map supplies visibility and full
-occlusion contributes no direct light. Material shaders produce unclamped
-scene-linear output and leave exposure, tone mapping, and display encoding to
-the presentation pass.
+PBR uploads one glTF-native material record per lit renderable. Factor-only
+static and skinned meshes retain texture-free pipelines; textured counterparts
+use separate pipelines with optional base-colour, metallic-roughness, and normal
+maps. Missing slots bind shared neutral images and flags skip their samples.
+All lit paths share the metallic-roughness BRDF. Direct point-light radiance uses
+the published light colour and intensity with inverse-square attenuation; the
+shadow map supplies visibility and full occlusion contributes no direct light.
+Material shaders produce unclamped scene-linear output and leave exposure, tone
+mapping, and display encoding to the presentation pass.
+
+Renderable shading policy (`Lit` or `Unlit`) is independent of pass modifiers
+such as selection stencil and wireframe. Pipeline identity carries both
+dimensions, allowing an unlit selected body to use the post-stencil depth policy
+without reverting to lit shading. The global Unlit Base Color mode overrides
+scene geometry through the same unlit pipeline family; renderables explicitly
+marked unlit remain unlit even in other global debug modes. Unlit renderables do
+not contribute to shadow draw lists.
 
 ## Deferred GPU resource retirement
 

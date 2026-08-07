@@ -18,6 +18,7 @@ Renderable make_debug_renderable(ECS& ecs, MeshHandle mesh_owner)
 		MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARC));
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::COLOR;
+	renderable.shading_mode = EShadingMode::UNLIT;
 	renderable.casts_shadow = false;
 	renderable.mesh_owner = std::move(mesh_owner);
 	renderable.material_owners.push_back(std::move(material_owner));

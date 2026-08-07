@@ -53,7 +53,8 @@ public:
 								 const VkDescriptorSet& object_dset,
 								 const VkDescriptorSet& renderable_dset,
 								 EPipelineModifier pipeline_modifier,
-								 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED);
+								 ERenderType primary_pipeline_override = ERenderType::UNASSIGNED,
+								 std::optional<EShadingMode> shading_override = std::nullopt);
 	void reset_draw_state();
 
 protected:

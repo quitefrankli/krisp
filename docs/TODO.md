@@ -14,20 +14,26 @@ tests. Once all callers use those operations, remove the remaining mutable pose
 reference. Add synchronization only if pose mutation is later moved off the game
 thread.
 
-## Extend PBR beyond the factor-only baseline
+## Add image-based PBR lighting
 
-Stage 1 establishes the glTF-native, factor-only metallic-roughness contract
-and direct point-light BRDF. Keep that baseline stable until its reference scene
-has been evaluated. A later stage may add material textures and image-based
-lighting, but should introduce only the interfaces required by that work rather
-than anticipating them in the Stage 1 material model.
+Stage 2 adds base-colour, metallic-roughness, and tangent-space normal textures,
+but deliberately retains Stage 1's direct point-light illumination. Add
+environment lighting as a separate stage: define environment-map resources and
+preprocessing, diffuse irradiance, roughness-prefiltered specular lighting, and
+a BRDF integration lookup texture. Do not approximate indirect illumination
+with a constant ambient term while this work remains outstanding.
 
-When that stage begins, decide its exact glTF subset before implementation.
-Likely work includes texture colour-space rules, tangent-space normal mapping,
-environment preprocessing, diffuse irradiance, roughness-prefiltered specular
-lighting, and a BRDF integration lookup texture. Emissive output, alpha modes,
-double-sided rendering, and material extensions remain separate scope choices,
-not implied requirements.
+## Support compressed textures in glTF
+
+Standalone texture resources support DXT5/BC3 DDS, but core glTF image sources
+remain PNG and JPEG. Add `MSFT_texture_dds` only as an explicit glTF extension:
+validate its fallback and extension declarations, preserve the existing texture
+semantic/colour-space rules, and test external URIs, data URIs, and GLB buffer
+views. Do not infer DDS support from image bytes in core glTF materials.
+
+Emissive output, occlusion, alpha masking/blending, double-sided rendering,
+additional texture-coordinate sets, and other material or texture extensions
+remain separate scope choices, not implied requirements of either item above.
 
 ## Replace the coarse GUI mutex with asynchronous state exchange
 

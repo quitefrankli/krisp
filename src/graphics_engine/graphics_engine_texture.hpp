@@ -6,12 +6,6 @@
 
 class GraphicsEngineTextureManager;
 
-enum class ETextureSamplerType
-{
-	ADDR_MODE_REPEAT,
-	ADDR_MODE_CLAMP_TO_EDGE
-};
-
 struct GraphicsEngineTexture
 {
 public:

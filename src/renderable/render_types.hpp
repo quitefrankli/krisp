@@ -24,6 +24,12 @@ enum class ERenderMode
 	UNLIT_BASE_COLOR,
 };
 
+enum class EShadingMode
+{
+	LIT,
+	UNLIT,
+};
+
 enum class EAlphaMode
 {
 	OPAQUE,

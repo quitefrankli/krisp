@@ -14,6 +14,8 @@ Renderable Arrow::make_renderable(ECS& ecs)
 {
 	const int nVertices = 8;
 	Renderable renderable;
+	renderable.shading_mode = EShadingMode::UNLIT;
+	renderable.casts_shadow = false;
 	renderable.mesh_owner = ecs.get_mesh_system().add(MeshFactory::arrow(INITIAL_RADIUS, nVertices));
 	renderable.material_owners.push_back(
 		ecs.get_material_system().add(MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_ARROW)));
@@ -39,6 +41,8 @@ Renderable ArcObject::make_renderable(ECS& ecs)
 	const int nVertices = 8;
 
 	Renderable renderable;
+	renderable.shading_mode = EShadingMode::UNLIT;
+	renderable.casts_shadow = false;
 	renderable.mesh_owner = ecs.get_mesh_system().add(
 		MeshFactory::arc(nVertices, INITIAL_OUTER_RAIUS, INITIAL_INNER_RADIUS));
 	renderable.material_owners.push_back(

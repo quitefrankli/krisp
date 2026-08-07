@@ -108,9 +108,6 @@ TEST_F(SceneResourcesTests, round_trips_all_generated_mesh_layouts_and_deduplica
 TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 {
 	ECS source;
-	auto pbr = std::make_unique<PbrMaterial>(
-		glm::vec4(0.1f, 0.2f, 0.3f, 0.4f), 0.6f, 0.7f);
-	auto pbr_owner = source.get_material_system().add(std::move(pbr));
 	auto texture = std::make_unique<TextureMaterial>();
 	texture->width = 2;
 	texture->height = 1;
@@ -123,6 +120,14 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	                                    std::byte{5}, std::byte{6}, std::byte{7}, std::byte{8}};
 	texture->data = std::make_unique<OwnedTextureData>(pixels);
 	auto texture_owner = source.get_material_system().add(std::move(texture));
+	PbrMaterial::TextureSlots slots;
+	slots.normal = PbrMaterial::TextureBinding{
+		.texture = texture_owner->get_id(),
+		.sampler = PbrMaterial::TextureSampler::CLAMP_TO_EDGE,
+	};
+	auto pbr = std::make_unique<PbrMaterial>(
+		glm::vec4(0.1f, 0.2f, 0.3f, 0.4f), 0.6f, 0.7f, slots, 0.35f);
+	auto pbr_owner = source.get_material_system().add(std::move(pbr));
 
 	Serializer document;
 	SceneResourceWriter writer(document, source, directory);
@@ -142,6 +147,12 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	EXPECT_EQ(pbr_value.data.base_color_factor, glm::vec4(0.1f, 0.2f, 0.3f, 0.4f));
 	EXPECT_EQ(pbr_value.data.metallic_factor, 0.6f);
 	EXPECT_EQ(pbr_value.data.roughness_factor, 0.7f);
+	EXPECT_EQ(pbr_value.data.normal_scale, 0.35f);
+	ASSERT_TRUE(pbr_value.textures.normal.has_value());
+	EXPECT_EQ(pbr_value.textures.normal->texture, restored_texture->get_id());
+	EXPECT_EQ(
+		pbr_value.textures.normal->sampler,
+		PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
 	EXPECT_EQ(texture_value.semantic, ETextureSemantic::NORMAL);
 	EXPECT_EQ(texture_value.source, "generated");
 	ASSERT_EQ(texture_value.data_len, pixels.size());

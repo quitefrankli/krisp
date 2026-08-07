@@ -1,9 +1,9 @@
 #pragma once
 
 #include "graphics_engine_base_module.hpp"
-#include "graphics_engine_texture.hpp"
 #include "utility.hpp"
 #include "renderable/material_group.hpp"
+#include "graphics_engine_texture.hpp"
 
 #include <quill/LogMacros.h>
 
@@ -20,9 +20,10 @@ public:
 	// automatically generates texture if requested texture does not exist
 	GraphicsEngineTexture& fetch_texture(
 		const MaterialHandle& material_owner,
-		ETextureSamplerType sampler_type);
+		PbrMaterial::TextureSampler sampler_type);
 	// automatically generates sampler if requested sampler type does not exist
-	VkSampler fetch_sampler(ETextureSamplerType sampler_type);
+	VkSampler fetch_sampler(PbrMaterial::TextureSampler sampler_type);
+	GraphicsEngineTexture& fetch_neutral_texture(ETextureSemantic semantic);
 
 	// probably not a great name, this is NOT a 3D texture, but only for cubemaps
 	// in the future when we want proper 3D textures this should get renamed
@@ -31,8 +32,9 @@ public:
 	void free_texture(MaterialID id);
 
 private:
-	VkSampler create_texture_sampler(ETextureSamplerType sampler_type);
-	GraphicsEngineTexture create_texture(const TextureMaterial& material, ETextureSamplerType sampler_type);
+	VkSampler create_texture_sampler(PbrMaterial::TextureSampler sampler_type);
+	GraphicsEngineTexture create_texture(
+		const TextureMaterial& material, PbrMaterial::TextureSampler sampler_type);
 	glm::uvec3 create_texture_image(
 		const TextureMaterial& material, 
 		VkImage& texture_image,
@@ -45,5 +47,6 @@ private:
 private:
 	// note that this is not deleted even when an object referencing this texture gets destroyed
 	std::unordered_map<MaterialID, GraphicsEngineTexture> texture_units;
-	std::unordered_map<ETextureSamplerType, VkSampler> samplers;
+	std::unordered_map<ETextureSemantic, GraphicsEngineTexture> neutral_textures;
+	std::unordered_map<PbrMaterial::TextureSampler, VkSampler> samplers;
 };

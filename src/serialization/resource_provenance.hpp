@@ -26,9 +26,45 @@ struct ImportedResourceProvenance
 	int node = -1;
 	int primitive = -1;
 	int material = -1;
-	int texture = -1;
+	int image = -1;
+	int texture_semantic = -1;
 	int skin = -1;
 	int animation = -1;
+};
+
+struct PbrTextureOverride
+{
+	enum class Mode
+	{
+		Cleared,
+		Replaced,
+	};
+
+	Mode mode = Mode::Cleared;
+	MaterialID texture{0};
+	PbrMaterial::TextureSampler sampler = PbrMaterial::TextureSampler::REPEAT;
+};
+
+struct ImportedPbrMaterialOverride
+{
+	struct SourceMaterial
+	{
+		glm::vec4 base_color_factor{1.0f};
+		float metallic_factor = 1.0f;
+		float roughness_factor = 1.0f;
+		float normal_scale = 1.0f;
+		PbrMaterial::TextureSlots textures;
+	};
+
+	ImportedResourceProvenance source;
+	SourceMaterial original;
+	std::optional<glm::vec4> base_color_factor;
+	std::optional<float> metallic_factor;
+	std::optional<float> roughness_factor;
+	std::optional<float> normal_scale;
+	std::optional<PbrTextureOverride> base_color_texture;
+	std::optional<PbrTextureOverride> metallic_roughness_texture;
+	std::optional<PbrTextureOverride> normal_texture;
 };
 
 class ResourceProvenance
@@ -36,11 +72,13 @@ class ResourceProvenance
 public:
 	static void register_mesh(MeshID id, ImportedResourceProvenance provenance);
 	static void register_material(MaterialID id, ImportedResourceProvenance provenance);
+	static void register_material_override(MaterialID id, ImportedPbrMaterialOverride material_override);
 	static void register_skeleton(SkeletonID id, ImportedResourceProvenance provenance);
 	static void register_animation(AnimationID id, ImportedResourceProvenance provenance);
 
 	static const ImportedResourceProvenance* mesh(MeshID id);
 	static const ImportedResourceProvenance* material(MaterialID id);
+	static const ImportedPbrMaterialOverride* material_override(MaterialID id);
 	static const ImportedResourceProvenance* skeleton(SkeletonID id);
 	static const ImportedResourceProvenance* animation(AnimationID id);
 	static std::optional<MeshID> find_mesh(

@@ -142,7 +142,8 @@ class MutatedGltf
 public:
 	explicit MutatedGltf(
 		const std::function<void(nlohmann::json&)>& mutate,
-		std::string_view template_filename = "static_mesh_textured.gltf")
+		std::string_view template_filename = "static_mesh_textured.gltf",
+		const bool strip_textures = true)
 	{
 		static uint32_t sequence = 0;
 		path = Utility::get_top_level_path()/"test/data"
@@ -150,7 +151,7 @@ public:
 		std::ifstream input(Utility::get_model(template_filename));
 		nlohmann::json document;
 		input >> document;
-		if (template_filename == "static_mesh_textured.gltf")
+		if (strip_textures && template_filename == "static_mesh_textured.gltf")
 			document["materials"][0]["pbrMetallicRoughness"].erase("baseColorTexture");
 		mutate(document);
 		std::ofstream output(path);
@@ -158,6 +159,30 @@ public:
 	}
 
 	~MutatedGltf()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+	std::string filename() const { return path.filename().string(); }
+};
+
+class TemporaryExternalJpeg
+{
+public:
+	TemporaryExternalJpeg()
+	{
+		static uint32_t sequence = 0;
+		path = Utility::get_top_level_path()/"test/data"
+			/ fmt::format("krisp_test_external_{}.jpg", sequence++);
+		std::filesystem::copy_file(
+			Utility::get_top_level_path()/"resources/default/textures/texture.jpg",
+			path,
+			std::filesystem::copy_options::overwrite_existing);
+	}
+
+	~TemporaryExternalJpeg()
 	{
 		std::error_code error;
 		std::filesystem::remove(path, error);
@@ -341,15 +366,10 @@ TEST(ResourceLoaderMaterials, primitives_without_material_use_gltf_pbr_defaults)
 	EXPECT_FLOAT_EQ(material.data.roughness_factor, 1.0f);
 }
 
-TEST(ResourceLoaderMaterials, rejects_unsupported_material_features_with_material_context)
+TEST(ResourceLoaderMaterials, rejects_unsupported_reachable_material_features_with_material_context)
 {
 	using Mutation = std::function<void(nlohmann::json&)>;
 	const std::vector<std::pair<std::string, Mutation>> cases{
-		{ "baseColorTexture", [](auto& material) {
-			material["pbrMetallicRoughness"]["baseColorTexture"] = { { "index", 0 } }; } },
-		{ "metallicRoughnessTexture", [](auto& material) {
-			material["pbrMetallicRoughness"]["metallicRoughnessTexture"] = { { "index", 0 } }; } },
-		{ "normalTexture", [](auto& material) { material["normalTexture"] = { { "index", 0 } }; } },
 		{ "occlusionTexture", [](auto& material) { material["occlusionTexture"] = { { "index", 0 } }; } },
 		{ "emissiveTexture", [](auto& material) { material["emissiveTexture"] = { { "index", 0 } }; } },
 		{ "emissiveFactor", [](auto& material) { material["emissiveFactor"] = { 0.0, 0.1, 0.0 }; } },
@@ -385,29 +405,24 @@ TEST(ResourceLoaderMaterials, rejects_unsupported_material_features_with_materia
 	}
 }
 
-TEST(ResourceLoaderMaterials, rejects_unsupported_unused_material_before_importing_asset)
+TEST(ResourceLoaderMaterials, warns_for_unsupported_unused_material_declarations)
 {
 	MutatedGltf resource([](nlohmann::json& document)
 	{
 		document["materials"].push_back({
-			{ "name", "Unused textured material" },
-			{ "pbrMetallicRoughness", {
-				{ "baseColorTexture", { { "index", 0 } } },
-			} },
+			{ "name", "Unused double-sided material" },
+			{ "doubleSided", true },
 		});
 	});
-	try
-	{
-		ECS ecs;
-		(void)ResourceLoader::load_model(ecs, resource.filename());
-		FAIL() << "Expected ResourceLoadError";
-	}
-	catch (const ResourceLoadError& error)
-	{
-		const std::string message(error.what());
-		EXPECT_NE(message.find("Unused textured material"), std::string::npos);
-		EXPECT_NE(message.find("baseColorTexture"), std::string::npos);
-	}
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	ASSERT_EQ(model.warnings.size(), 1);
+	EXPECT_NE(model.warnings.front().message.find("Unused double-sided material"), std::string::npos);
+	EXPECT_NE(model.warnings.front().message.find("doubleSided"), std::string::npos);
+
+	ResourceLoader::LoadOptions strict;
+	strict.strict = true;
+	EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename(), strict), ResourceLoadError);
 }
 
 // test loading .gltf file with bones into std::vector<Bone>
@@ -455,8 +470,10 @@ TEST_F(ResourceLoaderECS, bone_relative_transforms)
 TEST_F(ResourceLoaderECS, model_load_ignores_animations)
 {
 	EXPECT_TRUE(ecs.get_skeletal_animations().empty());
-	ASSERT_EQ(model.warnings.size(), 1);
-	EXPECT_NE(model.warnings.front().message.find("ignored"), std::string::npos);
+	EXPECT_TRUE(std::ranges::any_of(model.warnings, [](const auto& warning)
+	{
+		return warning.message.find("animations were ignored") != std::string::npos;
+	}));
 
 	ResourceLoader::LoadOptions strict_options;
 	strict_options.strict = true;
@@ -792,6 +809,305 @@ TEST(ResourceLoaderTextures, rejects_unsupported_or_truncated_dds_files)
 
 	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), unsupported.filename()), ResourceLoadError);
 	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), truncated.filename()), ResourceLoadError);
+}
+
+namespace
+{
+const PbrMaterial* find_pbr_material(const Renderable& renderable)
+{
+	for (const auto& owner : renderable.material_owners)
+		if (const auto* material = dynamic_cast<const PbrMaterial*>(&owner->get()))
+			return material;
+	return nullptr;
+}
+
+const TextureMaterial* find_texture_material(
+	const Renderable& renderable,
+	const ETextureSemantic semantic)
+{
+	for (const auto& owner : renderable.material_owners)
+		if (const auto* material = dynamic_cast<const TextureMaterial*>(&owner->get());
+			material && material->semantic == semantic)
+			return material;
+	return nullptr;
+}
+}
+
+TEST(ResourceLoaderTexturedPbr, imports_static_buffer_view_png_and_texcoord_zero)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "static_mesh_textured.gltf");
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
+	const auto& renderable = model.meshes[0].renderables[0];
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
+	const auto* pbr = find_pbr_material(renderable);
+	ASSERT_NE(pbr, nullptr);
+	const auto* base_color = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
+	ASSERT_NE(base_color, nullptr);
+	ASSERT_TRUE(pbr->textures.base_color.has_value());
+	EXPECT_EQ(pbr->textures.base_color->texture, base_color->get_id());
+	EXPECT_FALSE(pbr->textures.metallic_roughness.has_value());
+	EXPECT_FALSE(pbr->textures.normal.has_value());
+	EXPECT_EQ(base_color->width, 2u);
+	EXPECT_EQ(base_color->height, 2u);
+	const auto& mesh = dynamic_cast<const TexMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	ASSERT_EQ(mesh.get_vertices().size(), 3);
+	EXPECT_EQ(mesh.get_vertices()[0].texCoord, glm::vec2(0.0f, 0.0f));
+	EXPECT_EQ(mesh.get_vertices()[1].texCoord, glm::vec2(1.0f, 0.0f));
+	EXPECT_EQ(mesh.get_vertices()[2].texCoord, glm::vec2(0.5f, 1.0f));
+}
+
+TEST(ResourceLoaderTexturedPbr, imports_all_optional_maps_factors_normal_scale_and_clamp_sampler)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		auto& pbr = document["materials"][0]["pbrMetallicRoughness"];
+		pbr["baseColorFactor"] = { 0.125, 0.25, 0.5, 0.75 };
+		pbr["metallicFactor"] = 0.375;
+		pbr["roughnessFactor"] = 0.625;
+		pbr["metallicRoughnessTexture"] = { { "index", 0 } };
+		document["samplers"] = nlohmann::json::array({ {
+			{ "magFilter", 9729 }, { "minFilter", 9729 },
+			{ "wrapS", 33071 }, { "wrapT", 33071 },
+		} });
+		for (auto& texture : document["textures"])
+			texture["sampler"] = 0;
+	}, "normal_mapped_authored_tangents.gltf", false);
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto* pbr = find_pbr_material(renderable);
+	ASSERT_NE(pbr, nullptr);
+	EXPECT_TRUE(glm_equal(pbr->data.base_color_factor, glm::vec4(0.125f, 0.25f, 0.5f, 0.75f)));
+	EXPECT_FLOAT_EQ(pbr->data.metallic_factor, 0.375f);
+	EXPECT_FLOAT_EQ(pbr->data.roughness_factor, 0.625f);
+	EXPECT_FLOAT_EQ(pbr->data.normal_scale, 0.5f);
+	const auto* base_color = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
+	const auto* metallic_roughness = find_texture_material(
+		renderable, ETextureSemantic::METALLIC_ROUGHNESS);
+	const auto* normal = find_texture_material(renderable, ETextureSemantic::NORMAL);
+	ASSERT_NE(base_color, nullptr);
+	ASSERT_NE(metallic_roughness, nullptr);
+	ASSERT_NE(normal, nullptr);
+	ASSERT_TRUE(pbr->textures.base_color.has_value());
+	ASSERT_TRUE(pbr->textures.metallic_roughness.has_value());
+	ASSERT_TRUE(pbr->textures.normal.has_value());
+	EXPECT_EQ(pbr->textures.base_color->texture, base_color->get_id());
+	EXPECT_EQ(pbr->textures.metallic_roughness->texture, metallic_roughness->get_id());
+	EXPECT_EQ(pbr->textures.normal->texture, normal->get_id());
+	EXPECT_EQ(pbr->textures.base_color->sampler, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+	EXPECT_EQ(pbr->textures.metallic_roughness->sampler, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+	EXPECT_EQ(pbr->textures.normal->sampler, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+}
+
+TEST(ResourceLoaderTexturedPbr, imports_external_jpeg_uri)
+{
+	TemporaryExternalJpeg image;
+	MutatedGltf resource([&](nlohmann::json& document)
+	{
+		document["images"][0] = { { "uri", image.filename() } };
+	}, "static_mesh_textured.gltf", false);
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto* texture = find_texture_material(
+		model.meshes[0].renderables[0], ETextureSemantic::BASE_COLOR);
+	ASSERT_NE(texture, nullptr);
+	EXPECT_GT(texture->width, 0u);
+	EXPECT_GT(texture->height, 0u);
+}
+
+TEST(ResourceLoaderTexturedPbr, rejects_nonzero_texcoord_and_missing_texcoord_zero)
+{
+	MutatedGltf nonzero([](nlohmann::json& document)
+	{
+		document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["texCoord"] = 1;
+	}, "static_mesh_textured.gltf", false);
+	ECS ecs;
+	EXPECT_THROW(ResourceLoader::load_model(ecs, nonzero.filename()), ResourceLoadError);
+
+	MutatedGltf missing([](nlohmann::json& document)
+	{
+		document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
+	}, "static_mesh_textured.gltf", false);
+	EXPECT_THROW(ResourceLoader::load_model(ecs, missing.filename()), ResourceLoadError);
+}
+
+TEST(ResourceLoaderTexturedPbr, rejects_invalid_texture_image_references)
+{
+	using Mutation = std::function<void(nlohmann::json&)>;
+	const std::vector<Mutation> cases{
+		[](auto& document) {
+			document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["index"] = 9; },
+		[](auto& document) { document["textures"][0]["source"] = 9; },
+	};
+	for (const auto& mutate : cases)
+	{
+		MutatedGltf resource(mutate, "static_mesh_textured.gltf", false);
+		ECS ecs;
+		EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename()), ResourceLoadError);
+		EXPECT_TRUE(ecs.get_material_system().take_retired().empty());
+		EXPECT_TRUE(ecs.get_mesh_system().take_retired().empty());
+	}
+}
+
+TEST(ResourceLoaderTexturedPbr, rejects_sampler_modes_outside_linear_repeat_or_clamp)
+{
+	using Mutation = std::function<void(nlohmann::json&)>;
+	const std::vector<Mutation> cases{
+		[](auto& document) { document["samplers"][0]["magFilter"] = 9728; }, // NEAREST
+		[](auto& document) { document["samplers"][0]["wrapS"] = 33648; }, // MIRRORED_REPEAT
+	};
+	for (const auto& mutate : cases)
+	{
+		MutatedGltf resource([&](nlohmann::json& document)
+		{
+			document["samplers"] = nlohmann::json::array({ {
+				{ "magFilter", 9729 }, { "minFilter", 9729 },
+				{ "wrapS", 10497 }, { "wrapT", 10497 },
+			} });
+			document["textures"][0]["sampler"] = 0;
+			mutate(document);
+		}, "static_mesh_textured.gltf", false);
+		ECS ecs;
+		EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename()), ResourceLoadError);
+	}
+}
+
+TEST(ResourceLoaderTexturedPbr, accepts_normal_map_without_base_color_map)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "normal_map_without_base_color.gltf");
+	const auto& renderable = model.meshes[0].renderables[0];
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
+	const auto* pbr = find_pbr_material(renderable);
+	ASSERT_NE(pbr, nullptr);
+	EXPECT_EQ(find_texture_material(renderable, ETextureSemantic::BASE_COLOR), nullptr);
+	const auto* normal = find_texture_material(renderable, ETextureSemantic::NORMAL);
+	ASSERT_NE(normal, nullptr);
+	EXPECT_FALSE(pbr->textures.base_color.has_value());
+	ASSERT_TRUE(pbr->textures.normal.has_value());
+	EXPECT_EQ(pbr->textures.normal->texture, normal->get_id());
+}
+
+TEST(ResourceLoaderTexturedPbr, preserves_authored_tangents)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "normal_mapped_authored_tangents.gltf");
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	for (const auto& vertex : mesh.get_vertices())
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
+}
+
+TEST(ResourceLoaderTexturedPbr, generates_missing_mikktspace_tangents)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "normal_mapped_missing_tangents.gltf");
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
+		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
+	}
+	ASSERT_EQ(model.warnings.size(), 1);
+	EXPECT_NE(model.warnings.front().message.find("generated missing tangents"), std::string::npos);
+}
+
+TEST(ResourceLoaderTexturedPbr, rejects_invalid_or_required_but_missing_authored_tangents)
+{
+	ECS ecs;
+	EXPECT_THROW(
+		ResourceLoader::load_model(ecs, "normal_mapped_invalid_tangents.gltf"),
+		ResourceLoadError);
+	ResourceLoader::LoadOptions no_generation;
+	no_generation.generate_missing_tangents = false;
+	EXPECT_THROW(
+		ResourceLoader::load_model(
+			ecs, "normal_mapped_missing_tangents.gltf", no_generation),
+		ResourceLoadError);
+}
+
+TEST(ResourceLoaderTexturedPbr, imports_skinned_data_uri_png_and_tangents)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "skinned_normal_mapped.gltf");
+	ASSERT_EQ(model.meshes.size(), 1);
+	ASSERT_TRUE(model.meshes[0].skeleton_id.has_value());
+	const auto& renderable = model.meshes[0].renderables[0];
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::SKINNED);
+	EXPECT_NE(find_texture_material(renderable, ETextureSemantic::BASE_COLOR), nullptr);
+	EXPECT_NE(find_texture_material(renderable, ETextureSemantic::NORMAL), nullptr);
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	ASSERT_EQ(mesh.get_vertices().size(), 3);
+	for (const auto& vertex : mesh.get_vertices())
+		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
+}
+
+TEST(ResourceLoaderTexturedPbr, generates_skinned_tangents_without_changing_skin_weights)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(
+		ecs, "skinned_normal_mapped_missing_tangents.gltf");
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const SkinnedMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	ASSERT_FALSE(mesh.get_vertices().empty());
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
+		EXPECT_EQ(vertex.bone_ids, glm::vec4(0.0f));
+		EXPECT_EQ(vertex.bone_weights, glm::vec4(1.0f, 0.0f, 0.0f, 0.0f));
+	}
+}
+
+TEST(ResourceLoaderTexturedPbr, shares_imported_material_resources_across_primitives)
+{
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, "normal_mapped_shared_material.gltf");
+	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
+	const auto& first = model.meshes[0].renderables[0];
+	const auto& second = model.meshes[0].renderables[1];
+	ASSERT_EQ(first.material_owners.size(), second.material_owners.size());
+	ASSERT_GE(first.material_owners.size(), 3);
+	for (size_t index = 0; index < first.material_owners.size(); ++index)
+		EXPECT_EQ(first.material_owners[index], second.material_owners[index]);
+}
+
+TEST(ResourceLoaderTexturedPbr, shares_semantically_compatible_texture_across_distinct_materials)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		auto second = document["materials"][0];
+		second["pbrMetallicRoughness"]["roughnessFactor"] = 0.25;
+		document["materials"].push_back(std::move(second));
+		document["meshes"][0]["primitives"][1]["material"] = 1;
+	}, "static_mesh_textured_shared_material.gltf", false);
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
+	const auto& first = model.meshes[0].renderables[0];
+	const auto& second = model.meshes[0].renderables[1];
+	const auto* first_pbr = find_pbr_material(first);
+	const auto* second_pbr = find_pbr_material(second);
+	ASSERT_NE(first_pbr, nullptr);
+	ASSERT_NE(second_pbr, nullptr);
+	EXPECT_NE(first_pbr->get_id(), second_pbr->get_id());
+	const auto* first_texture = find_texture_material(first, ETextureSemantic::BASE_COLOR);
+	const auto* second_texture = find_texture_material(second, ETextureSemantic::BASE_COLOR);
+	ASSERT_NE(first_texture, nullptr);
+	ASSERT_NE(second_texture, nullptr);
+	EXPECT_EQ(first_texture->get_id(), second_texture->get_id());
+	ASSERT_TRUE(first_pbr->textures.base_color.has_value());
+	ASSERT_TRUE(second_pbr->textures.base_color.has_value());
+	EXPECT_EQ(first_pbr->textures.base_color->texture, first_texture->get_id());
+	EXPECT_EQ(second_pbr->textures.base_color->texture, second_texture->get_id());
 }
 
 TEST(ResourceLoaderSkinnedColor, imports_pbr_material_without_texture_upload)

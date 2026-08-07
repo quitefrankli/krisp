@@ -54,6 +54,11 @@ GuiModelSpawner::GuiModelSpawner() :
 	refresh_models();
 }
 
+void GuiModelSpawner::queue_model_spawn(std::string model_path)
+{
+	model_to_spawn = std::move(model_path);
+}
+
 void GuiModelSpawner::refresh_models()
 {
 	std::optional<std::string> selected_path;
@@ -141,8 +146,19 @@ void GuiModelSpawner::process(GameEngine& engine)
 			auto mesh = std::make_shared<Object>();
 			mesh->set_name(loaded_mesh.name.empty() ? model_name : loaded_mesh.name);
 			Object& object = engine.spawn_object(std::move(mesh));
+			glm::mat4 object_transform = loaded_model.onload_transform.get_mat4();
+			if (!loaded_mesh.renderables.empty())
+			{
+				// A LoadedMesh represents one glTF mesh node, so every primitive has
+				// the same node transform. Promote it to the owning object so rendering
+				// and the generated object-space mesh collider share one transform.
+				object_transform *=
+					loaded_mesh.renderables.front().local_transform.get_mat4();
+				for (auto& renderable : loaded_mesh.renderables)
+					renderable.local_transform = {};
+			}
 			engine.get_ecs().get_transformation(object.get_id())
-				.set_transform(loaded_model.onload_transform.get_mat4());
+				.set_transform(object_transform);
 			engine.attach_renderables(
 				object.get_id(), std::move(loaded_mesh.renderables), loaded_mesh.skeleton_id);
 			engine.get_ecs().add_mesh_collider(object.get_id());
@@ -171,7 +187,7 @@ void GuiModelSpawner::draw()
 		{
 			selected_model = static_cast<int>(*selected);
 			selected_model.changed = true;
-			model_to_spawn = model_paths[*selected];
+			queue_model_spawn(model_paths[*selected]);
 		}
 		ImGui::EndCombo();
 	}

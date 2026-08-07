@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <limits>
+#include <unordered_set>
 
 
 struct RawTextureDataSTB : public TextureData
@@ -134,9 +135,24 @@ bool load_gltf_image_data(
 	void* user_data)
 {
 	constexpr std::array<unsigned char, 4> DDS_MAGIC{ 'D', 'D', 'S', ' ' };
+	constexpr std::array<unsigned char, 8> PNG_MAGIC{
+		0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a };
 	if (byte_count >= static_cast<int>(DDS_MAGIC.size())
 		&& std::equal(DDS_MAGIC.begin(), DDS_MAGIC.end(), bytes))
 	{
+		image->as_is = true;
+		image->mimeType = "image/vnd-ms.dds";
+		image->image.assign(bytes, bytes + byte_count);
+		return true;
+	}
+	if (byte_count >= static_cast<int>(PNG_MAGIC.size())
+		&& std::equal(PNG_MAGIC.begin(), PNG_MAGIC.end(), bytes))
+		image->mimeType = "image/png";
+	else if (byte_count >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff)
+		image->mimeType = "image/jpeg";
+	else
+	{
+		image->mimeType = "application/x-krisp-unsupported-image";
 		image->as_is = true;
 		image->image.assign(bytes, bytes + byte_count);
 		return true;
@@ -163,7 +179,74 @@ std::string gltf_material_label(const tinygltf::Material& material, const size_t
 		: fmt::format("{} ('{}')", index, material.name);
 }
 
-void validate_factor_only_gltf_material(const tinygltf::Material& material, const size_t index)
+PbrMaterial::TextureSampler validate_gltf_sampler(
+	const tinygltf::Model& model,
+	const tinygltf::Texture& texture,
+	const int texture_index,
+	const std::string& label)
+{
+	const auto reject = [&label](const std::string_view feature)
+	{
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: material {} uses unsupported feature {}", label, feature));
+	};
+	if (!texture.extensions.empty())
+		reject(fmt::format("texture extension '{}'", texture.extensions.begin()->first));
+	if (texture.source < 0 || texture.source >= static_cast<int>(model.images.size()))
+		reject(fmt::format("texture {} with invalid image", texture_index));
+	const auto& image = model.images[texture.source];
+	if (!image.extensions.empty())
+		reject(fmt::format("image extension '{}'", image.extensions.begin()->first));
+	if (image.as_is || (image.mimeType != "image/png" && image.mimeType != "image/jpeg"))
+		reject(fmt::format("texture {} image format '{}'", texture_index,
+			image.mimeType.empty() ? "unknown" : image.mimeType));
+
+	if (texture.sampler < 0)
+		return PbrMaterial::TextureSampler::REPEAT;
+	if (texture.sampler >= static_cast<int>(model.samplers.size()))
+		reject(fmt::format("texture {} with invalid sampler", texture_index));
+	const auto& sampler = model.samplers[texture.sampler];
+	if (!sampler.extensions.empty())
+		reject(fmt::format("sampler extension '{}'", sampler.extensions.begin()->first));
+	if (sampler.magFilter != -1 && sampler.magFilter != TINYGLTF_TEXTURE_FILTER_LINEAR)
+		reject(fmt::format("texture {} magnification filter {}", texture_index, sampler.magFilter));
+	if (sampler.minFilter != -1 && sampler.minFilter != TINYGLTF_TEXTURE_FILTER_LINEAR)
+		reject(fmt::format("texture {} minification filter {}", texture_index, sampler.minFilter));
+	if (sampler.wrapS != sampler.wrapT)
+		reject(fmt::format("texture {} with different S/T wrap modes", texture_index));
+	if (sampler.wrapS == TINYGLTF_TEXTURE_WRAP_REPEAT)
+		return PbrMaterial::TextureSampler::REPEAT;
+	if (sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE)
+		return PbrMaterial::TextureSampler::CLAMP_TO_EDGE;
+	reject(fmt::format("texture {} wrap mode {}", texture_index, sampler.wrapS));
+	return PbrMaterial::TextureSampler::REPEAT;
+}
+
+template<typename TextureInfo>
+PbrMaterial::TextureSampler validate_gltf_texture_info(
+	const tinygltf::Model& model,
+	const TextureInfo& texture_info,
+	const std::string_view name,
+	const std::string& label)
+{
+	const auto reject = [&label](const std::string_view feature)
+	{
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: material {} uses unsupported feature {}", label, feature));
+	};
+	if (texture_info.texCoord != 0)
+		reject(fmt::format("{} TEXCOORD_{}", name, texture_info.texCoord));
+	if (!texture_info.extensions.empty())
+		reject(fmt::format("{} extension '{}'", name, texture_info.extensions.begin()->first));
+	if (texture_info.index < 0 || texture_info.index >= static_cast<int>(model.textures.size()))
+		reject(fmt::format("{} with invalid texture", name));
+	return validate_gltf_sampler(model, model.textures[texture_info.index], texture_info.index, label);
+}
+
+void validate_gltf_material(
+	const tinygltf::Model& model,
+	const tinygltf::Material& material,
+	const size_t index)
 {
 	const auto label = gltf_material_label(material, index);
 	const auto reject = [&label](const std::string_view feature)
@@ -172,12 +255,6 @@ void validate_factor_only_gltf_material(const tinygltf::Material& material, cons
 			"ResourceLoader: material {} uses unsupported feature {}", label, feature));
 	};
 	const auto& pbr = material.pbrMetallicRoughness;
-	if (pbr.baseColorTexture.index >= 0)
-		reject("baseColorTexture");
-	if (pbr.metallicRoughnessTexture.index >= 0)
-		reject("metallicRoughnessTexture");
-	if (material.normalTexture.index >= 0)
-		reject("normalTexture");
 	if (material.occlusionTexture.index >= 0)
 		reject("occlusionTexture");
 	if (material.emissiveTexture.index >= 0)
@@ -204,12 +281,120 @@ void validate_factor_only_gltf_material(const tinygltf::Material& material, cons
 		reject("metallicFactor outside [0, 1]");
 	if (!valid_factor(pbr.roughnessFactor))
 		reject("roughnessFactor outside [0, 1]");
+	if (!std::isfinite(material.normalTexture.scale))
+		reject("non-finite normalTexture.scale");
+
+	if (pbr.baseColorTexture.index >= 0)
+		validate_gltf_texture_info(model, pbr.baseColorTexture, "baseColorTexture", label);
+	if (pbr.metallicRoughnessTexture.index >= 0)
+		validate_gltf_texture_info(
+			model, pbr.metallicRoughnessTexture, "metallicRoughnessTexture", label);
+	if (material.normalTexture.index >= 0)
+		validate_gltf_texture_info(model, material.normalTexture, "normalTexture", label);
 }
 
-void validate_factor_only_gltf_materials(const tinygltf::Model& model)
+void validate_gltf_materials(
+	const tinygltf::Model& model,
+	const std::unordered_set<int>& used_materials,
+	std::vector<ResourceLoader::ImportWarning>& warnings,
+	const bool strict)
 {
 	for (size_t index = 0; index < model.materials.size(); ++index)
-		validate_factor_only_gltf_material(model.materials[index], index);
+	{
+		try
+		{
+			validate_gltf_material(model, model.materials[index], index);
+		}
+		catch (const ResourceLoadError& error)
+		{
+			if (used_materials.contains(static_cast<int>(index)))
+				throw;
+			if (strict)
+				throw ResourceLoadError(fmt::format(
+					"{}; unused material warning promoted by strict mode", error.what()));
+			warnings.push_back({ fmt::format("{}; unused material was skipped", error.what()) });
+		}
+	}
+
+	std::unordered_set<int> material_textures;
+	for (const auto& material : model.materials)
+	{
+		const auto retain = [&material_textures](const int texture)
+		{
+			if (texture >= 0)
+				material_textures.insert(texture);
+		};
+		retain(material.pbrMetallicRoughness.baseColorTexture.index);
+		retain(material.pbrMetallicRoughness.metallicRoughnessTexture.index);
+		retain(material.normalTexture.index);
+		retain(material.occlusionTexture.index);
+		retain(material.emissiveTexture.index);
+	}
+	const auto report_unused = [&warnings, strict](
+		const ResourceLoadError& error, const std::string_view declaration)
+	{
+		if (strict)
+			throw ResourceLoadError(fmt::format(
+				"{}; unused {} warning promoted by strict mode", error.what(), declaration));
+		warnings.push_back({ fmt::format(
+			"{}; unused {} was skipped", error.what(), declaration) });
+	};
+	for (int index = 0; index < static_cast<int>(model.textures.size()); ++index)
+	{
+		if (material_textures.contains(index))
+			continue;
+		try
+		{
+			validate_gltf_sampler(model, model.textures[index], index, "unused declaration");
+		}
+		catch (const ResourceLoadError& error)
+		{
+			report_unused(error, "texture");
+		}
+	}
+
+	std::unordered_set<int> texture_images;
+	std::unordered_set<int> texture_samplers;
+	for (const auto& texture : model.textures)
+	{
+		if (texture.source >= 0)
+			texture_images.insert(texture.source);
+		if (texture.sampler >= 0)
+			texture_samplers.insert(texture.sampler);
+	}
+	for (int index = 0; index < static_cast<int>(model.images.size()); ++index)
+	{
+		if (texture_images.contains(index))
+			continue;
+		const auto& image = model.images[index];
+		if (image.extensions.empty() && !image.as_is
+			&& (image.mimeType == "image/png" || image.mimeType == "image/jpeg"))
+			continue;
+		const auto format = image.mimeType.empty() ? "unknown" : image.mimeType;
+		const ResourceLoadError error(!image.extensions.empty()
+			? fmt::format("ResourceLoader: unused image uses unsupported extension '{}'",
+				image.extensions.begin()->first)
+			: fmt::format("ResourceLoader: unused image uses unsupported format '{}'", format));
+		report_unused(error, "image");
+	}
+	for (int index = 0; index < static_cast<int>(model.samplers.size()); ++index)
+	{
+		if (texture_samplers.contains(index))
+			continue;
+		const auto& sampler = model.samplers[index];
+		const bool supported_filter = (sampler.magFilter == -1
+			|| sampler.magFilter == TINYGLTF_TEXTURE_FILTER_LINEAR)
+			&& (sampler.minFilter == -1
+				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_LINEAR);
+		const bool supported_wrap = sampler.wrapS == sampler.wrapT
+			&& (sampler.wrapS == TINYGLTF_TEXTURE_WRAP_REPEAT
+				|| sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE);
+		if (sampler.extensions.empty() && supported_filter && supported_wrap)
+			continue;
+		const ResourceLoadError error(fmt::format(
+			"ResourceLoader: unused sampler {} uses unsupported settings", index));
+		report_unused(error, "sampler");
+	}
 }
 }
 
@@ -234,6 +419,86 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 
 		const auto& mat = model.materials[primitive.material];
 		const auto& pbr = mat.pbrMetallicRoughness;
+		PbrMaterial::TextureSlots slots;
+		std::vector<MaterialHandle> texture_owners;
+		std::vector<std::pair<MaterialID, int>> image_sources;
+		const auto load_gltf_texture = [&](const auto& texture_info, const ETextureSemantic semantic)
+		{
+			const int texture_index = texture_info.index;
+			const auto& texture = model.textures.at(texture_index);
+			const auto sampler = validate_gltf_sampler(
+				model, texture, texture_index, gltf_material_label(mat, primitive.material));
+			const uint64_t cache_key = static_cast<uint64_t>(texture.source)
+				* static_cast<uint64_t>(ETextureSemantic::COUNT)
+				+ static_cast<uint64_t>(semantic);
+			MaterialHandle owner;
+			if (gltf_image_to_material.contains(cache_key))
+			{
+				owner = materials.acquire(gltf_image_to_material.at(cache_key));
+			}
+			else
+			{
+				const auto& image = model.images.at(texture.source);
+				if (image.width <= 0 || image.height <= 0 || image.component < 1
+					|| image.component > 4 || image.bits != 8)
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: texture {} has unsupported image dimensions or channels",
+						texture_index));
+				if (static_cast<size_t>(image.width)
+					> std::numeric_limits<size_t>::max() / static_cast<size_t>(image.height))
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: texture {} image dimensions overflow address space",
+						texture_index));
+				const size_t pixel_count = static_cast<size_t>(image.width)
+					* static_cast<size_t>(image.height);
+				if (pixel_count > std::numeric_limits<size_t>::max() / 4
+					|| image.image.size() < pixel_count * static_cast<size_t>(image.component))
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: texture {} image data is truncated", texture_index));
+				std::vector<std::byte> rgba(pixel_count * 4);
+				for (size_t pixel = 0; pixel < pixel_count; ++pixel)
+				{
+					const auto* source = image.image.data() + pixel * image.component;
+					auto* destination = rgba.data() + pixel * 4;
+					if (image.component == 1 || image.component == 2)
+						destination[0] = destination[1] = destination[2]
+							= static_cast<std::byte>(source[0]);
+					else
+					{
+						destination[0] = static_cast<std::byte>(source[0]);
+						destination[1] = static_cast<std::byte>(source[1]);
+						destination[2] = static_cast<std::byte>(source[2]);
+					}
+					destination[3] = static_cast<std::byte>(image.component == 2 ? source[1]
+						: image.component == 4 ? source[3] : 255);
+				}
+				auto texture_material = std::make_unique<TextureMaterial>();
+				texture_material->width = static_cast<uint32_t>(image.width);
+				texture_material->height = static_cast<uint32_t>(image.height);
+				texture_material->channels = 4;
+				texture_material->data_len = rgba.size();
+				texture_material->mip_sizes = { rgba.size() };
+				texture_material->semantic = semantic;
+				texture_material->source = image.uri.empty()
+					? fmt::format("glTF image {}", texture.source) : image.uri;
+				texture_material->data = std::make_unique<OwnedTextureData>(std::move(rgba));
+				owner = materials.add(std::move(texture_material));
+				gltf_image_to_material.emplace(cache_key, owner->get_id());
+			}
+			image_sources.emplace_back(owner->get_id(), texture.source);
+			texture_owners.push_back(owner);
+			return PbrMaterial::TextureBinding{ owner->get_id(), sampler };
+		};
+
+		if (pbr.baseColorTexture.index >= 0)
+			slots.base_color = load_gltf_texture(
+				pbr.baseColorTexture, ETextureSemantic::BASE_COLOR);
+		if (pbr.metallicRoughnessTexture.index >= 0)
+			slots.metallic_roughness = load_gltf_texture(
+				pbr.metallicRoughnessTexture, ETextureSemantic::METALLIC_ROUGHNESS);
+		if (mat.normalTexture.index >= 0)
+			slots.normal = load_gltf_texture(mat.normalTexture, ETextureSemantic::NORMAL);
+
 		auto material = std::make_unique<PbrMaterial>(
 			glm::vec4(
 				static_cast<float>(pbr.baseColorFactor[0]),
@@ -241,11 +506,19 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 				static_cast<float>(pbr.baseColorFactor[2]),
 				static_cast<float>(pbr.baseColorFactor[3])),
 			static_cast<float>(pbr.metallicFactor),
-			static_cast<float>(pbr.roughnessFactor));
+			static_cast<float>(pbr.roughnessFactor),
+			std::move(slots),
+			static_cast<float>(mat.normalTexture.scale));
 		owners.push_back(materials.add(std::move(material)));
 		LoadedMaterial loaded{
 			.ids = { owners.back()->get_id() },
+			.image_sources = std::move(image_sources),
 		};
+		for (auto& texture_owner : texture_owners)
+		{
+			loaded.ids.push_back(texture_owner->get_id());
+			owners.push_back(std::move(texture_owner));
+		}
 		gltf_material_to_material[primitive.material] = loaded;
 		return loaded;
 	}

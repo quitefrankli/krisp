@@ -56,7 +56,8 @@ void write_source(Serializer out, const ImportedResourceProvenance &source)
 	out.write("node", source.node);
 	out.write("primitive", source.primitive);
 	out.write("material", source.material);
-	out.write("texture", source.texture);
+	out.write("image", source.image);
+	out.write("texture_semantic", source.texture_semantic);
 	out.write("skin", source.skin);
 	out.write("animation", source.animation);
 }
@@ -73,7 +74,8 @@ ImportedResourceProvenance read_source(const Deserializer &in)
 		.node = in.read<int>("node"),
 		.primitive = in.read<int>("primitive"),
 		.material = in.read<int>("material"),
-		.texture = in.read<int>("texture"),
+		.image = in.read<int>("image"),
+		.texture_semantic = in.read<int>("texture_semantic"),
 		.skin = in.read<int>("skin"),
 		.animation = in.read<int>("animation"),
 	};
@@ -85,6 +87,8 @@ std::string semantic_name(const ETextureSemantic semantic)
 	{
 	case ETextureSemantic::BASE_COLOR:
 		return "base_color";
+	case ETextureSemantic::METALLIC_ROUGHNESS:
+		return "metallic_roughness";
 	case ETextureSemantic::NORMAL:
 		return "normal";
 	case ETextureSemantic::COUNT:
@@ -98,6 +102,8 @@ ETextureSemantic read_semantic(const Deserializer &in)
 	const auto value = in.as<std::string>();
 	if (value == "base_color")
 		return ETextureSemantic::BASE_COLOR;
+	if (value == "metallic_roughness")
+		return ETextureSemantic::METALLIC_ROUGHNESS;
 	if (value == "normal")
 		return ETextureSemantic::NORMAL;
 	throw SerializationError("Unsupported texture semantic at " + in.path());
@@ -123,6 +129,21 @@ ETextureFormat read_format(const Deserializer &in)
 	if (value == "bc3")
 		return ETextureFormat::BC3;
 	throw SerializationError("Unsupported texture format at " + in.path());
+}
+
+std::string sampler_name(const PbrMaterial::TextureSampler sampler)
+{
+	return sampler == PbrMaterial::TextureSampler::REPEAT ? "repeat" : "clamp_to_edge";
+}
+
+PbrMaterial::TextureSampler read_sampler(const Deserializer& in)
+{
+	const auto value = in.as<std::string>();
+	if (value == "repeat")
+		return PbrMaterial::TextureSampler::REPEAT;
+	if (value == "clamp_to_edge")
+		return PbrMaterial::TextureSampler::CLAMP_TO_EDGE;
+	throw SerializationError("Unsupported texture sampler at " + in.path());
 }
 
 void validate_texture(const TextureMaterial &texture, const std::string &path)
@@ -434,6 +455,42 @@ void SceneResourceWriter::write_mesh_reference(Serializer out, const MeshID id)
 
 void SceneResourceWriter::write_material_reference(Serializer out, const MaterialID id)
 {
+	if (const auto* material_override = ResourceProvenance::material_override(id))
+	{
+		write_source(out.map("source"), material_override->source);
+		auto saved_override = out.map("pbr_override");
+		if (material_override->base_color_factor)
+			Serialization::write_vec4(
+				saved_override, "base_color_factor", *material_override->base_color_factor);
+		if (material_override->metallic_factor)
+			saved_override.write("metallic_factor", *material_override->metallic_factor);
+		if (material_override->roughness_factor)
+			saved_override.write("roughness_factor", *material_override->roughness_factor);
+		if (material_override->normal_scale)
+			saved_override.write("normal_scale", *material_override->normal_scale);
+		auto textures = saved_override.map("textures");
+		const auto write_texture_override = [this, &textures](
+			const std::string_view name,
+			const std::optional<PbrTextureOverride>& texture_override)
+		{
+			if (!texture_override)
+				return;
+			auto saved = textures.map(name);
+			if (texture_override->mode == PbrTextureOverride::Mode::Cleared)
+			{
+				saved.write("state", "cleared");
+				return;
+			}
+			saved.write("state", "replaced");
+			write_material_reference(saved.map("resource"), texture_override->texture);
+			saved.write("sampler", sampler_name(texture_override->sampler));
+		};
+		write_texture_override("base_color", material_override->base_color_texture);
+		write_texture_override(
+			"metallic_roughness", material_override->metallic_roughness_texture);
+		write_texture_override("normal", material_override->normal_texture);
+		return;
+	}
 	if (const auto *source = ResourceProvenance::material(id))
 	{
 		write_source(out.map("source"), *source);
@@ -498,6 +555,21 @@ void SceneResourceWriter::write_generated_material(const MaterialID id)
 		Serialization::write_vec4(parameters, "base_color_factor", pbr->data.base_color_factor);
 		parameters.write("metallic_factor", pbr->data.metallic_factor);
 		parameters.write("roughness_factor", pbr->data.roughness_factor);
+		parameters.write("normal_scale", pbr->data.normal_scale);
+		auto textures = entry.map("textures");
+		const auto write_binding = [this, &textures](
+			const std::string_view name,
+			const std::optional<PbrMaterial::TextureBinding>& binding)
+		{
+			if (!binding)
+				return;
+			auto saved = textures.map(name);
+			write_material_reference(saved.map("resource"), binding->texture);
+			saved.write("sampler", sampler_name(binding->sampler));
+		};
+		write_binding("base_color", pbr->textures.base_color);
+		write_binding("metallic_roughness", pbr->textures.metallic_roughness);
+		write_binding("normal", pbr->textures.normal);
 		return;
 	}
 	const auto *texture = dynamic_cast<const TextureMaterial *>(&material);
@@ -604,21 +676,7 @@ void SceneResourceReader::prepare(const Deserializer &document)
 		std::unique_ptr<Material> material;
 		const auto type = entry.read<std::string>("type");
 		if (type == "pbr")
-		{
-			const auto parameters = entry.child("parameters");
-			try
-			{
-				material = std::make_unique<PbrMaterial>(
-					Serialization::read_vec4(parameters, "base_color_factor"),
-					parameters.read<float>("metallic_factor"),
-					parameters.read<float>("roughness_factor"));
-			}
-			catch (const std::invalid_argument& error)
-			{
-				throw SerializationError(
-					"Invalid PBR material at " + entry.path() + ": " + error.what());
-			}
-		}
+			continue;
 		else if (type == "texture")
 		{
 			auto texture = std::make_unique<TextureMaterial>();
@@ -648,6 +706,45 @@ void SceneResourceReader::prepare(const Deserializer &document)
 		}
 		if (!materials.emplace(id, ecs.get_material_system().add(std::move(material))).second)
 			throw SerializationError("Duplicate generated material resource at " + entry.path());
+	}
+	for (const auto& entry : saved_resources.child("materials").elements())
+	{
+		if (entry.read<std::string>("type") != "pbr")
+			continue;
+		const auto id = entry.read<std::uint64_t>("id");
+		const auto parameters = entry.child("parameters");
+		const auto textures = entry.child("textures");
+		const auto read_binding = [this, &textures](const std::string_view name)
+			-> std::optional<PbrMaterial::TextureBinding>
+		{
+			if (!has_key(textures, name))
+				return std::nullopt;
+			const auto saved = textures.child(name);
+			const auto owner = read_material_reference(saved.child("resource"));
+			return PbrMaterial::TextureBinding{
+				owner->get_id(), read_sampler(saved.child("sampler")) };
+		};
+		PbrMaterial::TextureSlots slots{
+			.base_color = read_binding("base_color"),
+			.metallic_roughness = read_binding("metallic_roughness"),
+			.normal = read_binding("normal"),
+		};
+		try
+		{
+			auto material = std::make_unique<PbrMaterial>(
+				Serialization::read_vec4(parameters, "base_color_factor"),
+				parameters.read<float>("metallic_factor"),
+				parameters.read<float>("roughness_factor"),
+				std::move(slots),
+				parameters.read<float>("normal_scale"));
+			if (!materials.emplace(id, ecs.get_material_system().add(std::move(material))).second)
+				throw SerializationError("Duplicate generated material resource at " + entry.path());
+		}
+		catch (const std::invalid_argument& error)
+		{
+			throw SerializationError(
+				"Invalid PBR material at " + entry.path() + ": " + error.what());
+		}
 	}
 	for (const auto& entry : saved_resources.child("materials").elements())
 	{
@@ -702,12 +799,101 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 		return materials.at(id);
 	}
 	const auto source = read_source(in.child("source"));
+	if (has_key(in, "pbr_override"))
+	{
+		if (source.kind != EExternalResourceKind::Model)
+			throw SerializationError("PBR override source is not a model at " + in.path());
+		const auto source_id = ResourceProvenance::find_material(
+			ecs.get_material_system(), source);
+		if (!source_id)
+			throw SerializationError("Missing imported PBR override source at " + in.path());
+		const auto* base = dynamic_cast<const PbrMaterial*>(
+			&ecs.get_material_system().get(*source_id));
+		if (!base)
+			throw SerializationError("PBR override source has the wrong type at " + in.path());
+		const auto saved_override = in.child("pbr_override");
+		ImportedPbrMaterialOverride material_override{
+			.source = source,
+			.original = {
+				.base_color_factor = base->data.base_color_factor,
+				.metallic_factor = base->data.metallic_factor,
+				.roughness_factor = base->data.roughness_factor,
+				.normal_scale = base->data.normal_scale,
+				.textures = base->textures,
+			},
+		};
+		auto base_color_factor = base->data.base_color_factor;
+		auto metallic_factor = base->data.metallic_factor;
+		auto roughness_factor = base->data.roughness_factor;
+		auto normal_scale = base->data.normal_scale;
+		if (has_key(saved_override, "base_color_factor"))
+			material_override.base_color_factor = base_color_factor
+				= Serialization::read_vec4(saved_override, "base_color_factor");
+		if (has_key(saved_override, "metallic_factor"))
+			material_override.metallic_factor = metallic_factor
+				= saved_override.read<float>("metallic_factor");
+		if (has_key(saved_override, "roughness_factor"))
+			material_override.roughness_factor = roughness_factor
+				= saved_override.read<float>("roughness_factor");
+		if (has_key(saved_override, "normal_scale"))
+			material_override.normal_scale = normal_scale
+				= saved_override.read<float>("normal_scale");
+
+		auto slots = base->textures;
+		const auto textures = saved_override.child("textures");
+		const auto read_texture_override = [this, &textures](
+			const std::string_view name,
+			std::optional<PbrMaterial::TextureBinding>& slot,
+			std::optional<PbrTextureOverride>& texture_override)
+		{
+			if (!has_key(textures, name))
+				return;
+			const auto saved = textures.child(name);
+			const auto state = saved.read<std::string>("state");
+			if (state == "cleared")
+			{
+				slot.reset();
+				texture_override = PbrTextureOverride{
+					.mode = PbrTextureOverride::Mode::Cleared };
+				return;
+			}
+			if (state != "replaced")
+				throw SerializationError("Invalid PBR texture override at " + saved.path());
+			const auto owner = read_material_reference(saved.child("resource"));
+			const auto sampler = read_sampler(saved.child("sampler"));
+			slot = PbrMaterial::TextureBinding{ owner->get_id(), sampler };
+			texture_override = PbrTextureOverride{
+				.mode = PbrTextureOverride::Mode::Replaced,
+				.texture = owner->get_id(),
+				.sampler = sampler,
+			};
+		};
+		read_texture_override("base_color", slots.base_color,
+			material_override.base_color_texture);
+		read_texture_override("metallic_roughness", slots.metallic_roughness,
+			material_override.metallic_roughness_texture);
+		read_texture_override("normal", slots.normal, material_override.normal_texture);
+		try
+		{
+			auto owner = ecs.get_material_system().add(std::make_unique<PbrMaterial>(
+				base_color_factor, metallic_factor, roughness_factor,
+				std::move(slots), normal_scale));
+			ResourceProvenance::register_material_override(
+				owner->get_id(), std::move(material_override));
+			return owner;
+		}
+		catch (const std::invalid_argument& error)
+		{
+			throw SerializationError(
+				"Invalid PBR material override at " + in.path() + ": " + error.what());
+		}
+	}
 	if (source.kind == EExternalResourceKind::Texture)
 	{
-		const auto semantic = static_cast<ETextureSemantic>(source.texture);
+		const auto semantic = static_cast<ETextureSemantic>(source.texture_semantic);
 		if (semantic < ETextureSemantic::BASE_COLOR || semantic >= ETextureSemantic::COUNT)
 			throw SerializationError("Invalid external texture semantic at " + in.path());
-		const auto key = source.source + "#" + std::to_string(source.texture);
+		const auto key = source.source + "#" + std::to_string(source.texture_semantic);
 		if (!imported_textures.contains(key))
 			imported_textures.emplace(
 				key, ResourceLoader::fetch_texture(ecs.get_material_system(), source.source, semantic));

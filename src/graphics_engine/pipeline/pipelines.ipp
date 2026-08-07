@@ -158,49 +158,9 @@ std::vector<VkVertexInputAttributeDescription> StencilPipeline<SkinnedPipeline>:
 	return { attributes[0], attributes[2], attributes[3], attributes[4] };
 }
 
-VkPipelineDepthStencilStateCreateInfo PostStencilColorPipeline::get_depth_stencil_create_info() const
-{
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.stencilTestEnable = VK_TRUE;
-	info.front.compareMask = 0xff;
-	info.front.writeMask = 0xff;
-	info.front.reference = 1;
-	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
-	info.front.passOp = VK_STENCIL_OP_REPLACE;
-	info.back = info.front;
-
-	return info;
-}
-
-VkPipelineDepthStencilStateCreateInfo PostStencilTexturePipeline::get_depth_stencil_create_info() const
-{
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.stencilTestEnable = VK_TRUE;
-	info.front.compareMask = 0xff;
-	info.front.writeMask = 0xff;
-	info.front.reference = 1;
-	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
-	info.front.passOp = VK_STENCIL_OP_REPLACE;
-	info.back = info.front;
-
-	return info;
-}
-
-VkPipelineDepthStencilStateCreateInfo PostStencilSkinnedPipeline::get_depth_stencil_create_info() const
-{
-	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
-	info.stencilTestEnable = VK_TRUE;
-	info.front.compareMask = 0xff;
-	info.front.writeMask = 0xff;
-	info.front.reference = 1;
-	info.front.compareOp = VK_COMPARE_OP_ALWAYS;
-	info.front.passOp = VK_STENCIL_OP_REPLACE;
-	info.back = info.front;
-
-	return info;
-}
-
-VkPipelineDepthStencilStateCreateInfo PostStencilSkinnedColorPipeline::get_depth_stencil_create_info() const
+template<Stencileable PrimaryPipelineType>
+VkPipelineDepthStencilStateCreateInfo
+PostStencilPipeline<PrimaryPipelineType>::get_depth_stencil_create_info() const
 {
 	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
 	info.stencilTestEnable = VK_TRUE;
@@ -402,6 +362,12 @@ std::vector<VkVertexInputAttributeDescription> UnlitSkinnedPipeline::get_attribu
 std::vector<VkVertexInputAttributeDescription> UnlitSkinnedColorPipeline::get_attribute_descriptions() const
 {
 	return SkinnedPipeline::get_skinning_attribute_descriptions_();
+}
+
+std::vector<VkVertexInputAttributeDescription> SkinnedColorPipeline::get_attribute_descriptions() const
+{
+	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
+	return { attributes[0], attributes[2], attributes[3], attributes[4] };
 }
 
 std::vector<VkVertexInputBindingDescription> SkinnedPipeline::get_binding_descriptions() const

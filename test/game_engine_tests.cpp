@@ -3,6 +3,7 @@
 #include <iapplication.hpp>
 #include <interface/gizmo.hpp>
 #include <game_objects/player_character.hpp>
+#include <gui/gui_windows/gui_model_spawner.hpp>
 
 #include "test_helper.hpp"
 #include "mock_graphics_engine.hpp"
@@ -17,6 +18,8 @@
 
 #include <gtest/gtest.h>
 #include <GLFW/glfw3.h>
+#include <fmt/core.h>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <filesystem>
@@ -60,6 +63,36 @@ public:
 
 namespace
 {
+class TemporaryMutatedGltf
+{
+public:
+	TemporaryMutatedGltf(
+		const std::string_view source,
+		const std::function<void(nlohmann::json&)>& mutate)
+	{
+		static uint32_t sequence = 0;
+		path = Utility::get_top_level_path()/"test/data"
+			/ fmt::format("krisp_game_engine_test_{}.gltf", sequence++);
+		std::ifstream input(Utility::get_model(source));
+		nlohmann::json document;
+		input >> document;
+		mutate(document);
+		std::ofstream output(path);
+		output << document;
+	}
+
+	~TemporaryMutatedGltf()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::string filename() const { return path.filename().string(); }
+
+private:
+	std::filesystem::path path;
+};
+
 class PlayerlessNormalApplication : public DummyApplication
 {
 public:
@@ -539,6 +572,78 @@ TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 	EXPECT_FALSE(renderable.casts_shadow);
 }
 
+TEST_F(GameEngineTests, model_spawner_imports_each_mesh_node_as_clickable)
+{
+	auto& spawner = engine.get_gui_manager().model_spawner;
+	spawner.queue_model_spawn("import_variants.gltf");
+	spawner.process(engine);
+
+	std::vector<ObjectID> spawned;
+	for (const auto& [id, object] : engine.get_objects())
+		if (!object->is_transient())
+			spawned.push_back(id);
+	ASSERT_EQ(spawned.size(), 2u);
+
+	for (const ObjectID object_id : spawned)
+	{
+		const auto renderable_ids = engine.get_ecs().get_renderable_ids(object_id);
+		ASSERT_EQ(renderable_ids.size(), 1u);
+		const auto& renderable = engine.get_ecs()
+			.get_renderable(renderable_ids.front()).renderable;
+		const auto& pick_data = renderable.mesh_owner->get().get_pick_data();
+		ASSERT_TRUE(pick_data.has_triangles());
+		const auto& triangle = pick_data.get_triangles().front();
+		const auto& positions = pick_data.get_positions();
+		const glm::mat4 model_transform = renderable.get_model_transform(
+			engine.get_ecs().get_maths_transform(object_id).get_mat4());
+		const glm::vec3 a = glm::vec3(
+			model_transform * glm::vec4(positions[triangle.vertices[0]], 1.0f));
+		const glm::vec3 b = glm::vec3(
+			model_transform * glm::vec4(positions[triangle.vertices[1]], 1.0f));
+		const glm::vec3 c = glm::vec3(
+			model_transform * glm::vec4(positions[triangle.vertices[2]], 1.0f));
+		const glm::vec3 normal = glm::normalize(glm::cross(b - a, c - a));
+		const glm::vec3 centre = (a + b + c) / 3.0f;
+
+		const auto clicked = engine.get_ecs().check_any_entity_clicked(
+			Maths::Ray(centre + normal, -normal));
+		ASSERT_TRUE(clicked.bCollided);
+		EXPECT_EQ(clicked.id, object_id);
+	}
+}
+
+TEST_F(GameEngineTests, object_spawner_creates_a_clickable_textured_pbr_cube)
+{
+	auto& spawner = engine.get_gui_manager().object_spawner;
+	ASSERT_TRUE(spawner.queue_object_spawn("textured cube"));
+	spawner.process(engine);
+
+	const auto object = std::ranges::find_if(engine.get_objects(), [](const auto& entry)
+	{
+		return !entry.second->is_transient();
+	});
+	ASSERT_NE(object, engine.get_objects().end());
+	const auto renderable_ids = engine.get_ecs().get_renderable_ids(object->first);
+	ASSERT_EQ(renderable_ids.size(), 1u);
+	const auto& renderable = engine.get_ecs()
+		.get_renderable(renderable_ids.front()).renderable;
+	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
+	EXPECT_NE(dynamic_cast<const TexMesh*>(&renderable.mesh_owner->get()), nullptr);
+	const auto& material = dynamic_cast<const PbrMaterial&>(
+		renderable.material_owners.front()->get());
+	ASSERT_TRUE(material.textures.base_color.has_value());
+	EXPECT_EQ(material.textures.base_color->texture,
+		renderable.material_owners[1]->get_id());
+	const auto& texture = dynamic_cast<const TextureMaterial&>(
+		renderable.material_owners[1]->get());
+	EXPECT_EQ(texture.semantic, ETextureSemantic::BASE_COLOR);
+
+	const auto clicked = engine.get_ecs().check_any_entity_clicked(
+		Maths::Ray(glm::vec3(0.0f, 0.0f, -2.0f), Maths::forward_vec));
+	ASSERT_TRUE(clicked.bCollided);
+	EXPECT_EQ(clicked.id, object->first);
+}
+
 TEST_F(GameEngineTests, scene_round_trips_generated_mesh_and_pbr_material)
 {
 	const glm::vec4 base_color(0.2f, 0.3f, 0.4f, 1.0f);
@@ -594,6 +699,180 @@ TEST_F(GameEngineTests, replaces_a_pbr_material_as_an_immutable_renderable_updat
 	EXPECT_FLOAT_EQ(material.data.roughness_factor, 0.25f);
 }
 
+TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
+{
+	auto loaded = ResourceLoader::load_model(
+		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
+	auto& object = engine.spawn_object<Object>();
+	const ObjectID object_id = object.get_id();
+	const RenderableID imported = engine.attach_renderable(
+		object_id, std::move(loaded.meshes.front().renderables.front()));
+	const auto& imported_material = dynamic_cast<const PbrMaterial&>(
+		engine.get_ecs().get_renderable(imported).renderable.material_owners.front()->get());
+
+	const RenderableID edited = engine.set_renderable_pbr_material(imported, PbrMaterialEdit{
+		.base_color_factor = imported_material.data.base_color_factor,
+		.metallic_factor = imported_material.data.metallic_factor,
+		.roughness_factor = 0.2f,
+		.normal_scale = imported_material.data.normal_scale,
+		.normal_texture = { .action = PbrTextureEdit::Action::Clear },
+	});
+	const auto* saved_override = ResourceProvenance::material_override(
+		engine.get_ecs().get_renderable(edited).renderable.material_owners.front()->get_id());
+	ASSERT_NE(saved_override, nullptr);
+	EXPECT_FALSE(saved_override->base_color_factor.has_value());
+	ASSERT_TRUE(saved_override->roughness_factor.has_value());
+	EXPECT_FLOAT_EQ(*saved_override->roughness_factor, 0.2f);
+	ASSERT_TRUE(saved_override->normal_texture.has_value());
+	EXPECT_EQ(saved_override->normal_texture->mode, PbrTextureOverride::Mode::Cleared);
+
+	const std::string save_name = "krisp_scene_imported_pbr_override_test";
+	const auto path = save_path(save_name);
+	engine.save_scene(save_name);
+	engine.load_scene(save_name);
+	const auto& restored_renderable = engine.get_ecs().get_renderable(
+		only_renderable_id(engine, object_id)).renderable;
+	const auto& restored = dynamic_cast<const PbrMaterial&>(
+		restored_renderable.material_owners.front()->get());
+	EXPECT_FLOAT_EQ(restored.data.roughness_factor, 0.2f);
+	EXPECT_TRUE(restored.textures.base_color.has_value());
+	EXPECT_FALSE(restored.textures.normal.has_value());
+	ASSERT_NE(ResourceProvenance::material_override(
+		restored_renderable.material_owners.front()->get_id()), nullptr);
+	std::filesystem::remove_all(path);
+}
+
+TEST_F(GameEngineTests, reverting_an_imported_factor_removes_the_sparse_override)
+{
+	auto loaded = ResourceLoader::load_model(
+		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
+	auto& object = engine.spawn_object<Object>();
+	const RenderableID imported = engine.attach_renderable(
+		object.get_id(), std::move(loaded.meshes.front().renderables.front()));
+	const auto& source = dynamic_cast<const PbrMaterial&>(
+		engine.get_ecs().get_renderable(imported).renderable.material_owners.front()->get());
+	const auto source_data = source.data;
+	const RenderableID changed = engine.set_renderable_pbr_material(imported, PbrMaterialEdit{
+		.base_color_factor = source_data.base_color_factor,
+		.metallic_factor = source_data.metallic_factor,
+		.roughness_factor = 0.2f,
+		.normal_scale = source_data.normal_scale,
+	});
+	const RenderableID reverted = engine.set_renderable_pbr_material(changed, PbrMaterialEdit{
+		.base_color_factor = source_data.base_color_factor,
+		.metallic_factor = source_data.metallic_factor,
+		.roughness_factor = source_data.roughness_factor,
+		.normal_scale = source_data.normal_scale,
+	});
+	const auto* material_override = ResourceProvenance::material_override(
+		engine.get_ecs().get_renderable(reverted).renderable.material_owners.front()->get_id());
+	ASSERT_NE(material_override, nullptr);
+	EXPECT_FALSE(material_override->roughness_factor.has_value());
+}
+
+TEST_F(GameEngineTests, scene_round_trips_distinct_semantics_for_one_gltf_texture_index)
+{
+	TemporaryMutatedGltf resource("normal_mapped_authored_tangents.gltf",
+		[](nlohmann::json& document)
+		{
+			document["materials"][0]["pbrMetallicRoughness"]
+				["metallicRoughnessTexture"] = { { "index", 0 } };
+		});
+	auto loaded = ResourceLoader::load_model(engine.get_ecs(), resource.filename());
+	auto& object = engine.spawn_object<Object>();
+	const ObjectID object_id = object.get_id();
+	engine.attach_renderable(
+		object_id, std::move(loaded.meshes.front().renderables.front()));
+	const std::string save_name = "krisp_scene_shared_gltf_texture_semantics_test";
+	const auto path = save_path(save_name);
+
+	engine.save_scene(save_name);
+	engine.load_scene(save_name);
+	const auto& restored = engine.get_ecs().get_renderable(
+		only_renderable_id(engine, object_id)).renderable;
+	const auto& pbr = dynamic_cast<const PbrMaterial&>(
+		restored.material_owners.front()->get());
+	ASSERT_TRUE(pbr.textures.base_color.has_value());
+	ASSERT_TRUE(pbr.textures.metallic_roughness.has_value());
+	EXPECT_NE(
+		pbr.textures.base_color->texture,
+		pbr.textures.metallic_roughness->texture);
+	const auto find_texture = [&restored](const MaterialID id) -> const TextureMaterial*
+	{
+		const auto owner = std::ranges::find_if(
+			restored.material_owners,
+			[id](const MaterialHandle& candidate) { return candidate->get_id() == id; });
+		return owner == restored.material_owners.end()
+			? nullptr : dynamic_cast<const TextureMaterial*>(&(*owner)->get());
+	};
+	const auto* base_color = find_texture(pbr.textures.base_color->texture);
+	const auto* metallic_roughness = find_texture(pbr.textures.metallic_roughness->texture);
+	ASSERT_NE(base_color, nullptr);
+	ASSERT_NE(metallic_roughness, nullptr);
+	EXPECT_EQ(base_color->semantic, ETextureSemantic::BASE_COLOR);
+	EXPECT_EQ(metallic_roughness->semantic, ETextureSemantic::METALLIC_ROUGHNESS);
+	std::filesystem::remove_all(path);
+}
+
+TEST_F(GameEngineTests, scene_round_trips_replaced_imported_texture_override)
+{
+	auto loaded = ResourceLoader::load_model(
+		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
+	auto& object = engine.spawn_object<Object>();
+	const ObjectID object_id = object.get_id();
+	const RenderableID imported = engine.attach_renderable(
+		object_id, std::move(loaded.meshes.front().renderables.front()));
+	const auto& imported_material = dynamic_cast<const PbrMaterial&>(
+		engine.get_ecs().get_renderable(imported).renderable.material_owners.front()->get());
+	engine.set_renderable_pbr_material(imported, PbrMaterialEdit{
+		.base_color_factor = imported_material.data.base_color_factor,
+		.metallic_factor = imported_material.data.metallic_factor,
+		.roughness_factor = imported_material.data.roughness_factor,
+		.normal_scale = imported_material.data.normal_scale,
+		.base_color_texture = {
+			.action = PbrTextureEdit::Action::Replace,
+			.source = "texture.jpg",
+		},
+	});
+	const std::string save_name = "krisp_scene_replaced_imported_texture_test";
+	const auto path = save_path(save_name);
+
+	engine.save_scene(save_name);
+	engine.load_scene(save_name);
+	const auto& restored = engine.get_ecs().get_renderable(
+		only_renderable_id(engine, object_id)).renderable;
+	const auto& pbr = dynamic_cast<const PbrMaterial&>(
+		restored.material_owners.front()->get());
+	ASSERT_TRUE(pbr.textures.base_color.has_value());
+	const auto replacement = std::ranges::find_if(
+		restored.material_owners,
+		[&pbr](const MaterialHandle& owner)
+		{
+			return owner->get_id() == pbr.textures.base_color->texture;
+		});
+	ASSERT_NE(replacement, restored.material_owners.end());
+	const auto* texture = dynamic_cast<const TextureMaterial*>(&(*replacement)->get());
+	ASSERT_NE(texture, nullptr);
+	EXPECT_EQ(texture->semantic, ETextureSemantic::BASE_COLOR);
+	EXPECT_EQ(texture->source, "texture.jpg");
+	EXPECT_NE(texture->data, nullptr);
+	const auto* source = ResourceProvenance::material(texture->get_id());
+	ASSERT_NE(source, nullptr);
+	EXPECT_EQ(source->kind, EExternalResourceKind::Texture);
+	EXPECT_EQ(source->source, "texture.jpg");
+	const auto* material_override = ResourceProvenance::material_override(
+		pbr.get_id());
+	ASSERT_NE(material_override, nullptr);
+	ASSERT_TRUE(material_override->base_color_texture.has_value());
+	EXPECT_EQ(
+		material_override->base_color_texture->mode,
+		PbrTextureOverride::Mode::Replaced);
+	EXPECT_EQ(
+		material_override->base_color_texture->texture,
+		texture->get_id());
+	std::filesystem::remove_all(path);
+}
+
 TEST_F(GameEngineTests, scene_round_trips_manual_exposure)
 {
 	const std::string save_name = "krisp_scene_exposure_test";
@@ -642,10 +921,16 @@ TEST_F(GameEngineTests, scene_round_trips_generated_texture_payload_and_metadata
 		std::byte{5}, std::byte{6}, std::byte{7}, std::byte{8} };
 	texture->data = std::make_unique<OwnedTextureData>(pixels);
 	auto texture_owner = engine.get_ecs().get_material_system().add(std::move(texture));
+	PbrMaterial::TextureSlots texture_slots{
+		.normal = PbrMaterial::TextureBinding{ texture_owner->get_id() },
+	};
+	auto pbr_owner = engine.get_ecs().get_material_system().add(
+		std::make_unique<PbrMaterial>(
+			glm::vec4(1.0f), 1.0f, 1.0f, texture_slots));
 	auto mesh_owner = engine.get_ecs().get_mesh_system().add(
 		MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 	Renderable renderable{ .pipeline_render_type = ERenderType::STANDARD,
-		.mesh_owner = mesh_owner, .material_owners = { texture_owner } };
+		.mesh_owner = mesh_owner, .material_owners = { pbr_owner, texture_owner } };
 	auto& object = spawn_renderable_object(engine, renderable);
 	const auto object_id = object.get_id();
 	const std::string save_name = "krisp_scene_generated_texture_test";
@@ -658,7 +943,7 @@ TEST_F(GameEngineTests, scene_round_trips_generated_texture_payload_and_metadata
 	engine.load_scene(save_name);
 	const auto& restored = dynamic_cast<const TextureMaterial&>(
 		engine.get_ecs().get_renderable(only_renderable_id(engine, object_id))
-			.renderable.material_owners[0]->get());
+			.renderable.material_owners[1]->get());
 	EXPECT_EQ(restored.width, 2u);
 	EXPECT_EQ(restored.height, 1u);
 	EXPECT_EQ(restored.semantic, ETextureSemantic::NORMAL);

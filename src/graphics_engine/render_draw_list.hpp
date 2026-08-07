@@ -25,6 +25,7 @@ enum class RenderableDrawClass
 struct RenderSortKey
 {
 	ERenderType render_type;
+	EShadingMode shading_mode;
 	EAlphaMode alpha_mode;
 	MeshID mesh_id;
 	std::vector<MaterialID> material_ids;

@@ -5,12 +5,16 @@
 #include <entity_component_system/skeletal.hpp>
 #include <game_engine.hpp>
 #include <iapplication.hpp>
+#include <maths.hpp>
 #include <objects/object.hpp>
 #include <renderable/material.hpp>
 #include <renderable/mesh_factory.hpp>
+#include <resource_loader/resource_loader.hpp>
 
 #include <array>
+#include <optional>
 #include <string>
+#include <vector>
 
 
 namespace
@@ -28,10 +32,30 @@ public:
 		spawn_factor_grid(engine);
 		spawn_floor_and_transform_reference(engine);
 		spawn_skinned_reference(engine);
+		spawn_texture_proof(engine);
 		spawn_point_light(engine);
 	}
 
 private:
+	struct ProofTextures
+	{
+		MaterialHandle base_color;
+		MaterialHandle metallic_roughness;
+		MaterialHandle normal;
+	};
+
+	struct TextureProofCase
+	{
+		const char* name;
+		glm::vec4 base_color_factor;
+		float metallic_factor;
+		float roughness_factor;
+		PbrMaterial::TextureSlots textures;
+		float normal_scale = 1.0f;
+		bool repeated_uvs = false;
+		bool non_uniform_transform = false;
+	};
+
 	static void attach_pbr_mesh(
 		GameEngine& engine,
 		const MeshHandle& mesh,
@@ -154,6 +178,189 @@ private:
 		transform.set_scale(glm::vec3(0.75f));
 	}
 
+	static MeshHandle make_texture_cube(
+		GameEngine& engine, const float uv_scale, const bool rotate_vertices = false)
+	{
+		auto source_mesh = MeshFactory::cube(MeshFactory::EVertexType::TEXTURE);
+		const auto& source = dynamic_cast<const TexMesh&>(*source_mesh);
+		auto vertices = source.get_vertices();
+		const glm::mat3 vertex_rotation = glm::mat3_cast(glm::angleAxis(
+			Maths::PI * 0.2f, glm::normalize(glm::vec3(1.0f, 1.0f, 0.5f))));
+		for (auto& vertex : vertices)
+		{
+			vertex.texCoord *= uv_scale;
+			if (rotate_vertices)
+			{
+				vertex.pos = vertex_rotation * vertex.pos;
+				vertex.normal = vertex_rotation * vertex.normal;
+				vertex.tangent = glm::vec4(
+					vertex_rotation * glm::vec3(vertex.tangent), vertex.tangent.w);
+			}
+		}
+		return engine.get_ecs().get_mesh_system().add(std::make_unique<TexMesh>(
+			std::move(vertices), VertexIndices(source.get_indices())));
+	}
+
+	static MeshHandle make_skinned_texture_cube(
+		GameEngine& engine, const MeshHandle& texture_cube)
+	{
+		const auto& source = dynamic_cast<const TexMesh&>(texture_cube->get());
+		SkinnedVertices vertices;
+		vertices.reserve(source.get_vertices().size());
+		for (const auto& source_vertex : source.get_vertices())
+		{
+			SDS::SkinnedVertex vertex{};
+			vertex.pos = source_vertex.pos;
+			vertex.normal = source_vertex.normal;
+			vertex.texCoord = source_vertex.texCoord;
+			vertex.tangent = source_vertex.tangent;
+			vertex.bone_ids = glm::vec4(0.0f);
+			vertex.bone_weights = glm::vec4(1.0f, 0.0f, 0.0f, 0.0f);
+			vertices.push_back(vertex);
+		}
+		return engine.get_ecs().get_mesh_system().add(std::make_unique<SkinnedMesh>(
+			std::move(vertices), VertexIndices(source.get_indices())));
+	}
+
+	static void attach_texture_proof_mesh(
+		GameEngine& engine,
+		const MeshHandle& mesh,
+		const std::optional<SkeletonID> skeleton,
+		const ProofTextures& owners,
+		const TextureProofCase& proof,
+		const glm::vec3 position)
+	{
+		auto material = engine.get_ecs().get_material_system().add(
+			std::make_unique<PbrMaterial>(
+				proof.base_color_factor,
+				proof.metallic_factor,
+				proof.roughness_factor,
+				proof.textures,
+				proof.normal_scale));
+		std::vector<MaterialHandle> material_owners{ std::move(material) };
+		const auto retain = [&](
+			const std::optional<PbrMaterial::TextureBinding>& binding,
+			const MaterialHandle& owner)
+		{
+			if (binding)
+				material_owners.push_back(owner);
+		};
+		retain(proof.textures.base_color, owners.base_color);
+		retain(proof.textures.metallic_roughness, owners.metallic_roughness);
+		retain(proof.textures.normal, owners.normal);
+
+		const std::string name = std::string(skeleton ? "Skinned " : "Static ") + proof.name;
+		Renderable renderable{
+			.name = name,
+			.pipeline_render_type = skeleton ? ERenderType::SKINNED : ERenderType::STANDARD,
+			.mesh_owner = mesh,
+			.material_owners = std::move(material_owners),
+		};
+		auto& object = engine.spawn_object<Object>();
+		object.set_name(name);
+		engine.attach_renderable(object.get_id(), std::move(renderable), skeleton);
+		auto& transform = engine.get_ecs().get_transformation(object.get_id());
+		transform.set_position(position);
+		if (proof.non_uniform_transform)
+			transform.set_scale(glm::vec3(-0.38f, 0.68f, 0.28f));
+		else
+			transform.set_scale(glm::vec3(skeleton ? 0.48f : 0.55f));
+	}
+
+	static void spawn_texture_proof(GameEngine& engine)
+	{
+		auto& materials = engine.get_ecs().get_material_system();
+		const ProofTextures texture_owners{
+			.base_color = ResourceLoader::fetch_texture(
+				materials, "pbr_proof_base.png", ETextureSemantic::BASE_COLOR),
+			.metallic_roughness = ResourceLoader::fetch_texture(
+				materials,
+				"pbr_proof_metallic_roughness.png",
+				ETextureSemantic::METALLIC_ROUGHNESS),
+			.normal = ResourceLoader::fetch_texture(
+				materials, "pbr_proof_normal.png", ETextureSemantic::NORMAL),
+		};
+		const auto binding = [](
+			const MaterialHandle& owner,
+			const PbrMaterial::TextureSampler sampler = PbrMaterial::TextureSampler::REPEAT)
+		{
+			return PbrMaterial::TextureBinding{ owner->get_id(), sampler };
+		};
+
+		PbrMaterial::TextureSlots base_only;
+		base_only.base_color = binding(texture_owners.base_color);
+		PbrMaterial::TextureSlots metallic_roughness_only;
+		metallic_roughness_only.metallic_roughness = binding(
+			texture_owners.metallic_roughness);
+		PbrMaterial::TextureSlots normal_only;
+		normal_only.normal = binding(texture_owners.normal);
+		PbrMaterial::TextureSlots combined{
+			.base_color = binding(texture_owners.base_color),
+			.metallic_roughness = binding(texture_owners.metallic_roughness),
+			.normal = binding(texture_owners.normal),
+		};
+		PbrMaterial::TextureSlots clamped_base;
+		clamped_base.base_color = binding(
+			texture_owners.base_color, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+
+		const std::array proofs{
+			TextureProofCase{ "base-colour texture", glm::vec4(1.0f), 0.0f, 0.55f, base_only },
+			TextureProofCase{ "packed metallic-roughness texture", glm::vec4(0.75f), 1.0f, 1.0f, metallic_roughness_only },
+			TextureProofCase{
+				"normal texture scale 1 with non-uniform transform",
+				glm::vec4(0.55f, 0.65f, 0.9f, 1.0f),
+				0.0f,
+				0.5f,
+				normal_only,
+				1.0f,
+				false,
+				true },
+			TextureProofCase{ "all textures combined", glm::vec4(1.0f), 1.0f, 1.0f, combined },
+			TextureProofCase{ "texture-factor multiplication", glm::vec4(0.35f, 1.0f, 0.35f, 1.0f), 0.45f, 0.65f, combined },
+			TextureProofCase{ "normal texture scale 2", glm::vec4(0.55f, 0.65f, 0.9f, 1.0f), 0.0f, 0.5f, normal_only, 2.0f },
+			TextureProofCase{ "repeat sampler", glm::vec4(1.0f), 0.0f, 0.55f, base_only, 1.0f, true },
+			TextureProofCase{ "clamp-to-edge sampler", glm::vec4(1.0f), 0.0f, 0.55f, clamped_base, 1.0f, true },
+		};
+
+		const auto static_cube = make_texture_cube(engine, 1.0f);
+		const auto repeating_static_cube = make_texture_cube(engine, 3.0f);
+		const auto non_uniform_static_cube = make_texture_cube(engine, 1.0f, true);
+		const auto skinned_cube = make_skinned_texture_cube(engine, static_cube);
+		const auto repeating_skinned_cube = make_skinned_texture_cube(
+			engine, repeating_static_cube);
+		const auto non_uniform_skinned_cube = make_skinned_texture_cube(
+			engine, non_uniform_static_cube);
+		Bone root;
+		root.name = "Textured PBR proof root";
+		const SkeletonID skeleton = engine.get_ecs().add_skeleton({ root });
+		auto& root_pose = engine.get_ecs().get_skeletal_component(skeleton)
+			.get_bone_local_transform(0);
+		root_pose.set_pos(glm::vec3(0.08f, 0.0f, 0.0f));
+		root_pose.set_orient(glm::angleAxis(Maths::PI * 0.08f, Maths::forward_vec));
+
+		for (size_t column = 0; column < proofs.size(); ++column)
+		{
+			const float x = (static_cast<float>(column) - 3.5f) * 1.65f;
+			const auto& proof = proofs[column];
+			attach_texture_proof_mesh(
+				engine,
+				proof.non_uniform_transform ? non_uniform_static_cube
+					: proof.repeated_uvs ? repeating_static_cube : static_cube,
+				std::nullopt,
+				texture_owners,
+				proof,
+				glm::vec3(x, 5.55f, 0.8f));
+			attach_texture_proof_mesh(
+				engine,
+				proof.non_uniform_transform ? non_uniform_skinned_cube
+					: proof.repeated_uvs ? repeating_skinned_cube : skinned_cube,
+				skeleton,
+				texture_owners,
+				proof,
+				glm::vec3(x, 6.75f, 0.8f));
+		}
+	}
+
 	static void spawn_point_light(GameEngine& engine)
 	{
 		auto& light = engine.spawn_object<Object>();
@@ -164,6 +371,7 @@ private:
 		Renderable marker{
 			.name = "Point-light handle",
 			.pipeline_render_type = ERenderType::COLOR,
+			.shading_mode = EShadingMode::UNLIT,
 			.casts_shadow = false,
 			.mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::sphere(
 				MeshFactory::EVertexType::COLOR,
@@ -175,10 +383,7 @@ private:
 						glm::vec4(1.0f, 0.55f, 0.05f, 1.0f), 0.0f, 0.25f)),
 			},
 		};
-		// Keep the visible handle just below the mathematical point so the light
-		// illuminates it instead of sitting inside its own geometry. The gizmo
-		// remains centred on the actual light position.
-		marker.local_transform.set_pos(glm::vec3(0.0f, -0.65f, 0.0f));
+		marker.local_transform.set_scale(glm::vec3(1.0f / 3.0f));
 		engine.attach_renderable(light.get_id(), std::move(marker));
 		engine.get_ecs().add_light_source(light.get_id(), LightComponent{
 			.intensity = 225.0f,

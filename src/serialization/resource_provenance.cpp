@@ -3,10 +3,14 @@
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
 
+#include <algorithm>
+#include <ranges>
+
 namespace
 {
 std::unordered_map<MeshID, ImportedResourceProvenance> meshes;
-std::unordered_map<MaterialID, ImportedResourceProvenance> materials;
+std::unordered_map<MaterialID, std::vector<ImportedResourceProvenance>> materials;
+std::unordered_map<MaterialID, ImportedPbrMaterialOverride> material_overrides;
 std::unordered_map<SkeletonID, ImportedResourceProvenance> skeletons;
 std::unordered_map<AnimationID, ImportedResourceProvenance> animations;
 
@@ -19,11 +23,40 @@ const ImportedResourceProvenance* find(const std::unordered_map<ID, ImportedReso
 }
 
 void ResourceProvenance::register_mesh(MeshID id, ImportedResourceProvenance provenance) { meshes.insert_or_assign(id, std::move(provenance)); }
-void ResourceProvenance::register_material(MaterialID id, ImportedResourceProvenance provenance) { materials.insert_or_assign(id, std::move(provenance)); }
+void ResourceProvenance::register_material(MaterialID id, ImportedResourceProvenance provenance)
+{
+	auto& aliases = materials[id];
+	const auto same = [&provenance](const ImportedResourceProvenance& value)
+	{
+		return value.kind == provenance.kind && value.source == provenance.source
+			&& value.scene == provenance.scene && value.node == provenance.node
+			&& value.primitive == provenance.primitive && value.material == provenance.material
+			&& value.image == provenance.image
+			&& value.texture_semantic == provenance.texture_semantic
+			&& value.skin == provenance.skin
+			&& value.animation == provenance.animation;
+	};
+	if (std::ranges::none_of(aliases, same))
+		aliases.push_back(std::move(provenance));
+}
+void ResourceProvenance::register_material_override(
+	MaterialID id, ImportedPbrMaterialOverride material_override)
+{
+	material_overrides.insert_or_assign(id, std::move(material_override));
+}
 void ResourceProvenance::register_skeleton(SkeletonID id, ImportedResourceProvenance provenance) { skeletons.insert_or_assign(id, std::move(provenance)); }
 void ResourceProvenance::register_animation(AnimationID id, ImportedResourceProvenance provenance) { animations.insert_or_assign(id, std::move(provenance)); }
 const ImportedResourceProvenance* ResourceProvenance::mesh(MeshID id) { return find(meshes, id); }
-const ImportedResourceProvenance* ResourceProvenance::material(MaterialID id) { return find(materials, id); }
+const ImportedResourceProvenance* ResourceProvenance::material(MaterialID id)
+{
+	const auto it = materials.find(id);
+	return it == materials.end() || it->second.empty() ? nullptr : &it->second.front();
+}
+const ImportedPbrMaterialOverride* ResourceProvenance::material_override(MaterialID id)
+{
+	const auto it = material_overrides.find(id);
+	return it == material_overrides.end() ? nullptr : &it->second;
+}
 const ImportedResourceProvenance* ResourceProvenance::skeleton(SkeletonID id) { return find(skeletons, id); }
 const ImportedResourceProvenance* ResourceProvenance::animation(AnimationID id) { return find(animations, id); }
 std::optional<MeshID> ResourceProvenance::find_mesh(
@@ -39,12 +72,15 @@ std::optional<MeshID> ResourceProvenance::find_mesh(
 std::optional<MaterialID> ResourceProvenance::find_material(
 	const MaterialSystem& material_system, const ImportedResourceProvenance& provenance)
 {
-	for (const auto& [id, value] : materials)
-		if (material_system.contains(id)
-			&& value.kind == provenance.kind && value.source == provenance.source && value.scene == provenance.scene
-			&& value.node == provenance.node && value.primitive == provenance.primitive
-			&& value.material == provenance.material && value.texture == provenance.texture)
-			return id;
+	for (const auto& [id, aliases] : materials)
+		if (material_system.contains(id))
+			for (const auto& value : aliases)
+				if (value.kind == provenance.kind && value.source == provenance.source
+					&& value.scene == provenance.scene && value.node == provenance.node
+					&& value.primitive == provenance.primitive
+					&& value.material == provenance.material && value.image == provenance.image
+					&& value.texture_semantic == provenance.texture_semantic)
+					return id;
 	return std::nullopt;
 }
 std::optional<SkeletonID> ResourceProvenance::find_skeleton(const ImportedResourceProvenance& provenance)
@@ -63,13 +99,18 @@ std::optional<AnimationID> ResourceProvenance::find_animation(const ImportedReso
 	return std::nullopt;
 }
 void ResourceProvenance::erase_mesh(MeshID id) { meshes.erase(id); }
-void ResourceProvenance::erase_material(MaterialID id) { materials.erase(id); }
+void ResourceProvenance::erase_material(MaterialID id)
+{
+	materials.erase(id);
+	material_overrides.erase(id);
+}
 void ResourceProvenance::erase_skeleton(SkeletonID id) { skeletons.erase(id); }
 void ResourceProvenance::erase_animation(AnimationID id) { animations.erase(id); }
 void ResourceProvenance::clear()
 {
 	meshes.clear();
 	materials.clear();
+	material_overrides.clear();
 	skeletons.clear();
 	animations.clear();
 }

@@ -16,6 +16,7 @@
 #include <fmt/color.h>
 
 #include <stdexcept>
+#include <array>
 #include <thread>
 #include <chrono>
 #include <vector>
@@ -692,12 +693,6 @@ void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_rend
 	// per frame resource and therefore we only need 1 copy
 	auto &rsrc_mgr = get_rsrc_mgr();
 	const auto &renderable = graphics_renderable.get_definition();
-	if (renderable.pipeline_render_type == ERenderType::STANDARD
-		|| renderable.pipeline_render_type == ERenderType::SKINNED)
-	{
-		throw std::runtime_error(
-			"GraphicsEngine: textured lit renderables are unsupported in factor-only PBR");
-	}
 	// reserve and write to mesh buffer (actually vertex and index buffers)
 	const auto &mesh = renderable.get_mesh();
 	rsrc_mgr.write_to_buffer(mesh.get_id(), mesh);
@@ -706,13 +701,12 @@ void GraphicsEngine::create_renderable_buffers(GraphicsRenderable &graphics_rend
 	switch (renderable.pipeline_render_type)
 	{
 	case ERenderType::COLOR:
+	case ERenderType::STANDARD:
+	case ERenderType::SKINNED:
 	case ERenderType::SKINNED_COLOR: {
-		const FlatMatGroup flat_mat_group(renderable.material_owners);
-		const auto *material = dynamic_cast<const PbrMaterial *>(&renderable.get_material(0));
-		if (!material)
-			throw std::runtime_error(fmt::format("GraphicsEngine: material {} is not a PbrMaterial",
-			                                     flat_mat_group.color_mat.get_underlying()));
-		rsrc_mgr.write_to_buffer(flat_mat_group.color_mat, material->data);
+		const PbrMatGroup materials(renderable.material_owners);
+		rsrc_mgr.write_to_buffer(
+			renderable.material_owners.front()->get_id(), materials.pbr().data);
 		break;
 	}
 	default:
@@ -798,8 +792,10 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 
 	// TODO: after resolving above todo, need to move this within the below switch statement
 	const GraphicsBuffer::Slot mat_slot = [&]() {
-		if (renderable.pipeline_render_type != ERenderType::COLOR &&
-		    renderable.pipeline_render_type != ERenderType::SKINNED_COLOR)
+		if (renderable.pipeline_render_type != ERenderType::COLOR
+			&& renderable.pipeline_render_type != ERenderType::STANDARD
+			&& renderable.pipeline_render_type != ERenderType::SKINNED
+			&& renderable.pipeline_render_type != ERenderType::SKINNED_COLOR)
 		{
 			// TODO: this needs to be properly fixed
 			GraphicsBuffer::Slot slot;
@@ -808,8 +804,8 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 			return slot;
 		}
 
-		const FlatMatGroup flat_material_group(renderable.material_owners);
-		return get_rsrc_mgr().get_buffer_slot(flat_material_group.color_mat);
+		const PbrMatGroup materials(renderable.material_owners);
+		return get_rsrc_mgr().get_buffer_slot(renderable.material_owners.front()->get_id());
 	}();
 	VkDescriptorBufferInfo material_buffer_info{};
 	material_buffer_info.buffer = get_rsrc_mgr().get_materials_buffer();
@@ -826,6 +822,50 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 
 	switch (renderable.pipeline_render_type)
 	{
+	case ERenderType::STANDARD:
+	case ERenderType::SKINNED: {
+		const PbrMatGroup materials(renderable.material_owners);
+		const auto image_info = [this, &materials](
+			const std::optional<PbrMaterial::TextureBinding>& binding,
+			const ETextureSemantic semantic)
+		{
+			const GraphicsEngineTexture* texture = nullptr;
+			if (binding)
+				texture = &get_texture_mgr().fetch_texture(
+					materials.texture_owner(*binding), binding->sampler);
+			else
+				texture = &get_texture_mgr().fetch_neutral_texture(semantic);
+			return VkDescriptorImageInfo{
+				.sampler = texture->get_texture_sampler(),
+				.imageView = texture->get_texture_image_view(),
+				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			};
+		};
+		const std::array image_infos{
+			image_info(materials.pbr().textures.base_color, ETextureSemantic::BASE_COLOR),
+			image_info(materials.pbr().textures.normal, ETextureSemantic::NORMAL),
+			image_info(materials.pbr().textures.metallic_roughness,
+				ETextureSemantic::METALLIC_ROUGHNESS),
+		};
+		const std::array<uint32_t, 3> bindings{
+			SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING,
+			SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING,
+			SDS::RASTERIZATION_METALLIC_ROUGHNESS_TEXTURE_DATA_BINDING,
+		};
+		for (size_t index = 0; index < image_infos.size(); ++index)
+		{
+			VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			write.dstSet = new_descriptor_set;
+			write.dstBinding = bindings[index];
+			write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			write.descriptorCount = 1;
+			write.pImageInfo = &image_infos[index];
+			descriptor_writes.push_back(write);
+		}
+		vkUpdateDescriptorSets(get_logical_device(), static_cast<uint32_t>(descriptor_writes.size()),
+			descriptor_writes.data(), 0, nullptr);
+		break;
+	}
 	case ERenderType::CUBEMAP: {
 		VkDescriptorImageInfo image_info{};
 		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

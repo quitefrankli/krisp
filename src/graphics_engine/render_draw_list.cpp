@@ -11,12 +11,14 @@ bool RenderSortKey::operator<(const RenderSortKey& other) const
 {
 	return std::tie(
 		render_type,
+		shading_mode,
 		alpha_mode,
 		mesh_id,
 		material_ids,
 		renderable_id)
 		< std::tie(
-			other.render_type,
+		other.render_type,
+		other.shading_mode,
 		other.alpha_mode,
 		other.mesh_id,
 		other.material_ids,
@@ -36,7 +38,8 @@ RenderableDrawClass classify_renderable(const RenderableDefinition& renderable)
 
 bool renderable_casts_shadow(const RenderableDefinition& renderable)
 {
-	return renderable.casts_shadow && renderable.alpha_mode != EAlphaMode::BLEND;
+	return renderable.shading_mode == EShadingMode::LIT
+		&& renderable.casts_shadow && renderable.alpha_mode != EAlphaMode::BLEND;
 }
 
 RenderSortKey make_render_sort_key(
@@ -45,6 +48,7 @@ RenderSortKey make_render_sort_key(
 {
 	return {
 		.render_type = renderable.pipeline_render_type,
+		.shading_mode = renderable.shading_mode,
 		.alpha_mode = renderable.alpha_mode,
 		.mesh_id = renderable.get_mesh_id(),
 		.material_ids = renderable.get_material_ids(),

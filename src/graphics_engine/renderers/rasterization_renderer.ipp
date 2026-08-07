@@ -167,12 +167,21 @@ void RasterizationRenderer::submit_draw_commands(
 
 	const auto& draw_lists = get_graphics_engine().get_draw_lists();
 	const auto& stenciled_ids = get_graphics_engine().get_stenciled_object_ids();
-	const EPipelineModifier modifier =
-		get_graphics_engine().get_render_mode() == ERenderMode::WIREFRAME
-		? EPipelineModifier::WIREFRAME
-		: get_graphics_engine().get_render_mode() == ERenderMode::UNLIT_BASE_COLOR
-			? EPipelineModifier::UNLIT_BASE_COLOR
-			: EPipelineModifier::NONE;
+	struct DrawStyle
+	{
+		EPipelineModifier modifier = EPipelineModifier::NONE;
+		std::optional<EShadingMode> shading_override;
+	};
+	const auto regular_style = [this](const GraphicsDrawItem& item)
+	{
+		if (item.renderable->shading_mode == EShadingMode::UNLIT)
+			return DrawStyle{ .shading_override = EShadingMode::UNLIT };
+		if (get_graphics_engine().get_render_mode() == ERenderMode::WIREFRAME)
+			return DrawStyle{ .modifier = EPipelineModifier::WIREFRAME };
+		if (get_graphics_engine().get_render_mode() == ERenderMode::UNLIT_BASE_COLOR)
+			return DrawStyle{ .shading_override = EShadingMode::UNLIT };
+		return DrawStyle{};
+	};
 	const auto is_stenciled = [&stenciled_ids](const GraphicsDrawItem& item) {
 		const auto object_id = item.graphics_renderable->get_object_id();
 		return object_id && stenciled_ids.contains(*object_id);
@@ -182,20 +191,22 @@ void RasterizationRenderer::submit_draw_commands(
 			|| (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED
 				&& is_stenciled(item));
 	};
-	const auto draw_item = [&](const GraphicsDrawItem& item, const EPipelineModifier item_modifier) {
+	const auto draw_item = [&](const GraphicsDrawItem& item, const DrawStyle style) {
 		draw_renderable(
 			command_buffer,
 			*item.renderable,
 			item.graphics_renderable->get_frame_dset(frame_index),
 			item.graphics_renderable->get_dset(),
-			item_modifier);
+			style.modifier,
+			ERenderType::UNASSIGNED,
+			style.shading_override);
 	};
 
 	for (const GraphicsDrawItem* item : draw_lists.opaque())
 	{
 		if (skip_regular_draw(*item))
 			continue;
-		draw_item(*item, modifier);
+		draw_item(*item, regular_style(*item));
 	}
 
 	const glm::vec3 camera_position =
@@ -219,7 +230,7 @@ void RasterizationRenderer::submit_draw_commands(
 	std::ranges::sort(blended_items, blended_order);
 	for (const GraphicsDrawItem* item : blended_items)
 		if (!skip_regular_draw(*item))
-			draw_item(*item, modifier);
+			draw_item(*item, regular_style(*item));
 	
 	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)
 	{
@@ -233,9 +244,9 @@ void RasterizationRenderer::submit_draw_commands(
 		});
 
 		for (const GraphicsDrawItem* item : stencil_items)
-			draw_item(*item, EPipelineModifier::POST_STENCIL);
+			draw_item(*item, DrawStyle{ .modifier = EPipelineModifier::POST_STENCIL });
 		for (const GraphicsDrawItem* item : stencil_items)
-			draw_item(*item, EPipelineModifier::STENCIL);
+			draw_item(*item, DrawStyle{ .modifier = EPipelineModifier::STENCIL });
 	}
 
 	// Render overlay renderables (gizmos etc.) on top after clearing depth.
@@ -251,13 +262,13 @@ void RasterizationRenderer::submit_draw_commands(
 
 		for (const GraphicsDrawItem* item : draw_lists.overlay_opaque())
 			if (!skip_regular_draw(*item))
-				draw_item(*item, modifier);
+				draw_item(*item, regular_style(*item));
 
 		std::vector overlay_blended_items = draw_lists.overlay_blended();
 		std::ranges::sort(overlay_blended_items, blended_order);
 		for (const GraphicsDrawItem* item : overlay_blended_items)
 			if (!skip_regular_draw(*item))
-				draw_item(*item, modifier);
+				draw_item(*item, regular_style(*item));
 	}
 
 	// Render particles within the same render pass (skip in wireframe mode)

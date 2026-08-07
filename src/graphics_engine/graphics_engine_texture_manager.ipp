@@ -10,7 +10,8 @@ namespace
 {
 VkFormat texture_format(const TextureMaterial& material)
 {
-	const bool linear = material.semantic == ETextureSemantic::NORMAL;
+	const bool linear = material.semantic == ETextureSemantic::NORMAL
+		|| material.semantic == ETextureSemantic::METALLIC_ROUGHNESS;
 	if (material.format == ETextureFormat::BC3)
 	{
 		return linear
@@ -46,6 +47,8 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 	{
 		texture_unit.destroy(get_logical_device());
 	}
+	for (auto& [semantic, texture_unit] : neutral_textures)
+		texture_unit.destroy(get_logical_device());
 
 	for (auto& [sampler_type, sampler] : samplers)
 	{
@@ -55,7 +58,7 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 	const MaterialHandle& material_owner,
-	ETextureSamplerType sampler_type)
+	PbrMaterial::TextureSampler sampler_type)
 {
 	const MaterialID id = material_owner->get_id();
 	if (texture_units.contains(id))
@@ -71,7 +74,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_texture(
 	return texture_units.emplace(id, create_texture(material, sampler_type)).first->second;
 }
 
-VkSampler GraphicsEngineTextureManager::fetch_sampler(ETextureSamplerType sampler_type)
+VkSampler GraphicsEngineTextureManager::fetch_sampler(PbrMaterial::TextureSampler sampler_type)
 {
 	auto it = samplers.find(sampler_type);
 	if (it != samplers.end())
@@ -80,6 +83,31 @@ VkSampler GraphicsEngineTextureManager::fetch_sampler(ETextureSamplerType sample
 	}
 
 	return samplers.emplace(sampler_type, create_texture_sampler(sampler_type)).first->second;
+}
+
+GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_neutral_texture(
+	const ETextureSemantic semantic)
+{
+	if (semantic == ETextureSemantic::COUNT)
+		throw std::invalid_argument("invalid neutral texture semantic");
+	if (neutral_textures.contains(semantic))
+		return neutral_textures.at(semantic);
+
+	std::vector<std::byte> pixel{
+		std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255} };
+	if (semantic == ETextureSemantic::NORMAL)
+		pixel = { std::byte{128}, std::byte{128}, std::byte{255}, std::byte{255} };
+	TextureMaterial material;
+	material.data = std::make_unique<OwnedTextureData>(std::move(pixel));
+	material.data_len = 4;
+	material.width = 1;
+	material.height = 1;
+	material.channels = 4;
+	material.mip_sizes = { 4 };
+	material.semantic = semantic;
+	material.source = "(neutral PBR binding)";
+	return neutral_textures.emplace(
+		semantic, create_texture(material, PbrMaterial::TextureSampler::REPEAT)).first->second;
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
@@ -130,7 +158,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_VIEW_TYPE_CUBE,
 		material_group.size());
-	VkSampler texture_sampler = fetch_sampler(ETextureSamplerType::ADDR_MODE_REPEAT);
+	VkSampler texture_sampler = fetch_sampler(PbrMaterial::TextureSampler::REPEAT);
 
 	GraphicsEngineTexture texture_object(
 		texture_image,
@@ -154,7 +182,7 @@ void GraphicsEngineTextureManager::free_texture(MaterialID id)
 
 GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	const TextureMaterial& material,
-	ETextureSamplerType sampler_type)
+	PbrMaterial::TextureSampler sampler_type)
 {
 	const VkFormat format = texture_format(material);
 	VkFormatProperties format_properties;
@@ -310,15 +338,15 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		num_textures);
 }
 
-VkSampler GraphicsEngineTextureManager::create_texture_sampler(ETextureSamplerType sampler_type)
+VkSampler GraphicsEngineTextureManager::create_texture_sampler(PbrMaterial::TextureSampler sampler_type)
 {
 	VkSamplerAddressMode address_mode;
 	switch (sampler_type)
 	{
-	case ETextureSamplerType::ADDR_MODE_REPEAT:
+	case PbrMaterial::TextureSampler::REPEAT:
 		address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		break;
-	case ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE:
+	case PbrMaterial::TextureSampler::CLAMP_TO_EDGE:
 		address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 		break;
 	default:

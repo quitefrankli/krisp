@@ -42,7 +42,7 @@ Potential optimizations, in priority order after GPU profiling:
   identifies shadow filtering as a material bottleneck. Revalidate shadow
   stability and edge quality whenever changing the kernel.
 
-## Factor-only metallic-roughness shading
+## Metallic-roughness shading
 
 The static-color and skinned-color lit pipelines evaluate the glTF
 metallic-roughness BRDF per fragment. Compared with their former Blinn-Phong
@@ -51,10 +51,10 @@ including several square roots, while retaining the existing 16-tap point-light
 shadow filter. This is a modeled cost and has not been measured.
 
 Point-light radiance now uses inverse-square attenuation. Static and skinned
-color vertices also compute an inverse-transpose normal matrix so non-uniformly
+lit vertices also compute an inverse-transpose normal matrix so non-uniformly
 scaled models shade correctly. The static transform could be precomputed on the
-CPU if profiling shows the per-vertex inverse to be material; the skinned path
-requires a normal transform derived from each vertex's blended skin matrix.
+CPU if profiling shows the per-vertex inverse to be material; the skinned paths
+require a normal transform derived from each vertex's blended skin matrix.
 
 Potential normal-transform optimizations:
 
@@ -65,9 +65,45 @@ Potential normal-transform optimizations:
   Performance alone is not sufficient justification for approximating this
   transform.
 
-`MaterialData` is reduced from legacy Blinn-Phong properties to a 32-byte,
-factor-only GPU record. This lowers material-buffer storage and upload
-bandwidth; the practical effect has not been measured.
+Factor-only static meshes retain their compact colour-vertex layout and
+texture-free pipeline. The factor-only skinned pipeline also remains
+texture-free and retains its existing shared skinned-vertex layout. Textured
+static and skinned meshes use separate pipelines carrying `TEXCOORD_0`; valid
+tangents are required only when normal mapping is active. This keeps factor-only
+vertex bandwidth and descriptor use unchanged at the cost of two additional lit
+pipeline variants.
+
+Every textured material descriptor contains valid base-colour,
+metallic-roughness, and normal images. Missing slots bind shared 1-by-1 neutral
+textures, while material flags skip the corresponding shader samples. This
+avoids pipeline variants for every optional-map combination; a present map adds
+one texture sample per lit fragment, and a normal map also adds tangent-basis
+arithmetic. These costs have not been measured.
+
+Lit and unlit shading are separate cached pipeline variants for each supported
+vertex layout, including post-stencil selection variants. This can increase
+pipeline count when both policies are used, but does not create variants for
+individual material texture-slot combinations. Unlit fragments skip the PBR,
+light, normal-map, and shadow-filter work; textured unlit fragments sample only
+the base-colour texture when present. Unlit renderables are also omitted from
+shadow command recording. These savings and pipeline-cache costs have not been
+measured.
+
+PNG/JPEG decoding and MikkTSpace tangent generation are model-load costs.
+MikkTSpace may split vertices at tangent discontinuities, increasing vertex and
+index storage for affected normal-mapped meshes. Decoded images are uploaded as
+single-mip RGBA8 textures, so expected GPU storage is
+approximately `width * height * 4` bytes before allocator overhead. Missing mip
+chains can alias during minification. DXT5/BC3 standalone textures use roughly
+one byte per pixel per mip level and may retain a complete authored mip chain.
+
+Decoded image data and GPU images are shared across material users when their
+image and semantic permit the same colour-space interpretation. Sampler objects
+are shared by addressing mode and each descriptor records the requested sampler.
+The shared neutral textures are engine-wide. This avoids duplicate decoding,
+uploads, and image memory, while each distinct sampled-material binding still
+consumes its descriptor records. Texture upload, sampling, descriptor pressure,
+and tangent-generation costs have not been measured.
 
 ## Render preparation and command recording
 

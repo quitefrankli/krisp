@@ -282,6 +282,7 @@ void ScaleGizmo::init()
 		auto material_owner = engine.get_ecs().get_material_system().add(
 			MaterialFactory::fetch_preset(EMaterialPreset::GIZMO_UNIFORM_SCALE));
 		renderable.material_owners[0] = std::move(material_owner);
+		renderable.shading_mode = EShadingMode::UNLIT;
 		renderable.casts_shadow = false;
 		renderable.render_on_top = true;
 		auto object = std::make_shared<Object>();

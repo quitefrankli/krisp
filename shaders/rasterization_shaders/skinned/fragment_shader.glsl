@@ -11,12 +11,17 @@ layout(location=3) in vec4 surface_tangent;
 
 layout(location = 0) out vec4 out_color;
 
-layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, 
-	binding=RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING) uniform sampler2D tex_sampler;
+layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
+	binding=RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING) uniform sampler2D base_color_sampler;
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
 	binding=RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING) uniform sampler2D normal_sampler;
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
-	binding=RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING) uniform sampler2D specular_sampler;
+	binding=RASTERIZATION_METALLIC_ROUGHNESS_TEXTURE_DATA_BINDING) uniform sampler2D metallic_roughness_sampler;
+
+layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_MATERIAL_DATA_BINDING) buffer MaterialDataBuffer
+{
+	MaterialData data;
+} mat_data;
 
 layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, 
 	binding=RASTERIZATION_GLOBAL_DATA_BINDING) uniform GlobalDataBuffer
@@ -40,41 +45,40 @@ float compute_shadow_factor(const vec3 normal, const vec3 light_dir)
 
 void main()
 {
-	vec4 base_color = texture(tex_sampler, frag_tex_coord);
-	if (alpha_material.data.premultiplied_base_color != 0)
-		base_color.rgb = base_color.a > 0.0 ? base_color.rgb / base_color.a : vec3(0.0);
-	const float alpha = base_color.a * alpha_material.data.opacity;
-	if (alpha < alpha_material.data.alpha_cutoff)
-		discard;
-	vec3 color = base_color.rgb;
+	MaterialData material = mat_data.data;
+	if ((material.texture_flags & PBR_BASE_COLOR_TEXTURE) != 0)
+		material.base_color_factor *= texture(base_color_sampler, frag_tex_coord);
+	if ((material.texture_flags & PBR_METALLIC_ROUGHNESS_TEXTURE) != 0)
+	{
+		const vec4 sample_value = texture(metallic_roughness_sampler, frag_tex_coord);
+		material.roughness_factor *= sample_value.g;
+		material.metallic_factor *= sample_value.b;
+	}
 
-    // diffuse 
-	vec3 geometric_normal = normalize(surface_normal);
-	vec3 tangent = normalize(surface_tangent.xyz - geometric_normal * dot(surface_tangent.xyz, geometric_normal));
-	vec3 bitangent = cross(geometric_normal, tangent) * surface_tangent.w;
-	vec3 tangent_normal = texture(normal_sampler, frag_tex_coord).xyz * 2.0 - 1.0;
-	vec3 norm = normalize(mat3(tangent, bitangent, geometric_normal) * tangent_normal);
-    const vec3 to_light = global_data.data.light_pos - frag_pos;
-	const float distance_squared = max(
-		dot(to_light, to_light), MIN_LIGHT_DISTANCE_SQUARED);
-	const vec3 lightDir = get_direction_to_point_light(
-		frag_pos, global_data.data.light_pos);
-    float diff = max(dot(norm, lightDir), 0.0);
-	const vec3 incident_radiance = global_data.data.light_color
-		* max(global_data.data.light_intensity, 0.0) / distance_squared;
-    vec3 diffuse = diff * color * incident_radiance;
-    
-    // specular
-    vec3 viewDir = normalize(global_data.data.view_pos - frag_pos);
-	const float default_specular_factor = 16.0;
-	// in phong model, specular can have value on the opposite face
-	// this is not good so we only emit specular is diffuse > 0
-	const float spec = diff > 0.0 ? get_bling_phong_spec(lightDir, norm, viewDir, default_specular_factor) : 0.0;
-	const vec4 specular_sample = texture(specular_sampler, frag_tex_coord);
-	const vec3 specular = incident_radiance * specular_sample.rgb * specular_sample.a
-		* (SPECULAR_STRENGTH * spec);
+	const vec3 geometric_normal = normalize(surface_normal);
+	vec3 shading_normal = geometric_normal;
+	if ((material.texture_flags & PBR_NORMAL_TEXTURE) != 0)
+	{
+		const vec3 tangent = normalize(surface_tangent.xyz
+			- geometric_normal * dot(surface_tangent.xyz, geometric_normal));
+		const vec3 bitangent = cross(geometric_normal, tangent) * surface_tangent.w;
+		vec3 tangent_normal = texture(normal_sampler, frag_tex_coord).xyz * 2.0 - 1.0;
+		tangent_normal.xy *= material.normal_scale;
+		shading_normal = normalize(mat3(tangent, bitangent, geometric_normal) * tangent_normal);
+	}
 
+	const vec3 view_dir = normalize(global_data.data.view_pos - frag_pos);
+	vec3 light_dir;
+	const vec3 direct_light = evaluate_gltf_point_light(
+		material,
+		shading_normal,
+		view_dir,
+		frag_pos,
+		global_data.data.light_pos,
+		global_data.data.light_color,
+		global_data.data.light_intensity,
+		light_dir);
+	const float alpha = material.base_color_factor.a * alpha_material.data.opacity;
 	out_color = vec4(
-		(diffuse + specular) * compute_shadow_factor(geometric_normal, lightDir),
-		alpha);
+		direct_light * compute_shadow_factor(geometric_normal, light_dir), alpha);
 }

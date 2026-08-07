@@ -8,6 +8,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 #include <functional>
 #include <vector>
 #include <filesystem>
@@ -152,6 +153,7 @@ public:
 
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
+	bool queue_object_spawn(std::string_view name);
 
 private:
 	using spawning_function_type = std::function<void(GameEngine&)>;

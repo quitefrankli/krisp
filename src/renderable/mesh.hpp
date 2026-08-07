@@ -8,6 +8,9 @@
 
 #include <vector>
 #include <memory>
+#include <algorithm>
+#include <cmath>
+#include <ranges>
 
 
 struct Mesh 
@@ -92,3 +95,27 @@ using SkinnedVertices = std::vector<SDS::SkinnedVertex>;
 using VertexIndices = std::vector<uint32_t>;
 
 using MeshPtr = std::unique_ptr<Mesh>;
+
+inline bool supports_tangent_space_normal_mapping(const Mesh& mesh)
+{
+	const auto valid_vertices = []<typename MeshType>(const MeshType& typed_mesh)
+	{
+		return !typed_mesh.get_vertices().empty()
+			&& std::ranges::all_of(typed_mesh.get_vertices(), [](const auto& vertex)
+			{
+				const auto tangent = glm::vec3(vertex.tangent);
+				const auto normal = vertex.normal;
+				return std::isfinite(vertex.tangent.x) && std::isfinite(vertex.tangent.y)
+					&& std::isfinite(vertex.tangent.z) && std::isfinite(vertex.tangent.w)
+					&& std::isfinite(normal.x) && std::isfinite(normal.y)
+					&& std::isfinite(normal.z) && glm::length(tangent) > 0.00001f
+					&& glm::length(glm::cross(tangent, normal)) > 0.00001f
+					&& std::abs(std::abs(vertex.tangent.w) - 1.0f) <= 0.001f;
+			});
+	};
+	if (const auto* textured = dynamic_cast<const TexMesh*>(&mesh))
+		return valid_vertices(*textured);
+	if (const auto* skinned = dynamic_cast<const SkinnedMesh*>(&mesh))
+		return valid_vertices(*skinned);
+	return false;
+}

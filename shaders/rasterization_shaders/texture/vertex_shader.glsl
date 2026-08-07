@@ -32,9 +32,12 @@ void main()
 {
 	gl_Position = object_data.data.mvp * vec4(in_position, 1.0);
 
+	const mat3 model_matrix = mat3(object_data.data.model);
 	frag_tex_coord = inTexCoord;
-	surface_normal = object_data.data.rot_mat * inNormal;
-	surface_tangent = vec4(object_data.data.rot_mat * inTangent.xyz, inTangent.w);
+	surface_normal = transpose(inverse(model_matrix)) * inNormal;
+	const float tangent_handedness = determinant(model_matrix) < 0.0
+		? -inTangent.w : inTangent.w;
+	surface_tangent = vec4(model_matrix * inTangent.xyz, tangent_handedness);
 	// it's likely we can remove the need for global_data.data.view_pos and compute everything in "view space"
 	frag_pos = (object_data.data.model * vec4(in_position, 1.0)).xyz;
 }

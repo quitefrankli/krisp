@@ -99,6 +99,7 @@ private:
 	struct LoadedMaterial
 	{
 		MatVec ids;
+		std::vector<std::pair<MaterialID, int>> image_sources;
 	};
 
 	MaterialHandle load_texture(
@@ -116,6 +117,7 @@ private:
 
 private:
 	std::unordered_map<int, LoadedMaterial> gltf_material_to_material;
+	std::unordered_map<uint64_t, MaterialID> gltf_image_to_material;
 
 	static ResourceLoader global_resource_loader;
 };

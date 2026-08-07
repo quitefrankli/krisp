@@ -24,14 +24,33 @@ Resources are classified by `ImportedResourceProvenance`:
 - Imported resources store their external source and selector fields. A model
   source can select a mesh, material, skeleton, or animation; a texture source
   identifies a standalone image and its semantic. External bytes are not copied.
+  Imported-material edits are stored as sparse, flattened overrides against the
+  original glTF material. Only user-changed factor, normal-scale, or texture-slot
+  fields are persisted, so unspecified fields continue to follow compatible
+  updates to the source asset. Each texture slot distinguishes inherited,
+  replaced, and explicitly cleared states.
+  Imported glTF texture identities use the source image plus texture semantic;
+  sampler choice remains part of the PBR slot binding.
 - Resources without provenance were generated inside Krisp. Generated meshes
-  and texture payloads are stored once as `.dat` files; factor-only PBR material
-  parameters are written directly in YAML. References preserve resource sharing.
+  and texture payloads are stored once as `.dat` files; PBR material parameters
+  and optional texture references are written directly in YAML. References
+  preserve resource sharing.
 
 Generated PBR materials store glTF-native `base_color_factor`,
-`metallic_factor`, and `roughness_factor` values. The early-development scene
+`metallic_factor`, and `roughness_factor` values, optional base-colour, packed
+metallic-roughness, and normal texture references, and `normal_scale`. Texture
+semantics preserve the required sRGB or linear interpretation. Standalone BC3
+DDS payloads retain their supplied mip metadata; decoded PNG/JPEG textures are
+single-mip because Krisp does not generate mipmaps. The early-development scene
 format does not translate the removed ambient, diffuse, specular, emissive, or
 shininess fields; saves using that legacy schema are unsupported.
+
+The material editor applies an override only to the selected renderable. Other
+renderables that originated from the same shared glTF material remain attached
+to the unmodified source material. Apply and Clear are explicit operations;
+Clear serializes the texture slot's cleared state rather than reverting it to
+inheritance. A texture edit is rejected when the selected mesh lacks the UV or
+tangent-space data required by that slot.
 
 Mesh files have a magic value, format version, vertex layout, counts, canonical
 little-endian vertex fields, and `uint32` indices. Texture files contain the raw
@@ -55,6 +74,10 @@ Objects contain gameplay grouping metadata. ECS systems own transformations,
 colliders, renderable attachments, skeletons, animations, and equipment.
 Skinned renderables must reference a skeleton; non-skinned renderables must not.
 Transient editor state is omitted.
+
+Persistent renderables store their `shading_mode` as either lit or unlit. Shadow
+casting remains an independent authored property, but unlit renderables never
+cast at runtime even when the stored `casts_shadow` value is true.
 
 ## Save and load
 

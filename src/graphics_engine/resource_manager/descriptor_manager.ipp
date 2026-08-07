@@ -314,7 +314,7 @@ void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 		get_generic_material_binding(), 
 		get_generic_texture_binding(SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING),
 		get_generic_texture_binding(SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING),
-		get_generic_texture_binding(SDS::RASTERIZATION_SPECULAR_TEXTURE_DATA_BINDING) });
+		get_generic_texture_binding(SDS::RASTERIZATION_METALLIC_ROUGHNESS_TEXTURE_DATA_BINDING) });
 	shadow_map_dset_layout = request_dset_layout({ get_generic_shadow_map_binding() });
 	// For ray tracing:
 	// mesh_data_dset_layout = request_dset_layout({

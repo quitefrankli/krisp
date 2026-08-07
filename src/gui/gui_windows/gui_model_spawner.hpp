@@ -10,6 +10,7 @@ public:
 
 	void process(GameEngine& engine) override;
 	void draw() override;
+	void queue_model_spawn(std::string model_path);
 
 private:
 	void refresh_models();

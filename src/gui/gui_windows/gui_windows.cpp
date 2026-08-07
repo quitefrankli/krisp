@@ -13,6 +13,7 @@
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "renderable/material_factory.hpp"
+#include "resource_loader/resource_loader.hpp"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -279,6 +280,31 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				engine.get_ecs().add_clickable_entity(obj.get_id());
 			})
 		},
+		{"textured cube", spawning_function_type([](GameEngine& engine)
+			{
+				auto& ecs = engine.get_ecs();
+				auto texture_owner = ResourceLoader::fetch_texture(
+					ecs.get_material_system(),
+					"texture.jpg",
+					ETextureSemantic::BASE_COLOR);
+				PbrMaterial::TextureSlots slots{
+					.base_color = PbrMaterial::TextureBinding{ texture_owner->get_id() },
+				};
+				auto pbr_owner = ecs.get_material_system().add(
+					std::make_unique<PbrMaterial>(
+						glm::vec4(1.0f), 0.0f, 1.0f, std::move(slots)));
+				Renderable renderable{
+					.pipeline_render_type = ERenderType::STANDARD,
+					.mesh_owner = ecs.get_mesh_system().add(
+						MeshFactory::cube(MeshFactory::EVertexType::TEXTURE)),
+					.material_owners = { std::move(pbr_owner), std::move(texture_owner) },
+				};
+				auto& object = engine.spawn_object<Object>();
+				engine.attach_renderable(object.get_id(), std::move(renderable));
+				ecs.add_collider(object.get_id(), std::make_unique<BoxCollider>());
+				ecs.add_clickable_entity(object.get_id());
+			})
+		},
 		{"sphere", spawning_function_type([this](GameEngine& engine)
 			{
 				auto& obj = engine.template spawn_object<Object>();
@@ -309,6 +335,15 @@ GuiObjectSpawner::GuiObjectSpawner() :
 	};
 }
 
+bool GuiObjectSpawner::queue_object_spawn(const std::string_view name)
+{
+	const auto found = mapping.find(std::string(name));
+	if (found == mapping.end())
+		return false;
+	spawning_function = &found->second;
+	return true;
+}
+
 void GuiObjectSpawner::draw()
 {
 	if (begin())
@@ -319,12 +354,10 @@ void GuiObjectSpawner::draw()
 	{
 		std::for_each(mapping.begin(), mapping.end(), [&](auto& pair){ ImGui::Button(pair.first.c_str(), button_dim); });
 	} else {
-		for (auto& [key, value] : mapping)
+		for (const auto& entry : mapping)
 		{
-			if (ImGui::Button(key.c_str(), button_dim))
-			{
-				spawning_function = &value;
-			}
+			if (ImGui::Button(entry.first.c_str(), button_dim))
+				queue_object_spawn(entry.first);
 		}
 	}
 	draw_resource_load_error(load_error);

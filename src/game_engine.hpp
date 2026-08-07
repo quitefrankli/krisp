@@ -19,6 +19,7 @@
 #include <unordered_set>
 #include <queue>
 #include <stdexcept>
+#include <string>
 
 
 class Camera;
@@ -33,6 +34,30 @@ enum class EGameMode
 {
 	EDITOR,
 	NORMAL,
+};
+
+struct PbrTextureEdit
+{
+	enum class Action
+	{
+		Keep,
+		Clear,
+		Replace,
+	};
+
+	Action action = Action::Keep;
+	std::string source;
+};
+
+struct PbrMaterialEdit
+{
+	glm::vec4 base_color_factor{ 1.0f };
+	float metallic_factor = 1.0f;
+	float roughness_factor = 1.0f;
+	float normal_scale = 1.0f;
+	PbrTextureEdit base_color_texture;
+	PbrTextureEdit metallic_roughness_texture;
+	PbrTextureEdit normal_texture;
 };
 
 class GameEngine : public IWindowCallbacks
@@ -114,6 +139,9 @@ public:
 		glm::vec4 base_color_factor,
 		float metallic_factor,
 		float roughness_factor);
+	RenderableID set_renderable_pbr_material(
+		RenderableID renderable_id,
+		const PbrMaterialEdit& edit);
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
 

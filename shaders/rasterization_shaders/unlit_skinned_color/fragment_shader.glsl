@@ -9,7 +9,15 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_M
 	MaterialData data;
 } mat_data;
 
+layout(push_constant) uniform AlphaMaterialBuffer
+{
+	AlphaMaterialData data;
+} alpha_material;
+
 void main()
 {
-	out_color = mat_data.data.base_color_factor;
+	const float alpha = mat_data.data.base_color_factor.a * alpha_material.data.opacity;
+	if (alpha < alpha_material.data.alpha_cutoff)
+		discard;
+	out_color = vec4(mat_data.data.base_color_factor.rgb, alpha);
 }

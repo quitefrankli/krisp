@@ -1,4 +1,5 @@
 #include "graphics_engine/render_draw_list.hpp"
+#include "graphics_engine/pipeline/pipeline_id.hpp"
 
 #include "renderable/material.hpp"
 #include "renderable/mesh_factory.hpp"
@@ -17,7 +18,8 @@ RenderableDefinition make_renderable(
 	const ERenderType render_type,
 	const EAlphaMode alpha_mode,
 	const bool casts_shadow,
-	const bool render_on_top)
+	const bool render_on_top,
+	const EShadingMode shading_mode = EShadingMode::LIT)
 {
 	MeshSystem meshes;
 	MaterialSystem materials;
@@ -25,6 +27,7 @@ RenderableDefinition make_renderable(
 	auto material = materials.add(std::make_unique<PbrMaterial>());
 	return {
 		.pipeline_render_type = render_type,
+		.shading_mode = shading_mode,
 		.alpha_mode = alpha_mode,
 		.casts_shadow = casts_shadow,
 		.render_on_top = render_on_top,
@@ -51,6 +54,9 @@ TEST(RenderDrawList, classifies_each_renderable_independently)
 	EXPECT_TRUE(renderable_casts_shadow(regular));
 	EXPECT_FALSE(renderable_casts_shadow(overlay));
 	EXPECT_FALSE(renderable_casts_shadow(blended));
+	const auto unlit = make_renderable(
+		ERenderType::COLOR, EAlphaMode::OPAQUE, true, false, EShadingMode::UNLIT);
+	EXPECT_FALSE(renderable_casts_shadow(unlit));
 }
 
 TEST(RenderDrawList, state_sort_key_is_deterministic)
@@ -70,6 +76,29 @@ TEST(RenderDrawList, state_sort_key_is_deterministic)
 	EXPECT_EQ(keys[0].render_type, ERenderType::STANDARD);
 	EXPECT_EQ(keys[1].renderable_id, RenderableID(3));
 	EXPECT_EQ(keys[2].renderable_id, RenderableID(4));
+}
+
+TEST(RenderDrawList, shading_is_an_independent_pipeline_and_sort_dimension)
+{
+	const PipelineID lit_selected{
+		.primary_pipeline_type = ERenderType::COLOR,
+		.pipeline_modifier = EPipelineModifier::POST_STENCIL,
+		.shading_mode = EShadingMode::LIT,
+	};
+	const PipelineID unlit_selected{
+		.primary_pipeline_type = ERenderType::COLOR,
+		.pipeline_modifier = EPipelineModifier::POST_STENCIL,
+		.shading_mode = EShadingMode::UNLIT,
+	};
+	EXPECT_NE(lit_selected, unlit_selected);
+	EXPECT_NE(std::hash<PipelineID>{}(lit_selected), std::hash<PipelineID>{}(unlit_selected));
+
+	const auto lit = make_renderable(
+		ERenderType::COLOR, EAlphaMode::OPAQUE, true, false);
+	const auto unlit = make_renderable(
+		ERenderType::COLOR, EAlphaMode::OPAQUE, true, false, EShadingMode::UNLIT);
+	EXPECT_EQ(make_render_sort_key(RenderableID(1), lit).shading_mode, EShadingMode::LIT);
+	EXPECT_EQ(make_render_sort_key(RenderableID(2), unlit).shading_mode, EShadingMode::UNLIT);
 }
 
 TEST(RenderDrawList, blended_distance_uses_composed_model_transform)

@@ -37,6 +37,7 @@ public:
 		const Maths::Transform& offset, ColliderPersistence persistence);
 	void add_mesh_collider(EntityID id, ColliderPersistence persistence = ColliderPersistence::Persistent);
 	void remove_collider(EntityID id) { components.erase(id); }
+	bool has_collider(EntityID id) const { return components.contains(id); }
 
 	const Collider* get_collider(EntityID id) const;
 	// Returns the nearest registered collider hit by the ray. The optional entity

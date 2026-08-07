@@ -66,10 +66,24 @@ TEST_F(ClickableECSFixture, hit_obj2)
 }
 
 TEST_F(ClickableECSFixture, hit_none)
-{	
+{
 	Maths::Ray ray{ glm::vec3(-1.0f, 0.0f, -5.0f), Maths::forward_vec };
 	auto res = ecs.check_any_entity_clicked(ray);
 	ASSERT_FALSE(res.bCollided);
+}
+
+TEST(ClickableECS, falls_back_to_an_entity_collider_without_a_rigid_body)
+{
+	ECS ecs;
+	Object object;
+	ecs.add_object(object);
+	ecs.add_collider(object.get_id(), std::make_unique<SphereCollider>());
+	ecs.add_clickable_entity(object.get_id());
+
+	const auto hit = ecs.check_any_entity_clicked(
+		Maths::Ray(-Maths::forward_vec, Maths::forward_vec));
+	ASSERT_TRUE(hit.bCollided);
+	EXPECT_EQ(hit.id, object.get_id());
 }
 
 TEST_F(ClickableECSFixture, hit_both)

@@ -47,10 +47,13 @@ void main()
 		get_bone_matrix(bone_ids.z) * bone_weights.z + 
 		get_bone_matrix(bone_ids.w) * bone_weights.w;
 	const mat4 model_skin = object_data.data.model * skin_matrix;
+	const mat3 model_skin_matrix = mat3(model_skin);
 	frag_pos = (model_skin * vec4(in_position, 1.0)).xyz;
 
-    surface_normal = (model_skin * vec4(in_normal, 0.0)).xyz;
-	surface_tangent = vec4((model_skin * vec4(in_tangent.xyz, 0.0)).xyz, in_tangent.w);
+	surface_normal = transpose(inverse(model_skin_matrix)) * in_normal;
+	const float tangent_handedness = determinant(model_skin_matrix) < 0.0
+		? -in_tangent.w : in_tangent.w;
+	surface_tangent = vec4(model_skin_matrix * in_tangent.xyz, tangent_handedness);
 	frag_tex_coord = in_tex_coord;
-    gl_Position = global_data.data.proj * global_data.data.view * vec4(frag_pos, 1.0);
+	gl_Position = global_data.data.proj * global_data.data.view * vec4(frag_pos, 1.0);
 }

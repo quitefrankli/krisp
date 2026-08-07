@@ -12,7 +12,6 @@ enum class EPipelineModifier
 	STENCIL,
 	POST_STENCIL,
 	WIREFRAME,
-	UNLIT_BASE_COLOR,
 	SHADOW_MAP
 };
 
@@ -21,11 +20,13 @@ struct PipelineID
 	ERenderType primary_pipeline_type;
 	EPipelineModifier pipeline_modifier = EPipelineModifier::NONE;
 	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+	EShadingMode shading_mode = EShadingMode::LIT;
 
 	bool operator==(const PipelineID& other) const
 	{
 		return primary_pipeline_type == other.primary_pipeline_type && 
-		pipeline_modifier == other.pipeline_modifier && alpha_mode == other.alpha_mode;
+		pipeline_modifier == other.pipeline_modifier && alpha_mode == other.alpha_mode
+			&& shading_mode == other.shading_mode;
 	}
 };
 
@@ -36,6 +37,7 @@ struct std::hash<PipelineID>
 	{
 		return std::hash<int>()(static_cast<int>(pipeline_id.primary_pipeline_type)) ^ 
 			(std::hash<int>()(static_cast<int>(pipeline_id.pipeline_modifier)) << 1) ^
-			(std::hash<int>()(static_cast<int>(pipeline_id.alpha_mode)) << 2);
+			(std::hash<int>()(static_cast<int>(pipeline_id.alpha_mode)) << 2) ^
+			(std::hash<int>()(static_cast<int>(pipeline_id.shading_mode)) << 3);
 	}
 };

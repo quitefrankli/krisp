@@ -305,6 +305,7 @@ TEST(RenderableSystem, serialization_restores_persistent_id_group_and_imported_s
 		.source = "character.glb", .scene = 0, .node = 2, .skin = 1 });
 	auto renderable = Renderable::make_default(ecs);
 	renderable.pipeline_render_type = ERenderType::SKINNED_COLOR;
+	renderable.shading_mode = EShadingMode::UNLIT;
 	const auto id = ecs.add_renderable(std::move(renderable), group.get_id(), skeleton);
 	const auto& payload = ecs.get_renderable(id).renderable;
 	ResourceProvenance::register_mesh(payload.get_mesh_id(), {
@@ -322,5 +323,7 @@ TEST(RenderableSystem, serialization_restores_persistent_id_group_and_imported_s
 	EXPECT_NE(restored_ids.front(), id);
 	EXPECT_EQ(ecs.get_renderable(restored_ids.front()).object_id, group.get_id());
 	EXPECT_EQ(ecs.get_renderable(restored_ids.front()).skeleton_id, skeleton);
+	EXPECT_EQ(ecs.get_renderable(restored_ids.front()).renderable.shading_mode,
+		EShadingMode::UNLIT);
 	EXPECT_TRUE(ecs.get_renderable(restored_ids.front()).visible);
 }

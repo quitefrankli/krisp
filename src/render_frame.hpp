@@ -28,6 +28,7 @@ inline constexpr uint32_t RENDER_FRAME_NO_PARENT = std::numeric_limits<uint32_t>
 struct RenderableDefinition
 {
 	ERenderType pipeline_render_type = ERenderType::COLOR;
+	EShadingMode shading_mode = EShadingMode::LIT;
 	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
 	float alpha_cutoff = 0.5f;
 	float opacity = 1.0f;

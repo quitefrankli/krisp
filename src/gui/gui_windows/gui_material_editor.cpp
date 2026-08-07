@@ -6,6 +6,7 @@
 #include "interface/gizmo.hpp"
 #include "objects/objects.hpp"
 #include "renderable/material.hpp"
+#include "renderable/material_group.hpp"
 
 #include <fmt/core.h>
 #include <imgui.h>
@@ -26,12 +27,30 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		pending_change.reset();
 		try
 		{
+			const auto texture_edit = [](const MaterialChange::TextureChange& texture)
+			{
+				if (!texture.changed)
+					return PbrTextureEdit{};
+				if (!texture.replacement)
+					return PbrTextureEdit{ .action = PbrTextureEdit::Action::Clear };
+				return PbrTextureEdit{
+					.action = PbrTextureEdit::Action::Replace,
+					.source = *texture.replacement,
+				};
+			};
 			const RenderableID replacement_id = engine.set_renderable_pbr_material(
 				change.renderable_id,
-				change.base_color_factor,
-				change.metallic_factor,
-				change.roughness_factor);
+				PbrMaterialEdit{
+					.base_color_factor = change.base_color_factor,
+					.metallic_factor = change.metallic_factor,
+					.roughness_factor = change.roughness_factor,
+					.normal_scale = change.normal_scale,
+					.base_color_texture = texture_edit(change.textures[0]),
+					.metallic_roughness_texture = texture_edit(change.textures[1]),
+					.normal_texture = texture_edit(change.textures[2]),
+				});
 			std::ranges::replace(renderable_ids, change.renderable_id, replacement_id);
+			loaded_renderable.reset();
 			load_error.reset();
 		}
 		catch (const std::exception& error)
@@ -55,7 +74,10 @@ void GuiMaterialEditor::process(GameEngine& engine)
 
 	target_object = object->get_id();
 	if (previous_target != target_object)
+	{
 		selected_renderable = 0;
+		loaded_renderable.reset();
+	}
 	target_status = object->get_name().empty()
 		? fmt::format("Object {}", object->get_id().get_underlying())
 		: object->get_name();
@@ -78,9 +100,9 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		selected_renderable.value, 0, static_cast<int>(renderable_labels.size()) - 1);
 	const auto& renderable = engine.get_ecs()
 		.get_renderable(renderable_ids[selected_renderable.value]).renderable;
-	if (renderable.material_owners.size() != 1)
+	if (renderable.material_owners.empty())
 	{
-		target_status += " — selected mesh does not use one PBR material";
+		target_status += " — selected mesh has no material";
 		return;
 	}
 	const auto* material = dynamic_cast<const PbrMaterial*>(&renderable.material_owners.front()->get());
@@ -90,10 +112,39 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		return;
 	}
 
-	base_color_factor = material->data.base_color_factor;
-	metallic_factor = material->data.metallic_factor;
-	roughness_factor = material->data.roughness_factor;
+	const PbrMatGroup materials(renderable.material_owners);
+	if (loaded_renderable != renderable_ids[selected_renderable.value])
+	{
+		base_color_factor = material->data.base_color_factor;
+		metallic_factor = material->data.metallic_factor;
+		roughness_factor = material->data.roughness_factor;
+		normal_scale = material->data.normal_scale;
+		const std::array slots{
+			material->textures.base_color,
+			material->textures.metallic_roughness,
+			material->textures.normal,
+		};
+		for (size_t index = 0; index < slots.size(); ++index)
+		{
+			loaded_texture_names[index].clear();
+			if (slots[index])
+			{
+				const auto* texture = dynamic_cast<const TextureMaterial*>(
+					&materials.texture_owner(*slots[index])->get());
+				if (texture)
+					loaded_texture_names[index] = texture->source;
+			}
+			texture_names[index].fill('\0');
+			std::copy_n(
+				loaded_texture_names[index].begin(),
+				std::min(loaded_texture_names[index].size(), texture_names[index].size() - 1),
+				texture_names[index].begin());
+		}
+		loaded_renderable = renderable_ids[selected_renderable.value];
+	}
 	compatible = true;
+	texture_compatible = renderable.pipeline_render_type == ERenderType::STANDARD
+		|| renderable.pipeline_render_type == ERenderType::SKINNED;
 }
 
 void GuiMaterialEditor::draw()
@@ -115,17 +166,39 @@ void GuiMaterialEditor::draw()
 		}
 
 		ImGui::BeginDisabled(!compatible || !target_object);
-		bool changed = ImGui::ColorEdit4("Base color", &base_color_factor.x);
-		changed |= ImGui::SliderFloat("Metallic", &metallic_factor, 0.0f, 1.0f);
-		changed |= ImGui::SliderFloat("Roughness", &roughness_factor, 0.0f, 1.0f);
-		if (changed)
+		ImGui::ColorEdit4("Base color", &base_color_factor.x);
+		ImGui::SliderFloat("Metallic", &metallic_factor, 0.0f, 1.0f);
+		ImGui::SliderFloat("Roughness", &roughness_factor, 0.0f, 1.0f);
+		ImGui::InputFloat("Normal scale", &normal_scale);
+		ImGui::BeginDisabled(!texture_compatible);
+		constexpr std::array labels{
+			"Base-color texture", "Metallic-roughness texture", "Normal texture" };
+		for (size_t index = 0; index < texture_names.size(); ++index)
 		{
-			pending_change = MaterialChange{
+			ImGui::InputText(labels[index], texture_names[index].data(), texture_names[index].size());
+			ImGui::SameLine();
+			const auto clear_label = fmt::format("Clear##texture{}", index);
+			if (ImGui::Button(clear_label.c_str()))
+				texture_names[index][0] = '\0';
+		}
+		ImGui::EndDisabled();
+		if (ImGui::Button("Apply"))
+		{
+			MaterialChange change{
 				.renderable_id = renderable_ids.at(selected_renderable.value),
 				.base_color_factor = base_color_factor,
 				.metallic_factor = metallic_factor,
 				.roughness_factor = roughness_factor,
+				.normal_scale = normal_scale,
 			};
+			for (size_t index = 0; index < texture_names.size(); ++index)
+			{
+				const std::string value(texture_names[index].data());
+				change.textures[index].changed = value != loaded_texture_names[index];
+				if (!value.empty())
+					change.textures[index].replacement = value;
+			}
+			pending_change = std::move(change);
 		}
 		ImGui::EndDisabled();
 		GuiWindowDetail::draw_resource_load_error(load_error);

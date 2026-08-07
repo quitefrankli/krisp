@@ -84,6 +84,7 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override { return "skinned_color"; }
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
 class UnlitTexturePipeline : public TexturePipeline
@@ -252,37 +253,11 @@ protected:
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
-class PostStencilColorPipeline : public ColorPipeline
+template<Stencileable PrimaryPipelineType>
+class PostStencilPipeline : public PrimaryPipelineType
 {
 public:
-	PostStencilColorPipeline(GraphicsEngine& engine) : ColorPipeline(engine) {}
-
-protected:
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-};
-
-class PostStencilTexturePipeline : public TexturePipeline
-{
-public:
-	PostStencilTexturePipeline(GraphicsEngine& engine) : TexturePipeline(engine) {}
-
-protected:
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-};
-
-class PostStencilSkinnedPipeline : public SkinnedPipeline
-{
-public:
-	PostStencilSkinnedPipeline(GraphicsEngine& engine) : SkinnedPipeline(engine) {}
-
-protected:
-	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
-};
-
-class PostStencilSkinnedColorPipeline : public SkinnedColorPipeline
-{
-public:
-	PostStencilSkinnedColorPipeline(GraphicsEngine& engine) : SkinnedColorPipeline(engine) {}
+	PostStencilPipeline(GraphicsEngine& engine) : PrimaryPipelineType(engine) {}
 
 protected:
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;

@@ -210,6 +210,7 @@ void GuiDebug::refresh_physics_visualiser(GameEngine& engine)
 			object.set_transient(true);
 			Renderable renderable;
 			renderable.pipeline_render_type = ERenderType::COLOR;
+			renderable.shading_mode = EShadingMode::UNLIT;
 			renderable.alpha_mode = EAlphaMode::BLEND;
 			renderable.opacity = collider_opacity;
 			renderable.casts_shadow = false;

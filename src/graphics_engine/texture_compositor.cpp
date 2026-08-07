@@ -127,7 +127,7 @@ TextureCompositor::CompositionResources TextureCompositor::create_resources(
 		resources.image_view = get_graphics_engine().create_image_view(
 			resources.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 		resources.sampler = get_graphics_engine().get_texture_mgr().fetch_sampler(
-			ETextureSamplerType::ADDR_MODE_REPEAT);
+			PbrMaterial::TextureSampler::REPEAT);
 
 		VkFramebufferCreateInfo framebuffer_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
 		framebuffer_info.renderPass = render_pass;
@@ -143,7 +143,7 @@ TextureCompositor::CompositionResources TextureCompositor::create_resources(
 		for (const auto& layer : material.layers)
 		{
 			const auto& source = get_graphics_engine().get_texture_mgr().fetch_texture(
-				layer.source, ETextureSamplerType::ADDR_MODE_CLAMP_TO_EDGE);
+				layer.source, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
 			const VkDescriptorSet dset = get_rsrc_mgr().reserve_dset(dset_layout);
 			resources.layer_dsets.push_back(dset);
 			VkDescriptorImageInfo image_info{};

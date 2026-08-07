@@ -17,6 +17,7 @@
 #include "game_objects/player_character.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "renderable/material_factory.hpp"
+#include "renderable/material_group.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "serialization/resource_provenance.hpp"
@@ -67,8 +68,11 @@ void GameEngine::init()
 	auto camera_focus_object = std::make_shared<Object>();
 	camera_focus_object->set_transient(true);
 	auto& camera_focus = spawn_object(std::move(camera_focus_object));
-	attach_renderable(camera_focus.get_id(),
-		Renderable::make_default(ecs, ecs.get_mesh_system().add(MeshFactory::sphere())));
+	auto camera_focus_renderable = Renderable::make_default(
+		ecs, ecs.get_mesh_system().add(MeshFactory::sphere()));
+	camera_focus_renderable.shading_mode = EShadingMode::UNLIT;
+	camera_focus_renderable.casts_shadow = false;
+	attach_renderable(camera_focus.get_id(), std::move(camera_focus_renderable));
 	auto camera_upvector_object = std::make_shared<Arrow>();
 	camera_upvector_object->set_transient(true);
 	auto& camera_upvector = static_cast<Arrow&>(spawn_object(
@@ -504,17 +508,139 @@ RenderableID GameEngine::set_renderable_pbr_material(
 {
 	if (!ecs.has_renderable(renderable_id))
 		throw std::runtime_error("GameEngine::set_renderable_pbr_material: renderable not found");
+	const auto& renderable = ecs.get_renderable(renderable_id).renderable;
+	const PbrMatGroup current(renderable.material_owners);
+	return set_renderable_pbr_material(renderable_id, PbrMaterialEdit{
+		.base_color_factor = base_color_factor,
+		.metallic_factor = metallic_factor,
+		.roughness_factor = roughness_factor,
+		.normal_scale = current.pbr().data.normal_scale,
+	});
+}
+
+RenderableID GameEngine::set_renderable_pbr_material(
+	const RenderableID renderable_id,
+	const PbrMaterialEdit& edit)
+{
+	if (!ecs.has_renderable(renderable_id))
+		throw std::runtime_error("GameEngine::set_renderable_pbr_material: renderable not found");
 	auto renderable = ecs.get_renderable(renderable_id).renderable;
-	if (renderable.material_owners.size() != 1
-		|| !dynamic_cast<const PbrMaterial*>(&renderable.material_owners.front()->get()))
-	{
+	const PbrMatGroup current_group(renderable.material_owners);
+	const auto& current = current_group.pbr();
+	auto slots = current.textures;
+	std::vector<MaterialHandle> replacement_textures;
+
+	std::optional<ImportedPbrMaterialOverride> material_override;
+	if (const auto* previous = ResourceProvenance::material_override(
+		renderable.material_owners.front()->get_id()))
+		material_override = *previous;
+	else if (const auto* source = ResourceProvenance::material(
+		renderable.material_owners.front()->get_id()); source
+		&& source->kind == EExternalResourceKind::Model && source->image < 0)
+		material_override = ImportedPbrMaterialOverride{
+			.source = *source,
+			.original = {
+				.base_color_factor = current.data.base_color_factor,
+				.metallic_factor = current.data.metallic_factor,
+				.roughness_factor = current.data.roughness_factor,
+				.normal_scale = current.data.normal_scale,
+				.textures = current.textures,
+			},
+		};
+
+	const bool textured_pipeline = renderable.pipeline_render_type == ERenderType::STANDARD
+		|| renderable.pipeline_render_type == ERenderType::SKINNED;
+	if (edit.normal_texture.action == PbrTextureEdit::Action::Replace
+		&& !supports_tangent_space_normal_mapping(renderable.mesh_owner->get()))
 		throw std::runtime_error(
-			"GameEngine::set_renderable_pbr_material: renderable does not use one PBR material");
+			"GameEngine::set_renderable_pbr_material: normal maps require valid mesh tangents");
+	const auto apply_texture = [&](
+		const PbrTextureEdit& texture_edit,
+		const ETextureSemantic semantic,
+		std::optional<PbrMaterial::TextureBinding>& slot,
+		std::optional<PbrTextureOverride> ImportedPbrMaterialOverride::* override_slot)
+	{
+		if (texture_edit.action == PbrTextureEdit::Action::Keep)
+			return;
+		if (!textured_pipeline && texture_edit.action == PbrTextureEdit::Action::Replace)
+			throw std::runtime_error(
+				"GameEngine::set_renderable_pbr_material: mesh has no editable texture coordinates");
+		if (texture_edit.action == PbrTextureEdit::Action::Clear)
+		{
+			slot.reset();
+			if (material_override)
+				(*material_override).*override_slot = PbrTextureOverride{
+					.mode = PbrTextureOverride::Mode::Cleared };
+			return;
+		}
+		if (texture_edit.source.empty())
+			throw std::runtime_error(
+				"GameEngine::set_renderable_pbr_material: replacement texture name is empty");
+		auto owner = ResourceLoader::fetch_texture(
+			ecs.get_material_system(), texture_edit.source, semantic);
+		slot = PbrMaterial::TextureBinding{
+			owner->get_id(), PbrMaterial::TextureSampler::REPEAT };
+		if (material_override)
+			(*material_override).*override_slot = PbrTextureOverride{
+				.mode = PbrTextureOverride::Mode::Replaced,
+				.texture = owner->get_id(),
+				.sampler = PbrMaterial::TextureSampler::REPEAT,
+			};
+		replacement_textures.push_back(std::move(owner));
+	};
+	apply_texture(edit.base_color_texture, ETextureSemantic::BASE_COLOR,
+		slots.base_color, &ImportedPbrMaterialOverride::base_color_texture);
+	apply_texture(edit.metallic_roughness_texture, ETextureSemantic::METALLIC_ROUGHNESS,
+		slots.metallic_roughness, &ImportedPbrMaterialOverride::metallic_roughness_texture);
+	apply_texture(edit.normal_texture, ETextureSemantic::NORMAL,
+		slots.normal, &ImportedPbrMaterialOverride::normal_texture);
+
+	if (material_override)
+	{
+		const auto& original = material_override->original;
+		material_override->base_color_factor = glm::any(glm::notEqual(
+			original.base_color_factor, edit.base_color_factor))
+			? std::optional(edit.base_color_factor) : std::nullopt;
+		material_override->metallic_factor = original.metallic_factor != edit.metallic_factor
+			? std::optional(edit.metallic_factor) : std::nullopt;
+		material_override->roughness_factor = original.roughness_factor != edit.roughness_factor
+			? std::optional(edit.roughness_factor) : std::nullopt;
+		material_override->normal_scale = original.normal_scale != edit.normal_scale
+			? std::optional(edit.normal_scale) : std::nullopt;
+		if (slots.base_color == original.textures.base_color)
+			material_override->base_color_texture.reset();
+		if (slots.metallic_roughness == original.textures.metallic_roughness)
+			material_override->metallic_roughness_texture.reset();
+		if (slots.normal == original.textures.normal)
+			material_override->normal_texture.reset();
 	}
 
 	auto material = std::make_unique<PbrMaterial>(
-		base_color_factor, metallic_factor, roughness_factor);
-	renderable.material_owners = { ecs.get_material_system().add(std::move(material)) };
+		edit.base_color_factor,
+		edit.metallic_factor,
+		edit.roughness_factor,
+		slots,
+		edit.normal_scale);
+	auto material_owner = ecs.get_material_system().add(std::move(material));
+	const MaterialID material_id = material_owner->get_id();
+	std::vector<MaterialHandle> owners{ material_owner };
+	const auto retain_slot = [&](const std::optional<PbrMaterial::TextureBinding>& slot)
+	{
+		if (!slot || std::ranges::any_of(owners, [&slot](const MaterialHandle& owner)
+			{ return owner->get_id() == slot->texture; }))
+			return;
+		const auto replacement = std::ranges::find_if(
+			replacement_textures, [&slot](const MaterialHandle& owner)
+			{ return owner->get_id() == slot->texture; });
+		owners.push_back(replacement != replacement_textures.end()
+			? *replacement : current_group.texture_owner(*slot));
+	};
+	retain_slot(slots.base_color);
+	retain_slot(slots.metallic_roughness);
+	retain_slot(slots.normal);
+	renderable.material_owners = std::move(owners);
+	if (material_override)
+		ResourceProvenance::register_material_override(material_id, std::move(*material_override));
 	return ecs.replace_renderable(renderable_id, std::move(renderable));
 }
 

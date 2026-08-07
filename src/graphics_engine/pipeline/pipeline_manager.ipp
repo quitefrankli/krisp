@@ -62,8 +62,8 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		new_pipeline = create_pipeline<ColorPipeline>(id);
 		break;
 	case ERenderType::STANDARD:
-		throw std::runtime_error(
-			"GraphicsEnginePipelineManager: textured lit rendering is unsupported");
+		new_pipeline = create_pipeline<TexturePipeline>(id);
+		break;
 	case ERenderType::CUBEMAP:
 		new_pipeline = create_pipeline<CubemapPipeline>(id);
 		break;
@@ -72,8 +72,8 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		throw std::runtime_error(
 			"GraphicsEnginePipelineManager: ray tracing is unsupported");
 	case ERenderType::SKINNED:
-		throw std::runtime_error(
-			"GraphicsEnginePipelineManager: textured lit rendering is unsupported");
+		new_pipeline = create_pipeline<SkinnedPipeline>(id);
+		break;
 	case ERenderType::SKINNED_COLOR:
 		new_pipeline = create_pipeline<SkinnedColorPipeline>(id);
 		break;
@@ -96,9 +96,10 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	{
 		new_pipeline->set_alpha_mode(id.alpha_mode);
 		new_pipeline->initialise();
-		LOG_INFO(Utility::get_logger(), "created pipeline with id: {} {}",
+		LOG_INFO(Utility::get_logger(), "created pipeline with id: {} {} {}",
 			magic_enum::enum_name(id.primary_pipeline_type),
-			magic_enum::enum_name(id.pipeline_modifier));
+			magic_enum::enum_name(id.pipeline_modifier),
+			magic_enum::enum_name(id.shading_mode));
 	}
 
 	return new_pipeline;
@@ -110,6 +111,17 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	switch (id.pipeline_modifier)
 	{
 	case EPipelineModifier::NONE:
+		if (id.shading_mode == EShadingMode::UNLIT)
+		{
+			if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
+				return std::make_unique<UnlitTexturePipeline>(get_graphics_engine());
+			else if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
+				return std::make_unique<UnlitColorPipeline>(get_graphics_engine());
+			else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
+				return std::make_unique<UnlitSkinnedPipeline>(get_graphics_engine());
+			else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+				return std::make_unique<UnlitSkinnedColorPipeline>(get_graphics_engine());
+		}
 		return std::make_unique<PrimaryPipelineType>(get_graphics_engine());
 	case EPipelineModifier::STENCIL:
 		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
@@ -123,21 +135,23 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case EPipelineModifier::POST_STENCIL:
 		if constexpr (Stencileable<PrimaryPipelineType>)
 		{
-			if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
+			if (id.shading_mode == EShadingMode::UNLIT)
 			{
-				return std::make_unique<PostStencilColorPipeline>(get_graphics_engine());
-			} else if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
-			{
-				return std::make_unique<PostStencilTexturePipeline>(get_graphics_engine());
-			} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
-			{
-				return std::make_unique<PostStencilSkinnedPipeline>(get_graphics_engine());
-			} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
-			{
-				return std::make_unique<PostStencilSkinnedColorPipeline>(get_graphics_engine());
-			} else {
-				throw std::runtime_error("GraphicsEnginePipelineManager::create_pipeline: invalid primary pipeline type for POST_STENCIL");
+				if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
+					return std::make_unique<PostStencilPipeline<UnlitColorPipeline>>(
+						get_graphics_engine());
+				else if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
+					return std::make_unique<PostStencilPipeline<UnlitTexturePipeline>>(
+						get_graphics_engine());
+				else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
+					return std::make_unique<PostStencilPipeline<UnlitSkinnedPipeline>>(
+						get_graphics_engine());
+				else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
+					return std::make_unique<PostStencilPipeline<UnlitSkinnedColorPipeline>>(
+						get_graphics_engine());
 			}
+			return std::make_unique<PostStencilPipeline<PrimaryPipelineType>>(
+				get_graphics_engine());
 		}
 		break;
 	case EPipelineModifier::WIREFRAME:
@@ -147,24 +161,6 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		} else if constexpr (Wireframeable<PrimaryPipelineType>)
 		{
 			return std::make_unique<WireframePipeline<PrimaryPipelineType>>(get_graphics_engine());
-		}
-		break;
-	case EPipelineModifier::UNLIT_BASE_COLOR:
-		if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
-		{
-			return std::make_unique<UnlitTexturePipeline>(get_graphics_engine());
-		} else if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
-		{
-			return std::make_unique<UnlitColorPipeline>(get_graphics_engine());
-		} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedPipeline>)
-		{
-			return std::make_unique<UnlitSkinnedPipeline>(get_graphics_engine());
-		} else if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
-		{
-			return std::make_unique<UnlitSkinnedColorPipeline>(get_graphics_engine());
-		} else if constexpr (std::is_same_v<PrimaryPipelineType, CubemapPipeline>)
-		{
-			return std::make_unique<CubemapPipeline>(get_graphics_engine());
 		}
 		break;
 	case EPipelineModifier::SHADOW_MAP:
@@ -180,8 +176,9 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 		break;
 	}
 	
-	LOG_WARNING(Utility::get_logger(), "create_pipeline failed with invalid pipeline id: {} {}",
+	LOG_WARNING(Utility::get_logger(), "create_pipeline failed with invalid pipeline id: {} {} {}",
 		magic_enum::enum_name(id.primary_pipeline_type),
-		magic_enum::enum_name(id.pipeline_modifier));
+		magic_enum::enum_name(id.pipeline_modifier),
+		magic_enum::enum_name(id.shading_mode));
 	return std::unique_ptr<GraphicsEnginePipeline>{nullptr};
 }

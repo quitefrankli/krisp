@@ -45,12 +45,21 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							   const VkDescriptorSet& object_dset,
 							   const VkDescriptorSet& renderable_dset,
 							   EPipelineModifier pipeline_modifier,
-							   ERenderType primary_pipeline_override)
+							   ERenderType primary_pipeline_override,
+							   const std::optional<EShadingMode> shading_override)
 {
 	const ERenderType primary_pipeline_type = primary_pipeline_override == ERenderType::UNASSIGNED ?
 		renderable.pipeline_render_type : primary_pipeline_override;
-	const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({ 
-		primary_pipeline_type, pipeline_modifier, renderable.alpha_mode });
+	const bool shading_affects_pipeline = pipeline_modifier == EPipelineModifier::NONE
+		|| pipeline_modifier == EPipelineModifier::POST_STENCIL;
+	const auto shading_mode = shading_affects_pipeline
+		? shading_override.value_or(renderable.shading_mode) : EShadingMode::LIT;
+	const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({
+		.primary_pipeline_type = primary_pipeline_type,
+		.pipeline_modifier = pipeline_modifier,
+		.alpha_mode = renderable.alpha_mode,
+		.shading_mode = shading_mode,
+	});
 	if (!pipeline)
 	{
 		return;
@@ -103,10 +112,14 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							0,
 							nullptr);
 
-	if (primary_pipeline_type == ERenderType::COLOR || primary_pipeline_type == ERenderType::SKINNED_COLOR)
+	if (primary_pipeline_type == ERenderType::COLOR
+		|| primary_pipeline_type == ERenderType::STANDARD
+		|| primary_pipeline_type == ERenderType::SKINNED
+		|| primary_pipeline_type == ERenderType::SKINNED_COLOR)
 	{
 		const SDS::AlphaMaterialData alpha_data{
-			.alpha_cutoff = 0.0f,
+			.alpha_cutoff = renderable.alpha_mode == EAlphaMode::MASK
+				? renderable.alpha_cutoff : 0.0f,
 			.opacity = renderable.opacity,
 			.premultiplied_base_color = 0,
 		};

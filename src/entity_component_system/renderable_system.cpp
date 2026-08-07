@@ -5,6 +5,7 @@
 #include "serialization/scene_resources.hpp"
 #include "serialization/serialization_helpers.hpp"
 #include "serialization/serializer.hpp"
+#include "renderable/material_group.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -21,7 +22,8 @@ void write_source(Serializer out, const ImportedResourceProvenance& source)
 	out.write("node", source.node);
 	out.write("primitive", source.primitive);
 	out.write("material", source.material);
-	out.write("texture", source.texture);
+	out.write("image", source.image);
+	out.write("texture_semantic", source.texture_semantic);
 	out.write("skin", source.skin);
 	out.write("animation", source.animation);
 }
@@ -34,7 +36,8 @@ ImportedResourceProvenance read_source(const Deserializer& in)
 		.node = in.read<int>("node"),
 		.primitive = in.read<int>("primitive"),
 		.material = in.read<int>("material"),
-		.texture = in.read<int>("texture"),
+		.image = in.read<int>("image"),
+		.texture_semantic = in.read<int>("texture_semantic"),
 		.skin = in.read<int>("skin"),
 		.animation = in.read<int>("animation"),
 	};
@@ -53,11 +56,44 @@ void RenderableSystem::validate_attachment(
 	if (is_skinned_render_type(renderable.pipeline_render_type) != skeleton_id.has_value())
 		throw std::invalid_argument(
 			"RenderableSystem: skinned renderables require exactly one skeleton binding");
+	if (renderable.shading_mode != EShadingMode::LIT
+		&& renderable.shading_mode != EShadingMode::UNLIT)
+		throw std::invalid_argument("RenderableSystem: unknown shading mode");
+	if (renderable.shading_mode == EShadingMode::UNLIT
+		&& renderable.pipeline_render_type != ERenderType::COLOR
+		&& renderable.pipeline_render_type != ERenderType::STANDARD
+		&& renderable.pipeline_render_type != ERenderType::SKINNED_COLOR
+		&& renderable.pipeline_render_type != ERenderType::SKINNED)
+		throw std::invalid_argument(
+			"RenderableSystem: unlit shading requires a PBR vertex layout");
 	if (!get_ecs().get_mesh_system().owns(renderable.mesh_owner))
 		throw std::invalid_argument("RenderableSystem: mesh belongs to another ECS");
 	for (const auto& material : renderable.material_owners)
 		if (!get_ecs().get_material_system().owns(material))
 			throw std::invalid_argument("RenderableSystem: material belongs to another ECS");
+	if (renderable.pipeline_render_type == ERenderType::COLOR
+		|| renderable.pipeline_render_type == ERenderType::STANDARD
+		|| renderable.pipeline_render_type == ERenderType::SKINNED_COLOR
+		|| renderable.pipeline_render_type == ERenderType::SKINNED)
+	{
+		const PbrMatGroup materials(renderable.material_owners);
+		const auto& mesh = renderable.mesh_owner->get();
+		if ((renderable.pipeline_render_type == ERenderType::STANDARD
+				&& !dynamic_cast<const TexMesh*>(&mesh))
+			|| (renderable.pipeline_render_type == ERenderType::SKINNED
+				&& !dynamic_cast<const SkinnedMesh*>(&mesh)))
+			throw std::invalid_argument(
+				"RenderableSystem: textured PBR pipeline and mesh vertex layout do not match");
+		const bool textured_pipeline = renderable.pipeline_render_type == ERenderType::STANDARD
+			|| renderable.pipeline_render_type == ERenderType::SKINNED;
+		if (!textured_pipeline && materials.pbr().has_textures())
+			throw std::invalid_argument(
+				"RenderableSystem: factor-only pipeline cannot use PBR texture slots");
+		if (materials.pbr().textures.normal
+			&& !supports_tangent_space_normal_mapping(mesh))
+			throw std::invalid_argument(
+				"RenderableSystem: normal maps require a valid mesh tangent basis");
+	}
 }
 
 RenderableID RenderableSystem::add_renderable(
@@ -270,6 +306,7 @@ void RenderableSystem::serialize(Serializer& out, SceneResourceWriter& resources
 			entry.write_null("skeleton_id");
 		entry.write("visible", attachment.visible);
 		entry.write("render_type", static_cast<int>(attachment.renderable.pipeline_render_type));
+		entry.write("shading_mode", static_cast<int>(attachment.renderable.shading_mode));
 		entry.write("alpha_mode", static_cast<int>(attachment.renderable.alpha_mode));
 		entry.write("alpha_cutoff", attachment.renderable.alpha_cutoff);
 		entry.write("opacity", attachment.renderable.opacity);
@@ -300,6 +337,7 @@ void RenderableSystem::deserialize(const Deserializer& in, SceneResourceReader& 
 		for (const auto& material : entry.child("materials").elements())
 			renderable.material_owners.push_back(resources.read_material_reference(material));
 		renderable.pipeline_render_type = static_cast<ERenderType>(entry.read<int>("render_type"));
+		renderable.shading_mode = static_cast<EShadingMode>(entry.read<int>("shading_mode"));
 		renderable.alpha_mode = static_cast<EAlphaMode>(entry.read<int>("alpha_mode"));
 		renderable.alpha_cutoff = entry.read<float>("alpha_cutoff");
 		renderable.opacity = entry.read<float>("opacity");

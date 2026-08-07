@@ -42,7 +42,10 @@ Renderable ScaleGizmoObj::make_renderable(ECS& ecs)
 
 	auto mesh = ecs.get_mesh_system().add(std::make_unique<ColorMesh>(std::move(rod_vertices), std::move(rod_indices)));
 
-	return Renderable::make_default(ecs, std::move(mesh));
+	auto renderable = Renderable::make_default(ecs, std::move(mesh));
+	renderable.shading_mode = EShadingMode::UNLIT;
+	renderable.casts_shadow = false;
+	return renderable;
 }
 
 void ScaleGizmoObj::point(ECS& ecs, const glm::vec3& start, const glm::vec3& end)
