@@ -137,25 +137,40 @@ void GameEngine::run()
 			"GameEngine: avg loop processing period (excluding sleep)",
 			CSTS::TRACKER_LOG_PERIOD_SECONDS);
 
-		std::chrono::time_point<std::chrono::system_clock> time = std::chrono::system_clock::now();
+		auto time = std::chrono::steady_clock::now();
 
 		TPS_counter->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
 		while (!should_shutdown && !window->should_close())
 		{
-	#ifndef DISABLE_SLEEP
-			loop_sleeper();
-	#endif
-			const std::chrono::time_point<std::chrono::system_clock> new_time = std::chrono::system_clock::now();
-			std::chrono::duration<float, std::milli> chrono_time_delta = new_time - time;
-			const float time_delta = chrono_time_delta.count() * 0.001; // in seconds
-			time = new_time;
+			const auto recording_frame =
+				graphics_engine->get_recording_session().begin_game_frame();
+			float time_delta = 0.0f;
+			if (recording_frame)
+			{
+				time_delta = recording_frame->delta_seconds;
+			}
+			else
+			{
+				loop_sleeper();
+				const auto new_time = std::chrono::steady_clock::now();
+				time_delta = std::chrono::duration<float>(new_time - time).count();
+				time = new_time;
+			}
 			analytics.start();
 
 			// for ticks per second
 			TPS_counter->stop();
 			TPS_counter->start();
 			main_loop(time_delta);
+			if (recording_frame)
+			{
+				graphics_engine->get_recording_session().await_capture(
+					*recording_frame, next_render_frame_number - 1);
+				// Exclude time spent waiting for graphics from the first real-time
+				// update after recording stops.
+				time = std::chrono::steady_clock::now();
+			}
 
 			analytics.stop();
 		}
@@ -343,6 +358,7 @@ void GameEngine::shutdown_impl()
 	}
 
 	should_shutdown = true;
+	graphics_engine->get_recording_session().stop();
 	graphics_engine->request_shutdown();
 }
 

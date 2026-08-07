@@ -118,6 +118,15 @@ instead of queueing work or blocking the game thread. Graphics-owned topology
 is reconciled only when renderable or skeleton membership changes; transforms,
 visibility, camera state, particles, and poses reuse it.
 
+Deterministic screen recording deliberately changes this scheduling policy for
+the duration of a capture. The game publishes one fixed-step frame and waits
+for graphics to copy it, so render and encoder stalls slow wall-clock capture
+without changing video time. GPU readback still waits for the submitted frame
+fence. The encoder runs on its own thread with at most two queued BGRA frames;
+when that queue fills, capture applies backpressure instead of allowing memory
+use to grow without bound. At 1920x1080 the two queued source frames occupy
+about 16 MiB before encoder and staging allocations.
+
 Opaque, masked, overlay, and shadow draw lists are classified and state-sorted
 only after topology changes. Blended lists are depth-sorted each graphics frame.
 State ordering groups pipelines, meshes, and materials, allowing command

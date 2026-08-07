@@ -58,7 +58,8 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	screenshot_extent(std::move(frame.screenshot_extent)),
 	recording_staging_buffer(std::move(frame.recording_staging_buffer)),
 	recording_extent(std::move(frame.recording_extent)),
-	recording_has_pending_frame(frame.recording_has_pending_frame)
+	recording_has_pending_frame(frame.recording_has_pending_frame),
+	recording_capture_target(std::move(frame.recording_capture_target))
 {
 	frame.should_destroy = false;
 }

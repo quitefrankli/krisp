@@ -93,6 +93,23 @@ TEST(GuiPanel, f1_toggles_fps_counter_globally_on_unmodified_press_only)
 	EXPECT_TRUE(manager.fps_counter.is_visible());
 }
 
+TEST(GuiPanel, f2_toggles_recording_globally)
+{
+	EngineUiManager manager;
+
+	EXPECT_TRUE(manager.handle_key_input(
+		{ GLFW_KEY_F2, EKeyModifier::NONE, EInputAction::PRESS }, false));
+	EXPECT_EQ(manager.debug.consume_start_recording_request(), 60u);
+
+	manager.debug.set_is_recording(true);
+	EXPECT_TRUE(manager.handle_key_input(
+		{ GLFW_KEY_F2, EKeyModifier::NONE, EInputAction::PRESS }, false));
+	EXPECT_TRUE(manager.debug.consume_stop_recording_request());
+
+	EXPECT_FALSE(manager.handle_key_input(
+		{ GLFW_KEY_F2, EKeyModifier::SHIFT, EInputAction::PRESS }, false));
+}
+
 TEST(GuiResourceTree, groups_nested_paths_and_preserves_source_indices)
 {
 	const auto tree = GuiWindowDetail::build_resource_tree({

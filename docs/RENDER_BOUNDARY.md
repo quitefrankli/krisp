@@ -32,6 +32,13 @@ particle, or bone data from different game updates. If several game frames are
 published during a slow draw, only the newest is accepted by the next graphics
 iteration.
 
+Normal publication is latest-wins and never blocks. Deterministic screen
+recording adds a separate acknowledgement rendezvous without adding another
+state queue: the game thread publishes one fixed-step snapshot and waits for
+graphics to copy that exact `frame_number` before advancing again. Stopping or
+shutting down cancels the wait. The mailbox and its immutable frame contract
+are otherwise unchanged.
+
 Graphics-owned renderables are reconciled independently when renderable
 membership changes. Replacing or removing one attachment
 does not recreate other renderables in its object group. Dynamic-only frames

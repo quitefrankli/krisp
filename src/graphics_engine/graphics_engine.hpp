@@ -64,6 +64,7 @@ public:
 	void request_shutdown() final
 	{
 		should_shutdown.store(true, std::memory_order_release);
+		get_recording_session().stop();
 	}
 
 public: // getters and setters

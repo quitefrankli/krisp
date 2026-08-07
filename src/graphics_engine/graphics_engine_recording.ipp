@@ -32,17 +32,37 @@ void GraphicsEngineFrame::maybe_prepare_recording_capture()
 {
 	auto& debug = get_graphics_engine().get_gui_manager().debug;
 	auto& recorder = get_graphics_engine().get_video_recorder();
+	auto& session = get_graphics_engine().get_recording_session();
 
-	if (debug.consume_start_recording_request() && !recorder.is_recording())
+	const auto start_request = debug.consume_start_recording_request();
+	if (start_request && !recorder.is_recording())
 	{
 		const VkExtent2D ext = swap_chain.get_extent();
-		recorder.start(make_recording_path(), ext.width, ext.height);
-		debug.set_is_recording(true);
+		try
+		{
+			recorder.start(
+				make_recording_path(), ext.width, ext.height,
+				static_cast<int>(*start_request));
+			session.start(*start_request);
+			debug.set_is_recording(true);
+		}
+		catch (...)
+		{
+			session.stop();
+			if (recorder.is_recording())
+			{
+				try { recorder.stop(); } catch (...) {}
+			}
+			debug.set_is_recording(false);
+			throw;
+		}
 	}
 
-	if (debug.consume_stop_recording_request() && recorder.is_recording())
+	if (debug.consume_stop_recording_request())
 	{
-		recorder.stop();
+		session.stop();
+		if (recorder.is_recording())
+			recorder.stop();
 		debug.set_is_recording(false);
 		return;
 	}
@@ -50,6 +70,20 @@ void GraphicsEngineFrame::maybe_prepare_recording_capture()
 	if (!recorder.is_recording())
 	{
 		return;
+	}
+	const auto target = session.get_capture_target();
+	if (!target)
+		return;
+	const uint64_t accepted_frame_number =
+		get_graphics_engine().get_render_frame().frame_number;
+	if (accepted_frame_number < target->render_frame_number)
+		return;
+	if (accepted_frame_number > target->render_frame_number)
+	{
+		session.stop();
+		debug.set_is_recording(false);
+		recorder.stop();
+		throw std::logic_error("Recording capture target was skipped");
 	}
 
 	const VkExtent2D extent = swap_chain.get_extent();
@@ -64,6 +98,14 @@ void GraphicsEngineFrame::maybe_prepare_recording_capture()
 			1,
 			"recording_staging"));
 		recording_extent = extent;
+	}
+	else if (recording_extent.width != extent.width
+		|| recording_extent.height != extent.height)
+	{
+		session.stop();
+		debug.set_is_recording(false);
+		recorder.stop();
+		throw std::runtime_error("Recording resolution changed during capture");
 	}
 
 	VkImageMemoryBarrier to_transfer{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
@@ -115,6 +157,7 @@ void GraphicsEngineFrame::maybe_prepare_recording_capture()
 		0, 0, nullptr, 0, nullptr, 1, &to_present);
 
 	recording_has_pending_frame = true;
+	recording_capture_target = target;
 }
 
 void GraphicsEngineFrame::flush_recording_capture()
@@ -125,21 +168,53 @@ void GraphicsEngineFrame::flush_recording_capture()
 	}
 
 	auto& recorder = get_graphics_engine().get_video_recorder();
+	auto& session = get_graphics_engine().get_recording_session();
 
 	if (recording_has_pending_frame && recorder.is_recording())
 	{
-		vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
-
-		const size_t pixel_bytes = static_cast<size_t>(recording_extent.width) * recording_extent.height * 4;
-		void* mapped = nullptr;
-		if (vkMapMemory(get_logical_device(), recording_staging_buffer->get_memory(), 0, pixel_bytes, 0, &mapped) == VK_SUCCESS && mapped)
+		try
 		{
-			recorder.submit_frame(static_cast<const uint8_t*>(mapped), recording_extent.width, recording_extent.height);
+			if (vkWaitForFences(
+					get_logical_device(), 1, &fence_frame_inflight, VK_TRUE,
+					std::numeric_limits<uint64_t>::max()) != VK_SUCCESS)
+				throw std::runtime_error("Failed to wait for recording capture");
+
+			const size_t pixel_bytes = static_cast<size_t>(recording_extent.width)
+				* recording_extent.height * 4;
+			void* mapped = nullptr;
+			if (vkMapMemory(
+					get_logical_device(), recording_staging_buffer->get_memory(),
+					0, pixel_bytes, 0, &mapped) != VK_SUCCESS || !mapped)
+				throw std::runtime_error("Failed to map recording capture");
+			try
+			{
+				recorder.submit_frame(
+					static_cast<const uint8_t*>(mapped),
+					recording_extent.width, recording_extent.height);
+			}
+			catch (...)
+			{
+				vkUnmapMemory(get_logical_device(), recording_staging_buffer->get_memory());
+				throw;
+			}
 			vkUnmapMemory(get_logical_device(), recording_staging_buffer->get_memory());
+
+			if (recording_capture_target)
+				session.complete_capture(*recording_capture_target);
+		}
+		catch (...)
+		{
+			session.stop();
+			get_graphics_engine().get_gui_manager().debug.set_is_recording(false);
+			try { recorder.stop(); } catch (...) {}
+			recording_has_pending_frame = false;
+			recording_capture_target.reset();
+			throw;
 		}
 	}
 
 	recording_has_pending_frame = false;
+	recording_capture_target.reset();
 
 	if (!recorder.is_recording())
 	{

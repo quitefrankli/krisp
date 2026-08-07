@@ -3,6 +3,7 @@
 #include "graphics_engine_base_module.hpp"
 #include "identifications.hpp"
 #include "analytics.hpp"
+#include "recording_session.hpp"
 #include "submission_retirement_queue.hpp"
 
 #include <vulkan/vulkan.hpp>
@@ -74,4 +75,5 @@ private:
 	std::optional<GraphicsBuffer> recording_staging_buffer;
 	VkExtent2D recording_extent{};
 	bool recording_has_pending_frame = false;
+	std::optional<RecordingSession::CaptureTarget> recording_capture_target;
 };

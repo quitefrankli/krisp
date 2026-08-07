@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render_frame.hpp"
+#include "recording_session.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
 
@@ -49,9 +50,12 @@ public:
 	{
 		return render_frame_mailbox.load_latest();
 	}
+	RecordingSession& get_recording_session() { return recording_session; }
+	const RecordingSession& get_recording_session() const { return recording_session; }
 
 private:
 	RenderFrameMailbox render_frame_mailbox;
+	RecordingSession recording_session;
 	MeshSystem* mesh_system = nullptr;
 	MaterialSystem* material_system = nullptr;
 };

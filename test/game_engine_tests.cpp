@@ -228,10 +228,12 @@ TEST_F(GameEngineTests, publishes_complete_render_view_state)
 TEST_F(GameEngineTests, shutdown_requests_the_graphics_thread_to_stop)
 {
 	EXPECT_FALSE(get_mock_gfx().shutdown_requested);
+	get_mock_gfx().get_recording_session().start(60);
 
 	engine.shutdown();
 
 	EXPECT_TRUE(get_mock_gfx().shutdown_requested);
+	EXPECT_FALSE(get_mock_gfx().get_recording_session().is_active());
 }
 
 TEST_F(GameEngineTests, snapshots_object_hierarchy_and_reuses_unchanged_definitions)

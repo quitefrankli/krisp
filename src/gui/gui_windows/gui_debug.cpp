@@ -108,14 +108,14 @@ void GuiDebug::draw()
 		should_take_screenshot = true;
 	}
 
-	if (ImGui::Button(is_recording ? "Stop Recording" : "Start Recording"))
-	{
-		if (is_recording)
-			should_stop_recording = true;
-		else
-			should_start_recording = true;
-	}
-	if (is_recording)
+	const bool recording = is_recording.load(std::memory_order_acquire);
+	ImGui::BeginDisabled(recording);
+	ImGui::SliderInt("Recording FPS", &recording_fps, 15, 60);
+	ImGui::EndDisabled();
+
+	if (ImGui::Button(recording ? "Stop Recording (F2)" : "Start Recording (F2)"))
+		request_recording_toggle();
+	if (recording)
 	{
 		ImGui::SameLine();
 		ImGui::TextColored({1.0f, 0.0f, 0.0f, 1.0f}, "REC");

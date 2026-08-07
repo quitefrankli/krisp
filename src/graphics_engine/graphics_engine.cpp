@@ -144,9 +144,7 @@ void GraphicsEngine::run() {
 			retire_unused_resources();
 			if (!accepted_render_frame)
 			{
-#ifndef DISABLE_SLEEP
 				loop_sleeper();
-#endif
 				continue;
 			}
 
@@ -157,9 +155,7 @@ void GraphicsEngine::run() {
 
 			analytics.stop();
 
-#ifndef DISABLE_SLEEP
 			loop_sleeper();
-#endif
 
 		}
     } catch (const std::exception& e) {

@@ -5,6 +5,8 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <optional>
+#include <atomic>
 
 class GuiDebug : public EngineUiWindow
 {
@@ -19,21 +21,35 @@ public:
 		return request;
 	}
 
-	bool consume_start_recording_request()
+	std::optional<uint32_t> consume_start_recording_request()
 	{
-		const bool request = should_start_recording;
-		should_start_recording = false;
-		return request;
+		if (!should_start_recording.exchange(false, std::memory_order_acq_rel))
+			return std::nullopt;
+		return static_cast<uint32_t>(recording_fps);
 	}
 
 	bool consume_stop_recording_request()
 	{
-		const bool request = should_stop_recording;
-		should_stop_recording = false;
-		return request;
+		return should_stop_recording.exchange(false, std::memory_order_acq_rel);
 	}
 
-	void set_is_recording(bool value) { is_recording = value; }
+	void set_is_recording(bool value)
+	{
+		is_recording.store(value, std::memory_order_release);
+	}
+	void request_recording_toggle()
+	{
+		if (is_recording.load(std::memory_order_acquire))
+		{
+			should_stop_recording.store(true, std::memory_order_release);
+			should_start_recording.store(false, std::memory_order_release);
+		}
+		else
+		{
+			should_start_recording.store(true, std::memory_order_release);
+			should_stop_recording.store(false, std::memory_order_release);
+		}
+	}
 
 private:
 	struct PhysicsVisual { ObjectID object; uint32_t body_id; };
@@ -43,9 +59,10 @@ private:
 	bool should_refresh_objects_list = false;
 	bool should_toggle_pause = false;
 	bool should_take_screenshot = false;
-	bool should_start_recording = false;
-	bool should_stop_recording = false;
-	bool is_recording = false;
+	std::atomic<bool> should_start_recording = false;
+	std::atomic<bool> should_stop_recording = false;
+	std::atomic<bool> is_recording = false;
+	int recording_fps = 60;
 	bool is_paused = false;
 	std::vector<ObjectID> object_ids;
 	std::vector<std::string> object_ids_strs;

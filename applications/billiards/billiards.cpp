@@ -9,7 +9,6 @@
 #include <renderable/mesh_factory.hpp>
 
 #include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/norm.hpp>
 
 #include <algorithm>
 #include <array>
@@ -116,29 +115,22 @@ public:
 		balls_at_rest = std::ranges::all_of(balls, [&engine](const SpawnedObject& ball) {
 			return !engine.get_ecs().is_body_enabled(ball.id) || !engine.get_ecs().is_body_active(ball.id);
 		});
-		if (balls_at_rest && cue_hidden_after_shot) {
-			set_cue_visible(true);
-			cue_hidden_after_shot = false;
-		}
 		ui_state.publish_status(balls_at_rest, pocketed_balls);
+
+		if (!charging)
+			return;
 
 		const auto table_point = mouse_table_point(engine);
 		if (!table_point)
 			return;
 
-		if (!charging && balls_at_rest)
-		{
-			const glm::vec3 direction = flattened_direction(engine.get_ecs().get_position(balls.front().id), *table_point);
-			if (glm::length2(direction) > 0.0f)
-				aim_direction = direction;
-		}
-		else
-		{
-			const float pullback = std::clamp(
-				glm::dot(charge_origin - *table_point, aim_direction), 0.0f, DRAG_DISTANCE_FOR_MAX_POWER);
-			preview_power = pullback / DRAG_DISTANCE_FOR_MAX_POWER;
-			ui_state.publish_power(preview_power);
-		}
+		glm::vec3 drag = *table_point - charge_origin;
+		drag.y = 0.0f;
+		const float drag_distance = glm::length(drag);
+		if (drag_distance > 0.001f)
+			aim_direction = -drag / drag_distance;
+		preview_power = std::clamp(drag_distance / DRAG_DISTANCE_FOR_MAX_POWER, 0.0f, 1.0f);
+		ui_state.publish_power(preview_power);
 		update_cue();
 	}
 
@@ -147,32 +139,34 @@ public:
 		if (input.button != EMouseButton::LEFT || input.modifier != EKeyModifier::NONE)
 			return;
 
-		if (input.action == EInputAction::PRESS)
+		if (input.action == EInputAction::RELEASE && charging)
 		{
-			if (!balls_at_rest || !engine.get_ecs().is_body_enabled(balls.front().id)) return;
-			const auto table_point = mouse_table_point(engine);
-			if (!table_point)
-				return;
-			const glm::vec3 direction = flattened_direction(engine.get_ecs().get_position(balls.front().id), *table_point);
-			if (glm::length2(direction) == 0.0f)
-				return;
-			aim_direction = direction;
-			charge_origin = *table_point;
-			charging = true;
-		}
-		else if (input.action == EInputAction::RELEASE && charging)
-		{
-			engine.get_ecs().add_impulse(balls.front().id, aim_direction * (preview_power * MAX_SHOT_IMPULSE));
+			if (preview_power > 0.0f)
+				engine.get_ecs().add_impulse(balls.front().id, aim_direction * (preview_power * MAX_SHOT_IMPULSE));
 			set_cue_visible(false);
-			cue_hidden_after_shot = true;
 			charging = false;
 			preview_power = 0.0f;
 			ui_state.publish_power(0.0f);
-			update_cue();
 		}
 	}
 
-	void on_click(GameEngine&, Object&) override {}
+	void on_click(GameEngine& engine, Object& object) override
+	{
+		if (charging || object.get_id() != balls.front().id || !balls_at_rest
+			|| !engine.get_ecs().is_body_enabled(balls.front().id))
+			return;
+
+		const auto table_point = mouse_table_point(engine);
+		if (!table_point)
+			return;
+
+		charge_origin = *table_point;
+		charging = true;
+		preview_power = 0.0f;
+		ui_state.publish_power(0.0f);
+		update_cue();
+		set_cue_visible(true);
+	}
 	void on_key_press(GameEngine&, const KeyInput&) override {}
 
 private:
@@ -323,6 +317,7 @@ private:
 			glm::vec3(BALL_RADIUS * 2.0f), "Cue ball");
 		balls.push_back({ cue_ball.get_id(), CUE_BALL_START });
 		add_ball_body(cue_ball.get_id());
+		engine->get_ecs().add_clickable_entity(cue_ball.get_id());
 
 		constexpr float row_spacing = BALL_RADIUS * 1.82f;
 		constexpr float column_spacing = BALL_RADIUS * 2.08f;
@@ -381,8 +376,7 @@ private:
 		}
 		pocketed_balls = 0;
 		balls_at_rest = true;
-		set_cue_visible(true);
-		cue_hidden_after_shot = false;
+		set_cue_visible(false);
 		charging = false;
 		preview_power = 0.0f;
 		aim_direction = Maths::right_vec;
@@ -405,14 +399,6 @@ private:
 	{
 		if (cue_id)
 			engine->get_object(*cue_id)->set_visibility(visible);
-	}
-
-	static glm::vec3 flattened_direction(const glm::vec3& origin, const glm::vec3& target)
-	{
-		glm::vec3 direction = target - origin;
-		direction.y = 0.0f;
-		const float length_squared = glm::length2(direction);
-		return length_squared > 0.000001f ? direction / std::sqrt(length_squared) : glm::vec3(0.0f);
 	}
 
 	static std::optional<glm::vec3> mouse_table_point(const GameEngine& engine)
@@ -450,7 +436,6 @@ private:
 	float preview_power = 0.0f;
 	bool charging = false;
 	bool balls_at_rest = true;
-	bool cue_hidden_after_shot = false;
 	std::size_t pocketed_balls = 0;
 };
 }

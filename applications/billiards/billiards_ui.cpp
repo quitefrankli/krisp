@@ -50,7 +50,7 @@ void BilliardsControlsWindow::draw_contents()
 		ImGui::Text("Balls: %s | Pocketed: %zu", state.balls_at_rest ? "at rest" : "moving", state.pocketed_balls);
 	}
 	ImGui::Separator();
-	ImGui::TextWrapped("Move the mouse to aim. Hold the left mouse button and drag away from the shot to preview power.");
+	ImGui::TextWrapped("Click the cue ball, pull the cue back, and release to shoot.");
 	const float preview_power = state.power();
 	ImGui::ProgressBar(preview_power, ImVec2(-1.0f, 0.0f));
 	if (ImGui::Button("Reset Rack"))

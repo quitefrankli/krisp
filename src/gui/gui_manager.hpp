@@ -105,6 +105,11 @@ public:
 			fps_counter.set_visible(!fps_counter.is_visible());
 			return true;
 		}
+		if (input.eq(GLFW_KEY_F2, EKeyModifier::NONE, EInputAction::PRESS))
+		{
+			debug.request_recording_toggle();
+			return true;
+		}
 		return editor_shortcuts_active && animation_selector.handle_key_input(input);
 	}
 

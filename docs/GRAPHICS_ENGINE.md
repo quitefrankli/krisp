@@ -20,7 +20,7 @@ remain disabled.
 | `graphics_renderable.*` | Holds graphics-owned state and resources for one immutable renderable definition. |
 | `graphics_engine_texture*` | Loads, uploads, samples, and owns texture resources. |
 | `texture_compositor.*` | Generates immutable GPU-only base-colour textures from ordered texture layers. |
-| `video_recorder.*` | Manages video recording fed by per-frame image capture. |
+| `video_recorder.*` | Encodes fixed-rate video from bounded, asynchronous per-frame image capture. |
 | `raytracing.*` | Dormant implementation excluded from supported build and execution paths. |
 
 Most submodules inherit `GraphicsEngineBaseModule`, which provides controlled
@@ -55,6 +55,13 @@ sRGB swap-chain image, followed by the diagnostic quad and ImGui. Screenshot
 copy occurs after presentation and before ImGui; recording copy occurs after
 ImGui. Every scene pass reads the single snapshot retained for that graphics
 iteration.
+
+Recording uses a deterministic session rendezvous between the game and graphics
+threads. The game advances by exactly `1 / recording_fps`, publishes one
+immutable frame, and waits until graphics has copied that exact frame. Encoder
+and rendering stalls therefore extend wall-clock capture time rather than the
+video timeline. Outside recording, publication remains non-blocking and
+latest-wins. F2 toggles recording globally; the debug panel selects 15–60 FPS.
 
 PBR uploads one glTF-native material record per lit renderable. Factor-only
 static and skinned meshes retain texture-free pipelines; textured counterparts
@@ -113,8 +120,10 @@ own queue synchronization rather than this retirement mechanism.
 - `RenderableID` and `SkeletonID` definitions cannot change or be reintroduced.
   Structural replacement creates a new ID; the render-frame mailbox rejects
   producers that violate this contract.
-- The latest-wins mailbox lets either thread advance independently. A slow
-  graphics loop drops intermediate publications rather than blocking updates.
+- The latest-wins mailbox lets either thread advance independently during
+  normal rendering. A slow graphics loop drops intermediate publications
+  rather than blocking updates. Deterministic recording temporarily gates the
+  producer after publication until that frame has been copied.
 - Each snapshot includes render mode and stencil-selection state, so dropping
   an intermediate publication cannot lose a state transition. Stencil entries
   are `ObjectID` grouping metadata, not graphics-resource ownership keys.
