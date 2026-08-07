@@ -44,21 +44,14 @@ struct SpawnedObject
 	glm::vec3 initial_position;
 };
 
-ColorMaterial make_material(const glm::vec3& color, const float shininess = 24.0f)
+PbrMaterial make_material(const glm::vec3& color, const float roughness = 0.35f)
 {
-	ColorMaterial material;
-	material.data.ambient = color * 0.35f;
-	material.data.diffuse = color;
-	material.data.specular = glm::vec3(0.35f);
-	material.data.shininess = shininess;
-	return material;
+	return PbrMaterial(glm::vec4(color, 1.0f), 0.0f, roughness);
 }
 
-ColorMaterial make_felt_material()
+PbrMaterial make_felt_material()
 {
-	auto material = make_material({ 0.03f, 0.34f, 0.16f }, 1.0f);
-	material.data.specular = glm::vec3(0.0f);
-	return material;
+	return make_material({ 0.03f, 0.34f, 0.16f }, 1.0f);
 }
 
 class BilliardsApplication : public IApplication
@@ -221,13 +214,13 @@ private:
 		cylinder_mesh = ecs.get_mesh_system().add(MeshFactory::cylinder({}, 24));
 
 		felt_material = ecs.get_material_system().add(
-			std::make_unique<ColorMaterial>(make_felt_material()));
+			std::make_unique<PbrMaterial>(make_felt_material()));
 		wood_material = ecs.get_material_system().add(
-			std::make_unique<ColorMaterial>(make_material({ 0.24f, 0.09f, 0.035f })));
+			std::make_unique<PbrMaterial>(make_material({ 0.24f, 0.09f, 0.035f })));
 		pocket_material = ecs.get_material_system().add(
-			std::make_unique<ColorMaterial>(make_material({ 0.008f, 0.008f, 0.01f }, 2.0f)));
+			std::make_unique<PbrMaterial>(make_material({ 0.008f, 0.008f, 0.01f }, 1.0f)));
 		cue_material = ecs.get_material_system().add(
-			std::make_unique<ColorMaterial>(make_material({ 0.72f, 0.52f, 0.25f })));
+			std::make_unique<PbrMaterial>(make_material({ 0.72f, 0.52f, 0.25f })));
 	}
 
 	Object& spawn_primitive(
@@ -321,10 +314,10 @@ private:
 		}};
 		ball_materials.reserve(colors.size() + 1);
 		ball_materials.push_back(engine->get_ecs().get_material_system().add(
-			std::make_unique<ColorMaterial>(make_material(glm::vec3(0.96f), 72.0f))));
+			std::make_unique<PbrMaterial>(make_material(glm::vec3(0.96f), 0.15f))));
 		for (const auto& color : colors)
 			ball_materials.push_back(engine->get_ecs().get_material_system().add(
-				std::make_unique<ColorMaterial>(make_material(color, 72.0f))));
+				std::make_unique<PbrMaterial>(make_material(color, 0.15f))));
 
 		auto& cue_ball = spawn_primitive(sphere_mesh, ball_materials[0], CUE_BALL_START,
 			glm::vec3(BALL_RADIUS * 2.0f), "Cue ball");
@@ -359,11 +352,22 @@ private:
 	void spawn_light()
 	{
 		auto light_material = engine->get_ecs().get_material_system().add(
-			std::make_unique<ColorMaterial>(make_material({ 1.0f, 0.92f, 0.76f })));
-		auto& light = spawn_primitive(sphere_mesh, light_material, { -1.0f, 7.0f, -1.0f },
-			glm::vec3(0.24f), "Overhead light");
+			std::make_unique<PbrMaterial>(make_material({ 1.0f, 0.92f, 0.76f })));
+		Renderable marker{
+			.pipeline_render_type = ERenderType::COLOR,
+			.shading_mode = EShadingMode::UNLIT,
+			.casts_shadow = false,
+			.mesh_owner = sphere_mesh,
+			.material_owners = { light_material },
+		};
+		auto& light = engine->spawn_object<Object>();
+		light.set_name("Overhead light");
+		engine->attach_renderable(light.get_id(), std::move(marker));
+		auto& transform = engine->get_ecs().get_transformation(light.get_id());
+		transform.set_position({ -1.0f, 7.0f, -1.0f });
+		transform.set_scale(glm::vec3(0.24f));
 		engine->get_ecs().add_light_source(light.get_id(), {
-			.intensity = 1.6f,
+			.intensity = 225.0f,
 			.color = { 1.0f, 0.92f, 0.78f },
 		});
 	}
