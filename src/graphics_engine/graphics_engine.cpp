@@ -818,8 +818,10 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 
 	switch (renderable.pipeline_render_type)
 	{
+	case ERenderType::COLOR:
 	case ERenderType::STANDARD:
-	case ERenderType::SKINNED: {
+	case ERenderType::SKINNED:
+	case ERenderType::SKINNED_COLOR: {
 		const PbrMatGroup materials(renderable.material_owners);
 		const auto image_info = [this, &materials](
 			const std::optional<PbrMaterial::TextureBinding>& binding,
@@ -842,11 +844,13 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 			image_info(materials.pbr().textures.normal, ETextureSemantic::NORMAL),
 			image_info(materials.pbr().textures.metallic_roughness,
 				ETextureSemantic::METALLIC_ROUGHNESS),
+			image_info(materials.pbr().textures.emissive, ETextureSemantic::EMISSIVE),
 		};
-		const std::array<uint32_t, 3> bindings{
+		const std::array<uint32_t, 4> bindings{
 			SDS::RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING,
 			SDS::RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING,
 			SDS::RASTERIZATION_METALLIC_ROUGHNESS_TEXTURE_DATA_BINDING,
+			SDS::RASTERIZATION_EMISSIVE_TEXTURE_DATA_BINDING,
 		};
 		for (size_t index = 0; index < image_infos.size(); ++index)
 		{

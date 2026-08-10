@@ -174,12 +174,25 @@ public:
 	ShadowMapPipeline(GraphicsEngine& engine) : ShadowMapBasePipeline(engine) {}
 
 protected:
+	virtual std::string_view get_shader_name() const override;
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
 };
 
 template<>
 class ShadowMapPipeline<SkinnedPipeline> : public ShadowMapBasePipeline
+{
+public:
+	ShadowMapPipeline(GraphicsEngine& engine) : ShadowMapBasePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override;
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<>
+class ShadowMapPipeline<SkinnedColorPipeline> : public ShadowMapBasePipeline
 {
 public:
 	ShadowMapPipeline(GraphicsEngine& engine) : ShadowMapBasePipeline(engine) {}
@@ -232,7 +245,7 @@ public:
 	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
-	virtual std::string_view get_shader_name() const override { return "stencil"; }
+	virtual std::string_view get_shader_name() const override;
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 	virtual VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_FRONT_BIT; }
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
@@ -246,7 +259,21 @@ public:
 	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
 
 protected:
-	virtual std::string_view get_shader_name() const override { return "stencil_skinned"; }
+	virtual std::string_view get_shader_name() const override;
+	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
+	virtual VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_FRONT_BIT; }
+	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;
+	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override;
+};
+
+template<>
+class StencilPipeline<SkinnedColorPipeline> : public GraphicsEnginePipeline
+{
+public:
+	StencilPipeline(GraphicsEngine& engine) : GraphicsEnginePipeline(engine) {}
+
+protected:
+	virtual std::string_view get_shader_name() const override;
 	virtual VkPipelineDepthStencilStateCreateInfo get_depth_stencil_create_info() const override;
 	virtual VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_FRONT_BIT; }
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override;

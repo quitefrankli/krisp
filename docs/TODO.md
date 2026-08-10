@@ -14,26 +14,26 @@ tests. Once all callers use those operations, remove the remaining mutable pose
 reference. Add synchronization only if pose mutation is later moved off the game
 thread.
 
-## Add image-based PBR lighting
+## Complete PBR environment and material coverage
 
-Stage 2 adds base-colour, metallic-roughness, and tangent-space normal textures,
-but deliberately retains Stage 1's direct point-light illumination. Add
-environment lighting as a separate stage: define environment-map resources and
-preprocessing, diffuse irradiance, roughness-prefiltered specular lighting, and
-a BRDF integration lookup texture. Do not approximate indirect illumination
-with a constant ambient term while this work remains outstanding.
+Direct point-light illumination is implemented, but the remaining core and
+production material work includes:
 
-## Support compressed textures in glTF
+- occlusion textures;
+- image-based/environment lighting with environment-map resources, diffuse
+  irradiance, roughness-prefiltered specular lighting, and a BRDF integration
+  lookup texture;
+- additional texture-coordinate sets and per-texture `texCoord` selection;
+- nearest texel filtering, mirrored or mixed-axis addressing, and generated mip
+  chains;
+- glTF punctual lights and multiple active lights;
+- alpha-to-coverage for masked edges;
+- advanced glTF material and texture extensions; and
+- improved transparent sorting for intersecting meshes and other ordering
+  cycles.
 
-Standalone texture resources support DXT5/BC3 DDS, but core glTF image sources
-remain PNG and JPEG. Add `MSFT_texture_dds` only as an explicit glTF extension:
-validate its fallback and extension declarations, preserve the existing texture
-semantic/colour-space rules, and test external URIs, data URIs, and GLB buffer
-views. Do not infer DDS support from image bytes in core glTF materials.
-
-Emissive output, occlusion, alpha masking/blending, double-sided rendering,
-additional texture-coordinate sets, and other material or texture extensions
-remain separate scope choices, not implied requirements of either item above.
+Do not approximate indirect illumination with a constant ambient term while
+environment lighting remains outstanding.
 
 ## Replace the coarse GUI mutex with asynchronous state exchange
 

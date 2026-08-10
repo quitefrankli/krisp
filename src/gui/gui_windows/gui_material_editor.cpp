@@ -45,9 +45,14 @@ void GuiMaterialEditor::process(GameEngine& engine)
 					.metallic_factor = change.metallic_factor,
 					.roughness_factor = change.roughness_factor,
 					.normal_scale = change.normal_scale,
+					.alpha_mode = change.alpha_mode,
+					.alpha_cutoff = change.alpha_cutoff,
+					.double_sided = change.double_sided,
+					.emissive_factor = change.emissive_factor,
 					.base_color_texture = texture_edit(change.textures[0]),
 					.metallic_roughness_texture = texture_edit(change.textures[1]),
 					.normal_texture = texture_edit(change.textures[2]),
+					.emissive_texture = texture_edit(change.textures[3]),
 				});
 			std::ranges::replace(renderable_ids, change.renderable_id, replacement_id);
 			loaded_renderable.reset();
@@ -119,10 +124,15 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		metallic_factor = material->data.metallic_factor;
 		roughness_factor = material->data.roughness_factor;
 		normal_scale = material->data.normal_scale;
+		alpha_mode = material->properties.alpha_mode;
+		alpha_cutoff = material->properties.alpha_cutoff;
+		double_sided = material->properties.double_sided;
+		emissive_factor = material->properties.emissive_factor;
 		const std::array slots{
 			material->textures.base_color,
 			material->textures.metallic_roughness,
 			material->textures.normal,
+			material->textures.emissive,
 		};
 		for (size_t index = 0; index < slots.size(); ++index)
 		{
@@ -170,9 +180,21 @@ void GuiMaterialEditor::draw()
 		ImGui::SliderFloat("Metallic", &metallic_factor, 0.0f, 1.0f);
 		ImGui::SliderFloat("Roughness", &roughness_factor, 0.0f, 1.0f);
 		ImGui::InputFloat("Normal scale", &normal_scale);
+		constexpr std::array alpha_mode_labels{ "OPAQUE", "MASK", "BLEND" };
+		int selected_alpha_mode = static_cast<int>(alpha_mode);
+		if (ImGui::Combo(
+			"Alpha mode", &selected_alpha_mode,
+			alpha_mode_labels.data(), static_cast<int>(alpha_mode_labels.size())))
+			alpha_mode = static_cast<EAlphaMode>(selected_alpha_mode);
+		ImGui::BeginDisabled(alpha_mode != EAlphaMode::MASK);
+		ImGui::InputFloat("Alpha cutoff", &alpha_cutoff);
+		ImGui::EndDisabled();
+		ImGui::Checkbox("Double-sided", &double_sided);
+		ImGui::ColorEdit3("Emissive factor", &emissive_factor.x);
 		ImGui::BeginDisabled(!texture_compatible);
 		constexpr std::array labels{
-			"Base-color texture", "Metallic-roughness texture", "Normal texture" };
+			"Base-color texture", "Metallic-roughness texture", "Normal texture",
+			"Emissive texture" };
 		for (size_t index = 0; index < texture_names.size(); ++index)
 		{
 			ImGui::InputText(labels[index], texture_names[index].data(), texture_names[index].size());
@@ -190,6 +212,10 @@ void GuiMaterialEditor::draw()
 				.metallic_factor = metallic_factor,
 				.roughness_factor = roughness_factor,
 				.normal_scale = normal_scale,
+				.alpha_mode = alpha_mode,
+				.alpha_cutoff = alpha_cutoff,
+				.double_sided = double_sided,
+				.emissive_factor = emissive_factor,
 			};
 			for (size_t index = 0; index < texture_names.size(); ++index)
 			{

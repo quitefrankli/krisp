@@ -12,7 +12,12 @@
 #include <resource_loader/resource_loader.hpp>
 
 #include <array>
+#include <cmath>
+#include <cstdint>
+#include <initializer_list>
 #include <optional>
+#include <ranges>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -33,10 +38,53 @@ public:
 		spawn_floor_and_transform_reference(engine);
 		spawn_skinned_reference(engine);
 		spawn_texture_proof(engine);
+		spawn_stage3_material_proof(engine);
 		spawn_point_light(engine);
+		spawn_sliding_sphere(engine);
+	}
+
+	void on_tick(GameEngine& engine, const float delta) override
+	{
+		slide_phase = std::fmod(slide_phase + delta, slide_period_seconds);
+		const float progress = slide_phase / slide_period_seconds;
+		const float x = -slide_extent + 4.0f * slide_extent
+			* std::abs(progress - 0.5f);
+		engine.get_ecs().get_transformation(sliding_sphere).set_position(
+			glm::vec3(x, 5.9f, -1.0f));
 	}
 
 private:
+	static constexpr float slide_extent = 6.0f;
+	static constexpr float slide_period_seconds = 4.0f;
+	EntityID sliding_sphere;
+	float slide_phase = slide_period_seconds * 0.5f;
+
+	void spawn_sliding_sphere(GameEngine& engine)
+	{
+		Renderable renderable{
+			.name = "Sliding frame-pacing reference",
+			.pipeline_render_type = ERenderType::COLOR,
+			.shading_mode = EShadingMode::UNLIT,
+			.casts_shadow = false,
+			.mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::sphere(
+				MeshFactory::EVertexType::COLOR,
+				MeshFactory::GenerationMethod::ICO_SPHERE,
+				400)),
+			.material_owners = {
+				engine.get_ecs().get_material_system().add(
+					std::make_unique<PbrMaterial>(
+						glm::vec4(0.1f, 0.8f, 1.0f, 1.0f), 0.0f, 0.4f)),
+			},
+		};
+		auto& object = engine.spawn_object<Object>();
+		object.set_name("Sliding frame-pacing reference");
+		sliding_sphere = object.get_id();
+		engine.attach_renderable(sliding_sphere, std::move(renderable));
+		auto& transform = engine.get_ecs().get_transformation(sliding_sphere);
+		transform.set_position(glm::vec3(-slide_extent, 5.9f, -1.0f));
+		transform.set_scale(glm::vec3(0.55f));
+	}
+
 	struct ProofTextures
 	{
 		MaterialHandle base_color;
@@ -282,7 +330,7 @@ private:
 		};
 		const auto binding = [](
 			const MaterialHandle& owner,
-			const PbrMaterial::TextureSampler sampler = PbrMaterial::TextureSampler::REPEAT)
+			const PbrMaterial::TextureSampler sampler = PbrMaterial::TextureSampler::repeat())
 		{
 			return PbrMaterial::TextureBinding{ owner->get_id(), sampler };
 		};
@@ -301,7 +349,7 @@ private:
 		};
 		PbrMaterial::TextureSlots clamped_base;
 		clamped_base.base_color = binding(
-			texture_owners.base_color, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+			texture_owners.base_color, PbrMaterial::TextureSampler::clamp_to_edge());
 
 		const std::array proofs{
 			TextureProofCase{ "base-colour texture", glm::vec4(1.0f), 0.0f, 0.55f, base_only },
@@ -359,6 +407,166 @@ private:
 				proof,
 				glm::vec3(x, 6.75f, 0.8f));
 		}
+	}
+
+	static MaterialHandle make_proof_texture(
+		GameEngine& engine,
+		const std::string& name,
+		const ETextureSemantic semantic,
+		const uint32_t width,
+		const std::initializer_list<uint8_t> rgba)
+	{
+		if (rgba.size() % (width * 4) != 0)
+			throw std::runtime_error("PBR proof texture dimensions are invalid");
+		std::vector<std::byte> pixels;
+		pixels.reserve(rgba.size());
+		for (const uint8_t channel : rgba)
+			pixels.push_back(static_cast<std::byte>(channel));
+		auto texture = std::make_unique<TextureMaterial>();
+		texture->data = std::make_unique<OwnedTextureData>(std::move(pixels));
+		texture->data_len = rgba.size();
+		texture->width = width;
+		texture->height = static_cast<uint32_t>(rgba.size() / (width * 4));
+		texture->channels = 4;
+		texture->mip_sizes = { rgba.size() };
+		texture->source = name;
+		texture->semantic = semantic;
+		return engine.get_ecs().get_material_system().add(std::move(texture));
+	}
+
+	static void attach_stage3_card(
+		GameEngine& engine,
+		const MeshHandle& mesh,
+		const std::vector<MaterialHandle>& proof_textures,
+		const std::string& name,
+		const glm::vec3 position,
+		const float y_rotation,
+		const glm::vec4 base_color,
+		PbrMaterial::TextureSlots slots,
+		const PbrMaterial::Properties properties)
+	{
+		const bool textured = slots.base_color || slots.metallic_roughness
+			|| slots.normal || slots.emissive;
+		auto material = engine.get_ecs().get_material_system().add(
+			std::make_unique<PbrMaterial>(
+				base_color, 0.0f, 0.7f, slots, 1.0f, properties));
+		std::vector<MaterialHandle> owners{ std::move(material) };
+		for (const auto& binding : {
+			slots.base_color, slots.metallic_roughness, slots.normal, slots.emissive })
+		{
+			if (!binding)
+				continue;
+			const auto owner = std::ranges::find_if(
+				proof_textures,
+				[&binding](const MaterialHandle& candidate)
+				{ return candidate->get_id() == binding->texture; });
+			if (owner != proof_textures.end())
+				owners.push_back(*owner);
+		}
+
+		Renderable renderable{
+			.name = name,
+			.pipeline_render_type = textured ? ERenderType::STANDARD : ERenderType::COLOR,
+			.mesh_owner = mesh,
+			.material_owners = std::move(owners),
+		};
+		auto& object = engine.spawn_object<Object>();
+		object.set_name(name);
+		engine.attach_renderable(object.get_id(), std::move(renderable));
+		auto& transform = engine.get_ecs().get_transformation(object.get_id());
+		transform.set_position(position);
+		transform.set_rotation(glm::angleAxis(y_rotation, Maths::up_vec));
+		transform.set_scale(glm::vec3(0.85f));
+	}
+
+	static void spawn_stage3_material_proof(GameEngine& engine)
+	{
+		// Intentionally tiny, procedural RGBA fixtures make alpha values reviewable
+		// and avoid image-tool colour conversion or premultiplication.
+		const auto cutout = make_proof_texture(
+			engine, "procedural cutout", ETextureSemantic::BASE_COLOR, 4, {
+				40, 220, 70, 255, 40, 220, 70, 255, 20, 80, 30, 0,   20, 80, 30, 0,
+				40, 220, 70, 255, 20, 80, 30, 0,   20, 80, 30, 0,   40, 220, 70, 255,
+				20, 80, 30, 0,   40, 220, 70, 255, 40, 220, 70, 255, 20, 80, 30, 0,
+				20, 80, 30, 0,   20, 80, 30, 0,   40, 220, 70, 255, 40, 220, 70, 255,
+			});
+		const auto straight_alpha = make_proof_texture(
+			engine, "procedural straight alpha", ETextureSemantic::BASE_COLOR, 4, {
+				255, 40, 20, 48,  255, 40, 20, 96,  255, 40, 20, 160, 255, 40, 20, 224,
+				20, 180, 255, 224, 20, 180, 255, 160, 20, 180, 255, 96, 20, 180, 255, 48,
+				255, 40, 20, 48,  255, 40, 20, 96,  255, 40, 20, 160, 255, 40, 20, 224,
+				20, 180, 255, 224, 20, 180, 255, 160, 20, 180, 255, 96, 20, 180, 255, 48,
+			});
+		const auto emissive = make_proof_texture(
+			engine, "procedural emissive", ETextureSemantic::EMISSIVE, 4, {
+				255, 20, 10, 255, 255, 120, 10, 255, 20, 40, 255, 255, 20, 255, 120, 255,
+				20, 40, 255, 255, 20, 255, 120, 255, 255, 20, 10, 255, 255, 120, 10, 255,
+				255, 20, 10, 255, 255, 120, 10, 255, 20, 40, 255, 255, 20, 255, 120, 255,
+				20, 40, 255, 255, 20, 255, 120, 255, 255, 20, 10, 255, 255, 120, 10, 255,
+			});
+		const std::vector proof_textures{ cutout, straight_alpha, emissive };
+		const auto binding = [](const MaterialHandle& owner)
+		{
+			return PbrMaterial::TextureBinding{
+				owner->get_id(), PbrMaterial::TextureSampler::clamp_to_edge() };
+		};
+		const auto texture_quad = engine.get_ecs().get_mesh_system().add(
+			MeshFactory::quad(MeshFactory::EVertexType::TEXTURE));
+		const auto color_quad = engine.get_ecs().get_mesh_system().add(
+			MeshFactory::quad(MeshFactory::EVertexType::COLOR));
+
+		PbrMaterial::TextureSlots cutout_slot{ .base_color = binding(cutout) };
+		attach_stage3_card(engine, texture_quad, proof_textures, "Masked alpha cutout",
+			glm::vec3(-5.0f, 7.65f, 3.0f), 0.0f, glm::vec4(1.0f), cutout_slot,
+			PbrMaterial::Properties{
+				.alpha_mode = EAlphaMode::MASK, .alpha_cutoff = 0.5f });
+
+		const PbrMaterial::Properties crossed_properties{
+			.alpha_mode = EAlphaMode::MASK,
+			.alpha_cutoff = 0.5f,
+			.double_sided = true,
+		};
+		attach_stage3_card(engine, texture_quad, proof_textures, "Crossed double-sided card A",
+			glm::vec3(-3.0f, 7.65f, 3.0f), Maths::PI * 0.25f,
+			glm::vec4(1.0f), cutout_slot, crossed_properties);
+		attach_stage3_card(engine, texture_quad, proof_textures, "Crossed double-sided card B",
+			glm::vec3(-3.0f, 7.65f, 3.0f), -Maths::PI * 0.25f,
+			glm::vec4(1.0f), cutout_slot, crossed_properties);
+
+		attach_stage3_card(engine, color_quad, proof_textures, "Factor emissive",
+			glm::vec3(-1.0f, 7.65f, 3.0f), 0.0f,
+			glm::vec4(0.03f, 0.03f, 0.03f, 1.0f), {},
+			PbrMaterial::Properties{
+				.emissive_factor = glm::vec3(1.0f, 0.2f, 0.02f) });
+
+		PbrMaterial::TextureSlots emissive_slot{ .emissive = binding(emissive) };
+		attach_stage3_card(engine, texture_quad, proof_textures, "Textured emissive",
+			glm::vec3(1.0f, 7.65f, 3.0f), 0.0f,
+			glm::vec4(0.03f, 0.03f, 0.03f, 1.0f), emissive_slot,
+			PbrMaterial::Properties{ .emissive_factor = glm::vec3(1.0f) });
+
+		const PbrMaterial::Properties blend_properties{ .alpha_mode = EAlphaMode::BLEND };
+		attach_stage3_card(engine, color_quad, proof_textures, "Straight-alpha factor overlap",
+			glm::vec3(2.88f, 7.65f, 3.1f), -0.08f,
+			glm::vec4(0.15f, 0.8f, 1.0f, 0.45f), {}, blend_properties);
+		PbrMaterial::TextureSlots alpha_slot{ .base_color = binding(straight_alpha) };
+		attach_stage3_card(engine, texture_quad, proof_textures, "Straight-alpha textured overlap",
+			glm::vec3(3.12f, 7.65f, 2.85f), 0.08f,
+			glm::vec4(1.0f), alpha_slot, blend_properties);
+
+		PbrMaterial::TextureSlots combined_slots{
+			.base_color = binding(straight_alpha),
+			.emissive = binding(emissive),
+		};
+		attach_stage3_card(engine, texture_quad, proof_textures,
+			"Double-sided emissive blend combination",
+			glm::vec3(5.0f, 7.65f, 3.0f), Maths::PI * 0.18f,
+			glm::vec4(1.0f), combined_slots,
+			PbrMaterial::Properties{
+				.alpha_mode = EAlphaMode::BLEND,
+				.double_sided = true,
+				.emissive_factor = glm::vec3(0.75f),
+			});
 	}
 
 	static void spawn_point_light(GameEngine& engine)

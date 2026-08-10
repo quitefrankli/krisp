@@ -172,24 +172,28 @@ void RasterizationRenderer::submit_draw_commands(
 		EPipelineModifier modifier = EPipelineModifier::NONE;
 		std::optional<EShadingMode> shading_override;
 	};
-	const auto regular_style = [this](const GraphicsDrawItem& item)
+	const auto regular_style = [this, &stenciled_ids](const GraphicsDrawItem& item)
 	{
+		DrawStyle style;
 		if (item.renderable->shading_mode == EShadingMode::UNLIT)
-			return DrawStyle{ .shading_override = EShadingMode::UNLIT };
-		if (get_graphics_engine().get_render_mode() == ERenderMode::WIREFRAME)
-			return DrawStyle{ .modifier = EPipelineModifier::WIREFRAME };
-		if (get_graphics_engine().get_render_mode() == ERenderMode::UNLIT_BASE_COLOR)
-			return DrawStyle{ .shading_override = EShadingMode::UNLIT };
-		return DrawStyle{};
+			style.shading_override = EShadingMode::UNLIT;
+		else if (get_graphics_engine().get_render_mode() == ERenderMode::WIREFRAME)
+			style.modifier = EPipelineModifier::WIREFRAME;
+		else if (get_graphics_engine().get_render_mode() == ERenderMode::UNLIT_BASE_COLOR)
+			style.shading_override = EShadingMode::UNLIT;
+
+		const auto object_id = item.graphics_renderable->get_object_id();
+		if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED
+			&& object_id && stenciled_ids.contains(*object_id))
+			style.modifier = EPipelineModifier::POST_STENCIL;
+		return style;
 	};
 	const auto is_stenciled = [&stenciled_ids](const GraphicsDrawItem& item) {
 		const auto object_id = item.graphics_renderable->get_object_id();
 		return object_id && stenciled_ids.contains(*object_id);
 	};
 	const auto skip_regular_draw = [&](const GraphicsDrawItem& item) {
-		return !item.graphics_renderable->get_visibility()
-			|| (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED
-				&& is_stenciled(item));
+		return !item.graphics_renderable->get_visibility();
 	};
 	const auto draw_item = [&](const GraphicsDrawItem& item, const DrawStyle style) {
 		draw_renderable(
@@ -243,8 +247,6 @@ void RasterizationRenderer::submit_draw_commands(
 			return lhs->sort_key < rhs->sort_key;
 		});
 
-		for (const GraphicsDrawItem* item : stencil_items)
-			draw_item(*item, DrawStyle{ .modifier = EPipelineModifier::POST_STENCIL });
 		for (const GraphicsDrawItem* item : stencil_items)
 			draw_item(*item, DrawStyle{ .modifier = EPipelineModifier::STENCIL });
 	}

@@ -17,6 +17,8 @@ layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
 	binding=RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING) uniform sampler2D normal_sampler;
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
 	binding=RASTERIZATION_METALLIC_ROUGHNESS_TEXTURE_DATA_BINDING) uniform sampler2D metallic_roughness_sampler;
+layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET,
+	binding=RASTERIZATION_EMISSIVE_TEXTURE_DATA_BINDING) uniform sampler2D emissive_sampler;
 
 layout(set=RASTERIZATION_HIGH_FREQ_PER_SHAPE_SET_OFFSET, binding=RASTERIZATION_MATERIAL_DATA_BINDING) buffer MaterialDataBuffer
 {
@@ -46,8 +48,9 @@ float compute_shadow_factor(const vec3 normal, const vec3 light_dir)
 void main()
 {
 	MaterialData material = mat_data.data;
-	if ((material.texture_flags & PBR_BASE_COLOR_TEXTURE) != 0)
-		material.base_color_factor *= texture(base_color_sampler, frag_tex_coord);
+	material.base_color_factor = sample_pbr_base_color(
+		material, base_color_sampler, frag_tex_coord,
+		alpha_material.data.premultiplied_base_color);
 	if ((material.texture_flags & PBR_METALLIC_ROUGHNESS_TEXTURE) != 0)
 	{
 		const vec4 sample_value = texture(metallic_roughness_sampler, frag_tex_coord);
@@ -55,7 +58,7 @@ void main()
 		material.metallic_factor *= sample_value.b;
 	}
 
-	const vec3 geometric_normal = normalize(surface_normal);
+	vec3 geometric_normal = normalize(surface_normal);
 	vec3 shading_normal = geometric_normal;
 	if ((material.texture_flags & PBR_NORMAL_TEXTURE) != 0)
 	{
@@ -66,6 +69,10 @@ void main()
 		tangent_normal.xy *= material.normal_scale;
 		shading_normal = normalize(mat3(tangent, bitangent, geometric_normal) * tangent_normal);
 	}
+	geometric_normal = orient_pbr_normal(
+		geometric_normal, alpha_material.data.double_sided, gl_FrontFacing);
+	shading_normal = orient_pbr_normal(
+		shading_normal, alpha_material.data.double_sided, gl_FrontFacing);
 
 	const vec3 view_dir = normalize(global_data.data.view_pos - frag_pos);
 	vec3 light_dir;
@@ -78,7 +85,13 @@ void main()
 		global_data.data.light_color,
 		global_data.data.light_intensity,
 		light_dir);
-	const float alpha = material.base_color_factor.a * alpha_material.data.opacity;
+	const float effective_alpha = get_pbr_effective_alpha(
+		material.base_color_factor.a, alpha_material.data);
+	if (is_pbr_alpha_discarded(effective_alpha, alpha_material.data))
+		discard;
+	const float alpha = get_pbr_output_alpha(effective_alpha, alpha_material.data);
+	const vec3 emissive = get_pbr_emissive(
+		material, emissive_sampler, frag_tex_coord);
 	out_color = vec4(
-		direct_light * compute_shadow_factor(geometric_normal, light_dir), alpha);
+		direct_light * compute_shadow_factor(geometric_normal, light_dir) + emissive, alpha);
 }

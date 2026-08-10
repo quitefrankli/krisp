@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <limits>
 #include <type_traits>
 
 
@@ -42,6 +43,19 @@ TEST(RenderableSystem, rejects_resources_owned_by_another_ecs)
 	auto renderable = Renderable::make_default(source);
 
 	EXPECT_THROW(target.add_renderable(std::move(renderable)), std::invalid_argument);
+}
+
+TEST(RenderableSystem, rejects_invalid_per_instance_opacity)
+{
+	ECS ecs;
+	for (const float opacity : {
+		-0.01f, 1.01f, std::numeric_limits<float>::infinity(),
+		std::numeric_limits<float>::quiet_NaN() })
+	{
+		auto renderable = Renderable::make_default(ecs);
+		renderable.opacity = opacity;
+		EXPECT_THROW(ecs.add_renderable(std::move(renderable)), std::invalid_argument);
+	}
 }
 
 TEST(RenderableSystem, enforces_per_renderable_skeleton_binding_and_shared_lifetime)

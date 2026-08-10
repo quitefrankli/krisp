@@ -174,7 +174,10 @@ void GuiDebug::refresh_physics_visualiser(GameEngine& engine)
 	if (physics_visual_materials.empty()) {
 		physics_visual_materials.reserve(collider_colors.size());
 		for (const glm::vec3 color : collider_colors) {
-			auto material = std::make_unique<PbrMaterial>(glm::vec4(color, 1.0f), 0.0f, 1.0f);
+			auto material = std::make_unique<PbrMaterial>(
+				glm::vec4(color, 1.0f), 0.0f, 1.0f,
+				PbrMaterial::TextureSlots{}, 1.0f,
+				PbrMaterial::Properties{ .alpha_mode = EAlphaMode::BLEND });
 			physics_visual_materials.push_back(ecs.get_material_system().add(std::move(material)));
 		}
 	}
@@ -211,7 +214,6 @@ void GuiDebug::refresh_physics_visualiser(GameEngine& engine)
 			Renderable renderable;
 			renderable.pipeline_render_type = ERenderType::COLOR;
 			renderable.shading_mode = EShadingMode::UNLIT;
-			renderable.alpha_mode = EAlphaMode::BLEND;
 			renderable.opacity = collider_opacity;
 			renderable.casts_shadow = false;
 			renderable.render_on_top = true;

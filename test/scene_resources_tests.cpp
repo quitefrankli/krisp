@@ -2,6 +2,7 @@
 #include <renderable/material.hpp>
 #include <renderable/composited_texture_material.hpp>
 #include <renderable/mesh_factory.hpp>
+#include <resource_loader/resource_loader.hpp>
 #include <serialization/resource_provenance.hpp>
 #include <serialization/scene_resources.hpp>
 
@@ -114,19 +115,26 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	texture->channels = 4;
 	texture->data_len = 8;
 	texture->mip_sizes = {8};
-	texture->semantic = ETextureSemantic::NORMAL;
+	texture->semantic = ETextureSemantic::EMISSIVE;
 	texture->source = "generated";
 	const std::vector<std::byte> pixels{std::byte{1}, std::byte{2}, std::byte{3}, std::byte{4},
 	                                    std::byte{5}, std::byte{6}, std::byte{7}, std::byte{8}};
 	texture->data = std::make_unique<OwnedTextureData>(pixels);
 	auto texture_owner = source.get_material_system().add(std::move(texture));
 	PbrMaterial::TextureSlots slots;
-	slots.normal = PbrMaterial::TextureBinding{
+	slots.emissive = PbrMaterial::TextureBinding{
 		.texture = texture_owner->get_id(),
-		.sampler = PbrMaterial::TextureSampler::CLAMP_TO_EDGE,
+		.sampler = PbrMaterial::TextureSampler::clamp_to_edge(
+			PbrMaterial::TextureSampler::MipmapMode::NEAREST),
 	};
 	auto pbr = std::make_unique<PbrMaterial>(
-		glm::vec4(0.1f, 0.2f, 0.3f, 0.4f), 0.6f, 0.7f, slots, 0.35f);
+		glm::vec4(0.1f, 0.2f, 0.3f, 0.4f), 0.6f, 0.7f, slots, 0.35f,
+		PbrMaterial::Properties{
+			.alpha_mode = EAlphaMode::BLEND,
+			.alpha_cutoff = 1.25f,
+			.double_sided = true,
+			.emissive_factor = glm::vec3(0.15f, 0.25f, 0.35f),
+		});
 	auto pbr_owner = source.get_material_system().add(std::move(pbr));
 
 	Serializer document;
@@ -148,15 +156,91 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	EXPECT_EQ(pbr_value.data.metallic_factor, 0.6f);
 	EXPECT_EQ(pbr_value.data.roughness_factor, 0.7f);
 	EXPECT_EQ(pbr_value.data.normal_scale, 0.35f);
-	ASSERT_TRUE(pbr_value.textures.normal.has_value());
-	EXPECT_EQ(pbr_value.textures.normal->texture, restored_texture->get_id());
+	EXPECT_EQ(pbr_value.properties.alpha_mode, EAlphaMode::BLEND);
+	EXPECT_FLOAT_EQ(pbr_value.properties.alpha_cutoff, 1.25f);
+	EXPECT_TRUE(pbr_value.properties.double_sided);
+	EXPECT_EQ(pbr_value.properties.emissive_factor, glm::vec3(0.15f, 0.25f, 0.35f));
+	EXPECT_EQ(pbr_value.data.emissive_factor, pbr_value.properties.emissive_factor);
+	ASSERT_TRUE(pbr_value.textures.emissive.has_value());
+	EXPECT_EQ(pbr_value.textures.emissive->texture, restored_texture->get_id());
 	EXPECT_EQ(
-		pbr_value.textures.normal->sampler,
-		PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
-	EXPECT_EQ(texture_value.semantic, ETextureSemantic::NORMAL);
+		pbr_value.textures.emissive->sampler,
+		PbrMaterial::TextureSampler::clamp_to_edge(
+			PbrMaterial::TextureSampler::MipmapMode::NEAREST));
+	EXPECT_EQ(texture_value.semantic, ETextureSemantic::EMISSIVE);
 	EXPECT_EQ(texture_value.source, "generated");
 	ASSERT_EQ(texture_value.data_len, pixels.size());
 	EXPECT_EQ(std::memcmp(texture_value.data->get(), pixels.data(), pixels.size()), 0);
+}
+
+TEST_F(SceneResourcesTests, round_trips_imported_pbr_property_and_emissive_texture_overrides)
+{
+	ECS source;
+	const auto loaded = ResourceLoader::load_model(source, "static_mesh_textured.gltf");
+	const auto base_owner = loaded.meshes[0].renderables[0].material_owners.front();
+	const auto& base = dynamic_cast<const PbrMaterial&>(base_owner->get());
+	const auto* provenance = ResourceProvenance::material(base_owner->get_id());
+	ASSERT_NE(provenance, nullptr);
+	const auto source_provenance = *provenance;
+	auto emissive_owner = ResourceLoader::fetch_texture(
+		source.get_material_system(), "texture.jpg", ETextureSemantic::EMISSIVE);
+	auto slots = base.textures;
+	slots.emissive = PbrMaterial::TextureBinding{
+		.texture = emissive_owner->get_id(),
+		.sampler = PbrMaterial::TextureSampler::clamp_to_edge(),
+	};
+	const PbrMaterial::Properties properties{
+		.alpha_mode = EAlphaMode::MASK,
+		.alpha_cutoff = 1.5f,
+		.double_sided = true,
+		.emissive_factor = glm::vec3(0.2f, 0.4f, 0.6f),
+	};
+	auto override_owner = source.get_material_system().add(std::make_unique<PbrMaterial>(
+		base.data.base_color_factor, base.data.metallic_factor, base.data.roughness_factor,
+		slots, base.data.normal_scale, properties));
+	ResourceProvenance::register_material_override(override_owner->get_id(), {
+		.source = source_provenance,
+		.original = {
+			.base_color_factor = base.data.base_color_factor,
+			.metallic_factor = base.data.metallic_factor,
+			.roughness_factor = base.data.roughness_factor,
+			.normal_scale = base.data.normal_scale,
+			.properties = base.properties,
+			.textures = base.textures,
+		},
+		.alpha_mode = properties.alpha_mode,
+		.alpha_cutoff = properties.alpha_cutoff,
+		.double_sided = properties.double_sided,
+		.emissive_factor = properties.emissive_factor,
+		.emissive_texture = PbrTextureOverride{
+			.mode = PbrTextureOverride::Mode::Replaced,
+			.texture = emissive_owner->get_id(),
+			.sampler = PbrMaterial::TextureSampler::clamp_to_edge(),
+		},
+	});
+
+	Serializer document;
+	SceneResourceWriter writer(document, source, directory);
+	writer.write_material_reference(document.map("material"), override_owner->get_id());
+	const auto saved = Deserializer::parse(document.emit());
+
+	ECS restored;
+	SceneResourceReader reader(restored, directory);
+	reader.prepare(saved);
+	const auto restored_source = ResourceLoader::load_model(restored, "static_mesh_textured.gltf");
+	const auto restored_owner = reader.read_material_reference(saved.child("material"));
+	const auto& restored_material = dynamic_cast<const PbrMaterial&>(restored_owner->get());
+	EXPECT_EQ(restored_material.properties.alpha_mode, EAlphaMode::MASK);
+	EXPECT_FLOAT_EQ(restored_material.properties.alpha_cutoff, 1.5f);
+	EXPECT_TRUE(restored_material.properties.double_sided);
+	EXPECT_EQ(restored_material.properties.emissive_factor, glm::vec3(0.2f, 0.4f, 0.6f));
+	ASSERT_TRUE(restored_material.textures.emissive.has_value());
+	const auto& restored_texture = dynamic_cast<const TextureMaterial&>(
+		restored.get_material_system().get(restored_material.textures.emissive->texture));
+	EXPECT_EQ(restored_texture.semantic, ETextureSemantic::EMISSIVE);
+	EXPECT_EQ(restored_material.textures.emissive->sampler,
+		PbrMaterial::TextureSampler::clamp_to_edge());
+	(void)restored_source;
 }
 
 TEST_F(SceneResourcesTests, round_trips_composited_texture_recipe_without_pixel_payload)

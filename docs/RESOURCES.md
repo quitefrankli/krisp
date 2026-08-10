@@ -31,32 +31,57 @@ with MikkTSpace in the default loader. Invalid authored tangents are rejected.
 
 ### PBR materials and textures
 
-Krisp imports opaque, single-sided glTF metallic-roughness materials with glTF
-defaults for `baseColorFactor`, `metallicFactor`, and `roughnessFactor`. The
-following optional maps are supported:
+Krisp imports core glTF metallic-roughness materials with glTF defaults for
+`baseColorFactor`, `metallicFactor`, `roughnessFactor`, `emissiveFactor`,
+`alphaMode`, `alphaCutoff`, and `doubleSided`. `OPAQUE`, `MASK`, and `BLEND`
+alpha modes are supported. `MASK` discards fragments below `alphaCutoff`
+(default `0.5`); the cutoff is ignored for the other modes. `BLEND` uses
+straight-alpha source-over blending. Double-sided materials render both faces
+and reverse the shading normal on back faces. `MASK` materials cast matching
+cutout shadows. `BLEND` materials and renderables using per-renderable unlit
+shading do not cast shadows.
+
+The following optional maps are supported:
 
 - `baseColorTexture`, sampled as sRGB;
 - `metallicRoughnessTexture`, sampled linearly with roughness in G and metallic
-  in B; and
-- `normalTexture`, sampled linearly and including `normalTexture.scale`.
+  in B;
+- `normalTexture`, sampled linearly and including `normalTexture.scale`; and
+- `emissiveTexture`, sampled as sRGB.
 
-Texture values modulate their corresponding factors. Missing maps retain the
-factor-only result.
+Texture values modulate their corresponding factors. Emissive RGB is the
+component-wise product of `emissiveFactor` and `emissiveTexture`; the texture's
+alpha channel is ignored. Emissive output is surface self-illumination only; it
+does not emit light into the scene or add bloom. Missing maps retain the
+factor-only result. Core glTF does not define emissive strength above one, and
+material extensions including `KHR_materials_emissive_strength` are rejected.
 
 Core glTF images must be PNG or JPEG, supplied by external URI, data URI, or GLB
-buffer view. glTF DDS requires the unimplemented `MSFT_texture_dds` extension
-tracked in `TODO.md`. Samplers may use linear filtering and either repeat or
-clamp-to-edge addressing, with the same addressing on both axes. Nearest or mip
-filtering, mirrored repeat, and mixed-axis addressing are rejected.
+buffer view. `MSFT_texture_dds` may select a DXT5/BC3 DDS image instead, including
+external URI, data URI, and GLB `image/vnd-ms.dds` buffer-view sources. Its
+texture extension must be declared in `extensionsUsed`. A valid PNG/JPEG core
+source is required as the fallback unless the extension is also declared in
+`extensionsRequired`. Other DDS formats remain unsupported.
+
+Samplers use linear texel filtering and either repeat or clamp-to-edge
+addressing, with the same addressing on both axes. `LINEAR`,
+`LINEAR_MIPMAP_NEAREST`, and `LINEAR_MIPMAP_LINEAR` minification are supported;
+an omitted minification filter defaults to trilinear mip filtering. Authored DDS
+mip chains are uploaded and sampled. PNG/JPEG images remain single-level, so a
+mip filter samples their only available level. Nearest texel filtering, mirrored
+repeat, and mixed-axis addressing are rejected.
 
 Unsupported features reachable from the selected scene fail the import with a
 specific error. Unsupported unused materials, images, textures, or samplers
-produce warnings instead, or errors in strict mode. Emissive and occlusion
-inputs, non-opaque alpha modes, double-sided materials, and material or texture
-extensions are unsupported.
+produce warnings instead, or errors in strict mode. Occlusion textures,
+non-zero per-texture `texCoord` selection, and material or texture extensions
+other than `MSFT_texture_dds` are rejected. Alpha-to-coverage is not implemented;
+masked edges use ordinary fragment discard. Transparent primitives are sorted
+per renderable, not per triangle, so intersecting or cyclic transparent
+geometry may not composite perfectly.
 
 Standalone textures resolve from the `textures` directories. PNG/JPEG images
-are decoded to single-mip RGBA8; Krisp does not generate mipmaps. DXT5/BC3 DDS
+are decoded to single-level RGBA8; Krisp does not generate mipmaps. DXT5/BC3 DDS
 is also supported and retains a valid authored mip chain; other DDS formats,
 cubemaps, and volume textures are rejected.
 

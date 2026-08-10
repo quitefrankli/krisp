@@ -37,7 +37,8 @@ float compute_shadow_factor(vec3 normal, vec3 lightDir)
 
 void main()
 {
-	const vec3 normal = normalize(surface_normal);
+	const vec3 normal = orient_pbr_normal(
+		normalize(surface_normal), alpha_material.data.double_sided, gl_FrontFacing);
 	const vec3 view_dir = normalize(global_data.data.view_pos - frag_pos);
 	vec3 light_dir;
 	const vec3 direct_light = evaluate_gltf_point_light(
@@ -49,8 +50,13 @@ void main()
 		global_data.data.light_color,
 		global_data.data.light_intensity,
 		light_dir);
-	const float alpha = mat_data.data.base_color_factor.a
-		* alpha_material.data.opacity;
+	const float effective_alpha = get_pbr_effective_alpha(
+		mat_data.data.base_color_factor.a, alpha_material.data);
+	if (is_pbr_alpha_discarded(effective_alpha, alpha_material.data))
+		discard;
+	const float alpha = get_pbr_output_alpha(effective_alpha, alpha_material.data);
 	out_color = vec4(
-		direct_light * compute_shadow_factor(normal, light_dir), alpha);
+		direct_light * compute_shadow_factor(normal, light_dir)
+			+ mat_data.data.emissive_factor,
+		alpha);
 }

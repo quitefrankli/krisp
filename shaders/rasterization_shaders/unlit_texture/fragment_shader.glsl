@@ -19,17 +19,12 @@ layout(push_constant) uniform AlphaMaterialBuffer
 
 void main()
 {
-	vec4 base_color = mat_data.data.base_color_factor;
-	if ((mat_data.data.texture_flags & PBR_BASE_COLOR_TEXTURE) != 0)
-	{
-		vec4 sampled_color = texture(base_color_sampler, frag_tex_coord);
-		if (alpha_material.data.premultiplied_base_color != 0)
-			sampled_color.rgb = sampled_color.a > 0.0
-				? sampled_color.rgb / sampled_color.a : vec3(0.0);
-		base_color *= sampled_color;
-	}
-	const float alpha = base_color.a * alpha_material.data.opacity;
-	if (alpha < alpha_material.data.alpha_cutoff)
+	const vec4 base_color = sample_pbr_base_color(
+		mat_data.data, base_color_sampler, frag_tex_coord,
+		alpha_material.data.premultiplied_base_color);
+	const float effective_alpha = get_pbr_effective_alpha(base_color.a, alpha_material.data);
+	if (is_pbr_alpha_discarded(effective_alpha, alpha_material.data))
 		discard;
+	const float alpha = get_pbr_output_alpha(effective_alpha, alpha_material.data);
 	out_color = vec4(base_color.rgb, alpha);
 }

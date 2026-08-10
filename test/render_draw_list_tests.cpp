@@ -19,21 +19,41 @@ RenderableDefinition make_renderable(
 	const EAlphaMode alpha_mode,
 	const bool casts_shadow,
 	const bool render_on_top,
-	const EShadingMode shading_mode = EShadingMode::LIT)
+	const EShadingMode shading_mode = EShadingMode::LIT,
+	const bool double_sided = false)
 {
 	MeshSystem meshes;
 	MaterialSystem materials;
 	auto mesh = meshes.add(MeshFactory::cube());
-	auto material = materials.add(std::make_unique<PbrMaterial>());
+	auto material = materials.add(std::make_unique<PbrMaterial>(
+		glm::vec4(1.0f), 1.0f, 1.0f,
+		PbrMaterial::TextureSlots{}, 1.0f,
+		PbrMaterial::Properties{
+			.alpha_mode = alpha_mode,
+			.double_sided = double_sided,
+		}));
 	return {
 		.pipeline_render_type = render_type,
 		.shading_mode = shading_mode,
-		.alpha_mode = alpha_mode,
 		.casts_shadow = casts_shadow,
 		.render_on_top = render_on_top,
 		.mesh_owner = std::move(mesh),
 		.material_owners = { std::move(material) },
 	};
+}
+
+TEST(RenderDrawList, derives_alpha_and_culling_from_pbr_material)
+{
+	const auto renderable = make_renderable(
+		ERenderType::STANDARD, EAlphaMode::MASK, true, false,
+		EShadingMode::LIT, true);
+
+	EXPECT_EQ(renderable_alpha_mode(renderable), EAlphaMode::MASK);
+	EXPECT_FLOAT_EQ(renderable_alpha_cutoff(renderable), 0.5f);
+	EXPECT_TRUE(renderable_double_sided(renderable));
+	const auto key = make_render_sort_key(RenderableID(7), renderable);
+	EXPECT_EQ(key.alpha_mode, EAlphaMode::MASK);
+	EXPECT_TRUE(key.double_sided);
 }
 
 }
@@ -57,6 +77,18 @@ TEST(RenderDrawList, classifies_each_renderable_independently)
 	const auto unlit = make_renderable(
 		ERenderType::COLOR, EAlphaMode::OPAQUE, true, false, EShadingMode::UNLIT);
 	EXPECT_FALSE(renderable_casts_shadow(unlit));
+}
+
+TEST(RenderDrawList, non_pbr_draw_types_use_safe_material_policy_defaults)
+{
+	const RenderableDefinition non_pbr{
+		.pipeline_render_type = ERenderType::CUBEMAP,
+	};
+
+	EXPECT_EQ(renderable_alpha_mode(non_pbr), EAlphaMode::OPAQUE);
+	EXPECT_FLOAT_EQ(renderable_alpha_cutoff(non_pbr), 0.5f);
+	EXPECT_FALSE(renderable_double_sided(non_pbr));
+	EXPECT_EQ(classify_renderable(non_pbr), RenderableDrawClass::OPAQUE);
 }
 
 TEST(RenderDrawList, state_sort_key_is_deterministic)
@@ -99,6 +131,21 @@ TEST(RenderDrawList, shading_is_an_independent_pipeline_and_sort_dimension)
 		ERenderType::COLOR, EAlphaMode::OPAQUE, true, false, EShadingMode::UNLIT);
 	EXPECT_EQ(make_render_sort_key(RenderableID(1), lit).shading_mode, EShadingMode::LIT);
 	EXPECT_EQ(make_render_sort_key(RenderableID(2), unlit).shading_mode, EShadingMode::UNLIT);
+}
+
+TEST(RenderDrawList, double_sided_is_an_independent_pipeline_dimension)
+{
+	const PipelineID single_sided{
+		.primary_pipeline_type = ERenderType::STANDARD,
+		.double_sided = false,
+	};
+	const PipelineID double_sided{
+		.primary_pipeline_type = ERenderType::STANDARD,
+		.double_sided = true,
+	};
+
+	EXPECT_NE(single_sided, double_sided);
+	EXPECT_NE(std::hash<PipelineID>{}(single_sided), std::hash<PipelineID>{}(double_sided));
 }
 
 TEST(RenderDrawList, blended_distance_uses_composed_model_transform)

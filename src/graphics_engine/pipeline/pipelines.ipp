@@ -101,6 +101,19 @@ VkPipelineDepthStencilStateCreateInfo StencilPipeline<PrimaryPipelineType>::get_
 }
 
 template<Stencileable PrimaryPipelineType>
+std::string_view StencilPipeline<PrimaryPipelineType>::get_shader_name() const
+{
+	if (alpha_mode == EAlphaMode::MASK)
+	{
+		if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
+			return "stencil_mask";
+		if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
+			return "stencil_color_mask";
+	}
+	return "stencil";
+}
+
+template<Stencileable PrimaryPipelineType>
 std::vector<VkVertexInputBindingDescription> StencilPipeline<PrimaryPipelineType>::get_binding_descriptions() const
 {
 	VkVertexInputBindingDescription binding_description{};
@@ -127,7 +140,25 @@ StencilPipeline<PrimaryPipelineType>::get_attribute_descriptions() const
 	normal_attr.format = VK_FORMAT_R32G32B32_SFLOAT;
 	normal_attr.offset = PrimaryPipelineType::get_vertex_normal_offset();
 
-	return {position_attr, normal_attr};
+	std::vector attributes{position_attr, normal_attr};
+	if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
+	{
+		if (alpha_mode == EAlphaMode::MASK)
+		{
+			VkVertexInputAttributeDescription tex_coord_attr{};
+			tex_coord_attr.binding = 0;
+			tex_coord_attr.location = 2;
+			tex_coord_attr.format = VK_FORMAT_R32G32_SFLOAT;
+			tex_coord_attr.offset = offsetof(SDS::TexVertex, texCoord);
+			attributes.push_back(tex_coord_attr);
+		}
+	}
+	return attributes;
+}
+
+std::string_view StencilPipeline<SkinnedPipeline>::get_shader_name() const
+{
+	return alpha_mode == EAlphaMode::MASK ? "stencil_skinned_mask" : "stencil_skinned";
 }
 
 VkPipelineDepthStencilStateCreateInfo StencilPipeline<SkinnedPipeline>::get_depth_stencil_create_info() const
@@ -153,6 +184,44 @@ std::vector<VkVertexInputBindingDescription> StencilPipeline<SkinnedPipeline>::g
 }
 
 std::vector<VkVertexInputAttributeDescription> StencilPipeline<SkinnedPipeline>::get_attribute_descriptions() const
+{
+	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
+	if (alpha_mode == EAlphaMode::MASK)
+		return { attributes[0], attributes[1], attributes[2], attributes[3], attributes[4] };
+	return { attributes[0], attributes[2], attributes[3], attributes[4] };
+}
+
+std::string_view StencilPipeline<SkinnedColorPipeline>::get_shader_name() const
+{
+	return alpha_mode == EAlphaMode::MASK
+		? "stencil_skinned_color_mask" : "stencil_skinned";
+}
+
+VkPipelineDepthStencilStateCreateInfo
+StencilPipeline<SkinnedColorPipeline>::get_depth_stencil_create_info() const
+{
+	VkPipelineDepthStencilStateCreateInfo info = GraphicsEnginePipeline::get_depth_stencil_create_info();
+	info.stencilTestEnable = VK_TRUE;
+	info.depthWriteEnable = VK_FALSE;
+	info.front.compareMask = 0xff;
+	info.front.writeMask = 0;
+	info.front.reference = 1;
+	info.front.compareOp = VK_COMPARE_OP_NOT_EQUAL;
+	info.front.passOp = VK_STENCIL_OP_KEEP;
+	info.front.failOp = VK_STENCIL_OP_KEEP;
+	info.front.depthFailOp = VK_STENCIL_OP_KEEP;
+	info.back = info.front;
+	return info;
+}
+
+std::vector<VkVertexInputBindingDescription>
+StencilPipeline<SkinnedColorPipeline>::get_binding_descriptions() const
+{
+	return SkinnedPipeline::get_binding_descriptions_();
+}
+
+std::vector<VkVertexInputAttributeDescription>
+StencilPipeline<SkinnedColorPipeline>::get_attribute_descriptions() const
 {
 	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
 	return { attributes[0], attributes[2], attributes[3], attributes[4] };
@@ -387,12 +456,31 @@ VkRenderPass ShadowMapBasePipeline::get_render_pass()
 
 std::string_view ShadowMapBasePipeline::get_shader_name() const
 {
-	return alpha_mode == EAlphaMode::MASK ? "shadow_map_mask" : "shadow_map";
+	return "shadow_map";
+}
+
+template<ShadowMappable PrimaryPipelineType>
+std::string_view ShadowMapPipeline<PrimaryPipelineType>::get_shader_name() const
+{
+	if (alpha_mode == EAlphaMode::MASK)
+	{
+		if constexpr (std::is_same_v<PrimaryPipelineType, TexturePipeline>)
+			return "shadow_map_mask";
+		if constexpr (std::is_same_v<PrimaryPipelineType, ColorPipeline>)
+			return "shadow_map_color_mask";
+	}
+	return "shadow_map";
 }
 
 std::string_view ShadowMapPipeline<SkinnedPipeline>::get_shader_name() const
 {
 	return alpha_mode == EAlphaMode::MASK ? "shadow_map_skinned_mask" : "shadow_map_skinned";
+}
+
+std::string_view ShadowMapPipeline<SkinnedColorPipeline>::get_shader_name() const
+{
+	return alpha_mode == EAlphaMode::MASK
+		? "shadow_map_skinned_color_mask" : "shadow_map_skinned";
 }
 
 VkExtent2D ShadowMapBasePipeline::get_extent()
@@ -477,6 +565,19 @@ std::vector<VkVertexInputAttributeDescription> ShadowMapPipeline<SkinnedPipeline
 	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
 	if (alpha_mode == EAlphaMode::MASK)
 		return { attributes[0], attributes[1], attributes[3], attributes[4] };
+	return { attributes[0], attributes[3], attributes[4] };
+}
+
+std::vector<VkVertexInputBindingDescription>
+ShadowMapPipeline<SkinnedColorPipeline>::get_binding_descriptions() const
+{
+	return SkinnedPipeline::get_binding_descriptions_();
+}
+
+std::vector<VkVertexInputAttributeDescription>
+ShadowMapPipeline<SkinnedColorPipeline>::get_attribute_descriptions() const
+{
+	const auto attributes = SkinnedPipeline::get_attribute_descriptions_();
 	return { attributes[0], attributes[3], attributes[4] };
 }
 

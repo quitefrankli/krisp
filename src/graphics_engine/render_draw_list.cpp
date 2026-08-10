@@ -13,6 +13,7 @@ bool RenderSortKey::operator<(const RenderSortKey& other) const
 		render_type,
 		shading_mode,
 		alpha_mode,
+		double_sided,
 		mesh_id,
 		material_ids,
 		renderable_id)
@@ -20,18 +21,38 @@ bool RenderSortKey::operator<(const RenderSortKey& other) const
 		other.render_type,
 		other.shading_mode,
 		other.alpha_mode,
+		other.double_sided,
 		other.mesh_id,
 		other.material_ids,
 		other.renderable_id);
 }
 
+EAlphaMode renderable_alpha_mode(const RenderableDefinition& renderable)
+{
+	const auto* material = renderable.get_pbr_material();
+	return material ? material->properties.alpha_mode : EAlphaMode::OPAQUE;
+}
+
+float renderable_alpha_cutoff(const RenderableDefinition& renderable)
+{
+	const auto* material = renderable.get_pbr_material();
+	return material ? material->properties.alpha_cutoff : 0.5f;
+}
+
+bool renderable_double_sided(const RenderableDefinition& renderable)
+{
+	const auto* material = renderable.get_pbr_material();
+	return material && material->properties.double_sided;
+}
+
 RenderableDrawClass classify_renderable(const RenderableDefinition& renderable)
 {
+	const EAlphaMode alpha_mode = renderable_alpha_mode(renderable);
 	if (renderable.render_on_top)
-		return renderable.alpha_mode == EAlphaMode::BLEND
+		return alpha_mode == EAlphaMode::BLEND
 			? RenderableDrawClass::OVERLAY_BLENDED
 			: RenderableDrawClass::OVERLAY_OPAQUE;
-	return renderable.alpha_mode == EAlphaMode::BLEND
+	return alpha_mode == EAlphaMode::BLEND
 		? RenderableDrawClass::BLENDED
 		: RenderableDrawClass::OPAQUE;
 }
@@ -39,7 +60,8 @@ RenderableDrawClass classify_renderable(const RenderableDefinition& renderable)
 bool renderable_casts_shadow(const RenderableDefinition& renderable)
 {
 	return renderable.shading_mode == EShadingMode::LIT
-		&& renderable.casts_shadow && renderable.alpha_mode != EAlphaMode::BLEND;
+		&& renderable.casts_shadow
+		&& renderable_alpha_mode(renderable) != EAlphaMode::BLEND;
 }
 
 RenderSortKey make_render_sort_key(
@@ -49,7 +71,8 @@ RenderSortKey make_render_sort_key(
 	return {
 		.render_type = renderable.pipeline_render_type,
 		.shading_mode = renderable.shading_mode,
-		.alpha_mode = renderable.alpha_mode,
+		.alpha_mode = renderable_alpha_mode(renderable),
+		.double_sided = renderable_double_sided(renderable),
 		.mesh_id = renderable.get_mesh_id(),
 		.material_ids = renderable.get_material_ids(),
 		.renderable_id = renderable_id,

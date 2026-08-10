@@ -8,7 +8,9 @@
 #include "particle_renderer.ipp"
 #include "renderer_manager.ipp"
 #include "graphics_engine/graphics_engine.hpp"
+#include "graphics_engine/render_draw_list.hpp"
 #include "renderable/mesh.hpp"
+#include "renderable/material_group.hpp"
 
 
 Renderer::Renderer(GraphicsEngine& engine) :
@@ -54,11 +56,13 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 		|| pipeline_modifier == EPipelineModifier::POST_STENCIL;
 	const auto shading_mode = shading_affects_pipeline
 		? shading_override.value_or(renderable.shading_mode) : EShadingMode::LIT;
+	const EAlphaMode alpha_mode = renderable_alpha_mode(renderable);
 	const auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline({
 		.primary_pipeline_type = primary_pipeline_type,
 		.pipeline_modifier = pipeline_modifier,
-		.alpha_mode = renderable.alpha_mode,
+		.alpha_mode = alpha_mode,
 		.shading_mode = shading_mode,
+		.double_sided = renderable_double_sided(renderable),
 	});
 	if (!pipeline)
 	{
@@ -117,11 +121,20 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 		|| primary_pipeline_type == ERenderType::SKINNED
 		|| primary_pipeline_type == ERenderType::SKINNED_COLOR)
 	{
+		int premultiplied_base_color = 0;
+		if (const auto* pbr = renderable.get_pbr_material(); pbr && pbr->textures.base_color)
+		{
+			const PbrMatGroup materials(renderable.material_owners);
+			const auto* sampled = dynamic_cast<const SampledMaterial*>(
+				&materials.texture_owner(*pbr->textures.base_color)->get());
+			premultiplied_base_color = sampled && sampled->is_premultiplied();
+		}
 		const SDS::AlphaMaterialData alpha_data{
-			.alpha_cutoff = renderable.alpha_mode == EAlphaMode::MASK
-				? renderable.alpha_cutoff : 0.0f,
+			.alpha_cutoff = renderable_alpha_cutoff(renderable),
 			.opacity = renderable.opacity,
-			.premultiplied_base_color = 0,
+			.premultiplied_base_color = premultiplied_base_color,
+			.alpha_mode = static_cast<int>(alpha_mode),
+			.double_sided = renderable_double_sided(renderable),
 		};
 		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
 			0, sizeof(alpha_data), &alpha_data);

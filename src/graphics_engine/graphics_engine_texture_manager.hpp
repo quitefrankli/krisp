@@ -7,6 +7,7 @@
 
 #include <quill/LogMacros.h>
 
+#include <map>
 #include <unordered_map>
 #include <string>
 
@@ -48,5 +49,5 @@ private:
 	// note that this is not deleted even when an object referencing this texture gets destroyed
 	std::unordered_map<MaterialID, GraphicsEngineTexture> texture_units;
 	std::unordered_map<ETextureSemantic, GraphicsEngineTexture> neutral_textures;
-	std::unordered_map<PbrMaterial::TextureSampler, VkSampler> samplers;
+	std::map<PbrMaterial::TextureSampler, VkSampler> samplers;
 };

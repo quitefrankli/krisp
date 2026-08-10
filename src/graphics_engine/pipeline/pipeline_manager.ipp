@@ -95,6 +95,7 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	if (new_pipeline.get())
 	{
 		new_pipeline->set_alpha_mode(id.alpha_mode);
+		new_pipeline->set_double_sided(id.double_sided);
 		new_pipeline->initialise();
 		LOG_INFO(Utility::get_logger(), "created pipeline with id: {} {} {}",
 			magic_enum::enum_name(id.primary_pipeline_type),
@@ -126,7 +127,7 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case EPipelineModifier::STENCIL:
 		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
 		{
-			return std::make_unique<StencilPipeline<SkinnedPipeline>>(get_graphics_engine());
+			return std::make_unique<StencilPipeline<SkinnedColorPipeline>>(get_graphics_engine());
 		} else if constexpr (Stencileable<PrimaryPipelineType>)
 		{
 			return std::make_unique<StencilPipeline<PrimaryPipelineType>>(get_graphics_engine());
@@ -166,7 +167,7 @@ std::unique_ptr<GraphicsEnginePipeline> GraphicsEnginePipelineManager::create_pi
 	case EPipelineModifier::SHADOW_MAP:
 		if constexpr (std::is_same_v<PrimaryPipelineType, SkinnedColorPipeline>)
 		{
-			return std::make_unique<ShadowMapPipeline<SkinnedPipeline>>(get_graphics_engine());
+			return std::make_unique<ShadowMapPipeline<SkinnedColorPipeline>>(get_graphics_engine());
 		} else if constexpr (ShadowMappable<PrimaryPipelineType>)
 		{
 			return std::make_unique<ShadowMapPipeline<PrimaryPipelineType>>(get_graphics_engine());

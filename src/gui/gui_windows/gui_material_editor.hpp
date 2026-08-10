@@ -1,7 +1,9 @@
 #pragma once
 
 #include "gui_windows.hpp"
+#include "renderable/material.hpp"
 
+#include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
 
 #include <array>
@@ -28,7 +30,11 @@ private:
 		float metallic_factor = 1.0f;
 		float roughness_factor = 1.0f;
 		float normal_scale = 1.0f;
-		std::array<TextureChange, 3> textures;
+		EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+		float alpha_cutoff = 0.5f;
+		bool double_sided = false;
+		glm::vec3 emissive_factor{ 0.0f };
+		std::array<TextureChange, 4> textures;
 	};
 
 	std::vector<std::string> renderable_labels;
@@ -43,8 +49,12 @@ private:
 	float metallic_factor = 1.0f;
 	float roughness_factor = 1.0f;
 	float normal_scale = 1.0f;
-	std::array<std::array<char, 256>, 3> texture_names{};
-	std::array<std::string, 3> loaded_texture_names;
+	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+	float alpha_cutoff = 0.5f;
+	bool double_sided = false;
+	glm::vec3 emissive_factor{ 0.0f };
+	std::array<std::array<char, 256>, 4> texture_names{};
+	std::array<std::string, 4> loaded_texture_names;
 	bool compatible = false;
 	bool texture_compatible = false;
 };

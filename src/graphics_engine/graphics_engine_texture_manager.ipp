@@ -107,7 +107,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_neutral_texture(
 	material.semantic = semantic;
 	material.source = "(neutral PBR binding)";
 	return neutral_textures.emplace(
-		semantic, create_texture(material, PbrMaterial::TextureSampler::REPEAT)).first->second;
+		semantic, create_texture(material, PbrMaterial::TextureSampler::repeat())).first->second;
 }
 
 GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
@@ -158,7 +158,7 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_VIEW_TYPE_CUBE,
 		material_group.size());
-	VkSampler texture_sampler = fetch_sampler(PbrMaterial::TextureSampler::REPEAT);
+	VkSampler texture_sampler = fetch_sampler(PbrMaterial::TextureSampler::repeat());
 
 	GraphicsEngineTexture texture_object(
 		texture_image,
@@ -341,12 +341,12 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 VkSampler GraphicsEngineTextureManager::create_texture_sampler(PbrMaterial::TextureSampler sampler_type)
 {
 	VkSamplerAddressMode address_mode;
-	switch (sampler_type)
+	switch (sampler_type.address_mode)
 	{
-	case PbrMaterial::TextureSampler::REPEAT:
+	case PbrMaterial::TextureSampler::AddressMode::REPEAT:
 		address_mode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 		break;
-	case PbrMaterial::TextureSampler::CLAMP_TO_EDGE:
+	case PbrMaterial::TextureSampler::AddressMode::CLAMP_TO_EDGE:
 		address_mode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 		break;
 	default:
@@ -365,13 +365,17 @@ VkSampler GraphicsEngineTextureManager::create_texture_sampler(PbrMaterial::Text
 		get_physical_device_properties().properties.limits.maxSamplerAnisotropy; // higher = slower
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
-												  // so that you can use textures of varying resolutions with same coordinates
+										  // so that you can use textures of varying resolutions with same coordinates
 	sampler_info.compareEnable = false; // if enabled, texels will first be compared to a value and the result of comparison is used in filtering
 	sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR; //
+	sampler_info.mipmapMode = sampler_type.mipmap_mode
+		== PbrMaterial::TextureSampler::MipmapMode::LINEAR
+		? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	sampler_info.mipLodBias = 0.0f;
 	sampler_info.minLod = 0.0f;
-	sampler_info.maxLod = VK_LOD_CLAMP_NONE;
+	sampler_info.maxLod = sampler_type.mipmap_mode
+		== PbrMaterial::TextureSampler::MipmapMode::NONE
+		? 0.0f : VK_LOD_CLAMP_NONE;
 
 	VkSampler texture_sampler;
 	if (vkCreateSampler(get_logical_device(), &sampler_info, nullptr, &texture_sampler) != VK_SUCCESS)

@@ -42,7 +42,7 @@ struct PbrTextureOverride
 
 	Mode mode = Mode::Cleared;
 	MaterialID texture{0};
-	PbrMaterial::TextureSampler sampler = PbrMaterial::TextureSampler::REPEAT;
+	PbrMaterial::TextureSampler sampler = PbrMaterial::TextureSampler::repeat();
 };
 
 struct ImportedPbrMaterialOverride
@@ -53,6 +53,7 @@ struct ImportedPbrMaterialOverride
 		float metallic_factor = 1.0f;
 		float roughness_factor = 1.0f;
 		float normal_scale = 1.0f;
+		PbrMaterial::Properties properties;
 		PbrMaterial::TextureSlots textures;
 	};
 
@@ -62,9 +63,14 @@ struct ImportedPbrMaterialOverride
 	std::optional<float> metallic_factor;
 	std::optional<float> roughness_factor;
 	std::optional<float> normal_scale;
+	std::optional<EAlphaMode> alpha_mode;
+	std::optional<float> alpha_cutoff;
+	std::optional<bool> double_sided;
+	std::optional<glm::vec3> emissive_factor;
 	std::optional<PbrTextureOverride> base_color_texture;
 	std::optional<PbrTextureOverride> metallic_roughness_texture;
 	std::optional<PbrTextureOverride> normal_texture;
+	std::optional<PbrTextureOverride> emissive_texture;
 };
 
 class ResourceProvenance

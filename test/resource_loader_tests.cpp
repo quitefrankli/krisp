@@ -10,6 +10,7 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <tiny_gltf.h>
 
 #include <cmath>
 #include <fstream>
@@ -82,6 +83,25 @@ TEST(ResourceLoaderOwnership, texture_loading_registers_with_the_supplied_materi
 
 namespace
 {
+std::string encode_base64(const std::vector<unsigned char>& bytes)
+{
+	constexpr std::string_view ALPHABET =
+		"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	std::string encoded;
+	encoded.reserve((bytes.size() + 2) / 3 * 4);
+	for (size_t offset = 0; offset < bytes.size(); offset += 3)
+	{
+		const uint32_t value = static_cast<uint32_t>(bytes[offset]) << 16
+			| (offset + 1 < bytes.size() ? static_cast<uint32_t>(bytes[offset + 1]) << 8 : 0)
+			| (offset + 2 < bytes.size() ? static_cast<uint32_t>(bytes[offset + 2]) : 0);
+		encoded.push_back(ALPHABET[(value >> 18) & 0x3f]);
+		encoded.push_back(ALPHABET[(value >> 12) & 0x3f]);
+		encoded.push_back(offset + 1 < bytes.size() ? ALPHABET[(value >> 6) & 0x3f] : '=');
+		encoded.push_back(offset + 2 < bytes.size() ? ALPHABET[value & 0x3f] : '=');
+	}
+	return encoded;
+}
+
 class GeneratedDDS
 {
 public:
@@ -95,11 +115,11 @@ public:
 		static uint32_t sequence = 0;
 		path = Utility::get_top_level_path()/"test/data"
 			/ fmt::format("krisp_test_{}.dds", sequence++);
-		std::vector<unsigned char> bytes(128, 0);
-		const auto write_u32 = [&bytes](const size_t offset, const uint32_t value)
+		contents.resize(128, 0);
+		const auto write_u32 = [this](const size_t offset, const uint32_t value)
 		{
 			for (size_t byte = 0; byte < 4; ++byte)
-				bytes[offset + byte] = static_cast<unsigned char>(value >> (byte * 8));
+				contents[offset + byte] = static_cast<unsigned char>(value >> (byte * 8));
 		};
 		write_u32(0, 0x20534444); // "DDS "
 		write_u32(4, 124);
@@ -122,12 +142,82 @@ public:
 			mip_width = std::max(1u, mip_width / 2);
 			mip_height = std::max(1u, mip_height / 2);
 		}
-		bytes.resize(128 + payload_size.value_or(expected_payload), 0x7f);
+		contents.resize(128 + payload_size.value_or(expected_payload), 0x7f);
 		std::ofstream output(path, std::ios::binary);
-		output.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+		output.write(reinterpret_cast<const char*>(contents.data()), contents.size());
 	}
 
 	~GeneratedDDS()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+	std::vector<unsigned char> contents;
+	std::string filename() const { return path.filename().string(); }
+};
+
+void add_msft_texture_dds(
+	nlohmann::json& document,
+	const nlohmann::json& image,
+	const bool retain_fallback = true)
+{
+	document["extensionsUsed"] = nlohmann::json::array({ "MSFT_texture_dds" });
+	document["images"].push_back(image);
+	const auto image_index = document["images"].size() - 1;
+	document["textures"][0]["extensions"]["MSFT_texture_dds"] = {
+		{ "source", image_index },
+	};
+	if (!retain_fallback)
+	{
+		document["textures"][0].erase("source");
+		document["extensionsRequired"] = nlohmann::json::array({ "MSFT_texture_dds" });
+	}
+}
+
+class GeneratedGlbDDS
+{
+public:
+	explicit GeneratedGlbDDS(const GeneratedDDS& dds)
+	{
+		static uint32_t sequence = 0;
+		path = Utility::get_top_level_path() / "test/data"
+			/ fmt::format("krisp_test_dds_{}.glb", sequence++);
+
+		tinygltf::TinyGLTF io;
+		tinygltf::Model model;
+		std::string error;
+		std::string warning;
+		if (!io.LoadASCIIFromFile(
+				&model, &error, &warning, Utility::get_model("static_mesh_textured.gltf").string()))
+			throw std::runtime_error("Unable to load glTF test template: " + error);
+
+		auto& buffer = model.buffers.at(0);
+		while (buffer.data.size() % 4 != 0)
+			buffer.data.push_back(0);
+		tinygltf::BufferView view;
+		view.buffer = 0;
+		view.byteOffset = buffer.data.size();
+		view.byteLength = dds.contents.size();
+		buffer.data.insert(buffer.data.end(), dds.contents.begin(), dds.contents.end());
+		model.bufferViews.push_back(view);
+
+		tinygltf::Image image;
+		image.bufferView = static_cast<int>(model.bufferViews.size() - 1);
+		image.mimeType = "image/vnd-ms.dds";
+		model.images.push_back(std::move(image));
+		model.extensionsUsed.push_back("MSFT_texture_dds");
+		tinygltf::Value::Object extension;
+		extension.emplace("source", tinygltf::Value(static_cast<int>(model.images.size() - 1)));
+		model.textures.at(0).extensions.emplace(
+			"MSFT_texture_dds", tinygltf::Value(std::move(extension)));
+		buffer.uri.clear();
+		if (!io.WriteGltfSceneToFile(&model, path.string(), false, false, false, true))
+			throw std::runtime_error("Unable to write GLB DDS test resource");
+	}
+
+	~GeneratedGlbDDS()
 	{
 		std::error_code error;
 		std::filesystem::remove(path, error);
@@ -349,6 +439,51 @@ TEST(ResourceLoaderMaterials, imports_exact_pbr_factors)
 	EXPECT_FLOAT_EQ(renderable.opacity, 1.0f);
 }
 
+TEST(ResourceLoaderMaterials, imports_core_alpha_sidedness_and_emissive_properties)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		auto& material = document["materials"][0];
+		material["alphaMode"] = "MASK";
+		material["alphaCutoff"] = 1.25;
+		material["doubleSided"] = true;
+		material["emissiveFactor"] = { 0.125, 0.25, 0.5 };
+		material["emissiveTexture"] = { { "index", 0 } };
+	}, "static_mesh_textured.gltf", false);
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& material = dynamic_cast<const PbrMaterial&>(
+		renderable.material_owners.front()->get());
+	EXPECT_EQ(material.properties.alpha_mode, EAlphaMode::MASK);
+	EXPECT_FLOAT_EQ(material.properties.alpha_cutoff, 1.25f);
+	EXPECT_TRUE(material.properties.double_sided);
+	EXPECT_EQ(material.properties.emissive_factor, glm::vec3(0.125f, 0.25f, 0.5f));
+	EXPECT_EQ(material.data.emissive_factor, material.properties.emissive_factor);
+	const TextureMaterial* emissive = nullptr;
+	for (const auto& owner : renderable.material_owners)
+		if (const auto* texture = dynamic_cast<const TextureMaterial*>(&owner->get());
+			texture && texture->semantic == ETextureSemantic::EMISSIVE)
+			emissive = texture;
+	ASSERT_NE(emissive, nullptr);
+	ASSERT_TRUE(material.textures.emissive.has_value());
+	EXPECT_EQ(material.textures.emissive->texture, emissive->get_id());
+	EXPECT_TRUE(material.has_textures());
+}
+
+TEST(ResourceLoaderMaterials, imports_blend_alpha_mode)
+{
+	MutatedGltf resource([](nlohmann::json& document)
+	{
+		document["materials"][0]["alphaMode"] = "BLEND";
+	});
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& material = dynamic_cast<const PbrMaterial&>(
+		model.meshes[0].renderables[0].material_owners.front()->get());
+	EXPECT_EQ(material.properties.alpha_mode, EAlphaMode::BLEND);
+}
+
 TEST(ResourceLoaderMaterials, primitives_without_material_use_gltf_pbr_defaults)
 {
 	MutatedGltf resource([](nlohmann::json& document)
@@ -364,6 +499,11 @@ TEST(ResourceLoaderMaterials, primitives_without_material_use_gltf_pbr_defaults)
 	EXPECT_TRUE(glm_equal(material.data.base_color_factor, glm::vec4(1.0f)));
 	EXPECT_FLOAT_EQ(material.data.metallic_factor, 1.0f);
 	EXPECT_FLOAT_EQ(material.data.roughness_factor, 1.0f);
+	EXPECT_EQ(material.properties.alpha_mode, EAlphaMode::OPAQUE);
+	EXPECT_FLOAT_EQ(material.properties.alpha_cutoff, 0.5f);
+	EXPECT_FALSE(material.properties.double_sided);
+	EXPECT_EQ(material.properties.emissive_factor, glm::vec3(0.0f));
+	EXPECT_FALSE(material.textures.emissive.has_value());
 }
 
 TEST(ResourceLoaderMaterials, rejects_unsupported_reachable_material_features_with_material_context)
@@ -371,10 +511,9 @@ TEST(ResourceLoaderMaterials, rejects_unsupported_reachable_material_features_wi
 	using Mutation = std::function<void(nlohmann::json&)>;
 	const std::vector<std::pair<std::string, Mutation>> cases{
 		{ "occlusionTexture", [](auto& material) { material["occlusionTexture"] = { { "index", 0 } }; } },
-		{ "emissiveTexture", [](auto& material) { material["emissiveTexture"] = { { "index", 0 } }; } },
-		{ "emissiveFactor", [](auto& material) { material["emissiveFactor"] = { 0.0, 0.1, 0.0 }; } },
-		{ "alphaMode", [](auto& material) { material["alphaMode"] = "MASK"; } },
-		{ "doubleSided", [](auto& material) { material["doubleSided"] = true; } },
+		{ "emissiveFactor", [](auto& material) { material["emissiveFactor"] = { 0.0, 1.1, 0.0 }; } },
+		{ "alphaMode", [](auto& material) { material["alphaMode"] = "INVALID"; } },
+		{ "alphaCutoff", [](auto& material) { material["alphaCutoff"] = -0.1; } },
 		{ "KHR_materials_specular", [](auto& material) {
 			material["extensions"]["KHR_materials_specular"] = { { "specularFactor", 0.5 } }; } },
 		{ "metallicFactor outside", [](auto& material) {
@@ -410,15 +549,15 @@ TEST(ResourceLoaderMaterials, warns_for_unsupported_unused_material_declarations
 	MutatedGltf resource([](nlohmann::json& document)
 	{
 		document["materials"].push_back({
-			{ "name", "Unused double-sided material" },
-			{ "doubleSided", true },
+			{ "name", "Unused extension material" },
+			{ "extensions", { { "KHR_materials_specular", { { "specularFactor", 0.5 } } } } },
 		});
 	});
 	ECS ecs;
 	const auto model = ResourceLoader::load_model(ecs, resource.filename());
 	ASSERT_EQ(model.warnings.size(), 1);
-	EXPECT_NE(model.warnings.front().message.find("Unused double-sided material"), std::string::npos);
-	EXPECT_NE(model.warnings.front().message.find("doubleSided"), std::string::npos);
+	EXPECT_NE(model.warnings.front().message.find("Unused extension material"), std::string::npos);
+	EXPECT_NE(model.warnings.front().message.find("KHR_materials_specular"), std::string::npos);
 
 	ResourceLoader::LoadOptions strict;
 	strict.strict = true;
@@ -833,6 +972,99 @@ const TextureMaterial* find_texture_material(
 }
 }
 
+TEST(ResourceLoaderTexturedPbr, imports_external_msft_texture_dds_with_authored_mips)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(8, 8, 4, DXT5);
+	MutatedGltf resource([&](nlohmann::json& document)
+	{
+		add_msft_texture_dds(document, { { "uri", dds.filename() } });
+		document["samplers"] = nlohmann::json::array({ {
+			{ "magFilter", 9729 }, { "minFilter", 9985 },
+			{ "wrapS", 10497 }, { "wrapT", 10497 },
+		} });
+		document["textures"][0]["sampler"] = 0;
+	}, "static_mesh_textured.gltf", false);
+
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto* texture = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
+	const auto* pbr = find_pbr_material(renderable);
+	ASSERT_NE(texture, nullptr);
+	ASSERT_NE(pbr, nullptr);
+	ASSERT_TRUE(pbr->textures.base_color.has_value());
+	EXPECT_EQ(texture->format, ETextureFormat::BC3);
+	EXPECT_EQ(texture->source, dds.filename());
+	EXPECT_EQ(texture->mip_sizes, (std::vector<size_t>{ 64, 16, 16, 16 }));
+	EXPECT_EQ(pbr->textures.base_color->sampler, PbrMaterial::TextureSampler::repeat(
+		PbrMaterial::TextureSampler::MipmapMode::NEAREST));
+}
+
+TEST(ResourceLoaderTexturedPbr, imports_required_data_uri_msft_texture_dds_without_fallback)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(4, 4, 3, DXT5);
+	const auto uri = "data:application/octet-stream;base64," + encode_base64(dds.contents);
+	MutatedGltf resource([&](nlohmann::json& document)
+	{
+		add_msft_texture_dds(document, { { "uri", uri } }, false);
+		document["samplers"] = nlohmann::json::array({ {
+			{ "magFilter", 9729 }, { "minFilter", 9987 },
+			{ "wrapS", 33071 }, { "wrapT", 33071 },
+		} });
+		document["textures"][0]["sampler"] = 0;
+	}, "static_mesh_textured.gltf", false);
+
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto* texture = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
+	const auto* pbr = find_pbr_material(renderable);
+	ASSERT_NE(texture, nullptr);
+	ASSERT_NE(pbr, nullptr);
+	ASSERT_TRUE(pbr->textures.base_color.has_value());
+	EXPECT_EQ(texture->format, ETextureFormat::BC3);
+	EXPECT_EQ(texture->mip_sizes, (std::vector<size_t>{ 16, 16, 16 }));
+	EXPECT_EQ(pbr->textures.base_color->sampler,
+		PbrMaterial::TextureSampler::clamp_to_edge());
+}
+
+TEST(ResourceLoaderTexturedPbr, imports_glb_buffer_view_msft_texture_dds)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(4, 4, 3, DXT5);
+	GeneratedGlbDDS resource(dds);
+
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto* texture = find_texture_material(
+		model.meshes[0].renderables[0], ETextureSemantic::BASE_COLOR);
+	ASSERT_NE(texture, nullptr);
+	EXPECT_EQ(texture->format, ETextureFormat::BC3);
+	EXPECT_EQ(texture->mip_sizes, (std::vector<size_t>{ 16, 16, 16 }));
+}
+
+TEST(ResourceLoaderTexturedPbr, rejects_invalid_msft_texture_dds_declarations)
+{
+	constexpr uint32_t DXT5 = 0x35545844;
+	GeneratedDDS dds(4, 4, 1, DXT5);
+	MutatedGltf missing_used([&](nlohmann::json& document)
+	{
+		add_msft_texture_dds(document, { { "uri", dds.filename() } });
+		document.erase("extensionsUsed");
+	}, "static_mesh_textured.gltf", false);
+	MutatedGltf missing_required([&](nlohmann::json& document)
+	{
+		add_msft_texture_dds(document, { { "uri", dds.filename() } }, false);
+		document.erase("extensionsRequired");
+	}, "static_mesh_textured.gltf", false);
+
+	ECS ecs;
+	EXPECT_THROW(ResourceLoader::load_model(ecs, missing_used.filename()), ResourceLoadError);
+	EXPECT_THROW(ResourceLoader::load_model(ecs, missing_required.filename()), ResourceLoadError);
+}
+
 TEST(ResourceLoaderTexturedPbr, imports_static_buffer_view_png_and_texcoord_zero)
 {
 	ECS ecs;
@@ -897,9 +1129,11 @@ TEST(ResourceLoaderTexturedPbr, imports_all_optional_maps_factors_normal_scale_a
 	EXPECT_EQ(pbr->textures.base_color->texture, base_color->get_id());
 	EXPECT_EQ(pbr->textures.metallic_roughness->texture, metallic_roughness->get_id());
 	EXPECT_EQ(pbr->textures.normal->texture, normal->get_id());
-	EXPECT_EQ(pbr->textures.base_color->sampler, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
-	EXPECT_EQ(pbr->textures.metallic_roughness->sampler, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
-	EXPECT_EQ(pbr->textures.normal->sampler, PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+	const auto sampler = PbrMaterial::TextureSampler::clamp_to_edge(
+		PbrMaterial::TextureSampler::MipmapMode::NONE);
+	EXPECT_EQ(pbr->textures.base_color->sampler, sampler);
+	EXPECT_EQ(pbr->textures.metallic_roughness->sampler, sampler);
+	EXPECT_EQ(pbr->textures.normal->sampler, sampler);
 }
 
 TEST(ResourceLoaderTexturedPbr, imports_external_jpeg_uri)
@@ -957,6 +1191,8 @@ TEST(ResourceLoaderTexturedPbr, rejects_sampler_modes_outside_linear_repeat_or_c
 	using Mutation = std::function<void(nlohmann::json&)>;
 	const std::vector<Mutation> cases{
 		[](auto& document) { document["samplers"][0]["magFilter"] = 9728; }, // NEAREST
+		[](auto& document) { document["samplers"][0]["minFilter"] = 9984; }, // NEAREST_MIPMAP_NEAREST
+		[](auto& document) { document["samplers"][0]["minFilter"] = 9986; }, // NEAREST_MIPMAP_LINEAR
 		[](auto& document) { document["samplers"][0]["wrapS"] = 33648; }, // MIRRORED_REPEAT
 	};
 	for (const auto& mutate : cases)

@@ -92,18 +92,50 @@ measured.
 PNG/JPEG decoding and MikkTSpace tangent generation are model-load costs.
 MikkTSpace may split vertices at tangent discontinuities, increasing vertex and
 index storage for affected normal-mapped meshes. Decoded images are uploaded as
-single-mip RGBA8 textures, so expected GPU storage is
-approximately `width * height * 4` bytes before allocator overhead. Missing mip
-chains can alias during minification. DXT5/BC3 standalone textures use roughly
-one byte per pixel per mip level and may retain a complete authored mip chain.
+single-level RGBA8 textures, so expected GPU storage is approximately
+`width * height * 4` bytes before allocator overhead. Missing mip chains can
+alias during minification.
+
+Standalone and `MSFT_texture_dds` DXT5/BC3 textures stay block-compressed during
+upload and sampling. Each mip uses roughly one byte per pixel, rounded to 4-by-4
+blocks; a complete chain adds about one third over the base level. This reduces
+image memory and sampling bandwidth relative to RGBA8, while authored mip levels
+also reduce minification aliasing. Trilinear filtering may read two mip levels
+per sample; nearest-mip filtering reads one and can show transitions. These
+trade-offs have not been measured in Krisp.
 
 Decoded image data and GPU images are shared across material users when their
 image and semantic permit the same colour-space interpretation. Sampler objects
-are shared by addressing mode and each descriptor records the requested sampler.
-The shared neutral textures are engine-wide. This avoids duplicate decoding,
-uploads, and image memory, while each distinct sampled-material binding still
-consumes its descriptor records. Texture upload, sampling, descriptor pressure,
-and tangent-generation costs have not been measured.
+are shared by address and mip-filter state, and each descriptor records the
+requested sampler. The shared neutral textures are engine-wide. This avoids
+duplicate decoding, uploads, and image memory, while each distinct
+sampled-material binding still consumes its descriptor records. Texture upload,
+sampling, descriptor pressure, and tangent-generation costs have not been
+measured.
+
+## Alpha, double-sided, and emissive materials
+
+Masked materials add an alpha comparison and fragment discard to their colour
+and shadow passes. A base-colour texture used for masking must also be sampled
+in the shadow pass, increasing shadow bandwidth relative to fully opaque
+materials. Discarded fragments can reduce later shading work, but may also
+reduce early-depth efficiency; neither effect has been measured.
+
+Double-sided materials disable face culling and use separate cached pipeline
+variants. They can rasterize roughly twice as many fragments for thin closed
+geometry and increase overdraw for layered cards. Masked, blended, and
+double-sided state combinations also increase pipeline-cache cardinality.
+
+An emissive texture adds one sRGB texture sample per fragment. Factor-only
+emission adds arithmetic but no texture sample. These costs have not been
+measured.
+
+Blended renderables are depth-sorted every graphics frame and cannot use opaque
+early-depth rejection in the same way as opaque geometry. Their CPU sorting
+cost grows with the number of blended draws, while overlapping transparent
+layers increase fragment overdraw. Sorting is per renderable rather than per
+triangle; improving difficult transparency cases may require additional CPU
+work, draw splitting, or a different transparency technique.
 
 ## Render preparation and command recording
 

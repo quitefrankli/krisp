@@ -27,6 +27,7 @@ struct RenderSortKey
 	ERenderType render_type;
 	EShadingMode shading_mode;
 	EAlphaMode alpha_mode;
+	bool double_sided;
 	MeshID mesh_id;
 	std::vector<MaterialID> material_ids;
 	RenderableID renderable_id;
@@ -34,6 +35,9 @@ struct RenderSortKey
 	bool operator<(const RenderSortKey& other) const;
 };
 
+EAlphaMode renderable_alpha_mode(const RenderableDefinition& renderable);
+float renderable_alpha_cutoff(const RenderableDefinition& renderable);
+bool renderable_double_sided(const RenderableDefinition& renderable);
 RenderableDrawClass classify_renderable(const RenderableDefinition& renderable);
 bool renderable_casts_shadow(const RenderableDefinition& renderable);
 RenderSortKey make_render_sort_key(

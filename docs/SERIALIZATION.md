@@ -30,7 +30,8 @@ Resources are classified by `ImportedResourceProvenance`:
   updates to the source asset. Each texture slot distinguishes inherited,
   replaced, and explicitly cleared states.
   Imported glTF texture identities use the source image plus texture semantic;
-  sampler choice remains part of the PBR slot binding.
+  sampler choice remains part of the PBR slot binding. Each sampler records its
+  address mode and whether mip selection is disabled, nearest, or linear.
 - Resources without provenance were generated inside Krisp. Generated meshes
   and texture payloads are stored once as `.dat` files; PBR material parameters
   and optional texture references are written directly in YAML. References

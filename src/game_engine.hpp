@@ -12,6 +12,7 @@
 #include "entity_component_system/ecs.hpp"
 #include "graphics_engine/engine_base.hpp"
 #include "render_frame.hpp"
+#include "renderable/render_types.hpp"
 
 #include <atomic>
 #include <thread>
@@ -55,9 +56,14 @@ struct PbrMaterialEdit
 	float metallic_factor = 1.0f;
 	float roughness_factor = 1.0f;
 	float normal_scale = 1.0f;
+	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
+	float alpha_cutoff = 0.5f;
+	bool double_sided = false;
+	glm::vec3 emissive_factor{ 0.0f };
 	PbrTextureEdit base_color_texture;
 	PbrTextureEdit metallic_roughness_texture;
 	PbrTextureEdit normal_texture;
+	PbrTextureEdit emissive_texture;
 };
 
 class GameEngine : public IWindowCallbacks

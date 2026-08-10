@@ -91,6 +91,8 @@ std::string semantic_name(const ETextureSemantic semantic)
 		return "metallic_roughness";
 	case ETextureSemantic::NORMAL:
 		return "normal";
+	case ETextureSemantic::EMISSIVE:
+		return "emissive";
 	case ETextureSemantic::COUNT:
 		break;
 	}
@@ -106,6 +108,8 @@ ETextureSemantic read_semantic(const Deserializer &in)
 		return ETextureSemantic::METALLIC_ROUGHNESS;
 	if (value == "normal")
 		return ETextureSemantic::NORMAL;
+	if (value == "emissive")
+		return ETextureSemantic::EMISSIVE;
 	throw SerializationError("Unsupported texture semantic at " + in.path());
 }
 
@@ -131,19 +135,85 @@ ETextureFormat read_format(const Deserializer &in)
 	throw SerializationError("Unsupported texture format at " + in.path());
 }
 
-std::string sampler_name(const PbrMaterial::TextureSampler sampler)
+std::string sampler_address_name(const PbrMaterial::TextureSampler::AddressMode mode)
 {
-	return sampler == PbrMaterial::TextureSampler::REPEAT ? "repeat" : "clamp_to_edge";
+	switch (mode)
+	{
+	case PbrMaterial::TextureSampler::AddressMode::REPEAT:
+		return "repeat";
+	case PbrMaterial::TextureSampler::AddressMode::CLAMP_TO_EDGE:
+		return "clamp_to_edge";
+	}
+	throw SerializationError("Unsupported texture address mode");
 }
 
-PbrMaterial::TextureSampler read_sampler(const Deserializer& in)
+std::string sampler_mipmap_name(const PbrMaterial::TextureSampler::MipmapMode mode)
+{
+	switch (mode)
+	{
+	case PbrMaterial::TextureSampler::MipmapMode::NONE:
+		return "none";
+	case PbrMaterial::TextureSampler::MipmapMode::NEAREST:
+		return "nearest";
+	case PbrMaterial::TextureSampler::MipmapMode::LINEAR:
+		return "linear";
+	}
+	throw SerializationError("Unsupported texture mipmap mode");
+}
+
+void write_sampler(Serializer out, const PbrMaterial::TextureSampler sampler)
+{
+	out.write("address_mode", sampler_address_name(sampler.address_mode));
+	out.write("mipmap_mode", sampler_mipmap_name(sampler.mipmap_mode));
+}
+
+PbrMaterial::TextureSampler read_sampler(const Deserializer &in)
+{
+	PbrMaterial::TextureSampler sampler;
+	const auto address = in.read<std::string>("address_mode");
+	if (address == "repeat")
+		sampler.address_mode = PbrMaterial::TextureSampler::AddressMode::REPEAT;
+	else if (address == "clamp_to_edge")
+		sampler.address_mode = PbrMaterial::TextureSampler::AddressMode::CLAMP_TO_EDGE;
+	else
+		throw SerializationError("Unsupported texture address mode at " + in.path());
+
+	const auto mipmap = in.read<std::string>("mipmap_mode");
+	if (mipmap == "none")
+		sampler.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NONE;
+	else if (mipmap == "nearest")
+		sampler.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NEAREST;
+	else if (mipmap == "linear")
+		sampler.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::LINEAR;
+	else
+		throw SerializationError("Unsupported texture mipmap mode at " + in.path());
+	return sampler;
+}
+
+std::string alpha_mode_name(const EAlphaMode mode)
+{
+	switch (mode)
+	{
+	case EAlphaMode::OPAQUE:
+		return "opaque";
+	case EAlphaMode::MASK:
+		return "mask";
+	case EAlphaMode::BLEND:
+		return "blend";
+	}
+	throw SerializationError("Unsupported PBR alpha mode");
+}
+
+EAlphaMode read_alpha_mode(const Deserializer& in)
 {
 	const auto value = in.as<std::string>();
-	if (value == "repeat")
-		return PbrMaterial::TextureSampler::REPEAT;
-	if (value == "clamp_to_edge")
-		return PbrMaterial::TextureSampler::CLAMP_TO_EDGE;
-	throw SerializationError("Unsupported texture sampler at " + in.path());
+	if (value == "opaque")
+		return EAlphaMode::OPAQUE;
+	if (value == "mask")
+		return EAlphaMode::MASK;
+	if (value == "blend")
+		return EAlphaMode::BLEND;
+	throw SerializationError("Unsupported PBR alpha mode at " + in.path());
 }
 
 void validate_texture(const TextureMaterial &texture, const std::string &path)
@@ -468,6 +538,15 @@ void SceneResourceWriter::write_material_reference(Serializer out, const Materia
 			saved_override.write("roughness_factor", *material_override->roughness_factor);
 		if (material_override->normal_scale)
 			saved_override.write("normal_scale", *material_override->normal_scale);
+		if (material_override->alpha_mode)
+			saved_override.write("alpha_mode", alpha_mode_name(*material_override->alpha_mode));
+		if (material_override->alpha_cutoff)
+			saved_override.write("alpha_cutoff", *material_override->alpha_cutoff);
+		if (material_override->double_sided)
+			saved_override.write("double_sided", *material_override->double_sided);
+		if (material_override->emissive_factor)
+			Serialization::write_vec3(
+				saved_override, "emissive_factor", *material_override->emissive_factor);
 		auto textures = saved_override.map("textures");
 		const auto write_texture_override = [this, &textures](
 			const std::string_view name,
@@ -483,12 +562,13 @@ void SceneResourceWriter::write_material_reference(Serializer out, const Materia
 			}
 			saved.write("state", "replaced");
 			write_material_reference(saved.map("resource"), texture_override->texture);
-			saved.write("sampler", sampler_name(texture_override->sampler));
+			write_sampler(saved.map("sampler"), texture_override->sampler);
 		};
 		write_texture_override("base_color", material_override->base_color_texture);
 		write_texture_override(
 			"metallic_roughness", material_override->metallic_roughness_texture);
 		write_texture_override("normal", material_override->normal_texture);
+		write_texture_override("emissive", material_override->emissive_texture);
 		return;
 	}
 	if (const auto *source = ResourceProvenance::material(id))
@@ -556,6 +636,11 @@ void SceneResourceWriter::write_generated_material(const MaterialID id)
 		parameters.write("metallic_factor", pbr->data.metallic_factor);
 		parameters.write("roughness_factor", pbr->data.roughness_factor);
 		parameters.write("normal_scale", pbr->data.normal_scale);
+		parameters.write("alpha_mode", alpha_mode_name(pbr->properties.alpha_mode));
+		parameters.write("alpha_cutoff", pbr->properties.alpha_cutoff);
+		parameters.write("double_sided", pbr->properties.double_sided);
+		Serialization::write_vec3(
+			parameters, "emissive_factor", pbr->properties.emissive_factor);
 		auto textures = entry.map("textures");
 		const auto write_binding = [this, &textures](
 			const std::string_view name,
@@ -565,11 +650,12 @@ void SceneResourceWriter::write_generated_material(const MaterialID id)
 				return;
 			auto saved = textures.map(name);
 			write_material_reference(saved.map("resource"), binding->texture);
-			saved.write("sampler", sampler_name(binding->sampler));
+			write_sampler(saved.map("sampler"), binding->sampler);
 		};
 		write_binding("base_color", pbr->textures.base_color);
 		write_binding("metallic_roughness", pbr->textures.metallic_roughness);
 		write_binding("normal", pbr->textures.normal);
+		write_binding("emissive", pbr->textures.emissive);
 		return;
 	}
 	const auto *texture = dynamic_cast<const TextureMaterial *>(&material);
@@ -728,6 +814,7 @@ void SceneResourceReader::prepare(const Deserializer &document)
 			.base_color = read_binding("base_color"),
 			.metallic_roughness = read_binding("metallic_roughness"),
 			.normal = read_binding("normal"),
+			.emissive = read_binding("emissive"),
 		};
 		try
 		{
@@ -736,7 +823,14 @@ void SceneResourceReader::prepare(const Deserializer &document)
 				parameters.read<float>("metallic_factor"),
 				parameters.read<float>("roughness_factor"),
 				std::move(slots),
-				parameters.read<float>("normal_scale"));
+				parameters.read<float>("normal_scale"),
+				PbrMaterial::Properties{
+					.alpha_mode = read_alpha_mode(parameters.child("alpha_mode")),
+					.alpha_cutoff = parameters.read<float>("alpha_cutoff"),
+					.double_sided = parameters.read<bool>("double_sided"),
+					.emissive_factor = Serialization::read_vec3(
+						parameters, "emissive_factor"),
+				});
 			if (!materials.emplace(id, ecs.get_material_system().add(std::move(material))).second)
 				throw SerializationError("Duplicate generated material resource at " + entry.path());
 		}
@@ -819,6 +913,7 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 				.metallic_factor = base->data.metallic_factor,
 				.roughness_factor = base->data.roughness_factor,
 				.normal_scale = base->data.normal_scale,
+				.properties = base->properties,
 				.textures = base->textures,
 			},
 		};
@@ -826,6 +921,7 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 		auto metallic_factor = base->data.metallic_factor;
 		auto roughness_factor = base->data.roughness_factor;
 		auto normal_scale = base->data.normal_scale;
+		auto properties = base->properties;
 		if (has_key(saved_override, "base_color_factor"))
 			material_override.base_color_factor = base_color_factor
 				= Serialization::read_vec4(saved_override, "base_color_factor");
@@ -838,6 +934,18 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 		if (has_key(saved_override, "normal_scale"))
 			material_override.normal_scale = normal_scale
 				= saved_override.read<float>("normal_scale");
+		if (has_key(saved_override, "alpha_mode"))
+			material_override.alpha_mode = properties.alpha_mode
+				= read_alpha_mode(saved_override.child("alpha_mode"));
+		if (has_key(saved_override, "alpha_cutoff"))
+			material_override.alpha_cutoff = properties.alpha_cutoff
+				= saved_override.read<float>("alpha_cutoff");
+		if (has_key(saved_override, "double_sided"))
+			material_override.double_sided = properties.double_sided
+				= saved_override.read<bool>("double_sided");
+		if (has_key(saved_override, "emissive_factor"))
+			material_override.emissive_factor = properties.emissive_factor
+				= Serialization::read_vec3(saved_override, "emissive_factor");
 
 		auto slots = base->textures;
 		const auto textures = saved_override.child("textures");
@@ -873,11 +981,13 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 		read_texture_override("metallic_roughness", slots.metallic_roughness,
 			material_override.metallic_roughness_texture);
 		read_texture_override("normal", slots.normal, material_override.normal_texture);
+		read_texture_override("emissive", slots.emissive,
+			material_override.emissive_texture);
 		try
 		{
 			auto owner = ecs.get_material_system().add(std::make_unique<PbrMaterial>(
 				base_color_factor, metallic_factor, roughness_factor,
-				std::move(slots), normal_scale));
+				std::move(slots), normal_scale, properties));
 			ResourceProvenance::register_material_override(
 				owner->get_id(), std::move(material_override));
 			return owner;

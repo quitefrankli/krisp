@@ -8,6 +8,7 @@
 #include "renderable/material_group.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <ranges>
 #include <stdexcept>
@@ -66,6 +67,10 @@ void RenderableSystem::validate_attachment(
 		&& renderable.pipeline_render_type != ERenderType::SKINNED)
 		throw std::invalid_argument(
 			"RenderableSystem: unlit shading requires a PBR vertex layout");
+	if (!std::isfinite(renderable.opacity)
+		|| renderable.opacity < 0.0f || renderable.opacity > 1.0f)
+		throw std::invalid_argument(
+			"RenderableSystem: opacity must be finite and in [0, 1]");
 	if (!get_ecs().get_mesh_system().owns(renderable.mesh_owner))
 		throw std::invalid_argument("RenderableSystem: mesh belongs to another ECS");
 	for (const auto& material : renderable.material_owners)
@@ -307,8 +312,6 @@ void RenderableSystem::serialize(Serializer& out, SceneResourceWriter& resources
 		entry.write("visible", attachment.visible);
 		entry.write("render_type", static_cast<int>(attachment.renderable.pipeline_render_type));
 		entry.write("shading_mode", static_cast<int>(attachment.renderable.shading_mode));
-		entry.write("alpha_mode", static_cast<int>(attachment.renderable.alpha_mode));
-		entry.write("alpha_cutoff", attachment.renderable.alpha_cutoff);
 		entry.write("opacity", attachment.renderable.opacity);
 		entry.write("casts_shadow", attachment.renderable.casts_shadow);
 		entry.write("render_on_top", attachment.renderable.render_on_top);
@@ -338,8 +341,6 @@ void RenderableSystem::deserialize(const Deserializer& in, SceneResourceReader& 
 			renderable.material_owners.push_back(resources.read_material_reference(material));
 		renderable.pipeline_render_type = static_cast<ERenderType>(entry.read<int>("render_type"));
 		renderable.shading_mode = static_cast<EShadingMode>(entry.read<int>("shading_mode"));
-		renderable.alpha_mode = static_cast<EAlphaMode>(entry.read<int>("alpha_mode"));
-		renderable.alpha_cutoff = entry.read<float>("alpha_cutoff");
 		renderable.opacity = entry.read<float>("opacity");
 		renderable.casts_shadow = entry.read<bool>("casts_shadow");
 		renderable.render_on_top = entry.read<bool>("render_on_top");

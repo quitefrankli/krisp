@@ -321,7 +321,8 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 	// RenderSlicer will always read from output of QuadRenderer
 	auto& quad_renderer = get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD);
 	VkDescriptorSet dset = ImGui_ImplVulkan_AddTexture(
-		get_graphics_engine().get_texture_mgr().fetch_sampler(PbrMaterial::TextureSampler::CLAMP_TO_EDGE),
+		get_graphics_engine().get_texture_mgr().fetch_sampler(
+			PbrMaterial::TextureSampler::clamp_to_edge()),
 		quad_renderer.get_output_image_view(0),
 		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	engine_ui_manager.render_slicer.update(
@@ -346,7 +347,7 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 		get_graphics_engine().get_material_system(), texture_filename);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
 		texture_owner,
-		PbrMaterial::TextureSampler::CLAMP_TO_EDGE);
+		PbrMaterial::TextureSampler::clamp_to_edge());
 	gui_texture_owners.push_back(std::move(texture_owner));
 
 	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);

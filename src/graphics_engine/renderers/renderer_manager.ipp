@@ -45,6 +45,7 @@ void RendererManager::pipe_output_to_quad_renderer(ERendererType src_renderer)
 
 	quad_renderer.set_texture(
 		src.get_output_image_view(0),
-		get_graphics_engine().get_texture_mgr().fetch_sampler(PbrMaterial::TextureSampler::CLAMP_TO_EDGE));
+		get_graphics_engine().get_texture_mgr().fetch_sampler(
+			PbrMaterial::TextureSampler::clamp_to_edge()));
 	quad_renderer.set_texture_sampling_flags(1);
 }

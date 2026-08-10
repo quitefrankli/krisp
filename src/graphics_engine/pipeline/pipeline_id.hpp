@@ -21,12 +21,13 @@ struct PipelineID
 	EPipelineModifier pipeline_modifier = EPipelineModifier::NONE;
 	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
 	EShadingMode shading_mode = EShadingMode::LIT;
+	bool double_sided = false;
 
 	bool operator==(const PipelineID& other) const
 	{
 		return primary_pipeline_type == other.primary_pipeline_type && 
-		pipeline_modifier == other.pipeline_modifier && alpha_mode == other.alpha_mode
-			&& shading_mode == other.shading_mode;
+			pipeline_modifier == other.pipeline_modifier && alpha_mode == other.alpha_mode
+			&& shading_mode == other.shading_mode && double_sided == other.double_sided;
 	}
 };
 
@@ -38,6 +39,7 @@ struct std::hash<PipelineID>
 		return std::hash<int>()(static_cast<int>(pipeline_id.primary_pipeline_type)) ^ 
 			(std::hash<int>()(static_cast<int>(pipeline_id.pipeline_modifier)) << 1) ^
 			(std::hash<int>()(static_cast<int>(pipeline_id.alpha_mode)) << 2) ^
-			(std::hash<int>()(static_cast<int>(pipeline_id.shading_mode)) << 3);
+			(std::hash<int>()(static_cast<int>(pipeline_id.shading_mode)) << 3) ^
+			(std::hash<bool>()(pipeline_id.double_sided) << 4);
 	}
 };

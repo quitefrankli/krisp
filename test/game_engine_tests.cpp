@@ -701,6 +701,48 @@ TEST_F(GameEngineTests, replaces_a_pbr_material_as_an_immutable_renderable_updat
 	EXPECT_FLOAT_EQ(material.data.roughness_factor, 0.25f);
 }
 
+TEST_F(GameEngineTests, pbr_edit_clones_a_shared_material_for_only_the_selected_mesh)
+{
+	auto shared_material = engine.get_ecs().get_material_system().add(
+		std::make_unique<PbrMaterial>(
+			glm::vec4(0.3f, 0.4f, 0.5f, 1.0f), 0.2f, 0.8f));
+	auto shared_mesh = engine.get_ecs().get_mesh_system().add(MeshFactory::cube());
+	const Renderable template_renderable{
+		.pipeline_render_type = ERenderType::COLOR,
+		.mesh_owner = shared_mesh,
+		.material_owners = { shared_material },
+	};
+	auto& edited_object = spawn_renderable_object(engine, template_renderable);
+	auto& untouched_object = spawn_renderable_object(engine, template_renderable);
+	const RenderableID edited_source = only_renderable_id(engine, edited_object.get_id());
+	const RenderableID untouched_id = only_renderable_id(engine, untouched_object.get_id());
+
+	const RenderableID edited_id = engine.set_renderable_pbr_material(
+		edited_source, PbrMaterialEdit{
+			.base_color_factor = glm::vec4(0.8f, 0.1f, 0.2f, 0.45f),
+			.metallic_factor = 0.6f,
+			.roughness_factor = 0.25f,
+			.alpha_mode = EAlphaMode::BLEND,
+			.double_sided = true,
+			.emissive_factor = glm::vec3(0.7f, 0.2f, 0.1f),
+		});
+
+	const auto& edited = dynamic_cast<const PbrMaterial&>(engine.get_ecs()
+		.get_renderable(edited_id).renderable.material_owners.front()->get());
+	const auto& untouched_renderable = engine.get_ecs().get_renderable(untouched_id).renderable;
+	const auto& untouched = dynamic_cast<const PbrMaterial&>(
+		untouched_renderable.material_owners.front()->get());
+	EXPECT_NE(edited.get_id(), shared_material->get_id());
+	EXPECT_EQ(untouched.get_id(), shared_material->get_id());
+	EXPECT_EQ(edited.properties.alpha_mode, EAlphaMode::BLEND);
+	EXPECT_TRUE(edited.properties.double_sided);
+	EXPECT_EQ(edited.properties.emissive_factor, glm::vec3(0.7f, 0.2f, 0.1f));
+	EXPECT_EQ(untouched.data.base_color_factor, glm::vec4(0.3f, 0.4f, 0.5f, 1.0f));
+	EXPECT_EQ(untouched.properties.alpha_mode, EAlphaMode::OPAQUE);
+	EXPECT_FALSE(untouched.properties.double_sided);
+	EXPECT_EQ(untouched.properties.emissive_factor, glm::vec3(0.0f));
+}
+
 TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
 {
 	auto loaded = ResourceLoader::load_model(
@@ -717,7 +759,15 @@ TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
 		.metallic_factor = imported_material.data.metallic_factor,
 		.roughness_factor = 0.2f,
 		.normal_scale = imported_material.data.normal_scale,
+		.alpha_mode = EAlphaMode::MASK,
+		.alpha_cutoff = 0.35f,
+		.double_sided = true,
+		.emissive_factor = glm::vec3(0.2f, 0.4f, 0.6f),
 		.normal_texture = { .action = PbrTextureEdit::Action::Clear },
+		.emissive_texture = {
+			.action = PbrTextureEdit::Action::Replace,
+			.source = "texture.jpg",
+		},
 	});
 	const auto* saved_override = ResourceProvenance::material_override(
 		engine.get_ecs().get_renderable(edited).renderable.material_owners.front()->get_id());
@@ -727,6 +777,16 @@ TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
 	EXPECT_FLOAT_EQ(*saved_override->roughness_factor, 0.2f);
 	ASSERT_TRUE(saved_override->normal_texture.has_value());
 	EXPECT_EQ(saved_override->normal_texture->mode, PbrTextureOverride::Mode::Cleared);
+	ASSERT_TRUE(saved_override->alpha_mode.has_value());
+	EXPECT_EQ(*saved_override->alpha_mode, EAlphaMode::MASK);
+	ASSERT_TRUE(saved_override->alpha_cutoff.has_value());
+	EXPECT_FLOAT_EQ(*saved_override->alpha_cutoff, 0.35f);
+	ASSERT_TRUE(saved_override->double_sided.has_value());
+	EXPECT_TRUE(*saved_override->double_sided);
+	ASSERT_TRUE(saved_override->emissive_factor.has_value());
+	EXPECT_EQ(*saved_override->emissive_factor, glm::vec3(0.2f, 0.4f, 0.6f));
+	ASSERT_TRUE(saved_override->emissive_texture.has_value());
+	EXPECT_EQ(saved_override->emissive_texture->mode, PbrTextureOverride::Mode::Replaced);
 
 	const std::string save_name = "krisp_scene_imported_pbr_override_test";
 	const auto path = save_path(save_name);
@@ -739,6 +799,18 @@ TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
 	EXPECT_FLOAT_EQ(restored.data.roughness_factor, 0.2f);
 	EXPECT_TRUE(restored.textures.base_color.has_value());
 	EXPECT_FALSE(restored.textures.normal.has_value());
+	EXPECT_EQ(restored.properties.alpha_mode, EAlphaMode::MASK);
+	EXPECT_FLOAT_EQ(restored.properties.alpha_cutoff, 0.35f);
+	EXPECT_TRUE(restored.properties.double_sided);
+	EXPECT_EQ(restored.properties.emissive_factor, glm::vec3(0.2f, 0.4f, 0.6f));
+	ASSERT_TRUE(restored.textures.emissive.has_value());
+	const auto restored_emissive = std::ranges::find_if(
+		restored_renderable.material_owners,
+		[&restored](const MaterialHandle& owner)
+		{ return owner->get_id() == restored.textures.emissive->texture; });
+	ASSERT_NE(restored_emissive, restored_renderable.material_owners.end());
+	EXPECT_EQ(dynamic_cast<const TextureMaterial&>((*restored_emissive)->get()).semantic,
+		ETextureSemantic::EMISSIVE);
 	ASSERT_NE(ResourceProvenance::material_override(
 		restored_renderable.material_owners.front()->get_id()), nullptr);
 	std::filesystem::remove_all(path);

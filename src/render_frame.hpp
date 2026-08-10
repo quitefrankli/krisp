@@ -29,8 +29,6 @@ struct RenderableDefinition
 {
 	ERenderType pipeline_render_type = ERenderType::COLOR;
 	EShadingMode shading_mode = EShadingMode::LIT;
-	EAlphaMode alpha_mode = EAlphaMode::OPAQUE;
-	float alpha_cutoff = 0.5f;
 	float opacity = 1.0f;
 	bool casts_shadow = true;
 	bool render_on_top = false;
@@ -50,6 +48,19 @@ struct RenderableDefinition
 	const Material& get_material(size_t index) const
 	{
 		return material_owners.at(index)->get();
+	}
+	// Non-PBR draw types deliberately return null so renderer policy can use
+	// opaque, single-sided defaults without duplicating material properties.
+	const PbrMaterial* get_pbr_material() const
+	{
+		if (pipeline_render_type != ERenderType::COLOR
+			&& pipeline_render_type != ERenderType::STANDARD
+			&& pipeline_render_type != ERenderType::SKINNED
+			&& pipeline_render_type != ERenderType::SKINNED_COLOR)
+			return nullptr;
+		if (material_owners.empty())
+			return nullptr;
+		return dynamic_cast<const PbrMaterial*>(&material_owners.front()->get());
 	}
 	std::vector<MaterialID> get_material_ids() const
 	{

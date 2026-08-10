@@ -30,6 +30,7 @@ struct PbrMatGroup : public MaterialGroup
 		validate(material.textures.base_color, ETextureSemantic::BASE_COLOR);
 		validate(material.textures.metallic_roughness, ETextureSemantic::METALLIC_ROUGHNESS);
 		validate(material.textures.normal, ETextureSemantic::NORMAL);
+		validate(material.textures.emissive, ETextureSemantic::EMISSIVE);
 	}
 
 	const PbrMaterial& pbr() const

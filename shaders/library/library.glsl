@@ -3,6 +3,68 @@
 const float PI = 3.14159265358979323846;
 const float MIN_PERCEPTUAL_ROUGHNESS = 0.04;
 const float MIN_LIGHT_DISTANCE_SQUARED = 0.0001;
+const int PBR_ALPHA_MODE_OPAQUE = 0;
+const int PBR_ALPHA_MODE_MASK = 1;
+const int PBR_ALPHA_MODE_BLEND = 2;
+
+vec4 sample_pbr_base_color(
+	const MaterialData material,
+	sampler2D base_color_sampler,
+	const vec2 tex_coord,
+	const int premultiplied_base_color)
+{
+	vec4 base_color = material.base_color_factor;
+	if ((material.texture_flags & PBR_BASE_COLOR_TEXTURE) == 0)
+		return base_color;
+
+	vec4 sampled_color = texture(base_color_sampler, tex_coord);
+	if (premultiplied_base_color != 0)
+		sampled_color.rgb = sampled_color.a > 0.0
+			? sampled_color.rgb / sampled_color.a : vec3(0.0);
+	return base_color * sampled_color;
+}
+
+float get_pbr_effective_alpha(
+	const float base_color_alpha,
+	const AlphaMaterialData alpha_material)
+{
+	return base_color_alpha * alpha_material.opacity;
+}
+
+bool is_pbr_alpha_discarded(
+	const float effective_alpha,
+	const AlphaMaterialData alpha_material)
+{
+	return alpha_material.alpha_mode == PBR_ALPHA_MODE_MASK
+		&& effective_alpha < alpha_material.alpha_cutoff;
+}
+
+float get_pbr_output_alpha(
+	const float effective_alpha,
+	const AlphaMaterialData alpha_material)
+{
+	return alpha_material.alpha_mode == PBR_ALPHA_MODE_BLEND
+		? effective_alpha : 1.0;
+}
+
+vec3 orient_pbr_normal(
+	const vec3 normal,
+	const int double_sided,
+	const bool front_facing)
+{
+	return double_sided != 0 && !front_facing ? -normal : normal;
+}
+
+vec3 get_pbr_emissive(
+	const MaterialData material,
+	sampler2D emissive_sampler,
+	const vec2 tex_coord)
+{
+	vec3 emissive = material.emissive_factor;
+	if ((material.texture_flags & PBR_EMISSIVE_TEXTURE) != 0)
+		emissive *= texture(emissive_sampler, tex_coord).rgb;
+	return emissive;
+}
 
 vec3 get_direction_to_point_light(
 	const vec3 fragment_position,

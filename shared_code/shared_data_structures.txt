@@ -13,6 +13,7 @@
 struct MaterialData
 {
 	ALIGN(16) VEC4 base_color_factor;
+	ALIGN(16) VEC3 emissive_factor;
 	ALIGN(4) float metallic_factor;
 	ALIGN(4) float roughness_factor;
 	ALIGN(4) float normal_scale;
@@ -22,12 +23,15 @@ struct MaterialData
 const UINT PBR_BASE_COLOR_TEXTURE = 1;
 const UINT PBR_METALLIC_ROUGHNESS_TEXTURE = 2;
 const UINT PBR_NORMAL_TEXTURE = 4;
+const UINT PBR_EMISSIVE_TEXTURE = 8;
 
 struct AlphaMaterialData
 {
 	ALIGN(4) float alpha_cutoff;
 	ALIGN(4) float opacity;
 	ALIGN(4) int premultiplied_base_color;
+	ALIGN(4) int alpha_mode;
+	ALIGN(4) int double_sided;
 };
 
 // Inputs for one layer's one-time composition-generation draw. These are not
@@ -81,6 +85,7 @@ const int RASTERIZATION_ALBEDO_TEXTURE_DATA_BINDING = 1;
 const int RASTERIZATION_MATERIAL_DATA_BINDING = 2;
 const int RASTERIZATION_NORMAL_TEXTURE_DATA_BINDING = 3;
 const int RASTERIZATION_METALLIC_ROUGHNESS_TEXTURE_DATA_BINDING = 4;
+const int RASTERIZATION_EMISSIVE_TEXTURE_DATA_BINDING = 5;
 const int RASTERIZATION_BONE_DATA_BINDING = 1;
 const int RASTERIZATION_SHADOW_MAP_DATA_BINDING = 0;
 

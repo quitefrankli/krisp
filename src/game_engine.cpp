@@ -531,6 +531,10 @@ RenderableID GameEngine::set_renderable_pbr_material(
 		.metallic_factor = metallic_factor,
 		.roughness_factor = roughness_factor,
 		.normal_scale = current.pbr().data.normal_scale,
+		.alpha_mode = current.pbr().properties.alpha_mode,
+		.alpha_cutoff = current.pbr().properties.alpha_cutoff,
+		.double_sided = current.pbr().properties.double_sided,
+		.emissive_factor = current.pbr().properties.emissive_factor,
 	});
 }
 
@@ -560,6 +564,7 @@ RenderableID GameEngine::set_renderable_pbr_material(
 				.metallic_factor = current.data.metallic_factor,
 				.roughness_factor = current.data.roughness_factor,
 				.normal_scale = current.data.normal_scale,
+				.properties = current.properties,
 				.textures = current.textures,
 			},
 		};
@@ -595,12 +600,12 @@ RenderableID GameEngine::set_renderable_pbr_material(
 		auto owner = ResourceLoader::fetch_texture(
 			ecs.get_material_system(), texture_edit.source, semantic);
 		slot = PbrMaterial::TextureBinding{
-			owner->get_id(), PbrMaterial::TextureSampler::REPEAT };
+			owner->get_id(), PbrMaterial::TextureSampler::repeat() };
 		if (material_override)
 			(*material_override).*override_slot = PbrTextureOverride{
 				.mode = PbrTextureOverride::Mode::Replaced,
 				.texture = owner->get_id(),
-				.sampler = PbrMaterial::TextureSampler::REPEAT,
+				.sampler = PbrMaterial::TextureSampler::repeat(),
 			};
 		replacement_textures.push_back(std::move(owner));
 	};
@@ -610,6 +615,8 @@ RenderableID GameEngine::set_renderable_pbr_material(
 		slots.metallic_roughness, &ImportedPbrMaterialOverride::metallic_roughness_texture);
 	apply_texture(edit.normal_texture, ETextureSemantic::NORMAL,
 		slots.normal, &ImportedPbrMaterialOverride::normal_texture);
+	apply_texture(edit.emissive_texture, ETextureSemantic::EMISSIVE,
+		slots.emissive, &ImportedPbrMaterialOverride::emissive_texture);
 
 	if (material_override)
 	{
@@ -623,12 +630,23 @@ RenderableID GameEngine::set_renderable_pbr_material(
 			? std::optional(edit.roughness_factor) : std::nullopt;
 		material_override->normal_scale = original.normal_scale != edit.normal_scale
 			? std::optional(edit.normal_scale) : std::nullopt;
+		material_override->alpha_mode = original.properties.alpha_mode != edit.alpha_mode
+			? std::optional(edit.alpha_mode) : std::nullopt;
+		material_override->alpha_cutoff = original.properties.alpha_cutoff != edit.alpha_cutoff
+			? std::optional(edit.alpha_cutoff) : std::nullopt;
+		material_override->double_sided = original.properties.double_sided != edit.double_sided
+			? std::optional(edit.double_sided) : std::nullopt;
+		material_override->emissive_factor = glm::any(glm::notEqual(
+			original.properties.emissive_factor, edit.emissive_factor))
+			? std::optional(edit.emissive_factor) : std::nullopt;
 		if (slots.base_color == original.textures.base_color)
 			material_override->base_color_texture.reset();
 		if (slots.metallic_roughness == original.textures.metallic_roughness)
 			material_override->metallic_roughness_texture.reset();
 		if (slots.normal == original.textures.normal)
 			material_override->normal_texture.reset();
+		if (slots.emissive == original.textures.emissive)
+			material_override->emissive_texture.reset();
 	}
 
 	auto material = std::make_unique<PbrMaterial>(
@@ -636,7 +654,13 @@ RenderableID GameEngine::set_renderable_pbr_material(
 		edit.metallic_factor,
 		edit.roughness_factor,
 		slots,
-		edit.normal_scale);
+		edit.normal_scale,
+		PbrMaterial::Properties{
+			.alpha_mode = edit.alpha_mode,
+			.alpha_cutoff = edit.alpha_cutoff,
+			.double_sided = edit.double_sided,
+			.emissive_factor = edit.emissive_factor,
+		});
 	auto material_owner = ecs.get_material_system().add(std::move(material));
 	const MaterialID material_id = material_owner->get_id();
 	std::vector<MaterialHandle> owners{ material_owner };
@@ -654,6 +678,7 @@ RenderableID GameEngine::set_renderable_pbr_material(
 	retain_slot(slots.base_color);
 	retain_slot(slots.metallic_roughness);
 	retain_slot(slots.normal);
+	retain_slot(slots.emissive);
 	renderable.material_owners = std::move(owners);
 	if (material_override)
 		ResourceProvenance::register_material_override(material_id, std::move(*material_override));

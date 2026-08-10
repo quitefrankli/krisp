@@ -28,8 +28,6 @@ bool renderable_matches(
 	const auto& renderable = attachment.renderable;
 	return definition.pipeline_render_type == renderable.pipeline_render_type
 		&& definition.shading_mode == renderable.shading_mode
-		&& definition.alpha_mode == renderable.alpha_mode
-		&& definition.alpha_cutoff == renderable.alpha_cutoff
 		&& definition.opacity == renderable.opacity
 		&& definition.casts_shadow == renderable.casts_shadow
 		&& definition.render_on_top == renderable.render_on_top
@@ -48,8 +46,6 @@ RenderableDefinition make_renderable_definition(
 	return {
 		.pipeline_render_type = renderable.pipeline_render_type,
 		.shading_mode = renderable.shading_mode,
-		.alpha_mode = renderable.alpha_mode,
-		.alpha_cutoff = renderable.alpha_cutoff,
 		.opacity = renderable.opacity,
 		.casts_shadow = renderable.casts_shadow,
 		.render_on_top = renderable.render_on_top,
