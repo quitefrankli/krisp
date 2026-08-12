@@ -1,9 +1,13 @@
 #pragma once
 
 #include "graphics_engine_texture_manager.hpp"
+#include "environment_map_processor.hpp"
 #include "entity_component_system/material_system.hpp"
 
 #include <fmt/format.h>
+
+#include <array>
+#include <numeric>
 
 
 namespace
@@ -30,6 +34,20 @@ const TextureMaterial& require_texture_material(const MaterialHandle& owner)
 			owner->get_id().get_underlying()));
 	return *material;
 }
+
+ProcessedEnvironmentImage make_neutral_environment_image(const uint32_t layer_count)
+{
+	ProcessedEnvironmentImage image{
+		.width = 1,
+		.height = 1,
+		.layer_count = layer_count,
+		.mip_sizes = { static_cast<size_t>(layer_count) * 4 },
+	};
+	image.rgba8_linear.resize(image.mip_sizes.front(), std::byte{0});
+	for (uint32_t layer = 0; layer < layer_count; ++layer)
+		image.rgba8_linear[layer * 4 + 3] = std::byte{255};
+	return image;
+}
 }
 
 
@@ -49,6 +67,10 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 	}
 	for (auto& [semantic, texture_unit] : neutral_textures)
 		texture_unit.destroy(get_logical_device());
+	for (auto& entry : environment_lighting)
+		entry.second.destroy(get_logical_device());
+	if (neutral_environment_lighting)
+		neutral_environment_lighting->destroy(get_logical_device());
 
 	for (auto& [sampler_type, sampler] : samplers)
 	{
@@ -169,6 +191,57 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 	return texture_units.emplace(representative_id, std::move(texture_object)).first->second;
 }
 
+const EnvironmentLightingTextures& GraphicsEngineTextureManager::fetch_environment_lighting(
+	const RenderableID source,
+	const CubeMapMatGroup& material_group)
+{
+	if (environment_lighting.contains(source))
+		return environment_lighting.at(source);
+
+	std::array<EnvironmentFace, 6> faces;
+	for (size_t index = 0; index < faces.size(); ++index)
+	{
+		const auto* material = dynamic_cast<const TextureMaterial*>(
+			&material_group.get_material(index));
+		if (!material || !material->data || material->format != ETextureFormat::RGBA8
+			|| material->mip_sizes.size() != 1)
+		{
+			throw std::runtime_error(
+				"GraphicsEngineTextureManager: environment source must be a decoded, single-level RGBA8 cubemap");
+		}
+		faces[index] = {
+			.width = material->width,
+			.height = material->height,
+			.rgba8_srgb = { material->data->get(), material->data_len },
+		};
+	}
+
+	LOG_INFO(Utility::get_logger(),
+		"GraphicsEngineTextureManager: generating image-based lighting for cubemap renderable {}",
+		source.get_underlying());
+	auto processed = EnvironmentMapProcessor::process(faces);
+	return environment_lighting.emplace(
+		source, create_environment_lighting(processed)).first->second;
+}
+
+const EnvironmentLightingTextures&
+	GraphicsEngineTextureManager::fetch_neutral_environment_lighting()
+{
+	if (neutral_environment_lighting)
+		return *neutral_environment_lighting;
+
+	ProcessedEnvironment environment{
+		.irradiance = make_neutral_environment_image(6),
+		.prefiltered_specular = make_neutral_environment_image(6),
+		.brdf_lut = make_neutral_environment_image(1),
+	};
+	// A=1, B=0 is the neutral split-sum response; the black specular map still
+	// makes the entire specular environment term zero.
+	environment.brdf_lut.rgba8_linear[0] = std::byte{255};
+	neutral_environment_lighting.emplace(create_environment_lighting(environment));
+	return *neutral_environment_lighting;
+}
+
 void GraphicsEngineTextureManager::free_texture(MaterialID id)
 {
 	if (!texture_units.contains(id))
@@ -202,6 +275,131 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	VkSampler texture_sampler = fetch_sampler(sampler_type);
 
 	return GraphicsEngineTexture(texture_image, texture_image_memory, texture_image_view, texture_sampler, dim);
+}
+
+EnvironmentLightingTextures GraphicsEngineTextureManager::create_environment_lighting(
+	const ProcessedEnvironment& environment)
+{
+	auto irradiance = create_environment_texture(
+		environment.irradiance,
+		VK_IMAGE_VIEW_TYPE_CUBE,
+		PbrMaterial::TextureSampler::clamp_to_edge(
+			PbrMaterial::TextureSampler::MipmapMode::NONE));
+	try
+	{
+		auto prefiltered_specular = create_environment_texture(
+			environment.prefiltered_specular,
+			VK_IMAGE_VIEW_TYPE_CUBE,
+			PbrMaterial::TextureSampler::clamp_to_edge(
+				PbrMaterial::TextureSampler::MipmapMode::LINEAR));
+		try
+		{
+			auto brdf_lut = create_environment_texture(
+				environment.brdf_lut,
+				VK_IMAGE_VIEW_TYPE_2D,
+				PbrMaterial::TextureSampler::clamp_to_edge(
+					PbrMaterial::TextureSampler::MipmapMode::NONE));
+			return EnvironmentLightingTextures(
+				std::move(irradiance),
+				std::move(prefiltered_specular),
+				std::move(brdf_lut));
+		}
+		catch (...)
+		{
+			prefiltered_specular.destroy(get_logical_device());
+			throw;
+		}
+	}
+	catch (...)
+	{
+		irradiance.destroy(get_logical_device());
+		throw;
+	}
+}
+
+GraphicsEngineTexture GraphicsEngineTextureManager::create_environment_texture(
+	const ProcessedEnvironmentImage& image,
+	const VkImageViewType view_type,
+	const PbrMaterial::TextureSampler sampler_type)
+{
+	if (image.width == 0 || image.height == 0 || image.layer_count == 0
+		|| image.mip_sizes.empty())
+		throw std::invalid_argument("environment texture metadata is invalid");
+	const size_t total_size = std::accumulate(
+		image.mip_sizes.begin(), image.mip_sizes.end(), size_t{0});
+	if (total_size == 0 || total_size != image.rgba8_linear.size())
+		throw std::invalid_argument("environment texture byte layout is invalid");
+	if ((view_type == VK_IMAGE_VIEW_TYPE_CUBE) != (image.layer_count == 6))
+		throw std::invalid_argument("environment texture layer count does not match its view type");
+
+	VkImage texture_image = VK_NULL_HANDLE;
+	VkDeviceMemory texture_image_memory = VK_NULL_HANDLE;
+	VkImageView texture_image_view = VK_NULL_HANDLE;
+	const uint32_t mip_levels = static_cast<uint32_t>(image.mip_sizes.size());
+	try
+	{
+		get_graphics_engine().create_image(
+			image.width,
+			image.height,
+			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			texture_image,
+			texture_image_memory,
+			VK_SAMPLE_COUNT_1_BIT,
+			image.layer_count,
+			view_type == VK_IMAGE_VIEW_TYPE_CUBE ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0,
+			mip_levels);
+		get_graphics_engine().transition_image_layout(
+			texture_image,
+			VK_IMAGE_LAYOUT_UNDEFINED,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			nullptr,
+			image.layer_count,
+			mip_levels);
+		get_rsrc_mgr().stage_data_to_image(
+			texture_image,
+			image.width,
+			image.height,
+			total_size,
+			[&image](std::byte* destination)
+			{
+				std::memcpy(destination, image.rgba8_linear.data(), image.rgba8_linear.size());
+			},
+			image.layer_count,
+			image.mip_sizes);
+		get_graphics_engine().transition_image_layout(
+			texture_image,
+			VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			nullptr,
+			image.layer_count,
+			mip_levels);
+		texture_image_view = get_graphics_engine().create_image_view(
+			texture_image,
+			VK_FORMAT_R8G8B8A8_UNORM,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			view_type,
+			image.layer_count,
+			mip_levels);
+		return GraphicsEngineTexture(
+			texture_image,
+			texture_image_memory,
+			texture_image_view,
+			fetch_sampler(sampler_type),
+			glm::uvec3(image.width, image.height, image.layer_count));
+	}
+	catch (...)
+	{
+		if (texture_image_view)
+			vkDestroyImageView(get_logical_device(), texture_image_view, nullptr);
+		if (texture_image)
+			vkDestroyImage(get_logical_device(), texture_image, nullptr);
+		if (texture_image_memory)
+			vkFreeMemory(get_logical_device(), texture_image_memory, nullptr);
+		throw;
+	}
 }
 
 glm::uvec3 GraphicsEngineTextureManager::create_texture_image(

@@ -1,5 +1,6 @@
 graphics_sources = files('graphics_engine/video_recorder.cpp',
-					 'graphics_engine/texture_compositor.cpp',
+						 'graphics_engine/environment_map_processor.cpp',
+						 'graphics_engine/texture_compositor.cpp',
 					 'graphics_engine/render_draw_list.cpp',
 					 'graphics_engine/pipeline/pipeline.cpp',
 						 'graphics_engine/renderers/renderer.cpp',

@@ -18,7 +18,8 @@ remain disabled.
 | `pipeline/` | Builds and caches Vulkan graphics pipelines and their layouts. |
 | `renderers/` | Implements shadow-map, HDR rasterization, presentation, quad, particle, and ImGui rendering. |
 | `graphics_renderable.*` | Holds graphics-owned state and resources for one immutable renderable definition. |
-| `graphics_engine_texture*` | Loads, uploads, samples, and owns texture resources. |
+| `graphics_engine_texture*` | Loads, uploads, samples, and owns texture and derived environment-lighting resources. |
+| `environment_map_processor.*` | Converts an sRGB skybox into linear diffuse irradiance, prefiltered specular, and BRDF lookup data. |
 | `texture_compositor.*` | Generates immutable GPU-only base-colour textures from ordered texture layers. |
 | `video_recorder.*` | Encodes fixed-rate video from bounded, asynchronous per-frame image capture. |
 | `raytracing.*` | Dormant implementation excluded from supported build and execution paths. |
@@ -64,12 +65,14 @@ video timeline. Outside recording, publication remains non-blocking and
 latest-wins. F2 toggles recording globally; the debug panel selects 15–60 FPS.
 
 PBR uploads one glTF-native material record per lit renderable. Factor-only
-static and skinned meshes retain texture-free pipelines; textured counterparts
-use separate pipelines with optional base-colour, metallic-roughness, and normal
-maps. Missing slots bind shared neutral images and flags skip their samples.
-All lit paths share the metallic-roughness BRDF. Direct point-light radiance uses
-the published light colour and intensity with inverse-square attenuation; the
-shadow map supplies visibility and full occlusion contributes no direct light.
+static and skinned meshes retain material-texture-free pipelines; textured
+counterparts use separate pipelines with optional base-colour,
+metallic-roughness, normal, and emissive maps. Missing slots bind shared neutral
+images and flags skip their samples. All lit paths share the metallic-roughness
+BRDF and globally bound IBL resources derived from the active skybox. Direct
+point-light radiance uses the published light colour and intensity with
+inverse-square attenuation; the shadow map supplies visibility and full
+occlusion contributes no direct light. Environment light remains unshadowed.
 Material shaders produce unclamped scene-linear output and leave exposure, tone
 mapping, and display encoding to the presentation pass.
 
@@ -95,12 +98,15 @@ submitted serial. Unused mesh and material graphics allocations use the same
 mechanism. A batch is released only after its serial completes, allowing old
 and replacement identities to coexist while frames remain in flight.
 
-Topology reconciliation and unused-resource cleanup therefore do not call
-`vkDeviceWaitIdle()`. Per-renderable uniform-buffer and descriptor-pool capacity
-allows for the active topology plus one retired resource set per possible
-in-flight swap-chain image. Shutdown retains the device-wide wait and then
-flushes all retirement batches. One-time staging and upload commands use their
-own queue synchronization rather than this retirement mechanism.
+Ordinary renderable/skeleton topology reconciliation and unused-resource cleanup
+therefore do not call `vkDeviceWaitIdle()`. Replacing the single global
+environment is the deliberate exception: it waits before rewriting descriptor
+sets that may still be in flight. Per-renderable uniform-buffer and
+descriptor-pool capacity allows for the active topology plus one retired
+resource set per possible in-flight swap-chain image. Shutdown retains the
+device-wide wait and then flushes all retirement batches. One-time staging and
+upload commands use their own queue synchronization rather than this retirement
+mechanism.
 
 ## Data ownership and boundaries
 

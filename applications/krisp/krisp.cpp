@@ -12,7 +12,6 @@
 #include <resource_loader/resource_loader.hpp>
 
 #include <array>
-#include <cmath>
 #include <cstdint>
 #include <initializer_list>
 #include <optional>
@@ -40,51 +39,9 @@ public:
 		spawn_texture_proof(engine);
 		spawn_stage3_material_proof(engine);
 		spawn_point_light(engine);
-		spawn_sliding_sphere(engine);
-	}
-
-	void on_tick(GameEngine& engine, const float delta) override
-	{
-		slide_phase = std::fmod(slide_phase + delta, slide_period_seconds);
-		const float progress = slide_phase / slide_period_seconds;
-		const float x = -slide_extent + 4.0f * slide_extent
-			* std::abs(progress - 0.5f);
-		engine.get_ecs().get_transformation(sliding_sphere).set_position(
-			glm::vec3(x, 5.9f, -1.0f));
 	}
 
 private:
-	static constexpr float slide_extent = 6.0f;
-	static constexpr float slide_period_seconds = 4.0f;
-	EntityID sliding_sphere;
-	float slide_phase = slide_period_seconds * 0.5f;
-
-	void spawn_sliding_sphere(GameEngine& engine)
-	{
-		Renderable renderable{
-			.name = "Sliding frame-pacing reference",
-			.pipeline_render_type = ERenderType::COLOR,
-			.shading_mode = EShadingMode::UNLIT,
-			.casts_shadow = false,
-			.mesh_owner = engine.get_ecs().get_mesh_system().add(MeshFactory::sphere(
-				MeshFactory::EVertexType::COLOR,
-				MeshFactory::GenerationMethod::ICO_SPHERE,
-				400)),
-			.material_owners = {
-				engine.get_ecs().get_material_system().add(
-					std::make_unique<PbrMaterial>(
-						glm::vec4(0.1f, 0.8f, 1.0f, 1.0f), 0.0f, 0.4f)),
-			},
-		};
-		auto& object = engine.spawn_object<Object>();
-		object.set_name("Sliding frame-pacing reference");
-		sliding_sphere = object.get_id();
-		engine.attach_renderable(sliding_sphere, std::move(renderable));
-		auto& transform = engine.get_ecs().get_transformation(sliding_sphere);
-		transform.set_position(glm::vec3(-slide_extent, 5.9f, -1.0f));
-		transform.set_scale(glm::vec3(0.55f));
-	}
-
 	struct ProofTextures
 	{
 		MaterialHandle base_color;

@@ -31,6 +31,13 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
 	GlobalData data;
 } global_data;
 
+layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
+	binding=RASTERIZATION_IRRADIANCE_MAP_DATA_BINDING) uniform samplerCube irradiance_map;
+layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
+	binding=RASTERIZATION_PREFILTERED_ENVIRONMENT_DATA_BINDING) uniform samplerCube prefiltered_environment_map;
+layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
+	binding=RASTERIZATION_BRDF_LUT_DATA_BINDING) uniform sampler2D brdf_lut;
+
 layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform samplerCube shadow_map;
 
 layout(push_constant) uniform AlphaMaterialBuffer
@@ -92,6 +99,15 @@ void main()
 	const float alpha = get_pbr_output_alpha(effective_alpha, alpha_material.data);
 	const vec3 emissive = get_pbr_emissive(
 		material, emissive_sampler, frag_tex_coord);
+	const vec3 environment_light = evaluate_gltf_image_based_lighting(
+		material,
+		shading_normal,
+		view_dir,
+		irradiance_map,
+		prefiltered_environment_map,
+		brdf_lut);
 	out_color = vec4(
-		direct_light * compute_shadow_factor(geometric_normal, light_dir) + emissive, alpha);
+		direct_light * compute_shadow_factor(geometric_normal, light_dir)
+			+ environment_light + emissive,
+		alpha);
 }

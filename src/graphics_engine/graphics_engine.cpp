@@ -236,6 +236,7 @@ void GraphicsEngine::accept_latest_render_frame()
 
 void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 {
+	configure_environment_lighting(frame);
 	RetiredGraphicsResources retired;
 
 	std::unordered_set<RenderableID> renderable_ids;
@@ -316,6 +317,53 @@ void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 	}
 
 	draw_lists.rebuild(renderables);
+}
+
+void GraphicsEngine::configure_environment_lighting(const RenderFrame& frame)
+{
+	const RenderableDefinition* cubemap = nullptr;
+	for (const auto& state : frame.renderables)
+	{
+		if (state.definition->pipeline_render_type != ERenderType::CUBEMAP)
+			continue;
+		if (cubemap)
+			throw std::runtime_error(
+				"GraphicsEngine: only one cubemap may provide environment lighting");
+		cubemap = state.definition.get();
+	}
+
+	std::optional<RenderableID> source;
+	if (cubemap)
+	{
+		if (cubemap->material_owners.size() != 6)
+			throw std::runtime_error(
+				"GraphicsEngine: environment cubemap must contain exactly six faces");
+		source = cubemap->id;
+	}
+	if (environment_lighting_initialized && source == environment_lighting_source)
+		return;
+
+	// Global descriptor sets may still be referenced by submitted command
+	// buffers. Environment replacement is rare, so make that update explicitly
+	// safe and keep the steady-state path free of synchronization.
+	if (environment_lighting_initialized
+		&& vkDeviceWaitIdle(get_logical_device()) != VK_SUCCESS)
+		throw std::runtime_error("GraphicsEngine: failed to wait before replacing environment lighting");
+
+	const EnvironmentLightingTextures* lighting;
+	if (cubemap)
+	{
+		lighting = &get_texture_mgr().fetch_environment_lighting(
+			cubemap->id,
+			CubeMapMatGroup(cubemap->material_owners));
+	}
+	else
+	{
+		lighting = &get_texture_mgr().fetch_neutral_environment_lighting();
+	}
+	get_rsrc_mgr().bind_environment_lighting(*lighting);
+	environment_lighting_source = source;
+	environment_lighting_initialized = true;
 }
 
 void GraphicsEngine::retire_unused_resources()

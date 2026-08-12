@@ -5,6 +5,8 @@
 #include "graphics_buffer_manager.hpp"
 
 
+struct EnvironmentLightingTextures;
+
 class GraphicsDescriptorManager : public GraphicsEngineBaseModule
 {
 public:
@@ -43,6 +45,7 @@ public: // accessors for specific descriptors/layouts
 	// std::vector<VkDescriptorSetLayout> get_raytracing_descriptor_set_layouts() const;
 
 	VkDescriptorSet get_global_dset(uint32_t frame_idx) const { return global_dsets[frame_idx]; }
+	void bind_environment_lighting(const EnvironmentLightingTextures& textures);
 	// For ray tracing:
 	// VkDescriptorSet get_mesh_data_dset() const { return mesh_data_dset; }
 
@@ -73,7 +76,8 @@ private:
 	// possible renderable.
 	static constexpr uint32_t MAX_COMPOSITOR_DESCRIPTOR_SETS = 128;
 	static constexpr uint32_t MAX_COMBINED_IMAGE_SAMPLER_DESCRIPTORS =
-		6 * MAX_RENDERABLE_DESCRIPTOR_SETS + MAX_COMPOSITOR_DESCRIPTOR_SETS;
+		6 * MAX_RENDERABLE_DESCRIPTOR_SETS + MAX_COMPOSITOR_DESCRIPTOR_SETS
+		+ 3 * MAX_LOW_FREQ_DESCRIPTOR_SETS;
 	static constexpr uint32_t MAX_ENGINE_DESCRIPTOR_SETS = 64;
 	static constexpr uint32_t MAX_IMGUI_DESCRIPTOR_SETS = 50;
 	static constexpr uint32_t MAX_DESCRIPTOR_SETS =

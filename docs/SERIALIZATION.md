@@ -39,12 +39,17 @@ Resources are classified by `ImportedResourceProvenance`:
 
 Generated PBR materials store glTF-native `base_color_factor`,
 `metallic_factor`, and `roughness_factor` values, optional base-colour, packed
-metallic-roughness, and normal texture references, and `normal_scale`. Texture
-semantics preserve the required sRGB or linear interpretation. Standalone BC3
-DDS payloads retain their supplied mip metadata; decoded PNG/JPEG textures are
-single-mip because Krisp does not generate mipmaps. The early-development scene
-format does not translate the removed ambient, diffuse, specular, emissive, or
-shininess fields; saves using that legacy schema are unsupported.
+metallic-roughness, normal, and emissive texture references, `normal_scale`,
+emissive factor, alpha policy, and double-sided policy. Texture semantics
+preserve the required sRGB or linear interpretation. Standalone BC3 DDS payloads
+retain their supplied mip metadata; decoded PNG/JPEG textures are single-mip
+because Krisp does not generate mipmaps. The early-development scene format does
+not translate the removed ambient, diffuse, specular, emissive, or shininess
+fields; saves using that legacy schema are unsupported.
+
+The skybox renderable and its six source texture references remain scene data.
+Derived irradiance, prefiltered specular, and BRDF lookup images are rebuilt by
+graphics and are never serialized as resource payloads.
 
 The material editor applies an override only to the selected renderable. Other
 renderables that originated from the same shared glTF material remain attached

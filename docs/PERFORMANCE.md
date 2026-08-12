@@ -66,12 +66,13 @@ Potential normal-transform optimizations:
   transform.
 
 Factor-only static meshes retain their compact colour-vertex layout and
-texture-free pipeline. The factor-only skinned pipeline also remains
-texture-free and retains its existing shared skinned-vertex layout. Textured
-static and skinned meshes use separate pipelines carrying `TEXCOORD_0`; valid
-tangents are required only when normal mapping is active. This keeps factor-only
-vertex bandwidth and descriptor use unchanged at the cost of two additional lit
-pipeline variants.
+material-texture-free pipeline. The factor-only skinned pipeline also remains
+free of material texture samples and retains its existing shared skinned-vertex
+layout. Both still sample the global IBL resources when lit. Textured static and
+skinned meshes use separate pipelines carrying `TEXCOORD_0`; valid tangents are
+required only when normal mapping is active. This keeps factor-only vertex
+bandwidth and material descriptor use unchanged at the cost of two additional
+lit pipeline variants.
 
 Every textured material descriptor contains valid base-colour,
 metallic-roughness, and normal images. Missing slots bind shared 1-by-1 neutral
@@ -88,6 +89,32 @@ light, normal-map, and shadow-filter work; textured unlit fragments sample only
 the base-colour texture when present. Unlit renderables are also omitted from
 shadow command recording. These savings and pipeline-cache costs have not been
 measured.
+
+## Skybox image-based lighting
+
+The first active skybox is preprocessed once on the CPU into 32-by-32 diffuse
+irradiance, a complete 128-by-128 roughness-prefiltered specular mip chain, and
+a 128-by-128 split-sum BRDF lookup texture. The current settings perform about
+6.8 million deterministic cubemap or BRDF samples. This is startup work on the
+graphics thread and has not been timed.
+
+The three linear RGBA8 outputs use about 600 KiB of GPU image data before image
+and allocator overhead: 24 KiB for irradiance, approximately 512 KiB for the
+specular mip chain, and 64 KiB for the lookup texture. Generated environments
+are cached by their cubemap source for the texture manager's lifetime.
+
+Every lit fragment performs three additional logical lookups: diffuse cubemap,
+roughness-selected specular cubemap, and BRDF LUT. Trilinear specular sampling
+may fetch from two mip levels. Reflection and Fresnel arithmetic are also added;
+these costs have not been measured. Unlit pipelines do not declare or sample
+the environment resources.
+
+Replacing or removing an initialized environment waits for device idle before
+updating the shared global descriptor sets. The default startup path does not
+incur this replacement stall. If measurements make startup preprocessing or
+replacement material, prefer offline/shared BRDF LUT generation or GPU/background
+environment convolution before reducing output resolution or sample counts;
+validate any quality reduction against rough metals and broad highlights.
 
 PNG/JPEG decoding and MikkTSpace tangent generation are model-load costs.
 MikkTSpace may split vertices at tangent discontinuities, increasing vertex and
@@ -149,6 +176,17 @@ The mailbox is latest-wins: a slow graphics thread drops intermediate snapshots
 instead of queueing work or blocking the game thread. Graphics-owned topology
 is reconciled only when renderable or skeleton membership changes; transforms,
 visibility, camera state, particles, and poses reuse it.
+
+## Frame-pacing investigation
+
+A diagnostic run reproduced visible motion stutter while game publication and
+graphics draw rates both averaged near 60 TPS/FPS. The independently paced loops
+and latest-wins mailbox showed repeated snapshots followed by skipped game-frame
+numbers as their phases drifted; clean discontinuities did not coincide with UI
+mutex or present-call stalls, although separate UI-heavy long frames occurred.
+Translation-only interpolation across one tick did not make motion consistently
+smooth, so repeats and skips are a confirmed contributor but do not yet explain
+all perceived stutter.
 
 Deterministic screen recording deliberately changes this scheduling policy for
 the duration of a capture. The game publishes one fixed-step frame and waits

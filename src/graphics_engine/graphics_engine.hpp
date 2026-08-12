@@ -193,6 +193,8 @@ private: // core components
 	SubmissionRetirementQueue<RetiredGraphicsResources> retirement_queue;
 	SubmissionSerial last_submitted_serial = 0;
 	SubmissionSerial completed_submission_serial = 0;
+	bool environment_lighting_initialized = false;
+	std::optional<RenderableID> environment_lighting_source;
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
@@ -208,6 +210,7 @@ private: // core components
 
 private:
 	void accept_latest_render_frame();
+	void configure_environment_lighting(const RenderFrame& frame);
 	void reconcile_topology(const RenderFrame& frame);
 	void retire_unused_resources();
 	void enqueue_retirement(RetiredGraphicsResources resources);

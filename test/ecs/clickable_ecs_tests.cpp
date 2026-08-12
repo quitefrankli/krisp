@@ -86,6 +86,55 @@ TEST(ClickableECS, falls_back_to_an_entity_collider_without_a_rigid_body)
 	EXPECT_EQ(hit.id, object.get_id());
 }
 
+TEST(ClickableECS, rejects_an_entity_that_is_not_registered_with_the_ecs)
+{
+	ECS ecs;
+	EXPECT_THROW(
+		ecs.add_clickable_entity(
+			EntityID(std::numeric_limits<std::uint64_t>::max())),
+		std::invalid_argument);
+}
+
+TEST(ClickableECS, rejects_a_deserialized_entity_that_is_not_registered_with_the_ecs)
+{
+	ECS ecs;
+	const auto serialized = Deserializer::parse(
+		"clickable_system:\n"
+		"  - entity_id: 18446744073709551615\n");
+	EXPECT_THROW(
+		ecs.ClickableSystem::deserialize(serialized),
+		SerializationError);
+}
+
+TEST(HoverableECS, falls_back_to_an_entity_collider_without_a_rigid_body)
+{
+	ECS ecs;
+	Object object;
+	ecs.add_object(object);
+	ecs.add_collider(object.get_id(), std::make_unique<SphereCollider>());
+	ecs.add_hoverable_entity(object.get_id());
+
+	const auto hit = ecs.check_any_entity_hovered(
+		Maths::Ray(-Maths::forward_vec, Maths::forward_vec));
+	ASSERT_TRUE(hit.bCollided);
+	EXPECT_EQ(hit.id, object.get_id());
+}
+
+TEST(HoverableECS, removing_an_object_removes_its_hoverable_membership)
+{
+	ECS ecs;
+	Object object;
+	ecs.add_object(object);
+	ecs.add_collider(object.get_id(), std::make_unique<SphereCollider>());
+	ecs.add_hoverable_entity(object.get_id());
+	ecs.remove_object(object.get_id());
+
+	Serializer serializer;
+	ecs.HoverableSystem::serialize(serializer);
+	EXPECT_TRUE(Deserializer::parse(serializer.emit())
+		.child("hoverable_system").elements().empty());
+}
+
 TEST_F(ClickableECSFixture, hit_both)
 {
 	Maths::Ray ray{ glm::vec3(-1.0f), glm::vec3(1.0f) };
@@ -117,7 +166,12 @@ TEST_F(ClickableECSFixture, serialization_round_trip_replaces_existing_state)
 		object1.get_id().get_underlying(), object2.get_id().get_underlying() }));
 
 	ECS restored;
-	restored.add_clickable_entity(EntityID(std::numeric_limits<std::uint64_t>::max()));
+	Object replaced_object;
+	restored.add_object(object1);
+	restored.add_object(object2);
+	restored.add_object(replaced_object);
+	restored.add_collider(replaced_object.get_id(), std::make_unique<SphereCollider>());
+	restored.add_clickable_entity(replaced_object.get_id());
 	restored.ClickableSystem::deserialize(serialized);
 
 	Serializer restored_serializer;

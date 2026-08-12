@@ -14,15 +14,14 @@ tests. Once all callers use those operations, remove the remaining mutable pose
 reference. Add synchronization only if pose mutation is later moved off the game
 thread.
 
-## Complete PBR environment and material coverage
+## Complete PBR material and lighting coverage
 
-Direct point-light illumination is implemented, but the remaining core and
-production material work includes:
+Direct point-light illumination and skybox-derived image-based lighting are
+implemented. Remaining core and production material work includes:
 
 - occlusion textures;
-- image-based/environment lighting with environment-map resources, diffuse
-  irradiance, roughness-prefiltered specular lighting, and a BRDF integration
-  lookup texture;
+- custom and true-HDR environment-map resources, including authored selection,
+  intensity, and rotation;
 - additional texture-coordinate sets and per-texture `texCoord` selection;
 - nearest texel filtering, mirrored or mixed-axis addressing, and generated mip
   chains;
@@ -31,9 +30,6 @@ production material work includes:
 - advanced glTF material and texture extensions; and
 - improved transparent sorting for intersecting meshes and other ordering
   cycles.
-
-Do not approximate indirect illumination with a constant ambient term while
-environment lighting remains outstanding.
 
 ## Replace the coarse GUI mutex with asynchronous state exchange
 

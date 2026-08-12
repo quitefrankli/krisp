@@ -1,4 +1,5 @@
 #include "descriptor_manager.hpp"
+#include "graphics_engine/environment_lighting.hpp"
 #include "graphics_buffer_manager.hpp"
 
 
@@ -307,7 +308,12 @@ std::vector<VkDescriptorSetLayout> GraphicsDescriptorManager::
 
 void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 {
-	low_freq_dset_layout = request_dset_layout({ get_generic_global_binding() });
+	low_freq_dset_layout = request_dset_layout({
+		get_generic_global_binding(),
+		get_generic_texture_binding(SDS::RASTERIZATION_IRRADIANCE_MAP_DATA_BINDING),
+		get_generic_texture_binding(SDS::RASTERIZATION_PREFILTERED_ENVIRONMENT_DATA_BINDING),
+		get_generic_texture_binding(SDS::RASTERIZATION_BRDF_LUT_DATA_BINDING),
+	});
 	per_renderable_frame_dset_layout =
 		request_dset_layout({ get_renderable_frame_transform_binding(), get_generic_bone_binding() });
 	renderable_dset_layout = request_dset_layout({ 
@@ -325,6 +331,52 @@ void GraphicsDescriptorManager::setup_descriptor_set_layouts()
 	// raytracing_tlas_dset_layout = request_dset_layout({
 	// 	get_generic_raytracing_tlas_binding(),
 	// 	get_generic_raytracing_output_image_binding() });
+}
+
+void GraphicsDescriptorManager::bind_environment_lighting(
+	const EnvironmentLightingTextures& textures)
+{
+	const std::array image_infos{
+		VkDescriptorImageInfo{
+			.sampler = textures.irradiance.get_texture_sampler(),
+			.imageView = textures.irradiance.get_texture_image_view(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		},
+		VkDescriptorImageInfo{
+			.sampler = textures.prefiltered_specular.get_texture_sampler(),
+			.imageView = textures.prefiltered_specular.get_texture_image_view(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		},
+		VkDescriptorImageInfo{
+			.sampler = textures.brdf_lut.get_texture_sampler(),
+			.imageView = textures.brdf_lut.get_texture_image_view(),
+			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		},
+	};
+	const std::array<uint32_t, 3> bindings{
+		SDS::RASTERIZATION_IRRADIANCE_MAP_DATA_BINDING,
+		SDS::RASTERIZATION_PREFILTERED_ENVIRONMENT_DATA_BINDING,
+		SDS::RASTERIZATION_BRDF_LUT_DATA_BINDING,
+	};
+	for (const VkDescriptorSet descriptor_set : global_dsets)
+	{
+		std::array<VkWriteDescriptorSet, 3> writes;
+		for (size_t index = 0; index < writes.size(); ++index)
+		{
+			writes[index] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+			writes[index].dstSet = descriptor_set;
+			writes[index].dstBinding = bindings[index];
+			writes[index].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			writes[index].descriptorCount = 1;
+			writes[index].pImageInfo = &image_infos[index];
+		}
+		vkUpdateDescriptorSets(
+			get_logical_device(),
+			static_cast<uint32_t>(writes.size()),
+			writes.data(),
+			0,
+			nullptr);
+	}
 }
 
 void GraphicsDescriptorManager::allocate_global_dset(VkBuffer global_buffer, const std::vector<uint32_t>& global_buffer_offsets)

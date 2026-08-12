@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <memory>
 #include <limits>
+#include <span>
 
 class SceneResourceWriter;
 class SceneResourceReader;
@@ -62,6 +63,9 @@ public:
 	Object& get_object(const ObjectID id);
 	const Object& get_object(const ObjectID id) const;
 	bool has_object(const ObjectID id) const { return objects.contains(id); }
+	DetectedEntityCollision raycast_entities(
+		const Maths::Ray& ray,
+		std::span<const EntityID> candidates) const;
 
 	void serialize(Serializer& out, SceneResourceWriter& resources) const;
 	void deserialize(const Deserializer& in, SceneResourceReader& resources);

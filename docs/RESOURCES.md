@@ -85,6 +85,21 @@ are decoded to single-level RGBA8; Krisp does not generate mipmaps. DXT5/BC3 DDS
 is also supported and retains a valid authored mip chain; other DDS formats,
 cubemaps, and volume textures are rejected.
 
+### Environment lighting
+
+The default skybox is both the visible background and the source of rasterized
+image-based lighting. `GameEngine::spawn_cubemap()` loads six single-level RGBA8
+images in `right`, `left`, `top`, `bottom`, `front`, `back` order, corresponding
+to the `+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z` cubemap layers. Exactly one active
+cubemap may provide environment lighting; a scene without one receives a black
+neutral environment.
+
+The graphics engine converts those sRGB faces to linear diffuse irradiance, a
+complete roughness-prefiltered specular mip chain, and a BRDF integration lookup
+texture. These are generated runtime GPU resources rather than independently
+loadable or serializable assets. The current source is the default LDR skybox;
+custom cubemaps and true-HDR environment resources remain future work.
+
 ### Skinning
 
 A mesh node is skinned when it references a non-empty glTF skin. Supplied

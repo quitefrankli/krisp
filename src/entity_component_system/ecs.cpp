@@ -1,6 +1,10 @@
 #include "ecs.hpp"
 #include "serialization/serializer.hpp"
 
+#include <glm/gtx/norm.hpp>
+
+#include <vector>
+
 
 void ECS::process(const float delta_secs)
 {
@@ -59,6 +63,7 @@ void ECS::remove_object(const ObjectID id)
 	LightSystem::remove_entity(id);
 	ColliderSystem::remove_entity(id);
 	ClickableSystem::remove_entity(id);
+	HoverableSystem::remove_entity(id);
 	PhysicsSystem::remove_entity(id);
 	ParticleSystem::remove_entity(id);
 	TileSystem::remove_entity(id);
@@ -96,4 +101,31 @@ const Object& ECS::get_object(const ObjectID id) const
 {
 	assert(objects.find(id) != objects.end());
 	return *objects.at(id);
+}
+
+DetectedEntityCollision ECS::raycast_entities(
+	const Maths::Ray& ray,
+	const std::span<const EntityID> candidates) const
+{
+	std::vector<EntityID> physics_candidates;
+	std::vector<EntityID> collider_candidates;
+	physics_candidates.reserve(candidates.size());
+	collider_candidates.reserve(candidates.size());
+	for (const EntityID id : candidates)
+	{
+		if (has_rigid_body(id))
+			physics_candidates.push_back(id);
+		else if (has_collider(id))
+			collider_candidates.push_back(id);
+	}
+
+	const auto physics_hit = PhysicsSystem::raycast(ray, physics_candidates);
+	const auto collider_hit = ColliderSystem::raycast(ray, collider_candidates);
+	if (!physics_hit.bCollided)
+		return collider_hit;
+	if (!collider_hit.bCollided)
+		return physics_hit;
+	return glm::distance2(ray.origin, physics_hit.intersection)
+		<= glm::distance2(ray.origin, collider_hit.intersection)
+		? physics_hit : collider_hit;
 }

@@ -141,6 +141,39 @@ vec3 evaluate_gltf_point_light(
 		material, normal, view_dir, light_dir) * incident_radiance;
 }
 
+vec3 evaluate_gltf_image_based_lighting(
+	const MaterialData material,
+	const vec3 normal,
+	const vec3 view_dir,
+	samplerCube irradiance_map,
+	samplerCube prefiltered_environment_map,
+	sampler2D brdf_lut)
+{
+	const float metallic = clamp(material.metallic_factor, 0.0, 1.0);
+	const float perceptual_roughness = clamp(
+		material.roughness_factor, MIN_PERCEPTUAL_ROUGHNESS, 1.0);
+	const vec3 base_color = material.base_color_factor.rgb;
+	const vec3 f0 = mix(vec3(0.04), base_color, metallic);
+	const float n_dot_v = clamp(dot(normal, view_dir), 0.0, 1.0);
+	const float fresnel_weight = pow(1.0 - n_dot_v, 5.0);
+	const vec3 fresnel = f0 + (max(vec3(1.0 - perceptual_roughness), f0) - f0)
+		* fresnel_weight;
+	const vec3 diffuse_weight = (vec3(1.0) - fresnel) * (1.0 - metallic);
+	const vec3 diffuse = texture(irradiance_map, normal).rgb
+		* base_color * diffuse_weight;
+
+	const vec3 reflection_dir = reflect(-view_dir, normal);
+	const float max_reflection_lod = float(max(
+		textureQueryLevels(prefiltered_environment_map) - 1, 0));
+	const vec3 prefiltered_radiance = textureLod(
+		prefiltered_environment_map,
+		reflection_dir,
+		perceptual_roughness * max_reflection_lod).rgb;
+	const vec2 brdf = texture(brdf_lut, vec2(n_dot_v, perceptual_roughness)).rg;
+	const vec3 specular = prefiltered_radiance * (f0 * brdf.x + brdf.y);
+	return diffuse + specular;
+}
+
 
 float get_phong_spec(vec3 lightDir, vec3 norm, vec3 viewDir, float shininess)
 {

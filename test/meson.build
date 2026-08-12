@@ -19,6 +19,7 @@ sources = [
 	'render_draw_list_tests.cpp',
 	'submission_retirement_queue_tests.cpp',
 	'graphics_buffer_tests.cpp',
+	'environment_map_processor_tests.cpp',
 	'camera_tests.cpp',
 	'game_objects_tests.cpp',
 	'math_tests.cpp',

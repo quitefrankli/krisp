@@ -20,18 +20,16 @@ the editor permits adjustment from `-10 EV` to `+10 EV` in `0.1 EV` increments.
 
 ## Rasterized PBR lighting
 
-Krisp's PBR uses direct illumination from the active point light only. It does
-not add image-based lighting or retain the former constant ambient term. A
-surface outside the light's influence, facing away from it, or fully occluded
-by the point-light shadow map may therefore be black. This is an intentional
-statement of the currently modelled light transport, not a minimum-lighting
-floor or a tone-mapping defect.
+Krisp's PBR combines direct illumination from the active point light with
+image-based lighting derived from the visible default skybox. At startup the
+six sRGB skybox faces are converted to linear diffuse irradiance, a
+roughness-prefiltered specular cubemap, and a split-sum BRDF lookup texture.
+There is no constant ambient term or minimum-lighting floor.
 
-The shadow map is a visibility term for direct illumination. Fully occluded
-fragments receive no direct-light contribution; Krisp does not add residual
-light to soften complete shadow. Indirect illumination should be introduced
-explicitly through a later image-based-lighting stage rather than approximated
-with material ambient colour or shadow leakage.
+The shadow map is a visibility term for direct point-light illumination only.
+Fully occluded fragments receive no direct-light contribution, but may still
+receive diffuse and specular environment light. The environment contribution
+is not attenuated by the point-light shadow map.
 
 Textured materials preserve the same glTF metallic-roughness response as
 factor-only materials. The base-colour texture modulates the base-colour factor;
@@ -46,11 +44,15 @@ before the normal is reconstructed. Omitting a map produces the neutral
 factor-only result. Existing point-light shadows, HDR rendering, manual
 exposure, and ACES-inspired tone mapping apply unchanged to both material paths.
 
-Environment lighting, emissive and occlusion effects, alpha modes, double-sided
-surfaces, advanced material extensions, and ray-traced lighting are outside the
-current aesthetic contract. The fixed-camera PBR proof scene is the visual
-reference for this stage; framebuffer-golden tests are not part of its test
-contract.
+Emissive factors and textures add self-illumination without lighting other
+objects. Core glTF opaque, masked, blended, and double-sided surface policies
+are supported. Occlusion effects, custom or true-HDR environment resources,
+advanced material extensions, and ray-traced lighting remain outside the
+current aesthetic contract. The default skybox is LDR, so its derived lighting
+cannot contain radiance above the source image's linear `[0, 1]` range. Manual
+exposure and ACES-inspired tone mapping still operate on the combined HDR scene.
+The fixed-camera PBR proof scene remains the visual reference; framebuffer-golden
+tests are not part of its test contract.
 
 ## Unlit rendering
 
@@ -62,7 +64,7 @@ and display encoding still apply.
 
 Editor helper geometry, including transform gizmos, collider visualizations,
 camera helpers, and light handles, is explicitly unlit. This keeps its authored
-colour readable under direct-light-only PBR. Helpers retain their existing depth
+colour readable independently of scene lighting. Helpers retain their existing depth
 policy: gizmos render on top, while the light handle remains depth tested. The
 global Unlit Base Color mode applies the same material interpretation to scene
 geometry; explicit helper shading remains unlit in every global debug mode.

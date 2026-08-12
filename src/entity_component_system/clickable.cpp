@@ -1,19 +1,21 @@
 #include "clickable.hpp"
 #include "ecs.hpp"
-#include "collision/collision_detector.hpp"
-#include "collision/collider.hpp"
 #include "utility.hpp"
 #include "serialization/serializer.hpp"
 
 #include <quill/LogMacros.h>
 #include <fmt/core.h>
-#include <glm/gtx/norm.hpp>
 
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 
 void ClickableSystem::add_clickable_entity(EntityID id)
 {
+	if (!get_ecs().has_object(id))
+		throw std::invalid_argument(fmt::format(
+			"ClickableSystem: Entity {} is not registered with the ECS",
+			id.get_underlying()));
 	if (!get_ecs().has_rigid_body(id) && !get_ecs().has_collider(id))
 	{
 		LOG_WARNING(Utility::get_logger(), "ClickableSystem: Added Entity {} with no collider", id.get_underlying());
@@ -40,6 +42,10 @@ void ClickableSystem::deserialize(const Deserializer& in)
 	const auto entries = in.child("clickable_system").elements();
 	for (std::size_t index = 0; index < entries.size(); ++index) {
 		const EntityID id(entries[index].read<std::uint64_t>("entity_id"));
+		if (!get_ecs().has_object(id)) {
+			throw SerializationError("Clickable entity references missing object at "
+				"$.clickable_system[" + std::to_string(index) + "].entity_id");
+		}
 		if (!restored_entities.insert(id).second) {
 			throw SerializationError("Duplicate clickable entity at $.clickable_system["
 				+ std::to_string(index) + "].entity_id");
@@ -50,25 +56,7 @@ void ClickableSystem::deserialize(const Deserializer& in)
 
 DetectedEntityCollision ClickableSystem::check_any_entity_clicked(const Maths::Ray& ray) const
 {
-	std::vector<EntityID> physics_candidates;
-	std::vector<EntityID> collider_candidates;
-	physics_candidates.reserve(clickable_entities.size());
-	collider_candidates.reserve(clickable_entities.size());
-	for (const EntityID id : clickable_entities)
-	{
-		if (get_ecs().has_rigid_body(id))
-			physics_candidates.push_back(id);
-		else if (get_ecs().has_collider(id))
-			collider_candidates.push_back(id);
-	}
-
-	const auto physics_hit = get_ecs().PhysicsSystem::raycast(ray, physics_candidates);
-	const auto collider_hit = get_ecs().ColliderSystem::raycast(ray, collider_candidates);
-	if (!physics_hit.bCollided)
-		return collider_hit;
-	if (!collider_hit.bCollided)
-		return physics_hit;
-	return glm::distance2(ray.origin, physics_hit.intersection)
-		<= glm::distance2(ray.origin, collider_hit.intersection)
-		? physics_hit : collider_hit;
+	const std::vector<EntityID> candidates(
+		clickable_entities.begin(), clickable_entities.end());
+	return get_ecs().raycast_entities(ray, candidates);
 }
