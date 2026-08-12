@@ -21,21 +21,34 @@ Video recording additionally requires an FFmpeg installation with the
 
 ## Building
 
-Use the following sequence for development. It installs missing Conan
-dependencies with the Clang profile, configures a debug build using Conan's
-generated Meson native file, and builds only the `krisp` target:
+Conan dependencies are always built in Release mode and shared by the separate
+Debug and Release Krisp build trees. Install or update them with:
 
 ```bash
 conan install . -pr=conan_clang_profile --build=missing
-meson setup build --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug
-meson compile -C build -j 6 krisp
 ```
 
-Run the application with:
+Configure each Krisp build tree once:
 
 ```bash
-build/applications/krisp/krisp
+meson setup build/debug --native-file build/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false
+meson setup build/release --native-file build/conan/conan_meson_native.ini --buildtype=release -Db_ndebug=true
 ```
+
+The explicit `b_ndebug` values override the Release setting in Conan's native
+file for Krisp's own compilation. Build and run either configuration with:
+
+```bash
+meson compile -C build/debug -j 6 krisp
+build/debug/applications/krisp/krisp
+
+meson compile -C build/release -j 6 krisp
+build/release/applications/krisp/krisp
+```
+
+After changing dependencies or build configuration, rerun `conan install` when
+needed and reconfigure the affected tree by adding `--reconfigure` to its
+`meson setup` command.
 
 If Conan must install missing system packages during initial setup, use:
 
@@ -45,7 +58,10 @@ conan install . -pr=conan_clang_profile --build=missing -c tools.system.package_
 
 ## Testing
 
-`meson test -C build -j 6`
+```bash
+meson compile -C build/debug -j 6 krisp_tests
+meson test -C build/debug -j 6
+```
 
 ## Documentation
 

@@ -2,54 +2,27 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "build all",
+			"label": "build krisp (debug)",
 			"type": "shell",
-			"command": "meson install -C build",
+			"command": "meson compile -C build/debug -j 6 krisp",
 			"group": {
 				"kind": "build",
 				"isDefault": true
-			},
+			}
 		},
 		{
-			"label": "build krisp",
+			"label": "build krisp (release)",
 			"type": "shell",
-			"command": "meson compile -C build -j 6 krisp",
+			"command": "meson compile -C build/release -j 6 krisp",
 			"group": {
 				"kind": "build",
 				"isDefault": false
 			}
 		},
 		{
-			"label": "build space",
+			"label": "build tests (debug)",
 			"type": "shell",
-			"command": "meson compile -C build -j 6 space",
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		{
-			"label": "build chess",
-			"type": "shell",
-			"command": "meson compile -C build -j 6 chess",
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		{
-			"label": "build tetris",
-			"type": "shell",
-			"command": "meson compile -C build -j 6 tetris",
-			"group": {
-				"kind": "build",
-				"isDefault": false
-			}
-		},
-		{
-			"label": "build tests",
-			"type": "shell",
-			"command": "meson compile -C build -j 6 krisp_tests",
+			"command": "meson compile -C build/debug -j 6 krisp_tests",
 			"group": {
 				"kind": "build",
 				"isDefault": false

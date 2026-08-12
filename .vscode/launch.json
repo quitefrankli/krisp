@@ -1,53 +1,32 @@
 {
-	// Use IntelliSense to learn about possible attributes.
-	// Hover to view descriptions of existing attributes.
-	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "krisp",
+			"name": "krisp (debug)",
 			"type": "lldb",
 			"request": "launch",
-			"program": "${workspaceFolder}/build/applications/krisp/krisp",
+			"program": "${workspaceFolder}/build/debug/applications/krisp/krisp",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "build krisp"
+			"preLaunchTask": "build krisp (debug)"
 		},
 		{
-			"name": "space",
+			"name": "krisp (release)",
 			"type": "lldb",
 			"request": "launch",
-			"program": "${workspaceFolder}/build/applications/space/space",
+			"program": "${workspaceFolder}/build/release/applications/krisp/krisp",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "build space"
+			"preLaunchTask": "build krisp (release)"
 		},
 		{
-			"name": "chess",
+			"name": "tests (debug)",
 			"type": "lldb",
 			"request": "launch",
-			"program": "${workspaceFolder}/build/applications/chess/chess",
+			"program": "${workspaceFolder}/build/debug/test/krisp_tests",
 			"args": [],
 			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "build chess"
-		},
-		{
-			"name": "tetris",
-			"type": "lldb",
-			"request": "launch",
-			"program": "${workspaceFolder}/build/applications/tetris/tetris",
-			"args": [],
-			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "build tetris"
-		},
-		{
-			"name": "tests",
-			"type": "lldb",
-			"request": "launch",
-			"program": "${workspaceFolder}/build/test/krisp_tests",
-			"args": [],
-			"cwd": "${workspaceFolder}",
-			"preLaunchTask": "build tests"
+			"preLaunchTask": "build tests (debug)"
 		}
 	]
 }

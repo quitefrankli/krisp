@@ -40,7 +40,7 @@ class vulkan_conan(ConanFile):
         self.requires("stb/cci.20240531", override=True)
 
     def layout(self):
-        # Place all build artifacts under the top-level 'build' directory
+        # Share one Release dependency configuration between Meson build trees.
         basic_layout(self, build_folder="build")
 
     def generate(self):

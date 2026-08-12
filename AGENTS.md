@@ -38,11 +38,19 @@
 
 # Building
 
-* build with `meson compile -C build -j 6 krisp`
-* run tests with `meson test -C build -j 6`
-* if there a are dependency/build-config changes or if the build directory needs to be cleanedup, use the following sequence (and always use debug build)
+* Build with `meson compile -C build/debug -j 6 krisp`.
+* Run tests with `meson test -C build/debug -j 6`.
+* Agents must use only `build/debug`; `build/release` is reserved for the user's
+  concurrent Release workflow.
+* If there are dependency or build-configuration changes, use the following
+  sequence. Conan dependencies intentionally remain Release while Krisp is
+  configured as Debug.
+
 ```
 conan install . -pr=conan_clang_profile --build=missing
-meson setup build --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug
-meson compile -C build -j 6 krisp
+meson setup build/debug --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false
+meson compile -C build/debug -j 6 krisp
 ```
+
+* When `build/debug` does not exist yet, use the setup command without
+  `--reconfigure`.

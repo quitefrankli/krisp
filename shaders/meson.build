@@ -12,8 +12,13 @@ endforeach
 shader_artifacts = custom_target(
 	'shader_artifacts',
 	input: shader_files,
-	output: ['dummy'],
-	command: ['bash', meson.project_source_root()/'shader_compiler.sh', '&&', 'touch', '@OUTPUT@'],
+	output: ['shader_artifacts.stamp'],
+	command: [
+		'bash',
+		meson.project_source_root()/'shader_compiler.sh',
+		'@OUTDIR@',
+		'@OUTPUT@',
+	],
 	depend_files: shader_files,
 	build_by_default: true
 )
