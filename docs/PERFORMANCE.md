@@ -92,11 +92,23 @@ measured.
 
 ## Skybox image-based lighting
 
-The first active skybox is preprocessed once on the CPU into 32-by-32 diffuse
-irradiance, a complete 128-by-128 roughness-prefiltered specular mip chain, and
-a 128-by-128 split-sum BRDF lookup texture. The current settings perform about
-6.8 million deterministic cubemap or BRDF samples. This is startup work on the
-graphics thread and has not been timed.
+The image-based-lighting processor produces 32-by-32 diffuse irradiance, a
+complete 128-by-128 roughness-prefiltered specular mip chain, and a 128-by-128
+split-sum BRDF lookup texture. The current settings perform about 6.8 million
+deterministic cubemap or BRDF samples.
+
+A Debug measurement of the default settings took 3.23 seconds on the CPU:
+2.44 seconds for specular prefiltering, 648 ms for the BRDF lookup, and 142 ms
+for irradiance. Decoding the six default 512-by-512 JPEG faces took 41 ms by
+comparison. These figures are from one development machine and are not a
+cross-platform benchmark.
+
+Krisp's default environment is therefore precomputed by an incremental Meson
+target and loaded from a roughly 600 KiB versioned asset at launch. The asset
+fingerprints the decoded source faces and processor settings, so stale output
+is rejected. Meson regenerates it when any source face or the precompute tool
+changes. Cubemaps without an associated asset retain synchronous processing as
+a fallback.
 
 The three linear RGBA8 outputs use about 600 KiB of GPU image data before image
 and allocator overhead: 24 KiB for irradiance, approximately 512 KiB for the
@@ -111,8 +123,7 @@ the environment resources.
 
 Replacing or removing an initialized environment waits for device idle before
 updating the shared global descriptor sets. The default startup path does not
-incur this replacement stall. If measurements make startup preprocessing or
-replacement material, prefer offline/shared BRDF LUT generation or GPU/background
+incur this replacement stall. For dynamic environments, prefer GPU/background
 environment convolution before reducing output resolution or sample counts;
 validate any quality reduction against rough metals and broad highlights.
 

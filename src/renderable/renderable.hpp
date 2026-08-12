@@ -8,6 +8,8 @@
 #include "entity_component_system/material_system.hpp"
 
 #include <string>
+#include <filesystem>
+#include <optional>
 #include <vector>
 
 class ECS;
@@ -27,6 +29,7 @@ struct Renderable
 	Maths::Transform local_transform;
 	MeshHandle mesh_owner;
 	std::vector<MaterialHandle> material_owners;
+	std::optional<std::filesystem::path> environment_lighting_asset;
 
 	MeshID get_mesh_id() const;
 	MaterialID get_material_id(size_t index) const;

@@ -560,7 +560,8 @@ TEST_F(GameEngineTests, normal_mode_orbits_camera_without_a_mouse_button)
 
 TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 {
-	engine.spawn_cubemap();
+	const std::filesystem::path environment_asset = "precomputed_environment.krisp-ibl";
+	engine.spawn_cubemap(environment_asset);
 
 	ASSERT_EQ(count_persistent_objects(engine), 1);
 	const auto object = std::ranges::find_if(engine.get_objects(), [](const auto& entry) {
@@ -572,6 +573,12 @@ TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::CUBEMAP);
 	EXPECT_EQ(renderable.material_owners.size(), 6);
 	EXPECT_FALSE(renderable.casts_shadow);
+	EXPECT_EQ(renderable.environment_lighting_asset, environment_asset);
+
+	engine.main_loop(0.0f);
+	const auto frame = engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_EQ(find_renderable(*frame, renderable_ids.front()).definition->environment_lighting_asset,
+		environment_asset);
 }
 
 TEST_F(GameEngineTests, model_spawner_imports_each_mesh_node_as_clickable)

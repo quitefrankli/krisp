@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics_engine_texture_manager.hpp"
+#include "environment_map_asset.hpp"
 #include "environment_map_processor.hpp"
 #include "entity_component_system/material_system.hpp"
 
@@ -193,7 +194,8 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 
 const EnvironmentLightingTextures& GraphicsEngineTextureManager::fetch_environment_lighting(
 	const RenderableID source,
-	const CubeMapMatGroup& material_group)
+	const CubeMapMatGroup& material_group,
+	const std::optional<std::filesystem::path>& asset_path)
 {
 	if (environment_lighting.contains(source))
 		return environment_lighting.at(source);
@@ -216,10 +218,21 @@ const EnvironmentLightingTextures& GraphicsEngineTextureManager::fetch_environme
 		};
 	}
 
-	LOG_INFO(Utility::get_logger(),
-		"GraphicsEngineTextureManager: generating image-based lighting for cubemap renderable {}",
-		source.get_underlying());
-	auto processed = EnvironmentMapProcessor::process(faces);
+	ProcessedEnvironment processed;
+	if (asset_path)
+	{
+		LOG_INFO(Utility::get_logger(),
+			"GraphicsEngineTextureManager: loading precomputed image-based lighting from '{}'",
+			asset_path->string());
+		processed = EnvironmentMapAsset::read(*asset_path, faces);
+	}
+	else
+	{
+		LOG_INFO(Utility::get_logger(),
+			"GraphicsEngineTextureManager: generating image-based lighting for cubemap renderable {}",
+			source.get_underlying());
+		processed = EnvironmentMapProcessor::process(faces);
+	}
 	return environment_lighting.emplace(
 		source, create_environment_lighting(processed)).first->second;
 }

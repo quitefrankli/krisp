@@ -355,7 +355,8 @@ void GraphicsEngine::configure_environment_lighting(const RenderFrame& frame)
 	{
 		lighting = &get_texture_mgr().fetch_environment_lighting(
 			cubemap->id,
-			CubeMapMatGroup(cubemap->material_owners));
+			CubeMapMatGroup(cubemap->material_owners),
+			cubemap->environment_lighting_asset);
 	}
 	else
 	{

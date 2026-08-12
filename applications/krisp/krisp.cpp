@@ -132,6 +132,6 @@ int main()
 {
 	Config::init(PROJECT_NAME);
 	auto engine = GameEngine::create<PbrProofApplication>();
-	engine.spawn_cubemap();
+	engine.spawn_cubemap(PROJECT_ENVIRONMENT_LIGHTING_ASSET);
 	engine.run();
 }

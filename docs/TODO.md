@@ -22,6 +22,8 @@ implemented. Remaining core and production material work includes:
 - occlusion textures;
 - custom and true-HDR environment-map resources, including authored selection,
   intensity, and rotation;
+- replace the custom `.krisp-ibl` environment cache with standard `.ktx2` files
+  for irradiance, prefiltered specular, and BRDF lookup textures;
 - additional texture-coordinate sets and per-texture `texCoord` selection;
 - nearest texel filtering, mirrored or mixed-axis addressing, and generated mip
   chains;

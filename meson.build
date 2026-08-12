@@ -52,6 +52,7 @@ conan_dependencies += ffmpeg_deps
 subdir('shaders')
 subdir('third_party')
 subdir('src')
+subdir('tools')
 subdir('shared_lib')
 subdir('test')
 subdir('applications')

@@ -396,11 +396,13 @@ std::vector<RenderableID> GameEngine::attach_renderables(
 	return ecs.add_renderables(std::move(renderables), object_id, skeleton_id);
 }
 
-void GameEngine::spawn_cubemap()
+void GameEngine::spawn_cubemap(
+	std::optional<std::filesystem::path> environment_lighting_asset)
 {
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.casts_shadow = false;
+	renderable.environment_lighting_asset = std::move(environment_lighting_asset);
 	auto mesh_owner = ecs.get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::COLOR));
 	renderable.mesh_owner = std::move(mesh_owner);
 	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })

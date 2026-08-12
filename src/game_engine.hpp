@@ -133,7 +133,7 @@ public:
 	std::vector<RenderableID> attach_renderables(
 		ObjectID object_id, std::vector<Renderable> renderables,
 		std::optional<SkeletonID> skeleton_id = {});
-	void spawn_cubemap();
+	void spawn_cubemap(std::optional<std::filesystem::path> environment_lighting_asset = {});
 
 	Object& spawn_particle_emitter(const ParticleEmitterConfig& config);
 

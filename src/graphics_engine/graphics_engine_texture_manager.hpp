@@ -36,7 +36,8 @@ public:
 	GraphicsEngineTexture& fetch_cubemap_texture(const CubeMapMatGroup& material_group);
 	const EnvironmentLightingTextures& fetch_environment_lighting(
 		RenderableID source,
-		const CubeMapMatGroup& material_group);
+		const CubeMapMatGroup& material_group,
+		const std::optional<std::filesystem::path>& asset_path);
 	const EnvironmentLightingTextures& fetch_neutral_environment_lighting();
 
 	void free_texture(MaterialID id);

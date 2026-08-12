@@ -35,7 +35,8 @@ bool renderable_matches(
 		&& definition.object_id == attachment.object_id
 		&& definition.skeleton_id == attachment.skeleton_id
 		&& definition.mesh_owner == renderable.mesh_owner
-		&& definition.material_owners == renderable.material_owners;
+		&& definition.material_owners == renderable.material_owners
+		&& definition.environment_lighting_asset == renderable.environment_lighting_asset;
 }
 
 RenderableDefinition make_renderable_definition(
@@ -54,6 +55,7 @@ RenderableDefinition make_renderable_definition(
 		.skeleton_id = attachment.skeleton_id,
 		.mesh_owner = renderable.mesh_owner,
 		.material_owners = renderable.material_owners,
+		.environment_lighting_asset = renderable.environment_lighting_asset,
 	};
 }
 

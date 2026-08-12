@@ -1,10 +1,12 @@
 #include "graphics_engine/environment_map_processor.hpp"
+#include "graphics_engine/environment_map_asset.hpp"
 
 #include <gtest/gtest.h>
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <vector>
 
 
@@ -58,6 +60,30 @@ void expect_constant_linear_image(
 		EXPECT_EQ(std::to_integer<uint8_t>(image.rgba8_linear[offset + 3]), 255);
 	}
 }
+
+void expect_same_image(
+	const ProcessedEnvironmentImage& actual,
+	const ProcessedEnvironmentImage& expected)
+{
+	EXPECT_EQ(actual.width, expected.width);
+	EXPECT_EQ(actual.height, expected.height);
+	EXPECT_EQ(actual.layer_count, expected.layer_count);
+	EXPECT_EQ(actual.mip_sizes, expected.mip_sizes);
+	EXPECT_EQ(actual.rgba8_linear, expected.rgba8_linear);
+}
+
+class TemporaryEnvironmentAsset
+{
+public:
+	TemporaryEnvironmentAsset() :
+		path(std::filesystem::temp_directory_path() / "krisp_environment_map_asset_test.krisp-ibl")
+	{
+		std::filesystem::remove(path);
+	}
+	~TemporaryEnvironmentAsset() { std::filesystem::remove(path); }
+
+	std::filesystem::path path;
+};
 }
 
 
@@ -107,4 +133,33 @@ TEST(EnvironmentMapProcessor, rejects_mismatched_cubemap_faces)
 	EXPECT_THROW(
 		EnvironmentMapProcessor::process(faces, compact_settings()),
 		std::invalid_argument);
+}
+
+TEST(EnvironmentMapAsset, round_trips_a_processed_environment)
+{
+	std::array<std::vector<std::byte>, 6> storage;
+	const auto faces = constant_faces(storage, 128);
+	const auto settings = compact_settings();
+	const auto expected = EnvironmentMapProcessor::process(faces, settings);
+	TemporaryEnvironmentAsset asset;
+
+	EnvironmentMapAsset::write(asset.path, faces, expected, settings);
+	const auto actual = EnvironmentMapAsset::read(asset.path, faces, settings);
+
+	expect_same_image(actual.irradiance, expected.irradiance);
+	expect_same_image(actual.prefiltered_specular, expected.prefiltered_specular);
+	expect_same_image(actual.brdf_lut, expected.brdf_lut);
+}
+
+TEST(EnvironmentMapAsset, rejects_an_asset_for_different_source_pixels)
+{
+	std::array<std::vector<std::byte>, 6> storage;
+	auto faces = constant_faces(storage, 128);
+	const auto settings = compact_settings();
+	const auto processed = EnvironmentMapProcessor::process(faces, settings);
+	TemporaryEnvironmentAsset asset;
+	EnvironmentMapAsset::write(asset.path, faces, processed, settings);
+
+	storage.front().front() = std::byte{127};
+	EXPECT_THROW(EnvironmentMapAsset::read(asset.path, faces, settings), std::runtime_error);
 }

@@ -20,6 +20,7 @@ remain disabled.
 | `graphics_renderable.*` | Holds graphics-owned state and resources for one immutable renderable definition. |
 | `graphics_engine_texture*` | Loads, uploads, samples, and owns texture and derived environment-lighting resources. |
 | `environment_map_processor.*` | Converts an sRGB skybox into linear diffuse irradiance, prefiltered specular, and BRDF lookup data. |
+| `environment_map_asset.*` | Reads and writes the versioned, source-validated offline representation of those derived environment textures. |
 | `texture_compositor.*` | Generates immutable GPU-only base-colour textures from ordered texture layers. |
 | `video_recorder.*` | Encodes fixed-rate video from bounded, asynchronous per-frame image capture. |
 | `raytracing.*` | Dormant implementation excluded from supported build and execution paths. |

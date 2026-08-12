@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <filesystem>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -37,6 +38,7 @@ struct RenderableDefinition
 	std::optional<SkeletonID> skeleton_id;
 	MeshHandle mesh_owner;
 	std::vector<MaterialHandle> material_owners;
+	std::optional<std::filesystem::path> environment_lighting_asset;
 
 	MeshID get_mesh_id() const { return mesh_owner->get_id(); }
 	// Direct owner-based access keeps graphics reads off the mutable registries.
