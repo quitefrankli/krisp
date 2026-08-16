@@ -393,6 +393,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					tangents = GltfImport::read_vec4(model, primitive.attributes.at("TANGENT"));
 					if (tangents.size() != positions.size())
 						throw ResourceLoadError("ResourceLoader: POSITION and TANGENT counts differ");
+					bool tangents_are_valid = true;
 					for (size_t tangent_index = 0; tangent_index < tangents.size(); ++tangent_index)
 					{
 						auto& tangent = tangents[tangent_index];
@@ -403,8 +404,19 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 							|| glm::length(glm::cross(glm::vec3(tangent), normals[tangent_index]))
 								< 0.00001f
 							|| std::abs(std::abs(tangent.w) - 1.0f) > 0.001f)
-							throw ResourceLoadError("ResourceLoader: TANGENT contains invalid values");
+						{
+							tangents_are_valid = false;
+							break;
+						}
 						tangent = GltfImport::tangent_to_krisp_basis(tangent);
+					}
+					if (!tangents_are_valid)
+					{
+						if (!options.regenerate_invalid_tangents)
+							throw ResourceLoadError("ResourceLoader: TANGENT contains invalid values");
+						add_warning(result, options, "ResourceLoader: regenerated invalid tangents");
+						generated_tangents = GltfImport::generate_tangents(
+							positions, normals, texcoords, indices);
 					}
 				}
 				else if (normal_mapped)

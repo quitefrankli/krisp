@@ -34,10 +34,11 @@ void ParticleSystem::Emitter::process(float delta_time)
 		particle.position += particle.velocity * delta_time;
 		particle.rotation += particle.rotation_speed * delta_time;
 		particle.lifetime -= delta_time;
-		
-		// Interpolate color based on lifetime
-		float t = particle.lifetime / config.max_lifetime;
-		particle.color = Maths::lerp(config.start_color, config.end_color, t);
+
+		const float progress = particle.initial_lifetime > 0.0f
+			? std::clamp(1.0f - particle.lifetime / particle.initial_lifetime, 0.0f, 1.0f)
+			: 1.0f;
+		particle.color = Maths::lerp(config.start_color, config.end_color, progress);
 	}
 
 	// Remove dead particles 
@@ -53,13 +54,30 @@ void ParticleSystem::Emitter::emit(uint32_t count)
 {
 	for (uint32_t i = 0; i < count && particles.size() < config.max_particles; ++i)
 	{
+		const glm::vec3 spawn_offset = Maths::random_uniform(
+			config.spawn_offset_min,
+			config.spawn_offset_max);
+		glm::vec3 position;
+		glm::vec3 velocity = Maths::random_uniform(config.velocity_min, config.velocity_max);
+		if (config.emission_space == EParticleEmissionSpace::LOCAL)
+		{
+			position = glm::vec3(
+				ecs.get_transform(parent_id) * glm::vec4(spawn_offset, 1.0f));
+			velocity = ecs.get_rotation(parent_id) * velocity;
+		}
+		else
+		{
+			position = ecs.get_position(parent_id) + spawn_offset;
+		}
+		const float lifetime = Maths::random_uniform(config.min_lifetime, config.max_lifetime);
 		particles.push_back(Particle{
-			.position = ecs.get_position(parent_id),
-			.velocity = Maths::random_uniform(config.velocity_min, config.velocity_max),
+			.position = position,
+			.velocity = velocity,
 			.color = config.start_color,
 			.size = Maths::random_uniform(config.min_size, config.max_size),
 			.rotation = Maths::random_uniform(0.0f, Maths::PI * 2.0f),
-			.lifetime = Maths::random_uniform(config.min_lifetime, config.max_lifetime),
+			.lifetime = lifetime,
+			.initial_lifetime = lifetime,
 			.rotation_speed = Maths::random_uniform(config.rotation_speed_min, config.rotation_speed_max)
 		});
 	}

@@ -14,6 +14,14 @@
 #include <unordered_map>
 
 
+enum class EParticleEmissionSpace
+{
+	// Spawn offsets and velocities use world axes.
+	WORLD,
+	// Spawn offsets use the emitter transform; velocities use its rotation only.
+	LOCAL,
+};
+
 struct ParticleEmitterConfig
 {
 	uint32_t max_particles = 1000;
@@ -24,8 +32,12 @@ struct ParticleEmitterConfig
 	float max_size = 0.5f;
 	glm::vec4 start_color = { 1.0f, 1.0f, 1.0f, 1.0f };
 	glm::vec4 end_color = { 1.0f, 1.0f, 1.0f, 0.0f };
+	// A component-wise box sampled once when each particle enters world space.
+	glm::vec3 spawn_offset_min = glm::vec3(0.0f);
+	glm::vec3 spawn_offset_max = glm::vec3(0.0f);
 	glm::vec3 velocity_min = { -1.0f, 0.0f, -1.0f };
 	glm::vec3 velocity_max = { 1.0f, 1.0f, 1.0f };
+	EParticleEmissionSpace emission_space = EParticleEmissionSpace::WORLD;
 	float rotation_speed_min = 0.0f;
 	float rotation_speed_max = 1.0f;
 	bool loop = true;
@@ -59,6 +71,7 @@ private:
 		float size;
 		float rotation;
 		float lifetime;       // Remaining lifetime
+		float initial_lifetime;
 		float rotation_speed;
 	};
 

@@ -1269,6 +1269,30 @@ TEST(ResourceLoaderTexturedPbr, rejects_invalid_or_required_but_missing_authored
 		ResourceLoadError);
 }
 
+TEST(ResourceLoaderTexturedPbr, regenerates_invalid_authored_tangents_when_requested)
+{
+	ECS ecs;
+	ResourceLoader::LoadOptions options;
+	options.regenerate_invalid_tangents = true;
+	const auto model = ResourceLoader::load_model(
+		ecs, "normal_mapped_invalid_tangents.gltf", options);
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_NEAR(glm::length(glm::vec3(vertex.tangent)), 1.0f, 0.001f);
+		EXPECT_NEAR(glm::dot(glm::vec3(vertex.tangent), vertex.normal), 0.0f, 0.001f);
+	}
+	ASSERT_EQ(model.warnings.size(), 1);
+	EXPECT_NE(model.warnings.front().message.find("regenerated invalid tangents"), std::string::npos);
+	Object object;
+	ecs.add_object(object);
+	EXPECT_NO_THROW(ecs.add_renderable(
+		model.meshes[0].renderables[0],
+		object.get_id()));
+}
+
 TEST(ResourceLoaderTexturedPbr, imports_skinned_data_uri_png_and_tangents)
 {
 	ECS ecs;

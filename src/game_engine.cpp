@@ -428,8 +428,6 @@ void GameEngine::validate_renderable_resources(const Renderable& renderable) con
 Object & GameEngine::spawn_particle_emitter(const ParticleEmitterConfig & config)
 {
 	auto& obj = spawn_object<Object>();
-	attach_renderable(obj.get_id(), Renderable::make_default(ecs));
-	ecs.get_transformation(obj.get_id()).set_scale(glm::vec3(0.2f));
 	obj.set_visibility(false);
 	ecs.spawn_particle_emitter(obj.get_id(), config);
 	return obj;

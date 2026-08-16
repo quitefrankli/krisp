@@ -332,7 +332,12 @@ TEST_F(GameEngineTests, snapshots_particles_and_active_light)
 	ParticleEmitterConfig particle_config;
 	particle_config.emission_rate = 1.0f;
 	particle_config.max_particles = 1;
-	engine.spawn_particle_emitter(particle_config);
+	particle_config.min_lifetime = 2.0f;
+	particle_config.max_lifetime = 2.0f;
+	particle_config.velocity_min = glm::vec3(0.0f);
+	particle_config.velocity_max = glm::vec3(0.0f);
+	auto& emitter = engine.spawn_particle_emitter(particle_config);
+	engine.get_ecs().set_position(emitter.get_id(), { 1.0f, 2.0f, 3.0f });
 	auto& light = engine.spawn_object<Object>();
 	const LightComponent light_component{
 		.intensity = 2.0f,
@@ -345,12 +350,58 @@ TEST_F(GameEngineTests, snapshots_particles_and_active_light)
 	const auto frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	ASSERT_EQ(frame->particles.size(), 1);
+	EXPECT_TRUE(glm_equal(
+		glm::vec3(frame->particles.front().model[3]),
+		glm::vec3(1.0f, 2.0f, 3.0f)));
 	ASSERT_TRUE(frame->active_light.has_value());
 	EXPECT_EQ(frame->active_light->object_id, light.get_id());
 	EXPECT_TRUE(glm_equal(
 		frame->active_light->position, engine.get_ecs().get_position(light.get_id())));
 	EXPECT_FLOAT_EQ(frame->active_light->intensity, light_component.intensity);
 	EXPECT_EQ(frame->active_light->color, light_component.color);
+}
+
+TEST_F(GameEngineTests, local_particle_birth_uses_emitter_transform_then_remains_in_world_space)
+{
+	ParticleEmitterConfig config;
+	config.max_particles = 1;
+	config.emission_rate = 2.0f;
+	config.min_lifetime = 2.0f;
+	config.max_lifetime = 2.0f;
+	config.min_size = 0.25f;
+	config.max_size = 0.25f;
+	config.start_color = { 1.0f, 0.5f, 0.0f, 1.0f };
+	config.end_color = { 0.0f, 0.0f, 1.0f, 0.0f };
+	config.spawn_offset_min = { 1.0f, 0.0f, 0.0f };
+	config.spawn_offset_max = config.spawn_offset_min;
+	config.velocity_min = { 1.0f, 0.0f, 0.0f };
+	config.velocity_max = config.velocity_min;
+	config.emission_space = EParticleEmissionSpace::LOCAL;
+
+	auto& emitter = engine.spawn_particle_emitter(config);
+	EXPECT_TRUE(engine.get_ecs().get_renderable_ids(emitter.get_id()).empty());
+	auto& transform = engine.get_ecs().get_transformation(emitter.get_id());
+	transform.set_position({ 3.0f, 4.0f, 5.0f });
+	transform.set_scale(2.0f);
+	transform.set_rotation(glm::angleAxis(Maths::PI / 2.0f, Maths::forward_vec));
+
+	engine.main_loop(0.5f);
+	auto frame = engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	ASSERT_EQ(frame->particles.size(), 1);
+	EXPECT_TRUE(glm_equal(
+		glm::vec3(frame->particles.front().model[3]),
+		glm::vec3(3.0f, 6.5f, 5.0f)));
+	EXPECT_TRUE(glm_equal(
+		frame->particles.front().color,
+		Maths::lerp(config.start_color, config.end_color, 0.25f)));
+
+	transform.set_position({ 100.0f, 100.0f, 100.0f });
+	engine.main_loop(0.25f);
+	frame = engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	ASSERT_EQ(frame->particles.size(), 1);
+	EXPECT_TRUE(glm_equal(
+		glm::vec3(frame->particles.front().model[3]),
+		glm::vec3(3.0f, 6.75f, 5.0f)));
 }
 
 TEST_F(GameEngineTests, acknowledged_deletion_updates_latest_frame_without_mutating_history)

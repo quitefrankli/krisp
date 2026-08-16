@@ -27,7 +27,9 @@ fans are converted to triangles by default. Other primitive modes are rejected.
 A textured primitive needs `TEXCOORD_0`; other coordinate sets and per-texture
 coordinate selection are unsupported. Normal-mapped primitives also need a
 valid tangent basis. Krisp preserves valid float `TANGENT` data or generates it
-with MikkTSpace in the default loader. Invalid authored tangents are rejected.
+with MikkTSpace in the default loader. Invalid authored tangents are rejected
+unless `LoadOptions::regenerate_invalid_tangents` explicitly enables their
+replacement with generated MikkTSpace tangents.
 
 ### PBR materials and textures
 

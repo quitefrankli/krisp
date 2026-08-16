@@ -67,6 +67,7 @@ public:
 		std::optional<int> scene_index;
 		bool generate_missing_normals = true;
 		bool generate_missing_tangents = false;
+		bool regenerate_invalid_tangents = false;
 		bool allow_non_triangle_primitives = true;
 		bool strict = false;
 	};
