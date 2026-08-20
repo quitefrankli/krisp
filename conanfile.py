@@ -44,7 +44,12 @@ class vulkan_conan(ConanFile):
         basic_layout(self, build_folder="build")
 
     def generate(self):
-        MesonToolchain(self).generate()
+        meson_toolchain = MesonToolchain(self)
+        # Conan dependencies remain Release, but Krisp's build type is selected
+        # independently when its Meson build directory is configured.
+        meson_toolchain.buildtype = None
+        meson_toolchain.b_ndebug = None
+        meson_toolchain.generate()
         PkgConfigDeps(self).generate()
 
     def build(self):

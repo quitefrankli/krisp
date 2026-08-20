@@ -44,7 +44,8 @@
   concurrent Release workflow.
 * If there are dependency or build-configuration changes, use the following
   sequence. Conan dependencies intentionally remain Release while Krisp is
-  configured as Debug.
+  configured as Debug. Conan's generated native file deliberately omits
+  Krisp's `buildtype` and `b_ndebug`; the Meson setup command owns those values.
 
 ```
 conan install . -pr=conan_clang_profile --build=missing

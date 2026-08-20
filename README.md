@@ -35,8 +35,8 @@ meson setup build/debug --native-file build/conan/conan_meson_native.ini --build
 meson setup build/release --native-file build/conan/conan_meson_native.ini --buildtype=release -Db_ndebug=true
 ```
 
-The explicit `b_ndebug` values override the Release setting in Conan's native
-file for Krisp's own compilation. Build and run either configuration with:
+Conan's native file supplies compilers and dependency paths but deliberately
+does not set Krisp's build type. Build and run either configuration with:
 
 ```bash
 meson compile -C build/debug -j 6 krisp
@@ -44,6 +44,19 @@ build/debug/applications/krisp/krisp
 
 meson compile -C build/release -j 6 krisp
 build/release/applications/krisp/krisp
+```
+
+Alternatively, source the repository's shell helpers once from `.bashrc`:
+
+```bash
+source /path/to/krisp/aliases.sh
+```
+
+The `krisp` command configures a missing build tree, then builds and runs it:
+
+```bash
+krisp --debug
+krisp --release
 ```
 
 After changing dependencies or build configuration, rerun `conan install` when
