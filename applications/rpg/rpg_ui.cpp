@@ -1,15 +1,15 @@
-#include "krisp_ui.hpp"
+#include "rpg_ui.hpp"
 
 #include <imgui.h>
 
-void KrispUiState::publish(const bool moving, const bool main_hand_equipped)
+void RpgUiState::publish(const bool moving, const bool main_hand_equipped)
 {
 	const auto state = static_cast<std::uint8_t>(
 		(moving ? MOVING : 0U) | (main_hand_equipped ? MAIN_HAND_EQUIPPED : 0U));
 	current.store(state, std::memory_order_release);
 }
 
-KrispUiState::Snapshot KrispUiState::snapshot() const
+RpgUiState::Snapshot RpgUiState::snapshot() const
 {
 	const auto state = current.load(std::memory_order_acquire);
 	return {
@@ -18,23 +18,23 @@ KrispUiState::Snapshot KrispUiState::snapshot() const
 	};
 }
 
-void KrispUiState::request_main_hand_toggle()
+void RpgUiState::request_main_hand_toggle()
 {
 	main_hand_toggle_requested.store(true, std::memory_order_release);
 }
 
-bool KrispUiState::take_main_hand_toggle_request()
+bool RpgUiState::take_main_hand_toggle_request()
 {
 	return main_hand_toggle_requested.exchange(false, std::memory_order_acq_rel);
 }
 
-KrispEquipmentWindow::KrispEquipmentWindow(KrispUiState& state) :
-	ApplicationUiWindow({ "krisp_equipment", "Equipment" }),
+RpgEquipmentWindow::RpgEquipmentWindow(RpgUiState& state) :
+	ApplicationUiWindow({ "rpg_equipment", "Equipment" }),
 	state(state)
 {
 }
 
-void KrispEquipmentWindow::draw_contents()
+void RpgEquipmentWindow::draw_contents()
 {
 	const auto current = state.snapshot();
 	ImGui::TextUnformatted("Main Hand");
@@ -46,13 +46,13 @@ void KrispEquipmentWindow::draw_contents()
 	ImGui::TextUnformatted("Chest: Empty");
 }
 
-KrispStatusOverlay::KrispStatusOverlay(KrispUiState& state) :
-	ApplicationUiOverlay({ "krisp_status", "Status" }),
+RpgStatusOverlay::RpgStatusOverlay(RpgUiState& state) :
+	ApplicationUiOverlay({ "rpg_status", "Status" }),
 	state(state)
 {
 }
 
-void KrispStatusOverlay::draw_contents()
+void RpgStatusOverlay::draw_contents()
 {
 	const auto current = state.snapshot();
 	ImGui::Text("%s", current.moving ? "Moving" : "Idle");

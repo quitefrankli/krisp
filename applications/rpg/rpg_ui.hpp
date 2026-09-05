@@ -2,11 +2,10 @@
 
 #include <gui/application_ui_manager.hpp>
 
-#include <array>
 #include <atomic>
 #include <cstdint>
 
-class KrispUiState
+class RpgUiState
 {
 public:
 	struct Snapshot
@@ -27,22 +26,22 @@ private:
 	std::atomic<bool> main_hand_toggle_requested = false;
 };
 
-class KrispEquipmentWindow : public ApplicationUiWindow
+class RpgEquipmentWindow : public ApplicationUiWindow
 {
 public:
-	explicit KrispEquipmentWindow(KrispUiState& state);
+	explicit RpgEquipmentWindow(RpgUiState& state);
 
 private:
 	void draw_contents() override;
-	KrispUiState& state;
+	RpgUiState& state;
 };
 
-class KrispStatusOverlay : public ApplicationUiOverlay
+class RpgStatusOverlay : public ApplicationUiOverlay
 {
 public:
-	explicit KrispStatusOverlay(KrispUiState& state);
+	explicit RpgStatusOverlay(RpgUiState& state);
 
 private:
 	void draw_contents() override;
-	KrispUiState& state;
+	RpgUiState& state;
 };
