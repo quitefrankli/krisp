@@ -180,6 +180,50 @@ std::optional<std::vector<size_t>> exact_joint_mapping(
 	return mapping;
 }
 
+void validate_inverse_bind_poses(
+	const std::vector<Bone>& source_bones,
+	const std::vector<Bone>& target_bones,
+	const std::vector<size_t>& source_to_target)
+{
+	constexpr float tolerance = 0.001f;
+	for (size_t source_index = 0; source_index < source_bones.size(); ++source_index)
+	{
+		const auto& source = source_bones[source_index].inverse_bind_pose.get_mat4();
+		const auto& target = target_bones[source_to_target[source_index]].inverse_bind_pose.get_mat4();
+		float maximum_difference = 0.0f;
+		for (size_t column = 0; column < 4; ++column)
+			for (size_t row = 0; row < 4; ++row)
+			{
+				if (!std::isfinite(source[column][row]) || !std::isfinite(target[column][row]))
+					throw ResourceLoadError(fmt::format(
+						"ResourceLoader: inverse bind pose for joint '{}' contains a non-finite value",
+						source_bones[source_index].name));
+				maximum_difference = std::max(maximum_difference,
+					std::abs(source[column][row] - target[column][row]));
+			}
+		if (maximum_difference > tolerance)
+			throw ResourceLoadError(fmt::format(
+				"ResourceLoader: inverse bind pose for joint '{}' is incompatible with the target skeleton (maximum element difference {})",
+				source_bones[source_index].name, maximum_difference));
+	}
+}
+
+void remap_joint_indices(
+	std::vector<glm::vec4>& joints,
+	const std::vector<size_t>& source_to_target)
+{
+	for (auto& vertex_joints : joints)
+		for (size_t influence = 0; influence < 4; ++influence)
+		{
+			const float value = vertex_joints[influence];
+			if (!std::isfinite(value) || value < 0.0f || std::floor(value) != value
+				|| value >= static_cast<float>(source_to_target.size()))
+				throw ResourceLoadError("ResourceLoader: JOINTS_0 contains an invalid skin joint index");
+			vertex_joints[influence] = static_cast<float>(
+				source_to_target[static_cast<size_t>(value)]);
+		}
+}
+
 std::vector<NodeInstance> collect_mesh_nodes(const tinygltf::Model& model, const tinygltf::Scene& scene)
 {
 	std::vector<NodeInstance> nodes;
@@ -305,7 +349,18 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	global_resource_loader.gltf_material_to_material.clear();
 	global_resource_loader.gltf_image_to_material.clear();
 
+	const std::vector<Bone>* target_bones = nullptr;
+	std::unordered_map<std::string, size_t> target_by_name;
+	std::vector<int> node_parents;
+	if (options.target_skeleton)
+	{
+		target_bones = &ecs.get_skeletal_component(*options.target_skeleton).get_bones();
+		target_by_name = require_named_target_bones(*target_bones);
+		node_parents = get_parent_nodes(model);
+	}
+
 	std::unordered_map<int, std::vector<Bone>> skins;
+	std::unordered_map<int, std::vector<size_t>> target_mappings;
 	for (const NodeInstance& instance : node_instances)
 	{
 		const auto& node = model.nodes.at(instance.node_index);
@@ -325,9 +380,27 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			auto it = skins.find(node.skin);
 			if (it == skins.end())
 				it = skins.emplace(node.skin, load_bones(model, node.skin)).first;
-			skeleton = ecs.add_skeleton(it->second);
-			ResourceProvenance::register_skeleton(*skeleton, {
-				.source = provenance_source, .scene = scene_index, .node = instance.node_index, .skin = node.skin });
+			if (options.target_skeleton)
+			{
+				auto mapping = target_mappings.find(node.skin);
+				if (mapping == target_mappings.end())
+				{
+					auto compatible = exact_joint_mapping(
+						model, model.skins[node.skin], *target_bones, target_by_name, node_parents);
+					if (!compatible)
+						throw ResourceLoadError(
+							"ResourceLoader: model skin is incompatible with the target skeleton");
+					validate_inverse_bind_poses(it->second, *target_bones, *compatible);
+					mapping = target_mappings.emplace(node.skin, std::move(*compatible)).first;
+				}
+				skeleton = *options.target_skeleton;
+			}
+			else
+			{
+				skeleton = ecs.add_skeleton(it->second);
+				ResourceProvenance::register_skeleton(*skeleton, {
+					.source = provenance_source, .scene = scene_index, .node = instance.node_index, .skin = node.skin });
+			}
 			loaded_mesh.skeleton_id = skeleton;
 		}
 
@@ -442,6 +515,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				auto weights = GltfImport::read_vec4(model, primitive.attributes.at("WEIGHTS_0"));
 				if (joints.size() != positions.size() || weights.size() != positions.size())
 					throw ResourceLoadError("ResourceLoader: skinned vertex attribute counts differ");
+				if (options.target_skeleton)
+					remap_joint_indices(joints, target_mappings.at(node.skin));
 				if (textured)
 				{
 					if (generated_tangents)

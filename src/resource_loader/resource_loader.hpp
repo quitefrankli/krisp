@@ -65,6 +65,7 @@ public:
 	struct LoadOptions
 	{
 		std::optional<int> scene_index;
+		std::optional<SkeletonID> target_skeleton;
 		bool generate_missing_normals = true;
 		bool generate_missing_tangents = false;
 		bool allow_non_triangle_primitives = true;

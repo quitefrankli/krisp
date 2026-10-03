@@ -27,6 +27,7 @@ namespace
 constexpr std::string_view player_model = "npc.glb";
 constexpr std::string_view player_animations = "movement_animations.glb";
 constexpr std::string_view sword_model = "weapons_iron_longsword.glb";
+constexpr std::string_view hair_model = "hair1.glb";
 
 AnimationID require_animation(
 	const ECS& ecs,
@@ -86,10 +87,10 @@ public:
 		};
 
 		PlayerDefinition definition;
+		const glm::mat4 face_gameplay_forward =
+			glm::rotate(Maths::identity_mat, Maths::PI, Maths::up_vec);
 		for (auto& renderable : mesh->renderables)
 		{
-			const glm::mat4 face_gameplay_forward =
-				glm::rotate(Maths::identity_mat, Maths::PI, Maths::up_vec);
 			renderable.local_transform.set_mat4(
 				face_gameplay_forward * renderable.local_transform.get_mat4());
 		}
@@ -115,6 +116,24 @@ public:
 		if (!engine.get_ecs().equip(
 			player.get_id(), renderables.front(), sword.get_id(), sword_definition))
 			throw std::runtime_error("Player skeleton is missing the WEAPON bone");
+
+		ResourceLoader::LoadOptions hair_options;
+		hair_options.target_skeleton = skeleton;
+		hair_options.generate_missing_tangents = true;
+		auto loaded_hair = ResourceLoader::load_model(
+			engine.get_ecs(), hair_model, hair_options);
+		if (loaded_hair.meshes.empty())
+			throw std::runtime_error("Hair model contains no meshes");
+		for (auto& hair_mesh : loaded_hair.meshes)
+		{
+			if (hair_mesh.skeleton_id != skeleton)
+				throw std::runtime_error("Hair mesh is not compatible with the player skeleton");
+			for (auto& renderable : hair_mesh.renderables)
+				renderable.local_transform.set_mat4(
+					face_gameplay_forward * renderable.local_transform.get_mat4());
+			engine.attach_renderables(
+				player.get_id(), std::move(hair_mesh.renderables), skeleton);
+		}
 
 		player_id = player.get_id();
 		sword_id = sword.get_id();

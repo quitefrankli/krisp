@@ -576,6 +576,77 @@ TEST_F(ResourceLoaderECS, load_bones)
 	ASSERT_EQ(skeleton.get_bones().size(), 5);
 }
 
+TEST_F(ResourceLoaderECS, model_import_reuses_compatible_target_skeleton)
+{
+	const SkeletonID target = model.meshes.front().skeleton_id.value();
+	const auto skeleton_count = ecs.get_skeleton_ids().size();
+	ResourceLoader::LoadOptions options;
+	options.target_skeleton = target;
+	const auto accessory = ResourceLoader::load_model(ecs, model_path, options);
+
+	ASSERT_FALSE(accessory.meshes.empty());
+	EXPECT_EQ(ecs.get_skeleton_ids().size(), skeleton_count);
+	for (const auto& mesh : accessory.meshes)
+		EXPECT_EQ(mesh.skeleton_id, target);
+}
+
+TEST_F(ResourceLoaderECS, model_import_rejects_incompatible_target_skeleton)
+{
+	auto incompatible_bones = get_bones();
+	incompatible_bones.front().name = "incompatible";
+	const SkeletonID target = ecs.add_skeleton(incompatible_bones);
+	ResourceLoader::LoadOptions options;
+	options.target_skeleton = target;
+
+	EXPECT_THROW(ResourceLoader::load_model(ecs, model_path, options), ResourceLoadError);
+}
+
+TEST_F(ResourceLoaderECS, model_import_rejects_target_with_different_inverse_bind_pose)
+{
+	auto incompatible_bones = get_bones();
+	incompatible_bones.front().inverse_bind_pose.set_pos({ 1.0f, 0.0f, 0.0f });
+	const SkeletonID target = ecs.add_skeleton(incompatible_bones);
+	ResourceLoader::LoadOptions options;
+	options.target_skeleton = target;
+
+	EXPECT_THROW(ResourceLoader::load_model(ecs, model_path, options), ResourceLoadError);
+}
+
+TEST_F(ResourceLoaderECS, model_import_remaps_joint_indices_to_target_order)
+{
+	const auto& source_bones = get_bones();
+	const std::vector<size_t> new_to_old{ 2, 1, 0, 3, 4 };
+	std::vector<size_t> old_to_new(source_bones.size());
+	std::vector<Bone> reordered_bones;
+	reordered_bones.reserve(source_bones.size());
+	for (size_t new_index = 0; new_index < new_to_old.size(); ++new_index)
+	{
+		old_to_new[new_to_old[new_index]] = new_index;
+		reordered_bones.push_back(source_bones[new_to_old[new_index]]);
+	}
+	for (auto& bone : reordered_bones)
+		if (bone.parent_node != Bone::NO_PARENT)
+			bone.parent_node = old_to_new[bone.parent_node];
+	const SkeletonID target = ecs.add_skeleton(reordered_bones);
+
+	ResourceLoader::LoadOptions options;
+	options.target_skeleton = target;
+	const auto accessory = ResourceLoader::load_model(ecs, model_path, options);
+	const auto& source_mesh = dynamic_cast<const SkinnedMesh&>(
+		ecs.get_mesh_system().get(model.meshes.front().renderables.front().get_mesh_id()));
+	const auto& remapped_mesh = dynamic_cast<const SkinnedMesh&>(
+		ecs.get_mesh_system().get(accessory.meshes.front().renderables.front().get_mesh_id()));
+
+	ASSERT_EQ(remapped_mesh.get_vertices().size(), source_mesh.get_vertices().size());
+	for (size_t vertex = 0; vertex < source_mesh.get_vertices().size(); ++vertex)
+		for (size_t influence = 0; influence < 4; ++influence)
+		{
+			const auto old_index = static_cast<size_t>(
+				source_mesh.get_vertices()[vertex].bone_ids[influence]);
+			EXPECT_EQ(remapped_mesh.get_vertices()[vertex].bone_ids[influence], old_to_new[old_index]);
+		}
+}
+
 TEST_F(ResourceLoaderECS, bone_relative_transforms)
 {
 	// root bone

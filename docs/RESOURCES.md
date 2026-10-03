@@ -116,6 +116,13 @@ renderables. The caller binds that skeleton to each renderable attachment;
 several attachments may share one skeleton. Joints need unique, non-empty names
 only when separately imported animations will target the skeleton.
 
+Set `LoadOptions::target_skeleton` when importing additional skinned meshes for
+an existing character. The loader requires the source skin to have the same
+named joint hierarchy and inverse-bind poses, remaps `JOINTS_0` when joint order
+differs, returns the target `SkeletonID`, and does not create redundant skeletal
+state. Attach those renderables to the same object and target skeleton so they
+share both the character's world transform and animated pose.
+
 ## Animations
 
 Animation resources must be `.gltf` or `.glb` and contain at least one clip,

@@ -221,6 +221,9 @@ transform and material descriptor sets are still bound for every item.
 - Skeletons have one model-space bone-buffer slot per `SkeletonID` and
   swap-chain frame, shared by all attached renderables. This avoids duplicate
   pose uploads for shared skeletons.
+- Target-skeleton model imports validate and remap compatible skinned meshes at
+  load time so character accessories reuse that slot instead of allocating and
+  synchronizing a redundant skeleton.
 - Skinned shaders apply the renderable model matrix after skinning, adding
   matrix-vector work for positions and, in lit passes, normals and tangents.
 - Cross-fades evaluate and retain per-bone source/target pose data while active,
