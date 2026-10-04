@@ -14,6 +14,12 @@
   - Prefer structured parsing over dumping binary or generated files.
   - Run successful test suites with concise output (for GoogleTest, use `--gtest_brief=1`); rerun only failures with full diagnostics.
 
+* This repository is an application-agnostic engine. Never reference, or depend on external applications
+* Describe consumers generically and use neutral test fixtures.
+* Application-specific gameplay, rules, assets, UI, persistence, and integration
+  instructions belong in the owning application repository. Expose reusable
+  engine mechanisms without embedding application policy or dependencies.
+
 * Do not repeat an identical successful check. Still inspect diffs and run tests proportionate to the change.
 
 * Do not write superfluous tests. Prefer the lowest-level test that meaningfully verifies externally observable behaviour; use end-to-end tests for cross-component behaviour.
@@ -22,7 +28,7 @@
 
 * Krisp is in early development; do not preserve legacy APIs, save formats, or backwards compatibility unless explicitly requested.
 
-* IMPORTANT: never commit changes without first consulting the user. Commit messages must use a descriptive imperative subject and, when the change is non-trivial, a wrapped body with summary of changes. Use one of the following appropriate commit title prefixes: [FEATURE], [BUGFIX], [REFACTOR], [OTHER]
+* Never commit changes without first consulting the user. Commit messages must use a descriptive imperative subject and, when the change is non-trivial, a wrapped body with summary of changes. Use one of the following appropriate commit title prefixes: [FEATURE], [BUGFIX], [REFACTOR], [OTHER]
 
 * Preserve unrelated staged and unstaged changes. Never revert or overwrite user changes.
 

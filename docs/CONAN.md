@@ -5,11 +5,10 @@ with Conan 2 and Meson. The package contains headers, static libraries, and
 runtime data under `share/krisp`; FFmpeg and Vulkan drivers remain system
 requirements.
 
-## Develop Krisp and Billiards together
+## Develop the engine with an editable package
 
-Use Conan editable mode while engine and app changes move together. It maps
-`krisp/0.1.0` to the checkout, so engine edits do not create new Conan cache
-packages:
+Conan editable mode maps `krisp/0.1.0` to this checkout, so engine edits do
+not require new cached packages:
 
 ```sh
 conan editable add /path/to/krisp
@@ -21,22 +20,14 @@ meson setup build/debug --reconfigure \
 meson compile -C build/debug -j 6 krisp
 ```
 
-The standalone Billiards repository has its own root `conan_clang_profile`, with
-the same configuration policy: Debug for the app and Krisp, and Release for
-other Conan dependencies. Follow its README to configure and build it. The
-editable runtime directory is `build/debug/runtime`; a packaged dependency supplies
-`share/krisp` from its package folder.
-
-After setup, edit Krisp, build it with `meson compile -C build/debug -j 6 krisp`,
-then rebuild Billiards. Header changes trigger recompilation; changes to the
-engine archive trigger relinking. Reinstall/reconfigure when dependency metadata
-changes. Editable registration applies to every consumer of the same reference
-in this Conan home.
+The editable runtime directory is `build/debug/runtime`; packaged runtime data
+lives under `share/krisp`. Reinstall and reconfigure the engine when dependency
+metadata changes. Editable registration applies to this package reference in
+the active Conan home.
 
 Remove the editable mapping with
-`conan editable remove --refs=krisp/0.1.0` when the app should consume a cached
-package instead. Reinstall the app graph and run Meson setup with
-`--reconfigure --clearcache` when switching between editable and cached packages.
+`conan editable remove --refs=krisp/0.1.0` when a cached package is required.
+Application setup and integration instructions belong in consumer repositories.
 
 ## Create a checkpoint package
 

@@ -87,12 +87,12 @@ TEST(UtilityResources, resource_names_reject_absolute_paths_and_parent_traversal
 
 TEST(UtilityPaths, default_app_data_is_grouped_under_krisp)
 {
-	const auto billiards = Utility::paths_for_executable("billiards");
-	const auto tetris = Utility::paths_for_executable("tetris");
-	EXPECT_EQ(billiards.writable_data.filename(), "billiards");
-	EXPECT_EQ(billiards.writable_data.parent_path().filename(), "krisp");
-	EXPECT_EQ(tetris.writable_data.parent_path(), billiards.writable_data.parent_path());
-	EXPECT_NE(tetris.writable_data, billiards.writable_data);
+	const auto sample_a = Utility::paths_for_executable("sample_a");
+	const auto sample_b = Utility::paths_for_executable("sample_b");
+	EXPECT_EQ(sample_a.writable_data.filename(), "sample_a");
+	EXPECT_EQ(sample_a.writable_data.parent_path().filename(), "krisp");
+	EXPECT_EQ(sample_b.writable_data.parent_path(), sample_a.writable_data.parent_path());
+	EXPECT_NE(sample_b.writable_data, sample_a.writable_data);
 }
 
 TEST(UtilityPaths, config_and_saves_use_app_specific_locations)

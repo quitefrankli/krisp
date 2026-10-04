@@ -1,7 +1,6 @@
 internal_app_sources = {
     'krisp': ['krisp.cpp'],
     'chess': ['src/chess.cpp', 'src/board.cpp', 'src/pieces.cpp'],
-    'rpg': ['rpg.cpp', 'rpg_ui.cpp'],
     'tetris': ['tetris.cpp'],
 }
 

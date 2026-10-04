@@ -17,12 +17,15 @@ screenshots use subdirectories there. Configuration remains app-specific under
 `$XDG_CONFIG_HOME/<app_name>/`.
 These paths are independent of the process's working directory.
 
-The internal `krisp`, `chess`, `rpg`, and `tetris` apps use their checkout's
+Consumers can override `app_resources` through `RuntimePaths` to use
+`resources/` directly beside the executable. Configuration and writable data
+remain app-specific.
+
+Bundled development targets use their source tree's
 `resources/<app_name>/` as the app resource directory and `build/debug/runtime`
-as the engine runtime. Meson supplies these paths consistently for all four.
-Chess models, RPG models/animations/textures, and Tetris audio belong to their
-respective app directories; these locally managed asset collections are ignored
-by Git. Campfire and its resources have been removed.
+as the engine runtime. Meson supplies these paths consistently. Locally managed
+asset collections remain in their respective app directories and are ignored
+by Git.
 
 The Conan package includes default skybox textures, configuration, compiled
 raster shaders, and precomputed environment lighting. Sample models, animations,

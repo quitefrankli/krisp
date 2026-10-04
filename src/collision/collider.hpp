@@ -26,7 +26,7 @@ struct Collider
 {
 	virtual ~Collider() = default;
 	virtual ECollider get_type() const = 0;
-	virtual void apply_transform(const Maths::Transform& transform) {}
+	virtual void apply_transform(const Maths::Transform&) {}
 	virtual Object& spawn_debug_object(GameEngine& engine) const = 0;
 	virtual void update_debug_object(GameEngine& engine, Object& object) const = 0;
 
