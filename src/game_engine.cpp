@@ -96,6 +96,18 @@ void GameEngine::init()
 	}, 1, CSTS::TRACKER_LOG_PERIOD_SECONDS);
 
 	configure_ecs();
+	commands.add("help", "List available commands", [](GameEngine& engine, std::string_view args) {
+		if (!args.empty()) return std::string("Usage: /help");
+		std::string result;
+		for (const auto& entry : engine.get_commands().matches(""))
+			result += "/" + entry.name + " - " + entry.description + "\n";
+		return result;
+	});
+	commands.add("exit", "Exit Krisp", [](GameEngine& engine, std::string_view args) {
+		if (!args.empty()) return std::string("Usage: /exit");
+		engine.shutdown();
+		return std::string("Exiting...");
+	});
 	application->create_ui(*this, application_ui_manager);
 	application_ui_manager.seal();
 	publish_completed_render_frame();
@@ -189,6 +201,15 @@ void GameEngine::main_loop(const float time_delta)
 {
 	window->poll_events();
 
+	const bool prompt_open = get_gui_manager().is_command_prompt_open();
+	if (prompt_open != command_prompt_active)
+	{
+		clear_input_state();
+		if (prompt_open) command_prompt_cursor_captured = window->is_cursor_captured();
+		window->set_cursor_captured(prompt_open ? false : command_prompt_cursor_captured);
+		command_prompt_active = prompt_open;
+	}
+
 	process_objs_to_delete();
 
 	get_gui_manager().process_persistent(*this);
@@ -197,73 +218,77 @@ void GameEngine::main_loop(const float time_delta)
 	else
 		get_gui_manager().process_application(application_ui_manager, *this);
 
-	if ((game_mode == EGameMode::NORMAL && !free_camera_movement && window->is_cursor_captured())
-		|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
+	if (!command_prompt_active)
 	{
-		// if (window->is_shift_down())
-		if (false) // TODO: implement shift key tracking
+		if ((game_mode == EGameMode::NORMAL && !free_camera_movement && window->is_cursor_captured())
+			|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
 		{
-			// panning
+			// if (window->is_shift_down())
+			if (false) // TODO: implement shift key tracking
+			{
+				// panning
+				const float min_threshold = 0.01f;
+				mouse->update_pos();
+				const glm::vec2 offset_vec = mouse->get_orig_offset();
+				const float magnitude = glm::length(offset_vec);
+				if (magnitude > min_threshold)
+				{
+					camera->pan(offset_vec, magnitude);
+				}
+			} else
+			{
+				// orbiting
+				const float min_threshold = 0.001f;
+				mouse->update_pos();
+				glm::vec2 offset = mouse->get_prev_offset();
+				float magnitude = glm::length(offset);
+				if (magnitude > min_threshold)
+				{
+					constexpr float NORMAL_LOOK_SENSITIVITY = 0.25f;
+					const glm::vec2 rotation_offset = game_mode == EGameMode::NORMAL
+						? -offset * NORMAL_LOOK_SENSITIVITY : offset;
+					camera->rotate_camera(rotation_offset, time_delta);
+				}
+			}
+		} else if (mouse->lmb_down)
+		{
+			const float sensitivity = 2.0f;
 			const float min_threshold = 0.01f;
-			mouse->update_pos();
-			const glm::vec2 offset_vec = mouse->get_orig_offset();
-			const float magnitude = glm::length(offset_vec);
-			if (magnitude > min_threshold)
+
+			// check w/ IMMEDIATE prev pos if offset is big enough
+			if (mouse->update_pos_on_significant_offset(min_threshold))
 			{
-				camera->pan(offset_vec, magnitude);
-			}
-		} else
-		{
-			// orbiting
-			const float min_threshold = 0.001f;
-			mouse->update_pos();
-			glm::vec2 offset = mouse->get_prev_offset();
-			float magnitude = glm::length(offset);
-			if (magnitude > min_threshold)
-			{
-				constexpr float NORMAL_LOOK_SENSITIVITY = 0.25f;
-				const glm::vec2 rotation_offset = game_mode == EGameMode::NORMAL
-					? -offset * NORMAL_LOOK_SENSITIVITY : offset;
-				camera->rotate_camera(rotation_offset, time_delta);
+				const auto offset = mouse->get_orig_offset();
+				glm::vec2 screen_axis(offset.x, offset.y);
+				float magnitude = glm::length(screen_axis);
+
+				const Maths::Ray r1 = camera->get_ray(mouse->orig_pos);
+				const Maths::Ray r2 = camera->get_ray(mouse->curr_pos);
+				if (game_mode == EGameMode::EDITOR)
+					gizmo->process(r1, r2);
 			}
 		}
-	} else if (mouse->lmb_down)
-	{
-		const float sensitivity = 2.0f;
-		const float min_threshold = 0.01f;
 
-		// check w/ IMMEDIATE prev pos if offset is big enough
-		if (mouse->update_pos_on_significant_offset(min_threshold))
+		if (game_mode == EGameMode::EDITOR || free_camera_movement)
+			camera->process_keyboard_movement(keyboard, time_delta);
+		// I just realised there is a MUCH more efficient method of doing this
+		// all we need to do is find intersection point of ray with plane of tileset
+		// and check if that point is within bounds of tileset, then we can calculate hovered tile coord from that point
+		// and take into account gaps between tiles as well, this is way more efficient than checking ray intersection with every single tile's collider
+		const auto hover_result = ecs.process_hover(get_mouse_ray());
+		if (hover_result.prev_hovered)
 		{
-			const auto offset = mouse->get_orig_offset();
-			glm::vec2 screen_axis(offset.x, offset.y);
-			float magnitude = glm::length(screen_axis);
-
-			const Maths::Ray r1 = camera->get_ray(mouse->orig_pos);
-			const Maths::Ray r2 = camera->get_ray(mouse->curr_pos);
-			if (game_mode == EGameMode::EDITOR)
-				gizmo->process(r1, r2);
+			unhighlight_object(*get_object(*hover_result.prev_hovered));
 		}
+
+		if (hover_result.new_hovered)
+		{
+			highlight_object(*get_object(*hover_result.new_hovered));
+		}
+
 	}
 
-	if (game_mode == EGameMode::EDITOR || free_camera_movement)
-		camera->process_keyboard_movement(keyboard, time_delta);
-	// I just realised there is a MUCH more efficient method of doing this
-	// all we need to do is find intersection point of ray with plane of tileset
-	// and check if that point is within bounds of tileset, then we can calculate hovered tile coord from that point
-	// and take into account gaps between tiles as well, this is way more efficient than checking ray intersection with every single tile's collider
-	const auto hover_result = ecs.process_hover(get_mouse_ray());
-	if (hover_result.prev_hovered)
-	{
-		unhighlight_object(*get_object(*hover_result.prev_hovered));
-	}
-
-	if (hover_result.new_hovered)
-	{
-		highlight_object(*get_object(*hover_result.new_hovered));
-	}
-
-	if (!paused)
+	if (!is_paused())
 	{
 		if (game_mode == EGameMode::NORMAL && active_player)
 		{
@@ -897,4 +922,13 @@ void GameEngine::load_scene(const std::string_view save_name)
 	set_game_mode(saved_game_mode);
 	application->deserialize_scene(*this, document.child("application"));
 	application->on_scene_loaded(*this);
+}
+
+void GameEngine::clear_input_state()
+{
+	keyboard = Keyboard{};
+	mouse->lmb_down = false;
+	mouse->rmb_down = false;
+	mouse->mmb_down = false;
+	mouse->update_pos();
 }

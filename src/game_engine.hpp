@@ -1,6 +1,7 @@
 #pragma once
 
 #include "input.hpp"
+#include "command_registry.hpp"
 #include "objects/object.hpp"
 #include "objects/objects.hpp"
 #include "resource_loader/resource_loader.hpp"
@@ -91,6 +92,9 @@ public: // getters and setters
 	float get_exposure_ev() const { return render_view_state.exposure_ev; }
 	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }
 	void set_free_camera_movement(bool enabled) { free_camera_movement = enabled; }
+	void clear_input_state();
+	CommandRegistry& get_commands() { return commands; }
+	bool is_command_prompt_open() const { return command_prompt_active; }
 	void set_normal_mode_cursor_captured(bool captured) { normal_mode_cursor_captured = captured; }
 
 public:
@@ -159,7 +163,7 @@ public:
 
 	float get_tps() const { return tps; }
 	void set_tps(const float tps) { this->tps = tps; }
-	bool is_paused() const { return paused; }
+	bool is_paused() const { return paused || command_prompt_active; }
 	void set_paused(bool new_paused) { paused = new_paused; }
 	void toggle_paused() { paused = !paused; }
 	uint32_t get_window_width();
@@ -215,6 +219,9 @@ private:
 	void validate_renderable_resources(const Renderable& renderable) const;
 	std::unique_ptr<Analytics> TPS_counter;
 	float tps;
+	CommandRegistry commands;
+	bool command_prompt_active = false;
+	bool command_prompt_cursor_captured = false;
 	bool paused = false;
 	EGameMode game_mode = EGameMode::EDITOR;
 	PlayerCharacter* active_player = nullptr;

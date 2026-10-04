@@ -1782,3 +1782,75 @@ TEST(GameEngineScene, restores_physics_before_application_state_and_load_callbac
 	EXPECT_TRUE(engine.get_ecs().is_body_active(id));
 	std::filesystem::remove_all(path);
 }
+
+TEST_F(GameEngineTests, CustomCommandsReceiveArgumentsAndAppearInHelp)
+{
+	std::string received;
+	engine.get_commands().add("inspect", "Inspect a resource",
+		[&](GameEngine& host, std::string_view arguments) {
+			EXPECT_EQ(&host, &engine);
+			received = arguments;
+			return std::string("Inspected");
+		});
+	EXPECT_EQ(engine.get_commands().execute(engine, "/inspect  sample resource"), "Inspected");
+	EXPECT_EQ(received, "sample resource");
+	const auto matches = engine.get_commands().matches("/ins");
+	ASSERT_EQ(matches.size(), 1u);
+	EXPECT_EQ(matches.front().name, "inspect");
+	EXPECT_NE(engine.get_commands().execute(engine, "/help").find("/inspect - Inspect a resource"), std::string::npos);
+	EXPECT_THROW(engine.get_commands().add("help", "Duplicate", [](GameEngine&, std::string_view) { return std::string{}; }), std::invalid_argument);
+	EXPECT_NE(engine.get_commands().execute(engine, "/missing").find("Unknown command"), std::string::npos);
+}
+
+TEST_F(GameEngineTests, ExitCommandRejectsArgumentsAndRequestsOrderlyShutdown)
+{
+	EXPECT_EQ(engine.get_commands().execute(engine, "/exit unexpected"), "Usage: /exit");
+	EXPECT_FALSE(get_mock_gfx().shutdown_requested);
+	EXPECT_EQ(engine.get_commands().execute(engine, "/exit"), "Exiting...");
+	EXPECT_TRUE(get_mock_gfx().shutdown_requested);
+}
+
+TEST(GameEngineCommandTests, PromptPausesTicksAndPreservesExplicitPause)
+{
+	class TickCounter : public DummyApplication
+	{
+	public:
+		int ticks = 0;
+		void on_tick(GameEngine&, float) override { ++ticks; }
+	};
+	auto application = std::make_unique<TickCounter>();
+	auto& counter = *application;
+	TestableGameEngine engine(std::move(application));
+	engine.main_loop(0.01f);
+	ASSERT_EQ(counter.ticks, 1);
+	engine.get_window().set_cursor_captured(true);
+	engine.key_callback({GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS});
+	engine.key_callback({GLFW_KEY_SLASH, EKeyModifier::NONE, EInputAction::PRESS});
+	engine.main_loop(0.01f);
+	EXPECT_TRUE(engine.is_paused());
+	EXPECT_EQ(counter.ticks, 1);
+	EXPECT_FALSE(engine.get_window().is_cursor_captured());
+	EXPECT_FALSE(engine.get_keyboard().w_pressed());
+	engine.key_callback({GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS});
+	EXPECT_FALSE(engine.get_keyboard().w_pressed());
+	engine.get_gui_manager().command_prompt.set_visible(false);
+	engine.main_loop(0.01f);
+	EXPECT_FALSE(engine.is_paused());
+	EXPECT_EQ(counter.ticks, 2);
+	EXPECT_TRUE(engine.get_window().is_cursor_captured());
+
+	engine.set_paused(true);
+	engine.key_callback({GLFW_KEY_SLASH, EKeyModifier::NONE, EInputAction::PRESS});
+	engine.main_loop(0.01f);
+	engine.get_gui_manager().command_prompt.set_visible(false);
+	engine.main_loop(0.01f);
+	EXPECT_TRUE(engine.is_paused());
+}
+
+TEST_F(GameEngineTests, clearing_input_releases_held_movement)
+{
+	engine.key_callback({GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS});
+	EXPECT_TRUE(engine.get_keyboard().w_pressed());
+	engine.clear_input_state();
+	EXPECT_FALSE(engine.get_keyboard().w_pressed());
+}

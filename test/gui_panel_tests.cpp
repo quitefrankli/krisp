@@ -8,6 +8,10 @@
 
 #include <gtest/gtest.h>
 #include <GLFW/glfw3.h>
+#include <imgui.h>
+#include <imgui_internal.h>
+#include "../third_party/ImGui/imgui_impl_glfw.h"
+#include "window.hpp"
 
 namespace
 {
@@ -67,12 +71,14 @@ TEST(GuiPanel, mesh_editor_is_registered_hidden_and_docked_right)
 	EXPECT_FALSE(manager.mesh_editor.is_visible());
 }
 
-TEST(GuiPanel, fps_counter_is_the_only_persistent_engine_ui)
+TEST(GuiPanel, persistent_engine_ui_includes_fps_counter_and_command_prompt)
 {
 	EngineUiManager manager;
 
-	ASSERT_EQ(manager.get_persistent_windows().size(), 1u);
+	ASSERT_EQ(manager.get_persistent_windows().size(), 2u);
 	EXPECT_EQ(manager.get_persistent_windows().front().get(), &manager.fps_counter);
+	EXPECT_EQ(manager.get_persistent_windows().back().get(), &manager.command_prompt);
+	EXPECT_FALSE(manager.command_prompt.is_open());
 	EXPECT_FALSE(manager.fps_counter.is_visible());
 }
 
@@ -292,4 +298,98 @@ TEST(GuiAnimationSelector, cycles_animation_choices_with_wraparound)
 	EXPECT_EQ(
 		GuiAnimationSelector::cycle_animation_choice(choices, std::nullopt, -1), AnimationID(3));
 	EXPECT_FALSE(GuiAnimationSelector::cycle_animation_choice({}, std::nullopt, 1));
+}
+
+namespace
+{
+class CommandPromptFrames : public testing::Test
+{
+protected:
+	void SetUp() override
+	{
+		ImGui::CreateContext();
+		auto& io = ImGui::GetIO();
+		io.IniFilename = nullptr;
+		io.DisplaySize = ImVec2(1000.0f, 700.0f);
+		io.DeltaTime = 0.1f;
+		unsigned char* pixels;
+		int width, height;
+		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+	}
+	void TearDown() override { ImGui::DestroyContext(); }
+	void frame(GuiCommandPrompt& prompt)
+	{
+		ImGui::NewFrame();
+		prompt.draw();
+		ImGui::Render();
+	}
+};
+
+class CommandPromptCallbacks : public IWindowCallbacks
+{
+public:
+	EngineUiManager manager;
+	void key_callback(const KeyInput& input) override { manager.handle_command_input(input); }
+	void scroll_callback(double, bool) override {}
+	void mouse_button_callback(const MouseInput&, bool) override {}
+};
+}
+
+TEST_F(CommandPromptFrames, EscapeReleaseAllowsConsoleToReopenThroughWindowCallbacks)
+{
+	if (!glfwInit()) GTEST_SKIP() << "A display is required for GLFW callback integration";
+	App::Window window;
+	auto* native_window = window.get_glfw_window();
+	ImGui_ImplGlfw_InitForVulkan(native_window, true);
+	const std::unique_ptr<GLFWwindow, void(*)(GLFWwindow*)> backend(native_window,
+		[](GLFWwindow*) { ImGui_ImplGlfw_Shutdown(); });
+	CommandPromptCallbacks callbacks;
+	window.setup_callbacks(callbacks);
+	const auto dispatch = glfwSetKeyCallback(native_window, nullptr);
+	glfwSetKeyCallback(native_window, dispatch);
+	auto& prompt = callbacks.manager.command_prompt;
+	frame(prompt);
+	dispatch(native_window, GLFW_KEY_SLASH, 0, GLFW_PRESS, 0);
+	frame(prompt);
+	frame(prompt);
+	frame(prompt);
+	ASSERT_TRUE(prompt.is_open());
+	dispatch(native_window, GLFW_KEY_ESCAPE, 0, GLFW_PRESS, 0);
+	frame(prompt);
+	frame(prompt);
+	EXPECT_FALSE(prompt.is_open());
+	// The game is visible again before Escape is physically released.
+	frame(prompt);
+	frame(prompt);
+	dispatch(native_window, GLFW_KEY_ESCAPE, 0, GLFW_RELEASE, 0);
+	for (int index = 0; index < 5; ++index) frame(prompt);
+	EXPECT_FALSE(ImGui::IsKeyDown(ImGuiKey_Escape));
+	dispatch(native_window, GLFW_KEY_SLASH, 0, GLFW_PRESS, 0);
+	for (int index = 0; index < 5; ++index)
+	{
+		frame(prompt);
+		EXPECT_TRUE(prompt.is_open()) << "Reopening must not flicker closed";
+	}
+}
+
+TEST_F(CommandPromptFrames, ConsoleRemainsFixedToBottomHalfWhenViewportResizes)
+{
+	GuiCommandPrompt prompt;
+	prompt.open();
+	frame(prompt);
+	auto* window = ImGui::FindWindowByName(prompt.get_imgui_name());
+	ASSERT_NE(window, nullptr);
+	EXPECT_FLOAT_EQ(window->Pos.x, 0.0f);
+	EXPECT_FLOAT_EQ(window->Pos.y, 350.0f);
+	EXPECT_FLOAT_EQ(window->Size.x, 1000.0f);
+	EXPECT_FLOAT_EQ(window->Size.y, 350.0f);
+	EXPECT_TRUE(window->Flags & ImGuiWindowFlags_NoTitleBar);
+	EXPECT_TRUE(window->Flags & ImGuiWindowFlags_NoMove);
+	EXPECT_TRUE(window->Flags & ImGuiWindowFlags_NoResize);
+	ImGui::GetIO().DisplaySize = ImVec2(640.0f, 480.0f);
+	frame(prompt);
+	EXPECT_FLOAT_EQ(window->Pos.x, 0.0f);
+	EXPECT_FLOAT_EQ(window->Pos.y, 240.0f);
+	EXPECT_FLOAT_EQ(window->Size.x, 640.0f);
+	EXPECT_FLOAT_EQ(window->Size.y, 240.0f);
 }

@@ -42,7 +42,8 @@ public:
 		render_slicer(spawn_gui<GuiRenderSlicer>()),
 		animation_selector(spawn_gui<GuiAnimationSelector>()),
 		material_editor(spawn_gui<GuiMaterialEditor>()),
-		mesh_editor(spawn_gui<GuiMeshEditor>())
+		mesh_editor(spawn_gui<GuiMeshEditor>()),
+		command_prompt(spawn_persistent_gui<GuiCommandPrompt>())
 	{
 	}
 
@@ -97,6 +98,17 @@ public:
 	{
 		statistics.update_buffer_capacities(capacities);
 	}
+	bool handle_command_input(const KeyInput& input)
+	{
+		const std::lock_guard lock(state_mutex);
+		if (command_prompt.is_open()) return true;
+		if (input.eq(GLFW_KEY_SLASH, EKeyModifier::NONE, EInputAction::PRESS))
+		{
+			command_prompt.open();
+			return true;
+		}
+		return false;
+	}
 	bool handle_key_input(const KeyInput& input, const bool editor_shortcuts_active)
 	{
 		const std::lock_guard lock(state_mutex);
@@ -126,6 +138,12 @@ public:
 	GuiAnimationSelector& animation_selector;
 	GuiMaterialEditor& material_editor;
 	GuiMeshEditor& mesh_editor;
+	GuiCommandPrompt& command_prompt;
+	bool is_command_prompt_open()
+	{
+		const std::lock_guard lock(state_mutex);
+		return command_prompt.is_open();
+	}
 
 public: // for GameEngine
 	void process(GameEngine& engine)
@@ -141,12 +159,7 @@ public: // for GameEngine
 		const std::lock_guard lock(state_mutex);
 		manager.process(engine);
 	}
-	void process_persistent(GameEngine& engine)
-	{
-		const std::lock_guard lock(state_mutex);
-		for (auto& gui : persistent_windows)
-			gui->process(engine);
-	}
+	void process_persistent(GameEngine& engine);
 
 private:
 	std::mutex state_mutex;

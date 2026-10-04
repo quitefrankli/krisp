@@ -65,9 +65,10 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 
 static void key_callback(GLFWwindow* window, int key, int scan_code, int action, int mode)
 {
+	// Keep ImGui key state current even after a text field releases capture.
+	ImGui_ImplGlfw_KeyCallback(window, key, scan_code, action, mode);
 	if (ImGui::GetIO().WantCaptureKeyboard)
 	{
-		ImGui_ImplGlfw_KeyCallback(window, key, scan_code, action, mode);
 		const bool is_function_key = key >= GLFW_KEY_F1 && key <= GLFW_KEY_F25;
 		if (!is_function_key)
 			return;
