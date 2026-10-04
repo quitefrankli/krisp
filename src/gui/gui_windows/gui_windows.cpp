@@ -285,7 +285,7 @@ GuiObjectSpawner::GuiObjectSpawner() :
 				auto& ecs = engine.get_ecs();
 				auto texture_owner = ResourceLoader::fetch_texture(
 					ecs.get_material_system(),
-					"texture.jpg",
+					"checkerboard.png",
 					ETextureSemantic::BASE_COLOR);
 				PbrMaterial::TextureSlots slots{
 					.base_color = PbrMaterial::TextureBinding{ texture_owner->get_id() },

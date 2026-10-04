@@ -1,6 +1,7 @@
 #pragma once
 
 #include "material.hpp"
+#include "composited_texture_material.hpp"
 #include "identifications.hpp"
 #include "entity_component_system/material_system.hpp"
 
@@ -57,8 +58,12 @@ private:
 		if (!binding)
 			return;
 		const auto& owner = texture_owner(*binding);
-		const auto* texture = dynamic_cast<const TextureMaterial*>(&owner->get());
-		if (!texture || texture->semantic != semantic)
+		const auto& material = owner->get();
+		const auto* texture = dynamic_cast<const TextureMaterial*>(&material);
+		const auto* composition = dynamic_cast<const CompositedTextureMaterial*>(&material);
+		const bool valid_type = texture || (semantic == ETextureSemantic::BASE_COLOR && composition);
+		const auto* sampled = dynamic_cast<const SampledMaterial*>(&material);
+		if (!valid_type || !sampled || sampled->semantic != semantic)
 			throw std::invalid_argument("PBR texture binding has the wrong semantic");
 	}
 

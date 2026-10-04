@@ -13,6 +13,7 @@
 #include "graphics_engine/engine_base.hpp"
 #include "render_frame.hpp"
 #include "renderable/render_types.hpp"
+#include "renderable/composited_texture_material.hpp"
 
 #include <atomic>
 #include <thread>
@@ -44,10 +45,12 @@ struct PbrTextureEdit
 		Keep,
 		Clear,
 		Replace,
+		AppendOverlays,
 	};
 
 	Action action = Action::Keep;
 	std::string source;
+	std::vector<TextureCompositionOverlay> overlays;
 };
 
 struct PbrMaterialEdit
@@ -148,6 +151,9 @@ public:
 	RenderableID set_renderable_pbr_material(
 		RenderableID renderable_id,
 		const PbrMaterialEdit& edit);
+	RenderableID composite_renderable_base_color(
+		RenderableID renderable_id,
+		const std::vector<TextureCompositionOverlay>& overlays);
 	ECS& get_ecs() { return ecs; }
 	const ECS& get_ecs() const { return ecs; }
 

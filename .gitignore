@@ -33,3 +33,4 @@ resources/default/*
 !resources/default/textures/
 resources/default/textures/*
 !resources/default/textures/skybox/
+!resources/default/textures/checkerboard.png

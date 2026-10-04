@@ -197,7 +197,7 @@ void GameEngine::main_loop(const float time_delta)
 	else
 		get_gui_manager().process_application(application_ui_manager, *this);
 
-	if ((game_mode == EGameMode::NORMAL && !free_camera_movement)
+	if ((game_mode == EGameMode::NORMAL && !free_camera_movement && window->is_cursor_captured())
 		|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
 	{
 		// if (window->is_shift_down())
@@ -600,7 +600,7 @@ RenderableID GameEngine::set_renderable_pbr_material(
 	{
 		if (texture_edit.action == PbrTextureEdit::Action::Keep)
 			return;
-		if (!textured_pipeline && texture_edit.action == PbrTextureEdit::Action::Replace)
+		if (!textured_pipeline && texture_edit.action != PbrTextureEdit::Action::Clear)
 			throw std::runtime_error(
 				"GameEngine::set_renderable_pbr_material: mesh has no editable texture coordinates");
 		if (texture_edit.action == PbrTextureEdit::Action::Clear)
@@ -611,18 +611,52 @@ RenderableID GameEngine::set_renderable_pbr_material(
 					.mode = PbrTextureOverride::Mode::Cleared };
 			return;
 		}
-		if (texture_edit.source.empty())
-			throw std::runtime_error(
-				"GameEngine::set_renderable_pbr_material: replacement texture name is empty");
-		auto owner = ResourceLoader::fetch_texture(
-			ecs.get_material_system(), texture_edit.source, semantic);
+		MaterialHandle owner;
+		auto sampler = PbrMaterial::TextureSampler::repeat();
+		if (texture_edit.action == PbrTextureEdit::Action::AppendOverlays)
+		{
+			if (semantic != ETextureSemantic::BASE_COLOR || !slot)
+				throw std::invalid_argument("Base-color overlays require an existing base-color texture");
+			if (texture_edit.overlays.empty())
+				return;
+			const auto& base_owner = current_group.texture_owner(*slot);
+			const auto& base = dynamic_cast<const SampledMaterial&>(base_owner->get());
+			std::vector<TextureCompositionLayer> layers;
+			if (const auto* composition = dynamic_cast<const CompositedTextureMaterial*>(&base))
+				layers = composition->layers;
+			else
+				layers.push_back({ .source = base_owner });
+			if (texture_edit.overlays.size() > CSTS::MAX_TEXTURE_COMPOSITION_LAYERS - layers.size())
+				throw std::invalid_argument("Base-color overlay layer limit exceeded");
+			for (const auto& overlay : texture_edit.overlays)
+				layers.push_back({
+					.source = ResourceLoader::fetch_texture(
+						ecs.get_material_system(), overlay.texture_filename, ETextureSemantic::BASE_COLOR),
+					.centre = overlay.centre,
+					.scale = overlay.scale,
+					.rotation_radians = overlay.rotation_radians,
+					.tint = overlay.tint,
+					.opacity = overlay.opacity,
+				});
+			owner = ecs.get_material_system().add(std::make_unique<CompositedTextureMaterial>(
+				base.width, base.height, std::move(layers)));
+			sampler = slot->sampler;
+		}
+		else
+		{
+			if (texture_edit.source.empty())
+				throw std::runtime_error(
+					"GameEngine::set_renderable_pbr_material: replacement texture name is empty");
+			owner = ResourceLoader::fetch_texture(
+				ecs.get_material_system(), texture_edit.source, semantic);
+		}
 		slot = PbrMaterial::TextureBinding{
-			owner->get_id(), PbrMaterial::TextureSampler::repeat() };
+			owner->get_id(), sampler };
 		if (material_override)
 			(*material_override).*override_slot = PbrTextureOverride{
 				.mode = PbrTextureOverride::Mode::Replaced,
 				.texture = owner->get_id(),
-				.sampler = PbrMaterial::TextureSampler::repeat(),
+				.sampler = sampler,
 			};
 		replacement_textures.push_back(std::move(owner));
 	};
@@ -700,6 +734,32 @@ RenderableID GameEngine::set_renderable_pbr_material(
 	if (material_override)
 		ResourceProvenance::register_material_override(material_id, std::move(*material_override));
 	return ecs.replace_renderable(renderable_id, std::move(renderable));
+}
+
+RenderableID GameEngine::composite_renderable_base_color(
+	const RenderableID renderable_id,
+	const std::vector<TextureCompositionOverlay>& overlays)
+{
+	if (!ecs.has_renderable(renderable_id))
+		throw std::runtime_error("GameEngine::composite_renderable_base_color: renderable not found");
+	if (overlays.empty())
+		return renderable_id;
+	const PbrMatGroup materials(ecs.get_renderable(renderable_id).renderable.material_owners);
+	const auto& current = materials.pbr();
+	return set_renderable_pbr_material(renderable_id, PbrMaterialEdit{
+		.base_color_factor = current.data.base_color_factor,
+		.metallic_factor = current.data.metallic_factor,
+		.roughness_factor = current.data.roughness_factor,
+		.normal_scale = current.data.normal_scale,
+		.alpha_mode = current.properties.alpha_mode,
+		.alpha_cutoff = current.properties.alpha_cutoff,
+		.double_sided = current.properties.double_sided,
+		.emissive_factor = current.properties.emissive_factor,
+		.base_color_texture = {
+			.action = PbrTextureEdit::Action::AppendOverlays,
+			.overlays = overlays,
+		},
+	});
 }
 
 EngineUiManager& GameEngine::get_gui_manager()

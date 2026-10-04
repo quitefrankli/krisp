@@ -13,7 +13,7 @@
 class GraphicsEnginePipeline;
 
 // Sampling handles returned to the normal material-descriptor path. The
-// compositor retains ownership of both objects for the composition's lifetime.
+// compositor owns the image view; the texture manager owns shared samplers.
 struct GraphicsTextureSample
 {
 	VkImageView image_view = VK_NULL_HANDLE;
@@ -37,7 +37,8 @@ public:
 
 	// Returns stable sampling handles for a composition, allocating its GPU
 	// output and queueing one-time generation on first use.
-	GraphicsTextureSample resolve(const MaterialHandle& material);
+	GraphicsTextureSample resolve(
+		const MaterialHandle& material, PbrMaterial::TextureSampler sampler);
 	// Records all queued layer stacks into the current graphics command buffer.
 	// Command ordering makes the completed images visible to later scene passes.
 	void record_pending(VkCommandBuffer command_buffer);
@@ -58,7 +59,6 @@ private:
 		VkDeviceMemory memory = VK_NULL_HANDLE;
 		VkImageView image_view = VK_NULL_HANDLE;
 		VkFramebuffer framebuffer = VK_NULL_HANDLE;
-		VkSampler sampler = VK_NULL_HANDLE;
 		VkExtent2D extent{};
 		std::vector<VkDescriptorSet> layer_dsets;
 		std::vector<TextureCompositionLayer> layers;

@@ -21,6 +21,7 @@
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/RegisterTypes.h>
 
@@ -182,12 +183,15 @@ public:
 
 	ShapeRefC shape(const RigidBodyDefinition& d)
 	{
-		return std::visit([](const auto& s) -> ShapeRefC {
+		ShapeRefC result = std::visit([](const auto& s) -> ShapeRefC {
 			using T = std::decay_t<decltype(s)>;
 			if constexpr (std::is_same_v<T, BoxPhysicsShape>) return new BoxShape(to_jolt(s.half_extents));
 			else if constexpr (std::is_same_v<T, SpherePhysicsShape>) return new SphereShape(s.radius);
 			else return new CapsuleShape(std::max(0.0f, s.height * 0.5f - s.radius), s.radius);
 		}, d.shape);
+		if (d.shape_offset != glm::vec3(0.0f))
+			return new JPH::RotatedTranslatedShape(to_jolt(d.shape_offset), Quat::sIdentity(), result.GetPtr());
+		return result;
 	}
 
 	void OnContactAdded(const Body& a, const Body& b, const ContactManifold&, ContactSettings& settings) override
@@ -227,6 +231,7 @@ public:
 
 void ::PhysicsSystem::add_rigid_body(EntityID id, const RigidBodyDefinition& d)
 {
+	require_finite(d.shape_offset, "shape_offset");
 	remove_rigid_body(id);
 	if (!get_ecs().has_transformation(id)) throw std::invalid_argument("Rigid body entity has no transformation");
 	const auto position = get_ecs().get_position(id);
@@ -343,7 +348,7 @@ DetectedEntityCollision PhysicsSystem::raycast(const Maths::Ray& ray, std::span<
 		if (!lock.Succeeded()) continue;
 		const Body& body = lock.GetBody();
 		const Quat inverse = body.GetRotation().Conjugated();
-		const RayCast cast(inverse * (to_jolt(ray.origin) - Vec3(body.GetPosition())), inverse * to_jolt(ray.direction * distance));
+		const RayCast cast(inverse * (to_jolt(ray.origin) - Vec3(body.GetCenterOfMassPosition())), inverse * to_jolt(ray.direction * distance));
 		if (body.GetShape()->CastRay(cast, SubShapeIDCreator{}, hit)) {
 			distance *= hit.mFraction; best = {true, id, ray.origin + ray.direction * distance};
 		}
@@ -377,6 +382,10 @@ std::vector<PhysicsDebugTriangle> PhysicsSystem::get_debug_shape_triangles(Entit
 	BodyLockRead lock(impl->world.GetBodyLockInterface(), found->second.body);
 	if (!lock.Succeeded()) return triangles;
 	const auto* shape = lock.GetBody().GetShape();
+	// Translation-only wrappers shift the body's centre of mass. Debug geometry
+	// remains centre-of-mass-relative and must be extracted from the leaf shape.
+	if (shape->GetSubType() == JPH::EShapeSubType::RotatedTranslated)
+		shape = static_cast<const JPH::RotatedTranslatedShape*>(shape)->GetInnerShape();
 	JPH::Shape::GetTrianglesContext context;
 	shape->GetTrianglesStart(context, shape->GetLocalBounds(), Vec3::sZero(), Quat::sIdentity(),
 		Vec3::sReplicate(1.0f));
@@ -409,6 +418,7 @@ void ::PhysicsSystem::serialize(Serializer& out) const
 			else if constexpr (std::is_same_v<T, SpherePhysicsShape>) body.write("radius", shape.radius);
 			else { body.write("radius", shape.radius); body.write("height", shape.height); }
 		}, record.definition.shape);
+		Serialization::write_vec3(body, "shape_offset", record.definition.shape_offset);
 		body.write("motion", static_cast<int>(record.definition.motion));
 		body.write("quality", static_cast<int>(record.definition.quality));
 		body.write("participation", static_cast<int>(record.definition.participation));
@@ -461,6 +471,8 @@ void ::PhysicsSystem::deserialize(const Deserializer& in)
 		if (shape == 0) d.shape = BoxPhysicsShape{Serialization::read_vec3(entry, "half_extents")};
 		else if (shape == 1) d.shape = SpherePhysicsShape{entry.read<float>("radius")};
 		else d.shape = CapsulePhysicsShape{entry.read<float>("radius"), entry.read<float>("height")};
+		d.shape_offset = Serialization::read_vec3(entry, "shape_offset");
+		require_finite(d.shape_offset, physics_entry_path(entry, "shape_offset"));
 		d.motion = read_enum<PhysicsMotionType>(entry, "motion", 2, physics_entry_path(entry, "motion"));
 		d.quality = read_enum<PhysicsMotionQuality>(entry, "quality", 1, physics_entry_path(entry, "quality"));
 		d.participation = read_enum<PhysicsParticipation>(entry, "participation", 2, physics_entry_path(entry, "participation"));

@@ -6,7 +6,7 @@
 #include <imgui.h>
 
 GuiFPSCounter::GuiFPSCounter() :
-	PersistentUiWindow({ "fps_counter", "FPS Counter", GuiPanelDock::NONE, true, false })
+	PersistentUiWindow({ "fps_counter", "FPS Counter", GuiPanelDock::NONE, false, false })
 {
 }
 

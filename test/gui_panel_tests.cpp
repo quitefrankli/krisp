@@ -73,7 +73,7 @@ TEST(GuiPanel, fps_counter_is_the_only_persistent_engine_ui)
 
 	ASSERT_EQ(manager.get_persistent_windows().size(), 1u);
 	EXPECT_EQ(manager.get_persistent_windows().front().get(), &manager.fps_counter);
-	EXPECT_TRUE(manager.fps_counter.is_visible());
+	EXPECT_FALSE(manager.fps_counter.is_visible());
 }
 
 TEST(GuiPanel, f1_toggles_fps_counter_globally_on_unmodified_press_only)
@@ -82,15 +82,15 @@ TEST(GuiPanel, f1_toggles_fps_counter_globally_on_unmodified_press_only)
 
 	EXPECT_TRUE(manager.handle_key_input(
 		{ GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::PRESS }, false));
-	EXPECT_FALSE(manager.fps_counter.is_visible());
+	EXPECT_TRUE(manager.fps_counter.is_visible());
 	EXPECT_FALSE(manager.handle_key_input(
 		{ GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::RELEASE }, false));
 	EXPECT_FALSE(manager.handle_key_input(
 		{ GLFW_KEY_F1, EKeyModifier::SHIFT, EInputAction::PRESS }, false));
-	EXPECT_FALSE(manager.fps_counter.is_visible());
+	EXPECT_TRUE(manager.fps_counter.is_visible());
 	EXPECT_TRUE(manager.handle_key_input(
 		{ GLFW_KEY_F1, EKeyModifier::NONE, EInputAction::PRESS }, false));
-	EXPECT_TRUE(manager.fps_counter.is_visible());
+	EXPECT_FALSE(manager.fps_counter.is_visible());
 }
 
 TEST(GuiPanel, f2_toggles_recording_globally)

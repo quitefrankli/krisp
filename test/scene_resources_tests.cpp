@@ -173,6 +173,68 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	EXPECT_EQ(std::memcmp(texture_value.data->get(), pixels.data(), pixels.size()), 0);
 }
 
+TEST_F(SceneResourcesTests, round_trips_pbr_base_color_composition_and_its_sources)
+{
+	ECS source;
+	std::vector<MaterialHandle> texture_owners;
+	for (int index = 0; index < 2; ++index)
+	{
+		auto texture = std::make_unique<TextureMaterial>();
+		texture->width = 2;
+		texture->height = 1;
+		texture->channels = 4;
+		texture->data_len = 8;
+		texture->mip_sizes = { 8 };
+		texture->semantic = ETextureSemantic::BASE_COLOR;
+		texture->data = std::make_unique<OwnedTextureData>(std::vector<std::byte>(8));
+		texture_owners.push_back(source.get_material_system().add(std::move(texture)));
+	}
+	auto composition = source.get_material_system().add(
+		std::make_unique<CompositedTextureMaterial>(2, 1, std::vector<TextureCompositionLayer>{
+			{ .source = texture_owners[0] },
+			{ .source = texture_owners[1], .centre = { 0.25f, 0.75f },
+			  .scale = { 0.5f, 0.25f }, .rotation_radians = 0.3f,
+			  .tint = { 0.2f, 0.4f, 0.6f }, .opacity = 0.7f },
+		}));
+	PbrMaterial::TextureSlots slots;
+	slots.base_color = PbrMaterial::TextureBinding{
+		.texture = composition->get_id(),
+		.sampler = PbrMaterial::TextureSampler::clamp_to_edge(),
+	};
+	auto pbr = source.get_material_system().add(
+		std::make_unique<PbrMaterial>(glm::vec4(1.0f), 0.0f, 1.0f, slots));
+
+	Serializer document;
+	SceneResourceWriter writer(document, source, directory);
+	writer.write_material_reference(document.map("material"), pbr->get_id());
+	const auto saved = Deserializer::parse(document.emit());
+	EXPECT_EQ(saved.child("resources").child("materials").elements().size(), 4);
+
+	ECS restored;
+	SceneResourceReader reader(restored, directory);
+	reader.prepare(saved);
+	const auto restored_pbr = reader.read_material_reference(saved.child("material"));
+	const auto& restored_value = dynamic_cast<const PbrMaterial&>(restored_pbr->get());
+	ASSERT_TRUE(restored_value.textures.base_color.has_value());
+	EXPECT_EQ(restored_value.textures.base_color->sampler,
+		PbrMaterial::TextureSampler::clamp_to_edge());
+	const auto& restored_composition = dynamic_cast<const CompositedTextureMaterial&>(
+		restored.get_material_system().get(restored_value.textures.base_color->texture));
+	ASSERT_EQ(restored_composition.layers.size(), 2);
+	EXPECT_EQ(restored_composition.layers[1].centre, glm::vec2(0.25f, 0.75f));
+	EXPECT_EQ(restored_composition.layers[1].scale, glm::vec2(0.5f, 0.25f));
+	EXPECT_FLOAT_EQ(restored_composition.layers[1].rotation_radians, 0.3f);
+	EXPECT_EQ(restored_composition.layers[1].tint, glm::vec3(0.2f, 0.4f, 0.6f));
+	EXPECT_FLOAT_EQ(restored_composition.layers[1].opacity, 0.7f);
+	for (const auto& layer : restored_composition.layers)
+	{
+		const auto& texture = dynamic_cast<const TextureMaterial&>(layer.source->get());
+		EXPECT_EQ(texture.semantic, ETextureSemantic::BASE_COLOR);
+		EXPECT_EQ(texture.width, 2u);
+		EXPECT_EQ(texture.height, 1u);
+	}
+}
+
 TEST_F(SceneResourcesTests, round_trips_imported_pbr_property_and_emissive_texture_overrides)
 {
 	ECS source;

@@ -269,6 +269,11 @@ material first becomes live. Work scales with output pixel count multiplied by
 layer count because each layer is one full-output draw. All newly introduced
 compositions are generated before the first scene pass that can sample them, so
 introducing many compositions together may cause a one-frame GPU workload spike.
+PBR base-colour overlays use this cached output through the existing texture
+slot, adding no per-frame texture samples. Appending an overlay creates a new
+immutable recipe and regenerates the complete flattened stack once; it does
+not incrementally draw into the previous output. Retained render snapshots may
+briefly keep both outputs alive until submission-safe retirement completes.
 Recipes are capped at 64 total layers, including the bottom/base texture. The
 descriptor pool has a fixed engine-wide allowance of 128 compositor layers
 rather than reserving the recipe maximum for every possible renderable. Layer

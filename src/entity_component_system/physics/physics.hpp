@@ -47,6 +47,8 @@ struct RigidBodyDefinition
 	float angular_damping = 0.05f; // Angular velocity decay applied over time.
 	float gravity_factor = 1.0f;   // Multiplier for the world's gravity.
 	bool enabled = true;
+	// Translates the collision shape relative to the entity origin, in local units.
+	glm::vec3 shape_offset{0.0f};
 };
 
 // Contact events are published after each physics update and remain valid until

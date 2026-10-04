@@ -191,3 +191,38 @@ TEST(JoltPhysicsSerialization, RejectsMissingBodySequenceAndDuplicateEntities)
 	add_valid_body(invalid_entry, body, 99);
 	EXPECT_THROW(ecs.PhysicsSystem::deserialize(Deserializer::parse(invalid_enum.emit())), SerializationError);
 }
+
+TEST(JoltPhysics, ShapeOffsetRotatesWithEntityAndPreservesEntityOrigin)
+{
+	PhysicsECS ecs;
+	const auto id = ecs.object.get_id();
+	const glm::vec3 origin(4.0f, 2.0f, 0.0f);
+	ecs.set_position(id, origin);
+	ecs.set_rotation(id, glm::angleAxis(Maths::PI * 0.5f, Maths::forward_vec));
+	ecs.add_rigid_body(id, RigidBodyDefinition{
+		.shape = SpherePhysicsShape{0.25f}, .motion = PhysicsMotionType::Kinematic,
+		.shape_offset = {0.0f, 1.0f, 0.0f},
+	});
+	ecs.process(1.0f / 60.0f);
+	EXPECT_EQ(ecs.get_position(id), origin);
+	EXPECT_FALSE(ecs.get_debug_shape_triangles(id).empty());
+	const auto centre = ecs.get_debug_bodies().front().position;
+	EXPECT_NEAR(centre.x, 3.0f, 0.001f);
+	EXPECT_NEAR(centre.y, 2.0f, 0.001f);
+	const Maths::Ray ray({3.0f, 2.0f, -3.0f}, Maths::forward_vec);
+	EXPECT_TRUE(ecs.PhysicsSystem::raycast(ray).bCollided);
+	const std::vector<EntityID> candidates{id};
+	EXPECT_TRUE(ecs.PhysicsSystem::raycast(ray, candidates).bCollided);
+	EXPECT_FALSE(ecs.PhysicsSystem::raycast(Maths::Ray({4.0f, 2.0f, -3.0f}, Maths::forward_vec), candidates).bCollided);
+
+	Serializer saved;
+	ecs.TransformationSystem::serialize(saved);
+	ecs.PhysicsSystem::serialize(saved);
+	PhysicsECS restored;
+	const auto document = Deserializer::parse(saved.emit());
+	restored.TransformationSystem::deserialize(document);
+	restored.PhysicsSystem::deserialize(document);
+	EXPECT_EQ(restored.get_position(id), origin);
+	EXPECT_TRUE(restored.PhysicsSystem::raycast(ray, candidates).bCollided);
+	EXPECT_NEAR(restored.get_debug_bodies().front().position.x, 3.0f, 0.001f);
+}

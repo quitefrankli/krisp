@@ -876,17 +876,29 @@ void GraphicsEngine::create_renderable_dsets(GraphicsRenderable &graphics_render
 			const std::optional<PbrMaterial::TextureBinding>& binding,
 			const ETextureSemantic semantic)
 		{
-			const GraphicsEngineTexture* texture = nullptr;
-			if (binding)
-				texture = &get_texture_mgr().fetch_texture(
-					materials.texture_owner(*binding), binding->sampler);
-			else
-				texture = &get_texture_mgr().fetch_neutral_texture(semantic);
-			return VkDescriptorImageInfo{
-				.sampler = texture->get_texture_sampler(),
-				.imageView = texture->get_texture_image_view(),
-				.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			};
+			VkDescriptorImageInfo info{};
+			info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			if (!binding)
+			{
+				const auto& texture = get_texture_mgr().fetch_neutral_texture(semantic);
+				info.sampler = texture.get_texture_sampler();
+				info.imageView = texture.get_texture_image_view();
+				return info;
+			}
+
+			const auto& owner = materials.texture_owner(*binding);
+			if (dynamic_cast<const CompositedTextureMaterial*>(&owner->get()))
+			{
+				const auto sample = get_texture_compositor().resolve(owner, binding->sampler);
+				info.sampler = sample.sampler;
+				info.imageView = sample.image_view;
+				return info;
+			}
+
+			const auto& texture = get_texture_mgr().fetch_texture(owner, binding->sampler);
+			info.sampler = texture.get_texture_sampler();
+			info.imageView = texture.get_texture_image_view();
+			return info;
 		};
 		const std::array image_infos{
 			image_info(materials.pbr().textures.base_color, ETextureSemantic::BASE_COLOR),

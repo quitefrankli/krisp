@@ -95,7 +95,8 @@ TextureCompositor::~TextureCompositor()
 		vkDestroyRenderPass(get_logical_device(), render_pass, nullptr);
 }
 
-GraphicsTextureSample TextureCompositor::resolve(const MaterialHandle& owner)
+GraphicsTextureSample TextureCompositor::resolve(
+	const MaterialHandle& owner, const PbrMaterial::TextureSampler sampler)
 {
 	const auto* material = dynamic_cast<const CompositedTextureMaterial*>(&owner->get());
 	if (!material)
@@ -107,7 +108,10 @@ GraphicsTextureSample TextureCompositor::resolve(const MaterialHandle& owner)
 		pending.push_back(id);
 	}
 	const auto& resources = compositions.at(id);
-	return { resources.image_view, resources.sampler };
+	return {
+		resources.image_view,
+		get_graphics_engine().get_texture_mgr().fetch_sampler(sampler),
+	};
 }
 
 TextureCompositor::CompositionResources TextureCompositor::create_resources(
@@ -126,9 +130,6 @@ TextureCompositor::CompositionResources TextureCompositor::create_resources(
 			VK_SAMPLE_COUNT_1_BIT);
 		resources.image_view = get_graphics_engine().create_image_view(
 			resources.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
-		resources.sampler = get_graphics_engine().get_texture_mgr().fetch_sampler(
-			PbrMaterial::TextureSampler::repeat());
-
 		VkFramebufferCreateInfo framebuffer_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
 		framebuffer_info.renderPass = render_pass;
 		framebuffer_info.attachmentCount = 1;

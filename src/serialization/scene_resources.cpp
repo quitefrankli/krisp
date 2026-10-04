@@ -795,6 +795,29 @@ void SceneResourceReader::prepare(const Deserializer &document)
 	}
 	for (const auto& entry : saved_resources.child("materials").elements())
 	{
+		if (entry.read<std::string>("type") != "composited_texture")
+			continue;
+		const auto id = entry.read<std::uint64_t>("id");
+		std::vector<TextureCompositionLayer> layers;
+		for (const auto& saved_layer : entry.child("layers").elements())
+		{
+			layers.push_back({
+				.source = read_material_reference(saved_layer.child("source")),
+				.centre = Serialization::read_vec2(saved_layer, "centre"),
+				.scale = Serialization::read_vec2(saved_layer, "scale"),
+				.rotation_radians = saved_layer.read<float>("rotation_radians"),
+				.tint = Serialization::read_vec3(saved_layer, "tint"),
+				.opacity = saved_layer.read<float>("opacity"),
+			});
+		}
+		auto composition = std::make_unique<CompositedTextureMaterial>(
+			entry.read<std::uint32_t>("width"), entry.read<std::uint32_t>("height"),
+			std::move(layers));
+		if (!materials.emplace(id, ecs.get_material_system().add(std::move(composition))).second)
+			throw SerializationError("Duplicate generated material resource at " + entry.path());
+	}
+	for (const auto& entry : saved_resources.child("materials").elements())
+	{
 		if (entry.read<std::string>("type") != "pbr")
 			continue;
 		const auto id = entry.read<std::uint64_t>("id");
@@ -839,29 +862,6 @@ void SceneResourceReader::prepare(const Deserializer &document)
 			throw SerializationError(
 				"Invalid PBR material at " + entry.path() + ": " + error.what());
 		}
-	}
-	for (const auto& entry : saved_resources.child("materials").elements())
-	{
-		if (entry.read<std::string>("type") != "composited_texture")
-			continue;
-		const auto id = entry.read<std::uint64_t>("id");
-		std::vector<TextureCompositionLayer> layers;
-		for (const auto& saved_layer : entry.child("layers").elements())
-		{
-			layers.push_back({
-				.source = read_material_reference(saved_layer.child("source")),
-				.centre = Serialization::read_vec2(saved_layer, "centre"),
-				.scale = Serialization::read_vec2(saved_layer, "scale"),
-				.rotation_radians = saved_layer.read<float>("rotation_radians"),
-				.tint = Serialization::read_vec3(saved_layer, "tint"),
-				.opacity = saved_layer.read<float>("opacity"),
-			});
-		}
-		auto composition = std::make_unique<CompositedTextureMaterial>(
-			entry.read<std::uint32_t>("width"), entry.read<std::uint32_t>("height"),
-			std::move(layers));
-		if (!materials.emplace(id, ecs.get_material_system().add(std::move(composition))).second)
-			throw SerializationError("Duplicate generated material resource at " + entry.path());
 	}
 }
 

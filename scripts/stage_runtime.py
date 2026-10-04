@@ -9,6 +9,8 @@ def stage(source: Path, build: Path) -> None:
     runtime = build / "runtime"
     shutil.copytree(source / "resources/default/textures/skybox",
                     runtime / "resources/textures/skybox", dirs_exist_ok=True)
+    shutil.copy2(source / "resources/default/textures/checkerboard.png",
+                 runtime / "resources/textures/checkerboard.png")
     (runtime / "configs").mkdir(parents=True, exist_ok=True)
     shutil.copy2(source / "configs/default.yaml", runtime / "configs/default.yaml")
     for shader in (build / "shaders").rglob("*.spv"):

@@ -27,7 +27,8 @@ as the engine runtime. Meson supplies these paths consistently. Locally managed
 asset collections remain in their respective app directories and are ignored
 by Git.
 
-The Conan package includes default skybox textures, configuration, compiled
+The Conan package includes default skybox textures, the neutral `checkerboard.png`
+texture used by the Object Spawner, configuration, compiled
 raster shaders, and precomputed environment lighting. Sample models, animations,
 and unrelated asset collections remain application resources. See
 [the Conan workflow](CONAN.md) for editable and packaged builds.
@@ -126,6 +127,26 @@ Standalone textures resolve from the `textures` directories. PNG/JPEG images
 are decoded to single-level RGBA8; Krisp does not generate mipmaps. DXT5/BC3 DDS
 is also supported and retains a valid authored mip chain; other DDS formats,
 cubemaps, and volume textures are rejected.
+
+### Base-color overlays
+
+The Material Editor can append texture overlays to an existing PBR base-color
+texture on a mesh with UVs. Each overlay has a UV centre, scale, rotation, linear
+RGB tint, and opacity. `GameEngine::composite_renderable_base_color()` exposes
+the same operation to consumers. The immutable recipe retains the original
+texture and all overlay sources; repeated applications append to a flat stack.
+There are at most 64 total layers, including the base texture.
+
+Composition uses premultiplied source-over blending in linear colour and stores
+the result in a single-mip sRGB texture at the base texture's dimensions. PBR
+sampling converts it back to straight colour before applying the base-colour
+factor to the complete composition. The base texture's sampler is preserved.
+Metallic-roughness, normal, emissive, alpha mode, and other material properties
+are unchanged. Overlay alpha contributes to masked and blended material alpha.
+
+`Apply Overlay` appends the draft overlay. Ordinary material edits preserve the
+stack; replacing or clearing the base-color texture removes it. Scene saves
+retain recipes and source references for both generated and imported meshes.
 
 ### Environment lighting
 

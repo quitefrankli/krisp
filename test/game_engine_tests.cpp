@@ -10,6 +10,8 @@
 #include "mock_window.hpp"
 #include "renderable/mesh_factory.hpp"
 #include "renderable/material_factory.hpp"
+#include "renderable/composited_texture_material.hpp"
+#include "renderable/material_group.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "serialization/serializer.hpp"
@@ -558,6 +560,24 @@ TEST_F(GameEngineTests, normal_mode_orbits_camera_without_a_mouse_button)
 		glm::dot(rotated_direction, initial_direction), -1.0f, 1.0f)), 0.2f);
 }
 
+TEST_F(GameEngineTests, released_cursor_does_not_orbit_the_follow_camera)
+{
+	engine.spawn_object<PlayerCharacter>(PlayerDefinition{});
+	engine.get_camera().look_at(Maths::zero_vec, { 0.0f, 2.0f, -5.0f });
+	engine.get_mock_window().set_cursor_pos(Maths::zero_vec);
+	engine.set_normal_mode_cursor_captured(false);
+	engine.set_game_mode(EGameMode::NORMAL);
+	const glm::vec3 initial_direction = glm::normalize(
+		engine.get_camera().get_focus() - engine.get_camera().get_position());
+
+	engine.get_mock_window().set_cursor_pos({ 0.02f, 0.0f });
+	engine.main_loop(0.1f);
+
+	const glm::vec3 direction = glm::normalize(
+		engine.get_camera().get_focus() - engine.get_camera().get_position());
+	EXPECT_TRUE(glm_equal(direction, initial_direction));
+}
+
 TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 {
 	const std::filesystem::path environment_asset = "precomputed_environment.krisp-ibl";
@@ -637,6 +657,11 @@ TEST_F(GameEngineTests, model_spawner_imports_each_mesh_node_as_clickable)
 
 TEST_F(GameEngineTests, object_spawner_creates_a_clickable_textured_pbr_cube)
 {
+	// The default texture must be shipped, not just available in local asset collections.
+	const auto shipped_texture = Utility::get_engine_runtime_path()
+		/ "resources/textures/checkerboard.png";
+	ASSERT_TRUE(std::filesystem::is_regular_file(shipped_texture));
+
 	auto& spawner = engine.get_gui_manager().object_spawner;
 	ASSERT_TRUE(spawner.queue_object_spawn("textured cube"));
 	spawner.process(engine);
@@ -660,6 +685,7 @@ TEST_F(GameEngineTests, object_spawner_creates_a_clickable_textured_pbr_cube)
 	const auto& texture = dynamic_cast<const TextureMaterial&>(
 		renderable.material_owners[1]->get());
 	EXPECT_EQ(texture.semantic, ETextureSemantic::BASE_COLOR);
+	EXPECT_EQ(texture.source, "checkerboard.png");
 
 	const auto clicked = engine.get_ecs().check_any_entity_clicked(
 		Maths::Ray(glm::vec3(0.0f, 0.0f, -2.0f), Maths::forward_vec));
@@ -966,6 +992,137 @@ TEST_F(GameEngineTests, scene_round_trips_replaced_imported_texture_override)
 		material_override->base_color_texture->texture,
 		texture->get_id());
 	std::filesystem::remove_all(path);
+}
+
+TEST_F(GameEngineTests, base_color_overlays_append_without_changing_other_pbr_properties)
+{
+	auto loaded = ResourceLoader::load_model(
+		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
+	auto renderable = std::move(loaded.meshes.front().renderables.front());
+	const PbrMatGroup original(renderable.material_owners);
+	const auto normal_binding = original.pbr().textures.normal;
+	const auto base_sampler = original.pbr().textures.base_color->sampler;
+	const auto mesh_id = renderable.get_mesh_id();
+	auto& object = spawn_renderable_object(engine, std::move(renderable));
+	const auto edited = engine.set_renderable_pbr_material(
+		only_renderable_id(engine, object.get_id()), PbrMaterialEdit{
+			.base_color_factor = glm::vec4(0.2f, 0.4f, 0.6f, 0.8f),
+			.metallic_factor = 0.3f,
+			.roughness_factor = 0.7f,
+			.normal_scale = 0.4f,
+			.alpha_mode = EAlphaMode::MASK,
+			.alpha_cutoff = 0.2f,
+			.double_sided = true,
+			.emissive_factor = glm::vec3(0.1f),
+			.metallic_roughness_texture = {
+				.action = PbrTextureEdit::Action::Replace, .source = "texture.jpg" },
+			.emissive_texture = {
+				.action = PbrTextureEdit::Action::Replace, .source = "texture.jpg" },
+		});
+	const PbrMatGroup before(engine.get_ecs().get_renderable(edited).renderable.material_owners);
+	const auto metallic_binding = before.pbr().textures.metallic_roughness;
+	const auto emissive_binding = before.pbr().textures.emissive;
+	const TextureCompositionOverlay overlay{
+		.texture_filename = "texture.jpg",
+		.centre = { 0.25f, 0.75f }, .scale = { 0.5f, 0.2f },
+		.rotation_radians = 0.3f, .tint = { 0.8f, 0.6f, 0.4f }, .opacity = 0.5f,
+	};
+	const auto first = engine.composite_renderable_base_color(edited, { overlay });
+	const auto second = engine.composite_renderable_base_color(first, { overlay });
+	EXPECT_FALSE(engine.get_ecs().has_renderable(first));
+	const auto& updated = engine.get_ecs().get_renderable(second).renderable;
+	const PbrMatGroup materials(updated.material_owners);
+	const auto& pbr = materials.pbr();
+	EXPECT_EQ(updated.get_mesh_id(), mesh_id);
+	EXPECT_EQ(pbr.data.base_color_factor, glm::vec4(0.2f, 0.4f, 0.6f, 0.8f));
+	EXPECT_FLOAT_EQ(pbr.data.metallic_factor, 0.3f);
+	EXPECT_FLOAT_EQ(pbr.data.roughness_factor, 0.7f);
+	EXPECT_FLOAT_EQ(pbr.data.normal_scale, 0.4f);
+	EXPECT_EQ(pbr.properties.alpha_mode, EAlphaMode::MASK);
+	EXPECT_FLOAT_EQ(pbr.properties.alpha_cutoff, 0.2f);
+	EXPECT_TRUE(pbr.properties.double_sided);
+	EXPECT_EQ(pbr.properties.emissive_factor, glm::vec3(0.1f));
+	EXPECT_EQ(pbr.textures.normal, normal_binding);
+	EXPECT_EQ(pbr.textures.metallic_roughness, metallic_binding);
+	EXPECT_EQ(pbr.textures.emissive, emissive_binding);
+	EXPECT_EQ(pbr.textures.base_color->sampler, base_sampler);
+	const auto& composition = dynamic_cast<const CompositedTextureMaterial&>(
+		materials.texture_owner(*pbr.textures.base_color)->get());
+	ASSERT_EQ(composition.layers.size(), 3u);
+	EXPECT_NE(dynamic_cast<const TextureMaterial*>(&composition.layers.front().source->get()), nullptr);
+	EXPECT_EQ(composition.layers.back().centre, overlay.centre);
+	EXPECT_EQ(composition.layers.back().scale, overlay.scale);
+	EXPECT_FLOAT_EQ(composition.layers.back().rotation_radians, overlay.rotation_radians);
+	EXPECT_EQ(composition.layers.back().tint, overlay.tint);
+	EXPECT_FLOAT_EQ(composition.layers.back().opacity, overlay.opacity);
+
+	EXPECT_THROW(engine.composite_renderable_base_color(second,
+		{ { .texture_filename = "missing_overlay.png" } }), ResourceLoadError);
+	EXPECT_THROW(engine.composite_renderable_base_color(second,
+		{ { .texture_filename = "texture.jpg", .scale = { 0.0f, 1.0f } } }), std::invalid_argument);
+	EXPECT_THROW(engine.composite_renderable_base_color(second,
+		std::vector<TextureCompositionOverlay>(CSTS::MAX_TEXTURE_COMPOSITION_LAYERS, overlay)),
+		std::invalid_argument);
+	EXPECT_EQ(only_renderable_id(engine, object.get_id()), second);
+	EXPECT_EQ(engine.get_ecs().get_renderable(second).renderable.material_owners.front()->get_id(),
+		pbr.get_id());
+
+	const auto composition_id = composition.get_id();
+	const auto factor_edited = engine.set_renderable_pbr_material(
+		second, glm::vec4(1.0f), 0.2f, 0.5f);
+	const PbrMatGroup factor_materials(engine.get_ecs().get_renderable(factor_edited).renderable.material_owners);
+	EXPECT_EQ(factor_materials.pbr().textures.base_color->texture, composition_id);
+	const auto replaced = engine.set_renderable_pbr_material(factor_edited, PbrMaterialEdit{
+		.base_color_texture = { .action = PbrTextureEdit::Action::Replace, .source = "texture.jpg" },
+	});
+	const PbrMatGroup replacement_materials(engine.get_ecs().get_renderable(replaced).renderable.material_owners);
+	EXPECT_NE(dynamic_cast<const TextureMaterial*>(
+		&replacement_materials.texture_owner(*replacement_materials.pbr().textures.base_color)->get()), nullptr);
+	const auto recomposed = engine.composite_renderable_base_color(replaced, { overlay });
+	const auto cleared = engine.set_renderable_pbr_material(recomposed, PbrMaterialEdit{
+		.base_color_texture = { .action = PbrTextureEdit::Action::Clear },
+	});
+	const PbrMatGroup cleared_materials(engine.get_ecs().get_renderable(cleared).renderable.material_owners);
+	EXPECT_FALSE(cleared_materials.pbr().textures.base_color.has_value());
+	EXPECT_THROW(engine.composite_renderable_base_color(cleared, { overlay }), std::invalid_argument);
+	EXPECT_EQ(only_renderable_id(engine, object.get_id()), cleared);
+}
+
+TEST_F(GameEngineTests, scene_round_trips_imported_pbr_base_color_overlays)
+{
+	auto loaded = ResourceLoader::load_model(
+		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
+	auto& object = spawn_renderable_object(engine, std::move(loaded.meshes.front().renderables.front()));
+	const auto object_id = object.get_id();
+	const auto replacement = engine.composite_renderable_base_color(
+		only_renderable_id(engine, object_id), {
+			{ .texture_filename = "texture.jpg", .opacity = 0.4f },
+			{ .texture_filename = "texture.jpg", .centre = { 0.2f, 0.3f }, .opacity = 0.7f },
+		});
+	const auto& before = engine.get_ecs().get_renderable(replacement).renderable;
+	const PbrMatGroup before_materials(before.material_owners);
+	const auto base_sampler = before_materials.pbr().textures.base_color->sampler;
+	const std::string save_name = "krisp_scene_imported_overlay_test";
+	engine.save_scene(save_name);
+	engine.load_scene(save_name);
+
+	const auto& restored = engine.get_ecs().get_renderable(only_renderable_id(engine, object_id)).renderable;
+	const PbrMatGroup materials(restored.material_owners);
+	const auto& pbr = materials.pbr();
+	ASSERT_TRUE(pbr.textures.base_color.has_value());
+	EXPECT_EQ(pbr.textures.base_color->sampler, base_sampler);
+	const auto& composition = dynamic_cast<const CompositedTextureMaterial&>(
+		materials.texture_owner(*pbr.textures.base_color)->get());
+	ASSERT_EQ(composition.layers.size(), 3u);
+	EXPECT_FLOAT_EQ(composition.layers[1].opacity, 0.4f);
+	EXPECT_EQ(composition.layers[2].centre, glm::vec2(0.2f, 0.3f));
+	EXPECT_FLOAT_EQ(composition.layers[2].opacity, 0.7f);
+	ASSERT_TRUE(pbr.textures.normal.has_value());
+	const auto* override = ResourceProvenance::material_override(pbr.get_id());
+	ASSERT_NE(override, nullptr);
+	ASSERT_TRUE(override->base_color_texture.has_value());
+	EXPECT_EQ(override->base_color_texture->texture, composition.get_id());
+	std::filesystem::remove_all(save_path(save_name));
 }
 
 TEST_F(GameEngineTests, scene_round_trips_manual_exposure)

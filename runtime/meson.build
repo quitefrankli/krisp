@@ -1,7 +1,8 @@
 python = import('python').find_installation('python3')
 krisp_runtime = custom_target(
     'krisp_runtime',
-    input: [shader_artifacts, default_environment_lighting, skybox_faces, files('../configs/default.yaml')],
+    input: [shader_artifacts, default_environment_lighting, skybox_faces,
+        files('../resources/default/textures/checkerboard.png', '../configs/default.yaml')],
     output: 'runtime.stamp',
     command: [python, files('../scripts/stage_runtime.py'),
         meson.project_source_root(), meson.project_build_root(), '@OUTPUT@'],

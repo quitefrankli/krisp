@@ -40,6 +40,7 @@ class KrispConan(ConanFile):
         "shaders/*",
         "shaders/**/*",
         "resources/default/textures/skybox/*",
+        "resources/default/textures/checkerboard.png",
         "runtime/*",
         "runtime/**/*",
         "test/*",
