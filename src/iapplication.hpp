@@ -6,6 +6,8 @@
 class Object;
 class GameEngine;
 class ApplicationUiManager;
+class Serializer;
+class Deserializer;
 
 class IApplication
 {
@@ -26,6 +28,11 @@ public:
 	// follow or player locomotion.
 	virtual bool allows_playerless_normal_mode() const { return false; }
 	virtual void on_key_press(GameEngine& engine, const KeyInput& key_input) = 0;
+	// Save app-owned gameplay state and object references into the scene document.
+	virtual void serialize_scene(Serializer&) const {}
+	// Restore app state after objects, transforms, and physics have been restored.
+	virtual void deserialize_scene(GameEngine&, const Deserializer&) {}
+	// Refresh transient input/UI state after engine and app state restoration.
 	virtual void on_scene_loaded(GameEngine&) {}
 };
 

@@ -29,6 +29,20 @@ raster shaders, and precomputed environment lighting. Sample models, animations,
 and unrelated asset collections remain application resources. See
 [the Conan workflow](CONAN.md) for editable and packaged builds.
 
+## Scene state
+
+Scene saves include persistent rigid-body definitions, enabled and active state,
+and linear/angular velocities. Bodies are rebuilt from the restored entity
+transforms before app state is restored. Transient bodies and transformations
+are excluded. Pair-specific contact restitution is saved with persistent bodies.
+
+Applications implement `IApplication::serialize_scene` and `deserialize_scene`
+for gameplay state. Store object references as serialized `ObjectID` values;
+display names are editable labels. `deserialize_scene` runs after engine/ECS
+restoration, and `on_scene_loaded` then refreshes transient input and UI state.
+The save schema is developmental; older saves are not retained as a compatibility
+format.
+
 ## Models
 
 Models must be glTF (`.gltf`) or binary glTF (`.glb`); `.glb` is preferred for

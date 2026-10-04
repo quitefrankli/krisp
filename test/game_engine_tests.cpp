@@ -1568,3 +1568,60 @@ TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 	engine.delete_object(object.get_id());
 	EXPECT_NO_THROW(engine.main_loop(0.1f));
 }
+
+TEST(GameEngineScene, restores_physics_before_application_state_and_load_callback)
+{
+	class SavedApplication final : public DummyApplication
+	{
+	public:
+		ObjectID ball;
+		int score = 7;
+		bool restored = false;
+		bool notified = false;
+
+		void serialize_scene(Serializer& out) const override
+		{
+			out.write("ball", ball.get_underlying());
+			out.write("score", score);
+		}
+		void deserialize_scene(GameEngine& engine, const Deserializer& in) override
+		{
+			ball = ObjectID(in.read<uint64_t>("ball"));
+			score = in.read<int>("score");
+			EXPECT_NE(engine.get_object(ball), nullptr);
+			EXPECT_TRUE(engine.get_ecs().has_rigid_body(ball));
+			EXPECT_EQ(engine.get_ecs().get_linear_velocity(ball), glm::vec3(2.0f, 0.0f, 0.0f));
+			restored = true;
+		}
+		void on_scene_loaded(GameEngine& engine) override
+		{
+			EXPECT_TRUE(restored);
+			EXPECT_EQ(score, 7);
+			EXPECT_EQ(engine.get_object(ball)->get_name(), "Editable display label");
+			notified = true;
+		}
+	};
+
+	auto application = std::make_unique<SavedApplication>();
+	auto& state = *application;
+	TestableGameEngine engine(std::move(application));
+	auto& object = engine.spawn_object<Object>();
+	object.set_name("Editable display label");
+	const auto id = object.get_id();
+	state.ball = id;
+	engine.get_ecs().add_rigid_body(id, RigidBodyDefinition{
+		.shape = SpherePhysicsShape{0.5f}, .motion = PhysicsMotionType::Dynamic});
+	engine.get_ecs().set_linear_velocity(id, {2.0f, 0.0f, 0.0f});
+	const std::string save_name = "krisp_application_physics_round_trip";
+	const auto path = save_path(save_name);
+	engine.save_scene(save_name);
+	state.score = 99;
+	state.ball = ObjectID{};
+	engine.get_ecs().remove_rigid_body(id);
+
+	engine.load_scene(save_name);
+	EXPECT_EQ(state.ball, id);
+	EXPECT_TRUE(state.notified);
+	EXPECT_TRUE(engine.get_ecs().is_body_active(id));
+	std::filesystem::remove_all(path);
+}

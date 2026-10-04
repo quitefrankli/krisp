@@ -763,6 +763,8 @@ void GameEngine::save_scene(const std::string_view save_name) const
 		}
 		auto saved_ecs = document.map("ecs");
 		ecs.serialize(saved_ecs, resources);
+		auto saved_application = document.map("application");
+		application->serialize_scene(saved_application);
 
 		const auto temporary = staging / "scene.yaml.tmp";
 		{
@@ -833,5 +835,6 @@ void GameEngine::load_scene(const std::string_view save_name)
 	set_exposure_ev(document.child("render_settings").read<float>("exposure_ev"));
 	camera->deserialize(document.child("camera"));
 	set_game_mode(saved_game_mode);
+	application->deserialize_scene(*this, document.child("application"));
 	application->on_scene_loaded(*this);
 }

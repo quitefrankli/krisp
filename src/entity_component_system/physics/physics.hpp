@@ -88,6 +88,8 @@ public:
 	glm::vec3 get_angular_velocity(EntityID id) const;
 	void add_impulse(EntityID id, glm::vec3 impulse);
 	bool is_body_active(EntityID id) const;
+	// Explicitly activates or sleeps an enabled body.
+	void set_body_active(EntityID id, bool active);
 	// Overrides Jolt's combined restitution for contacts between this exact pair.
 	// The override is removed automatically when either body is destroyed.
 	void set_contact_restitution(EntityID first, EntityID second, float restitution);
