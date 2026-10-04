@@ -16,8 +16,10 @@
 #include <GLFW/glfw3.h> // for key macros
 
 #include <algorithm>
-#include <optional>
+#include <filesystem>
 #include <iostream>
+#include <optional>
+#include <utility>
 
 
 class Application : public IApplication
@@ -51,7 +53,8 @@ public:
 			ecs.move_to_tile(*clicked_coord, *selected_piece);
 			if (auto* moved_piece = engine.get_object(*selected_piece))
 			{
-				moved_piece->set_position(tile_to_world_pos(*clicked_coord));
+				ecs.get_transformation(moved_piece->get_id()).set_position(
+					tile_to_world_pos(*clicked_coord));
 			}
 			clear_selection(engine);
 			return;
@@ -71,7 +74,9 @@ public:
 	{
 		engine.get_ecs().spawn_tileset(8, 8, 5.0f);
 		board.emplace([&engine](std::vector<Renderable> renderables, Piece::Type type, Piece::Side side) -> Piece& {
-			return engine.spawn_object<Piece>(std::move(renderables), type, side);
+			auto& piece = engine.spawn_object<Piece>(type, side);
+			engine.attach_renderables(piece.get_id(), std::move(renderables));
+			return piece;
 		}, engine.get_ecs());
 
 		engine.get_camera().look_at(glm::vec3(0.0f), glm::vec3(0.0f, 20.0f, -50.0f));
@@ -177,9 +182,12 @@ private:
 	std::vector<ObjectID> highlighted_tiles;
 };
 
-int main(int argc, char* argv[])
+int main()
 {
-	Config::init(PROJECT_NAME);
+	auto runtime_paths = Utility::paths_for_executable(PROJECT_NAME);
+	runtime_paths.app_resources = std::filesystem::path(KRISP_SOURCE_DIR) / "resources/chess";
+	runtime_paths.engine_runtime = KRISP_RUNTIME_DIR;
+	Config::init(PROJECT_NAME, std::move(runtime_paths));
 
 	auto engine = GameEngine::create<Application>();
 	auto& ecs = engine.get_ecs();
@@ -188,14 +196,16 @@ int main(int argc, char* argv[])
 	engine.spawn_cubemap();
 
 	// Add light source
-	auto& light_source = engine.spawn_object<Object>(Renderable{
-		.mesh_id = MeshFactory::sphere_id(),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+	auto& light_source = engine.spawn_object<Object>();
+	engine.attach_renderable(light_source.get_id(), Renderable{
+		.mesh_owner = ecs.get_mesh_system().add(MeshFactory::sphere()),
+		.material_owners = { ecs.get_material_system().add(
+			MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE)) },
 		.pipeline_render_type = ERenderType::COLOR,
 		.casts_shadow = false
 	});
-	light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
-	light_source.set_scale(glm::vec3(2.0f));
+	ecs.get_transformation(light_source.get_id()).set_position(glm::vec3(0.0f, 10.0f, 0.0f));
+	ecs.get_transformation(light_source.get_id()).set_scale(glm::vec3(2.0f));
 
 	ecs.add_collider(light_source.get_id(), std::make_unique<SphereCollider>());
 	ecs.add_clickable_entity(light_source.get_id());

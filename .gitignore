@@ -26,3 +26,10 @@ vulkanSDKMacOS
 .DS_Store
 *.log
 .env
+
+# Engine runtime defaults must travel with the library source package.
+!resources/default/
+resources/default/*
+!resources/default/textures/
+resources/default/textures/*
+!resources/default/textures/skybox/

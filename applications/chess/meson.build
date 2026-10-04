@@ -1,12 +1,6 @@
-chess_sources = [
-  'src/chess.cpp',
-  'src/board.cpp',
-  'src/pieces.cpp'
-]
-
-executable('chess', 
-           chess_sources,
-           dependencies: krisp_core,
-           install: true,
-           install_dir: install_dir,
-           cpp_args: ['-DPROJECT_NAME="chess"'])
+executable(app_name, app_sources,
+    dependencies: krisp_core,
+    link_depends: krisp_runtime,
+    install: true,
+    install_dir: install_dir,
+    cpp_args: internal_app_args)

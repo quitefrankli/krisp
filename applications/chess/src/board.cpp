@@ -7,6 +7,7 @@
 #include <entity_component_system/ecs.hpp>
 
 #include <cassert>
+#include <stdexcept>
 
 
 Board::Board(PieceSpawner spawner, ECS& ecs)
@@ -64,17 +65,18 @@ Board::Board(PieceSpawner spawner, ECS& ecs)
 		{
 			auto& board = spawner(loaded_model.meshes[i].renderables, info.type, info.side);
 			board.set_name("chess_board");
-			board.set_scale(glm::vec3(85.0f));
-			board.set_position(Maths::up_vec * -1.3f);
+			ecs.get_transformation(board.get_id()).set_scale(glm::vec3(85.0f));
+			ecs.get_transformation(board.get_id()).set_position(Maths::up_vec * -1.3f);
 			continue;
 		}
 
 		auto& piece = spawner(loaded_model.meshes[i].renderables, info.type, info.side);
 		piece.set_name(loaded_model.meshes[i].name);
-		piece.set_scale(glm::vec3(100.0f));
+		ecs.get_transformation(piece.get_id()).set_scale(glm::vec3(100.0f));
 		ecs.move_to_tile(TileCoord(info.x, info.y), piece.get_id());
 
 		const float TILE_SIZE = 5.0f;
-		piece.set_position(glm::vec3((info.x-3.5f)*TILE_SIZE, 0, (info.y-3.5f)*TILE_SIZE));
+		ecs.get_transformation(piece.get_id()).set_position(
+			glm::vec3((info.x-3.5f)*TILE_SIZE, 0, (info.y-3.5f)*TILE_SIZE));
 	}
 }

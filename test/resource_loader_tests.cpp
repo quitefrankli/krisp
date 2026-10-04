@@ -113,7 +113,7 @@ public:
 		const std::optional<size_t> payload_size = std::nullopt)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_top_level_path()/"test/data"
+		path = Utility::get_test_data_path()
 			/ fmt::format("krisp_test_{}.dds", sequence++);
 		contents.resize(128, 0);
 		const auto write_u32 = [this](const size_t offset, const uint32_t value)
@@ -182,7 +182,7 @@ public:
 	explicit GeneratedGlbDDS(const GeneratedDDS& dds)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_top_level_path() / "test/data"
+		path = Utility::get_test_data_path()
 			/ fmt::format("krisp_test_dds_{}.glb", sequence++);
 
 		tinygltf::TinyGLTF io;
@@ -236,7 +236,7 @@ public:
 		const bool strip_textures = true)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_top_level_path()/"test/data"
+		path = Utility::get_test_data_path()
 			/ fmt::format("krisp_test_accessor_{}.gltf", sequence++);
 		std::ifstream input(Utility::get_model(template_filename));
 		nlohmann::json document;
@@ -264,10 +264,10 @@ public:
 	TemporaryExternalJpeg()
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_top_level_path()/"test/data"
+		path = Utility::get_test_data_path()
 			/ fmt::format("krisp_test_external_{}.jpg", sequence++);
 		std::filesystem::copy_file(
-			Utility::get_top_level_path()/"resources/default/textures/texture.jpg",
+			std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg",
 			path,
 			std::filesystem::copy_options::overwrite_existing);
 	}

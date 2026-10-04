@@ -143,7 +143,7 @@ std::filesystem::path make_screenshot_path()
 		<< std::setfill('0') << std::setw(3) << millis.count()
 		<< ".png";
 
-	return Utility::get_top_level_path() / "screenshots" / oss.str();
+	return Utility::get_writable_data_path() / "screenshots" / oss.str();
 }
 }
 

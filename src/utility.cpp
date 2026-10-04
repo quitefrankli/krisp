@@ -16,18 +16,68 @@
 #include <thread>
 #include <random>
 #include <algorithm>
+#include <system_error>
 
 
-Utility::Utility()
+namespace
 {
-	top_level_dir = PROJECT_TOP_LEVEL_SRC_DIR;
-	build = PROJECT_BUILD_DIR;
-	binary = PROJECT_BIN_DIR;
+	std::unique_ptr<Utility> utility_singleton;
+
+	std::filesystem::path xdg_directory(const char* variable, const char* home_suffix, std::string_view app_name)
+	{
+		if (const char* configured = std::getenv(variable); configured && *configured)
+			return std::filesystem::path(configured) / app_name;
+		if (const char* home = std::getenv("HOME"); home && *home)
+			return std::filesystem::path(home) / home_suffix / app_name;
+		return std::filesystem::temp_directory_path() / app_name;
+	}
+
+	void validate_relative_filename(std::string_view filename, std::string_view operation)
+	{
+		const std::filesystem::path relative(filename);
+		if (relative.empty() || relative.is_absolute()
+			|| std::ranges::find(relative, std::filesystem::path("..")) != relative.end())
+		{
+			throw std::runtime_error(fmt::format(
+				"{}: expected a resource-relative filename: '{}'", operation, filename));
+		}
+	}
+}
+
+RuntimePaths Utility::paths_for_executable(std::string_view app_name)
+{
+	std::error_code error;
+	auto executable = std::filesystem::read_symlink("/proc/self/exe", error);
+	if (error)
+		throw std::runtime_error(fmt::format("Utility::paths_for_executable: cannot resolve executable: {}", error.message()));
+	const auto executable_dir = executable.parent_path();
+	return RuntimePaths{
+		.app_resources = executable_dir / "resources" / app_name,
+		.app_config = xdg_directory("XDG_CONFIG_HOME", ".config", app_name),
+		.engine_runtime = executable_dir / "krisp-runtime",
+		.writable_data = xdg_directory("XDG_DATA_HOME", ".local/share", fmt::format("krisp/{}", app_name)),
+	};
+}
+
+void Utility::initialize(RuntimePaths paths)
+{
+	if (utility_singleton)
+		throw std::runtime_error("Utility::initialize: runtime paths are already configured");
+	if (paths.app_resources.empty() || paths.app_config.empty()
+		|| paths.engine_runtime.empty() || paths.writable_data.empty())
+		throw std::invalid_argument("Utility::initialize: all runtime paths must be provided");
+	utility_singleton.reset(new Utility(std::move(paths)));
+}
+
+Utility::Utility(RuntimePaths runtime_paths) : paths(std::move(runtime_paths))
+{
+	const auto log_dir = paths.writable_data / "logs";
+	std::filesystem::create_directories(log_dir);
 
 	quill::FileSinkConfig file_sink_config{};
 	file_sink_config.set_open_mode('a');
 	auto file_sink = quill::Frontend::create_or_get_sink<quill::FileSink>(
-		fmt::format("{}/log.log", PROJECT_TOP_LEVEL_SRC_DIR), file_sink_config);
+		(log_dir / "krisp.log").string(), file_sink_config);
 
 	quill::ConsoleSinkConfig console_sink_config;
 	console_sink_config.set_stream("stderr");
@@ -57,31 +107,26 @@ void Utility::enable_logging()
 	quill::BackendOptions backend_options;
 	quill::Backend::start(backend_options); // this will consume CPU cycles
 	LOG_INFO(get_logger(),
-			 "Utility::Utility: Initialised with build:{}, binary:{}",
-			 get_build_path().string(),
-			 get_binary_path().string());
+			 "Utility::Utility: Initialised with runtime:{}, data:{}",
+			 get_engine_runtime_path().string(),
+			 get_writable_data_path().string());
 }
 
 Utility& Utility::get()
 {
-	// inspired by meyer's singleton
-	static Utility singleton;
-	return singleton;
+	if (!utility_singleton)
+		throw std::runtime_error("Utility used before Config::init configured runtime paths");
+	return *utility_singleton;
 }
 
 std::filesystem::path Utility::resolve_resource(std::string_view subdir, std::string_view filename)
 {
+	validate_relative_filename(filename, "Utility::resolve_resource");
 	const std::filesystem::path resource_name(filename);
-	if (resource_name.empty() || resource_name.is_absolute()
-		|| std::ranges::find(resource_name, std::filesystem::path("..")) != resource_name.end())
-	{
-		throw std::runtime_error(fmt::format(
-			"Utility::resolve_resource: expected a resource-relative filename: '{}'", filename));
-	}
 
 	if (get().test_mode)
 	{
-		auto test_path = get().top_level_dir / "test/data" / resource_name;
+		auto test_path = get().test_data / resource_name;
 		if (std::filesystem::exists(test_path))
 			return test_path;
 	}
@@ -106,42 +151,29 @@ std::filesystem::path Utility::resolve_resource(std::string_view subdir, std::st
 
 std::filesystem::path Utility::get_config_path(std::string_view filename)
 {
-	auto app_config = get().top_level_dir / "applications" / Config::get_project_name() / filename;
+	validate_relative_filename(filename, "Utility::get_config_path");
+	auto app_config = get().paths.app_config / filename;
 	if (std::filesystem::exists(app_config))
 	{
 		return app_config;
 	}
-	return get().top_level_dir / "configs" / filename;
+	return get().paths.engine_runtime / "configs" / filename;
 }
 
 std::filesystem::path Utility::get_user_config_path(std::string_view filename)
 {
-	std::filesystem::path config_root;
-	if (const char* xdg_config_home = std::getenv("XDG_CONFIG_HOME");
-		xdg_config_home && *xdg_config_home)
-	{
-		config_root = xdg_config_home;
-	}
-	else if (const char* home = std::getenv("HOME"); home && *home)
-	{
-		config_root = std::filesystem::path(home) / ".config";
-	}
-	else
-	{
-		config_root = std::filesystem::temp_directory_path();
-	}
-
-	return config_root / "krisp" / Config::get_project_name() / filename;
+	validate_relative_filename(filename, "Utility::get_user_config_path");
+	return get().paths.app_config / filename;
 }
 
 std::filesystem::path Utility::get_rsrc_path(bool use_default)
 {
 	if (use_default)
 	{
-		return get().top_level_dir / "resources/default";
+		return get().paths.engine_runtime / "resources";
 	}
 
-	return get().top_level_dir / "resources" / Config::get_project_name();
+	return get().paths.app_resources;
 }
 
 std::filesystem::path Utility::get_texture(std::string_view filename)
@@ -161,10 +193,19 @@ std::filesystem::path Utility::get_animation(std::string_view filename)
 
 std::filesystem::path Utility::get_shader(std::string_view filename)
 {
+	validate_relative_filename(filename, "Utility::get_shader");
 	auto app_path = get_rsrc_path() / "shaders" / filename;
 	if (std::filesystem::exists(app_path))
 		return app_path;
-	return get().build / "shaders" / filename;
+	return get().paths.engine_runtime / "shaders" / filename;
+}
+
+void Utility::set_test_mode(std::filesystem::path test_data)
+{
+	if (test_data.empty() || !test_data.is_absolute())
+		throw std::invalid_argument("Utility::set_test_mode: test data path must be absolute");
+	get().test_data = std::move(test_data);
+	get().test_mode = true;
 }
 
 std::filesystem::path Utility::get_audio(std::string_view filename)

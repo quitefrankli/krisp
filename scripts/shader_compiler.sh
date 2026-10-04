@@ -9,7 +9,7 @@ then
 	exit 2
 fi
 
-SRC_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+SRC_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 OUTPUT_DIR=$1
 STAMP_FILE=$2
 SHADERS_DIR=$SRC_DIR/shaders

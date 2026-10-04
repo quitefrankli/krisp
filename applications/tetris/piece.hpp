@@ -1,9 +1,11 @@
-#include <renderable/mesh_maths.hpp>
 #include <renderable/mesh_factory.hpp>
-#include <entity_component_system/mesh_system.hpp>
-#include <entity_component_system/material_system.hpp>
+#include <renderable/material.hpp>
+#include <renderable/renderable.hpp>
+#include <entity_component_system/ecs.hpp>
 #include <objects/object.hpp>
 #include <game_engine.hpp>
+
+#include <stdexcept>
 
 
 enum class TetrisPieceType
@@ -19,33 +21,14 @@ enum class TetrisPieceType
 
 class TetrisCell : public Object
 {
-public:
-	TetrisCell(const glm::vec3& color)
-	{
-		auto& cube = renderables.emplace_back();
-		cube.mesh_id = MeshFactory::cube_id();
-		ColorMaterial cube_material;
-		cube_material.data.ambient = Maths::zero_vec;
-		cube_material.data.diffuse = Maths::zero_vec;
-		cube_material.data.specular = Maths::zero_vec;
-		cube_material.data.emissive = color;
-		cube_material.data.shininess = 1.0f;
-		cube.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(cube_material)));
-
-		auto& border = renderables.emplace_back();
-		border.mesh_id = MeshFactory::cube_edges_id();
-		ColorMaterial border_material;
-		border_material.data = cube_material.data;
-		border_material.data.emissive = Maths::zero_vec;
-		border.material_ids.push_back(MaterialSystem::add(std::make_unique<ColorMaterial>(border_material)));
-	}
 };
 
 class TetrisPiece : public Object
 {
 public:
-	TetrisPiece(TetrisPieceType type, GameEngine& engine) :
-		type(type)
+	TetrisPiece(TetrisPieceType type) : type(type) {}
+
+	void initialize(GameEngine& engine)
 	{
 		static const std::vector<glm::vec3> standard_colors
 		{
@@ -97,11 +80,6 @@ public:
 
 	glm::vec3 get_type_specific_offset() const { return type_specific_offset; }
 
-	std::vector<glm::ivec2> get_cell_locations() const 
-	{
-		return get_cell_locations(get_transform());
-	}
-
 	std::vector<glm::ivec2> get_cell_locations(const glm::mat4& transform) const 
 	{
 		std::vector<glm::ivec2> result;
@@ -116,44 +94,6 @@ public:
 	const std::vector<ObjectID>& get_cells() const { return cells; }
 
 private:
-	MeshID generate_mesh(const std::vector<int>& locations, 
-					     // move so that origin matches the rotation point
-					     const glm::vec3& translation)
-	{
-		// given a 4x4 grid, the locations are:
-		// 0  1  2  3
-		// 4  5  6  7
-		// 8  9  10 11
-		// 12 13 14 15
-		// for every location a cube will be inserted there
-		// the origin of the grid is at the bottom left
-
-		// translate_vertices(cube->get_vertices(), glm::vec3(-0.5f, -0.5f, 0.0f)); // center the cube at origin
-
-		ColorVertices vertices;
-		VertexIndices indices;
-		for (auto location : locations)
-		{
-			const auto x = location % 4;
-			const auto y = 3 - location / 4;
-
-			const auto mesh = MeshFactory::cube();
-			auto mesh_vertices = static_cast<const ColorMesh&>(*mesh).get_vertices();
-			translate_vertices(mesh_vertices, glm::vec3(x, y, 0.0f) + translation);
-			concatenate_vertices(vertices, indices, mesh_vertices, mesh->get_indices());
-		}
-
-		return MeshSystem::add(std::make_unique<ColorMesh>(std::move(vertices), std::move(indices)));
-	}
-
-	MaterialID generate_material(const glm::vec3& color)
-	{
-		ColorMaterial material;
-		material.data.diffuse = color;
-
-		return MaterialSystem::add(std::make_unique<ColorMaterial>(std::move(material)));
-	}
-
 	void spawn_cells(GameEngine& engine, 
 					 const std::vector<int>& locations, 
 					 // move so that origin matches the rotation point
@@ -168,14 +108,28 @@ private:
 		// for every location a cube will be inserted there
 		// the origin of the grid is at the bottom left
 
+		auto& ecs = engine.get_ecs();
+		const auto mesh = ecs.get_mesh_system().add(MeshFactory::cube());
+		const auto edge_mesh = ecs.get_mesh_system().add(MeshFactory::cube_edges());
+		auto cube_material = std::make_unique<PbrMaterial>(glm::vec4(color, 1.0f), 0.0f, 0.7f);
+		cube_material->data.emissive_factor = color;
+		const auto material = ecs.get_material_system().add(std::move(cube_material));
+		const auto edge_material = ecs.get_material_system().add(
+			std::make_unique<PbrMaterial>(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 0.9f));
+
 		for (auto location : locations)
 		{
 			const auto x = location % 4;
 			const auto y = 3 - location / 4;
 
-			auto& cell = engine.spawn_object<TetrisCell>(color);
-			cell.set_position(glm::vec3(x, y, 0.0f) + translation);
-			cell.attach_to(this);
+			auto& cell = engine.spawn_object<TetrisCell>();
+			auto& transform = ecs.get_transformation(cell.get_id());
+			transform.set_position(glm::vec3(x, y, 0.0f) + translation);
+			transform.attach_to(get_id());
+			engine.attach_renderable(cell.get_id(), Renderable{
+				.mesh_owner = mesh, .material_owners = { material }});
+			engine.attach_renderable(cell.get_id(), Renderable{
+				.mesh_owner = edge_mesh, .material_owners = { edge_material }});
 			cells.push_back(cell.get_id());
 		}
 	}

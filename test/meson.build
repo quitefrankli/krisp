@@ -38,7 +38,11 @@ sources += ['ecs/skeletal_tests.cpp']
 exec = executable(
 	'krisp_tests',
 	sources,
-	dependencies: krisp_core,
+	dependencies: [krisp_core, dependency('gtest')],
+	link_depends: krisp_runtime,
+	cpp_args: [
+		'-DTEST_SOURCE_DIR="@0@"'.format(meson.project_source_root()),
+		'-DTEST_BUILD_DIR="@0@"'.format(meson.project_build_root())],
 	install_dir: install_dir)
 
-test('krisp_tests', exec)
+test('krisp_tests', exec, args: ['--gtest_brief=1'])

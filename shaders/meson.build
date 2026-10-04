@@ -1,4 +1,4 @@
-# Custom target to run shader_compiler.sh when any file under shaders/ changes
+# Custom target to run scripts/shader_compiler.sh when any file under shaders/ changes
 shader_files = [
 	files(meson.project_source_root()/'shared_code/shared_data_structures.glsl'),
 	files(meson.project_source_root()/'shared_code/shared_data_structures.txt'),
@@ -15,11 +15,11 @@ shader_artifacts = custom_target(
 	output: ['shader_artifacts.stamp'],
 	command: [
 		'bash',
-		meson.project_source_root()/'shader_compiler.sh',
+		meson.project_source_root()/'scripts/shader_compiler.sh',
 		'@OUTDIR@',
 		'@OUTPUT@',
 	],
-	depend_files: shader_files,
+	depend_files: shader_files + files('../scripts/shader_compiler.sh'),
 	build_by_default: true
 )
 

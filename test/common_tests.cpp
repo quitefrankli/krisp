@@ -15,11 +15,34 @@
 #include <thread>
 #include <type_traits>
 #include <utility>
+#include <fstream>
 
 
 static_assert(std::is_same_v<
 	decltype(std::declval<MaterialSystem&>().get(std::declval<MaterialID>())),
 	const Material&>);
+
+namespace
+{
+class RuntimeResourceFixture
+{
+public:
+	RuntimeResourceFixture()
+		: path(Utility::get_engine_runtime_path() / "resources/meshes/utility_runtime_fallback_test.gltf")
+	{
+		std::filesystem::create_directories(path.parent_path());
+		std::ofstream(path) << "runtime fallback fixture";
+	}
+
+	~RuntimeResourceFixture()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+};
+}
 
 TEST(AnalyticsStatistics, tracks_average_standard_deviation_and_range)
 {
@@ -49,16 +72,37 @@ TEST(UtilityResources, test_mode_resolves_test_data_before_project_resources)
 {
 	EXPECT_EQ(
 		Utility::get_model("simple_test_model.gltf"),
-		Utility::get_top_level_path()/"test/data/simple_test_model.gltf");
+		Utility::get_test_data_path()/"simple_test_model.gltf");
 	EXPECT_EQ(
 		Utility::get_texture("texture.jpg"),
-		Utility::get_top_level_path()/"resources/default/textures/texture.jpg");
+		std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg");
 }
 
 TEST(UtilityResources, resource_names_reject_absolute_paths_and_parent_traversal)
 {
 	EXPECT_THROW(Utility::get_model("/tmp/model.glb"), std::runtime_error);
 	EXPECT_THROW(Utility::get_model("../model.glb"), std::runtime_error);
+	EXPECT_THROW(Utility::get_shader("../shader.vert"), std::runtime_error);
+}
+
+TEST(UtilityPaths, default_app_data_is_grouped_under_krisp)
+{
+	const auto billiards = Utility::paths_for_executable("billiards");
+	const auto tetris = Utility::paths_for_executable("tetris");
+	EXPECT_EQ(billiards.writable_data.filename(), "billiards");
+	EXPECT_EQ(billiards.writable_data.parent_path().filename(), "krisp");
+	EXPECT_EQ(tetris.writable_data.parent_path(), billiards.writable_data.parent_path());
+	EXPECT_NE(tetris.writable_data, billiards.writable_data);
+}
+
+TEST(UtilityPaths, config_and_saves_use_app_specific_locations)
+{
+	EXPECT_EQ(
+		Utility::get_config_path("default.yaml"),
+		std::filesystem::path(TEST_SOURCE_DIR)/"configs/default.yaml");
+	EXPECT_EQ(
+		Utility::get_saves_path(),
+		std::filesystem::path(TEST_BUILD_DIR)/"test-data/krisp_tests/saves");
 }
 
 TEST(UtilityResources, collected_resources_are_filenames)
@@ -70,6 +114,18 @@ TEST(UtilityResources, collected_resources_are_filenames)
 	{
 		return !std::filesystem::path(filename).is_absolute();
 	}));
+}
+
+TEST(UtilityResources, resolves_engine_runtime_fallback_after_app_resources)
+{
+	RuntimeResourceFixture fallback;
+	EXPECT_EQ(
+		Utility::get_model("utility_runtime_fallback_test.gltf"),
+		fallback.path);
+	EXPECT_EQ(
+		Utility::get_texture("texture.jpg"),
+		std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg");
+	EXPECT_THROW(Utility::get_model("resource_that_does_not_exist.gltf"), std::runtime_error);
 }
 
 

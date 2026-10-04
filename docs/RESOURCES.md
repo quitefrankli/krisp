@@ -1,8 +1,33 @@
 # Resources
 
 Pass resource-relative names without `..` components. Krisp searches
-`resources/<project>/<type>` before `resources/default/<type>`, where type is
-`meshes`, `textures`, or `animations`.
+`RuntimePaths::app_resources/<type>` before
+`RuntimePaths::engine_runtime/resources/<type>`, where type is `meshes`,
+`textures`, `animations`, or `sound`. App configuration similarly overrides
+engine configuration; app shaders override engine shaders.
+
+Call `Config::init(app_name)` before creating the engine to use Linux defaults,
+or `Config::init(app_name, paths)` for a custom layout. The default overload uses
+`Utility::paths_for_executable(app_name)` to locate engine data
+in `krisp-runtime/` beside the executable, app assets in
+`resources/<app_name>/` beside it, and app-specific XDG config/data directories.
+Writable app data is grouped under `$XDG_DATA_HOME/krisp/<app_name>/`,
+defaulting to `~/.local/share/krisp/<app_name>/`. Saves, logs, recordings, and
+screenshots use subdirectories there. Configuration remains app-specific under
+`$XDG_CONFIG_HOME/<app_name>/`.
+These paths are independent of the process's working directory.
+
+The internal `krisp`, `chess`, `rpg`, and `tetris` apps use their checkout's
+`resources/<app_name>/` as the app resource directory and `build/debug/runtime`
+as the engine runtime. Meson supplies these paths consistently for all four.
+Chess models, RPG models/animations/textures, and Tetris audio belong to their
+respective app directories; these locally managed asset collections are ignored
+by Git. Campfire and its resources have been removed.
+
+The Conan package includes default skybox textures, configuration, compiled
+raster shaders, and precomputed environment lighting. Sample models, animations,
+and unrelated asset collections remain application resources. See
+[the Conan workflow](CONAN.md) for editable and packaged builds.
 
 ## Models
 
@@ -97,7 +122,9 @@ neutral environment.
 The graphics engine uses those sRGB faces to produce linear diffuse irradiance,
 a complete roughness-prefiltered specular mip chain, and a BRDF integration
 lookup texture. Krisp's default environment is precomputed into a versioned
-`.krisp-ibl` asset by an incremental Meson build target. Runtime validates that asset
+`.krisp-ibl` asset by an incremental Meson build target and shipped in the engine
+runtime. `spawn_cubemap()` selects it automatically for engine-default faces.
+Runtime validates that asset
 against the decoded source faces and processor settings before uploading it.
 Cubemaps without an associated precomputed asset use synchronous processing as
 a fallback. The current source is the default LDR skybox; custom precomputed

@@ -2,10 +2,10 @@
 #include "board.hpp"
 
 #include <functional>
+#include <stdexcept>
 
 
-Piece::Piece(std::vector<Renderable> renderables, Type type, Side side) :
-	Object(std::move(renderables)),
+Piece::Piece(Type type, Side side) :
 	type(type),
 	side(side)
 {}

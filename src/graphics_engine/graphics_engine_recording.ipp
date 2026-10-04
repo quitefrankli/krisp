@@ -24,7 +24,7 @@ std::filesystem::path make_recording_path()
 	std::ostringstream oss;
 	oss << std::put_time(&tm, "%Y%m%d_%H%M%S") << ".mp4";
 
-	return Utility::get_top_level_path() / "recordings" / oss.str();
+	return Utility::get_writable_data_path() / "recordings" / oss.str();
 }
 }
 

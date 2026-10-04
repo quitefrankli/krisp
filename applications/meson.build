@@ -1,21 +1,15 @@
-skybox_faces = files(
-	'../resources/default/textures/skybox/right.jpg',
-	'../resources/default/textures/skybox/left.jpg',
-	'../resources/default/textures/skybox/top.jpg',
-	'../resources/default/textures/skybox/bottom.jpg',
-	'../resources/default/textures/skybox/front.jpg',
-	'../resources/default/textures/skybox/back.jpg')
+internal_app_sources = {
+    'krisp': ['krisp.cpp'],
+    'chess': ['src/chess.cpp', 'src/board.cpp', 'src/pieces.cpp'],
+    'rpg': ['rpg.cpp', 'rpg_ui.cpp'],
+    'tetris': ['tetris.cpp'],
+}
 
-default_environment_lighting = custom_target(
-	'default_environment_lighting',
-	input: skybox_faces,
-	output: 'default_environment.krisp-ibl',
-	command: [environment_map_precompute, '@OUTPUT@', '@INPUT@'],
-	build_by_default: true)
-
-subdir('krisp')
-subdir('rpg')
-subdir('tetris')
-subdir('chess')
-subdir('campfire')
-subdir('billiards')
+foreach app_name, app_sources : internal_app_sources
+    internal_app_args = [
+        '-DPROJECT_NAME="@0@"'.format(app_name),
+        '-DKRISP_SOURCE_DIR="@0@"'.format(meson.project_source_root()),
+        '-DKRISP_RUNTIME_DIR="@0@"'.format(meson.project_build_root() / 'runtime'),
+    ]
+    subdir(app_name)
+endforeach

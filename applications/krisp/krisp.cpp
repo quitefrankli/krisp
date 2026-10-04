@@ -7,9 +7,11 @@
 #include <objects/object.hpp>
 #include <renderable/material.hpp>
 #include <renderable/mesh_factory.hpp>
+#include <utility.hpp>
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <utility>
 
@@ -130,8 +132,11 @@ private:
 
 int main()
 {
-	Config::init(PROJECT_NAME);
+	auto runtime_paths = Utility::paths_for_executable(PROJECT_NAME);
+	runtime_paths.app_resources = std::filesystem::path(KRISP_SOURCE_DIR) / "resources/krisp";
+	runtime_paths.engine_runtime = KRISP_RUNTIME_DIR;
+	Config::init(PROJECT_NAME, std::move(runtime_paths));
 	auto engine = GameEngine::create<PbrProofApplication>();
-	engine.spawn_cubemap(PROJECT_ENVIRONMENT_LIGHTING_ASSET);
+	engine.spawn_cubemap();
 	engine.run();
 }

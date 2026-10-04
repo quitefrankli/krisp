@@ -4,9 +4,6 @@ install_dir = meson.build_root()/'bin'
 add_project_arguments(
 	'-w', # Suppresses all build warnings for c++
 	'-Werror=unused-variable',
-	'-DPROJECT_TOP_LEVEL_SRC_DIR="@0@"'.format(meson.project_source_root()),
-	'-DPROJECT_BUILD_DIR="@0@"'.format(meson.build_root()),
-	'-DPROJECT_BIN_DIR="@0@"'.format(install_dir),
 	'-DGLM_FORCE_DEPTH_ZERO_TO_ONE', # vulkan uses the z range -> [0, 1] as opposed to [-1, 1]
 	'-DQUILL_FMT_EXTERNAL=ON',
 	'-DGLM_ENABLE_EXPERIMENTAL',
@@ -19,8 +16,7 @@ if get_option('buildtype') == 'debug'
 endif
 
 additional_include_directories = [
-	include_directories('shared_code'),
-	include_directories('shared_lib/src')
+	include_directories('shared_code')
 ]
 
 conan_dependencies = [
@@ -31,7 +27,6 @@ conan_dependencies = [
     dependency('quill', required: true),
     dependency('fmt', required: true),
     dependency('imgui', required: true),
-    dependency('gtest', required: true),
     dependency('yaml-cpp', required: true),
     dependency('magic_enum', required: true),
 	dependency('miniaudio', required: true),
@@ -50,9 +45,14 @@ ffmpeg_deps = [
 conan_dependencies += ffmpeg_deps
 
 subdir('shaders')
+subdir('shared_code')
 subdir('third_party')
 subdir('src')
 subdir('tools')
-subdir('shared_lib')
-subdir('test')
-subdir('applications')
+subdir('runtime')
+if get_option('build_tests')
+	subdir('test')
+endif
+if get_option('build_applications')
+	subdir('applications')
+endif

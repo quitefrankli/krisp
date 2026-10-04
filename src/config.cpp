@@ -5,12 +5,18 @@
 #include <fmt/color.h>
 
 #include <cassert>
+#include <utility>
 
 
 static std::string _project_name;
 static YAML::Node config_node;
 
-void Config::init(std::string_view project_name)
+void Config::init(std::string_view app_name)
+{
+	init(app_name, Utility::paths_for_executable(app_name));
+}
+
+void Config::init(std::string_view project_name, RuntimePaths paths)
 {
 	if (!config_node.IsNull())
 	{
@@ -24,6 +30,7 @@ void Config::init(std::string_view project_name)
 	#endif
 
 	_project_name = project_name;
+	Utility::initialize(std::move(paths));
 	config_node = YAML::LoadFile(Utility::get_config_path("default.yaml").string());
 
 	if (enable_logging())

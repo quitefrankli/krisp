@@ -71,7 +71,7 @@ public:
 		const std::function<void(nlohmann::json&)>& mutate)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_top_level_path()/"test/data"
+		path = Utility::get_test_data_path()
 			/ fmt::format("krisp_game_engine_test_{}.gltf", sequence++);
 		std::ifstream input(Utility::get_model(source));
 		nlohmann::json document;
@@ -578,7 +578,21 @@ TEST_F(GameEngineTests, spawn_cubemap_creates_a_generic_object)
 	engine.main_loop(0.0f);
 	const auto frame = engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	EXPECT_EQ(find_renderable(*frame, renderable_ids.front()).definition->environment_lighting_asset,
-		environment_asset);
+		 environment_asset);
+}
+
+TEST_F(GameEngineTests, app_skybox_does_not_use_engine_precomputed_environment)
+{
+	engine.spawn_cubemap();
+
+	ASSERT_EQ(count_persistent_objects(engine), 1);
+	const auto object = std::ranges::find_if(engine.get_objects(), [](const auto& entry) {
+		return !entry.second->is_transient();
+	})->second;
+	const auto renderable_ids = engine.get_ecs().get_renderable_ids(object->get_id());
+	ASSERT_EQ(renderable_ids.size(), 1);
+	const auto& renderable = engine.get_ecs().get_renderable(renderable_ids.front()).renderable;
+	EXPECT_FALSE(renderable.environment_lighting_asset.has_value());
 }
 
 TEST_F(GameEngineTests, model_spawner_imports_each_mesh_node_as_clickable)

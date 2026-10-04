@@ -110,6 +110,11 @@ is rejected. Meson regenerates it when any source face or the precompute tool
 changes. Cubemaps without an associated asset retain synchronous processing as
 a fallback.
 
+The Conan engine runtime includes this precomputed asset. `spawn_cubemap()`
+selects it automatically when all six faces resolve from engine defaults, so
+external apps avoid repeating the CPU convolution at startup. App overrides
+retain synchronous processing unless the caller supplies a matching asset.
+
 The three linear RGBA8 outputs use about 600 KiB of GPU image data before image
 and allocator overhead: 24 KiB for irradiance, approximately 512 KiB for the
 specular mip chain, and 64 KiB for the lookup texture. Generated environments

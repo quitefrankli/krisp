@@ -12,14 +12,17 @@
 #include <renderable/material.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <resource_loader/resource_loader.hpp>
+#include <utility.hpp>
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <filesystem>
 #include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 
 
 namespace
@@ -256,9 +259,12 @@ void spawn_landmark(GameEngine& engine)
 
 int main()
 {
-	Config::init(PROJECT_NAME);
+	auto runtime_paths = Utility::paths_for_executable(PROJECT_NAME);
+	runtime_paths.app_resources = std::filesystem::path(KRISP_SOURCE_DIR) / "resources/rpg";
+	runtime_paths.engine_runtime = KRISP_RUNTIME_DIR;
+	Config::init(PROJECT_NAME, std::move(runtime_paths));
 	auto engine = GameEngine::create<RpgApplication>();
-	engine.spawn_cubemap(PROJECT_ENVIRONMENT_LIGHTING_ASSET);
+	engine.spawn_cubemap();
 	spawn_floor(engine);
 	spawn_point_light(engine);
 	spawn_landmark(engine);

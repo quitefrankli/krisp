@@ -4,6 +4,7 @@
 
 #include <objects/object.hpp>
 #include <maths.hpp>
+#include <renderable/renderable.hpp>
 
 #include <functional>
 

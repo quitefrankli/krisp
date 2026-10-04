@@ -32,6 +32,7 @@
 #include <fmt/color.h>
 
 #include <iostream>
+#include <array>
 #include <ranges>
 #include <fstream>
 #include <sstream>
@@ -399,13 +400,27 @@ std::vector<RenderableID> GameEngine::attach_renderables(
 void GameEngine::spawn_cubemap(
 	std::optional<std::filesystem::path> environment_lighting_asset)
 {
+	constexpr std::array skybox_faces{ "right", "left", "top", "bottom", "front", "back" };
+	if (!environment_lighting_asset)
+	{
+		const auto engine_resources = (Utility::get_engine_runtime_path() / "resources").lexically_normal();
+		const bool uses_engine_defaults = std::ranges::all_of(skybox_faces, [&](const char* face) {
+			const auto texture = Utility::get_texture(fmt::format("skybox/{}.jpg", face)).lexically_normal();
+			const auto relative = texture.lexically_relative(engine_resources);
+			return !relative.empty() && !relative.is_absolute()
+				&& *relative.begin() != std::filesystem::path("..");
+		});
+		const auto default_environment = Utility::get_engine_runtime_path() / "default_environment.krisp-ibl";
+		if (uses_engine_defaults && std::filesystem::is_regular_file(default_environment))
+			environment_lighting_asset = default_environment;
+	}
 	Renderable renderable;
 	renderable.pipeline_render_type = ERenderType::CUBEMAP;
 	renderable.casts_shadow = false;
 	renderable.environment_lighting_asset = std::move(environment_lighting_asset);
 	auto mesh_owner = ecs.get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::COLOR));
 	renderable.mesh_owner = std::move(mesh_owner);
-	for (const auto texture_name : { "right", "left", "top", "bottom", "front", "back" })
+	for (const auto texture_name : skybox_faces)
 	{
 		renderable.material_owners.push_back(ResourceLoader::fetch_texture(ecs.get_material_system(),
 			fmt::format("skybox/{}.jpg", texture_name)));

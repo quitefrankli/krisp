@@ -20,6 +20,7 @@
 #include <iostream>
 #include <mutex>
 #include <utility>
+#include <filesystem>
 
 
 constexpr int height = 20;
@@ -125,8 +126,8 @@ public:
 		{
 			elapsed_sec = 0;
 
-			const glm::mat4 new_transform = glm::translate(glm::mat4(1.0f), -Maths::up_vec) * 
-				get_latest_piece().get_transform();
+			const glm::mat4 new_transform = glm::translate(glm::mat4(1.0f), -Maths::up_vec) *
+				engine->get_ecs().get_transformation(get_latest_piece().get_id()).get_transform();
 			try_transform_piece(new_transform);
 		}
 	}
@@ -144,20 +145,11 @@ public:
 		// engine.get_camera().set_orthographic_projection(glm::vec2(-22.0f, 22.0f));
 		// engine.get_camera().toggle_projection();
 
-		// Utility::get().set_appname_for_path("tetris");
-		// main_theme = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
-		// main_theme->set_audio((Utility::get().get_app_audio_path() / "music.wav").string());
-		// main_theme->set_gain(0.2f);
-		// main_theme->set_loop(true);
-		// main_theme->play();
-
-		// clear_line_fx = std::make_unique<AudioSource>(engine.get_audio_engine().create_source());
-		// clear_line_fx->set_audio((Utility::get().get_app_audio_path() / "clear.wav").string());
-		// clear_line_fx->set_gain(0.5f);
 	}
 	virtual void on_key_press(GameEngine&, const KeyInput& key_input) override
 	{
-		const glm::mat4 curr_transform = get_latest_piece().get_transform();
+		const glm::mat4 curr_transform = engine->get_ecs().get_transformation(
+			get_latest_piece().get_id()).get_transform();
 		glm::mat4 transform;
 
 		if (key_input.action == EInputAction::PRESS)
@@ -168,21 +160,21 @@ public:
 					transform = glm::translate(Maths::identity_mat, -Maths::right_vec) * curr_transform;
 					if (!check_for_collision(transform))
 					{
-						get_latest_piece().set_transform(transform);
+						engine->get_ecs().get_transformation(get_latest_piece().get_id()).set_transform(transform);
 					}
 					break;
 				case GLFW_KEY_RIGHT:
 					transform = glm::translate(Maths::identity_mat, Maths::right_vec) * curr_transform;
 					if (!check_for_collision(transform))
 					{
-						get_latest_piece().set_transform(transform);
+						engine->get_ecs().get_transformation(get_latest_piece().get_id()).set_transform(transform);
 					}
 					break;
 				case GLFW_KEY_UP:
 					transform = curr_transform * glm::rotate(Maths::identity_mat, -Maths::PI/2.0f, Maths::forward_vec);
 					if (!check_for_collision(transform))
 					{
-						get_latest_piece().set_transform(transform);
+						engine->get_ecs().get_transformation(get_latest_piece().get_id()).set_transform(transform);
 					}
 					break;
 				case GLFW_KEY_DOWN:
@@ -190,7 +182,8 @@ public:
 					break;
 				case GLFW_KEY_SPACE:
 					transform = glm::translate(Maths::identity_mat, -Maths::up_vec);
-					while (try_transform_piece(transform * get_latest_piece().get_transform()));
+					while (try_transform_piece(transform * engine->get_ecs().get_transformation(
+						get_latest_piece().get_id()).get_transform()));
 					break;
 				case GLFW_KEY_Z:
 					break;
@@ -209,42 +202,50 @@ private:
 	// includes floor and walls
 	void spawn_environment()
 	{
-		const auto cube_renderable = Renderable::make_default(MeshFactory::cube_id());
-		const std::vector<Renderable> renderables = { cube_renderable };
+		auto& ecs = engine->get_ecs();
+		const auto cube_mesh = ecs.get_mesh_system().add(MeshFactory::cube());
+		const auto cube_renderable = Renderable::make_default(ecs, cube_mesh);
 
 		// slightly grey side walls
-		ColorMaterial side_wall_material{};
-		side_wall_material.data.diffuse = glm::vec3(0.8f);
-		const auto side_wall_material_id = MaterialSystem::add(std::make_unique<ColorMaterial>(side_wall_material));
+		const auto side_wall_material = ecs.get_material_system().add(
+			std::make_unique<PbrMaterial>(glm::vec4(0.8f, 0.8f, 0.8f, 1.0f), 0.0f, 0.8f));
 		const auto side_wall_renderable = Renderable{
-			.mesh_id = MeshFactory::cube_id(),
-			.material_ids = { side_wall_material_id }
+			.mesh_owner = cube_mesh,
+			.material_owners = { side_wall_material }
 		};
 
-		auto& root = engine->spawn_object<Object>(renderables);
+		auto& root = engine->spawn_object<Object>();
 		root.set_visibility(false);
+		auto& root_transform = ecs.get_transformation(root.get_id());
+		root_transform.set_position(glm::vec3(-0.5f, 0.5f, 0.0f));
 
-		auto& floor = engine->spawn_object<Object>(renderables);
-		floor.set_position(glm::vec3(0.0f, -10.75f, 0.5f));
-		floor.set_scale(glm::vec3(width*2, 1.5f, 4.0f));
-		floor.attach_to(&root);
+		auto& floor = engine->spawn_object<Object>();
+		engine->attach_renderable(floor.get_id(), cube_renderable);
+		auto& floor_transform = ecs.get_transformation(floor.get_id());
+		floor_transform.set_position(glm::vec3(0.0f, -10.75f, 0.5f));
+		floor_transform.set_scale(glm::vec3(width*2, 1.5f, 4.0f));
+		floor_transform.attach_to(root.get_id());
 
-		auto& left_wall = engine->spawn_object<Object>(side_wall_renderable);
-		left_wall.set_position(glm::vec3(-width/2-0.5f, 0.0f, 0.0f));
-		left_wall.set_scale(glm::vec3(1.0f, height, 3.0f));
-		left_wall.attach_to(&root);
+		auto& left_wall = engine->spawn_object<Object>();
+		engine->attach_renderable(left_wall.get_id(), side_wall_renderable);
+		auto& left_transform = ecs.get_transformation(left_wall.get_id());
+		left_transform.set_position(glm::vec3(-width/2-0.5f, 0.0f, 0.0f));
+		left_transform.set_scale(glm::vec3(1.0f, height, 3.0f));
+		left_transform.attach_to(root.get_id());
 
-		auto& right_wall = engine->spawn_object<Object>(side_wall_renderable);
-		right_wall.set_position(glm::vec3(width/2+0.5f, 0.0f, 0.0f));
-		right_wall.set_scale(glm::vec3(1.0f, height, 3.0f));
-		right_wall.attach_to(&root);
+		auto& right_wall = engine->spawn_object<Object>();
+		engine->attach_renderable(right_wall.get_id(), side_wall_renderable);
+		auto& right_transform = ecs.get_transformation(right_wall.get_id());
+		right_transform.set_position(glm::vec3(width/2+0.5f, 0.0f, 0.0f));
+		right_transform.set_scale(glm::vec3(1.0f, height, 3.0f));
+		right_transform.attach_to(root.get_id());
 
-		auto& back_wall = engine->spawn_object<Object>(renderables);
-		back_wall.set_position(glm::vec3(0.0f, 0.0f, 2.0f));
-		back_wall.set_scale(glm::vec3(width+2, height, 1.0f));
-		back_wall.attach_to(&root);
-
-		root.set_position(glm::vec3(-0.5f, 0.5f, 0.0f));
+		auto& back_wall = engine->spawn_object<Object>();
+		engine->attach_renderable(back_wall.get_id(), cube_renderable);
+		auto& back_transform = ecs.get_transformation(back_wall.get_id());
+		back_transform.set_position(glm::vec3(0.0f, 0.0f, 2.0f));
+		back_transform.set_scale(glm::vec3(width+2, height, 1.0f));
+		back_transform.attach_to(root.get_id());
 	}
 
 	bool try_transform_piece(const glm::mat4& transform)
@@ -255,7 +256,7 @@ private:
 			return false;
 		} else 
 		{
-			get_latest_piece().set_transform(transform);
+			engine->get_ecs().get_transformation(get_latest_piece().get_id()).set_transform(transform);
 			return true;
 		}
 	}
@@ -268,9 +269,11 @@ private:
 		{
 			const int piece_type = Maths::random_uniform(static_cast<int>(TetrisPieceType::I), static_cast<int>(TetrisPieceType::Z));
 			// offsets due to some shapes such as L that can poke past the walls
-			auto* new_piece = &engine->spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type), *engine);
-			new_piece->set_position(glm::vec3(0.0f, 0.0f, 10.0f)); // position out of view
-			new_piece->set_scale(glm::vec3(3.0f)); // make it larger so it looks normal size in preview
+			auto* new_piece = &engine->spawn_object<TetrisPiece>(static_cast<TetrisPieceType>(piece_type));
+			new_piece->initialize(*engine);
+			auto& transform = engine->get_ecs().get_transformation(new_piece->get_id());
+			transform.set_position(glm::vec3(0.0f, 0.0f, 10.0f)); // position out of view
+			transform.set_scale(glm::vec3(3.0f)); // make it larger so it looks normal size in preview
 			return new_piece;
 		};
 
@@ -281,14 +284,15 @@ private:
 
 		current_piece = next_piece;
 		const glm::vec3 position = glm::vec3(Maths::random_uniform(-width/2+2, width/2-3), height/2.0f, 0.0f);
-		current_piece->set_position(position + current_piece->get_type_specific_offset());
+		auto& transform = engine->get_ecs().get_transformation(current_piece->get_id());
+		transform.set_position(position + current_piece->get_type_specific_offset());
 		current_piece->set_visibility(true);
-		current_piece->set_scale(glm::vec3(1.0f)); // reset scale to normal size
+		transform.set_scale(glm::vec3(1.0f)); // reset scale to normal size
 		next_piece = generate_new_piece();
-		// engine->preview_objs_in_gui({ next_piece->get_id() }, *gui);
 
 		// if we are already colliding with another piece then this is game over
-		if (check_for_collision(get_latest_piece().get_transform()))
+		if (check_for_collision(engine->get_ecs().get_transformation(
+			get_latest_piece().get_id()).get_transform()))
 		{
 			game_over();
 		}
@@ -340,11 +344,6 @@ private:
 
 		// prepare for next game
 		generate_next_piece();
-		if (main_theme)
-		{
-			main_theme->stop();
-			main_theme->play();
-		}
 		gui->reset_game();
 		piece_count = 0;
 	}
@@ -353,7 +352,8 @@ private:
 	{
 		auto& latest_piece = get_latest_piece();
 		// move piece to filled spots and generate new piece
-		const auto cell_locations = latest_piece.get_cell_locations();
+		const auto cell_locations = latest_piece.get_cell_locations(
+			engine->get_ecs().get_transformation(latest_piece.get_id()).get_transform());
 		for (unsigned i = 0; i < cell_locations.size(); ++i)
 		{
 			auto* cell = engine->get_object(latest_piece.get_cells()[i]);
@@ -362,8 +362,7 @@ private:
 			entrenched_cells[loc.y+height/2].push_back(cell);
 		}
 
-		auto* parent = engine->get_object(latest_piece.get_id());
-		parent->detach_all_children();
+		engine->get_ecs().get_transformation(latest_piece.get_id()).detach_all_children();
 		engine->delete_object(latest_piece.get_id());
 		current_piece = nullptr;
 
@@ -379,13 +378,12 @@ private:
 				{
 					for (auto* cell : entrenched_cells[row_above])
 					{
-						filled_spots.erase(glm::ivec2(
-							std::round(cell->get_position().x), 
-							std::round(cell->get_position().y)));
+						auto& transform = engine->get_ecs().get_transformation(cell->get_id());
+						const auto position = transform.get_position();
+						filled_spots.erase(glm::ivec2(std::round(position.x), std::round(position.y)));
 						filled_spots.insert(glm::ivec2(
-							std::round(cell->get_position().x), 
-							std::round(cell->get_position().y) - 1));
-						cell->set_position(cell->get_position() - Maths::up_vec);
+							std::round(position.x), std::round(position.y) - 1));
+						transform.set_position(position - Maths::up_vec);
 					}
 					entrenched_cells[row_above-1] = std::move(entrenched_cells[row_above]);
 				}
@@ -397,7 +395,6 @@ private:
 
 		if (rows_cleared)
 		{
-			// clear_line_fx->play();
 			gui->add_score(rows_cleared * rows_cleared * 100);
 		}
 
@@ -410,7 +407,7 @@ private:
 		{
 			for (auto* cell : entrenched_cells[row])
 			{
-				const auto pos = cell->get_position();
+				const auto pos = engine->get_ecs().get_transformation(cell->get_id()).get_position();
 				filled_spots.erase(glm::ivec2(std::round(pos.x), std::round(pos.y)));
 				engine->delete_object(cell->get_id());
 			}
@@ -427,8 +424,6 @@ private:
 
 	void game_over()
 	{
-		if (main_theme)
-			main_theme->stop();
 		gui->set_game_over();
 	}
 
@@ -442,30 +437,32 @@ private:
 
 	std::array<std::vector<Object*>, height+2> entrenched_cells;
 	std::unordered_set<glm::ivec2> filled_spots;
-	std::unique_ptr<AudioSource> main_theme;
-	std::unique_ptr<AudioSource> clear_line_fx;
 };
 
-int main(int argc, char* argv[])
+int main()
 {
-	Config::init(PROJECT_NAME);
+	auto runtime_paths = Utility::paths_for_executable(PROJECT_NAME);
+	runtime_paths.app_resources = std::filesystem::path(KRISP_SOURCE_DIR) / "resources/tetris";
+	runtime_paths.engine_runtime = KRISP_RUNTIME_DIR;
+	Config::init(PROJECT_NAME, std::move(runtime_paths));
 	auto engine = GameEngine::create<Application>();
 	// Add skybox
 	engine.spawn_cubemap();
 	
 	// Add light source
-	auto& light_source = engine.spawn_object<Object>(Renderable{
-		.mesh_id = MeshFactory::sphere_id(),
-		.material_ids = { MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE) },
+	auto& ecs = engine.get_ecs();
+	auto& light_source = engine.spawn_object<Object>();
+	engine.attach_renderable(light_source.get_id(), Renderable{
+		.mesh_owner = ecs.get_mesh_system().add(MeshFactory::sphere()),
+		.material_owners = { ecs.get_material_system().add(
+			MaterialFactory::fetch_preset(EMaterialPreset::LIGHT_SOURCE)) },
 		.pipeline_render_type = ERenderType::COLOR
 	});
-	light_source.set_position(glm::vec3(0.0f, 8.0f, 0.0f));
+	ecs.get_transformation(light_source.get_id()).set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
 	LightComponent light_component{
 		.intensity = 1.0f,
 		.color = { 1.0f, 0.9f, 0.2f }
 	};
 	engine.get_ecs().add_light_source(light_source.get_id(), light_component);
-	// light_source.set_position(glm::vec3(0.0f, 10.0f, 0.0f));
-	light_source.set_position(glm::vec3(-4.0f, 20.0f, -50.0f));
 	engine.run();
 }

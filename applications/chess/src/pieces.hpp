@@ -24,7 +24,7 @@ public:
 		BLACK
 	};
 
-	Piece(std::vector<Renderable> renderables, Type type, Side side);
+	Piece(Type type, Side side);
 
 	Type type;
 	Side side;

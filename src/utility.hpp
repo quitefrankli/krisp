@@ -4,16 +4,21 @@
 #include <string>
 #include <memory>
 #include <chrono>
+#include <string_view>
 #include <unordered_set>
+#include <vector>
 
 #include <quill/Logger.h>
+
+#include "config.hpp"
 
 
 // global singleton for convenience
 class Utility
 {
 public:
-	Utility();
+	static RuntimePaths paths_for_executable(std::string_view app_name);
+	static void initialize(RuntimePaths paths);
 
 	// maintains consistent loop frequency, regardless of other compute within the loop
 	struct LoopSleeper
@@ -26,11 +31,20 @@ public:
 		std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
 	};
 
-	static const std::filesystem::path& get_top_level_path() { return get().top_level_dir; }
-	static const std::filesystem::path& get_build_path() { return get().build; };
-	static const std::filesystem::path& get_binary_path() { return get().binary; };
-	static std::filesystem::path get_saves_path() { return get().top_level_dir / ".saves"; }
+	// Engine defaults: resources/, shaders/, configs/, and precomputed lighting.
+	static const std::filesystem::path& get_engine_runtime_path() { return get().paths.engine_runtime; }
+	// Persistent app output; defaults to $XDG_DATA_HOME/krisp/<app_name>
+	// (or ~/.local/share/krisp/<app_name>), unless RuntimePaths overrides it.
+	static const std::filesystem::path& get_writable_data_path() { return get().paths.writable_data; }
+	// Scene saves under the app's writable data directory.
+	static std::filesystem::path get_saves_path() { return get_writable_data_path() / "saves"; }
+	// Fixture directory supplied by set_test_mode; checked before app/engine assets.
+	static const std::filesystem::path& get_test_data_path() { return get().test_data; }
+	// Resolve a config path: existing app file first, then engine_runtime/configs.
+	// The filename must be relative and contain no parent traversal.
 	static std::filesystem::path get_config_path(std::string_view filename);
+	// Destination for app config writes, without falling back to engine defaults.
+	// The filename must be relative and contain no parent traversal.
 	static std::filesystem::path get_user_config_path(std::string_view filename);
 
 	static std::filesystem::path get_texture(std::string_view filename);
@@ -43,7 +57,7 @@ public:
 	static std::vector<std::string> get_all_models();
 	static std::vector<std::string> get_all_animations();
 	static std::vector<std::string> get_all_audio();
-	static void set_test_mode() { get().test_mode = true; }
+	static void set_test_mode(std::filesystem::path test_data);
 
 	static quill::Logger* get_logger() { return get().logger; }
 
@@ -56,6 +70,7 @@ public:
 
 private:
 	static Utility& get();
+	explicit Utility(RuntimePaths paths);
 	static std::filesystem::path get_rsrc_path(bool use_default = false);
 	static std::filesystem::path resolve_resource(std::string_view subdir, std::string_view filename);
 	static std::vector<std::string> collect_resources(
@@ -63,8 +78,7 @@ private:
 		const std::unordered_set<std::string_view>& extensions);
 
 	quill::Logger* logger;
-	std::filesystem::path top_level_dir;
-	std::filesystem::path build;
-	std::filesystem::path binary;
+	RuntimePaths paths;
+	std::filesystem::path test_data;
 	bool test_mode = false;
 };

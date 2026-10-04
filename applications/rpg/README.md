@@ -4,6 +4,13 @@
 It starts a playable `npc.glb` character with locomotion animations, a ground
 plane, an equippable sword, and RPG status and equipment UI.
 
+The app loads `npc.glb`, `hair1.glb`, and `weapons_iron_longsword.glb` from
+`resources/rpg/meshes/`, and `movement_animations.glb` from
+`resources/rpg/animations/`. Referenced textures live under `resources/rpg/textures/`. These assets were
+relocated from `resources/default/` and remain locally managed, Git-ignored
+assets, like the existing Chess models and Tetris audio. They are not included
+in the engine Conan package.
+
 ## Migration candidates
 
 Move these first:
