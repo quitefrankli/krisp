@@ -1,4 +1,4 @@
-* Use Luna subagents to assist with mechanical changes when work can be split
+* Use Luna subagents at high effort to assist with mechanical changes when work can be split
   into independent tasks. Give each agent explicit file ownership and integrate
   and verify their changes before completing the task.
 
