@@ -27,6 +27,8 @@ public:
 	// Non-character applications can opt into NORMAL mode without camera
 	// follow or player locomotion.
 	virtual bool allows_playerless_normal_mode() const { return false; }
+	// Return true to consume a key before default engine shortcuts and gameplay input.
+	virtual bool handle_key_input(GameEngine&, const KeyInput&) { return false; }
 	virtual void on_key_press(GameEngine& engine, const KeyInput& key_input) = 0;
 	// Save app-owned gameplay state and object references into the scene document.
 	virtual void serialize_scene(Serializer&) const {}

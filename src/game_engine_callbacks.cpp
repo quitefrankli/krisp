@@ -30,6 +30,9 @@ void GameEngine::key_callback(const KeyInput& key_input)
 	if (get_gui_manager().handle_command_input(key_input))
 		return;
 
+	if (application->handle_key_input(*this, key_input))
+		return;
+
 	if (get_gui_manager().handle_key_input(key_input, game_mode == EGameMode::EDITOR))
 		return;
 

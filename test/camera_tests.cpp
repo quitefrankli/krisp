@@ -6,6 +6,8 @@
 #include <gtest/gtest.h>
 #include <glm/gtx/string_cast.hpp>
 #include <fmt/core.h>
+#include <limits>
+#include <stdexcept>
 
 
 class CameraTests : public testing::Test
@@ -121,6 +123,26 @@ TEST_F(CameraTests, horizontal_follow_framing_remains_camera_relative_after_orbi
 	EXPECT_TRUE(glm_equal(camera.get_focus(), ecs.get_position(target.get_id()) + glm::vec3(0.0f, 1.0f, 0.0f) + camera_right * 1.25f));
 	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(ecs.get_position(target.get_id()), 1.0f);
 	EXPECT_NEAR(target_in_camera_space.x, -1.25f, 0.001f);
+}
+
+TEST_F(CameraTests, zoom_limits_are_configurable_and_enforced)
+{
+	EXPECT_TRUE(glm_equal(camera.get_zoom_limits(), { 1.0f, 100.0f }));
+	camera.set_zoom_limits(0.25f, 6.0f);
+	EXPECT_TRUE(glm_equal(camera.get_zoom_limits(), { 0.25f, 6.0f }));
+
+	camera.zoom_in(100.0f);
+	EXPECT_NEAR(camera.get_focal_length(), 0.25f, 0.001f);
+	camera.zoom_in(-1000.0f);
+	EXPECT_NEAR(camera.get_focal_length(), 6.0f, 0.001f);
+}
+
+TEST_F(CameraTests, zoom_limits_must_be_finite_positive_and_ordered)
+{
+	EXPECT_THROW(camera.set_zoom_limits(0.0f, 6.0f), std::invalid_argument);
+	EXPECT_THROW(camera.set_zoom_limits(2.0f, 2.0f), std::invalid_argument);
+	EXPECT_THROW(camera.set_zoom_limits(6.0f, 2.0f), std::invalid_argument);
+	EXPECT_THROW(camera.set_zoom_limits(1.0f, std::numeric_limits<float>::infinity()), std::invalid_argument);
 }
 
 TEST_F(CameraTests, camera_ray_cast)

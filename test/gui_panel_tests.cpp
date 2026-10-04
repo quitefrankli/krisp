@@ -300,6 +300,24 @@ TEST(GuiAnimationSelector, cycles_animation_choices_with_wraparound)
 	EXPECT_FALSE(GuiAnimationSelector::cycle_animation_choice({}, std::nullopt, 1));
 }
 
+TEST(ApplicationUi, exclusive_window_masks_other_panels_and_preserves_preferences)
+{
+	ApplicationUiManager manager;
+	auto& first = manager.register_window<TestApplicationWindow>({}, GuiPanelInfo{"first", "First"});
+	auto& second = manager.register_window<TestApplicationWindow>({}, GuiPanelInfo{"second", "Second"});
+	manager.seal();
+	manager.set_exclusive_window(&second);
+	EXPECT_FALSE(manager.is_active(first));
+	EXPECT_TRUE(manager.is_active(second));
+	EXPECT_TRUE(first.is_visible());
+	EXPECT_TRUE(second.is_visible());
+	manager.set_exclusive_window(nullptr);
+	EXPECT_TRUE(manager.is_active(first));
+	EXPECT_TRUE(manager.is_active(second));
+	TestApplicationWindow unregistered({"external", "External"});
+	EXPECT_THROW(manager.set_exclusive_window(&unregistered), std::invalid_argument);
+}
+
 namespace
 {
 class CommandPromptFrames : public testing::Test
@@ -370,6 +388,11 @@ TEST_F(CommandPromptFrames, EscapeReleaseAllowsConsoleToReopenThroughWindowCallb
 		frame(prompt);
 		EXPECT_TRUE(prompt.is_open()) << "Reopening must not flicker closed";
 	}
+	dispatch(native_window, GLFW_KEY_SLASH, 0, GLFW_RELEASE, 0);
+	for (int index = 0; index < 3; ++index) frame(prompt);
+	dispatch(native_window, GLFW_KEY_SLASH, 0, GLFW_PRESS, 0);
+	for (int index = 0; index < 3; ++index) frame(prompt);
+	EXPECT_FALSE(prompt.is_open()) << "Slash must also close the focused console";
 }
 
 TEST_F(CommandPromptFrames, ConsoleRemainsFixedToBottomHalfWhenViewportResizes)
@@ -392,4 +415,24 @@ TEST_F(CommandPromptFrames, ConsoleRemainsFixedToBottomHalfWhenViewportResizes)
 	EXPECT_FLOAT_EQ(window->Pos.y, 240.0f);
 	EXPECT_FLOAT_EQ(window->Size.x, 640.0f);
 	EXPECT_FLOAT_EQ(window->Size.y, 240.0f);
+}
+
+TEST_F(CommandPromptFrames, CommandInputStartsAndResetsEmpty)
+{
+	GuiCommandPrompt prompt;
+	prompt.open();
+	for (int index = 0; index < 3; ++index) frame(prompt);
+	auto* input = ImGui::GetInputTextState(ImGui::GetActiveID());
+	ASSERT_NE(input, nullptr);
+	EXPECT_EQ(input->TextLen, 0) << "Opening must not insert a selected slash";
+	ImGui::GetIO().AddInputCharactersUTF8("help");
+	frame(prompt);
+	ImGui::GetIO().AddKeyEvent(ImGuiKey_Enter, true);
+	frame(prompt);
+	ImGui::GetIO().AddKeyEvent(ImGuiKey_Enter, false);
+	for (int index = 0; index < 3; ++index) frame(prompt);
+	EXPECT_EQ(prompt.take_submission(), std::optional<std::string>("help"));
+	input = ImGui::GetInputTextState(ImGui::GetActiveID());
+	ASSERT_NE(input, nullptr);
+	EXPECT_EQ(input->TextLen, 0) << "Submitting must leave a blank input";
 }

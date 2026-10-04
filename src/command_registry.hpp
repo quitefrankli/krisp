@@ -27,7 +27,6 @@ public:
 
 	std::vector<Entry> matches(std::string_view prefix) const
 	{
-		if (prefix.starts_with('/')) prefix.remove_prefix(1);
 		std::vector<Entry> result;
 		for (const auto& [name, command] : commands)
 			if (name.starts_with(prefix)) result.push_back({name, command.description});
@@ -36,11 +35,12 @@ public:
 
 	std::string execute(GameEngine& engine, std::string_view text) const
 	{
-		if (!text.starts_with('/')) return "Commands must start with /";
-		text.remove_prefix(1);
+		const auto first = text.find_first_not_of(" \t\r\n");
+		if (first == std::string_view::npos) return {};
+		text.remove_prefix(first);
 		const auto separator = text.find_first_of(" \t\r\n");
 		const auto found = commands.find(text.substr(0, separator));
-		if (found == commands.end()) return "Unknown command. Use /help to list commands.";
+		if (found == commands.end()) return "Unknown command. Use help to list commands.";
 		std::string_view arguments;
 		if (separator != std::string_view::npos)
 		{

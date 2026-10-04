@@ -97,14 +97,14 @@ void GameEngine::init()
 
 	configure_ecs();
 	commands.add("help", "List available commands", [](GameEngine& engine, std::string_view args) {
-		if (!args.empty()) return std::string("Usage: /help");
+		if (!args.empty()) return std::string("Usage: help");
 		std::string result;
 		for (const auto& entry : engine.get_commands().matches(""))
-			result += "/" + entry.name + " - " + entry.description + "\n";
+			result += entry.name + " - " + entry.description + "\n";
 		return result;
 	});
 	commands.add("exit", "Exit Krisp", [](GameEngine& engine, std::string_view args) {
-		if (!args.empty()) return std::string("Usage: /exit");
+		if (!args.empty()) return std::string("Usage: exit");
 		engine.shutdown();
 		return std::string("Exiting...");
 	});
@@ -195,6 +195,17 @@ void GameEngine::run()
 
 	shutdown();
 	graphics_engine_thread.join();
+}
+
+void GameEngine::close_command_prompt()
+{
+	get_gui_manager().set_window_visibility(get_gui_manager().command_prompt, false);
+	if (command_prompt_active)
+	{
+		window->set_cursor_captured(command_prompt_cursor_captured);
+		command_prompt_active = false;
+		clear_input_state();
+	}
 }
 
 void GameEngine::main_loop(const float time_delta)

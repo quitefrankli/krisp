@@ -68,6 +68,12 @@ public:
 		return *static_cast<Gui_T*>(persistent_windows.back().get());
 	}
 
+	void set_window_visibility(GuiWindow& window, bool visible)
+	{
+		const std::lock_guard lock(state_mutex);
+		window.set_visible(visible);
+	}
+
 	void clear_saved_panel_visibility() { saved_panel_visibility.clear(); }
 	bool& get_or_create_saved_panel_visibility(const std::string& id)
 	{
@@ -101,13 +107,13 @@ public:
 	bool handle_command_input(const KeyInput& input)
 	{
 		const std::lock_guard lock(state_mutex);
-		if (command_prompt.is_open()) return true;
 		if (input.eq(GLFW_KEY_SLASH, EKeyModifier::NONE, EInputAction::PRESS))
 		{
-			command_prompt.open();
+			if (command_prompt.is_open()) command_prompt.set_visible(false);
+			else command_prompt.open();
 			return true;
 		}
-		return false;
+		return command_prompt.is_open();
 	}
 	bool handle_key_input(const KeyInput& input, const bool editor_shortcuts_active)
 	{

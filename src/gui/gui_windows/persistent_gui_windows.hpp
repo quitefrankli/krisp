@@ -53,5 +53,5 @@ private:
 	std::optional<std::string> pending_submission;
 	std::string output;
 	bool focus_input = false;
-	bool suppress_initial_slash = false;
+	bool just_opened = false;
 };

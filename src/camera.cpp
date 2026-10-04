@@ -10,6 +10,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 
+#include <cmath>
+#include <stdexcept>
 #include <utility>
 
 namespace
@@ -303,22 +305,26 @@ float Camera::get_focal_length()
 	return glm::distance(get_focus(), get_position());
 }
 
+void Camera::set_zoom_limits(const float minimum, const float maximum)
+{
+	if (!std::isfinite(minimum) || !std::isfinite(maximum) || minimum <= 0.0f || minimum >= maximum)
+		throw std::invalid_argument("Camera zoom limits must be finite, positive, and ordered");
+	zoom_limits = { minimum, maximum };
+}
+
 void Camera::zoom_in(float length)
 {
 	// +ve length zooms in, -ve length zooms out
-	const float closest_distance = 1.0f;
-	const float maximum_distance = 100.0f;
-	
 	const float focal_len = get_focal_length();
 
-	// apply zoom relative to current length, this way zoom covers large distane when already far away
+	// Apply zoom relative to current length, so zoom covers more distance when already far away.
 	const float sensitivity = 0.2f * focal_len;
-	length *= sensitivity;
-	length = std::min(focal_len - closest_distance, length);
-	length = std::max(focal_len - maximum_distance, length);
+	const float target_focal_len = glm::clamp(focal_len - length * sensitivity, zoom_limits.x, zoom_limits.y);
+	const float applied_length = focal_len - target_focal_len;
 	const glm::vec3 offset =
-		ecs.get_transformation(focus_obj->get_id()).get_rotation() * Maths::forward_vec * length;
+		ecs.get_transformation(focus_obj->get_id()).get_rotation() * Maths::forward_vec * applied_length;
 	set_position(get_position() + offset);
+	length = -applied_length;
 
 	if (!projection_is_perspective)
 	{

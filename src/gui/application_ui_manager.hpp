@@ -3,6 +3,8 @@
 #include "gui_windows/gui_windows.hpp"
 
 #include <array>
+#include <atomic>
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <type_traits>
@@ -92,6 +94,20 @@ public:
 	void seal() { accepting_registrations = false; }
 	bool is_sealed() const { return !accepting_registrations; }
 
+	// An exclusive window temporarily masks other UI without changing visibility preferences.
+	void set_exclusive_window(ApplicationUiElement* window)
+	{
+		if (window && !std::ranges::any_of(windows, [window](const auto& entry) { return entry.get() == window; }))
+			throw std::invalid_argument("Exclusive UI window is not registered");
+		exclusive_window.store(window, std::memory_order_release);
+	}
+	ApplicationUiElement* get_exclusive_window() const { return exclusive_window.load(std::memory_order_acquire); }
+	bool is_active(const GuiWindow& window) const
+	{
+		const auto* exclusive = get_exclusive_window();
+		return window.is_visible() && (!exclusive || exclusive == &window);
+	}
+
 	const std::vector<std::unique_ptr<GuiWindow>>& get_windows() const { return windows; }
 	bool is_overlay(size_t index) const { return overlays[index]; }
 	const ApplicationUiLayout& get_layout(size_t index) const { return layouts[index]; }
@@ -99,7 +115,7 @@ public:
 	void process(GameEngine& engine)
 	{
 		for (auto& window : windows)
-			if (window->is_visible()) window->process(engine);
+			if (is_active(*window)) window->process(engine);
 	}
 
 private:
@@ -114,6 +130,7 @@ private:
 		return *static_cast<GuiT*>(windows.back().get());
 	}
 
+	std::atomic<ApplicationUiElement*> exclusive_window = nullptr;
 	ApplicationUiTheme theme;
 	std::vector<std::unique_ptr<GuiWindow>> windows;
 	std::vector<ApplicationUiLayout> layouts;

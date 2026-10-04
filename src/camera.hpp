@@ -42,6 +42,8 @@ public:
 
 	float get_focal_length();
 	void zoom_in(float length);
+	void set_zoom_limits(float minimum, float maximum);
+	glm::vec2 get_zoom_limits() const { return zoom_limits; }
 
 	Object* upvector_obj = nullptr;
 	
@@ -97,6 +99,7 @@ private:
 	static constexpr float panning_sensitivity = 0.2f;
 	bool projection_is_perspective = true;
 	glm::vec2 orthographic_horizontal_span;
+	glm::vec2 zoom_limits{ 1.0f, 100.0f };
 	const float aspect_ratio;
 	const float fov = Maths::deg2rad(45.0f);
 	const float near_clipping = 0.1f;

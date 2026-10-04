@@ -95,6 +95,9 @@ public: // getters and setters
 	void clear_input_state();
 	CommandRegistry& get_commands() { return commands; }
 	bool is_command_prompt_open() const { return command_prompt_active; }
+	// Restore the prompt's temporary input state before an application transition.
+	void close_command_prompt();
+	bool is_camera_orbit_with_right_mouse() const { return camera_orbit_with_right_mouse; }
 	void set_normal_mode_cursor_captured(bool captured) { normal_mode_cursor_captured = captured; }
 
 public:

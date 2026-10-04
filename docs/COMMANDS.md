@@ -1,17 +1,17 @@
-# Slash commands
+# Command console
 
-Press `/` outside another text field to open the command console in either
+Press `/` outside another text field to toggle the command console in either
 engine mode. It spans the viewport width and occupies its bottom half, with a
 translucent background and no title bar, moving, or resizing. Command output
 and matching suggestions appear above the input line at the bottom. Simulation
 pauses while the console is open. Gameplay keyboard, mouse, and camera input
-are captured; the cursor is released. Escape closes the console and restores
+are captured; the cursor is released. Press `/` again or Escape to close the console and restore
 the previous cursor capture state. An existing explicit pause remains in
 effect. Enter executes a command; feedback stays visible until the console is
 closed. Tab completes the common prefix of matching command names (or the whole
 name for a single match).
 
-`/help` lists all registered commands. `/exit` requests orderly engine shutdown.
+`help` lists all registered commands. `exit` requests orderly engine shutdown.
 These commands accept no arguments.
 
 Consumers register commands through `GameEngine::get_commands().add`, in
@@ -25,7 +25,8 @@ engine.get_commands().add("inspect", "Inspect a resource",
     });
 ```
 
-Names omit the slash and contain lowercase ASCII letters, digits, underscores,
+Commands are entered without a leading slash. The input starts empty and clears
+after submission. Names contain lowercase ASCII letters, digits, underscores,
 or hyphens. Empty names, empty handlers, and duplicate names throw
 `std::invalid_argument`. Help and completion use the same registry, so custom
 commands appear automatically. Handlers run on the game thread outside the UI

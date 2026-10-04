@@ -64,9 +64,8 @@ void GuiCommandPrompt::open()
 {
 	set_visible(true);
 	input_buffer.fill('\0');
-	input_buffer[0] = '/';
 	focus_input = true;
-	suppress_initial_slash = true;
+	just_opened = true;
 }
 
 void GuiCommandPrompt::process(GameEngine& engine)
@@ -88,22 +87,14 @@ int GuiCommandPrompt::input_callback(ImGuiInputTextCallbackData* data)
 {
 	auto& prompt = *static_cast<GuiCommandPrompt*>(data->UserData);
 	if (data->EventFlag == ImGuiInputTextFlags_CallbackCharFilter)
-	{
-		if (prompt.suppress_initial_slash)
-		{
-			prompt.suppress_initial_slash = false;
-			if (data->EventChar == '/')
-				return 1;
-		}
-		return 0;
-	}
+		return data->EventChar == '/' ? 1 : 0;
 
 	if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion && !prompt.suggestions.empty())
 	{
 		const std::string_view input(data->Buf, static_cast<size_t>(data->BufTextLen));
 		if (input.find_first_of(" \t\r\n") != std::string_view::npos)
 			return 0;
-		const auto prefix = input.starts_with('/') ? input.substr(1) : input;
+		const auto prefix = input;
 		std::vector<const Suggestion*> matches;
 		for (const auto& suggestion : prompt.suggestions)
 			if (suggestion.name.starts_with(prefix))
@@ -120,7 +111,7 @@ int GuiCommandPrompt::input_callback(ImGuiInputTextCallbackData* data)
 					++length;
 				common_prefix.resize(length);
 			}
-			std::string completion = "/" + common_prefix;
+			std::string completion = common_prefix;
 			if (matches.size() == 1 && matches.front()->name == common_prefix)
 				completion += ' ';
 			data->DeleteChars(0, data->BufTextLen);
@@ -155,14 +146,14 @@ void GuiCommandPrompt::draw()
 
 		const std::string_view input(input_buffer.data());
 		const auto first_space = input.find_first_of(" \t\r\n");
-		const auto prefix = input.starts_with('/') ? input.substr(1) : input;
-		if (!input.empty() && first_space == std::string_view::npos)
+		const auto prefix = input;
+		if (first_space == std::string_view::npos)
 		{
 			for (const auto& suggestion : suggestions)
 			{
 				if (!suggestion.name.starts_with(prefix))
 					continue;
-				ImGui::TextUnformatted(("/" + suggestion.name).c_str());
+				ImGui::TextUnformatted(suggestion.name.c_str());
 				ImGui::SameLine(130.0f);
 				ImGui::TextDisabled("%s", suggestion.description.c_str());
 			}
@@ -183,19 +174,19 @@ void GuiCommandPrompt::draw()
 			ImGuiInputTextFlags_CallbackCharFilter;
 		const bool submitted = ImGui::InputText("##command", input_buffer.data(), input_buffer.size(),
 			flags, input_callback, this);
-		suppress_initial_slash = false;
 		if (submitted)
 		{
 			pending_submission = input_buffer.data();
 			input_buffer.fill('\0');
-			input_buffer[0] = '/';
 			focus_input = true;
 		}
 
 		if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
-			ImGui::IsKeyPressed(ImGuiKey_Escape, false))
+			(ImGui::IsKeyPressed(ImGuiKey_Escape, false)
+				|| (!just_opened && ImGui::IsKeyPressed(ImGuiKey_Slash, false))))
 			set_visible(false);
 	}
+	just_opened = false;
 	ImGui::End();
 	ImGui::PopStyleVar(2);
 	ImGui::PopStyleColor();

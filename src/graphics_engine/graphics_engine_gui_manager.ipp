@@ -89,7 +89,8 @@ void GraphicsEngineGuiManager::draw()
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-	if (engine_ui_active.load(std::memory_order_acquire))
+	const bool exclusive = application_ui_manager && application_ui_manager->get_exclusive_window();
+	if (!exclusive && engine_ui_active.load(std::memory_order_acquire))
 	{
 		draw_workspace();
 		for (auto& gui_window : engine_ui_manager.get_gui_windows())
@@ -98,11 +99,11 @@ void GraphicsEngineGuiManager::draw()
 				gui_window->draw();
 		}
 	}
-	if (application_ui_active.load(std::memory_order_acquire) && application_ui_manager)
+	if (application_ui_manager && (exclusive || application_ui_active.load(std::memory_order_acquire)))
 		draw_application_ui();
 	for (auto& gui_window : engine_ui_manager.get_persistent_windows())
 	{
-		if (gui_window->is_visible())
+		if (gui_window->is_visible() && (!exclusive || gui_window.get() == &engine_ui_manager.command_prompt))
 			gui_window->draw();
 	}
 
@@ -126,7 +127,7 @@ void GraphicsEngineGuiManager::draw_application_ui()
 		for (size_t index = 0; index < windows.size(); ++index)
 		{
 			auto& window = windows[index];
-			if (!window->is_visible() || application_ui_manager->is_overlay(index) != overlay)
+			if (!application_ui_manager->is_active(*window) || application_ui_manager->is_overlay(index) != overlay)
 				continue;
 			const auto& layout = application_ui_manager->get_layout(index);
 			ImVec2 position = viewport->WorkPos;
