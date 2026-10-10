@@ -3,6 +3,7 @@
 #include "game_engine.hpp"
 
 #include "camera.hpp"
+#include "game_objects/player_character.hpp"
 #include "objects/objects.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 #include "analytics.hpp"
@@ -56,6 +57,9 @@ void GameEngine::key_callback(const KeyInput& key_input)
 		load_scene("quicksave");
 		return;
 	}
+	else if (key_input.eq(GLFW_KEY_SPACE, NONE, PRESS)
+		&& game_mode == EGameMode::NORMAL && !is_paused() && active_player)
+		active_player->request_jump();
 	else if (key_input.eq(GLFW_KEY_X, NONE, PRESS))
 		experimental->process();
 	else if (key_input.eq(GLFW_KEY_BACKSPACE, NONE, PRESS) ||

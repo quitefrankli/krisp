@@ -183,7 +183,10 @@ work, draw splitting, or a different transparency technique.
 ## Render preparation and command recording
 
 The game thread publishes a complete immutable `RenderFrame` after each
-update. Snapshot construction scales with renderable/material references,
+update. Follow cameras update after physics and application tick callbacks, so
+the published camera and its target use the same completed simulation pose.
+Updating follow before physics causes a one-tick relative displacement during
+controller movement and jump takeoff. Snapshot construction scales with renderable/material references,
 skeleton pose data, bone attachments, particles, and highlighted object IDs.
 Current and previous snapshots retain their dynamic vectors and referenced
 assets until consumers release them or newer publications displace them.
@@ -303,3 +306,30 @@ Continuous collision detection is opt-in and is enabled for billiard balls;
 ordinary bodies use cheaper discrete motion. External transform edits teleport
 bodies into Jolt before stepping. Shape changes should be batched because they
 require body reconstruction.
+
+## Static triangle-mesh collision
+
+Indexed triangle collision meshes are cooked into Jolt MeshShape acceleration
+trees when bodies are created. Cooking is synchronous and repeated when a body
+is reconstructed; it is not per-frame work. Each body currently retains its
+source vertex/index vectors for scene serialization in addition to Jolt's cooked
+shape. There is no cross-body cooked-shape cache in this API.
+
+Mesh queries use Jolt's tree to prune distant triangles. This is a structural
+property, not a measured timing claim. Prefer simplified collision geometry and
+manageable static sections; use primitive shapes where they describe the surface
+adequately. No cooking, query-time or memory benchmark is claimed for this change.
+
+## Virtual capsule controllers
+
+Virtual capsule controllers advance at the existing 60 Hz physics step, with
+the same maximum of four accumulated steps. Each controller performs Jolt
+collision queries through ExtendedUpdate, including configured stair and short
+ground-adhesion checks. Controllers update sequentially before rigid-body
+simulation; no timing or capacity benchmark is claimed.
+
+Each controller has an inner kinematic capsule for scene queries and physical
+presence. Its lifetime belongs to the controller and it is not a second
+application-managed rigid body. Reuse live controllers rather than reconstructing
+them per frame. Application-requested planar velocity does not reset accumulated
+vertical velocity; gravity and vertical launches advance on fixed steps.

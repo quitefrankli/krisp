@@ -71,4 +71,4 @@ timings before and after removing the mutex.
   on the retired engine collider visualizer.
 - Add engine-owned APIs for constraints, vehicles, ragdolls, and soft bodies
   when an application needs them.
-- Add static triangle-mesh shapes and Jolt `CharacterVirtual` locomotion.
+- Static triangle-mesh shapes and virtual capsule controllers are available through the physics API. Expand controller capabilities only when concrete requirements establish the need.

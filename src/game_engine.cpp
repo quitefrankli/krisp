@@ -304,13 +304,14 @@ void GameEngine::main_loop(const float time_delta)
 		if (game_mode == EGameMode::NORMAL && active_player)
 		{
 			active_player->pre_update(keyboard, *camera, ecs, time_delta);
-			camera->update_follow();
 		}
 		application->on_pre_tick(*this, time_delta);
 		ecs.process(time_delta);
 		experimental->process(time_delta);
 		application->on_tick(*this, time_delta);
 		application->on_post_tick(*this, time_delta);
+		if (game_mode == EGameMode::NORMAL && active_player)
+			camera->update_follow();
 	}
 	camera->sync_audio_listener();
 	publish_completed_render_frame();

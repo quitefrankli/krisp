@@ -24,6 +24,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -522,6 +523,184 @@ TEST_F(GameEngineTests, normal_mode_routes_movement_to_the_active_player)
 		engine.get_camera().get_focus(),
 		engine.get_ecs().get_position(player.get_id()) + definition.camera_focus_offset
 			+ camera_right * definition.camera_horizontal_offset));
+}
+
+TEST_F(GameEngineTests, player_controller_jumps_falls_lands_resumes_and_falls_after_stepping_off)
+{
+	const auto& floor = engine.spawn_object<Object>();
+	engine.get_ecs().add_rigid_body(floor.get_id(), RigidBodyDefinition{
+		.shape = TriangleMeshPhysicsShape{
+			.vertices = {
+				{ -4.0f, 0.0f, -4.0f }, { -4.0f, 0.0f, 4.0f },
+				{ 4.0f, 0.0f, 4.0f }, { 4.0f, 0.0f, -4.0f } },
+			.indices = { 0, 1, 2, 0, 2, 3 },
+		},
+	});
+	PlayerDefinition definition;
+	definition.animation_transition_secs = 0.0f;
+	auto& player = engine.spawn_object<PlayerCharacter>(definition);
+	engine.get_ecs().add_character_controller(player.get_id(), CharacterControllerDefinition{
+		.radius = definition.capsule_radius,
+		.height = 1.9f,
+		.max_slope_angle = glm::radians(45.0f),
+		.step_height = 0.3f,
+		.ground_snap_distance = 0.1f,
+	});
+
+	Bone root;
+	root.name = "Root";
+	const SkeletonID skeleton = engine.get_ecs().add_skeleton({ root });
+	const auto rig = make_skeletal_rig_signature(
+		engine.get_ecs().get_skeletal_component(skeleton).get_bones());
+	const auto add_clip = [&](const std::string& name, const float duration) {
+		BoneAnimation animation;
+		animation.animation_start_secs = 0.0f;
+		animation.animation_end_secs = duration;
+		animation.translation_track.keys = {
+			{ 0.0f, glm::vec3(0.0f) }, { duration, glm::vec3(0.0f) },
+		};
+		return engine.get_ecs().add_skeletal_animation(name, { animation }, rig);
+	};
+	const AnimationID idle = add_clip("NeutralIdle", 0.2f);
+	const AnimationID jump = add_clip("NeutralJump", 2.0f);
+	const AnimationID fall = add_clip("NeutralFall", 0.3f);
+	const AnimationID land = add_clip("NeutralLand", 0.2f);
+	player.configure_locomotion(skeleton, PlayerLocomotionAnimations{
+		.idle = idle,
+		.walk_backward = idle,
+		.walk_backward_left = idle,
+		.walk_backward_right = idle,
+		.walk_forward = idle,
+		.walk_forward_left = idle,
+		.walk_forward_right = idle,
+		.walk_left = idle,
+		.walk_right = idle,
+		.jump_start = jump,
+		.fall = fall,
+		.land = land,
+	});
+	engine.get_camera().look_at(Maths::forward_vec, { 0.0f, 0.0f, -2.0f });
+	engine.set_normal_mode_cursor_captured(false);
+	engine.set_game_mode(EGameMode::NORMAL);
+
+	engine.main_loop(1.0f / 60.0f);
+	ASSERT_TRUE(engine.get_ecs().is_character_grounded(player.get_id()));
+	player.request_jump();
+	engine.main_loop(1.0f / 60.0f);
+	auto playback = engine.get_ecs().get_animation_playback(skeleton);
+	ASSERT_TRUE(playback.has_value());
+	EXPECT_EQ(playback->animation_id, jump);
+	EXPECT_FALSE(playback->looping);
+
+	bool saw_fall = false;
+	bool saw_landing = false;
+	bool saw_locomotion_after_landing = false;
+	for (int frame = 0; frame < 180; ++frame)
+	{
+		engine.main_loop(1.0f / 60.0f);
+		playback = engine.get_ecs().get_animation_playback(skeleton);
+		ASSERT_TRUE(playback.has_value());
+		if (playback->animation_id == fall)
+			saw_fall = playback->looping;
+		if (playback->animation_id == land)
+			saw_landing = !playback->looping;
+		if (saw_landing && playback->animation_id == idle && playback->looping)
+		{
+			saw_locomotion_after_landing = true;
+			break;
+		}
+	}
+	EXPECT_TRUE(saw_fall);
+	EXPECT_TRUE(saw_landing);
+	EXPECT_TRUE(saw_locomotion_after_landing);
+
+	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	bool saw_step_off_fall = false;
+	for (int frame = 0; frame < 90; ++frame)
+	{
+		engine.main_loop(1.0f / 60.0f);
+		playback = engine.get_ecs().get_animation_playback(skeleton);
+		ASSERT_TRUE(playback.has_value());
+		if (playback->animation_id == fall && playback->looping)
+		{
+			saw_step_off_fall = true;
+			break;
+		}
+	}
+	EXPECT_TRUE(saw_step_off_fall);
+}
+
+TEST_F(GameEngineTests, normal_mode_follow_camera_tracks_completed_player_pose_during_controller_motion)
+{
+	const auto& floor = engine.spawn_object<Object>();
+	engine.get_ecs().add_rigid_body(floor.get_id(), RigidBodyDefinition{
+		.shape = TriangleMeshPhysicsShape{
+			.vertices = {
+				{ -10.0f, 0.0f, -10.0f }, { -10.0f, 0.0f, 10.0f },
+				{ 10.0f, 0.0f, 10.0f }, { 10.0f, 0.0f, -10.0f } },
+			.indices = { 0, 1, 2, 0, 2, 3 },
+		},
+	});
+	PlayerDefinition definition;
+	definition.movement_speed = 2.0f;
+	auto& player = engine.spawn_object<PlayerCharacter>(definition);
+	engine.attach_renderable(
+		player.get_id(), Renderable::make_default(engine.get_ecs()));
+	engine.get_ecs().add_character_controller(player.get_id(), CharacterControllerDefinition{
+		.radius = definition.capsule_radius,
+		.height = 1.9f,
+		.max_slope_angle = glm::radians(45.0f),
+		.step_height = 0.3f,
+		.ground_snap_distance = 0.1f,
+	});
+	engine.set_normal_mode_cursor_captured(false);
+	engine.set_game_mode(EGameMode::NORMAL);
+
+	const auto expect_camera_focus_to_match_completed_player_pose = [&]() {
+		const auto frame = engine.get_graphics_engine()
+			.load_latest_completed_render_frames()->current;
+		ASSERT_NE(frame, nullptr);
+		const auto& player_pose = find_render_object(*frame, player.get_id());
+		const auto& focus_pose = find_render_object(
+			*frame, engine.get_camera().focus_obj->get_id());
+		const glm::vec3 player_position(player_pose.model_transform[3]);
+		const glm::vec3 focus_position(focus_pose.model_transform[3]);
+		const glm::vec3 camera_right = glm::normalize(glm::vec3(
+			glm::inverse(frame->camera.view)[0]));
+		EXPECT_TRUE(glm_equal(
+			focus_position - player_position,
+			definition.camera_focus_offset
+				+ camera_right * definition.camera_horizontal_offset));
+	};
+
+	engine.main_loop(0.0f);
+	expect_camera_focus_to_match_completed_player_pose();
+	for (int frame = 0; frame < 12; ++frame)
+	{
+		engine.main_loop(1.0f / 60.0f);
+		expect_camera_focus_to_match_completed_player_pose();
+	}
+	ASSERT_TRUE(engine.get_ecs().is_character_grounded(player.get_id()));
+	const glm::vec3 takeoff_position = engine.get_ecs().get_position(player.get_id());
+
+	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.key_callback({ GLFW_KEY_SPACE, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.main_loop(0.0f);
+	expect_camera_focus_to_match_completed_player_pose();
+	float maximum_height = engine.get_ecs().get_position(player.get_id()).y;
+	constexpr std::array frame_deltas{ 1.0f / 120.0f, 1.0f / 60.0f, 1.0f / 40.0f };
+	for (int frame = 0; frame < 120; ++frame)
+	{
+		engine.main_loop(frame_deltas[static_cast<size_t>(frame) % frame_deltas.size()]);
+		maximum_height = std::max(maximum_height, engine.get_ecs().get_position(player.get_id()).y);
+		expect_camera_focus_to_match_completed_player_pose();
+	}
+	engine.main_loop(0.0f);
+	expect_camera_focus_to_match_completed_player_pose();
+
+	EXPECT_GT(maximum_height, takeoff_position.y + 0.5f);
+	EXPECT_GT(engine.get_ecs().get_position(player.get_id()).z, takeoff_position.z + 0.5f);
+	EXPECT_TRUE(engine.get_ecs().is_character_grounded(player.get_id()));
 }
 
 TEST_F(GameEngineTests, player_rotation_does_not_rotate_the_follow_camera)

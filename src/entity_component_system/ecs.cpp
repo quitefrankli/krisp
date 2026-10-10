@@ -113,7 +113,7 @@ DetectedEntityCollision ECS::raycast_entities(
 	collider_candidates.reserve(candidates.size());
 	for (const EntityID id : candidates)
 	{
-		if (has_rigid_body(id))
+		if (has_rigid_body(id) || has_character_controller(id))
 			physics_candidates.push_back(id);
 		else if (has_collider(id))
 			collider_candidates.push_back(id);

@@ -64,6 +64,8 @@ void PlayerCharacter::configure_locomotion(
 {
 	animation_skeleton = skeleton;
 	locomotion_animations = std::move(animations);
+	action_animation.reset();
+	was_airborne = false;
 }
 
 bool PlayerCharacter::play_action_animation(ECS& ecs, const AnimationID animation)
@@ -112,23 +114,87 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 		forward_pressed, backward_pressed, right_pressed, left_pressed, forward, right);
 	moving = glm::length2(direction) > Maths::ACCEPTABLE_FLOATING_PT_DIFF;
 	if (moving)
-	{
 		ecs.get_transformation(get_id()).set_rotation(Maths::Vec2Rot(forward));
-		resolve_horizontal_movement(ecs, direction * definition.movement_speed * delta_secs);
+	update_movement(ecs, direction * definition.movement_speed, delta_secs);
+
+	bool launched = false;
+	if (delta_secs > 0.0f && jump_requested)
+	{
+		if (ecs.has_character_controller(get_id())
+			&& ecs.is_character_grounded(get_id()))
+			launched = ecs.launch_character(get_id(), definition.jump_speed);
+		jump_requested = false;
 	}
+
+	const bool has_controller = ecs.has_character_controller(get_id());
+	const bool grounded = has_controller && ecs.is_character_grounded(get_id());
+	const bool airborne = launched || (has_controller && !grounded);
+	const bool landed = was_airborne && grounded;
+	was_airborne = airborne;
+
 	bool action_playing = false;
 	if (animation_skeleton && action_animation)
 	{
 		const auto playback = ecs.get_animation_playback(*animation_skeleton);
 		action_playing = playback && playback->animation_id == *action_animation;
+		if (action_playing && locomotion_animations && playback
+			&& !playback->looping && !playback->paused && playback->speed > 0.0f)
+		{
+			const auto& animations = *locomotion_animations;
+			const bool is_transition_action =
+				(animations.jump_start && *action_animation == *animations.jump_start)
+				|| (animations.land && *action_animation == *animations.land);
+			const float upcoming_elapsed_secs = playback->elapsed_secs
+				+ (delta_secs > 0.0f ? delta_secs : 0.0f) * playback->speed;
+			if (is_transition_action && upcoming_elapsed_secs > playback->duration_secs)
+				action_playing = false;
+		}
 		if (!action_playing)
 			action_animation.reset();
 	}
-	if (!action_playing && animation_skeleton && locomotion_animations)
-		play_looping_animation(ecs, *animation_skeleton,
-			animation_for(locomotion_direction(
-				forward_pressed, backward_pressed, right_pressed, left_pressed)),
-			definition.animation_transition_secs);
+
+	if (animation_skeleton && locomotion_animations)
+	{
+		const auto& animations = *locomotion_animations;
+		if (launched && animations.jump_start)
+			action_playing = play_action_animation(ecs, *animations.jump_start);
+		else if (landed && animations.land)
+			action_playing = play_action_animation(ecs, *animations.land);
+		else if (airborne && animations.fall)
+		{
+			const glm::vec3 velocity = has_controller
+				? ecs.get_character_velocity(get_id()) : Maths::zero_vec;
+			const bool descending = velocity.y <= 0.0f;
+			const bool takeoff_action_playing = action_playing
+				&& animations.jump_start && action_animation == animations.jump_start;
+			const bool takeoff_finished = !action_playing;
+			const bool takeoff_unavailable = !animations.jump_start;
+			if ((!action_playing || takeoff_action_playing)
+				&& (takeoff_unavailable || descending || takeoff_finished))
+			{
+				play_looping_animation(ecs, *animation_skeleton, *animations.fall,
+						definition.animation_transition_secs);
+				action_animation.reset();
+				action_playing = true;
+			}
+		}
+		if (!action_playing && (!airborne || !animations.fall))
+			play_looping_animation(ecs, *animation_skeleton,
+				animation_for(locomotion_direction(
+					forward_pressed, backward_pressed, right_pressed, left_pressed)),
+				definition.animation_transition_secs);
+	}
+}
+
+void PlayerCharacter::update_movement(
+	ECS& ecs, const glm::vec3 desired_velocity, const float delta_secs)
+{
+	if (ecs.has_character_controller(get_id()))
+	{
+		ecs.set_character_desired_velocity(get_id(), desired_velocity);
+		return;
+	}
+	resolve_horizontal_movement(ecs, desired_velocity * delta_secs);
 	snap_to_ground(ecs);
 }
 

@@ -115,3 +115,40 @@ When adding state, serialize it in its owning ECS subsystem and preserve
 dependency order in `ECS::serialize`/`deserialize`. Give imported resources
 stable provenance rather than persisting runtime IDs. Add the lowest-level
 round-trip or rejection test that demonstrates the new behaviour.
+
+## Static triangle-mesh physics shapes
+
+Physics shape tag `3` stores `vertices` as a sequence of maps containing
+`x`, `y`, `z`, and `indices` as a sequence of unsigned 32-bit indices in triangle
+triplets. Geometry is local to the body and uses counter-clockwise winding;
+simulation surfaces are single-sided. Only static bodies accept this shape.
+
+Body position, rotation and local `shape_offset` determine placement. As with
+existing physics shapes, ECS visual scale is not implicitly applied; callers
+must supply collision geometry at the required scale. Mesh data is owned by the
+body definition, so caller buffers need not outlive body creation.
+
+Empty meshes, incomplete triangle triplets, invalid indices, non-finite vertices
+and degenerate triangles are rejected. Loading rebuilds Jolt's cooked shape from
+the stored geometry and preserves the existing physics state if restoration
+fails. Dynamic objects should continue using primitives or other supported
+shapes.
+
+## Virtual character controllers
+
+The physics system also saves virtual capsule controller definitions and motion
+state. Their entity transform is the feet position; dimensions are local engine
+units and the maximum slope angle is in radians. The controller owns its inner
+kinematic query body and cannot share an entity with an explicit rigid body.
+
+Restore stages controllers and their proxy bodies in the replacement physics
+world before installing it, preserving live state on invalid input. Saved
+vertical velocity must survive a mid-air restore. Support contacts are refreshed
+against restored geometry rather than persisting backend contact pointers.
+
+Desired movement is planar in the engine's Y-up coordinate system. A generic
+launch operation supplies positive upward speed only when supported, rejecting
+repeated launches until support is regained. The standard character support handles grounded jump requests and the Spacebar
+binding in normal mode. Jump speed is configurable through PlayerDefinition;
+the physics launch operation remains independent of input. Character-specific
+animation and camera policy can be supplied by consumers.

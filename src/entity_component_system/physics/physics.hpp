@@ -30,7 +30,24 @@ enum class PhysicsPersistence { Persistent, Transient };
 struct BoxPhysicsShape { glm::vec3 half_extents{0.5f}; };
 struct SpherePhysicsShape { float radius = 0.5f; };
 struct CapsulePhysicsShape { float radius = 0.5f; float height = 2.0f; };
-using PhysicsShape = std::variant<BoxPhysicsShape, SpherePhysicsShape, CapsulePhysicsShape>;
+// Indexed local-space triangles for immovable environment geometry.
+struct TriangleMeshPhysicsShape
+{
+	std::vector<glm::vec3> vertices;
+	std::vector<uint32_t> indices;
+};
+using PhysicsShape = std::variant<BoxPhysicsShape, SpherePhysicsShape, CapsulePhysicsShape, TriangleMeshPhysicsShape>;
+
+// Configuration for a virtual capsule character. Entity transforms represent
+// the character's feet; the capsule is raised by half its total height.
+struct CharacterControllerDefinition
+{
+	float radius = 0.35f;
+	float height = 1.9f;
+	float max_slope_angle = 0.78539816339f;
+	float step_height = 0.3f;
+	float ground_snap_distance = 0.1f;
+};
 
 // Complete configuration used when creating a rigid body.
 struct RigidBodyDefinition
@@ -79,6 +96,20 @@ public:
 	void add_rigid_body(EntityID id, const RigidBodyDefinition& definition);
 	void remove_rigid_body(EntityID id);
 	bool has_rigid_body(EntityID id) const;
+	// Controllers use an upward-Y capsule with the entity transform at its feet.
+	// Their kinematic inner body is queryable, but rigid bodies and controllers
+	// are mutually exclusive on an entity.
+	void add_character_controller(EntityID id, const CharacterControllerDefinition& definition = {});
+	void remove_character_controller(EntityID id);
+	bool has_character_controller(EntityID id) const;
+	// Sets planar world-space locomotion; velocity.y is ignored. World up is +Y.
+	void set_character_desired_velocity(EntityID id, glm::vec3 velocity);
+	glm::vec3 get_character_velocity(EntityID id) const;
+	bool is_character_grounded(EntityID id) const;
+	// Launches upward only while supported; returns false in air or after a launch.
+	bool launch_character(EntityID id, float upward_speed);
+	// Teleports the feet origin and clears movement velocity, desired velocity and launch lock.
+	void teleport_character_controller(EntityID id, glm::vec3 position);
 	// Disabled bodies remain allocated but do not participate in simulation.
 	void set_body_enabled(EntityID id, bool enabled);
 	bool is_body_enabled(EntityID id) const;
@@ -115,7 +146,7 @@ public:
 protected:
 	virtual ECS& get_ecs() = 0;
 	virtual const ECS& get_ecs() const = 0;
-	void remove_entity(EntityID id) { remove_rigid_body(id); }
+	void remove_entity(EntityID id) { remove_rigid_body(id); remove_character_controller(id); }
 
 private:
 	class Impl;

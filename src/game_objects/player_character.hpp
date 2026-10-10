@@ -15,6 +15,7 @@ struct PlayerDefinition
 	float capsule_radius = 0.35f;
 	float capsule_height = 1.7f;
 	float ground_snap_distance = 1.0f;
+	float jump_speed = 5.0f;
 	glm::vec3 camera_focus_offset{ 0.0f, 1.4f, 0.0f };
 	float camera_horizontal_offset = 1.25f;
 	float animation_transition_secs = 0.2f;
@@ -44,6 +45,9 @@ struct PlayerLocomotionAnimations
 	AnimationID walk_forward_right;
 	AnimationID walk_left;
 	AnimationID walk_right;
+	std::optional<AnimationID> jump_start{};
+	std::optional<AnimationID> fall{};
+	std::optional<AnimationID> land{};
 };
 
 // A reusable third-person character with camera-relative movement.
@@ -63,6 +67,12 @@ public:
 	bool play_action_animation(ECS& ecs, AnimationID animation);
 	bool is_moving() const { return moving; }
 	const PlayerDefinition& get_definition() const { return definition; }
+	void request_jump() { jump_requested = true; }
+
+protected:
+	// Applications may replace movement integration while retaining the shared
+	// input, facing, and animation behaviour.
+	virtual void update_movement(ECS& ecs, glm::vec3 desired_velocity, float delta_secs);
 
 private:
 	void resolve_horizontal_movement(ECS& ecs, glm::vec3 displacement);
@@ -74,4 +84,6 @@ private:
 	std::optional<PlayerLocomotionAnimations> locomotion_animations;
 	std::optional<AnimationID> action_animation;
 	bool moving = false;
+	bool jump_requested = false;
+	bool was_airborne = false;
 };
