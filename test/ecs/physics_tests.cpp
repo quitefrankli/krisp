@@ -23,6 +23,85 @@ TriangleMeshPhysicsShape make_floor_mesh()
 }
 }
 
+TEST(JoltPhysics, SphereSweepFindsFloorAndTransformedTriangleMeshWall)
+{
+	PhysicsECS ecs;
+	const EntityID floor(7190), wall(7191);
+	ecs.add_transformation(floor);
+	ecs.add_transformation(wall);
+	ecs.set_position(wall, {4.0f, 1.0f, 0.0f});
+	ecs.set_rotation(wall, glm::angleAxis(Maths::PI * 0.5f, Maths::up_vec));
+	ecs.add_rigid_body(floor, RigidBodyDefinition{.shape = make_floor_mesh()});
+	ecs.add_rigid_body(wall, RigidBodyDefinition{
+		.shape = TriangleMeshPhysicsShape{
+			.vertices = {{-2.0f, -1.0f, 0.0f}, {2.0f, -1.0f, 0.0f}, {2.0f, 1.0f, 0.0f}, {-2.0f, 1.0f, 0.0f}},
+			.indices = {0, 1, 2, 0, 2, 3},
+		},
+		.shape_offset = {0.0f, 0.0f, 1.0f},
+	});
+
+	const auto floor_hit = ecs.PhysicsSystem::sphere_sweep({0.0f, 3.0f, 0.0f}, {0.0f, -4.0f, 0.0f}, 0.25f);
+	ASSERT_TRUE(floor_hit);
+	EXPECT_EQ(floor_hit->entity, floor);
+	EXPECT_FALSE(floor_hit->initial_overlap);
+	EXPECT_NEAR(floor_hit->fraction, 0.6875f, 0.01f);
+	EXPECT_NEAR(floor_hit->position.y, 0.25f, 0.01f);
+	EXPECT_GT(floor_hit->normal.y, 0.95f);
+
+	const auto wall_hit = ecs.PhysicsSystem::sphere_sweep({3.0f, 1.0f, 0.0f}, {4.0f, 0.0f, 0.0f}, 0.25f);
+	ASSERT_TRUE(wall_hit);
+	EXPECT_EQ(wall_hit->entity, wall);
+	EXPECT_FALSE(wall_hit->initial_overlap);
+	EXPECT_NEAR(wall_hit->fraction, 0.4375f, 0.02f);
+	EXPECT_NEAR(wall_hit->position.x, 4.75f, 0.03f);
+}
+
+TEST(JoltPhysics, SphereSweepSkipsSensorsAndQueryOnlyBodiesAndCanIgnoreEntities)
+{
+	PhysicsECS ecs;
+	const EntityID sensor(7192), query_only(7193), solid(7194);
+	for (const EntityID id : {sensor, query_only, solid}) ecs.add_transformation(id);
+	ecs.set_position(sensor, {0.0f, 0.0f, 1.0f});
+	ecs.set_position(query_only, {0.0f, 0.0f, 2.0f});
+	ecs.set_position(solid, {0.0f, 0.0f, 3.0f});
+	const BoxPhysicsShape box{{0.25f, 0.25f, 0.25f}};
+	ecs.add_rigid_body(sensor, RigidBodyDefinition{.shape = box, .participation = PhysicsParticipation::Sensor});
+	ecs.add_rigid_body(query_only, RigidBodyDefinition{.shape = box, .participation = PhysicsParticipation::QueryOnly});
+	ecs.add_rigid_body(solid, RigidBodyDefinition{.shape = box});
+
+	const auto hit = ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 5.0f}, 0.1f);
+	ASSERT_TRUE(hit);
+	EXPECT_EQ(hit->entity, solid);
+	EXPECT_NEAR(hit->fraction, 0.53f, 0.02f);
+	EXPECT_LT(hit->normal.z, -0.95f);
+	EXPECT_FALSE(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 5.0f}, 0.1f, solid));
+}
+
+TEST(JoltPhysics, SphereSweepReportsInitialOverlapAndHandlesZeroDisplacement)
+{
+	PhysicsECS ecs;
+	const auto id = ecs.object.get_id();
+	ecs.add_rigid_body(id, RigidBodyDefinition{.shape = BoxPhysicsShape{glm::vec3(0.5f)}});
+
+	const auto overlap = ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}, 0.25f);
+	ASSERT_TRUE(overlap);
+	EXPECT_EQ(overlap->entity, id);
+	EXPECT_EQ(overlap->fraction, 0.0f);
+	EXPECT_TRUE(overlap->initial_overlap);
+	EXPECT_GT(glm::length(overlap->normal), 0.9f);
+
+	const auto stationary_overlap = ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, glm::vec3(0.0f), 0.25f);
+	ASSERT_TRUE(stationary_overlap);
+	EXPECT_TRUE(stationary_overlap->initial_overlap);
+	EXPECT_FALSE(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 2.0f}, glm::vec3(0.0f), 0.25f));
+	EXPECT_THROW(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, glm::vec3(0.0f), 0.0f), std::invalid_argument);
+	EXPECT_THROW(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, glm::vec3(0.0f), -1.0f), std::invalid_argument);
+	const float nan = std::numeric_limits<float>::quiet_NaN();
+	EXPECT_THROW(ecs.PhysicsSystem::sphere_sweep({nan, 0.0f, 0.0f}, glm::vec3(0.0f), 0.25f), std::invalid_argument);
+	EXPECT_THROW(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, {0.0f, nan, 0.0f}, 0.25f), std::invalid_argument);
+	EXPECT_THROW(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, glm::vec3(0.0f), nan), std::invalid_argument);
+}
+
 TEST(JoltPhysics, StaticTriangleMeshSupportsFloorCollision)
 {
 	PhysicsECS ecs;
@@ -534,6 +613,46 @@ TEST(JoltCharacterController, WalkingOffPlatformFallsWithoutLargeGroundSnap)
 	EXPECT_GT(ecs.get_position(character).x, 1.0f);
 	EXPECT_LT(ecs.get_position(character).y, -0.25f);
 	EXPECT_FALSE(ecs.is_character_grounded(character));
+}
+
+TEST(JoltCharacterController, CarriesCharacterWithHorizontalKinematicSupport)
+{
+	PhysicsECS ecs;
+	const auto platform = ecs.object.get_id();
+	const EntityID character(7305);
+	ecs.add_transformation(character);
+	ecs.set_position(platform, {0.0f, -0.1f, 0.0f});
+	ecs.add_rigid_body(platform, RigidBodyDefinition{
+		.shape = BoxPhysicsShape{{5.0f, 0.1f, 5.0f}}, .motion = PhysicsMotionType::Kinematic,
+	});
+	ecs.add_character_controller(character, test_character_controller());
+	for (int frame = 0; frame < 4; ++frame) ecs.process(1.0f / 60.0f);
+	ASSERT_TRUE(ecs.is_character_grounded(character));
+
+	ecs.set_linear_velocity(platform, {1.2f, 0.0f, 0.0f});
+	for (int frame = 0; frame < 30; ++frame) ecs.process(1.0f / 60.0f);
+	EXPECT_GT(ecs.get_position(character).x, 0.3f);
+	EXPECT_TRUE(ecs.is_character_grounded(character));
+}
+
+TEST(JoltCharacterController, CarriesCharacterWithVerticalKinematicSupport)
+{
+	PhysicsECS ecs;
+	const auto platform = ecs.object.get_id();
+	const EntityID character(7306);
+	ecs.add_transformation(character);
+	ecs.set_position(platform, {0.0f, -0.1f, 0.0f});
+	ecs.add_rigid_body(platform, RigidBodyDefinition{
+		.shape = BoxPhysicsShape{{5.0f, 0.1f, 5.0f}}, .motion = PhysicsMotionType::Kinematic,
+	});
+	ecs.add_character_controller(character, test_character_controller());
+	for (int frame = 0; frame < 4; ++frame) ecs.process(1.0f / 60.0f);
+	ASSERT_TRUE(ecs.is_character_grounded(character));
+
+	ecs.set_linear_velocity(platform, {0.0f, 0.6f, 0.0f});
+	for (int frame = 0; frame < 30; ++frame) ecs.process(1.0f / 60.0f);
+	EXPECT_GT(ecs.get_position(character).y, 0.2f);
+	EXPECT_TRUE(ecs.is_character_grounded(character));
 }
 
 TEST(JoltCharacterController, SupportsWalkableSlopeWallAndLowStep)

@@ -73,6 +73,14 @@ struct RigidBodyDefinition
 enum class PhysicsContactType { Begin, End };
 struct PhysicsContactEvent { PhysicsContactType type; EntityID first; EntityID second; };
 struct PhysicsDebugTriangle { glm::vec3 vertices[3]; };
+struct SphereSweepHit
+{
+	EntityID entity;
+	float fraction;
+	glm::vec3 position; // Sphere center at impact.
+	glm::vec3 normal;   // Points from the hit surface toward the sphere.
+	bool initial_overlap;
+};
 struct PhysicsDebugBody
 {
 	EntityID entity;
@@ -136,6 +144,12 @@ public:
 	// Returns the closest hit, or a result with bCollided == false.
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::optional<EntityID> ignored = std::nullopt) const;
 	DetectedEntityCollision raycast(const Maths::Ray& ray, std::span<const EntityID> candidates) const;
+	// Sweeps a sphere through the displacement and returns its center at impact
+	// with a normal pointing from the surface toward the sphere. The fraction is
+	// in [0, 1]; initial overlaps return fraction 0. Sensors and QueryOnly bodies
+	// are excluded. Zero displacement checks for an initial overlap.
+	std::optional<SphereSweepHit> sphere_sweep(glm::vec3 start, glm::vec3 displacement, float radius,
+		std::optional<EntityID> ignored = std::nullopt) const;
 	std::span<const PhysicsContactEvent> get_contact_events() const;
 	std::vector<PhysicsDebugBody> get_debug_bodies() const;
 	std::vector<PhysicsDebugTriangle> get_debug_shape_triangles(EntityID id) const;

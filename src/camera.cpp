@@ -16,6 +16,11 @@
 
 namespace
 {
+bool is_finite(const glm::vec3& value)
+{
+	return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z);
+}
+
 struct CameraBasis
 {
 	glm::vec3 right;
@@ -44,7 +49,7 @@ glm::quat make_roll_free_orientation(const glm::vec3& direction)
 
 void Camera::serialize(Serializer& out) const
 {
-	Serialization::write_vec3(out, "position", get_position());
+	Serialization::write_vec3(out, "position", get_desired_position());
 	Serialization::write_vec3(out, "focus", get_focus());
 	out.write("mode", static_cast<int>(mode));
 	out.write("perspective", projection_is_perspective);
@@ -123,7 +128,7 @@ const TransformationComponent& Camera::transformation() const
 
 glm::vec3 Camera::sync_to_camera(const glm::vec2& axis)
 {
-	const auto basis = make_roll_free_basis(get_focus() - get_position());
+	const auto basis = make_roll_free_basis(get_focus() - get_desired_position());
 	return glm::normalize(basis.right * axis.x + basis.up * axis.y);
 }
 
@@ -159,8 +164,9 @@ glm::mat4 Camera::get_projection() const
 
 glm::mat4 Camera::get_view() const
 {
-	const auto basis = make_roll_free_basis(get_focus() - get_position());
-	return glm::lookAtLH(get_position(), get_focus(), basis.up);
+	const auto basis = make_roll_free_basis(get_focus() - get_desired_position());
+	const glm::vec3 position = get_position();
+	return glm::lookAtLH(position, position + basis.forward, basis.up);
 }
 
 void Camera::set_rotation(const glm::quat& rotation)
@@ -171,9 +177,16 @@ void Camera::set_rotation(const glm::quat& rotation)
 void Camera::set_position(const glm::vec3& position)
 {
 	transformation().set_position(position);
+	if (follow_target)
+		resolve_follow_position();
 }
 
 glm::vec3 Camera::get_position() const
+{
+	return has_resolved_follow_position ? resolved_follow_position : get_desired_position();
+}
+
+glm::vec3 Camera::get_desired_position() const
 {
 	return transformation().get_position();
 }
@@ -220,7 +233,7 @@ glm::vec3 Camera::get_focus() const
 
 void Camera::sync_audio_listener()
 {
-	const auto basis = make_roll_free_basis(get_focus() - get_position());
+	const auto basis = make_roll_free_basis(get_focus() - get_desired_position());
 	listener.set_transform(get_position(), basis.forward, basis.up);
 }
 
@@ -235,7 +248,7 @@ void Camera::look_at(const glm::vec3& focus, const glm::vec3& from)
 
 void Camera::look_at(const glm::vec3& focus)
 {
-	look_at(focus, get_position());
+	look_at(focus, get_desired_position());
 }
 
 void Camera::pan(const glm::vec3& relative_axis, const float magnitude)
@@ -244,9 +257,11 @@ void Camera::pan(const glm::vec3& relative_axis, const float magnitude)
 	// The camera is attached to focus_obj in orbit mode, so moving the focus
 	// already moves the camera. Preserve its pre-pan world position to avoid
 	// applying the translation twice and changing the camera-focus direction.
-	const glm::vec3 camera_position = get_position();
+	const glm::vec3 camera_position = get_desired_position();
 	ecs.get_transformation(focus_obj->get_id()).set_position(get_focus() + offset);
 	transformation().set_position(camera_position + offset);
+	if (follow_target)
+		resolve_follow_position();
 }
 
 void Camera::process_keyboard_movement(const Keyboard& keyboard, const float delta_secs)
@@ -279,17 +294,56 @@ void Camera::follow(Object& target, const glm::vec3& focus_offset, const float h
 void Camera::stop_follow()
 {
 	follow_target = nullptr;
+	has_resolved_follow_position = false;
 }
 
 void Camera::update_follow()
 {
 	if (follow_target)
 	{
-		const auto basis = make_roll_free_basis(get_focus() - get_position());
+		const auto basis = make_roll_free_basis(get_focus() - get_desired_position());
 		const glm::vec3 desired_focus = ecs.get_transformation(follow_target->get_id()).get_position()
 			+ follow_offset + basis.right * follow_horizontal_offset;
 		pan(desired_focus - get_focus(), 1.0f);
 	}
+}
+
+void Camera::resolve_follow_position()
+{
+	if (follow_target && follow_position_constraint)
+	{
+		const glm::vec3 resolved_position = follow_position_constraint(get_focus(), get_desired_position());
+		if (!is_finite(resolved_position))
+			throw std::invalid_argument("Camera follow position constraint must return a finite position");
+		resolved_follow_position = resolved_position;
+		has_resolved_follow_position = true;
+	} else {
+		has_resolved_follow_position = false;
+	}
+}
+
+void Camera::set_follow_position_constraint(FollowPositionConstraint constraint)
+{
+	if (!constraint)
+		throw std::invalid_argument("Camera follow position constraint must be callable");
+
+	if (follow_target)
+	{
+		const glm::vec3 resolved_position = constraint(get_focus(), get_desired_position());
+		if (!is_finite(resolved_position))
+			throw std::invalid_argument("Camera follow position constraint must return a finite position");
+		follow_position_constraint = std::move(constraint);
+		resolved_follow_position = resolved_position;
+		has_resolved_follow_position = true;
+	} else {
+		follow_position_constraint = std::move(constraint);
+	}
+}
+
+void Camera::clear_follow_position_constraint()
+{
+	follow_position_constraint = {};
+	has_resolved_follow_position = false;
 }
 
 void Camera::pan(const glm::vec2& axis, const float magnitude)
@@ -302,7 +356,7 @@ void Camera::pan(const glm::vec2& axis, const float magnitude)
 
 float Camera::get_focal_length()
 {
-	return glm::distance(get_focus(), get_position());
+	return glm::distance(get_focus(), get_desired_position());
 }
 
 void Camera::set_zoom_limits(const float minimum, const float maximum)
@@ -323,7 +377,7 @@ void Camera::zoom_in(float length)
 	const float applied_length = focal_len - target_focal_len;
 	const glm::vec3 offset =
 		ecs.get_transformation(focus_obj->get_id()).get_rotation() * Maths::forward_vec * applied_length;
-	set_position(get_position() + offset);
+	set_position(get_desired_position() + offset);
 	length = -applied_length;
 
 	if (!projection_is_perspective)
@@ -346,7 +400,7 @@ void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 {
 	const float sensitivity = 200.0f;
 	const float rotation_scale = delta_time * sensitivity;
-	const glm::vec3 direction = glm::normalize(get_focus() - get_position());
+	const glm::vec3 direction = glm::normalize(get_focus() - get_desired_position());
 	const auto basis = make_roll_free_basis(direction);
 
 	const float yaw = -offset.x * rotation_scale;
@@ -375,6 +429,8 @@ void Camera::rotate_camera(const glm::vec2& offset, float delta_time)
 		default:
 			assert(false);
 	}
+	if (follow_target)
+		resolve_follow_position();
 }
 
 void Camera::toggle_mode()
@@ -399,4 +455,6 @@ void Camera::set_mode(Mode new_mode)
 	}
 
 	mode = new_mode;
+	if (follow_target)
+		resolve_follow_position();
 }

@@ -9,6 +9,8 @@
 #include <glm/vec3.hpp>
 #include <glm/gtx/quaternion.hpp>
 
+#include <functional>
+
 #include "maths.hpp"
 
 class Keyboard;
@@ -19,6 +21,8 @@ class TransformationComponent;
 class Camera : public Object, public ITrackableObject
 {
 public:
+	using FollowPositionConstraint = std::function<glm::vec3(const glm::vec3&, const glm::vec3&)>;
+
 	void serialize(Serializer& out) const override;
 	void deserialize(const Deserializer& in) override;
 	Camera(ECS& ecs, Listener&& listener, float aspect_ratio, Object& focus, Object& upvector);
@@ -36,6 +40,7 @@ public:
 
 	glm::vec3 get_focus() const;
 	glm::vec3 get_position() const;
+	glm::vec3 get_desired_position() const;
 	glm::vec3 get_scale() const;
 	glm::quat get_rotation() const;
 	void sync_audio_listener();
@@ -80,6 +85,9 @@ public: // object
 	void follow(Object& target, const glm::vec3& focus_offset, float horizontal_focus_offset = 0.0f);
 	void stop_follow();
 	void update_follow();
+	// Constrains only the rendered camera position while following. Inputs are focus and unconstrained position.
+	void set_follow_position_constraint(FollowPositionConstraint constraint);
+	void clear_follow_position_constraint();
 
 	void toggle_visibility() override;
 
@@ -90,6 +98,7 @@ private:
 	TransformationComponent& transformation();
 	const TransformationComponent& transformation() const;
 	void set_position(const glm::vec3& position);
+	void resolve_follow_position();
 	glm::mat4 perspective_matrix;
 	glm::mat4 orthographic_matrix;
 
@@ -107,6 +116,9 @@ private:
 	Object* follow_target = nullptr;
 	glm::vec3 follow_offset{ 0.0f };
 	float follow_horizontal_offset = 0.0f;
+	FollowPositionConstraint follow_position_constraint;
+	glm::vec3 resolved_follow_position{ 0.0f };
+	bool has_resolved_follow_position = false;
 	ECS& ecs;
 
 	class CameraTests;

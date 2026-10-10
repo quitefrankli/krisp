@@ -2,6 +2,8 @@
 
 #include <camera.hpp>
 #include <entity_component_system/ecs.hpp>
+#include <serialization/serialization_helpers.hpp>
+#include <serialization/serializer.hpp>
 
 #include <gtest/gtest.h>
 #include <glm/gtx/string_cast.hpp>
@@ -123,6 +125,102 @@ TEST_F(CameraTests, horizontal_follow_framing_remains_camera_relative_after_orbi
 	EXPECT_TRUE(glm_equal(camera.get_focus(), ecs.get_position(target.get_id()) + glm::vec3(0.0f, 1.0f, 0.0f) + camera_right * 1.25f));
 	const glm::vec3 target_in_camera_space = camera.get_view() * glm::vec4(ecs.get_position(target.get_id()), 1.0f);
 	EXPECT_NEAR(target_in_camera_space.x, -1.25f, 0.001f);
+}
+
+TEST_F(CameraTests, follow_position_constraint_changes_rendered_position_without_changing_desired_zoom)
+{
+	Object target;
+	ecs.add_object(target);
+	camera.follow(target, Maths::zero_vec);
+	camera.set_follow_position_constraint([](const glm::vec3& focus, const glm::vec3& desired)
+	{
+		const glm::vec3 offset = desired - focus;
+		return focus + glm::normalize(offset) * glm::min(glm::length(offset), 1.0f);
+	});
+
+	EXPECT_TRUE(glm_equal(camera.get_position(), { 0.0f, 0.0f, -1.0f }));
+	EXPECT_TRUE(glm_equal(camera.get_desired_position(), { 0.0f, 0.0f, -2.0f }));
+	EXPECT_NEAR(camera.get_focal_length(), 2.0f, 0.001f);
+
+	camera.zoom_in(1.0f);
+	EXPECT_NEAR(camera.get_focal_length(), 1.6f, 0.001f);
+	EXPECT_NEAR(glm::distance(camera.get_position(), camera.get_focus()), 1.0f, 0.001f);
+	EXPECT_NEAR(glm::distance(camera.get_desired_position(), camera.get_focus()), 1.6f, 0.001f);
+
+	ecs.set_position(target.get_id(), { 2.0f, 0.0f, 0.0f });
+	camera.update_follow();
+	EXPECT_NEAR(glm::distance(camera.get_position(), camera.get_focus()), 1.0f, 0.001f);
+	EXPECT_NEAR(glm::distance(camera.get_desired_position(), camera.get_focus()), 1.6f, 0.001f);
+}
+
+TEST_F(CameraTests, off_axis_follow_position_constraint_preserves_camera_orientation)
+{
+	Object target;
+	ecs.add_object(target);
+	camera.follow(target, Maths::zero_vec);
+	camera.set_follow_position_constraint([](const glm::vec3&, const glm::vec3& desired)
+	{
+		return desired + glm::vec3(1.0f, 0.0f, 0.0f);
+	});
+
+	EXPECT_TRUE(glm_equal(camera.get_position(), { 1.0f, 0.0f, -2.0f }));
+	const auto centre_ray = camera.get_ray({ 0.0f, 0.0f });
+	EXPECT_TRUE(glm_equal(centre_ray.origin, camera.get_position()));
+	EXPECT_TRUE(glm_equal(centre_ray.direction, Maths::forward_vec));
+}
+
+TEST_F(CameraTests, follow_position_constraint_clears_and_survives_stopping_follow)
+{
+	Object target;
+	ecs.add_object(target);
+	camera.follow(target, Maths::zero_vec);
+	camera.set_follow_position_constraint([](const glm::vec3& focus, const glm::vec3& desired)
+	{
+		return focus + glm::normalize(desired - focus);
+	});
+	EXPECT_NEAR(glm::distance(camera.get_position(), camera.get_focus()), 1.0f, 0.001f);
+
+	camera.stop_follow();
+	EXPECT_TRUE(glm_equal(camera.get_position(), camera.get_desired_position()));
+
+	camera.follow(target, Maths::zero_vec);
+	EXPECT_NEAR(glm::distance(camera.get_position(), camera.get_focus()), 1.0f, 0.001f);
+
+	camera.clear_follow_position_constraint();
+	EXPECT_TRUE(glm_equal(camera.get_position(), camera.get_desired_position()));
+}
+
+TEST_F(CameraTests, follow_position_constraint_must_return_a_finite_position)
+{
+	Object target;
+	ecs.add_object(target);
+	camera.follow(target, Maths::zero_vec);
+	EXPECT_THROW(camera.set_follow_position_constraint([](const glm::vec3&, const glm::vec3&)
+	{
+		return glm::vec3(std::numeric_limits<float>::infinity());
+	}), std::invalid_argument);
+	EXPECT_TRUE(glm_equal(camera.get_position(), camera.get_desired_position()));
+}
+
+TEST_F(CameraTests, camera_serialization_keeps_the_desired_position)
+{
+	Object target;
+	ecs.add_object(target);
+	camera.follow(target, Maths::zero_vec);
+	camera.set_follow_position_constraint([](const glm::vec3& focus, const glm::vec3& desired)
+	{
+		return focus + glm::normalize(desired - focus);
+	});
+
+	Serializer serializer;
+	camera.serialize(serializer);
+	const auto saved = Deserializer::parse(serializer.emit());
+	EXPECT_TRUE(glm_equal(
+		Serialization::read_vec3(saved, "position"),
+		camera.get_desired_position()));
+	EXPECT_FALSE(glm_equal(
+		Serialization::read_vec3(saved, "position"),
+		camera.get_position()));
 }
 
 TEST_F(CameraTests, zoom_limits_are_configurable_and_enforced)

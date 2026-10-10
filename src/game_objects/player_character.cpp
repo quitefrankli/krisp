@@ -99,7 +99,7 @@ AnimationID PlayerCharacter::animation_for(const PlayerLocomotionDirection direc
 
 void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera, ECS& ecs, const float delta_secs)
 {
-	glm::vec3 forward = camera.get_focus() - camera.get_position();
+	glm::vec3 forward = camera.get_focus() - camera.get_desired_position();
 	forward.y = 0.0f;
 	if (glm::length2(forward) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
 		forward = Maths::forward_vec;

@@ -17,11 +17,14 @@
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/CollideShape.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
+#include <Jolt/Physics/Collision/ShapeCast.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/Collision/ObjectLayer.h>
@@ -42,9 +45,9 @@ using JPH::EMotionType; using JPH::EOverrideMassProperties; using JPH::Factory; 
 using JPH::JobSystemSingleThreaded; using JPH::JobSystemThreadPool;
 using JPH::ObjectLayer; using JPH::ObjectLayerPairFilter; using JPH::ObjectVsBroadPhaseLayerFilter;
 using JPH::Quat; using JPH::RayCastResult; using JPH::RegisterDefaultAllocator; using JPH::RegisterTypes;
-using JPH::RayCast; using JPH::RRayCast; using JPH::RVec3; using JPH::ShapeRefC; using JPH::SubShapeIDCreator;
+using JPH::RayCast; using JPH::RRayCast; using JPH::RShapeCast; using JPH::RVec3; using JPH::ShapeRefC; using JPH::SubShapeIDCreator;
 using JPH::SubShapeIDPair; using JPH::TempAllocatorImpl; using JPH::UnregisterTypes; using JPH::Vec3;
-using JPH::Vec3Arg; using JPH::BoxShape; using JPH::CapsuleShape; using JPH::SphereShape;
+using JPH::Vec3Arg; using JPH::BoxShape; using JPH::CapsuleShape; using JPH::SphereShape; using JPH::ShapeCastSettings; using JPH::CollideShapeSettings;
 using JPH::CharacterVirtual; using JPH::CharacterVirtualSettings;
 using JPH::cMaxPhysicsBarriers; using JPH::cMaxPhysicsJobs;
 
@@ -105,16 +108,16 @@ public:
 	}
 };
 
-class CharacterBroadPhaseFilter final : public JPH::BroadPhaseLayerFilter
+class NonSensorBroadPhaseFilter final : public JPH::BroadPhaseLayerFilter
 {
 public:
 	bool ShouldCollide(BroadPhaseLayer layer) const override { return layer != BP_SENSOR; }
 };
 
-class CharacterObjectLayerFilter final : public JPH::ObjectLayerFilter
+class SolidObjectLayerFilter final : public JPH::ObjectLayerFilter
 {
 public:
-	explicit CharacterObjectLayerFilter(const Layers& layers) : layers(layers) {}
+	explicit SolidObjectLayerFilter(const Layers& layers) : layers(layers) {}
 	bool ShouldCollide(ObjectLayer layer) const override
 	{
 		return layer != SENSOR_LAYER && layers.ShouldCollide(MOVING_LAYER, layer);
@@ -190,21 +193,25 @@ public:
 		glm::vec3 published_position{0.0f};
 		bool launch_locked = false;
 	};
-	class ControllerBodyFilter final : public JPH::BodyFilter
+	class QueryBodyFilter final : public JPH::BodyFilter
 	{
 	public:
-		ControllerBodyFilter(BodyID inner_body, const std::unordered_map<EntityID, BodyRecord>& rigid_bodies)
-			: inner_body(inner_body), rigid_bodies(rigid_bodies) {}
+		QueryBodyFilter(BodyID inner_body, const std::unordered_map<EntityID, BodyRecord>& rigid_bodies,
+			std::optional<EntityID> ignored = std::nullopt)
+			: inner_body(inner_body), rigid_bodies(rigid_bodies), ignored(ignored) {}
 		bool ShouldCollide(const BodyID& body_id) const override { return body_id != inner_body; }
 		bool ShouldCollideLocked(const Body& body) const override
 		{
 			if (body.IsSensor()) return false;
-			const auto found = rigid_bodies.find(EntityID(body.GetUserData()));
+			const EntityID entity(body.GetUserData());
+			if (ignored && entity == *ignored) return false;
+			const auto found = rigid_bodies.find(entity);
 			return found == rigid_bodies.end() || found->second.definition.participation != PhysicsParticipation::QueryOnly;
 		}
 	private:
 		BodyID inner_body;
 		const std::unordered_map<EntityID, BodyRecord>& rigid_bodies;
+		std::optional<EntityID> ignored;
 	};
 	struct EntityPair
 	{
@@ -257,9 +264,9 @@ public:
 		JPH::Ref<CharacterVirtual> character = new CharacterVirtual(&settings, to_jolt_r(position), Quat::sIdentity(), id.get_underlying(), &world);
 		if (character->GetInnerBodyID().IsInvalid()) throw std::runtime_error("Jolt could not create character controller proxy body");
 		controllers.emplace(id, ControllerRecord{std::move(character), definition, glm::vec3(0.0f), position, false});
-		const CharacterBroadPhaseFilter broad_phase;
-		const CharacterObjectLayerFilter object_layer(layers);
-		const ControllerBodyFilter body_filter(controllers.at(id).character->GetInnerBodyID(), bodies);
+		const NonSensorBroadPhaseFilter broad_phase;
+		const SolidObjectLayerFilter object_layer(layers);
+		const QueryBodyFilter body_filter(controllers.at(id).character->GetInnerBodyID(), bodies);
 		const JPH::ShapeFilter shape_filter;
 		controllers.at(id).character->RefreshContacts(broad_phase, object_layer, body_filter, shape_filter, allocator);
 	}
@@ -285,9 +292,9 @@ public:
 		velocity += up * gravity.Dot(up) * delta_time;
 		character.SetLinearVelocity(velocity);
 
-		const CharacterBroadPhaseFilter broad_phase;
-		const CharacterObjectLayerFilter object_layer(layers);
-		const ControllerBodyFilter body_filter(character.GetInnerBodyID(), bodies);
+		const NonSensorBroadPhaseFilter broad_phase;
+		const SolidObjectLayerFilter object_layer(layers);
+		const QueryBodyFilter body_filter(character.GetInnerBodyID(), bodies);
 		const JPH::ShapeFilter shape_filter;
 		CharacterVirtual::ExtendedUpdateSettings update_settings;
 		update_settings.mWalkStairsStepUp = Vec3(0.0f, record.definition.step_height, 0.0f);
@@ -504,9 +511,9 @@ void ::PhysicsSystem::teleport_character_controller(EntityID id, glm::vec3 posit
 	record.launch_locked = false;
 	record.published_position = position;
 	get_ecs().set_position(id, position);
-	const CharacterBroadPhaseFilter broad_phase;
-	const CharacterObjectLayerFilter object_layer(impl->layers);
-	const Impl::ControllerBodyFilter body_filter(record.character->GetInnerBodyID(), impl->bodies);
+	const NonSensorBroadPhaseFilter broad_phase;
+	const SolidObjectLayerFilter object_layer(impl->layers);
+	const Impl::QueryBodyFilter body_filter(record.character->GetInnerBodyID(), impl->bodies);
 	const JPH::ShapeFilter shape_filter;
 	record.character->RefreshContacts(broad_phase, object_layer, body_filter, shape_filter, impl->allocator);
 }
@@ -589,6 +596,51 @@ DetectedEntityCollision PhysicsSystem::raycast(const Maths::Ray& ray, std::optio
 	}
 	return {true, id, ray.origin + ray.direction * (10000.0f * hit.mFraction)};
 }
+std::optional<SphereSweepHit> PhysicsSystem::sphere_sweep(glm::vec3 start, glm::vec3 displacement, float radius,
+	std::optional<EntityID> ignored) const
+{
+	if (!std::isfinite(start.x) || !std::isfinite(start.y) || !std::isfinite(start.z)
+		|| !std::isfinite(displacement.x) || !std::isfinite(displacement.y) || !std::isfinite(displacement.z))
+		throw std::invalid_argument("Sphere sweep vectors must be finite");
+	if (!std::isfinite(radius) || radius <= 0.0f)
+		throw std::invalid_argument("Sphere sweep radius must be finite and positive");
+
+	const NonSensorBroadPhaseFilter broad_phase;
+	const SolidObjectLayerFilter object_layer(impl->layers);
+	const Impl::QueryBodyFilter body_filter(BodyID(), impl->bodies, ignored);
+	const JPH::ShapeFilter shape_filter;
+	ShapeRefC shape = new SphereShape(radius);
+	const JPH::RMat44 start_transform = JPH::RMat44::sTranslation(to_jolt_r(start));
+	const RVec3 base_offset = to_jolt_r(start);
+	const auto& query = impl->world.GetNarrowPhaseQuery();
+
+	CollideShapeSettings overlap_settings;
+	overlap_settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
+	JPH::ClosestHitCollisionCollector<JPH::CollideShapeCollector> overlap;
+	query.CollideShape(shape.GetPtr(), Vec3::sReplicate(1.0f), start_transform, overlap_settings, base_offset,
+		overlap, broad_phase, object_layer, body_filter, shape_filter);
+	if (overlap.HadHit()) {
+		const auto& hit = overlap.mHit;
+		const EntityID entity(impl->world.GetBodyInterface().GetUserData(hit.mBodyID2));
+		return SphereSweepHit{entity, 0.0f, start, to_glm(-hit.mPenetrationAxis.Normalized()), true};
+	}
+
+	if (displacement == glm::vec3(0.0f)) return std::nullopt;
+
+	ShapeCastSettings cast_settings;
+	cast_settings.SetBackFaceMode(JPH::EBackFaceMode::CollideWithBackFaces);
+	cast_settings.mReturnDeepestPoint = true;
+	const RShapeCast cast(shape.GetPtr(), Vec3::sReplicate(1.0f), start_transform, to_jolt(displacement));
+	JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
+	query.CastShape(cast, cast_settings, base_offset, collector, broad_phase, object_layer, body_filter, shape_filter);
+	if (!collector.HadHit()) return std::nullopt;
+	const auto& hit = collector.mHit;
+	if (!std::isfinite(hit.mFraction) || hit.mFraction < 0.0f || hit.mFraction > 1.0f) return std::nullopt;
+	const EntityID entity(impl->world.GetBodyInterface().GetUserData(hit.mBodyID2));
+	return SphereSweepHit{entity, hit.mFraction, start + displacement * hit.mFraction,
+		to_glm(-hit.mPenetrationAxis.Normalized()), false};
+}
+
 DetectedEntityCollision PhysicsSystem::raycast(const Maths::Ray& ray, std::span<const EntityID> candidates) const
 {
 	DetectedEntityCollision best; float distance = 10000.0f;
