@@ -101,6 +101,158 @@ TEST(player_character_tests, player_moves_at_configured_speed_and_changes_state)
 	ecs.remove_object(player.get_id());
 }
 
+TEST(player_character_tests, disabled_locomotion_stops_input_and_reenables_current_input)
+{
+	ECS ecs;
+	PlayerDefinition definition;
+	definition.movement_speed = 2.0f;
+	PlayerCharacter player(definition);
+	ecs.add_object(player);
+
+	Object camera_focus;
+	Object camera_upvector;
+	ecs.add_object(camera_focus);
+	ecs.add_object(camera_upvector);
+	Camera camera(ecs, Listener{}, 1.0f, camera_focus, camera_upvector);
+	camera.look_at(Maths::right_vec, Maths::zero_vec);
+	EXPECT_TRUE(player.is_locomotion_enabled());
+	Keyboard keyboard;
+	keyboard.update_key({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	player.pre_update(keyboard, camera, ecs, 0.5f);
+	ASSERT_TRUE(player.is_moving());
+	const auto position_before_disable = ecs.get_position(player.get_id());
+	const auto rotation_before_disable = ecs.get_rotation(player.get_id());
+
+	player.request_jump();
+	player.set_locomotion_enabled(false);
+	EXPECT_FALSE(player.is_locomotion_enabled());
+	EXPECT_FALSE(player.is_moving());
+	player.request_jump();
+	player.pre_update(keyboard, camera, ecs, 0.5f);
+
+	EXPECT_FALSE(player.is_moving());
+	EXPECT_TRUE(glm_equal(ecs.get_position(player.get_id()), position_before_disable));
+	EXPECT_TRUE(glm_equal(ecs.get_rotation(player.get_id()), rotation_before_disable));
+
+	player.set_locomotion_enabled(true);
+	EXPECT_TRUE(player.is_locomotion_enabled());
+	player.pre_update(keyboard, camera, ecs, 0.5f);
+	EXPECT_TRUE(player.is_moving());
+	EXPECT_TRUE(glm_equal(ecs.get_position(player.get_id()),
+		position_before_disable + Maths::right_vec));
+
+	ecs.remove_object(player.get_id());
+}
+
+TEST(player_character_tests, disabled_locomotion_clears_pending_and_ignores_jump_requests)
+{
+	ECS ecs;
+	Object floor;
+	ecs.add_object(floor);
+	ecs.add_rigid_body(floor.get_id(), RigidBodyDefinition{
+		.shape = TriangleMeshPhysicsShape{
+			.vertices = {
+				{ -4.0f, 0.0f, -4.0f }, { -4.0f, 0.0f, 4.0f },
+				{ 4.0f, 0.0f, 4.0f }, { 4.0f, 0.0f, -4.0f },
+			},
+			.indices = { 0, 1, 2, 0, 2, 3 },
+		},
+	});
+	PlayerCharacter player(PlayerDefinition{});
+	ecs.add_object(player);
+	ecs.add_character_controller(player.get_id(), CharacterControllerDefinition{
+		.radius = 0.35f,
+		.height = 1.9f,
+		.max_slope_angle = glm::radians(45.0f),
+		.step_height = 0.3f,
+		.ground_snap_distance = 0.1f,
+	});
+	ecs.process(1.0f / 60.0f);
+	ASSERT_TRUE(ecs.is_character_grounded(player.get_id()));
+
+	Object camera_focus;
+	Object camera_upvector;
+	ecs.add_object(camera_focus);
+	ecs.add_object(camera_upvector);
+	Camera camera(ecs, Listener{}, 1.0f, camera_focus, camera_upvector);
+	Keyboard keyboard;
+	player.request_jump();
+	player.set_locomotion_enabled(false);
+	player.pre_update(keyboard, camera, ecs, 1.0f / 60.0f);
+	ecs.process(1.0f / 60.0f);
+	player.request_jump();
+	player.pre_update(keyboard, camera, ecs, 1.0f / 60.0f);
+	ecs.process(1.0f / 60.0f);
+	EXPECT_TRUE(ecs.is_character_grounded(player.get_id()));
+	EXPECT_NEAR(ecs.get_position(player.get_id()).y, 0.0f, 0.05f);
+
+	player.set_locomotion_enabled(true);
+	player.pre_update(keyboard, camera, ecs, 1.0f / 60.0f);
+	ecs.process(1.0f / 60.0f);
+	EXPECT_TRUE(ecs.is_character_grounded(player.get_id()));
+	EXPECT_NEAR(ecs.get_position(player.get_id()).y, 0.0f, 0.05f);
+
+	ecs.remove_object(player.get_id());
+	ecs.remove_object(floor.get_id());
+}
+
+TEST(player_character_tests, disabled_locomotion_preserves_actions_and_physics)
+{
+	ECS ecs;
+	PlayerCharacter player(PlayerDefinition{});
+	ecs.add_object(player);
+	ecs.set_position(player.get_id(), { 0.0f, 5.0f, 0.0f });
+	ecs.add_character_controller(player.get_id());
+	Bone root;
+	root.name = "Root";
+	root.original_transform = root.relative_transform;
+	const SkeletonID skeleton = ecs.add_skeleton({ root });
+	const auto rig = make_skeletal_rig_signature(ecs.get_skeletal_component(skeleton).get_bones());
+	BoneAnimation action_clip;
+	action_clip.animation_start_secs = 0.0f;
+	action_clip.animation_end_secs = 1.0f;
+	action_clip.translation_track.keys = {
+		{ 0.0f, glm::vec3(0.0f) }, { 1.0f, glm::vec3(0.0f) },
+	};
+	const AnimationID action = ecs.add_skeletal_animation(
+		"NeutralAction", { action_clip }, rig);
+	player.configure_locomotion(skeleton, PlayerLocomotionAnimations{
+		.idle = action,
+		.walk_backward = action,
+		.walk_backward_left = action,
+		.walk_backward_right = action,
+		.walk_forward = action,
+		.walk_forward_left = action,
+		.walk_forward_right = action,
+		.walk_left = action,
+		.walk_right = action,
+	});
+
+	Object camera_focus;
+	Object camera_upvector;
+	ecs.add_object(camera_focus);
+	ecs.add_object(camera_upvector);
+	Camera camera(ecs, Listener{}, 1.0f, camera_focus, camera_upvector);
+	Keyboard keyboard;
+	player.set_locomotion_enabled(false);
+	ASSERT_TRUE(player.play_action_animation(ecs, action));
+	player.pre_update(keyboard, camera, ecs, 0.1f);
+	auto playback = ecs.get_animation_playback(skeleton);
+	ASSERT_TRUE(playback);
+	EXPECT_EQ(playback->animation_id, action);
+	EXPECT_FALSE(playback->looping);
+
+	const float height_before_physics = ecs.get_position(player.get_id()).y;
+	ecs.process(0.1f);
+	EXPECT_LT(ecs.get_position(player.get_id()).y, height_before_physics);
+	EXPECT_LT(ecs.get_character_velocity(player.get_id()).y, 0.0f);
+	playback = ecs.get_animation_playback(skeleton);
+	ASSERT_TRUE(playback);
+	EXPECT_EQ(playback->animation_id, action);
+
+	ecs.remove_object(player.get_id());
+}
+
 TEST(player_character_tests, configured_locomotion_plays_idle_and_camera_relative_walk_clips)
 {
 	ECS ecs;

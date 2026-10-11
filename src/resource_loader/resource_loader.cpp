@@ -469,6 +469,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					for (size_t tangent_index = 0; tangent_index < tangents.size(); ++tangent_index)
 					{
 						auto& tangent = tangents[tangent_index];
+						tangent = GltfImport::tangent_to_krisp_basis(tangent);
 						const float length = glm::length(glm::vec3(tangent));
 						if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y)
 							|| !std::isfinite(tangent.z) || !std::isfinite(tangent.w)
@@ -477,7 +478,6 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 								< 0.00001f
 							|| std::abs(std::abs(tangent.w) - 1.0f) > 0.001f)
 							throw ResourceLoadError("ResourceLoader: TANGENT contains invalid values");
-						tangent = GltfImport::tangent_to_krisp_basis(tangent);
 					}
 				}
 				else if (normal_mapped)

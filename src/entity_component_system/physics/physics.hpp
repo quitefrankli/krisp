@@ -150,6 +150,9 @@ public:
 	// are excluded. Zero displacement checks for an initial overlap.
 	std::optional<SphereSweepHit> sphere_sweep(glm::vec3 start, glm::vec3 displacement, float radius,
 		std::optional<EntityID> ignored = std::nullopt) const;
+	// The span overload ignores every listed entity.
+	std::optional<SphereSweepHit> sphere_sweep(glm::vec3 start, glm::vec3 displacement, float radius,
+		std::span<const EntityID> ignored) const;
 	std::span<const PhysicsContactEvent> get_contact_events() const;
 	std::vector<PhysicsDebugBody> get_debug_bodies() const;
 	std::vector<PhysicsDebugTriangle> get_debug_shape_triangles(EntityID id) const;

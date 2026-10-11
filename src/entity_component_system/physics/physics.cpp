@@ -199,12 +199,16 @@ public:
 		QueryBodyFilter(BodyID inner_body, const std::unordered_map<EntityID, BodyRecord>& rigid_bodies,
 			std::optional<EntityID> ignored = std::nullopt)
 			: inner_body(inner_body), rigid_bodies(rigid_bodies), ignored(ignored) {}
+		QueryBodyFilter(BodyID inner_body, const std::unordered_map<EntityID, BodyRecord>& rigid_bodies,
+			std::span<const EntityID> ignored_entities)
+			: inner_body(inner_body), rigid_bodies(rigid_bodies), ignored_entities(ignored_entities) {}
 		bool ShouldCollide(const BodyID& body_id) const override { return body_id != inner_body; }
 		bool ShouldCollideLocked(const Body& body) const override
 		{
 			if (body.IsSensor()) return false;
 			const EntityID entity(body.GetUserData());
 			if (ignored && entity == *ignored) return false;
+			if (std::find(ignored_entities.begin(), ignored_entities.end(), entity) != ignored_entities.end()) return false;
 			const auto found = rigid_bodies.find(entity);
 			return found == rigid_bodies.end() || found->second.definition.participation != PhysicsParticipation::QueryOnly;
 		}
@@ -212,6 +216,7 @@ public:
 		BodyID inner_body;
 		const std::unordered_map<EntityID, BodyRecord>& rigid_bodies;
 		std::optional<EntityID> ignored;
+		std::span<const EntityID> ignored_entities;
 	};
 	struct EntityPair
 	{
@@ -598,6 +603,12 @@ DetectedEntityCollision PhysicsSystem::raycast(const Maths::Ray& ray, std::optio
 }
 std::optional<SphereSweepHit> PhysicsSystem::sphere_sweep(glm::vec3 start, glm::vec3 displacement, float radius,
 	std::optional<EntityID> ignored) const
+{
+	if (!ignored) return sphere_sweep(start, displacement, radius, std::span<const EntityID>{});
+	return sphere_sweep(start, displacement, radius, std::span<const EntityID>(&*ignored, 1));
+}
+std::optional<SphereSweepHit> PhysicsSystem::sphere_sweep(glm::vec3 start, glm::vec3 displacement, float radius,
+	std::span<const EntityID> ignored) const
 {
 	if (!std::isfinite(start.x) || !std::isfinite(start.y) || !std::isfinite(start.z)
 		|| !std::isfinite(displacement.x) || !std::isfinite(displacement.y) || !std::isfinite(displacement.z))

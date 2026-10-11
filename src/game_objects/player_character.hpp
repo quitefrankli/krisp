@@ -64,10 +64,12 @@ public:
 
 	void pre_update(const Keyboard& keyboard, const Camera& camera, ECS& ecs, float delta_secs);
 	void configure_locomotion(SkeletonID skeleton, PlayerLocomotionAnimations animations);
+	void set_locomotion_enabled(bool enabled);
+	bool is_locomotion_enabled() const { return locomotion_enabled; }
 	bool play_action_animation(ECS& ecs, AnimationID animation);
 	bool is_moving() const { return moving; }
 	const PlayerDefinition& get_definition() const { return definition; }
-	void request_jump() { jump_requested = true; }
+	void request_jump() { if (locomotion_enabled) jump_requested = true; }
 
 protected:
 	// Applications may replace movement integration while retaining the shared
@@ -86,4 +88,5 @@ private:
 	bool moving = false;
 	bool jump_requested = false;
 	bool was_airborne = false;
+	bool locomotion_enabled = true;
 };

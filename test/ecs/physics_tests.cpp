@@ -4,7 +4,9 @@
 #include <serialization/serialization_helpers.hpp>
 
 #include <algorithm>
+#include <array>
 #include <limits>
+#include <span>
 #include <gtest/gtest.h>
 
 namespace {
@@ -75,6 +77,27 @@ TEST(JoltPhysics, SphereSweepSkipsSensorsAndQueryOnlyBodiesAndCanIgnoreEntities)
 	EXPECT_NEAR(hit->fraction, 0.53f, 0.02f);
 	EXPECT_LT(hit->normal.z, -0.95f);
 	EXPECT_FALSE(ecs.PhysicsSystem::sphere_sweep({0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 5.0f}, 0.1f, solid));
+}
+
+TEST(JoltPhysics, SphereSweepCanIgnoreMultipleEntitiesIncludingAnInitialOverlap)
+{
+	PhysicsECS ecs;
+	const EntityID initial_overlap(7195), middle(7196), wall(7197);
+	for (const EntityID id : {initial_overlap, middle, wall}) ecs.add_transformation(id);
+	ecs.set_position(middle, {0.0f, 0.0f, 1.0f});
+	ecs.set_position(wall, {0.0f, 0.0f, 3.0f});
+	const BoxPhysicsShape box{{0.25f, 0.25f, 0.25f}};
+	ecs.add_rigid_body(initial_overlap, RigidBodyDefinition{.shape = box});
+	ecs.add_rigid_body(middle, RigidBodyDefinition{.shape = box});
+	ecs.add_rigid_body(wall, RigidBodyDefinition{.shape = box});
+
+	const std::array<EntityID, 2> ignored{initial_overlap, middle};
+	const auto hit = ecs.PhysicsSystem::sphere_sweep(
+		{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 5.0f}, 0.1f, std::span<const EntityID>(ignored));
+	ASSERT_TRUE(hit);
+	EXPECT_EQ(hit->entity, wall);
+	EXPECT_FALSE(hit->initial_overlap);
+	EXPECT_NEAR(hit->fraction, 0.53f, 0.02f);
 }
 
 TEST(JoltPhysics, SphereSweepReportsInitialOverlapAndHandlesZeroDisplacement)

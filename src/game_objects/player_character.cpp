@@ -68,6 +68,17 @@ void PlayerCharacter::configure_locomotion(
 	was_airborne = false;
 }
 
+void PlayerCharacter::set_locomotion_enabled(const bool enabled)
+{
+	locomotion_enabled = enabled;
+	jump_requested = false;
+	if (!enabled)
+	{
+		moving = false;
+		was_airborne = false;
+	}
+}
+
 bool PlayerCharacter::play_action_animation(ECS& ecs, const AnimationID animation)
 {
 	if (!animation_skeleton)
@@ -99,6 +110,15 @@ AnimationID PlayerCharacter::animation_for(const PlayerLocomotionDirection direc
 
 void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera, ECS& ecs, const float delta_secs)
 {
+	if (!locomotion_enabled)
+	{
+		moving = false;
+		jump_requested = false;
+		if (ecs.has_character_controller(get_id()))
+			ecs.set_character_desired_velocity(get_id(), Maths::zero_vec);
+		return;
+	}
+
 	glm::vec3 forward = camera.get_focus() - camera.get_desired_position();
 	forward.y = 0.0f;
 	if (glm::length2(forward) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)

@@ -13,6 +13,7 @@
 #include <tiny_gltf.h>
 
 #include <cmath>
+#include <cstring>
 #include <fstream>
 
 namespace
@@ -249,6 +250,55 @@ public:
 	}
 
 	~MutatedGltf()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+	std::string filename() const { return path.filename().string(); }
+};
+
+class GeneratedTangentFrame
+{
+public:
+	GeneratedTangentFrame(const glm::vec3& normal, const glm::vec3& tangent)
+	{
+		static uint32_t sequence = 0;
+		path = Utility::get_test_data_path()
+			/ fmt::format("krisp_test_tangent_frame_{}.glb", sequence++);
+
+		tinygltf::TinyGLTF io;
+		tinygltf::Model model;
+		std::string error;
+		std::string warning;
+		if (!io.LoadASCIIFromFile(
+				&model, &error, &warning,
+				Utility::get_model("normal_mapped_authored_tangents.gltf").string()))
+			throw std::runtime_error("Unable to load tangent-frame test template: " + error);
+
+		const auto write_accessor = [&model](const int accessor_index, const float* values,
+			const size_t component_count)
+		{
+			const auto& accessor = model.accessors.at(static_cast<size_t>(accessor_index));
+			const auto& view = model.bufferViews.at(static_cast<size_t>(accessor.bufferView));
+			auto& buffer = model.buffers.at(static_cast<size_t>(view.buffer));
+			const size_t element_size = component_count * sizeof(float);
+			const size_t stride = view.byteStride ? view.byteStride : element_size;
+			const size_t offset = view.byteOffset + accessor.byteOffset;
+			for (size_t vertex = 0; vertex < accessor.count; ++vertex)
+				std::memcpy(buffer.data.data() + offset + vertex * stride, values, element_size);
+		};
+
+		const float normal_values[] = { normal.x, normal.y, normal.z };
+		const float tangent_values[] = { tangent.x, tangent.y, tangent.z, 1.0f };
+		write_accessor(1, normal_values, 3);
+		write_accessor(4, tangent_values, 4);
+		if (!io.WriteGltfSceneToFile(&model, path.string(), true, true, false, true))
+			throw std::runtime_error("Unable to write generated tangent-frame test model");
+	}
+
+	~GeneratedTangentFrame()
 	{
 		std::error_code error;
 		std::filesystem::remove(path, error);
@@ -1307,6 +1357,35 @@ TEST(ResourceLoaderTexturedPbr, preserves_authored_tangents)
 		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
 	for (const auto& vertex : mesh.get_vertices())
 		EXPECT_TRUE(glm_equal(vertex.tangent, glm::vec4(-1.0f, 0.0f, 0.0f, -1.0f)));
+}
+
+TEST(ResourceLoaderTexturedPbr, validates_authored_tangents_after_basis_conversion)
+{
+	const float component = std::sqrt(0.5f);
+	GeneratedTangentFrame resource(
+		{ component, -component, 0.0f }, { component, component, 0.0f });
+	ECS ecs;
+	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto& mesh = dynamic_cast<const TexMesh&>(
+		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
+	ASSERT_EQ(mesh.get_vertices().size(), 3);
+	for (const auto& vertex : mesh.get_vertices())
+	{
+		EXPECT_TRUE(glm_equal(vertex.normal, glm::vec3(-component, -component, 0.0f)));
+		EXPECT_TRUE(glm_equal(vertex.tangent,
+			glm::vec4(-component, component, 0.0f, -1.0f)));
+		EXPECT_NEAR(glm::dot(vertex.normal, glm::vec3(vertex.tangent)), 0.0f, 0.001f);
+	}
+}
+
+TEST(ResourceLoaderTexturedPbr, rejects_authored_tangents_parallel_to_source_normals)
+{
+	const float component = std::sqrt(0.5f);
+	GeneratedTangentFrame resource(
+		{ component, -component, 0.0f }, { component, -component, 0.0f });
+	ECS ecs;
+	EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderTexturedPbr, generates_missing_mikktspace_tangents)
