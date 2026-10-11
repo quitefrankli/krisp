@@ -72,7 +72,9 @@ sources = files('recording_session.cpp',
 				'renderable/renderable.cpp',
 				'renderable/mesh_factory.cpp',
 				'experimental.cpp',
-				'resource_loader/resource_loader.cpp')
+				'resource_loader/resource_loader.cpp',
+				'resource_loader/asset_registry.cpp',
+				'resource_loader/kasset.cpp')
 
 all_sources = sources + graphics_sources + ecs_sources + audio_sources
 
@@ -213,6 +215,8 @@ engine_header_files = files(
 	'renderable/render_types.hpp',
 	'renderable/renderable.hpp',
 	'resource_loader/resource_loader.hpp',
+	'resource_loader/asset_registry.hpp',
+	'resource_loader/kasset.hpp',
 	'resource_loader/resource_loader_animation.ipp',
 	'resource_loader/resource_loader_material.ipp',
 	'resource_loader/resource_loader_mesh.ipp',

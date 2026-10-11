@@ -429,7 +429,8 @@ AnimationID SkeletalAnimationSystem::add_skeletal_animation(
 	const std::string& name,
 	std::vector<BoneAnimation>&& bone_animations,
 	SkeletalRigSignature rig_signature,
-	std::string source)
+	std::string source,
+	std::vector<std::string> joint_order)
 {
 	for (auto& bone_animation : bone_animations)
 		align_rotation_track_hemisphere(bone_animation.rotation_track);
@@ -438,6 +439,7 @@ AnimationID SkeletalAnimationSystem::add_skeletal_animation(
 	animation.name = name;
 	animation.source = std::move(source);
 	animation.rig_signature = std::move(rig_signature);
+	animation.joint_order = std::move(joint_order);
 	animation.bone_animations = std::move(bone_animations);
 	const auto id = AnimationID::generate_new_id();
 	animations.emplace(id, std::move(animation));
@@ -451,6 +453,14 @@ bool SkeletalAnimationSystem::is_animation_compatible(
 {
 	const auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
 	const auto& animation = animations.at(animation_id);
+	if (!animation.joint_order.empty())
+	{
+		if (animation.joint_order.size() != bones.size())
+			return false;
+		for (std::size_t index = 0; index < bones.size(); ++index)
+			if (animation.joint_order[index] != bones[index].name)
+				return false;
+	}
 	return animation.bone_animations.size() == bones.size()
 		&& animation.rig_signature == make_skeletal_rig_signature(bones);
 }

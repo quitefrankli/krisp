@@ -459,8 +459,11 @@ void GameEngine::spawn_cubemap(
 	renderable.mesh_owner = std::move(mesh_owner);
 	for (const auto texture_name : skybox_faces)
 	{
-		renderable.material_owners.push_back(ResourceLoader::fetch_texture(ecs.get_material_system(),
-			fmt::format("skybox/{}.jpg", texture_name)));
+		const auto name = fmt::format("engine/skybox/{}", texture_name);
+		AssetLoadOptions options;
+		options.name = name;
+		assets().load_asset(fmt::format("textures/skybox/{}.jpg", texture_name), options);
+		renderable.material_owners.push_back(assets().acquire_texture(ecs.get_material_system(), name));
 	}
 	auto& object = spawn_object<Object>();
 	attach_renderable(object.get_id(), std::move(renderable));
@@ -667,8 +670,8 @@ RenderableID GameEngine::set_renderable_pbr_material(
 				throw std::invalid_argument("Base-color overlay layer limit exceeded");
 			for (const auto& overlay : texture_edit.overlays)
 				layers.push_back({
-					.source = ResourceLoader::fetch_texture(
-						ecs.get_material_system(), overlay.texture_filename, ETextureSemantic::BASE_COLOR),
+					.source = assets().acquire_texture(
+						ecs.get_material_system(), overlay.texture_asset, ETextureSemantic::BASE_COLOR),
 					.centre = overlay.centre,
 					.scale = overlay.scale,
 					.rotation_radians = overlay.rotation_radians,
@@ -684,7 +687,7 @@ RenderableID GameEngine::set_renderable_pbr_material(
 			if (texture_edit.source.empty())
 				throw std::runtime_error(
 					"GameEngine::set_renderable_pbr_material: replacement texture name is empty");
-			owner = ResourceLoader::fetch_texture(
+			owner = assets().acquire_texture(
 				ecs.get_material_system(), texture_edit.source, semantic);
 		}
 		slot = PbrMaterial::TextureBinding{

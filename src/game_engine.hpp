@@ -5,6 +5,7 @@
 #include "objects/object.hpp"
 #include "objects/objects.hpp"
 #include "resource_loader/resource_loader.hpp"
+#include "resource_loader/asset_registry.hpp"
 #include "maths.hpp"
 #include "gui/gui_manager.hpp"
 #include "gui/application_ui_manager.hpp"
@@ -162,6 +163,7 @@ public:
 		RenderableID renderable_id,
 		const std::vector<TextureCompositionOverlay>& overlays);
 	ECS& get_ecs() { return ecs; }
+	AssetRegistry& assets() { return ecs.assets(); }
 	const ECS& get_ecs() const { return ecs; }
 
 	float get_tps() const { return tps; }

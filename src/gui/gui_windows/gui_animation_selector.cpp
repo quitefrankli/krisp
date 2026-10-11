@@ -6,11 +6,12 @@
 #include "input.hpp"
 #include "interface/gizmo.hpp"
 #include "objects/objects.hpp"
+#include "resource_loader/asset_registry.hpp"
 #include "utility.hpp"
 
+#include <fmt/core.h>
 #include <imgui.h>
 #include <GLFW/glfw3.h>
-#include <quill/LogMacros.h>
 
 #include <algorithm>
 
@@ -181,18 +182,25 @@ void GuiAnimationSelector::process(GameEngine& engine)
 			const auto rig_signature = make_skeletal_rig_signature(
 				engine.get_ecs().get_skeletal_component(request.skeleton).get_bones());
 			const auto& animations = engine.get_ecs().get_skeletal_animations();
-			if (animation_source_is_loaded(animations, rig_signature, request.path))
+			const auto animation_source = "animations/" + request.path;
+			if (animation_source_is_loaded(animations, rig_signature, animation_source))
 			{
 				load_error.reset();
 				animation_choices_changed = true;
 			}
 			else try
 			{
-				auto loaded = ResourceLoader::load_animations(
-					engine.get_ecs(), request.path, request.skeleton);
-				for (const auto& warning : loaded.warnings)
-					LOG_WARNING(Utility::get_logger(), "Animation loader warning for '{}': {}",
-						request.path, warning.message);
+				const auto registered = engine.assets().load_asset(animation_source);
+				bool bound_clip = false;
+				for (const auto& asset : registered)
+					if (const auto* clip = std::get_if<AnimationAsset>(&asset))
+					{
+						engine.assets().bind_animation(
+							engine.get_ecs(), clip->handle, request.skeleton);
+						bound_clip = true;
+					}
+				if (!bound_clip)
+					throw ResourceLoadError("Selected source does not contain animation clips");
 				animation_choices_changed = true;
 				load_error.reset();
 			}

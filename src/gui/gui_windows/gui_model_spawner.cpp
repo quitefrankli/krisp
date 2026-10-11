@@ -6,6 +6,7 @@
 #include "game_engine.hpp"
 #include "objects/objects.hpp"
 #include "renderable/mesh_factory.hpp"
+#include "resource_loader/asset_registry.hpp"
 #include "utility.hpp"
 
 #include <imgui.h>
@@ -96,7 +97,11 @@ void GuiModelSpawner::process(GameEngine& engine)
 		ResourceLoader::LoadedModel loaded_model;
 		try
 		{
-			loaded_model = ResourceLoader::load_model(engine.get_ecs(), model_path);
+			const auto model_source = "meshes/" + model_path;
+			const auto registered = engine.assets().load_asset(model_source);
+			const auto assembly = AssetRegistry::default_assembly(registered);
+			loaded_model = engine.assets().instantiate_model(
+				engine.get_ecs(), assembly);
 			load_error.reset();
 		}
 		catch (const ResourceLoadError& error)

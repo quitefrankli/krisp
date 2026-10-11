@@ -13,38 +13,6 @@
 #include <ranges>
 #include <stdexcept>
 
-
-namespace
-{
-void write_source(Serializer out, const ImportedResourceProvenance& source)
-{
-	out.write("path", source.source);
-	out.write("scene", source.scene);
-	out.write("node", source.node);
-	out.write("primitive", source.primitive);
-	out.write("material", source.material);
-	out.write("image", source.image);
-	out.write("texture_semantic", source.texture_semantic);
-	out.write("skin", source.skin);
-	out.write("animation", source.animation);
-}
-
-ImportedResourceProvenance read_source(const Deserializer& in)
-{
-	return {
-		.source = in.read<std::string>("path"),
-		.scene = in.read<int>("scene"),
-		.node = in.read<int>("node"),
-		.primitive = in.read<int>("primitive"),
-		.material = in.read<int>("material"),
-		.image = in.read<int>("image"),
-		.texture_semantic = in.read<int>("texture_semantic"),
-		.skin = in.read<int>("skin"),
-		.animation = in.read<int>("animation"),
-	};
-}
-}
-
 void RenderableSystem::validate_attachment(
 	const Renderable& renderable,
 	const std::optional<ObjectID> object_id,
@@ -303,7 +271,7 @@ void RenderableSystem::serialize(Serializer& out, SceneResourceWriter& resources
 		if (attachment.skeleton_id)
 		{
 			if (const auto* source = ResourceProvenance::skeleton(*attachment.skeleton_id))
-				write_source(entry.map("skeleton_source"), *source);
+				resources.write_imported_source(entry.map("skeleton_source"), *source);
 			else
 				entry.write("skeleton_id", attachment.skeleton_id->get_underlying());
 		}
@@ -352,7 +320,8 @@ void RenderableSystem::deserialize(const Deserializer& in, SceneResourceReader& 
 		const auto fields = entry.keys();
 		if (std::ranges::find(fields, "skeleton_source") != fields.end())
 		{
-			skeleton_id = ResourceProvenance::find_skeleton(read_source(entry.child("skeleton_source")));
+			skeleton_id = ResourceProvenance::find_skeleton(
+				resources.read_imported_source(entry.child("skeleton_source")));
 			if (!skeleton_id)
 				throw SerializationError("Missing imported skeleton resource at " + entry.path());
 		}

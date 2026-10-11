@@ -103,7 +103,8 @@ static std::vector<ImportedAnimation> import_animations(
 	const tinygltf::Model& model,
 	const std::vector<Bone>& initial_bones,
 	const int skin_index,
-	const std::vector<size_t>& source_joint_to_target)
+	const std::vector<size_t>& source_joint_to_target,
+	const int selected_animation = -1)
 {
 	const auto& skin = model.skins.at(skin_index);
 	if (source_joint_to_target.size() != skin.joints.size())
@@ -120,7 +121,10 @@ static std::vector<ImportedAnimation> import_animations(
 		return retval;
 	}();
 
-	for (size_t animation_index = 0; animation_index < model.animations.size(); ++animation_index)
+	const size_t first_animation = selected_animation < 0 ? 0 : static_cast<size_t>(selected_animation);
+	const size_t end_animation = selected_animation < 0
+		? model.animations.size() : first_animation + 1;
+	for (size_t animation_index = first_animation; animation_index < end_animation; ++animation_index)
 	{	
 		const auto& animation = model.animations[animation_index];
 		// An animation represents a collection of BoneAnimations, each of which is a collection of keyframes

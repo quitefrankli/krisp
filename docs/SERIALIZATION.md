@@ -23,12 +23,17 @@ Resources are classified by `ImportedResourceProvenance`:
 
 - Imported resources store their external source and selector fields. A model
   source can select a mesh, material, skeleton, or animation; a texture source
-  identifies a standalone image and its semantic. External bytes are not copied.
-  Imported-material edits are stored as sparse, flattened overrides against the
-  original glTF material. Only user-changed factor, normal-scale, or texture-slot
-  fields are persisted, so unspecified fields continue to follow compatible
-  updates to the source asset. Each texture slot distinguishes inherited,
-  replaced, and explicitly cleared states.
+  identifies an image and its semantic. `resources.asset_sources` stores each
+  distinct source path and registry registration descriptor once. Imported
+  mesh, material, skeleton, animation, and texture records refer to that table
+  with `source_id`; a package `member` and the resource selectors stay on the
+  individual reference. External bytes and package contents are not copied
+  into the save. Imported-material edits are stored as sparse,
+  flattened overrides against the original glTF material. Only user-changed
+  factor, normal-scale, or texture-slot fields are persisted, so unspecified
+  fields continue to follow compatible updates to the source asset. Each
+  texture slot distinguishes inherited, replaced, and explicitly cleared
+  states.
   Imported glTF texture identities use the source image plus texture semantic;
   sampler choice remains part of the PBR slot binding. Each sampler records its
   address mode and whether mip selection is disabled, nearest, or linear.
@@ -92,7 +97,8 @@ Saving serializes to a staging directory, writes `scene.yaml.tmp`, renames it to
 save. A failed save restores the previous directory where possible.
 
 Loading validates object types and duplicate object IDs before resetting the
-scene. It then:
+scene. Imported sources are explicitly registered from their saved source and
+registration data before saved selectors are resolved. It then:
 
 1. Imports each referenced external model once and reconstructs generated resources.
 2. Restores objects and ECS systems in dependency order.
@@ -100,9 +106,22 @@ scene. It then:
 4. Restores engine/camera state and publishes the next coherent render snapshot.
 
 Malformed YAML, unsafe resource paths, corrupt binary data, missing external
-resources, invalid relationships, and unsupported resource types raise
+resources or package members, invalid relationships, and unsupported resource types raise
 `SerializationError`. Failures discovered after reset can leave a partially
 restored game-side scene; graphics retains its last accepted immutable frame.
+
+The developmental schema now includes `resources.asset_sources`, whose entries
+contain an `id`, source `path`, and optional `registration` descriptor. Each
+imported resource references an entry through `source_id`; its optional package
+`member` remains with that reference. The descriptor captures the explicit
+aliases, package export names, and importer settings used for the source;
+package export names are mandatory, while loose-resource aliases are optional.
+Registry registration must agree with the descriptor before selectors are
+restored. Runtime provenance shares
+this descriptor as an immutable string for the registered source. These
+records preserve references, not resource payloads, and are not a portable
+copy of a package. Saves created before this table and the asset registry
+existed are unsupported.
 
 ## YAML utilities and extensions
 

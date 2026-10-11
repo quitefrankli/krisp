@@ -1,30 +1,15 @@
 #include "skeletal.hpp"
 #include "ecs.hpp"
+#include "resource_loader/asset_registry.hpp"
 #include "serialization/serialization_helpers.hpp"
 #include "serialization/resource_provenance.hpp"
 #include "serialization/scene_resources.hpp"
-#include "resource_loader/resource_loader.hpp"
 
 #include <algorithm>
 #include <functional>
 
 namespace
 {
-void write_imported_source(Serializer& out, const ImportedResourceProvenance& provenance)
-{
-	out.write("path", provenance.source);
-	out.write("scene", provenance.scene);
-	out.write("node", provenance.node);
-	out.write("skin", provenance.skin);
-	out.write("animation", provenance.animation);
-}
-
-ImportedResourceProvenance read_imported_source(const Deserializer& in)
-{
-	return { .source = in.read<std::string>("path"), .scene = in.read<int>("scene"),
-		.node = in.read<int>("node"), .skin = in.read<int>("skin"), .animation = in.read<int>("animation") };
-}
-
 std::string interpolation_name(const BoneAnimation::Interpolation interpolation)
 {
 	switch (interpolation) {
@@ -105,9 +90,33 @@ void validate_bones(const std::vector<Bone>& bones, const std::string& path)
 	for (std::size_t index = 0; index < bones.size(); ++index)
 		visit(index);
 }
+
+std::vector<std::string> joint_order(const std::vector<Bone>& bones)
+{
+	std::vector<std::string> names;
+	names.reserve(bones.size());
+	for (const auto& bone : bones)
+		names.push_back(bone.name);
+	return names;
 }
 
-void SkeletalSystem::serialize(Serializer& out) const
+void write_joint_order(Serializer& out, const std::vector<std::string>& names)
+{
+	auto order = out.sequence("joint_order");
+	for (const auto& name : names)
+		order.append(name);
+}
+
+std::vector<std::string> read_joint_order(const Deserializer& in)
+{
+	std::vector<std::string> names;
+	for (const auto& entry : in.child("joint_order").elements())
+		names.push_back(entry.as<std::string>());
+	return names;
+}
+}
+
+void SkeletalSystem::serialize(Serializer& out, SceneResourceWriter& resources) const
 {
 	std::vector<SkeletonID> ids;
 	for (const auto& [id, _] : skeletons) ids.push_back(id);
@@ -118,7 +127,7 @@ void SkeletalSystem::serialize(Serializer& out) const
 		entry.write("skeleton_id", id.get_underlying());
 		if (const auto* provenance = ResourceProvenance::skeleton(id)) {
 			auto source = entry.map("imported_source");
-			write_imported_source(source, *provenance);
+			resources.write_imported_source(source, *provenance);
 			continue;
 		}
 		auto bones_out = entry.sequence("bones");
@@ -167,7 +176,8 @@ void SkeletalSystem::deserialize(const Deserializer& in, SceneResourceReader& re
 		const SkeletonID saved_id(entry.read<std::uint64_t>("skeleton_id"));
 		const auto fields = entry.keys();
 		if (std::ranges::find(fields, "imported_source") != fields.end()) {
-			const auto restored_id = ResourceProvenance::find_skeleton(read_imported_source(entry.child("imported_source")));
+			const auto restored_id = ResourceProvenance::find_skeleton(
+				resources.read_imported_source(entry.child("imported_source")));
 			if (!restored_id || !skeletons.contains(*restored_id))
 				throw SerializationError("Missing imported skeleton resource at " + entry.path());
 			resources.register_skeleton_id(saved_id, *restored_id);
@@ -243,7 +253,7 @@ void SkeletalSystem::deserialize_bone_attachments(const Deserializer& in, SceneR
 	bone_attachments = std::move(restored);
 }
 
-void SkeletalAnimationSystem::serialize(Serializer& out) const
+void SkeletalAnimationSystem::serialize(Serializer& out, SceneResourceWriter& resources) const
 {
 	auto system = out.map("skeletal_animation_system");
 	std::vector<AnimationID> ids;
@@ -256,11 +266,13 @@ void SkeletalAnimationSystem::serialize(Serializer& out) const
 		entry.write("animation_id", id.get_underlying());
 		if (const auto* provenance = ResourceProvenance::animation(id)) {
 			auto source = entry.map("imported_source");
-			write_imported_source(source, *provenance);
+			resources.write_imported_source(source, *provenance);
+			write_joint_order(entry, animation.joint_order);
 			continue;
 		}
 		entry.write("name", animation.name);
 		entry.write("source", animation.source);
+		write_joint_order(entry, animation.joint_order);
 		auto signature = entry.sequence("rig_signature");
 		for (const auto& bone : animation.rig_signature) {
 			auto bone_out = signature.append_map();
@@ -291,7 +303,7 @@ void SkeletalAnimationSystem::serialize(Serializer& out) const
 		if (const auto* provenance = ResourceProvenance::skeleton(skeleton_id))
 		{
 			auto source = entry.map("imported_skeleton_source");
-			write_imported_source(source, *provenance);
+			resources.write_imported_source(source, *provenance);
 		}
 		else
 			entry.write("skeleton_id", skeleton_id.get_underlying());
@@ -315,21 +327,42 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in, SceneResourceR
 		const AnimationID id(entry.read<std::uint64_t>("animation_id"));
 		const auto fields = entry.keys();
 		if (std::ranges::find(fields, "imported_source") != fields.end()) {
-			const auto provenance = read_imported_source(entry.child("imported_source"));
+			const auto provenance = resources.read_imported_source(entry.child("imported_source"));
+			const auto saved_joint_order = read_joint_order(entry);
 			auto restored_id = ResourceProvenance::find_animation(provenance);
+			const auto matches_saved_order = [&](const AnimationID candidate)
+			{
+				const auto animation = animations.find(candidate);
+				return animation != animations.end()
+					&& animation->second.joint_order == saved_joint_order;
+			};
+			if (restored_id && !matches_saved_order(*restored_id))
+				restored_id.reset();
 			// Model imports have already restored their clips while their renderables
 			// were rebuilt.  Standalone animation files need to be imported against
 			// one of the restored scene skeletons here.
 			if (!restored_id) {
 				for (const auto skeleton_id : get_ecs().get_skeleton_ids()) {
+					const auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
+					if (joint_order(bones) != saved_joint_order)
+						continue;
 					try {
-						ResourceLoader::load_animations(get_ecs(), provenance.source, skeleton_id);
+						const auto loaded = get_ecs().assets().restore_animations(
+							get_ecs(), provenance, skeleton_id);
+						for (const auto candidate : loaded.animations)
+							if (matches_saved_order(candidate))
+							{
+								restored_id = candidate;
+								break;
+							}
 					} catch (const ResourceLoadError&) {
 						continue;
 					}
-					restored_id = ResourceProvenance::find_animation(provenance);
-					if (restored_id)
+					if (!restored_id)
+						restored_id = ResourceProvenance::find_animation(provenance);
+					if (restored_id && matches_saved_order(*restored_id))
 						break;
+					restored_id.reset();
 				}
 			}
 			if (!restored_id || !animations.contains(*restored_id))
@@ -342,6 +375,7 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in, SceneResourceR
 		SkeletalAnimation animation;
 		animation.name = entry.read<std::string>("name");
 		animation.source = entry.read<std::string>("source");
+		animation.joint_order = read_joint_order(entry);
 		for (const auto& bone : entry.child("rig_signature").elements())
 			animation.rig_signature.push_back({ bone.read<std::string>("name"), bone.read<std::string>("parent_name") });
 		for (const auto& bone_in : entry.child("bone_animations").elements()) {
@@ -369,7 +403,7 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in, SceneResourceR
 		std::optional<SkeletonID> imported_skeleton;
 		if (std::ranges::find(fields, "imported_skeleton_source") != fields.end()) {
 			imported_skeleton = ResourceProvenance::find_skeleton(
-				read_imported_source(entry.child("imported_skeleton_source")));
+				resources.read_imported_source(entry.child("imported_skeleton_source")));
 			if (!imported_skeleton)
 				throw SerializationError("Missing imported skeleton resource at " + entry.path());
 		}
@@ -389,7 +423,9 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in, SceneResourceR
 		try {
 			const auto& bones = get_ecs().get_skeletal_component(skeleton_id).get_bones();
 			if (animation->second.bone_animations.size() != bones.size()
-				|| animation->second.rig_signature != make_skeletal_rig_signature(bones))
+				|| animation->second.rig_signature != make_skeletal_rig_signature(bones)
+				|| (!animation->second.joint_order.empty()
+					&& animation->second.joint_order != joint_order(bones)))
 				throw SerializationError("Incompatible active animation at $.skeletal_animation_system.active_animations["
 					+ std::to_string(index) + "].animation_id");
 		} catch (const std::out_of_range&) {

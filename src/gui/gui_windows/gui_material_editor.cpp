@@ -30,7 +30,7 @@ std::string get_overlay_disabled_reason(
 		return "A base-color texture is required";
 	if (overlay_count >= CSTS::MAX_TEXTURE_COMPOSITION_LAYERS - 1)
 		return "The overlay layer limit has been reached";
-	if (overlay.texture_filename.empty())
+	if (overlay.texture_asset.empty())
 		return "Choose an overlay texture";
 	if (!std::isfinite(overlay.centre.x) || !std::isfinite(overlay.centre.y)
 		|| !std::isfinite(overlay.scale.x) || !std::isfinite(overlay.scale.y)
@@ -73,6 +73,20 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		pending_change.reset();
 		try
 		{
+			const auto register_texture = [&engine](std::string& source)
+			{
+				const std::string name = "editor/material/" + source;
+				if (!engine.assets().contains(name))
+				{
+					AssetLoadOptions options;
+					options.name = name;
+					engine.assets().load_asset("textures/" + source, options);
+				}
+				source = name;
+			};
+			for (auto& texture : change.textures)
+				if (texture.replacement)
+					register_texture(*texture.replacement);
 			const auto texture_edit = [](const MaterialChange::TextureChange& texture)
 			{
 				if (!texture.changed)
@@ -117,6 +131,14 @@ void GuiMaterialEditor::process(GameEngine& engine)
 		pending_overlay.reset();
 		try
 		{
+			const std::string name = "editor/material/" + change.overlay.texture_asset;
+			if (!engine.assets().contains(name))
+			{
+				AssetLoadOptions options;
+				options.name = name;
+				engine.assets().load_asset("textures/" + change.overlay.texture_asset, options);
+			}
+			change.overlay.texture_asset = name;
 			const RenderableID replacement_id = engine.composite_renderable_base_color(
 				change.renderable_id, std::vector<TextureCompositionOverlay>{ change.overlay });
 			std::ranges::replace(renderable_ids, change.renderable_id, replacement_id);
@@ -340,7 +362,7 @@ void GuiMaterialEditor::draw()
 		ImGui::BeginDisabled(!texture_compatible);
 		ImGui::PushID("overlay");
 		ImGui::TextUnformatted("Overlay texture");
-		draw_texture_picker(overlay_draft.texture_filename, overlay_dropdown_open);
+		draw_texture_picker(overlay_draft.texture_asset, overlay_dropdown_open);
 		ImGui::InputFloat2("Centre (UV)", &overlay_draft.centre.x);
 		ImGui::InputFloat2("Scale (UV)", &overlay_draft.scale.x);
 		float rotation_degrees = glm::degrees(overlay_draft.rotation_radians);

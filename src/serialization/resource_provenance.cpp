@@ -6,6 +6,18 @@
 #include <algorithm>
 #include <ranges>
 
+std::string_view registration_text(const ImportedResourceProvenance& provenance)
+{
+	return provenance.registration ? std::string_view(*provenance.registration) : std::string_view{};
+}
+
+bool same_registration(
+	const ImportedResourceProvenance& left, const ImportedResourceProvenance& right)
+{
+	return left.registration == right.registration
+		|| registration_text(left) == registration_text(right);
+}
+
 namespace
 {
 std::unordered_map<MeshID, ImportedResourceProvenance> meshes;
@@ -29,6 +41,7 @@ void ResourceProvenance::register_material(MaterialID id, ImportedResourceProven
 	const auto same = [&provenance](const ImportedResourceProvenance& value)
 	{
 		return value.kind == provenance.kind && value.source == provenance.source
+			&& value.member == provenance.member && same_registration(value, provenance)
 			&& value.scene == provenance.scene && value.node == provenance.node
 			&& value.primitive == provenance.primitive && value.material == provenance.material
 			&& value.image == provenance.image
@@ -64,7 +77,9 @@ std::optional<MeshID> ResourceProvenance::find_mesh(
 {
 	for (const auto& [id, value] : meshes)
 		if (mesh_system.contains(id)
-			&& value.kind == provenance.kind && value.source == provenance.source && value.scene == provenance.scene
+			&& value.kind == provenance.kind && value.source == provenance.source
+			&& value.member == provenance.member && same_registration(value, provenance)
+			&& value.scene == provenance.scene
 			&& value.node == provenance.node && value.primitive == provenance.primitive)
 			return id;
 	return std::nullopt;
@@ -76,6 +91,7 @@ std::optional<MaterialID> ResourceProvenance::find_material(
 		if (material_system.contains(id))
 			for (const auto& value : aliases)
 				if (value.kind == provenance.kind && value.source == provenance.source
+					&& value.member == provenance.member && same_registration(value, provenance)
 					&& value.scene == provenance.scene && value.node == provenance.node
 					&& value.primitive == provenance.primitive
 					&& value.material == provenance.material && value.image == provenance.image
@@ -86,7 +102,9 @@ std::optional<MaterialID> ResourceProvenance::find_material(
 std::optional<SkeletonID> ResourceProvenance::find_skeleton(const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : skeletons)
-		if (value.kind == provenance.kind && value.source == provenance.source && value.scene == provenance.scene && value.node == provenance.node
+		if (value.kind == provenance.kind && value.source == provenance.source
+			&& value.member == provenance.member && same_registration(value, provenance)
+			&& value.scene == provenance.scene && value.node == provenance.node
 			&& value.skin == provenance.skin)
 			return id;
 	return std::nullopt;
@@ -94,7 +112,10 @@ std::optional<SkeletonID> ResourceProvenance::find_skeleton(const ImportedResour
 std::optional<AnimationID> ResourceProvenance::find_animation(const ImportedResourceProvenance& provenance)
 {
 	for (const auto& [id, value] : animations)
-		if (value.kind == provenance.kind && value.source == provenance.source && value.skin == provenance.skin && value.animation == provenance.animation)
+		if (value.kind == provenance.kind && value.source == provenance.source
+			&& value.member == provenance.member && same_registration(value, provenance)
+			&& value.scene == provenance.scene && value.node == provenance.node
+			&& value.skin == provenance.skin && value.animation == provenance.animation)
 			return id;
 	return std::nullopt;
 }

@@ -1,10 +1,13 @@
 # Resources
 
-Pass resource-relative names without `..` components. Krisp searches
-`RuntimePaths::app_resources/<type>` before
-`RuntimePaths::engine_runtime/resources/<type>`, where type is `meshes`,
-`textures`, `animations`, or `sound`. App configuration similarly overrides
-engine configuration; app shaders override engine shaders.
+Pass resource-relative names without `..` components. For direct resource
+registration, a bare filename uses the split layout: model/document files
+resolve under `meshes/`, images under `textures/`, and `.kasset` packages under
+`kassets/`. A prefixed resource-relative path such as
+`animations/motion.glb` or `kassets/collection.kasset` selects its category
+explicitly. Krisp searches `RuntimePaths::app_resources` before
+`RuntimePaths::engine_runtime/resources`. App configuration similarly
+overrides engine configuration; app shaders override engine shaders.
 
 Call `Config::init(app_name)` before creating the engine to use Linux defaults,
 or `Config::init(app_name, paths)` for a custom layout. The default overload uses
@@ -27,11 +30,44 @@ as the engine runtime. Meson supplies these paths consistently. Locally managed
 asset collections remain in their respective app directories and are ignored
 by Git.
 
-The Conan package includes default skybox textures, the neutral `checkerboard.png`
-texture used by the Object Spawner, configuration, compiled
+The Conan package includes default skybox textures, a neutral `checkerboard.png`
+texture, configuration, compiled
 raster shaders, and precomputed environment lighting. Sample models, animations,
 and unrelated asset collections remain application resources. See
 [the Conan workflow](CONAN.md) for editable and packaged builds.
+
+## Asset registry
+
+An engine's `AssetRegistry` owns registered aliases and lazy CPU decode caches
+for the engine session. A loose resource can be registered with
+`load_asset(source)`; its returned descriptors need no authored names. Optional
+`AssetLoadOptions::exports` aliases selected document parts, while
+`AssetLoadOptions::name` aliases a loose image. `AssetRegistry::describe_source`
+can enumerate selectors when callers want to author document aliases. A
+`.kasset` package requires explicit names in its index for every importable
+part, including dependency images. Subsequent access uses returned typed
+handles or explicit aliases; filesystem paths are used only when registering
+or restoring a source.
+Package descriptors include a member path and selector, so several documents
+can be addressed inside one package.
+
+Registration defaults to lazy decoding; `AssetLoadOptions::eager` decodes all
+exports into CPU resources immediately. Neither mode uploads GPU resources.
+The registry exposes individual meshes, materials, textures, skeletons, and
+animations plus assembly exports for selected scenes. Acquiring or instantiating
+resources adopts their shared CPU payloads into existing engine stores;
+graphics uploads them when used. Model assembly instantiation creates fresh
+runtime skeletal state and can bind skinned renderables to a supplied target
+skeleton. Animation binding likewise takes an explicit compatible skeleton.
+GUI texture previews acquire owning material handles on the game side and pass
+those handles to graphics for upload and display. Graphics does not access the
+asset registry.
+
+The registry survives ECS resets, while ECS-owned entities and skeleton poses
+do not. Reuse registrations after reset and instantiate the required runtime
+state again. Unloading a registered source removes its names and cache
+ownership; acquired handles and runtime stores keep any shared payloads alive.
+See [Kasset assets](KASSET.md) for package format and registry examples.
 
 ## Scene state
 
@@ -50,11 +86,16 @@ format.
 ## Models
 
 Models must be glTF (`.gltf`) or binary glTF (`.glb`); `.glb` is preferred for
-self-contained assets. A model must contain a scene. Krisp loads the default
-scene, or scene zero when none is declared, and returns one loaded mesh group
-per mesh node. A scene without mesh nodes returns an empty result with a
-warning. Embedded animations are ignored with a warning. Strict mode promotes
-loader-generated warnings to errors.
+self-contained assets. A loose document can be registered without names; its
+returned descriptors can be passed directly to typed registry operations.
+Optional export aliases can name only selected parts. A `.kasset` package
+requires an explicit index name for every importable part. An assembly
+descriptor selects one scene; the default assembly follows the document's
+default scene, or scene zero when none is declared. Assembly instantiation
+returns one loaded mesh group per mesh node. A scene without mesh nodes returns
+an empty result with a warning. Embedded animations are ignored by model
+assembly decoding with a warning. Strict mode promotes loader-generated
+warnings to errors.
 
 Import converts glTF's right-handed coordinates to Krisp's left-handed basis,
 including attributes, winding, node transforms, skin bind data, and animation
@@ -181,17 +222,17 @@ renderables. The caller binds that skeleton to each renderable attachment;
 several attachments may share one skeleton. Joints need unique, non-empty names
 only when separately imported animations will target the skeleton.
 
-Set `LoadOptions::target_skeleton` when importing additional skinned meshes for
-an existing character. The loader requires the source skin to have the same
-named joint hierarchy and inverse-bind poses, remaps `JOINTS_0` when joint order
-differs, returns the target `SkeletonID`, and does not create redundant skeletal
+Pass a target `SkeletonID` when instantiating an assembly containing additional
+skinned meshes for an existing rig. The source skin must have the same named
+joint hierarchy and inverse-bind poses. Krisp remaps `JOINTS_0` when joint
+order differs, reuses the target skeleton, and avoids redundant skeletal
 state. Attach those renderables to the same object and target skeleton so they
 share both the character's world transform and animated pose.
 
 ## Animations
 
-Animation resources must be `.gltf` or `.glb` and contain at least one clip,
-one skin, and exactly one skin compatible with the target skeleton. A compatible
+Animation exports select a clip and skin from a `.gltf` or `.glb` document.
+The selected skin must be compatible with the target skeleton. A compatible
 skin has the same joint count, unique non-empty joint names, and the same named
 parent hierarchy. Joint array order may differ; non-joint helper nodes are
 ignored during hierarchy comparison.

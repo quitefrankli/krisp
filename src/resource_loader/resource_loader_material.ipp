@@ -108,19 +108,48 @@ TextureMaterial load_dds_texture_data(
 	return material;
 }
 
-TextureMaterial load_dds_texture(const std::filesystem::path& filename)
+TextureMaterial make_gltf_image_texture(
+	const tinygltf::Image& image,
+	const ETextureSemantic semantic,
+	const std::string_view source)
 {
-	std::ifstream file(filename, std::ios::binary | std::ios::ate);
-	if (!file)
-		throw ResourceLoadError(fmt::format("ResourceLoader: failed to open DDS texture: {}", filename.string()));
-	const auto file_size = file.tellg();
-	if (file_size < 0)
-		throw ResourceLoadError(fmt::format("ResourceLoader: failed to read DDS texture: {}", filename.string()));
-	std::vector<unsigned char> bytes(static_cast<size_t>(file_size));
-	file.seekg(0);
-	if (!file.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
-		throw ResourceLoadError(fmt::format("ResourceLoader: failed to read DDS texture: {}", filename.string()));
-	return load_dds_texture_data(bytes.data(), bytes.size(), filename.string());
+	if (image.as_is && image.mimeType == "image/vnd-ms.dds")
+	{
+		auto material = load_dds_texture_data(image.image.data(), image.image.size(), source);
+		material.semantic = semantic;
+		material.source = source;
+		return material;
+	}
+	if (image.width <= 0 || image.height <= 0 || image.component < 1 || image.component > 4 || image.bits != 8)
+		throw ResourceLoadError("ResourceLoader: image has unsupported dimensions or channels");
+	if (static_cast<size_t>(image.width) > std::numeric_limits<size_t>::max() / static_cast<size_t>(image.height))
+		throw ResourceLoadError("ResourceLoader: image dimensions overflow address space");
+	const size_t pixels = static_cast<size_t>(image.width) * static_cast<size_t>(image.height);
+	if (pixels > std::numeric_limits<size_t>::max() / 4
+		|| image.image.size() < pixels * static_cast<size_t>(image.component))
+		throw ResourceLoadError("ResourceLoader: image data is truncated");
+	std::vector<std::byte> rgba(pixels * 4);
+	for (size_t pixel = 0; pixel < pixels; ++pixel)
+	{
+		const auto* input = image.image.data() + pixel * image.component;
+		auto* output = rgba.data() + pixel * 4;
+		if (image.component <= 2)
+			output[0] = output[1] = output[2] = static_cast<std::byte>(input[0]);
+		else
+			for (size_t channel = 0; channel < 3; ++channel)
+				output[channel] = static_cast<std::byte>(input[channel]);
+		output[3] = static_cast<std::byte>(image.component == 2 ? input[1] : image.component == 4 ? input[3] : 255);
+	}
+	TextureMaterial material;
+	material.width = static_cast<uint32_t>(image.width);
+	material.height = static_cast<uint32_t>(image.height);
+	material.channels = 4;
+	material.data_len = rgba.size();
+	material.mip_sizes = { rgba.size() };
+	material.semantic = semantic;
+	material.source = source;
+	material.data = std::make_unique<OwnedTextureData>(std::move(rgba));
+	return material;
 }
 
 bool load_gltf_image_data(
@@ -535,59 +564,11 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 			}
 			else
 			{
-				const auto &image = model.images.at(resolved.image_index);
-				if (resolved.dds)
-				{
-					auto loaded = load_dds_texture_data(
-						image.image.data(), image.image.size(),
-						image.uri.empty() ? fmt::format("glTF image {}", resolved.image_index) : image.uri);
-					loaded.semantic = semantic;
-					owner = materials.add(std::make_unique<TextureMaterial>(std::move(loaded)));
-				}
-				else
-				{
-					if (image.width <= 0 || image.height <= 0 || image.component < 1 || image.component > 4 ||
-					    image.bits != 8)
-						throw ResourceLoadError(fmt::format(
-							"ResourceLoader: texture {} has unsupported image dimensions or channels", texture_index));
-					if (static_cast<size_t>(image.width) >
-					    std::numeric_limits<size_t>::max() / static_cast<size_t>(image.height))
-						throw ResourceLoadError(fmt::format(
-							"ResourceLoader: texture {} image dimensions overflow address space", texture_index));
-					const size_t pixel_count = static_cast<size_t>(image.width) * static_cast<size_t>(image.height);
-					if (pixel_count > std::numeric_limits<size_t>::max() / 4 ||
-					    image.image.size() < pixel_count * static_cast<size_t>(image.component))
-						throw ResourceLoadError(
-							fmt::format("ResourceLoader: texture {} image data is truncated", texture_index));
-					std::vector<std::byte> rgba(pixel_count * 4);
-					for (size_t pixel = 0; pixel < pixel_count; ++pixel)
-					{
-						const auto *source = image.image.data() + pixel * image.component;
-						auto *destination = rgba.data() + pixel * 4;
-						if (image.component == 1 || image.component == 2)
-							destination[0] = destination[1] = destination[2] = static_cast<std::byte>(source[0]);
-						else
-						{
-							destination[0] = static_cast<std::byte>(source[0]);
-							destination[1] = static_cast<std::byte>(source[1]);
-							destination[2] = static_cast<std::byte>(source[2]);
-						}
-						destination[3] = static_cast<std::byte>(image.component == 2   ? source[1]
-						                                        : image.component == 4 ? source[3]
-						                                                               : 255);
-					}
-					auto texture_material = std::make_unique<TextureMaterial>();
-					texture_material->width = static_cast<uint32_t>(image.width);
-					texture_material->height = static_cast<uint32_t>(image.height);
-					texture_material->channels = 4;
-					texture_material->data_len = rgba.size();
-					texture_material->mip_sizes = {rgba.size()};
-					texture_material->semantic = semantic;
-					texture_material->source =
-						image.uri.empty() ? fmt::format("glTF image {}", resolved.image_index) : image.uri;
-					texture_material->data = std::make_unique<OwnedTextureData>(std::move(rgba));
-					owner = materials.add(std::move(texture_material));
-				}
+				const auto& image = model.images.at(resolved.image_index);
+				const auto source = image.uri.empty()
+					? fmt::format("glTF image {}", resolved.image_index) : image.uri;
+				auto loaded = make_gltf_image_texture(image, semantic, source);
+				owner = materials.add(std::make_unique<TextureMaterial>(std::move(loaded)));
 				gltf_image_to_material.emplace(cache_key, owner->get_id());
 			}
 			image_sources.emplace_back(owner->get_id(), resolved.image_index);
@@ -638,6 +619,8 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 			owners.push_back(std::move(texture_owner));
 		}
 		gltf_material_to_material[primitive.material] = loaded;
+		for (const auto& owner : owners)
+			cached_material_owners.push_back(owner);
 		return loaded;
 	}
 
@@ -645,45 +628,42 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 	return { .ids = { owners.back()->get_id() } };
 }
 
-MaterialHandle ResourceLoader::load_texture(
+MaterialHandle ResourceLoader::load_texture_bytes(
 	MaterialSystem& materials,
-	const std::filesystem::path& resolved_file_path,
+	const std::span<const unsigned char> bytes,
 	const std::string_view logical_resource_name,
 	const ETextureSemantic semantic)
 {
-	if (!std::filesystem::exists(resolved_file_path))
+	if (semantic == ETextureSemantic::COUNT)
+		throw ResourceLoadError("ResourceLoader: invalid texture semantic");
+	constexpr std::array<unsigned char, 4> dds_magic{ 'D', 'D', 'S', ' ' };
+	if (bytes.size() >= dds_magic.size()
+		&& std::equal(dds_magic.begin(), dds_magic.end(), bytes.begin()))
 	{
-		throw ResourceLoadError(fmt::format("ResourceLoader::load_texture: filename does not exist! {}", resolved_file_path.string()));
-	}
-
-	if (resolved_file_path.extension() == ".dds")
-	{
-		auto material = load_dds_texture(resolved_file_path);
+		auto material = load_dds_texture_data(bytes.data(), bytes.size(), logical_resource_name);
 		material.semantic = semantic;
 		material.source = logical_resource_name;
 		return materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 	}
+	if (bytes.empty() || bytes.size() > static_cast<size_t>(std::numeric_limits<int>::max()))
+		throw ResourceLoadError(fmt::format("failed to load texture image! {}", logical_resource_name));
 
 	TextureMaterial material;
 	material.semantic = semantic;
 	material.source = logical_resource_name;
-	const auto filename_str = resolved_file_path.string();
-	material.data = std::make_unique<RawTextureDataSTB>(stbi_load(
-		filename_str.c_str(),
-		(int*)(&material.width),
-		(int*)(&material.height),
-		(int*)(&material.channels),
-		STBI_rgb_alpha));
-
-	assert(material.channels == 4 || material.channels == 3);
+	int width = 0;
+	int height = 0;
+	int channels = 0;
+	auto* decoded = stbi_load_from_memory(
+		bytes.data(), static_cast<int>(bytes.size()),
+		&width, &height, &channels, STBI_rgb_alpha);
+	material.data = std::make_unique<RawTextureDataSTB>(decoded);
+	if (!decoded)
+		throw ResourceLoadError(fmt::format("failed to load texture image! {}", logical_resource_name));
+	material.width = static_cast<uint32_t>(width);
+	material.height = static_cast<uint32_t>(height);
 	material.channels = 4;
-
-	if (!material.data->get())
-	{
-		throw ResourceLoadError(fmt::format("failed to load texture image! {}", filename_str));
-	}
 	material.data_len = static_cast<size_t>(material.width) * material.height * material.channels;
 	material.mip_sizes = { material.data_len };
-
 	return materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 }

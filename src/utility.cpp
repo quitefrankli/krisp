@@ -181,6 +181,36 @@ std::filesystem::path Utility::get_texture(std::string_view filename)
 	return resolve_resource("textures", filename);
 }
 
+std::filesystem::path Utility::get_resource(std::string_view filename)
+{
+	// Explicit category paths are unambiguous. Bare registration filenames use
+	// the existing split layout; ordinary registry-name lookup never calls this.
+	const std::filesystem::path name(filename);
+	if (get().test_mode && name.has_parent_path())
+	{
+		validate_relative_filename(filename, "Utility::get_resource");
+		auto component = name.begin();
+		if (*component == "meshes" || *component == "textures" || *component == "animations" || *component == "kassets")
+		{
+			std::filesystem::path fixture;
+			for (++component; component != name.end(); ++component) fixture /= *component;
+			const auto fixture_path = get().test_data / fixture;
+			if (std::filesystem::is_regular_file(fixture_path)) return fixture_path;
+		}
+	}
+	if (name.has_parent_path())
+	{
+		const auto category = *name.begin();
+		if (category == "meshes" || category == "textures" || category == "animations" || category == "kassets")
+			return resolve_resource("", filename);
+	}
+	const auto extension = name.extension();
+	if (extension == ".kasset") return resolve_resource("kassets", filename);
+	if (extension == ".png" || extension == ".jpg" || extension == ".jpeg" || extension == ".dds")
+		return resolve_resource("textures", filename);
+	return resolve_resource("meshes", filename);
+}
+
 std::filesystem::path Utility::get_model(std::string_view filename)
 {
 	return resolve_resource("meshes", filename);

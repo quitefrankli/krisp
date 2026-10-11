@@ -13,7 +13,9 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <limits>
 #include <numeric>
 #include <stdexcept>
 #include <unordered_map>
@@ -21,68 +23,106 @@
 
 namespace
 {
-template<typename Resolver>
-std::filesystem::path resolve_resource_filename(std::string_view filename, Resolver resolver)
-{
-	try
-	{
-		return resolver(filename);
-	}
-	catch (const std::runtime_error& error)
-	{
-		throw ResourceLoadError(error.what());
-	}
-}
-}
-
-ResourceLoader ResourceLoader::global_resource_loader;
-
-MaterialHandle ResourceLoader::fetch_texture(
-	MaterialSystem& materials,
-	const std::string_view logical_resource_name,
-	const ETextureSemantic semantic)
-{
-	if (semantic == ETextureSemantic::COUNT)
-		throw ResourceLoadError("ResourceLoader::fetch_texture: invalid texture semantic");
-	const auto resolved_file_path = resolve_resource_filename(logical_resource_name, Utility::get_texture);
-	auto owner = global_resource_loader.load_texture(
-		materials, resolved_file_path, logical_resource_name, semantic);
-	ResourceProvenance::register_material(owner->get_id(), {
-		.kind = EExternalResourceKind::Texture,
-		.source = std::string(logical_resource_name),
-		.texture_semantic = static_cast<int>(semantic),
-	});
-	return owner;
-}
-
-namespace
-{
-struct GltfDocument
-{
-	tinygltf::Model model;
-	std::string warning;
-};
-
-GltfDocument load_gltf_document(const std::filesystem::path& file_path)
+ResourceDocument load_gltf_document(const std::filesystem::path& file_path)
 {
 	const bool is_glb = file_path.extension() == ".glb";
 	if (!is_glb && file_path.extension() != ".gltf")
 		throw ResourceLoadError(fmt::format(
 			"ResourceLoader: unsupported glTF file format: {}", file_path.string()));
 
-	GltfDocument document;
+	ResourceDocument document{ .model = std::make_shared<tinygltf::Model>() };
 	std::string error;
 	tinygltf::TinyGLTF loader;
 	loader.SetImageLoader(load_gltf_image_data, nullptr);
 	const bool loaded = is_glb
-		? loader.LoadBinaryFromFile(&document.model, &error, &document.warning, file_path.string())
-		: loader.LoadASCIIFromFile(&document.model, &error, &document.warning, file_path.string());
+		? loader.LoadBinaryFromFile(document.model.get(), &error, &document.warning, file_path.string())
+		: loader.LoadASCIIFromFile(document.model.get(), &error, &document.warning, file_path.string());
 	if (!loaded)
 		throw ResourceLoadError(fmt::format(
 			"ResourceLoader: failed to load '{}': {}", file_path.string(), error));
 	return document;
 }
 
+bool dependency_file_exists(const std::string&, void*) { return true; }
+std::string identity_expand_path(const std::string& path, void*) { return path; }
+bool unavailable_file_write(std::string* error, const std::string&, const std::vector<unsigned char>&, void*)
+{
+	if (error) *error = "document decoding does not support writing";
+	return false;
+}
+bool read_document_dependency(
+	std::vector<unsigned char>* output,
+	std::string* error,
+	const std::string& path,
+	void* user_data)
+{
+	const auto* dependency_reader = static_cast<const ResourceLoader::DependencyReader*>(user_data);
+	if (!dependency_reader || !*dependency_reader)
+	{
+		if (error) *error = "external glTF dependency has no reader";
+		return false;
+	}
+	try
+	{
+		*output = (*dependency_reader)(path);
+		return true;
+	}
+	catch (const std::exception& exception)
+	{
+		if (error) *error = exception.what();
+		return false;
+	}
+}
+
+}
+
+ResourceDocument ResourceLoader::read_document(const std::filesystem::path& file_path)
+{
+	return load_gltf_document(file_path);
+}
+
+ResourceDocument ResourceLoader::read_document(
+	const std::span<const unsigned char> bytes,
+	const std::string_view logical_name,
+	DependencyReader dependency_reader)
+{
+	const std::filesystem::path source_path(logical_name);
+	const bool is_glb = source_path.extension() == ".glb";
+	if (!is_glb && source_path.extension() != ".gltf")
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: unsupported glTF file format: {}", logical_name));
+	if (bytes.empty() || bytes.size() > std::numeric_limits<unsigned int>::max())
+		throw ResourceLoadError(fmt::format("ResourceLoader: invalid document size: {}", logical_name));
+
+	ResourceDocument document{ .model = std::make_shared<tinygltf::Model>() };
+	std::string error;
+	tinygltf::TinyGLTF loader;
+	loader.SetImageLoader(load_gltf_image_data, nullptr);
+	loader.SetFsCallbacks({
+		.FileExists = dependency_file_exists,
+		.ExpandFilePath = identity_expand_path,
+		.ReadWholeFile = read_document_dependency,
+		.WriteWholeFile = unavailable_file_write,
+		.user_data = &dependency_reader,
+	});
+	// The dependency adapter resolves URIs against its own source location.
+	const std::string logical_parent;
+	const auto loaded = is_glb
+		? loader.LoadBinaryFromMemory(
+			document.model.get(), &error, &document.warning, bytes.data(),
+			static_cast<unsigned int>(bytes.size()), logical_parent)
+		: loader.LoadASCIIFromString(
+			document.model.get(), &error, &document.warning,
+			reinterpret_cast<const char*>(bytes.data()),
+			static_cast<unsigned int>(bytes.size()), logical_parent);
+	if (!loaded)
+		throw ResourceLoadError(fmt::format(
+			"ResourceLoader: failed to load '{}': {}", logical_name, error));
+	return document;
+}
+
+namespace
+{
 Maths::Transform node_transform(const tinygltf::Node& node)
 {
 	Maths::Transform transform;
@@ -305,17 +345,20 @@ void add_warning(ResourceLoader::LoadedModel& result, const ResourceLoader::Load
 }
 }
 
-ResourceLoader::LoadedModel ResourceLoader::load_model(
-	ECS& ecs,
-	const std::string_view filename,
-	const LoadOptions& options)
+ResourceLoader::DecodedModel ResourceLoader::decode_model(
+	const ResourceDocument& document,
+	const std::string_view provenance_source,
+	const LoadOptions& options,
+	MeshSystem& meshes,
+	MaterialSystem& materials,
+	const std::vector<Bone>* requested_target_bones,
+	ResourceLoader* material_cache)
 {
 	try
 	{
-	const auto file_path = resolve_resource_filename(filename, Utility::get_model);
-	const std::string provenance_source(filename);
-	auto document = load_gltf_document(file_path);
-	auto& model = document.model;
+	if (!document.model)
+		throw ResourceLoadError("ResourceLoader: document has no decoded model");
+	const auto& model = *document.model;
 	if (model.scenes.empty())
 		throw ResourceLoadError("ResourceLoader::load_model: model contains no scenes");
 
@@ -323,7 +366,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	if (scene_index < 0 || scene_index >= static_cast<int>(model.scenes.size()))
 		throw ResourceLoadError("ResourceLoader::load_model: requested scene is out of range");
 
-	LoadedModel result;
+	DecodedModel decoded;
+	LoadedModel& result = decoded.model;
 	if (!document.warning.empty())
 		result.warnings.push_back({ document.warning });
 	const auto node_instances = collect_mesh_nodes(model, model.scenes[scene_index]);
@@ -345,21 +389,23 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	validate_gltf_materials(model, used_materials, result.warnings, options.strict);
 	if (!model.animations.empty())
 		add_warning(result, options,
-			"ResourceLoader::load_model: animations were ignored; use ResourceLoader::load_animations to load them explicitly");
-	global_resource_loader.gltf_material_to_material.clear();
-	global_resource_loader.gltf_image_to_material.clear();
+			"ResourceLoader::load_model: animations were ignored; bind a registered animation asset to load them explicitly");
+	ResourceLoader local_cache;
+	auto& scratch = material_cache ? *material_cache : local_cache;
 
 	const std::vector<Bone>* target_bones = nullptr;
 	std::unordered_map<std::string, size_t> target_by_name;
 	std::vector<int> node_parents;
 	if (options.target_skeleton)
 	{
-		target_bones = &ecs.get_skeletal_component(*options.target_skeleton).get_bones();
+		if (!requested_target_bones)
+			throw ResourceLoadError("ResourceLoader: target skeleton bones are required for decoded remapping");
+		target_bones = requested_target_bones;
 		target_by_name = require_named_target_bones(*target_bones);
 		node_parents = get_parent_nodes(model);
 	}
 
-	std::unordered_map<int, std::vector<Bone>> skins;
+	auto& skins = decoded.skins;
 	std::unordered_map<int, std::vector<size_t>> target_mappings;
 	for (const NodeInstance& instance : node_instances)
 	{
@@ -397,9 +443,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			}
 			else
 			{
-				skeleton = ecs.add_skeleton(it->second);
-				ResourceProvenance::register_skeleton(*skeleton, {
-					.source = provenance_source, .scene = scene_index, .node = instance.node_index, .skin = node.skin });
+				skins.emplace(node.skin, it->second);
 			}
 			loaded_mesh.skeleton_id = skeleton;
 		}
@@ -437,8 +481,8 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 				throw ResourceLoadError("ResourceLoader: POSITION and NORMAL counts differ");
 
 			std::vector<MaterialHandle> material_owners;
-			const auto loaded_material = global_resource_loader.load_material(
-				ecs.get_material_system(), primitive, model, material_owners);
+			const auto loaded_material = scratch.load_material(
+				materials, primitive, model, material_owners);
 			const auto* pbr_material = dynamic_cast<const PbrMaterial*>(
 				&material_owners.front()->get());
 			if (!pbr_material)
@@ -497,7 +541,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 			Renderable renderable;
 			renderable.name = loaded_mesh.name;
 			MeshPtr mesh;
-			if (skeleton.has_value())
+			if (node.skin >= 0)
 			{
 				const bool has_additional_joint_set = std::any_of(
 					primitive.attributes.begin(), primitive.attributes.end(), [](const auto& attribute)
@@ -561,21 +605,24 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 					renderable.pipeline_render_type = ERenderType::COLOR;
 				}
 			}
-			renderable.mesh_owner = ecs.get_mesh_system().add(std::move(mesh));
+			renderable.mesh_owner = meshes.add(std::move(mesh));
 			const auto mesh_id = renderable.mesh_owner->get_id();
-			ResourceProvenance::register_mesh(mesh_id, {
-				.source = provenance_source, .scene = scene_index, .node = instance.node_index,
+			decoded.mesh_provenance.emplace(mesh_id, ImportedResourceProvenance{
+				.kind = EExternalResourceKind::Model,
+				.source = std::string(provenance_source), .scene = scene_index, .node = instance.node_index,
 				.primitive = static_cast<int>(primitive_index), .material = primitive.material, .skin = node.skin });
-			ResourceProvenance::register_material(loaded_material.ids.front(), {
-				.source = provenance_source, .scene = scene_index, .material = primitive.material });
+			decoded.material_provenance.emplace(loaded_material.ids.front(), ImportedResourceProvenance{
+				.kind = EExternalResourceKind::Model,
+				.source = std::string(provenance_source), .scene = scene_index, .material = primitive.material });
 			for (const auto& [material_id, image_index] : loaded_material.image_sources)
 			{
 				const auto* texture = dynamic_cast<const TextureMaterial*>(
-					&ecs.get_material_system().get(material_id));
+					&materials.get(material_id));
 				if (!texture)
 					throw ResourceLoadError("ResourceLoader: cached glTF texture has the wrong type");
-				ResourceProvenance::register_material(material_id, {
-					.source = provenance_source, .scene = scene_index,
+				decoded.material_provenance.emplace(material_id, ImportedResourceProvenance{
+					.kind = EExternalResourceKind::Texture,
+					.source = std::string(provenance_source), .scene = scene_index,
 					.image = image_index,
 					.texture_semantic = static_cast<int>(texture->semantic) });
 			}
@@ -587,7 +634,7 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	}
 	if (result.meshes.empty())
 		add_warning(result, options, "ResourceLoader: selected scene contains no mesh nodes");
-	return result;
+	return decoded;
 	}
 	catch (const std::out_of_range& error)
 	{
@@ -596,25 +643,53 @@ ResourceLoader::LoadedModel ResourceLoader::load_model(
 	}
 }
 
-ResourceLoader::LoadedModel ResourceLoader::load_model(ECS& ecs, const std::string_view filename)
+ResourceLoader::LoadedModel ResourceLoader::load_model_document(
+	ECS& ecs,
+	const ResourceDocument& document,
+	const std::string_view provenance_source,
+	const LoadOptions& options)
 {
-	LoadOptions options;
-	options.generate_missing_tangents = true;
-	return load_model(ecs, filename, options);
+	const std::vector<Bone>* target_bones = nullptr;
+	if (options.target_skeleton)
+		target_bones = &ecs.get_skeletal_component(*options.target_skeleton).get_bones();
+	auto decoded = decode_model(
+		document, provenance_source, options,
+		ecs.get_mesh_system(), ecs.get_material_system(), target_bones);
+	const int scene_index = options.scene_index.value_or(
+		document.model && document.model->defaultScene >= 0 ? document.model->defaultScene : 0);
+	for (auto& mesh : decoded.model.meshes)
+	{
+		if (mesh.source_skin < 0)
+			continue;
+		if (options.target_skeleton)
+			mesh.skeleton_id = *options.target_skeleton;
+		else
+		{
+			mesh.skeleton_id = ecs.add_skeleton(decoded.skins.at(mesh.source_skin));
+			ResourceProvenance::register_skeleton(*mesh.skeleton_id, {
+				.kind = EExternalResourceKind::Model,
+				.source = std::string(provenance_source), .scene = scene_index,
+				.node = mesh.source_node, .skin = mesh.source_skin });
+		}
+	}
+	for (auto& [id, provenance] : decoded.mesh_provenance)
+		ResourceProvenance::register_mesh(id, std::move(provenance));
+	for (auto& [id, provenance] : decoded.material_provenance)
+		ResourceProvenance::register_material(id, std::move(provenance));
+	return std::move(decoded.model);
 }
 
-ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
+ResourceLoader::LoadedAnimations ResourceLoader::load_animations_document(
 	ECS& ecs,
-	const std::string_view filename,
+	const ResourceDocument& document,
+	const std::string_view provenance_source,
 	const SkeletonID target_skeleton)
 {
 	try
 	{
-		const auto file_path = resolve_resource_filename(filename, Utility::get_animation);
-		const std::string provenance_source(filename);
-
-		auto document = load_gltf_document(file_path);
-		const auto& model = document.model;
+		if (!document.model)
+			throw ResourceLoadError("ResourceLoader: document has no decoded model");
+		const auto& model = *document.model;
 		if (model.animations.empty())
 			throw ResourceLoadError("ResourceLoader: animation file contains no animations");
 		if (model.skins.empty())
@@ -653,9 +728,9 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 				animation.name,
 				std::move(animation.bone_animations),
 				signature,
-				provenance_source);
+				std::string(provenance_source));
 			ResourceProvenance::register_animation(animation_id, {
-				.source = provenance_source, .skin = compatible_skins.front().first,
+				.source = std::string(provenance_source), .skin = compatible_skins.front().first,
 				.animation = animation.source_index });
 			result.animations.push_back(animation_id);
 		}
@@ -666,4 +741,93 @@ ResourceLoader::LoadedAnimations ResourceLoader::load_animations(
 		throw ResourceLoadError(fmt::format(
 			"ResourceLoader: resource contains an invalid index: {}", error.what()));
 	}
+}
+
+std::vector<Bone> ResourceLoader::decode_skeleton(const ResourceDocument& document, const int skin_index)
+{
+	if (!document.model)
+		throw ResourceLoadError("ResourceLoader: document has no decoded model");
+	try
+	{
+		return load_bones(*document.model, skin_index);
+	}
+	catch (const std::out_of_range& error)
+	{
+		throw ResourceLoadError(fmt::format("ResourceLoader: resource contains an invalid index: {}", error.what()));
+	}
+}
+
+SkeletalAnimation ResourceLoader::decode_animation(
+	const ResourceDocument& document,
+	const int animation_index,
+	const int skin_index)
+{
+	if (!document.model)
+		throw ResourceLoadError("ResourceLoader: document has no decoded model");
+	const auto& model = *document.model;
+	if (animation_index < 0 || animation_index >= static_cast<int>(model.animations.size()))
+		throw ResourceLoadError("ResourceLoader: animation index is out of range");
+	auto bones = decode_skeleton(document, skin_index);
+	if (skin_index < 0 || skin_index >= static_cast<int>(model.skins.size()))
+		throw ResourceLoadError("ResourceLoader: skin index is out of range");
+	std::vector<size_t> identity(model.skins[skin_index].joints.size());
+	std::iota(identity.begin(), identity.end(), 0);
+	auto imported = import_animations(model, bones, skin_index, identity, animation_index);
+	const auto animation = std::find_if(imported.begin(), imported.end(), [animation_index](const auto& candidate)
+		{ return candidate.source_index == animation_index; });
+	if (animation == imported.end())
+		throw ResourceLoadError("ResourceLoader: animation has no clips for the selected skin");
+	return {
+		.bone_animations = animation->bone_animations,
+		.name = animation->name,
+		.rig_signature = make_skeletal_rig_signature(bones),
+	};
+}
+
+std::vector<MaterialHandle> ResourceLoader::decode_material(
+	const ResourceDocument& document,
+	const int material_index,
+	MaterialSystem& materials,
+	ResourceLoader* material_cache)
+{
+	if (!document.model)
+		throw ResourceLoadError("ResourceLoader: document has no decoded model");
+	if (material_index < 0 || material_index >= static_cast<int>(document.model->materials.size()))
+		throw ResourceLoadError("ResourceLoader: material index is out of range");
+	ResourceLoader local_cache;
+	auto& scratch = material_cache ? *material_cache : local_cache;
+	tinygltf::Primitive primitive;
+	primitive.material = material_index;
+	std::vector<MaterialHandle> owners;
+	(void)scratch.load_material(materials, primitive, *document.model, owners);
+	return owners;
+}
+
+MaterialHandle ResourceLoader::decode_image(
+	const ResourceDocument& document,
+	const int image_index,
+	MaterialSystem& materials,
+	const ETextureSemantic semantic,
+	const std::string_view source,
+	ResourceLoader* material_cache)
+{
+	if (!document.model)
+		throw ResourceLoadError("ResourceLoader: document has no decoded model");
+	if (image_index < 0 || image_index >= static_cast<int>(document.model->images.size()))
+		throw ResourceLoadError("ResourceLoader: image index is out of range");
+	if (semantic == ETextureSemantic::COUNT)
+		throw ResourceLoadError("ResourceLoader: invalid texture semantic");
+	const auto& image = document.model->images[image_index];
+	const uint64_t key = static_cast<uint64_t>(image_index) * static_cast<uint64_t>(ETextureSemantic::COUNT)
+		+ static_cast<uint64_t>(semantic);
+	if (material_cache && material_cache->gltf_image_to_material.contains(key))
+		return materials.acquire(material_cache->gltf_image_to_material.at(key));
+	auto texture = make_gltf_image_texture(image, semantic, source);
+	auto owner = materials.add(std::make_unique<TextureMaterial>(std::move(texture)));
+	if (material_cache)
+	{
+		material_cache->gltf_image_to_material.emplace(key, owner->get_id());
+		material_cache->cached_material_owners.push_back(owner);
+	}
+	return owner;
 }

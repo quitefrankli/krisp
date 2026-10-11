@@ -13,6 +13,9 @@ sources = [
 	'save_file_store_tests.cpp',
 	'graphics_settings_tests.cpp',
 	'resource_loader_tests.cpp',
+	'asset_registry_tests.cpp',
+	'asset_package_tests.cpp',
+	'kasset_tests.cpp',
 	'render_frame_tests.cpp',
 	'recording_session_tests.cpp',
 	'video_recorder_tests.cpp',
@@ -46,3 +49,5 @@ exec = executable(
 	install_dir: install_dir)
 
 test('krisp_tests', exec, args: ['--gtest_brief=1'])
+test('pack_kasset', find_program('python3'),
+	args: [files('test_pack_kasset.py'), '-q'])

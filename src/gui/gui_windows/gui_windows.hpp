@@ -2,6 +2,7 @@
 
 #include "maths.hpp"
 #include "identifications.hpp"
+#include "entity_component_system/material_system.hpp"
 #include "renderable/render_types.hpp"
 #include "save_file_store.hpp"
 #include "gui_window_helpers.hpp"
@@ -243,7 +244,7 @@ class GuiPhoto : public EngineUiWindow, public GuiPhotoBase
 public:
 	GuiPhoto();
 
-	void init(std::function<void(std::string_view)>&& texture_requester);
+	void init(std::function<void(MaterialHandle)>&& texture_requester);
 
 	virtual void process(GameEngine& engine) override;
 	virtual void draw() override;
@@ -257,8 +258,9 @@ private:
 	bool should_refresh_textures = false;
 	bool texture_dropdown_open = false;
 	GuiVar<int> selected_image = 0;
-	std::optional<std::string> texture_to_show;
-	std::function<void(std::string_view)> texture_requester;
+	std::optional<std::string> texture_to_register;
+	MaterialHandle texture_to_show;
+	std::function<void(MaterialHandle)> texture_requester;
 	std::optional<std::string> load_error;
 };
 

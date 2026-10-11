@@ -14,7 +14,7 @@
 
 struct TextureCompositionOverlay
 {
-	std::string texture_filename;
+	std::string texture_asset;
 	glm::vec2 centre{ 0.5f, 0.5f };
 	glm::vec2 scale{ 1.0f, 1.0f };
 	float rotation_radians = 0.0f;

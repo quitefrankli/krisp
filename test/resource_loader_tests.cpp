@@ -1,4 +1,5 @@
 #include "test_helper.hpp"
+#include "asset_test_helper.hpp"
 
 #include <resource_loader/resource_loader.hpp>
 #include <utility.hpp>
@@ -26,7 +27,7 @@ class ResourceLoaderECS : public testing::Test
 public:
 	ResourceLoaderECS()
 	{
-		model = ResourceLoader::load_model(ecs, model_path);
+		model = TestAssets::load_model(ecs, model_path);
 	}
 
 	glm::vec3 apply_transform(const glm::mat4& transform, const glm::vec3& v)
@@ -59,7 +60,7 @@ TEST(ResourceLoaderOwnership, skeletal_state_is_registered_in_the_supplied_ecs)
 {
 	ECS target;
 	ECS unrelated;
-	const auto model = ResourceLoader::load_model(
+	const auto model = TestAssets::load_model(
 		target, "simple_test_model.gltf");
 	const SkeletonID skeleton = model.meshes.front().skeleton_id.value();
 
@@ -71,9 +72,9 @@ TEST(ResourceLoaderOwnership, texture_loading_registers_with_the_supplied_materi
 {
 	ECS first;
 	ECS second;
-	const auto first_owner = ResourceLoader::fetch_texture(
+	const auto first_owner = TestAssets::fetch_texture(
 		first.get_material_system(), "texture.jpg");
-	const auto second_owner = ResourceLoader::fetch_texture(
+	const auto second_owner = TestAssets::fetch_texture(
 		second.get_material_system(), "texture.jpg");
 
 	EXPECT_NE(first_owner, second_owner);
@@ -338,10 +339,10 @@ TEST(ResourceLoaderErrors, public_load_apis_report_typed_errors)
 	const auto missing_model = "does_not_exist.glb";
 	const auto missing_texture = "does_not_exist.png";
 
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, missing_model), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), missing_texture), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, "/tmp/model.glb"), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), "../texture.png"), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(general_loader_ecs, missing_model), ResourceLoadError);
+	EXPECT_THROW(TestAssets::fetch_texture(general_loader_ecs.get_material_system(), missing_texture), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(general_loader_ecs, "/tmp/model.glb"), ResourceLoadError);
+	EXPECT_THROW(TestAssets::fetch_texture(general_loader_ecs.get_material_system(), "../texture.png"), ResourceLoadError);
 }
 
 TEST(ResourceLoaderErrors, rejects_accessor_data_outside_its_buffer_view)
@@ -350,7 +351,7 @@ TEST(ResourceLoaderErrors, rejects_accessor_data_outside_its_buffer_view)
 	{
 		document["bufferViews"][0]["byteLength"] = 4;
 	});
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderErrors, rejects_accessor_stride_smaller_than_its_element)
@@ -359,14 +360,14 @@ TEST(ResourceLoaderErrors, rejects_accessor_stride_smaller_than_its_element)
 	{
 		document["bufferViews"][0]["byteStride"] = 4;
 	});
-	EXPECT_THROW(ResourceLoader::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(general_loader_ecs, resource.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderCoordinates, converts_static_mesh_basis)
 {
 	ECS ecs;
 	MutatedGltf resource([](nlohmann::json&) {});
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& mesh = dynamic_cast<const ColorMesh&>(
 		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
@@ -387,7 +388,7 @@ TEST(ResourceLoaderCoordinates, converts_static_node_translation_and_rotation)
 			0.0, 0.0, std::sin(Maths::PI / 4.0f), std::cos(Maths::PI / 4.0f) };
 	});
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& transform = model.meshes[0].renderables[0].local_transform;
 
 	EXPECT_TRUE(glm_equal(transform.get_pos(), glm::vec3(-2.0f, 0.0f, 0.0f)));
@@ -416,7 +417,7 @@ TEST(ResourceLoaderCoordinates, converts_and_composes_nested_matrix_nodes)
 		};
 	});
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& transform = model.meshes[0].renderables[0].local_transform;
 
 	EXPECT_TRUE(glm_equal(transform.get_pos(), glm::vec3(-2.0f, 1.0f, 0.0f)));
@@ -427,7 +428,7 @@ TEST(ResourceLoaderCoordinates, converts_and_composes_nested_matrix_nodes)
 TEST(ResourceLoaderCoordinates, converts_skinned_mesh_and_bind_pose_basis)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "gltf_basis_skinned.gltf");
+	const auto model = TestAssets::load_model(ecs, "gltf_basis_skinned.gltf");
 	const auto& loaded_mesh = model.meshes[0];
 	const auto& renderable = loaded_mesh.renderables[0];
 	const auto& mesh = dynamic_cast<const SkinnedMesh&>(
@@ -446,8 +447,8 @@ TEST(ResourceLoaderCoordinates, converts_skinned_mesh_and_bind_pose_basis)
 TEST(ResourceLoaderCoordinates, converts_cubic_animation_values_and_tangents)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "gltf_basis_skinned.gltf");
-	const auto loaded = ResourceLoader::load_animations(
+	const auto model = TestAssets::load_model(ecs, "gltf_basis_skinned.gltf");
+	const auto loaded = TestAssets::load_animations(
 		ecs, "gltf_basis_cubic_animation.gltf", *model.meshes[0].skeleton_id);
 	ASSERT_EQ(loaded.animations.size(), 1);
 	const auto& animation = ecs.get_skeletal_animations().at(loaded.animations[0]).bone_animations[0];
@@ -478,7 +479,7 @@ TEST(ResourceLoaderMaterials, imports_exact_pbr_factors)
 		material["pbrMetallicRoughness"]["roughnessFactor"] = 0.625;
 	}, "skinned_color.gltf");
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& owner = renderable.material_owners[0];
 	const auto& material = dynamic_cast<const PbrMaterial&>(
@@ -501,7 +502,7 @@ TEST(ResourceLoaderMaterials, imports_core_alpha_sidedness_and_emissive_properti
 		material["emissiveTexture"] = { { "index", 0 } };
 	}, "static_mesh_textured.gltf", false);
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& material = dynamic_cast<const PbrMaterial&>(
 		renderable.material_owners.front()->get());
@@ -528,7 +529,7 @@ TEST(ResourceLoaderMaterials, imports_blend_alpha_mode)
 		document["materials"][0]["alphaMode"] = "BLEND";
 	});
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& material = dynamic_cast<const PbrMaterial&>(
 		model.meshes[0].renderables[0].material_owners.front()->get());
 	EXPECT_EQ(material.properties.alpha_mode, EAlphaMode::BLEND);
@@ -542,7 +543,7 @@ TEST(ResourceLoaderMaterials, primitives_without_material_use_gltf_pbr_defaults)
 		document["meshes"][0]["primitives"][0].erase("material");
 	});
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& owner = model.meshes[0].renderables[0].material_owners[0];
 	const auto& material = dynamic_cast<const PbrMaterial&>(
 		ecs.get_material_system().get(owner->get_id()));
@@ -582,7 +583,7 @@ TEST(ResourceLoaderMaterials, rejects_unsupported_reachable_material_features_wi
 		try
 		{
 			ECS ecs;
-			(void)ResourceLoader::load_model(ecs, resource.filename());
+			(void)TestAssets::load_model(ecs, resource.filename());
 			FAIL() << "Expected ResourceLoadError";
 		}
 		catch (const ResourceLoadError& error)
@@ -604,14 +605,14 @@ TEST(ResourceLoaderMaterials, warns_for_unsupported_unused_material_declarations
 		});
 	});
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	ASSERT_EQ(model.warnings.size(), 1);
 	EXPECT_NE(model.warnings.front().message.find("Unused extension material"), std::string::npos);
 	EXPECT_NE(model.warnings.front().message.find("KHR_materials_specular"), std::string::npos);
 
 	ResourceLoader::LoadOptions strict;
 	strict.strict = true;
-	EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename(), strict), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model_document(ecs, resource.filename(), strict), ResourceLoadError);
 }
 
 // test loading .gltf file with bones into std::vector<Bone>
@@ -632,7 +633,7 @@ TEST_F(ResourceLoaderECS, model_import_reuses_compatible_target_skeleton)
 	const auto skeleton_count = ecs.get_skeleton_ids().size();
 	ResourceLoader::LoadOptions options;
 	options.target_skeleton = target;
-	const auto accessory = ResourceLoader::load_model(ecs, model_path, options);
+	const auto accessory = TestAssets::load_model(ecs, model_path, options);
 
 	ASSERT_FALSE(accessory.meshes.empty());
 	EXPECT_EQ(ecs.get_skeleton_ids().size(), skeleton_count);
@@ -648,7 +649,7 @@ TEST_F(ResourceLoaderECS, model_import_rejects_incompatible_target_skeleton)
 	ResourceLoader::LoadOptions options;
 	options.target_skeleton = target;
 
-	EXPECT_THROW(ResourceLoader::load_model(ecs, model_path, options), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, model_path, options), ResourceLoadError);
 }
 
 TEST_F(ResourceLoaderECS, model_import_rejects_target_with_different_inverse_bind_pose)
@@ -659,7 +660,7 @@ TEST_F(ResourceLoaderECS, model_import_rejects_target_with_different_inverse_bin
 	ResourceLoader::LoadOptions options;
 	options.target_skeleton = target;
 
-	EXPECT_THROW(ResourceLoader::load_model(ecs, model_path, options), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, model_path, options), ResourceLoadError);
 }
 
 TEST_F(ResourceLoaderECS, model_import_remaps_joint_indices_to_target_order)
@@ -681,7 +682,7 @@ TEST_F(ResourceLoaderECS, model_import_remaps_joint_indices_to_target_order)
 
 	ResourceLoader::LoadOptions options;
 	options.target_skeleton = target;
-	const auto accessory = ResourceLoader::load_model(ecs, model_path, options);
+	const auto accessory = TestAssets::load_model(ecs, model_path, options);
 	const auto& source_mesh = dynamic_cast<const SkinnedMesh&>(
 		ecs.get_mesh_system().get(model.meshes.front().renderables.front().get_mesh_id()));
 	const auto& remapped_mesh = dynamic_cast<const SkinnedMesh&>(
@@ -738,12 +739,12 @@ TEST_F(ResourceLoaderECS, model_load_ignores_animations)
 	ResourceLoader::LoadOptions strict_options;
 	strict_options.strict = true;
 	ECS strict_ecs;
-	EXPECT_THROW(ResourceLoader::load_model(strict_ecs, model_path, strict_options), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model_document(strict_ecs, model_path, strict_options), ResourceLoadError);
 }
 
 TEST_F(ResourceLoaderECS, explicitly_loaded_animations_preserve_tracks)
 {
-	const auto loaded = ResourceLoader::load_animations(ecs, model_path, model.meshes[0].skeleton_id.value());
+	const auto loaded = TestAssets::load_animations(ecs, model_path, model.meshes[0].skeleton_id.value());
 	ASSERT_EQ(loaded.animations.size(), 1);
 	std::vector<BoneAnimation> bone_animations =
 		ecs.get_skeletal_animations().at(loaded.animations[0]).bone_animations;
@@ -825,31 +826,27 @@ TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_n
 	const auto skeleton_id = model.meshes[0].skeleton_id.value();
 	const auto path = "standalone_animation.gltf";
 	const size_t animations_before = ecs.get_skeletal_animations().size();
-	const auto loaded = ResourceLoader::load_animations(ecs, path, skeleton_id);
+	const auto loaded = TestAssets::load_animations(ecs, path, skeleton_id);
 	ASSERT_EQ(loaded.animations.size(), 2);
 	EXPECT_EQ(ecs.get_skeletal_animations().size(), animations_before + 2);
 
-	std::optional<AnimationID> root_move;
-	std::optional<AnimationID> mid_turn;
+	const AnimationID root_move = loaded.animations[0];
+	const AnimationID mid_turn = loaded.animations[1];
 	for (const auto id : loaded.animations)
 	{
 		const auto& animation = ecs.get_skeletal_animations().at(id);
 		EXPECT_EQ(animation.source, "standalone_animation.gltf");
 		EXPECT_TRUE(ecs.is_animation_compatible(skeleton_id, id));
-		if (animation.name == "RootMove") root_move = id;
-		if (animation.name == "MidTurn") mid_turn = id;
 	}
-	ASSERT_TRUE(root_move);
-	ASSERT_TRUE(mid_turn);
 
-	const auto& root_animation = ecs.get_skeletal_animations().at(*root_move);
+	const auto& root_animation = ecs.get_skeletal_animations().at(root_move);
 	ASSERT_EQ(root_animation.bone_animations[0].translation_track.keys.size(), 2);
 	EXPECT_TRUE(glm_equal(
 		root_animation.bone_animations[0].translation_track.keys.back().value,
 		glm::vec3(-2.0f, 0.0f, 0.0f)));
 	EXPECT_TRUE(root_animation.bone_animations[1].translation_track.keys.empty());
 
-	const auto& mid_animation = ecs.get_skeletal_animations().at(*mid_turn);
+	const auto& mid_animation = ecs.get_skeletal_animations().at(mid_turn);
 	EXPECT_EQ(
 		mid_animation.bone_animations[1].rotation_track.interpolation,
 		BoneAnimation::Interpolation::STEP);
@@ -860,10 +857,10 @@ TEST_F(ResourceLoaderECS, standalone_animation_file_remaps_reordered_joints_by_n
 		glm::quat(rotation.w, rotation.x, rotation.y, rotation.z),
 		glm::angleAxis(-Maths::PI / 2.0f, Maths::forward_vec)));
 
-	const auto reloaded = ResourceLoader::load_animations(ecs, path, skeleton_id);
+	const auto reloaded = TestAssets::load_animations(ecs, path, skeleton_id);
 	ASSERT_EQ(reloaded.animations.size(), 2);
-	EXPECT_NE(reloaded.animations[0], loaded.animations[0]);
-	EXPECT_EQ(ecs.get_skeletal_animations().size(), animations_before + 4);
+	EXPECT_EQ(reloaded.animations[0], loaded.animations[0]);
+	EXPECT_EQ(ecs.get_skeletal_animations().size(), animations_before + 2);
 }
 
 TEST_F(ResourceLoaderECS, standalone_animation_rejects_incompatible_or_incomplete_rigs_atomically)
@@ -875,16 +872,16 @@ TEST_F(ResourceLoaderECS, standalone_animation_rejects_incompatible_or_incomplet
 	auto incompatible_bones = get_bones();
 	incompatible_bones[1].parent_node = Bone::NO_PARENT;
 	const auto incompatible_skeleton = ecs.add_skeleton(incompatible_bones);
-	EXPECT_THROW(ResourceLoader::load_animations(ecs, animation_path, incompatible_skeleton), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_animations(ecs, animation_path, incompatible_skeleton), ResourceLoadError);
 
 	auto duplicate_bones = get_bones();
 	duplicate_bones[1].name = duplicate_bones[0].name;
 	const auto duplicate_skeleton = ecs.add_skeleton(duplicate_bones);
-	EXPECT_THROW(ResourceLoader::load_animations(ecs, animation_path, duplicate_skeleton), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_animations(ecs, animation_path, duplicate_skeleton), ResourceLoadError);
 
-	EXPECT_THROW(ResourceLoader::load_animations(ecs,
+	EXPECT_THROW(TestAssets::load_animations(ecs,
 		"standalone_animation_no_skin.gltf", valid_skeleton), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::load_animations(ecs,
+	EXPECT_THROW(TestAssets::load_animations(ecs,
 		"standalone_animation_no_clips.gltf", valid_skeleton), ResourceLoadError);
 	EXPECT_EQ(ecs.get_skeletal_animations().size(), animations_before);
 }
@@ -892,23 +889,15 @@ TEST_F(ResourceLoaderECS, standalone_animation_rejects_incompatible_or_incomplet
 TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_clip)
 {
 	const auto skeleton_id = model.meshes[0].skeleton_id.value();
-	const auto loaded = ResourceLoader::load_animations(ecs,
+	const auto loaded = TestAssets::load_animations(ecs,
 		"standalone_animation.gltf", skeleton_id);
 	ASSERT_EQ(loaded.animations.size(), 2);
+	const AnimationID root_move = loaded.animations[0];
+	const AnimationID mid_turn = loaded.animations[1];
 
-	std::optional<AnimationID> root_move;
-	std::optional<AnimationID> mid_turn;
-	for (const auto id : loaded.animations)
-	{
-		const auto& animation = ecs.get_skeletal_animations().at(id);
-		if (animation.name == "RootMove") root_move = id;
-		if (animation.name == "MidTurn") mid_turn = id;
-	}
-	ASSERT_TRUE(root_move);
-	ASSERT_TRUE(mid_turn);
-	ecs.play_animation(skeleton_id, *root_move, true);
+	ecs.play_animation(skeleton_id, root_move, true);
 	ASSERT_TRUE(ecs.get_animation_playback(skeleton_id));
-	EXPECT_EQ(ecs.get_animation_playback(skeleton_id)->animation_id, *root_move);
+	EXPECT_EQ(ecs.get_animation_playback(skeleton_id)->animation_id, root_move);
 	EXPECT_TRUE(ecs.get_animation_playback(skeleton_id)->looping);
 	ecs.process(0.5f);
 	EXPECT_FLOAT_EQ(ecs.get_animation_playback(skeleton_id)->elapsed_secs, 0.5f);
@@ -949,7 +938,7 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
 		Maths::zero_vec));
 
-	ecs.play_animation(skeleton_id, *root_move);
+	ecs.play_animation(skeleton_id, root_move);
 	ecs.process(0.5f);
 	ecs.stop_animation(skeleton_id);
 	EXPECT_FALSE(ecs.get_animation_playback(skeleton_id));
@@ -961,7 +950,7 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
 		Maths::zero_vec));
 
-	ecs.play_animation(skeleton_id, *mid_turn);
+	ecs.play_animation(skeleton_id, mid_turn);
 	EXPECT_TRUE(glm_equal(
 		ecs.get_skeletal_component(skeleton_id).get_bones()[0].relative_transform.get_pos(),
 		Maths::zero_vec));
@@ -969,7 +958,7 @@ TEST_F(ResourceLoaderECS, animation_playback_validates_rigs_and_replaces_active_
 	auto incompatible_bones = get_bones();
 	incompatible_bones[0].name = "different-root";
 	const auto incompatible_skeleton = ecs.add_skeleton(incompatible_bones);
-	EXPECT_FALSE(ecs.play_animation(incompatible_skeleton, *root_move));
+	EXPECT_FALSE(ecs.play_animation(incompatible_skeleton, root_move));
 	ecs.process(2.0f);
 }
 
@@ -1004,8 +993,8 @@ TEST(ResourceLoaderTextures, fetch_same_texture_path_twice_registers_independent
 {
 	const std::string texture_path = "texture.jpg";
 
-	const auto first = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
-	const auto second = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
+	const auto first = TestAssets::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
+	const auto second = TestAssets::fetch_texture(general_loader_ecs.get_material_system(), texture_path);
 
 	ASSERT_NE(first, second);
 	EXPECT_EQ(first.use_count(), 1);
@@ -1021,9 +1010,9 @@ TEST(ResourceLoaderTextures, loads_texture_variants_by_semantic)
 	constexpr uint32_t DXT5 = 0x35545844;
 	GeneratedDDS dds(4, 4, 1, DXT5);
 	const auto texture_path = dds.filename();
-	auto base_color = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(),
+	auto base_color = TestAssets::fetch_texture(general_loader_ecs.get_material_system(),
 		texture_path, ETextureSemantic::BASE_COLOR);
-	const auto normal = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(),
+	const auto normal = TestAssets::fetch_texture(general_loader_ecs.get_material_system(),
 		texture_path, ETextureSemantic::NORMAL);
 	EXPECT_NE(base_color->get_id(), normal->get_id());
 	EXPECT_EQ(dynamic_cast<const TextureMaterial&>(
@@ -1036,7 +1025,7 @@ TEST(ResourceLoaderTextures, loads_texture_variants_by_semantic)
 	const MaterialID released = base_color->get_id();
 	base_color.reset();
 	EXPECT_FALSE(general_loader_ecs.get_material_system().contains(released));
-	const auto reloaded = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(),
+	const auto reloaded = TestAssets::fetch_texture(general_loader_ecs.get_material_system(),
 		texture_path, ETextureSemantic::BASE_COLOR);
 	EXPECT_NE(reloaded->get_id(), released);
 	EXPECT_EQ(reloaded.use_count(), 1);
@@ -1046,7 +1035,7 @@ TEST(ResourceLoaderTextures, loads_generated_bc3_dds_with_complete_mip_chain)
 {
 	constexpr uint32_t DXT5 = 0x35545844;
 	GeneratedDDS dds(8, 8, 4, DXT5);
-	const auto material = ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), dds.filename());
+	const auto material = TestAssets::fetch_texture(general_loader_ecs.get_material_system(), dds.filename());
 	const auto& loaded = static_cast<const TextureMaterial&>(
 		general_loader_ecs.get_material_system().get(material->get_id()));
 
@@ -1067,8 +1056,8 @@ TEST(ResourceLoaderTextures, rejects_unsupported_or_truncated_dds_files)
 	GeneratedDDS unsupported(4, 4, 1, DXT1);
 	GeneratedDDS truncated(8, 8, 4, DXT5, 111);
 
-	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), unsupported.filename()), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::fetch_texture(general_loader_ecs.get_material_system(), truncated.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::fetch_texture(general_loader_ecs.get_material_system(), unsupported.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::fetch_texture(general_loader_ecs.get_material_system(), truncated.filename()), ResourceLoadError);
 }
 
 namespace
@@ -1108,7 +1097,7 @@ TEST(ResourceLoaderTexturedPbr, imports_external_msft_texture_dds_with_authored_
 	}, "static_mesh_textured.gltf", false);
 
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto* texture = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
 	const auto* pbr = find_pbr_material(renderable);
@@ -1138,7 +1127,7 @@ TEST(ResourceLoaderTexturedPbr, imports_required_data_uri_msft_texture_dds_witho
 	}, "static_mesh_textured.gltf", false);
 
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto* texture = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
 	const auto* pbr = find_pbr_material(renderable);
@@ -1158,7 +1147,7 @@ TEST(ResourceLoaderTexturedPbr, imports_glb_buffer_view_msft_texture_dds)
 	GeneratedGlbDDS resource(dds);
 
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto* texture = find_texture_material(
 		model.meshes[0].renderables[0], ETextureSemantic::BASE_COLOR);
 	ASSERT_NE(texture, nullptr);
@@ -1182,14 +1171,14 @@ TEST(ResourceLoaderTexturedPbr, rejects_invalid_msft_texture_dds_declarations)
 	}, "static_mesh_textured.gltf", false);
 
 	ECS ecs;
-	EXPECT_THROW(ResourceLoader::load_model(ecs, missing_used.filename()), ResourceLoadError);
-	EXPECT_THROW(ResourceLoader::load_model(ecs, missing_required.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, missing_used.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, missing_required.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderTexturedPbr, imports_static_buffer_view_png_and_texcoord_zero)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "static_mesh_textured.gltf");
+	const auto model = TestAssets::load_model(ecs, "static_mesh_textured.gltf");
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& renderable = model.meshes[0].renderables[0];
@@ -1229,7 +1218,7 @@ TEST(ResourceLoaderTexturedPbr, imports_all_optional_maps_factors_normal_scale_a
 			texture["sampler"] = 0;
 	}, "normal_mapped_authored_tangents.gltf", false);
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto* pbr = find_pbr_material(renderable);
 	ASSERT_NE(pbr, nullptr);
@@ -1265,7 +1254,7 @@ TEST(ResourceLoaderTexturedPbr, imports_external_jpeg_uri)
 		document["images"][0] = { { "uri", image.filename() } };
 	}, "static_mesh_textured.gltf", false);
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto* texture = find_texture_material(
 		model.meshes[0].renderables[0], ETextureSemantic::BASE_COLOR);
 	ASSERT_NE(texture, nullptr);
@@ -1280,13 +1269,13 @@ TEST(ResourceLoaderTexturedPbr, rejects_nonzero_texcoord_and_missing_texcoord_ze
 		document["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"]["texCoord"] = 1;
 	}, "static_mesh_textured.gltf", false);
 	ECS ecs;
-	EXPECT_THROW(ResourceLoader::load_model(ecs, nonzero.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, nonzero.filename()), ResourceLoadError);
 
 	MutatedGltf missing([](nlohmann::json& document)
 	{
 		document["meshes"][0]["primitives"][0]["attributes"].erase("TEXCOORD_0");
 	}, "static_mesh_textured.gltf", false);
-	EXPECT_THROW(ResourceLoader::load_model(ecs, missing.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, missing.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderTexturedPbr, rejects_invalid_texture_image_references)
@@ -1301,7 +1290,7 @@ TEST(ResourceLoaderTexturedPbr, rejects_invalid_texture_image_references)
 	{
 		MutatedGltf resource(mutate, "static_mesh_textured.gltf", false);
 		ECS ecs;
-		EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename()), ResourceLoadError);
+		EXPECT_THROW(TestAssets::load_model(ecs, resource.filename()), ResourceLoadError);
 		EXPECT_TRUE(ecs.get_material_system().take_retired().empty());
 		EXPECT_TRUE(ecs.get_mesh_system().take_retired().empty());
 	}
@@ -1328,14 +1317,14 @@ TEST(ResourceLoaderTexturedPbr, rejects_sampler_modes_outside_linear_repeat_or_c
 			mutate(document);
 		}, "static_mesh_textured.gltf", false);
 		ECS ecs;
-		EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename()), ResourceLoadError);
+		EXPECT_THROW(TestAssets::load_model(ecs, resource.filename()), ResourceLoadError);
 	}
 }
 
 TEST(ResourceLoaderTexturedPbr, accepts_normal_map_without_base_color_map)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "normal_map_without_base_color.gltf");
+	const auto model = TestAssets::load_model(ecs, "normal_map_without_base_color.gltf");
 	const auto& renderable = model.meshes[0].renderables[0];
 	EXPECT_EQ(renderable.pipeline_render_type, ERenderType::STANDARD);
 	const auto* pbr = find_pbr_material(renderable);
@@ -1351,7 +1340,7 @@ TEST(ResourceLoaderTexturedPbr, accepts_normal_map_without_base_color_map)
 TEST(ResourceLoaderTexturedPbr, preserves_authored_tangents)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "normal_mapped_authored_tangents.gltf");
+	const auto model = TestAssets::load_model(ecs, "normal_mapped_authored_tangents.gltf");
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& mesh = dynamic_cast<const TexMesh&>(
 		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
@@ -1365,7 +1354,7 @@ TEST(ResourceLoaderTexturedPbr, validates_authored_tangents_after_basis_conversi
 	GeneratedTangentFrame resource(
 		{ component, -component, 0.0f }, { component, component, 0.0f });
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& mesh = dynamic_cast<const TexMesh&>(
 		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
@@ -1385,13 +1374,13 @@ TEST(ResourceLoaderTexturedPbr, rejects_authored_tangents_parallel_to_source_nor
 	GeneratedTangentFrame resource(
 		{ component, -component, 0.0f }, { component, -component, 0.0f });
 	ECS ecs;
-	EXPECT_THROW(ResourceLoader::load_model(ecs, resource.filename()), ResourceLoadError);
+	EXPECT_THROW(TestAssets::load_model(ecs, resource.filename()), ResourceLoadError);
 }
 
 TEST(ResourceLoaderTexturedPbr, generates_missing_mikktspace_tangents)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "normal_mapped_missing_tangents.gltf");
+	const auto model = TestAssets::load_model(ecs, "normal_mapped_missing_tangents.gltf");
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& mesh = dynamic_cast<const TexMesh&>(
 		ecs.get_mesh_system().get(renderable.mesh_owner->get_id()));
@@ -1409,12 +1398,12 @@ TEST(ResourceLoaderTexturedPbr, rejects_invalid_or_required_but_missing_authored
 {
 	ECS ecs;
 	EXPECT_THROW(
-		ResourceLoader::load_model(ecs, "normal_mapped_invalid_tangents.gltf"),
+		TestAssets::load_model(ecs, "normal_mapped_invalid_tangents.gltf"),
 		ResourceLoadError);
 	ResourceLoader::LoadOptions no_generation;
 	no_generation.generate_missing_tangents = false;
 	EXPECT_THROW(
-		ResourceLoader::load_model(
+		TestAssets::load_model_document(
 			ecs, "normal_mapped_missing_tangents.gltf", no_generation),
 		ResourceLoadError);
 }
@@ -1422,7 +1411,7 @@ TEST(ResourceLoaderTexturedPbr, rejects_invalid_or_required_but_missing_authored
 TEST(ResourceLoaderTexturedPbr, imports_skinned_data_uri_png_and_tangents)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "skinned_normal_mapped.gltf");
+	const auto model = TestAssets::load_model(ecs, "skinned_normal_mapped.gltf");
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_TRUE(model.meshes[0].skeleton_id.has_value());
 	const auto& renderable = model.meshes[0].renderables[0];
@@ -1439,7 +1428,7 @@ TEST(ResourceLoaderTexturedPbr, imports_skinned_data_uri_png_and_tangents)
 TEST(ResourceLoaderTexturedPbr, generates_skinned_tangents_without_changing_skin_weights)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(
+	const auto model = TestAssets::load_model(
 		ecs, "skinned_normal_mapped_missing_tangents.gltf");
 	const auto& renderable = model.meshes[0].renderables[0];
 	const auto& mesh = dynamic_cast<const SkinnedMesh&>(
@@ -1456,7 +1445,7 @@ TEST(ResourceLoaderTexturedPbr, generates_skinned_tangents_without_changing_skin
 TEST(ResourceLoaderTexturedPbr, shares_imported_material_resources_across_primitives)
 {
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, "normal_mapped_shared_material.gltf");
+	const auto model = TestAssets::load_model(ecs, "normal_mapped_shared_material.gltf");
 	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
 	const auto& first = model.meshes[0].renderables[0];
 	const auto& second = model.meshes[0].renderables[1];
@@ -1476,7 +1465,7 @@ TEST(ResourceLoaderTexturedPbr, shares_semantically_compatible_texture_across_di
 		document["meshes"][0]["primitives"][1]["material"] = 1;
 	}, "static_mesh_textured_shared_material.gltf", false);
 	ECS ecs;
-	const auto model = ResourceLoader::load_model(ecs, resource.filename());
+	const auto model = TestAssets::load_model(ecs, resource.filename());
 	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
 	const auto& first = model.meshes[0].renderables[0];
 	const auto& second = model.meshes[0].renderables[1];
@@ -1499,7 +1488,7 @@ TEST(ResourceLoaderTexturedPbr, shares_semantically_compatible_texture_across_di
 TEST(ResourceLoaderSkinnedColor, imports_pbr_material_without_texture_upload)
 {
 	const auto path = "skinned_color.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, path);
+	const auto model = TestAssets::load_model(general_loader_ecs, path);
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& renderable = model.meshes[0].renderables[0];
@@ -1520,7 +1509,7 @@ TEST(ResourceLoaderSkinning, rejects_more_than_four_bone_influences_per_vertex)
 	const auto path = "skinned_too_many_influences.gltf";
 	try
 	{
-		ResourceLoader::load_model(general_loader_ecs, path);
+		TestAssets::load_model(general_loader_ecs, path);
 		FAIL() << "Expected ResourceLoadError";
 	}
 	catch (const ResourceLoadError& error)
@@ -1532,7 +1521,7 @@ TEST(ResourceLoaderSkinning, rejects_more_than_four_bone_influences_per_vertex)
 TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
 {
 	const auto model_path = "multi_mesh_multi_primitive.gltf";
-	const auto model = ResourceLoader::load_model(general_loader_ecs, model_path);
+	const auto model = TestAssets::load_model(general_loader_ecs, model_path);
 
 	ASSERT_EQ(model.meshes.size(), 2);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 2);
@@ -1552,7 +1541,7 @@ TEST(ResourceLoaderStaticMesh, two_meshes_with_two_renderables_each)
 
 TEST(ResourceLoaderVariants, scene_nodes_create_distinct_mesh_instances)
 {
-	const auto model = ResourceLoader::load_model(general_loader_ecs, "import_variants.gltf");
+	const auto model = TestAssets::load_model(general_loader_ecs, "import_variants.gltf");
 
 	ASSERT_EQ(model.meshes.size(), 2);
 	EXPECT_EQ(model.meshes[0].name, "Right instance");
@@ -1573,7 +1562,7 @@ TEST(ResourceLoaderVariants, explicit_scene_selection_uses_requested_scene)
 {
 	ResourceLoader::LoadOptions options;
 	options.scene_index = 1;
-	const auto model = ResourceLoader::load_model(general_loader_ecs, "import_variants.gltf", options);
+	const auto model = TestAssets::load_model(general_loader_ecs, "import_variants.gltf", options);
 
 	ASSERT_EQ(model.meshes.size(), 1);
 	EXPECT_EQ(model.meshes[0].name, "Alternate scene mesh");
@@ -1586,7 +1575,7 @@ TEST(ResourceLoaderVariants, explicit_scene_selection_uses_requested_scene)
 
 TEST(ResourceLoaderVariants, generates_normals_for_non_indexed_interleaved_triangle_strip)
 {
-	const auto model = ResourceLoader::load_model(general_loader_ecs, "import_variants.gltf");
+	const auto model = TestAssets::load_model(general_loader_ecs, "import_variants.gltf");
 
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto& mesh = general_loader_ecs.get_mesh_system().get(model.meshes[0].renderables[0].mesh_owner->get_id());
@@ -1600,7 +1589,7 @@ TEST(ResourceLoaderVariants, non_triangle_conversion_can_be_disabled)
 	ResourceLoader::LoadOptions options;
 	options.allow_non_triangle_primitives = false;
 	EXPECT_THROW(
-		ResourceLoader::load_model(general_loader_ecs, "import_variants.gltf", options),
+		TestAssets::load_model_document(general_loader_ecs, "import_variants.gltf", options),
 		ResourceLoadError);
 }
 
@@ -1609,6 +1598,6 @@ TEST(ResourceLoaderVariants, strict_mode_turns_import_warnings_into_errors)
 	ResourceLoader::LoadOptions options;
 	options.strict = true;
 	EXPECT_THROW(
-		ResourceLoader::load_model(general_loader_ecs, "import_variants.gltf", options),
+		TestAssets::load_model_document(general_loader_ecs, "import_variants.gltf", options),
 		ResourceLoadError);
 }

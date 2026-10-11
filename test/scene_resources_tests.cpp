@@ -2,7 +2,7 @@
 #include <renderable/material.hpp>
 #include <renderable/composited_texture_material.hpp>
 #include <renderable/mesh_factory.hpp>
-#include <resource_loader/resource_loader.hpp>
+#include "asset_test_helper.hpp"
 #include <serialization/resource_provenance.hpp>
 #include <serialization/scene_resources.hpp>
 
@@ -104,6 +104,38 @@ TEST_F(SceneResourcesTests, round_trips_all_generated_mesh_layouts_and_deduplica
 	expect_same_mesh<TexMesh>(textured->get(), restored_textured->get());
 	expect_same_mesh<SkinnedMesh>(skinned->get(), restored_skinned->get());
 	EXPECT_EQ(restored_color, duplicate_color);
+}
+
+TEST_F(SceneResourcesTests, deduplicates_imported_source_registration_descriptors)
+{
+	ECS source;
+	const auto loaded = TestAssets::load_model(source, "static_mesh_textured.gltf");
+	ASSERT_FALSE(loaded.meshes.empty());
+	const auto& imported = loaded.meshes.front().renderables.front();
+	ASSERT_FALSE(imported.material_owners.empty());
+
+	Serializer document;
+	SceneResourceWriter writer(document, source, directory);
+	auto references = document.sequence("references");
+	writer.write_mesh_reference(references.append_map(), imported.mesh_owner->get_id());
+	writer.write_mesh_reference(references.append_map(), imported.mesh_owner->get_id());
+	writer.write_material_reference(references.append_map(), imported.material_owners.front()->get_id());
+
+	const auto saved = Deserializer::parse(document.emit());
+	const auto source_descriptors = saved.child("resources").child("asset_sources").elements();
+	ASSERT_EQ(source_descriptors.size(), 1);
+	const auto descriptor_keys = source_descriptors.front().keys();
+	EXPECT_NE(std::ranges::find(descriptor_keys, "registration"), descriptor_keys.end());
+	const auto saved_references = saved.child("references").elements();
+	ASSERT_EQ(saved_references.size(), 3);
+	const auto mesh_source_id = saved_references[0].child("source").read<std::uint64_t>("source_id");
+	EXPECT_EQ(saved_references[1].child("source").read<std::uint64_t>("source_id"), mesh_source_id);
+	EXPECT_EQ(saved_references[2].child("source").read<std::uint64_t>("source_id"), mesh_source_id);
+	EXPECT_EQ(saved_references[0].child("source").kind(), SerializationKind::Mapping);
+	const auto mesh_source_keys = saved_references[0].child("source").keys();
+	EXPECT_EQ(std::ranges::find(mesh_source_keys, "registration"), mesh_source_keys.end());
+	EXPECT_EQ(std::ranges::find(mesh_source_keys, "path"), mesh_source_keys.end());
+
 }
 
 TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
@@ -238,13 +270,13 @@ TEST_F(SceneResourcesTests, round_trips_pbr_base_color_composition_and_its_sourc
 TEST_F(SceneResourcesTests, round_trips_imported_pbr_property_and_emissive_texture_overrides)
 {
 	ECS source;
-	const auto loaded = ResourceLoader::load_model(source, "static_mesh_textured.gltf");
+	const auto loaded = TestAssets::load_model(source, "static_mesh_textured.gltf");
 	const auto base_owner = loaded.meshes[0].renderables[0].material_owners.front();
 	const auto& base = dynamic_cast<const PbrMaterial&>(base_owner->get());
 	const auto* provenance = ResourceProvenance::material(base_owner->get_id());
 	ASSERT_NE(provenance, nullptr);
 	const auto source_provenance = *provenance;
-	auto emissive_owner = ResourceLoader::fetch_texture(
+	auto emissive_owner = TestAssets::fetch_texture(
 		source.get_material_system(), "texture.jpg", ETextureSemantic::EMISSIVE);
 	auto slots = base.textures;
 	slots.emissive = PbrMaterial::TextureBinding{
@@ -289,7 +321,7 @@ TEST_F(SceneResourcesTests, round_trips_imported_pbr_property_and_emissive_textu
 	ECS restored;
 	SceneResourceReader reader(restored, directory);
 	reader.prepare(saved);
-	const auto restored_source = ResourceLoader::load_model(restored, "static_mesh_textured.gltf");
+	const auto restored_source = TestAssets::load_model(restored, "static_mesh_textured.gltf");
 	const auto restored_owner = reader.read_material_reference(saved.child("material"));
 	const auto& restored_material = dynamic_cast<const PbrMaterial&>(restored_owner->get());
 	EXPECT_EQ(restored_material.properties.alpha_mode, EAlphaMode::MASK);

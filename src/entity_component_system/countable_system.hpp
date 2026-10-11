@@ -26,6 +26,12 @@ public:
 		}
 
 		IDType get_id() const noexcept { return id; }
+		std::shared_ptr<ContentType> shared_content() const
+		{
+			if (!registered)
+				throw std::runtime_error("CountableSystem::Handle: owner is not registered");
+			return content_owner;
+		}
 		const ContentType& get() const
 		{
 			if (!registered)
@@ -35,13 +41,14 @@ public:
 
 	private:
 		friend CountableSystem;
-		Handle(std::shared_ptr<Registry> registry, IDType id, ContentType* content) noexcept :
-			registry(std::move(registry)), id(id), content(content)
+		Handle(std::shared_ptr<Registry> registry, IDType id, std::shared_ptr<ContentType> content) noexcept :
+			registry(std::move(registry)), id(id), content(content.get()), content_owner(std::move(content))
 		{}
 
 		std::shared_ptr<Registry> registry;
 		const IDType id;
 		ContentType* const content;
+		std::shared_ptr<ContentType> content_owner;
 		bool registered = false;
 	};
 
@@ -55,9 +62,31 @@ public:
 
 	HandlePtr add(std::unique_ptr<ContentType>&& content)
 	{
+		return add_shared(std::shared_ptr<ContentType>(std::move(content)));
+	}
+
+	// Adopt immutable asset data into another resource system without copying it.
+	HandlePtr add_shared(std::shared_ptr<ContentType> content)
+	{
+		if (!content)
+			throw std::invalid_argument("CountableSystem::add_shared: content is null");
 		const IDType id = content->get_id();
-		auto owner = std::shared_ptr<Handle>(new Handle(registry, id, content.get()));
-		registry->add(std::move(content), owner);
+		const std::lock_guard lock(registry->registry_mutex);
+		if (const auto existing = registry->contents.find(id); existing != registry->contents.end())
+		{
+			const auto owner_entry = registry->owners.find(id);
+			if (owner_entry == registry->owners.end())
+				throw std::runtime_error("CountableSystem::add_shared: owner not found");
+			auto owner = owner_entry->second.lock();
+			if (!owner)
+				throw std::runtime_error("CountableSystem::add_shared: owner expired");
+			const bool same_owner = !existing->second.owner_before(content) && !content.owner_before(existing->second);
+			if (existing->second.get() != content.get() || !same_owner)
+				throw std::runtime_error("CountableSystem::add_shared: duplicate id has different content");
+			return owner;
+		}
+		auto owner = std::shared_ptr<Handle>(new Handle(registry, id, content));
+		registry->add_locked(std::move(content), owner);
 		return owner;
 	}
 
@@ -117,10 +146,10 @@ public:
 private:
 	struct Registry
 	{
-		void add(std::unique_ptr<ContentType>&& content, const HandlePtr& owner)
+		// Caller holds registry_mutex so duplicate detection and insertion are atomic.
+		void add_locked(std::shared_ptr<ContentType>&& content, const HandlePtr& owner)
 		{
 			const IDType id = content->get_id();
-			const std::lock_guard lock(registry_mutex);
 			assert(!contents.contains(id));
 			bool content_inserted = false;
 			bool owner_inserted = false;
@@ -162,7 +191,7 @@ private:
 
 		void remove(IDType id) noexcept
 		{
-			std::unique_ptr<ContentType> removed_content;
+			std::shared_ptr<ContentType> removed_content;
 			{
 				const std::lock_guard lock(registry_mutex);
 				owners.erase(id);
@@ -179,7 +208,7 @@ private:
 			}
 		}
 
-		std::unordered_map<IDType, std::unique_ptr<ContentType>> contents;
+		std::unordered_map<IDType, std::shared_ptr<ContentType>> contents;
 		std::unordered_map<IDType, std::weak_ptr<Handle>> owners;
 		std::vector<IDType> retired;
 		mutable std::mutex registry_mutex;

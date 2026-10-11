@@ -1,18 +1,19 @@
 #include "board.hpp"
 
-#include <resource_loader/resource_loader.hpp>
-#include <utility.hpp>
+#include <resource_loader/asset_registry.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <entity_component_system/material_system.hpp>
 #include <entity_component_system/ecs.hpp>
 
 #include <cassert>
-#include <stdexcept>
+#include <utility>
 
 
 Board::Board(PieceSpawner spawner, ECS& ecs)
 {
-	auto loaded_model = ResourceLoader::load_model(ecs, "chess_set_1k/chess_set_1k.gltf");
+	const auto assets = ecs.assets().load_asset("kassets/chess_set.kasset");
+	auto loaded_model = ecs.assets().instantiate_model(
+		ecs, AssetRegistry::default_assembly(assets));
 
 	struct PieceInfo {
 		Piece::Type type;
@@ -70,7 +71,11 @@ Board::Board(PieceSpawner spawner, ECS& ecs)
 			continue;
 		}
 
-		auto& piece = spawner(loaded_model.meshes[i].renderables, info.type, info.side);
+		auto renderables = loaded_model.meshes[i].renderables;
+		// Each piece is positioned by its tile, independently of the imported scene.
+		for (auto& renderable : renderables)
+			renderable.local_transform.set_pos(glm::vec3(0.0f));
+		auto& piece = spawner(std::move(renderables), info.type, info.side);
 		piece.set_name(loaded_model.meshes[i].name);
 		ecs.get_transformation(piece.get_id()).set_scale(glm::vec3(100.0f));
 		ecs.move_to_tile(TileCoord(info.x, info.y), piece.get_id());

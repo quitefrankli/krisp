@@ -333,3 +333,26 @@ presence. Its lifetime belongs to the controller and it is not a second
 application-managed rigid body. Reuse live controllers rather than reconstructing
 them per frame. Application-requested planar velocity does not reset accumulated
 vertical velocity; gravity and vertical launches advance on fixed steps.
+
+## Registered asset decoding
+
+`AssetRegistry` retains decoded CPU data by registered source for the engine
+session. The first selected part from a glTF/GLB document parses and retains the
+whole TinyGLTF document, including its buffers and dependent decoded images.
+Selectors therefore reuse parsing and image decode, but do not provide
+per-primitive reads or selective dependency-image retention. A document with
+large unused images can retain more CPU memory than the requested exports
+alone require.
+
+Decoded meshes and material payloads are immutable. Existing `CountableSystem`
+stores can adopt them through shared ownership and reuse IDs, so adoption does
+not copy CPU geometry or material data. Texture handles remain distinct by
+semantic because sRGB and linear interpretations need separate GPU resources;
+the registered source keeps the decoded image data shared. Provenance records
+share one immutable registration descriptor per source. Lazy registration
+defers decoding until acquisition, while eager registration shifts that work to
+registration and retains the same decoded data. Successful registration
+commits only new source/name map nodes; re-registering an identical source does
+not copy the registry maps or reread its file. These are structural cost
+expectations only; no asset loading-time, decode-memory, or GPU-upload
+measurements have been recorded.

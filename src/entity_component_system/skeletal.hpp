@@ -15,6 +15,7 @@ using Entity = ObjectID;
 class ECS;
 class Serializer;
 class Deserializer;
+class SceneResourceWriter;
 class SceneResourceReader;
 
 struct Bone
@@ -80,6 +81,7 @@ struct SkeletalAnimation
 	std::string name;
 	std::string source;
 	SkeletalRigSignature rig_signature;
+	std::vector<std::string> joint_order;
 };
 
 // A coherent render-facing copy of the game-thread-owned local pose.
@@ -143,7 +145,7 @@ public:
 	bool detach_entity_from_bone(Entity attached);
 	void on_renderable_removed(RenderableID id);
 	void on_renderable_replaced(RenderableID old_id, RenderableID new_id);
-	void serialize(Serializer& out) const;
+	void serialize(Serializer& out, SceneResourceWriter& resources) const;
 	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 	void deserialize_bone_attachments(const Deserializer& in, SceneResourceReader& resources);
 
@@ -186,7 +188,8 @@ public:
 		const std::string& name,
 		std::vector<BoneAnimation>&& bone_animations,
 		SkeletalRigSignature rig_signature,
-		std::string source = {});
+		std::string source = {},
+		std::vector<std::string> joint_order = {});
 	bool remove_skeletal_animation(AnimationID animation_id);
 	bool play_animation(SkeletonID skeleton_id, AnimationID animation_id, bool loop = false);
 	bool crossfade_animation(SkeletonID skeleton_id, AnimationID animation_id,
@@ -201,7 +204,7 @@ public:
 	std::optional<AnimationPlayback> get_animation_playback(SkeletonID skeleton_id) const;
 	bool is_animation_compatible(SkeletonID skeleton_id, AnimationID animation_id) const;
 	const std::unordered_map<AnimationID, SkeletalAnimation>& get_skeletal_animations() const { return animations; }
-	void serialize(Serializer& out) const;
+	void serialize(Serializer& out, SceneResourceWriter& resources) const;
 	void deserialize(const Deserializer& in, SceneResourceReader& resources);
 
 private:

@@ -48,6 +48,8 @@ public:
 	static std::filesystem::path get_user_config_path(std::string_view filename);
 
 	static std::filesystem::path get_texture(std::string_view filename);
+	// Explicit asset-registration entry point; names are relative to resources/.
+	static std::filesystem::path get_resource(std::string_view filename);
 	static std::filesystem::path get_model(std::string_view filename);
 	static std::filesystem::path get_animation(std::string_view filename);
 	static std::filesystem::path get_shader(std::string_view filename);

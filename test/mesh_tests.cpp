@@ -7,14 +7,24 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <barrier>
 #include <ranges>
+#include <thread>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 
 static_assert(std::is_same_v<
 	decltype(std::declval<MeshSystem&>().get(std::declval<MeshID>())),
 	const Mesh&>);
+
+struct SharedMeshTestContent
+{
+	explicit SharedMeshTestContent(MeshID id) : id(id) {}
+	MeshID get_id() const { return id; }
+	MeshID id;
+};
 
 
 TEST(MeshFactory, circle)
@@ -107,6 +117,48 @@ TEST(MeshSystem, stores_are_isolated)
 	EXPECT_FALSE(second_store.contains(id));
 	EXPECT_FALSE(second_store.owns(owner));
 	EXPECT_THROW(second_store.acquire(id), std::runtime_error);
+}
+
+TEST(MeshSystem, concurrent_shared_add_reuses_the_same_owner)
+{
+	MeshSystem source;
+	auto source_owner = source.add(MeshFactory::cube());
+	auto content = source_owner->shared_content();
+	MeshSystem destination;
+	constexpr size_t thread_count = 8;
+	std::barrier<> start(static_cast<std::ptrdiff_t>(thread_count));
+	std::vector<MeshHandle> owners(thread_count);
+	std::vector<std::thread> threads;
+	threads.reserve(thread_count);
+	for (size_t index = 0; index < thread_count; ++index)
+	{
+		threads.emplace_back([&, index]
+		{
+			start.arrive_and_wait();
+			owners[index] = destination.add_shared(content);
+		});
+	}
+	for (auto& thread : threads)
+		thread.join();
+
+	ASSERT_TRUE(owners.front());
+	for (const auto& owner : owners)
+		EXPECT_EQ(owner, owners.front());
+	EXPECT_TRUE(destination.owns(owners.front()));
+	EXPECT_EQ(&destination.get(content->get_id()), content.get());
+}
+
+TEST(MeshSystem, shared_add_rejects_different_content_with_an_existing_id)
+{
+	CountableSystem<MeshID, const SharedMeshTestContent> resources;
+	const MeshID id = MeshID::generate_new_id();
+	auto first_content = std::make_shared<const SharedMeshTestContent>(id);
+	auto first_owner = resources.add_shared(first_content);
+	auto different_content = std::make_shared<const SharedMeshTestContent>(id);
+
+	EXPECT_THROW(resources.add_shared(different_content), std::runtime_error);
+	EXPECT_EQ(resources.acquire(id), first_owner);
+	EXPECT_EQ(&resources.get(id), first_content.get());
 }
 
 TEST(MeshFactory, check_different_id_when_different_params)

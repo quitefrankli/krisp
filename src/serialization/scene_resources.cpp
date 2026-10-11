@@ -2,6 +2,7 @@
 
 #include "entity_component_system/ecs.hpp"
 #include "resource_loader/resource_loader.hpp"
+#include "resource_loader/asset_registry.hpp"
 #include "serialization/resource_provenance.hpp"
 #include "serialization/serialization_helpers.hpp"
 #include "renderable/composited_texture_material.hpp"
@@ -48,37 +49,45 @@ std::filesystem::path resource_path(const std::filesystem::path &directory, cons
 	return directory / relative;
 }
 
-void write_source(Serializer out, const ImportedResourceProvenance &source)
+std::string source_key(const ImportedResourceProvenance& source, const std::uint64_t source_id)
 {
-	out.write("kind", source.kind == EExternalResourceKind::Texture ? "texture" : "model");
-	out.write("path", source.source);
-	out.write("scene", source.scene);
-	out.write("node", source.node);
-	out.write("primitive", source.primitive);
-	out.write("material", source.material);
-	out.write("image", source.image);
-	out.write("texture_semantic", source.texture_semantic);
-	out.write("skin", source.skin);
-	out.write("animation", source.animation);
+	std::string key;
+	const auto append = [&key](const std::string_view value)
+	{
+		key += std::to_string(value.size());
+		key += ':';
+		key += value;
+	};
+	append(std::to_string(source_id));
+	append(source.member);
+	key += std::to_string(source.scene);
+	if (source.scene < 0 && source.node < 0)
+	{
+		key += ':';
+		key += std::to_string(source.material);
+		key += ':';
+		key += std::to_string(source.image);
+		key += ':';
+		key += std::to_string(source.texture_semantic);
+		key += ':';
+		key += std::to_string(source.skin);
+		key += ':';
+		key += std::to_string(source.animation);
+	}
+	return key;
 }
 
-ImportedResourceProvenance read_source(const Deserializer &in)
+std::string texture_source_key(const ImportedResourceProvenance& source, const std::uint64_t source_id)
 {
-	const auto kind = in.read<std::string>("kind");
-	if (kind != "model" && kind != "texture")
-		throw SerializationError("Unsupported external resource kind at " + in.path());
-	return {
-		.kind = kind == "texture" ? EExternalResourceKind::Texture : EExternalResourceKind::Model,
-		.source = in.read<std::string>("path"),
-		.scene = in.read<int>("scene"),
-		.node = in.read<int>("node"),
-		.primitive = in.read<int>("primitive"),
-		.material = in.read<int>("material"),
-		.image = in.read<int>("image"),
-		.texture_semantic = in.read<int>("texture_semantic"),
-		.skin = in.read<int>("skin"),
-		.animation = in.read<int>("animation"),
-	};
+	std::string key = std::to_string(source_id) + ':';
+	key += std::to_string(source.member.size());
+	key += ':';
+	key += source.member;
+	key += ":image:";
+	key += std::to_string(source.image);
+	key += ":semantic:";
+	key += std::to_string(source.texture_semantic);
+	return key;
 }
 
 std::string semantic_name(const ETextureSemantic semantic)
@@ -505,8 +514,48 @@ SceneResourceWriter::SceneResourceWriter(Serializer &document, const ECS &ecs, s
 	directory(std::move(directory)),
 	resources(document.map("resources")),
 	meshes(resources.sequence("meshes")),
-	materials(resources.sequence("materials"))
+	materials(resources.sequence("materials")),
+	asset_sources(resources.sequence("asset_sources"))
 {
+}
+
+void SceneResourceWriter::write_imported_source(
+	Serializer out, const ImportedResourceProvenance& source)
+{
+	auto& registrations = asset_source_ids[source.source];
+	const auto registration = registration_text(source);
+	const auto found = std::ranges::find_if(registrations, [&](const AssetSourceDescriptor& descriptor)
+	{
+		if (descriptor.registration == source.registration)
+			return true;
+		return descriptor.registration ? std::string_view(*descriptor.registration) == registration
+			: registration.empty();
+	});
+	std::uint64_t id;
+	if (found == registrations.end())
+	{
+		id = next_asset_source_id++;
+		auto entry = asset_sources.append_map();
+		entry.write("id", id);
+		entry.write("path", source.source);
+		if (!registration.empty())
+			entry.write("registration", registration);
+		registrations.push_back({source.registration, id});
+	}
+	else
+		id = found->id;
+	out.write("source_id", id);
+	if (!source.member.empty())
+		out.write("member", source.member);
+	out.write("kind", source.kind == EExternalResourceKind::Texture ? "texture" : "model");
+	out.write("scene", source.scene);
+	out.write("node", source.node);
+	out.write("primitive", source.primitive);
+	out.write("material", source.material);
+	out.write("image", source.image);
+	out.write("texture_semantic", source.texture_semantic);
+	out.write("skin", source.skin);
+	out.write("animation", source.animation);
 }
 
 void SceneResourceWriter::write_mesh_reference(Serializer out, const MeshID id)
@@ -516,7 +565,7 @@ void SceneResourceWriter::write_mesh_reference(Serializer out, const MeshID id)
 	// copied into the save directory.
 	if (const auto *source = ResourceProvenance::mesh(id))
 	{
-		write_source(out.map("source"), *source);
+		write_imported_source(out.map("source"), *source);
 		return;
 	}
 	write_generated_mesh(id);
@@ -527,7 +576,7 @@ void SceneResourceWriter::write_material_reference(Serializer out, const Materia
 {
 	if (const auto* material_override = ResourceProvenance::material_override(id))
 	{
-		write_source(out.map("source"), material_override->source);
+		write_imported_source(out.map("source"), material_override->source);
 		auto saved_override = out.map("pbr_override");
 		if (material_override->base_color_factor)
 			Serialization::write_vec4(
@@ -573,7 +622,7 @@ void SceneResourceWriter::write_material_reference(Serializer out, const Materia
 	}
 	if (const auto *source = ResourceProvenance::material(id))
 	{
-		write_source(out.map("source"), *source);
+		write_imported_source(out.map("source"), *source);
 		return;
 	}
 	write_generated_material(id);
@@ -690,22 +739,59 @@ SceneResourceReader::SceneResourceReader(ECS &ecs, std::filesystem::path directo
 {
 }
 
+ImportedResourceProvenance SceneResourceReader::read_imported_source(const Deserializer& in) const
+{
+	const auto source_id = in.read<std::uint64_t>("source_id");
+	const auto found = asset_sources.find(source_id);
+	if (found == asset_sources.end())
+		throw SerializationError("Unknown asset source ID at " + in.path());
+	auto source = found->second;
+	if (has_key(in, "member"))
+		source.member = in.read<std::string>("member");
+	if (has_key(in, "kind"))
+	{
+		const auto kind = in.read<std::string>("kind");
+		if (kind != "model" && kind != "texture")
+			throw SerializationError("Unsupported external resource kind at " + in.path());
+		source.kind = kind == "texture" ? EExternalResourceKind::Texture : EExternalResourceKind::Model;
+	}
+	if (has_key(in, "scene")) source.scene = in.read<int>("scene");
+	if (has_key(in, "node")) source.node = in.read<int>("node");
+	if (has_key(in, "primitive")) source.primitive = in.read<int>("primitive");
+	if (has_key(in, "material")) source.material = in.read<int>("material");
+	if (has_key(in, "image")) source.image = in.read<int>("image");
+	if (has_key(in, "texture_semantic")) source.texture_semantic = in.read<int>("texture_semantic");
+	if (has_key(in, "skin")) source.skin = in.read<int>("skin");
+	if (has_key(in, "animation")) source.animation = in.read<int>("animation");
+	return source;
+}
+
 void SceneResourceReader::load_model_source(const Deserializer &source)
 {
-	const auto path = source.read<std::string>("path");
-	const auto scene = source.read<int>("scene");
-	const auto key = path + "#" + std::to_string(scene);
+	const auto provenance = read_imported_source(source);
+	const auto key = source_key(provenance, source.read<std::uint64_t>("source_id"));
 	if (imported_models.contains(key))
 		return;
-	ResourceLoader::LoadOptions options;
-	if (scene >= 0)
-		options.scene_index = scene;
-	options.generate_missing_tangents = true;
-	imported_models.emplace(key, ResourceLoader::load_model(ecs, path, options));
+	imported_models.emplace(key, ecs.assets().restore_model(ecs, provenance));
 }
 
 void SceneResourceReader::prepare(const Deserializer &document)
 {
+	if (has_key(document, "resources"))
+	{
+		const auto saved_resources = document.child("resources");
+		if (has_key(saved_resources, "asset_sources"))
+			for (const auto& entry : saved_resources.child("asset_sources").elements())
+			{
+				const auto id = entry.read<std::uint64_t>("id");
+				ImportedResourceProvenance source{.source = entry.read<std::string>("path")};
+				if (has_key(entry, "registration"))
+					source.registration = std::make_shared<const std::string>(
+						entry.read<std::string>("registration"));
+				if (!asset_sources.emplace(id, std::move(source)).second)
+					throw SerializationError("Duplicate asset source ID at " + entry.path());
+			}
+	}
 	// First restore imported model sources. Loading one model may register its
 	// meshes, materials, skeletons, and animations together, so each model/scene
 	// pair is loaded at most once even if many saved references point into it.
@@ -715,13 +801,7 @@ void SceneResourceReader::prepare(const Deserializer &document)
 			if (has_key(entry, "imported_source"))
 			{
 				const auto source = entry.child("imported_source");
-				ImportedResourceProvenance provenance{
-					.source = source.read<std::string>("path"),
-					.scene = source.read<int>("scene"),
-					.node = source.read<int>("node"),
-					.skin = source.read<int>("skin"),
-					.animation = source.read<int>("animation"),
-				};
+				const auto provenance = read_imported_source(source);
 				if (!ResourceProvenance::find_skeleton(provenance))
 					load_model_source(source);
 			}
@@ -731,7 +811,7 @@ void SceneResourceReader::prepare(const Deserializer &document)
 			const auto mesh = entry.child("mesh");
 			if (has_key(mesh, "source"))
 			{
-				const auto source = read_source(mesh.child("source"));
+				const auto source = read_imported_source(mesh.child("source"));
 				if (source.kind == EExternalResourceKind::Model &&
 				    !ResourceProvenance::find_mesh(ecs.get_mesh_system(), source))
 					load_model_source(mesh.child("source"));
@@ -739,7 +819,7 @@ void SceneResourceReader::prepare(const Deserializer &document)
 			for (const auto &material : entry.child("materials").elements())
 				if (has_key(material, "source"))
 				{
-					const auto source = read_source(material.child("source"));
+					const auto source = read_imported_source(material.child("source"));
 					if (source.kind == EExternalResourceKind::Model &&
 					    !ResourceProvenance::find_material(ecs.get_material_system(), source))
 						load_model_source(material.child("source"));
@@ -874,7 +954,7 @@ MeshHandle SceneResourceReader::read_mesh_reference(const Deserializer &in)
 			throw SerializationError("Missing generated mesh resource at " + in.path());
 		return meshes.at(id);
 	}
-	const auto source = read_source(in.child("source"));
+	const auto source = read_imported_source(in.child("source"));
 	if (source.kind != EExternalResourceKind::Model)
 		throw SerializationError("Mesh source is not an external model at " + in.path());
 	const auto id = ResourceProvenance::find_mesh(ecs.get_mesh_system(), source);
@@ -892,7 +972,7 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 			throw SerializationError("Missing generated material resource at " + in.path());
 		return materials.at(id);
 	}
-	const auto source = read_source(in.child("source"));
+	const auto source = read_imported_source(in.child("source"));
 	if (has_key(in, "pbr_override"))
 	{
 		if (source.kind != EExternalResourceKind::Model)
@@ -1003,10 +1083,12 @@ MaterialHandle SceneResourceReader::read_material_reference(const Deserializer &
 		const auto semantic = static_cast<ETextureSemantic>(source.texture_semantic);
 		if (semantic < ETextureSemantic::BASE_COLOR || semantic >= ETextureSemantic::COUNT)
 			throw SerializationError("Invalid external texture semantic at " + in.path());
-		const auto key = source.source + "#" + std::to_string(source.texture_semantic);
+		const auto source_entry = in.child("source");
+		const auto key = texture_source_key(
+			source, source_entry.read<std::uint64_t>("source_id"));
 		if (!imported_textures.contains(key))
 			imported_textures.emplace(
-				key, ResourceLoader::fetch_texture(ecs.get_material_system(), source.source, semantic));
+				key, ecs.assets().restore_texture(ecs.get_material_system(), source));
 		return imported_textures.at(key);
 	}
 	const auto id = ResourceProvenance::find_material(ecs.get_material_system(), source);

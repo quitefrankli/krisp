@@ -6,7 +6,9 @@
 
 #include <filesystem>
 #include <optional>
+#include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 
 // Identity of data loaded from an external model or texture. Runtime IDs are
@@ -22,6 +24,8 @@ struct ImportedResourceProvenance
 {
 	EExternalResourceKind kind = EExternalResourceKind::Model;
 	std::string source;
+	std::string member;
+	std::shared_ptr<const std::string> registration;
 	int scene = -1;
 	int node = -1;
 	int primitive = -1;
@@ -31,6 +35,10 @@ struct ImportedResourceProvenance
 	int skin = -1;
 	int animation = -1;
 };
+
+std::string_view registration_text(const ImportedResourceProvenance& provenance);
+bool same_registration(
+	const ImportedResourceProvenance& left, const ImportedResourceProvenance& right);
 
 struct PbrTextureOverride
 {

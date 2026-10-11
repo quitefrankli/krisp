@@ -1,4 +1,5 @@
 #include "ecs.hpp"
+#include "resource_loader/asset_registry.hpp"
 #include "serialization/serializer.hpp"
 
 #include <glm/gtx/norm.hpp>
@@ -22,9 +23,9 @@ void ECS::serialize(Serializer& out, SceneResourceWriter& resources) const
 	LightSystem::serialize(out);
 	ColliderSystem::serialize(out, resources);
 	PhysicsSystem::serialize(out);
-	SkeletalSystem::serialize(out);
+	SkeletalSystem::serialize(out, resources);
 	RenderableSystem::serialize(out, resources);
-	SkeletalAnimationSystem::serialize(out);
+	SkeletalAnimationSystem::serialize(out, resources);
 	EquipmentSystem::serialize(out);
 	TileSystem::serialize(out);
 }
@@ -71,6 +72,13 @@ void ECS::remove_object(const ObjectID id)
 	remove_transformation(id);
 }
 
+AssetRegistry& ECS::assets()
+{
+	if (!asset_registry)
+		asset_registry = std::make_shared<AssetRegistry>();
+	return *asset_registry;
+}
+
 void ECS::reset_preserving_transient_transformations()
 {
 	auto transformations = take_transient_transformations();
@@ -83,7 +91,9 @@ void ECS::reset_preserving_transient_transformations()
 			transient_objects.emplace(id, object);
 	auto meshes = std::move(mesh_system);
 	auto materials = std::move(material_system);
+	auto assets = std::move(asset_registry);
 	*this = ECS{};
+	asset_registry = std::move(assets);
 	mesh_system = std::move(meshes);
 	material_system = std::move(materials);
 	static_cast<TransformationSystem&>(*this) = std::move(transformations);

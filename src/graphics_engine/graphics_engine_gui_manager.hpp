@@ -38,7 +38,7 @@ public:
 	// some gui_windows require setup in the graphics_engine thread
 	void setup_gui_windows();
 	
-	void compose_texture_for_gui_window(std::string_view texture_filename, GuiPhotoBase& gui_photo);
+	void compose_texture_for_gui_window(MaterialHandle texture_owner, GuiPhotoBase& gui_photo);
 
 	EngineUiManager& get_engine_ui_manager() { return engine_ui_manager; }
 	const EngineUiManager& get_engine_ui_manager() const { return engine_ui_manager; }

@@ -6,6 +6,7 @@
 #include <gui/gui_windows/gui_model_spawner.hpp>
 
 #include "test_helper.hpp"
+#include "asset_test_helper.hpp"
 #include "mock_graphics_engine.hpp"
 #include "mock_window.hpp"
 #include "renderable/mesh_factory.hpp"
@@ -43,12 +44,14 @@ public:
 				   std::make_unique<DummyApplication>(),
 				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
 	{
+		TestAssets::register_texture(assets(), "texture.jpg");
 	}
 	explicit TestableGameEngine(std::unique_ptr<IApplication> application) :
 		GameEngine(std::make_unique<MockWindow>(),
 				   std::move(application),
 				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
 	{
+		TestAssets::register_texture(assets(), "texture.jpg");
 	}
 
 	MockWindow& get_mock_window()
@@ -864,7 +867,7 @@ TEST_F(GameEngineTests, object_spawner_creates_a_clickable_textured_pbr_cube)
 	const auto& texture = dynamic_cast<const TextureMaterial&>(
 		renderable.material_owners[1]->get());
 	EXPECT_EQ(texture.semantic, ETextureSemantic::BASE_COLOR);
-	EXPECT_EQ(texture.source, "checkerboard.png");
+	EXPECT_EQ(texture.source, "engine/object_spawner/checkerboard");
 
 	const auto clicked = engine.get_ecs().check_any_entity_clicked(
 		Maths::Ray(glm::vec3(0.0f, 0.0f, -2.0f), Maths::forward_vec));
@@ -971,7 +974,7 @@ TEST_F(GameEngineTests, pbr_edit_clones_a_shared_material_for_only_the_selected_
 
 TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
 {
-	auto loaded = ResourceLoader::load_model(
+	auto loaded = TestAssets::load_model(
 		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
 	auto& object = engine.spawn_object<Object>();
 	const ObjectID object_id = object.get_id();
@@ -1044,7 +1047,7 @@ TEST_F(GameEngineTests, scene_round_trips_flattened_imported_pbr_override)
 
 TEST_F(GameEngineTests, reverting_an_imported_factor_removes_the_sparse_override)
 {
-	auto loaded = ResourceLoader::load_model(
+	auto loaded = TestAssets::load_model(
 		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
 	auto& object = engine.spawn_object<Object>();
 	const RenderableID imported = engine.attach_renderable(
@@ -1078,7 +1081,7 @@ TEST_F(GameEngineTests, scene_round_trips_distinct_semantics_for_one_gltf_textur
 			document["materials"][0]["pbrMetallicRoughness"]
 				["metallicRoughnessTexture"] = { { "index", 0 } };
 		});
-	auto loaded = ResourceLoader::load_model(engine.get_ecs(), resource.filename());
+	auto loaded = TestAssets::load_model(engine.get_ecs(), resource.filename());
 	auto& object = engine.spawn_object<Object>();
 	const ObjectID object_id = object.get_id();
 	engine.attach_renderable(
@@ -1116,7 +1119,7 @@ TEST_F(GameEngineTests, scene_round_trips_distinct_semantics_for_one_gltf_textur
 
 TEST_F(GameEngineTests, scene_round_trips_replaced_imported_texture_override)
 {
-	auto loaded = ResourceLoader::load_model(
+	auto loaded = TestAssets::load_model(
 		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
 	auto& object = engine.spawn_object<Object>();
 	const ObjectID object_id = object.get_id();
@@ -1175,7 +1178,7 @@ TEST_F(GameEngineTests, scene_round_trips_replaced_imported_texture_override)
 
 TEST_F(GameEngineTests, base_color_overlays_append_without_changing_other_pbr_properties)
 {
-	auto loaded = ResourceLoader::load_model(
+	auto loaded = TestAssets::load_model(
 		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
 	auto renderable = std::move(loaded.meshes.front().renderables.front());
 	const PbrMatGroup original(renderable.material_owners);
@@ -1202,7 +1205,7 @@ TEST_F(GameEngineTests, base_color_overlays_append_without_changing_other_pbr_pr
 	const auto metallic_binding = before.pbr().textures.metallic_roughness;
 	const auto emissive_binding = before.pbr().textures.emissive;
 	const TextureCompositionOverlay overlay{
-		.texture_filename = "texture.jpg",
+		.texture_asset = "texture.jpg",
 		.centre = { 0.25f, 0.75f }, .scale = { 0.5f, 0.2f },
 		.rotation_radians = 0.3f, .tint = { 0.8f, 0.6f, 0.4f }, .opacity = 0.5f,
 	};
@@ -1236,9 +1239,9 @@ TEST_F(GameEngineTests, base_color_overlays_append_without_changing_other_pbr_pr
 	EXPECT_FLOAT_EQ(composition.layers.back().opacity, overlay.opacity);
 
 	EXPECT_THROW(engine.composite_renderable_base_color(second,
-		{ { .texture_filename = "missing_overlay.png" } }), ResourceLoadError);
+		{ { .texture_asset = "missing_overlay.png" } }), ResourceLoadError);
 	EXPECT_THROW(engine.composite_renderable_base_color(second,
-		{ { .texture_filename = "texture.jpg", .scale = { 0.0f, 1.0f } } }), std::invalid_argument);
+		{ { .texture_asset = "texture.jpg", .scale = { 0.0f, 1.0f } } }), std::invalid_argument);
 	EXPECT_THROW(engine.composite_renderable_base_color(second,
 		std::vector<TextureCompositionOverlay>(CSTS::MAX_TEXTURE_COMPOSITION_LAYERS, overlay)),
 		std::invalid_argument);
@@ -1269,14 +1272,14 @@ TEST_F(GameEngineTests, base_color_overlays_append_without_changing_other_pbr_pr
 
 TEST_F(GameEngineTests, scene_round_trips_imported_pbr_base_color_overlays)
 {
-	auto loaded = ResourceLoader::load_model(
+	auto loaded = TestAssets::load_model(
 		engine.get_ecs(), "normal_mapped_authored_tangents.gltf");
 	auto& object = spawn_renderable_object(engine, std::move(loaded.meshes.front().renderables.front()));
 	const auto object_id = object.get_id();
 	const auto replacement = engine.composite_renderable_base_color(
 		only_renderable_id(engine, object_id), {
-			{ .texture_filename = "texture.jpg", .opacity = 0.4f },
-			{ .texture_filename = "texture.jpg", .centre = { 0.2f, 0.3f }, .opacity = 0.7f },
+			{ .texture_asset = "texture.jpg", .opacity = 0.4f },
+			{ .texture_asset = "texture.jpg", .centre = { 0.2f, 0.3f }, .opacity = 0.7f },
 		});
 	const auto& before = engine.get_ecs().get_renderable(replacement).renderable;
 	const PbrMatGroup before_materials(before.material_owners);
@@ -1439,7 +1442,7 @@ TEST_F(GameEngineTests, scene_load_is_visible_in_the_next_completed_snapshot)
 TEST_F(GameEngineTests, scene_round_trips_imported_factor_material_by_provenance)
 {
 	const auto model_path = "import_variants.gltf";
-	auto model = ResourceLoader::load_model(engine.get_ecs(), model_path);
+	auto model = TestAssets::load_model(engine.get_ecs(), model_path);
 	ASSERT_FALSE(model.meshes.empty());
 	auto& object = engine.spawn_object<Object>();
 	engine.attach_renderables(object.get_id(), model.meshes.front().renderables);
@@ -1469,11 +1472,11 @@ TEST_F(GameEngineTests, scene_round_trips_imported_factor_material_by_provenance
 
 TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_provenance)
 {
-	auto model = ResourceLoader::load_model(
+	auto model = TestAssets::load_model(
 		engine.get_ecs(), "simple_test_model.gltf");
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
-	const auto animations = ResourceLoader::load_animations(
+	const auto animations = TestAssets::load_animations(
 		engine.get_ecs(), "standalone_animation.gltf",
 		*model.meshes.front().skeleton_id);
 	ASSERT_FALSE(animations.animations.empty());
@@ -1504,7 +1507,7 @@ TEST_F(GameEngineTests, scene_round_trips_imported_skeleton_and_animation_by_pro
 
 TEST_F(GameEngineTests, scene_round_trips_an_unbound_imported_skeleton)
 {
-	auto model = ResourceLoader::load_model(engine.get_ecs(), "simple_test_model.gltf");
+	auto model = TestAssets::load_model(engine.get_ecs(), "simple_test_model.gltf");
 	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
 	const std::string save_name = "krisp_scene_unbound_skeleton_test";
 	const auto path = save_path(save_name);
@@ -1520,14 +1523,14 @@ TEST_F(GameEngineTests, scene_round_trips_an_unbound_imported_skeleton)
 
 TEST_F(GameEngineTests, scene_round_trips_looping_standalone_animation_by_provenance)
 {
-	auto model = ResourceLoader::load_model(
+	auto model = TestAssets::load_model(
 		engine.get_ecs(), "simple_test_model.gltf");
 	ASSERT_TRUE(model.meshes.front().skeleton_id.has_value());
 	auto& object = engine.spawn_object<Object>();
 	const ObjectID object_id = object.get_id();
 	engine.attach_renderables(object.get_id(), model.meshes.front().renderables,
 		*model.meshes.front().skeleton_id);
-	const auto imported = ResourceLoader::load_animations(
+	const auto imported = TestAssets::load_animations(
 		engine.get_ecs(), "standalone_animation.gltf",
 		*model.meshes.front().skeleton_id);
 	ASSERT_FALSE(imported.animations.empty());
@@ -1887,12 +1890,12 @@ TEST_F(GameEngineTests, deleting_multiple_objects_destroys_each_resource_once)
 TEST_F(GameEngineTests, deleting_object_during_skeletal_animation_is_safe)
 {
 	const auto path = "simple_test_model.gltf";
-	auto model = ResourceLoader::load_model(engine.get_ecs(), path);
+	auto model = TestAssets::load_model(engine.get_ecs(), path);
 	ASSERT_EQ(model.meshes.size(), 1);
 	ASSERT_EQ(model.meshes[0].renderables.size(), 1);
 	const auto skeleton_id = model.meshes[0].skeleton_id;
 	ASSERT_TRUE(skeleton_id.has_value());
-	const auto animations = ResourceLoader::load_animations(
+	const auto animations = TestAssets::load_animations(
 		engine.get_ecs(), "standalone_animation.gltf", *skeleton_id);
 	ASSERT_EQ(animations.animations.size(), 2);
 

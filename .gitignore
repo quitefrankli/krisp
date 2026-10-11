@@ -27,6 +27,9 @@ vulkanSDKMacOS
 *.log
 .env
 
+__pycache__/
+*.py[cod]
+
 # Engine runtime defaults must travel with the library source package.
 !resources/default/
 resources/default/*

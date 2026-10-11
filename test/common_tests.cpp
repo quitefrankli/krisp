@@ -29,18 +29,23 @@ class RuntimeResourceFixture
 public:
 	RuntimeResourceFixture()
 		: path(Utility::get_engine_runtime_path() / "resources/meshes/utility_runtime_fallback_test.gltf")
+		, package_path(Utility::get_engine_runtime_path() / "resources/kassets/weapons/utility_runtime_fallback_test.kasset")
 	{
 		std::filesystem::create_directories(path.parent_path());
 		std::ofstream(path) << "runtime fallback fixture";
+		std::filesystem::create_directories(package_path.parent_path());
+		std::ofstream(package_path) << "runtime package fixture";
 	}
 
 	~RuntimeResourceFixture()
 	{
 		std::error_code error;
 		std::filesystem::remove(path, error);
+		std::filesystem::remove(package_path, error);
 	}
 
 	std::filesystem::path path;
+	std::filesystem::path package_path;
 };
 }
 
@@ -122,6 +127,18 @@ TEST(UtilityResources, resolves_engine_runtime_fallback_after_app_resources)
 	EXPECT_EQ(
 		Utility::get_model("utility_runtime_fallback_test.gltf"),
 		fallback.path);
+	EXPECT_EQ(
+		Utility::get_resource("utility_runtime_fallback_test.gltf"),
+		fallback.path);
+	EXPECT_EQ(
+		Utility::get_resource("meshes/utility_runtime_fallback_test.gltf"),
+		fallback.path);
+	EXPECT_EQ(
+		Utility::get_resource("weapons/utility_runtime_fallback_test.kasset"),
+		fallback.package_path);
+	EXPECT_EQ(
+		Utility::get_resource("kassets/weapons/utility_runtime_fallback_test.kasset"),
+		fallback.package_path);
 	EXPECT_EQ(
 		Utility::get_texture("texture.jpg"),
 		std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg");

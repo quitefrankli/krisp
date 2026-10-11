@@ -283,10 +283,15 @@ GuiObjectSpawner::GuiObjectSpawner() :
 		{"textured cube", spawning_function_type([](GameEngine& engine)
 			{
 				auto& ecs = engine.get_ecs();
-				auto texture_owner = ResourceLoader::fetch_texture(
-					ecs.get_material_system(),
-					"checkerboard.png",
-					ETextureSemantic::BASE_COLOR);
+				constexpr std::string_view texture_name = "engine/object_spawner/checkerboard";
+				if (!engine.assets().contains(texture_name))
+				{
+					AssetLoadOptions options;
+					options.name = texture_name;
+					engine.assets().load_asset("textures/checkerboard.png", options);
+				}
+				auto texture_owner = engine.assets().acquire_texture(
+					ecs.get_material_system(), texture_name, ETextureSemantic::BASE_COLOR);
 				PbrMaterial::TextureSlots slots{
 					.base_color = PbrMaterial::TextureBinding{ texture_owner->get_id() },
 				};
@@ -570,13 +575,36 @@ void GuiPhoto::refresh_textures()
 	load_error.reset();
 }
 
-void GuiPhoto::init(std::function<void(std::string_view)>&& texture_requester)
+void GuiPhoto::init(std::function<void(MaterialHandle)>&& texture_requester)
 {
 	this->texture_requester = std::move(texture_requester);
 }
 
 void GuiPhoto::process(GameEngine& engine)
 {
+	if (texture_to_register)
+	{
+		const auto texture_path = std::move(*texture_to_register);
+		texture_to_register.reset();
+		const std::string name = "editor/photo/" + texture_path;
+		try
+		{
+			if (!engine.assets().contains(name))
+			{
+				AssetLoadOptions options;
+				options.name = name;
+				engine.assets().load_asset("textures/" + texture_path, options);
+			}
+			texture_to_show = engine.assets().acquire_texture(
+				engine.get_ecs().get_material_system(), name);
+		}
+		catch (const std::exception& error)
+		{
+			load_error = fmt::format("Texture Viewer failed to load '{}': {}",
+				texture_path, error.what());
+			should_show = false;
+		}
+	}
 	if (should_refresh_textures)
 	{
 		should_refresh_textures = false;
@@ -604,7 +632,7 @@ void GuiPhoto::draw()
 		{
 			selected_image = static_cast<int>(*selected);
 			selected_image.changed = true;
-			texture_to_show = photo_paths[*selected];
+			texture_to_register = photo_paths[*selected];
 		}
 		ImGui::EndCombo();
 	}
@@ -613,20 +641,18 @@ void GuiPhoto::draw()
 
 	if (texture_to_show)
 	{
-		const auto texture_path = std::move(*texture_to_show);
-		texture_to_show.reset();
+		auto texture_owner = std::move(texture_to_show);
 		if (texture_requester)
 		{
 			try
 			{
-				texture_requester(texture_path);
+				texture_requester(std::move(texture_owner));
 				selected_image.changed = false;
 				load_error.reset();
 			}
-			catch (const ResourceLoadError& error)
+			catch (const std::exception& error)
 			{
-				load_error = report_resource_load_error(
-					fmt::format("Texture Viewer failed to load '{}'", texture_path), error);
+				load_error = fmt::format("Texture Viewer failed to display texture: {}", error.what());
 				should_show = false;
 			}
 		}

@@ -4,7 +4,6 @@
 #include "graphics_engine.hpp"
 #include "renderers/renderers.hpp"
 #include "utility.hpp"
-#include "resource_loader/resource_loader.hpp"
 #include "entity_component_system/material_system.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
@@ -14,6 +13,7 @@
 #include <fmt/core.h>
 
 #include <cstdio>
+#include <utility>
 
 
 namespace
@@ -314,9 +314,9 @@ void GraphicsEngineGuiManager::setup_imgui()
 
 void GraphicsEngineGuiManager::setup_gui_windows()
 {
-	engine_ui_manager.photo.init([&](const std::string_view picture)
+	engine_ui_manager.photo.init([&](MaterialHandle texture_owner)
 	{
-		compose_texture_for_gui_window(picture, engine_ui_manager.photo);
+		compose_texture_for_gui_window(std::move(texture_owner), engine_ui_manager.photo);
 	});
 
 	// RenderSlicer will always read from output of QuadRenderer
@@ -341,11 +341,9 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 }
 
 void GraphicsEngineGuiManager::compose_texture_for_gui_window(
-	const std::string_view texture_filename,
+	MaterialHandle texture_owner,
 	GuiPhotoBase& gui_photo)
 {
-	auto texture_owner = ResourceLoader::fetch_texture(
-		get_graphics_engine().get_material_system(), texture_filename);
 	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
 		texture_owner,
 		PbrMaterial::TextureSampler::clamp_to_edge());
