@@ -11,6 +11,7 @@
 #include "input.hpp"
 
 #include <GLFW/glfw3.h>
+#include <atomic>
 #include <vector>
 #include <memory>
 #include <mutex>
@@ -23,6 +24,7 @@
 class EngineUiManager
 {
 	friend class GraphicsEngineGuiManager;
+	friend class GameEngine;
 
 protected:
 	std::vector<std::unique_ptr<GuiWindow>> gui_windows; 
@@ -75,6 +77,8 @@ public:
 	}
 
 	void clear_saved_panel_visibility() { saved_panel_visibility.clear(); }
+	void set_loading(const bool value) { loading.store(value, std::memory_order_release); }
+	bool is_loading() const { return loading.load(std::memory_order_acquire); }
 	bool& get_or_create_saved_panel_visibility(const std::string& id)
 	{
 		return saved_panel_visibility[id];
@@ -168,5 +172,8 @@ public: // for GameEngine
 	void process_persistent(GameEngine& engine);
 
 private:
-	std::mutex state_mutex;
+	// GLFW callbacks can re-enter UI methods while GameEngine holds this lock
+	// around event polling, so recursive locking is required for that boundary.
+	std::recursive_mutex state_mutex;
+	std::atomic<bool> loading{ false };
 };

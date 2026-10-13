@@ -39,6 +39,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <future>
 
 GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 	window(std::make_unique<App::Window>()),
@@ -108,6 +109,14 @@ void GameEngine::init()
 		engine.shutdown();
 		return std::string("Exiting...");
 	});
+	commands.add("noclip", "Toggle active-player collision and gravity", [](GameEngine& engine, std::string_view args) {
+		if (!args.empty()) return std::string("Usage: noclip");
+		auto* player = engine.get_active_player();
+		if (!player) return std::string("No active player.");
+		const bool enabled = !player->is_noclip_enabled(engine.get_ecs());
+		player->set_noclip_enabled(engine.get_ecs(), enabled);
+		return std::string(enabled ? "Noclip enabled." : "Noclip disabled.");
+	});
 	application->create_ui(*this, application_ui_manager);
 	application_ui_manager.seal();
 	publish_completed_render_frame();
@@ -136,15 +145,66 @@ void GameEngine::configure_ecs()
 	});
 }
 
-void GameEngine::run()
+namespace
 {
+struct LoadingCancelled {};
+}
+
+void GameEngine::poll_window_events()
+{
+	// GLFW callbacks feed ImGui, whose frame is drawn by the graphics thread.
+	const std::lock_guard lock(get_gui_manager().state_mutex);
+	window->poll_events();
+}
+
+void GameEngine::service_loading()
+{
+	poll_window_events();
+	if (window->should_close()) shutdown();
+}
+
+void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
+{
+	get_gui_manager().set_loading(true);
+	window->show();
 	graphics_engine_thread = std::thread(&GraphicsEngineBase::run, graphics_engine.get());
-	Utility::sleep(std::chrono::milliseconds(100));
 
 	try
 	{
+		assets().set_loading_callbacks([this](std::function<void()> prepare) {
+			service_loading();
+			if (should_shutdown) throw LoadingCancelled{};
+			auto work = std::async(std::launch::async, std::move(prepare));
+			while (work.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready)
+				service_loading();
+			work.get();
+			if (should_shutdown) throw LoadingCancelled{};
+		}, [this] {
+			service_loading();
+			if (should_shutdown) throw LoadingCancelled{};
+		});
+		while (!should_shutdown && !graphics_engine->has_presented_frame(next_render_frame_number - 1))
+		{
+			service_loading();
+			Utility::sleep(std::chrono::milliseconds(10));
+		}
+		service_loading();
+		if (should_shutdown) throw LoadingCancelled{};
+		if (initialize_scene) initialize_scene(*this);
+		if (should_shutdown) throw LoadingCancelled{};
 		application->on_begin(*this);
 		gizmo->init();
+		assets().set_loading_callbacks({}, {});
+		clear_input_state();
+		publish_completed_render_frame();
+		while (!should_shutdown && !graphics_engine->has_presented_frame(next_render_frame_number - 1))
+		{
+			service_loading();
+			Utility::sleep(std::chrono::milliseconds(10));
+		}
+		if (should_shutdown) throw LoadingCancelled{};
+		get_gui_manager().set_loading(false);
+		LOG_INFO(Utility::get_logger(), "GameEngine: startup loading complete");
 
 		Analytics analytics(
 			"GameEngine: avg loop processing period (excluding sleep)",
@@ -187,12 +247,16 @@ void GameEngine::run()
 
 			analytics.stop();
 		}
+    } catch (const LoadingCancelled&) {
+		// Close requests are serviced throughout CPU preparation.
     } catch (const std::exception& e) { // if an exception occurs in the game engine we need to cleanly shutdown graphics_engine first
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: {}\n", e.what());
 	} catch (...) {
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
 	}
 
+	assets().set_loading_callbacks({}, {});
+	get_gui_manager().set_loading(false);
 	shutdown();
 	graphics_engine_thread.join();
 }
@@ -210,7 +274,7 @@ void GameEngine::close_command_prompt()
 
 void GameEngine::main_loop(const float time_delta)
 {
-	window->poll_events();
+	poll_window_events();
 
 	const bool prompt_open = get_gui_manager().is_command_prompt_open();
 	if (prompt_open != command_prompt_active)

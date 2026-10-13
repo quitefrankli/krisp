@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <functional>
 #include <cassert>
+#include <atomic>
 
 
 template<typename Tag>
@@ -23,15 +24,23 @@ public:
 
 	static GenericID generate_new_id()
 	{
-		return GenericID(global_id++);
+		return GenericID(global_id.fetch_add(1, std::memory_order_relaxed));
 	}
 
-	static uint64_t get_next_id() { return global_id; }
-	static void set_next_id(const uint64_t next_id) { global_id = next_id; }
+	static uint64_t get_next_id() { return global_id.load(std::memory_order_relaxed); }
+	static void set_next_id(const uint64_t next_id) { global_id.store(next_id, std::memory_order_relaxed); }
+	static void raise_next_id(const uint64_t minimum)
+	{
+		uint64_t current = global_id.load(std::memory_order_relaxed);
+		while (current < minimum && !global_id.compare_exchange_weak(
+			current, minimum, std::memory_order_relaxed, std::memory_order_relaxed))
+		{
+		}
+	}
 
 private:
 	uint64_t id;
-	static inline uint64_t global_id = 0;
+	static inline std::atomic<uint64_t> global_id{ 0 };
 };
 
 template<typename Tag>

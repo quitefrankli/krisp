@@ -334,6 +334,37 @@ application-managed rigid body. Reuse live controllers rather than reconstructin
 them per frame. Application-requested planar velocity does not reset accumulated
 vertical velocity; gravity and vertical launches advance on fixed steps.
 
+## Responsive startup loading
+
+The GLFW window remains hidden during synchronous GameEngine and Vulkan-backed
+GraphicsEngine construction; the desktop-managed window first appears when
+`GameEngine::run()` starts. The loading overlay is presented before the startup
+scene callback and CPU asset preparation begin. Registered-source parsing and
+decode run on a CPU worker, while live ECS adoption and provenance updates stay
+on the game thread. Event polling continues at 10 ms intervals during worker
+waits, with an additional checkpoint between model mesh-node groups. Arbitrary
+consumer CPU work in the scene callback or `on_begin()` runs synchronously on the
+game thread without event pumping and should remain short.
+
+The graphics thread prepares the startup frame incrementally, with a limit of
+eight renderables or four milliseconds of cooperative renderable-upload work
+per draw iteration. Environment-lighting setup and skeleton-buffer preparation
+run before this budgeted loop. The time limit is checked between renderables;
+one Vulkan upload is not preemptible and can exceed it. This cooperative budget
+is not a hard real-time guarantee. The loading overlay remains until the
+graphics thread acknowledges presentation of the completed startup frame. These
+limits bound work between cooperative checkpoints, not total startup time. No
+startup frame-time, loading-time, or upload-size measurements have been
+recorded.
+
+CPU workers touch source-owned decode caches. The game thread owns live ECS,
+object, and provenance mutation; the graphics thread owns scene Vulkan
+realization and upload. A close or Escape request waits for an in-flight CPU
+preparation to finish while event polling continues, so worker-owned inputs
+remain alive until the task completes. Atomic `GenericID` allocation permits
+mesh and material construction on a worker while rendering allocates other
+material IDs.
+
 ## Registered asset decoding
 
 `AssetRegistry` retains decoded CPU data by registered source for the engine

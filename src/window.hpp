@@ -19,6 +19,8 @@ namespace App {
 
 		virtual void setup_callbacks(IWindowCallbacks& callbacks);
 		virtual void poll_events();
+		// Initialization finishes before the window becomes interactive.
+		virtual void show();
 		virtual bool should_close();
 		int get_width();
 		int get_height();

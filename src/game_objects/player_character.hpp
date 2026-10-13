@@ -68,6 +68,8 @@ public:
 	bool is_locomotion_enabled() const { return locomotion_enabled; }
 	bool play_action_animation(ECS& ecs, AnimationID animation);
 	bool is_moving() const { return moving; }
+	void set_noclip_enabled(ECS& ecs, bool enabled);
+	bool is_noclip_enabled(const ECS& ecs) const;
 	const PlayerDefinition& get_definition() const { return definition; }
 	void request_jump() { if (locomotion_enabled) jump_requested = true; }
 
@@ -89,4 +91,5 @@ private:
 	bool jump_requested = false;
 	bool was_airborne = false;
 	bool locomotion_enabled = true;
+	bool fallback_noclip = false;
 };

@@ -3,6 +3,7 @@
 #include "camera.hpp"
 #include "entity_component_system/ecs.hpp"
 
+#include <GLFW/glfw3.h>
 #include <stdexcept>
 #include <utility>
 
@@ -119,6 +120,27 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 		return;
 	}
 
+	if (is_noclip_enabled(ecs))
+	{
+		auto forward = camera.get_focus() - camera.get_desired_position();
+		forward = glm::length2(forward) > Maths::ACCEPTABLE_FLOATING_PT_DIFF
+			? glm::normalize(forward) : Maths::forward_vec;
+		auto right = glm::cross(Maths::up_vec, forward);
+		right = glm::length2(right) > Maths::ACCEPTABLE_FLOATING_PT_DIFF
+			? glm::normalize(right) : Maths::right_vec;
+		const auto [longitudinal, lateral] = movement_axes(keyboard.w_pressed(), keyboard.s_pressed(),
+			keyboard.d_pressed(), keyboard.a_pressed());
+		auto direction = static_cast<float>(longitudinal) * forward + static_cast<float>(lateral) * right;
+		direction.y += static_cast<float>(keyboard.is_pressed(GLFW_KEY_SPACE))
+			- static_cast<float>(keyboard.is_pressed(GLFW_KEY_LEFT_CONTROL) || keyboard.is_pressed(GLFW_KEY_RIGHT_CONTROL));
+		moving = glm::length2(direction) > Maths::ACCEPTABLE_FLOATING_PT_DIFF;
+		if (moving) direction = glm::normalize(direction);
+		jump_requested = false;
+		was_airborne = false;
+		update_movement(ecs, direction * definition.movement_speed, delta_secs);
+		return;
+	}
+
 	glm::vec3 forward = camera.get_focus() - camera.get_desired_position();
 	forward.y = 0.0f;
 	if (glm::length2(forward) <= Maths::ACCEPTABLE_FLOATING_PT_DIFF)
@@ -206,12 +228,30 @@ void PlayerCharacter::pre_update(const Keyboard& keyboard, const Camera& camera,
 	}
 }
 
+void PlayerCharacter::set_noclip_enabled(ECS& ecs, bool enabled)
+{
+	if (ecs.has_character_controller(get_id())) ecs.set_character_noclip(get_id(), enabled);
+	else fallback_noclip = enabled;
+	jump_requested = false;
+	was_airborne = false;
+}
+
+bool PlayerCharacter::is_noclip_enabled(const ECS& ecs) const
+{
+	return ecs.has_character_controller(get_id()) ? ecs.is_character_noclip(get_id()) : fallback_noclip;
+}
+
 void PlayerCharacter::update_movement(
 	ECS& ecs, const glm::vec3 desired_velocity, const float delta_secs)
 {
 	if (ecs.has_character_controller(get_id()))
 	{
 		ecs.set_character_desired_velocity(get_id(), desired_velocity);
+		return;
+	}
+	if (fallback_noclip)
+	{
+		ecs.set_position(get_id(), ecs.get_position(get_id()) + desired_velocity * delta_secs);
 		return;
 	}
 	resolve_horizontal_movement(ecs, desired_velocity * delta_secs);

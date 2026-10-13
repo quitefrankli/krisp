@@ -209,7 +209,7 @@ void SkeletalSystem::deserialize(const Deserializer& in, SceneResourceReader& re
 		})->first.get_underlying();
 		if (maximum == std::numeric_limits<std::uint64_t>::max())
 			throw SerializationError("Cannot advance SkeletonID counter beyond uint64 maximum");
-		SkeletonID::set_next_id(std::max(SkeletonID::get_next_id(), maximum + 1));
+		SkeletonID::raise_next_id(maximum + 1);
 	}
 	for (const auto& [id, _] : skeletons)
 		if (!restored.contains(id))
@@ -449,7 +449,7 @@ void SkeletalAnimationSystem::deserialize(const Deserializer& in, SceneResourceR
 		})->first.get_underlying();
 		if (maximum == std::numeric_limits<std::uint64_t>::max())
 			throw SerializationError("Cannot advance AnimationID counter beyond uint64 maximum");
-		AnimationID::set_next_id(std::max(AnimationID::get_next_id(), maximum + 1));
+		AnimationID::raise_next_id(maximum + 1);
 	}
 	animations = std::move(restored_animations);
 	active_animations = std::move(restored_active);

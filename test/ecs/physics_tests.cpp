@@ -590,6 +590,85 @@ TEST(JoltCharacterController, DesiredPlanarVelocityPreservesGravityAndZeroStepDo
 	EXPECT_EQ(ecs.get_character_velocity(character), velocity_after_step);
 }
 
+TEST(JoltCharacterController, NoclipMovesInThreeDimensionsThroughWallsAndLeavesOtherBodiesUnaffected)
+{
+	PhysicsECS ecs;
+	const auto floor = ecs.object.get_id();
+	const EntityID wall(7307), noclip(7308), normal(7309), dynamic_body(7317);
+	for (const EntityID id : {wall, noclip, normal, dynamic_body}) ecs.add_transformation(id);
+	ecs.set_position(floor, {0.0f, -0.1f, 0.0f});
+	ecs.add_rigid_body(floor, RigidBodyDefinition{.shape = BoxPhysicsShape{{10.0f, 0.1f, 10.0f}}});
+	ecs.set_position(wall, {0.0f, 2.0f, 0.0f});
+	ecs.set_position(noclip, {-2.0f, 2.0f, 0.0f});
+	ecs.set_position(normal, {-2.0f, 2.0f, 3.0f});
+	ecs.set_position(dynamic_body, {2.0f, 2.0f, 3.0f});
+	ecs.add_rigid_body(wall, RigidBodyDefinition{.shape = BoxPhysicsShape{{0.1f, 2.0f, 4.0f}}});
+	ecs.add_rigid_body(dynamic_body, RigidBodyDefinition{
+		.shape = SpherePhysicsShape{0.25f}, .motion = PhysicsMotionType::Dynamic,
+	});
+	ecs.add_character_controller(noclip, test_character_controller());
+	ecs.add_character_controller(normal, test_character_controller());
+	ecs.PhysicsSystem::set_character_noclip(noclip, true);
+	ASSERT_TRUE(ecs.PhysicsSystem::is_character_noclip(noclip));
+	EXPECT_FALSE(ecs.PhysicsSystem::is_character_noclip(normal));
+
+	const auto normal_start = ecs.get_position(normal);
+	const auto body_start = ecs.get_position(dynamic_body);
+	ecs.set_character_desired_velocity(noclip, {3.0f, 2.0f, 0.0f});
+	ecs.set_character_desired_velocity(normal, {3.0f, 2.0f, 0.0f});
+	for (int frame = 0; frame < 60; ++frame) ecs.process(1.0f / 60.0f);
+
+	EXPECT_GT(ecs.get_position(noclip).x, 0.5f);
+	EXPECT_GT(ecs.get_position(noclip).y, 3.5f);
+	EXPECT_NEAR(ecs.get_character_velocity(noclip).y, 2.0f, 0.05f);
+	EXPECT_LT(ecs.get_position(normal).x, -0.45f);
+	EXPECT_LT(ecs.get_position(normal).y, normal_start.y);
+	EXPECT_LT(ecs.get_position(dynamic_body).y, body_start.y);
+	EXPECT_FALSE(ecs.is_character_grounded(noclip));
+	EXPECT_FALSE(ecs.launch_character(noclip, 5.0f));
+	EXPECT_TRUE(ecs.PhysicsSystem::raycast(Maths::Ray({1.0f, 6.0f, 0.0f}, {0.0f, -1.0f, 0.0f})).bCollided);
+
+	// The proxy remains available to ray picking, while sphere sweeps pass through it.
+	const auto sweep = ecs.PhysicsSystem::sphere_sweep(
+		{1.0f, 6.0f, 0.0f}, {0.0f, -4.0f, 0.0f}, 0.1f);
+	EXPECT_FALSE(sweep);
+}
+
+TEST(JoltCharacterController, DisablingNoclipRestoresGravityAndWallCollisionAndTeleportPreservesMode)
+{
+	PhysicsECS ecs;
+	const auto floor = ecs.object.get_id();
+	const EntityID wall(7318), character(7319);
+	for (const EntityID id : {wall, character}) ecs.add_transformation(id);
+	ecs.set_position(floor, {0.0f, -0.1f, 0.0f});
+	ecs.add_rigid_body(floor, RigidBodyDefinition{.shape = BoxPhysicsShape{{10.0f, 0.1f, 10.0f}}});
+	ecs.set_position(wall, {0.0f, 2.0f, 0.0f});
+	ecs.set_position(character, {-2.0f, 2.0f, 0.0f});
+	ecs.add_rigid_body(wall, RigidBodyDefinition{.shape = BoxPhysicsShape{{0.1f, 2.0f, 2.0f}}});
+	ecs.add_character_controller(character, test_character_controller());
+	ecs.PhysicsSystem::set_character_noclip(character, true);
+	ecs.set_character_desired_velocity(character, {3.0f, 0.0f, 0.0f});
+	for (int frame = 0; frame < 60; ++frame) ecs.process(1.0f / 60.0f);
+	ASSERT_GT(ecs.get_position(character).x, 0.5f);
+
+	ecs.teleport_character_controller(character, {-2.0f, 3.0f, 0.0f});
+	EXPECT_TRUE(ecs.PhysicsSystem::is_character_noclip(character));
+	EXPECT_EQ(ecs.get_character_velocity(character), glm::vec3(0.0f));
+	ecs.set_character_desired_velocity(character, {3.0f, 0.0f, 0.0f});
+	for (int frame = 0; frame < 60; ++frame) ecs.process(1.0f / 60.0f);
+	EXPECT_GT(ecs.get_position(character).x, 0.5f);
+
+	ecs.teleport_character_controller(character, {-2.0f, 3.0f, 0.0f});
+	ecs.PhysicsSystem::set_character_noclip(character, false);
+	EXPECT_FALSE(ecs.PhysicsSystem::is_character_noclip(character));
+	EXPECT_EQ(ecs.get_character_velocity(character), glm::vec3(0.0f));
+	ecs.set_character_desired_velocity(character, {3.0f, 0.0f, 0.0f});
+	for (int frame = 0; frame < 90; ++frame) ecs.process(1.0f / 60.0f);
+	EXPECT_LT(ecs.get_position(character).x, -0.45f);
+	EXPECT_LT(ecs.get_position(character).y, 2.5f);
+	EXPECT_TRUE(ecs.is_character_grounded(character));
+}
+
 TEST(JoltCharacterController, LaunchIsGroundedOnlyAndAllowsRelaunchAfterLanding)
 {
 	PhysicsECS ecs;
@@ -717,6 +796,45 @@ TEST(JoltCharacterController, SupportsWalkableSlopeWallAndLowStep)
 	EXPECT_LT(ecs.get_position(character).x, 4.7f);
 }
 
+TEST(JoltCharacterController, StationaryCharacterDoesNotDriftOnWalkableTriangleMeshSlope)
+{
+	PhysicsECS ecs;
+	const EntityID slope(7315), character(7316);
+	ecs.add_transformation(slope);
+	ecs.add_transformation(character);
+	constexpr float slope_tangent = 0.57735026919f;
+	ecs.add_rigid_body(slope, RigidBodyDefinition{
+		.shape = TriangleMeshPhysicsShape{
+			.vertices = {
+				{-10.0f, -10.0f * slope_tangent, -10.0f},
+				{10.0f, -10.0f * slope_tangent, -10.0f},
+				{10.0f, 10.0f * slope_tangent, 10.0f},
+				{-10.0f, 10.0f * slope_tangent, 10.0f},
+			},
+			.indices = {0, 2, 1, 0, 3, 2},
+		},
+	});
+	ecs.add_character_controller(character, test_character_controller());
+	for (int frame = 0; frame < 180; ++frame) ecs.process(1.0f / 60.0f);
+	ASSERT_TRUE(ecs.is_character_grounded(character));
+	const auto settled_position = ecs.get_position(character);
+
+	auto expect_stays_at = [&](glm::vec3 position) {
+		float maximum_displacement = 0.0f;
+		for (int frame = 0; frame < 90; ++frame)
+		{
+			ecs.process(1.0f / 60.0f);
+			maximum_displacement = std::max(maximum_displacement, glm::length(ecs.get_position(character) - position));
+		}
+		EXPECT_TRUE(ecs.is_character_grounded(character));
+		EXPECT_LT(maximum_displacement, 0.001f);
+	};
+	expect_stays_at(settled_position);
+
+	ecs.teleport_character_controller(character, settled_position);
+	expect_stays_at(settled_position);
+}
+
 TEST(JoltCharacterController, ValidatesDefinitionsAndEnforcesExclusiveBodyOwnership)
 {
 	PhysicsECS ecs;
@@ -798,6 +916,39 @@ TEST(JoltCharacterControllerSerialization, RestoresGroundedAndMidairControllerSt
 	EXPECT_FALSE(restored.is_character_grounded(airborne));
 	EXPECT_EQ(restored.get_character_velocity(airborne), airborne_velocity);
 	EXPECT_NEAR(restored.get_position(grounded).y, 0.0f, 0.05f);
+}
+
+TEST(JoltCharacterControllerSerialization, NoclipRuntimeStateIsResetWhenRestored)
+{
+	PhysicsECS source;
+	const EntityID character(7340);
+	const auto floor = source.object.get_id();
+	source.set_position(floor, {0.0f, -0.1f, 0.0f});
+	source.add_rigid_body(floor, RigidBodyDefinition{.shape = BoxPhysicsShape{{10.0f, 0.1f, 10.0f}}});
+	source.add_transformation(character);
+	source.set_position(character, {0.0f, 5.0f, 0.0f});
+	source.add_character_controller(character, test_character_controller());
+	source.PhysicsSystem::set_character_noclip(character, true);
+	source.set_character_desired_velocity(character, {1.0f, 2.0f, 0.0f});
+	source.process(1.0f / 60.0f);
+
+	Serializer serialized;
+	source.TransformationSystem::serialize(serialized);
+	source.PhysicsSystem::serialize(serialized);
+	const auto saved = Deserializer::parse(serialized.emit());
+	const auto controller = saved.child("physics_system").child("character_controllers").elements().front();
+	EXPECT_EQ(Serialization::read_vec3(controller, "desired_velocity"), glm::vec3(0.0f));
+	EXPECT_EQ(Serialization::read_vec3(controller, "linear_velocity"), glm::vec3(0.0f));
+
+	PhysicsECS restored;
+	restored.TransformationSystem::deserialize(saved);
+	restored.PhysicsSystem::deserialize(saved);
+	ASSERT_TRUE(restored.has_character_controller(character));
+	EXPECT_FALSE(restored.PhysicsSystem::is_character_noclip(character));
+	EXPECT_EQ(restored.get_character_velocity(character), glm::vec3(0.0f));
+	for (int frame = 0; frame < 120; ++frame) restored.process(1.0f / 60.0f);
+	EXPECT_TRUE(restored.is_character_grounded(character));
+	EXPECT_NEAR(restored.get_position(character).y, 0.0f, 0.05f);
 }
 
 TEST(JoltCharacterControllerSerialization, MalformedControllerRestorePreservesExistingState)

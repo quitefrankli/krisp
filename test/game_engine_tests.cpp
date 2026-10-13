@@ -29,6 +29,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <thread>
 
 
 class GameEngineTestsMockGraphicsEngine : public MockGraphicsEngine
@@ -178,6 +179,171 @@ const RenderSkeletonPose& find_render_skeleton(const RenderFrame& frame, const S
 		throw std::runtime_error("render skeleton not found");
 	return *found;
 }
+}
+
+namespace
+{
+struct StartupFlowState
+{
+	GameEngine* engine = nullptr;
+	std::size_t poll_count = 0;
+	std::size_t close_on_poll = 0;
+	bool saw_loading_during_poll = false;
+	bool initialize_called = false;
+	bool startup_callback_on_owner_thread = false;
+	bool asset_load_started = false;
+	bool saw_loading_during_asset_load = false;
+	bool asset_load_completed = false;
+	bool on_begin_called = false;
+	bool on_begin_saw_completed_asset_load = false;
+	bool all_polls_on_owner_thread = true;
+	std::thread::id owner_thread;
+};
+
+class StartupFlowWindow : public App::Window
+{
+public:
+	explicit StartupFlowWindow(std::shared_ptr<StartupFlowState> state) :
+		Window(false), state(std::move(state))
+	{}
+
+	void poll_events() override
+	{
+		++state->poll_count;
+		state->all_polls_on_owner_thread &= std::this_thread::get_id() == state->owner_thread;
+		if (state->engine && state->engine->get_gui_manager().is_loading())
+		{
+			state->saw_loading_during_poll = true;
+			state->saw_loading_during_asset_load |= state->asset_load_started;
+		}
+	}
+
+	bool should_close() override
+	{
+		return state->close_on_poll != 0 && state->poll_count >= state->close_on_poll;
+	}
+
+private:
+	std::shared_ptr<StartupFlowState> state;
+};
+
+class StartupFlowApplication : public DummyApplication
+{
+public:
+	explicit StartupFlowApplication(std::shared_ptr<StartupFlowState> state) :
+		state(std::move(state))
+	{}
+
+	void on_begin(GameEngine& engine) override
+	{
+		state->on_begin_called = true;
+		state->on_begin_saw_completed_asset_load = state->asset_load_completed;
+		engine.shutdown();
+	}
+
+private:
+	std::shared_ptr<StartupFlowState> state;
+};
+
+class StartupFlowTestEngine : public GameEngine
+{
+public:
+	explicit StartupFlowTestEngine(const std::shared_ptr<StartupFlowState>& state) :
+		GameEngine(
+			std::make_unique<StartupFlowWindow>(state),
+			std::make_unique<StartupFlowApplication>(state),
+			std::make_unique<GameEngineTestsMockGraphicsEngine>())
+	{
+		state->engine = this;
+		state->owner_thread = std::this_thread::get_id();
+	}
+};
+}
+
+TEST(GameEngineStartup, loads_assets_responsively_before_application_begin)
+{
+	auto state = std::make_shared<StartupFlowState>();
+	StartupFlowTestEngine engine(state);
+
+	engine.run([&](GameEngine& startup_engine) {
+		state->initialize_called = true;
+		state->startup_callback_on_owner_thread = std::this_thread::get_id() == state->owner_thread;
+		state->asset_load_started = true;
+		const auto registered = startup_engine.assets().load_asset("simple_test_model.gltf");
+		EXPECT_FALSE(registered.empty());
+		const auto loaded = startup_engine.assets().instantiate_model(
+			startup_engine.get_ecs(), AssetRegistry::default_assembly(registered));
+		EXPECT_FALSE(loaded.meshes.empty());
+		state->asset_load_completed = true;
+	});
+
+	EXPECT_TRUE(state->initialize_called);
+	EXPECT_TRUE(state->startup_callback_on_owner_thread);
+	EXPECT_TRUE(state->asset_load_completed);
+	EXPECT_TRUE(state->on_begin_called);
+	EXPECT_TRUE(state->on_begin_saw_completed_asset_load);
+	EXPECT_GE(state->poll_count, 2u);
+	EXPECT_TRUE(state->saw_loading_during_poll);
+	EXPECT_TRUE(state->saw_loading_during_asset_load);
+	EXPECT_TRUE(state->all_polls_on_owner_thread);
+	EXPECT_FALSE(engine.get_gui_manager().is_loading());
+}
+
+TEST(GameEngineStartup, restores_imported_model_during_startup)
+{
+	TestableGameEngine source_engine;
+	const auto source_assets = source_engine.assets().load_asset("simple_test_model.gltf");
+	const auto source_model = source_engine.assets().instantiate_model(
+		source_engine.get_ecs(), AssetRegistry::default_assembly(source_assets));
+	ASSERT_FALSE(source_model.meshes.empty());
+	ASSERT_FALSE(source_model.meshes.front().renderables.empty());
+	const auto* source_provenance = ResourceProvenance::mesh(
+		source_model.meshes.front().renderables.front().mesh_owner->get_id());
+	ASSERT_NE(source_provenance, nullptr);
+	const auto provenance = *source_provenance;
+
+	auto state = std::make_shared<StartupFlowState>();
+	StartupFlowTestEngine engine(state);
+	engine.run([&](GameEngine& startup_engine) {
+		state->initialize_called = true;
+		state->startup_callback_on_owner_thread = std::this_thread::get_id() == state->owner_thread;
+		state->asset_load_started = true;
+		const auto restored = startup_engine.assets().restore_model(
+			startup_engine.get_ecs(), provenance);
+		EXPECT_FALSE(restored.meshes.empty());
+		state->asset_load_completed = true;
+	});
+
+	EXPECT_TRUE(state->initialize_called);
+	EXPECT_TRUE(state->startup_callback_on_owner_thread);
+	EXPECT_TRUE(state->asset_load_completed);
+	EXPECT_TRUE(state->on_begin_called);
+	EXPECT_TRUE(state->on_begin_saw_completed_asset_load);
+	EXPECT_TRUE(state->saw_loading_during_asset_load);
+	EXPECT_TRUE(state->all_polls_on_owner_thread);
+	EXPECT_FALSE(engine.get_gui_manager().is_loading());
+}
+
+TEST(GameEngineStartup, close_during_asset_loading_cancels_startup)
+{
+	auto state = std::make_shared<StartupFlowState>();
+	state->close_on_poll = 2;
+	StartupFlowTestEngine engine(state);
+
+	engine.run([&](GameEngine& startup_engine) {
+		state->initialize_called = true;
+		state->asset_load_started = true;
+		startup_engine.assets().load_asset("simple_test_model.gltf");
+		state->asset_load_completed = true;
+	});
+
+	EXPECT_TRUE(state->initialize_called);
+	EXPECT_FALSE(state->asset_load_completed);
+	EXPECT_FALSE(state->on_begin_called);
+	EXPECT_TRUE(state->saw_loading_during_poll);
+	EXPECT_TRUE(state->saw_loading_during_asset_load);
+	EXPECT_TRUE(state->all_polls_on_owner_thread);
+	EXPECT_FALSE(engine.get_gui_manager().is_loading());
 }
 
 TEST_F(GameEngineTests, Constructor)
@@ -526,6 +692,112 @@ TEST_F(GameEngineTests, normal_mode_routes_movement_to_the_active_player)
 		engine.get_camera().get_focus(),
 		engine.get_ecs().get_position(player.get_id()) + definition.camera_focus_offset
 			+ camera_right * definition.camera_horizontal_offset));
+}
+
+TEST_F(GameEngineTests, noclip_command_toggles_only_the_active_player_and_validates_arguments)
+{
+	auto& first = engine.spawn_object<PlayerCharacter>(PlayerDefinition{});
+	auto& second = engine.spawn_object<PlayerCharacter>(PlayerDefinition{});
+	engine.get_ecs().add_character_controller(first.get_id());
+	engine.get_ecs().add_character_controller(second.get_id());
+
+	EXPECT_EQ(engine.get_commands().execute(engine, "noclip"), "No active player.");
+	EXPECT_FALSE(engine.get_ecs().is_character_noclip(first.get_id()));
+	EXPECT_FALSE(engine.get_ecs().is_character_noclip(second.get_id()));
+	EXPECT_EQ(engine.get_commands().execute(engine, "noclip on"), "Usage: noclip");
+
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	ASSERT_EQ(engine.get_active_player(), &first);
+	const auto help = engine.get_commands().execute(engine, "help");
+	EXPECT_NE(help.find("noclip - Toggle active-player collision and gravity"), std::string::npos);
+	EXPECT_EQ(engine.get_commands().execute(engine, "noclip"), "Noclip enabled.");
+	EXPECT_TRUE(engine.get_ecs().is_character_noclip(first.get_id()));
+	EXPECT_FALSE(engine.get_ecs().is_character_noclip(second.get_id()));
+	EXPECT_EQ(engine.get_commands().execute(engine, "noclip extra"), "Usage: noclip");
+	EXPECT_TRUE(engine.get_ecs().is_character_noclip(first.get_id()));
+
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	ASSERT_EQ(engine.get_active_player(), &second);
+	EXPECT_EQ(engine.get_commands().execute(engine, "noclip"), "Noclip enabled.");
+	EXPECT_TRUE(engine.get_ecs().is_character_noclip(first.get_id()));
+	EXPECT_TRUE(engine.get_ecs().is_character_noclip(second.get_id()));
+	EXPECT_EQ(engine.get_commands().execute(engine, "noclip"), "Noclip disabled.");
+	EXPECT_TRUE(engine.get_ecs().is_character_noclip(first.get_id()));
+	EXPECT_FALSE(engine.get_ecs().is_character_noclip(second.get_id()));
+}
+
+TEST_F(GameEngineTests, noclip_input_moves_controller_in_three_dimensions_without_gravity)
+{
+	PlayerDefinition definition;
+	definition.movement_speed = 2.0f;
+	auto& player = engine.spawn_object<PlayerCharacter>(definition);
+	engine.get_ecs().add_character_controller(player.get_id());
+	engine.get_camera().look_at(Maths::forward_vec, { 0.0f, 0.0f, -2.0f });
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.get_ecs().set_character_noclip(player.get_id(), true);
+	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.key_callback({ GLFW_KEY_SPACE, EKeyModifier::NONE, EInputAction::PRESS });
+
+	for (int frame = 0; frame < 30; ++frame)
+		engine.main_loop(1.0f / 60.0f);
+
+	const glm::vec3 position = engine.get_ecs().get_position(player.get_id());
+	EXPECT_GT(position.z, 0.5f);
+	EXPECT_GT(position.y, 0.5f);
+	EXPECT_FALSE(engine.get_ecs().is_character_grounded(player.get_id()));
+	EXPECT_FALSE(engine.get_ecs().launch_character(player.get_id(), definition.jump_speed));
+}
+
+TEST_F(GameEngineTests, noclip_forward_movement_follows_camera_pitch)
+{
+	PlayerDefinition definition;
+	definition.movement_speed = 2.0f;
+	auto& player = engine.spawn_object<PlayerCharacter>(definition);
+	engine.get_ecs().add_character_controller(player.get_id());
+	engine.get_camera().look_at({ 0.0f, 2.0f, 5.0f }, Maths::zero_vec);
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	player.set_noclip_enabled(engine.get_ecs(), true);
+	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+
+	for (int frame = 0; frame < 30; ++frame)
+		engine.main_loop(1.0f / 60.0f);
+
+	const glm::vec3 position = engine.get_ecs().get_position(player.get_id());
+	EXPECT_GT(position.y, 0.2f);
+	EXPECT_GT(position.z, 0.5f);
+}
+
+TEST_F(GameEngineTests, noclip_input_moves_controller_down_with_left_control)
+{
+	auto& player = engine.spawn_object<PlayerCharacter>(PlayerDefinition{});
+	engine.get_ecs().add_character_controller(player.get_id());
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.get_ecs().set_character_noclip(player.get_id(), true);
+	engine.key_callback({ GLFW_KEY_LEFT_CONTROL, EKeyModifier::NONE, EInputAction::PRESS });
+
+	for (int frame = 0; frame < 30; ++frame)
+		engine.main_loop(1.0f / 60.0f);
+
+	EXPECT_LT(engine.get_ecs().get_position(player.get_id()).y, -0.5f);
+}
+
+TEST_F(GameEngineTests, noclip_input_moves_a_player_without_a_controller_in_three_dimensions)
+{
+	PlayerDefinition definition;
+	definition.movement_speed = 2.0f;
+	auto& player = engine.spawn_object<PlayerCharacter>(definition);
+	engine.get_camera().look_at(Maths::forward_vec, { 0.0f, 0.0f, -2.0f });
+	engine.key_callback({ GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS });
+	player.set_noclip_enabled(engine.get_ecs(), true);
+	engine.key_callback({ GLFW_KEY_W, EKeyModifier::NONE, EInputAction::PRESS });
+	engine.key_callback({ GLFW_KEY_SPACE, EKeyModifier::NONE, EInputAction::PRESS });
+
+	engine.main_loop(0.5f);
+
+	const glm::vec3 position = engine.get_ecs().get_position(player.get_id());
+	EXPECT_GT(position.z, 0.5f);
+	EXPECT_GT(position.y, 0.5f);
 }
 
 TEST_F(GameEngineTests, player_controller_jumps_falls_lands_resumes_and_falls_after_stepping_off)

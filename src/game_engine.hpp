@@ -117,7 +117,9 @@ protected:
 			   std::unique_ptr<GraphicsEngineBase> graphics_engine);
 
 public:
-	void run();
+	// Startup scene construction and on_begin run with responsive resource loading.
+	// Scene/ECS integration stays on this thread; asset preparation uses a worker.
+	void run(std::function<void(GameEngine&)> initialize_scene = {});
 	void main_loop(const float time_delta);
 	void shutdown() { shutdown_impl(); }
 	void reset_scene();
@@ -211,6 +213,8 @@ private:
 
 private:
 	void init();
+	void poll_window_events();
+	void service_loading();
 	void configure_ecs();
 	void reset_scene_state();
 	void shutdown_impl();

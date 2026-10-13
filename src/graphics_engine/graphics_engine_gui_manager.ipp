@@ -89,6 +89,39 @@ void GraphicsEngineGuiManager::draw()
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
+	if (engine_ui_manager.is_loading())
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->Pos, ImGuiCond_Always);
+		ImGui::SetNextWindowSize(viewport->Size, ImGuiCond_Always);
+		ImGui::SetNextWindowViewport(viewport->ID);
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.055f, 0.060f, 0.075f, 1.0f));
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		constexpr ImGuiWindowFlags loading_flags =
+			ImGuiWindowFlags_NoDecoration |
+			ImGuiWindowFlags_NoMove |
+			ImGuiWindowFlags_NoSavedSettings |
+			ImGuiWindowFlags_NoInputs |
+			ImGuiWindowFlags_NoNav |
+			ImGuiWindowFlags_NoBringToFrontOnFocus;
+		if (ImGui::Begin("Loading###loading", nullptr, loading_flags))
+		{
+			constexpr const char* message = "Loading...";
+			const ImVec2 text_size = ImGui::CalcTextSize(message);
+			const ImVec2 window_size = ImGui::GetWindowSize();
+			ImGui::SetCursorPos(ImVec2(
+				(window_size.x - text_size.x) * 0.5f,
+				(window_size.y - text_size.y) * 0.5f));
+			ImGui::TextUnformatted(message);
+		}
+		ImGui::End();
+		ImGui::PopStyleVar(3);
+		ImGui::PopStyleColor();
+		ImGui::Render();
+		return;
+	}
 	const bool exclusive = application_ui_manager && application_ui_manager->get_exclusive_window();
 	if (!exclusive && engine_ui_active.load(std::memory_order_acquire))
 	{

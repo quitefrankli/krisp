@@ -156,6 +156,15 @@ public:
 	                const std::function<std::string(AssetKind, const AssetSelector &)> &author_name);
 
 private:
+	friend class GameEngine;
+	// Synchronous executor: prepares source-owned CPU caches only, then returns.
+	// The owning game thread can service loading while the worker is busy.
+	void set_loading_callbacks(std::function<void(std::function<void()>)> execute_cpu,
+	                           std::function<void()> checkpoint);
+	void execute_cpu(std::function<void()> work);
+	void prepare_entry(const std::shared_ptr<AssetEntry>&,
+	                   ETextureSemantic semantic = ETextureSemantic::BASE_COLOR);
+	std::vector<Asset> load_asset_impl(std::string_view, const AssetLoadOptions&);
 	struct State;
 	std::unique_ptr<State> state;
 	std::shared_ptr<AssetEntry> find_entry(std::string_view, AssetKind) const;

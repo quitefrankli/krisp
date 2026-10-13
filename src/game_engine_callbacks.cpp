@@ -25,6 +25,11 @@
 
 void GameEngine::key_callback(const KeyInput& key_input)
 {
+	if (get_gui_manager().is_loading())
+	{
+		if (key_input.eq(GLFW_KEY_ESCAPE, EKeyModifier::NONE, EInputAction::PRESS)) shutdown();
+		return;
+	}
 	using enum EKeyModifier;
 	using enum EInputAction;
 
@@ -81,6 +86,7 @@ void GameEngine::key_callback(const KeyInput& key_input)
 
 void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_wants_input)
 {
+	if (get_gui_manager().is_loading()) return;
 	if (get_gui_manager().is_command_prompt_open()) return;
 	using enum EMouseButton;
 	using enum EInputAction;
@@ -151,6 +157,7 @@ void GameEngine::mouse_button_callback(const MouseInput& mouse_input, bool gui_w
 
 void GameEngine::scroll_callback(const double yoffset, const bool gui_wants_input)
 {
+	if (get_gui_manager().is_loading()) return;
 	if (get_gui_manager().is_command_prompt_open()) return;
 	if (gui_wants_input && game_mode != EGameMode::NORMAL)
 		return;

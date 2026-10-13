@@ -61,6 +61,11 @@ public:
 	virtual ~GraphicsEngine() override;
 
 	void run() final;
+	bool has_presented_frame(uint64_t number) const final
+	{
+		return has_presented.load(std::memory_order_acquire)
+			&& presented_frame_number.load(std::memory_order_acquire) >= number;
+	}
 	void request_shutdown() final
 	{
 		should_shutdown.store(true, std::memory_order_release);
@@ -126,6 +131,11 @@ public: // getters and setters
 
 private:
 	std::atomic<bool> should_shutdown = false;
+	std::atomic<bool> has_presented = false;
+	std::atomic<uint64_t> presented_frame_number = 0;
+	RenderFramePtr loading_frame;
+	size_t loading_renderable_index = 0;
+	std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>> loading_renderables;
 	VkQueue graphics_queue;
 	VkQueue present_queue;
 	std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>> renderables;
@@ -212,6 +222,8 @@ private:
 	void accept_latest_render_frame();
 	void configure_environment_lighting(const RenderFrame& frame);
 	void reconcile_topology(const RenderFrame& frame);
+	void prepare_skeleton_buffers(const RenderFrame& frame);
+	bool prepare_loading_frame(const RenderFramePtr& frame);
 	void retire_unused_resources();
 	void enqueue_retirement(RetiredGraphicsResources resources);
 	void release_retired_resources(RetiredGraphicsResources resources);

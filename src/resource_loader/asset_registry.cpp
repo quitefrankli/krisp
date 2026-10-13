@@ -211,6 +211,8 @@ struct AssetRegistry::State
 	std::map<std::string, std::shared_ptr<AssetSource>, std::less<>> sources;
 	mutable std::recursive_mutex mutex;
 	std::vector<std::shared_ptr<AssetEntry>> entries;
+	std::function<void(std::function<void()>)> execute_cpu;
+	std::function<void()> checkpoint;
 };
 
 namespace
@@ -627,7 +629,69 @@ AssetRegistry::describe_source(std::string_view source,
 	return result;
 }
 
+void AssetRegistry::set_loading_callbacks(std::function<void(std::function<void()>)> execute_cpu,
+                                          std::function<void()> checkpoint)
+{
+	state->execute_cpu = std::move(execute_cpu);
+	state->checkpoint = std::move(checkpoint);
+}
+
+void AssetRegistry::execute_cpu(std::function<void()> work)
+{
+	if (state->execute_cpu) state->execute_cpu(std::move(work));
+	else work();
+}
+
+void AssetRegistry::prepare_entry(const std::shared_ptr<AssetEntry>& entry, ETextureSemantic semantic)
+{
+	// Only source-local stores are touched here. Live ECS stores and provenance
+	// are updated by the acquire/instantiate methods after preparation completes.
+	if (!state->execute_cpu) return;
+	bool ready = false;
+	{
+		const std::lock_guard lock(entry->source->mutex);
+		const auto& definition = entry->definition;
+		const auto& data = entry->source->documents.at(definition.member);
+		const auto& selector = definition.selector;
+		switch (definition.kind)
+		{
+		case AssetKind::Mesh:
+		case AssetKind::Assembly: {
+			const int scene = selector.scene < 0 ? data.metadata.value("scene", 0) : selector.scene;
+			const auto found = data.models.find(scene);
+			ready = found != data.models.end() && static_cast<bool>(found->second);
+			break;
+		}
+		case AssetKind::Material: {
+			const auto found = data.materials.find(selector.material);
+			ready = found != data.materials.end() && !found->second.empty();
+			break;
+		}
+		case AssetKind::Texture: {
+			const auto found = data.images.find({selector.image, semantic});
+			ready = found != data.images.end() && static_cast<bool>(found->second);
+			break;
+		}
+		case AssetKind::Skeleton: ready = data.skeletons.contains(selector.skin); break;
+		case AssetKind::Animation: ready = data.animations.contains({selector.animation, selector.skin}); break;
+		}
+	}
+	if (!ready) execute_cpu([entry, semantic] {
+		if (entry->definition.kind == AssetKind::Texture) {
+			const std::lock_guard lock(entry->source->mutex);
+			texture_data(entry, semantic);
+		} else materialize(entry);
+	});
+}
+
 std::vector<Asset> AssetRegistry::load_asset(std::string_view path, const AssetLoadOptions &options)
+{
+	std::vector<Asset> result;
+	execute_cpu([&] { result = load_asset_impl(path, options); });
+	return result;
+}
+
+std::vector<Asset> AssetRegistry::load_asset_impl(std::string_view path, const AssetLoadOptions &options)
 {
 	const std::lock_guard lock(state->mutex);
 	try
@@ -785,6 +849,7 @@ MaterialHandle AssetRegistry::acquire_texture(MaterialSystem &store, const Textu
 {
 	if (!handle)
 		throw ResourceLoadError("Empty texture asset handle");
+	prepare_entry(handle.entry, semantic);
 	const std::lock_guard lock(handle.entry->source->mutex);
 	auto owner = texture_data(handle.entry, semantic);
 	auto result = store.add_shared(owner->shared_content());
@@ -799,6 +864,7 @@ MeshHandle AssetRegistry::acquire_mesh(MeshSystem &store, const MeshAssetHandle 
 {
 	if (!handle)
 		throw ResourceLoadError("Empty mesh asset handle");
+	prepare_entry(handle.entry);
 	const std::lock_guard lock(handle.entry->source->mutex);
 	auto owner = mesh_data(handle.entry);
 	auto result = store.add_shared(owner->shared_content());
@@ -810,6 +876,7 @@ std::vector<MaterialHandle> AssetRegistry::acquire_material(MaterialSystem &stor
 {
 	if (!handle)
 		throw ResourceLoadError("Empty material asset handle");
+	prepare_entry(handle.entry);
 	const std::lock_guard lock(handle.entry->source->mutex);
 	std::vector<MaterialHandle> result;
 	for (const auto &owner : material_data(handle.entry))
@@ -833,6 +900,7 @@ SkeletonID AssetRegistry::instantiate_skeleton(ECS &ecs, const SkeletonAssetHand
 {
 	if (!handle)
 		throw ResourceLoadError("Empty skeleton asset handle");
+	prepare_entry(handle.entry);
 	const std::lock_guard lock(handle.entry->source->mutex);
 	auto id = ecs.add_skeleton(skeleton_data(handle.entry));
 	ResourceProvenance::register_skeleton(id, selected_provenance(*handle.entry));
@@ -843,6 +911,7 @@ AnimationID AssetRegistry::bind_animation(ECS &ecs, const AnimationAssetHandle &
 {
 	if (!handle)
 		throw ResourceLoadError("Empty animation asset handle");
+	prepare_entry(handle.entry);
 	const std::lock_guard lock(handle.entry->source->mutex);
 	const auto &clip = animation_data(handle.entry);
 	const auto &source = skeleton_data(handle.entry);
@@ -872,7 +941,8 @@ ResourceLoader::LoadedModel AssetRegistry::instantiate_model(ECS &ecs, const Ass
 {
 	if (!handle)
 		throw ResourceLoadError("Empty assembly asset handle");
-	const std::lock_guard lock(handle.entry->source->mutex);
+	prepare_entry(handle.entry);
+	std::unique_lock lock(handle.entry->source->mutex);
 	auto &decoded = decoded_model(handle.entry);
 	ResourceLoader::LoadedModel result = decoded.model;
 	std::optional<ResourceLoader::DecodedModel> remapped;
@@ -891,16 +961,23 @@ ResourceLoader::LoadedModel AssetRegistry::instantiate_model(ECS &ecs, const Ass
 			auto options = handle.entry->source->options.import;
 			options.scene_index = handle.entry->definition.selector.scene;
 			options.target_skeleton = target;
-			remapped = ResourceLoader::decode_model(
-				handle.entry->source->document(handle.entry->definition.member), handle.entry->source->path, options,
-				handle.entry->source->meshes, handle.entry->source->materials, &bones,
-				&handle.entry->source->documents.at(handle.entry->definition.member).material_decoder);
+			const auto target_bones = bones;
+			lock.unlock();
+			execute_cpu([&] {
+				const std::lock_guard source_lock(handle.entry->source->mutex);
+				remapped = ResourceLoader::decode_model(
+					handle.entry->source->document(handle.entry->definition.member), handle.entry->source->path, options,
+					handle.entry->source->meshes, handle.entry->source->materials, &target_bones,
+					&handle.entry->source->documents.at(handle.entry->definition.member).material_decoder);
+			});
+			lock.lock();
 			result = remapped->model;
 		}
 	}
 	const auto &actual = remapped ? *remapped : decoded;
 	for (auto &mesh : result.meshes)
 	{
+		if (state->checkpoint) state->checkpoint();
 		if (mesh.source_skin >= 0)
 		{
 			mesh.skeleton_id = target ? *target : ecs.add_skeleton(actual.skins.at(mesh.source_skin));
@@ -930,7 +1007,7 @@ ResourceLoader::LoadedModel AssetRegistry::instantiate_model(ECS &ecs, const Ass
 
 std::vector<Asset> AssetRegistry::restore_registration(const ImportedResourceProvenance &p)
 {
-	const std::lock_guard lock(state->mutex);
+	std::unique_lock lock(state->mutex);
 	if (const auto existing = state->sources.find(p.source); existing != state->sources.end())
 	{
 		if (existing->second->registration != p.registration && *existing->second->registration != registration_text(p))
@@ -953,7 +1030,10 @@ std::vector<Asset> AssetRegistry::restore_registration(const ImportedResourcePro
 	}
 	else
 		std::erase_if(options.exports, [](const auto &e) { return e.name.empty(); });
+	// Registration may use a CPU worker; it acquires the registry mutex itself.
+	lock.unlock();
 	auto result = load_asset(p.source, options);
+	lock.lock();
 	if (registration_text(p) != *state->sources.at(p.source)->registration)
 		throw ResourceLoadError("Saved source registration disagrees with its source metadata");
 	return result;

@@ -23,6 +23,9 @@ public:
 	virtual void set_application_ui_manager(ApplicationUiManager*) {}
 	virtual void set_ui_layers_active(bool, bool) {}
 	virtual void run() = 0;
+	// Renderless backends are immediately ready. Graphics backends acknowledge
+	// a completed presentation so startup can keep servicing window events.
+	virtual bool has_presented_frame(uint64_t) const { return true; }
 	void bind_resource_systems(MeshSystem& meshes, MaterialSystem& materials)
 	{
 		mesh_system = &meshes;

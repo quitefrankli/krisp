@@ -55,6 +55,7 @@ namespace {
 constexpr ObjectLayer STATIC_LAYER = 0;
 constexpr ObjectLayer MOVING_LAYER = 1;
 constexpr ObjectLayer SENSOR_LAYER = 2;
+constexpr ObjectLayer NOCLIP_LAYER = 3;
 constexpr uint NUM_LAYERS = 3;
 constexpr BroadPhaseLayer BP_STATIC(0), BP_MOVING(1), BP_SENSOR(2);
 
@@ -96,12 +97,14 @@ public:
 	}
 	bool ShouldCollide(ObjectLayer l, BroadPhaseLayer b) const override
 	{
+		if (l == NOCLIP_LAYER) return false;
 		if (l == STATIC_LAYER) return b == BP_MOVING;
 		if (l == SENSOR_LAYER) return b == BP_MOVING;
 		return b == BP_STATIC || b == BP_MOVING || b == BP_SENSOR;
 	}
 	bool ShouldCollide(ObjectLayer a, ObjectLayer b) const override
 	{
+		if (a == NOCLIP_LAYER || b == NOCLIP_LAYER) return false;
 		if (a == STATIC_LAYER) return b == MOVING_LAYER;
 		if (a == SENSOR_LAYER) return b == MOVING_LAYER;
 		return b == STATIC_LAYER || b == MOVING_LAYER || b == SENSOR_LAYER;
@@ -192,6 +195,7 @@ public:
 		glm::vec3 desired_velocity{0.0f};
 		glm::vec3 published_position{0.0f};
 		bool launch_locked = false;
+		bool noclip = false;
 	};
 	class QueryBodyFilter final : public JPH::BodyFilter
 	{
@@ -284,6 +288,12 @@ public:
 			character.SetLinearVelocity(Vec3::sZero());
 			record.launch_locked = false;
 		}
+		if (record.noclip) {
+			record.published_position = transform_position + record.desired_velocity * delta_time;
+			character.SetPosition(to_jolt_r(record.published_position));
+			character.SetLinearVelocity(to_jolt(record.desired_velocity));
+			return record.published_position;
+		}
 		Vec3 velocity = character.GetLinearVelocity();
 		const Vec3 up = Vec3::sAxisY();
 		const Vec3 gravity = world.GetGravity();
@@ -294,7 +304,8 @@ public:
 		}
 		velocity.SetX((grounded ? velocity.GetX() : 0.0f) + record.desired_velocity.x);
 		velocity.SetZ((grounded ? velocity.GetZ() : 0.0f) + record.desired_velocity.z);
-		velocity += up * gravity.Dot(up) * delta_time;
+		// Supported motion follows intent and support velocity; gravity would slide it downhill.
+		if (!grounded) velocity += up * gravity.Dot(up) * delta_time;
 		character.SetLinearVelocity(velocity);
 
 		const NonSensorBroadPhaseFilter broad_phase;
@@ -476,8 +487,24 @@ bool ::PhysicsSystem::has_character_controller(EntityID id) const { return impl-
 void ::PhysicsSystem::set_character_desired_velocity(EntityID id, glm::vec3 velocity)
 {
 	require_finite(velocity, "character desired velocity");
-	velocity.y = 0.0f;
-	impl->controllers.at(id).desired_velocity = velocity;
+	auto& record = impl->controllers.at(id);
+	if (!record.noclip) velocity.y = 0.0f;
+	record.desired_velocity = velocity;
+}
+
+void PhysicsSystem::set_character_noclip(EntityID id, bool enabled)
+{
+	auto& record = impl->controllers.at(id);
+	if (record.noclip == enabled) return;
+	record.noclip = enabled;
+	impl->world.GetBodyInterface().SetObjectLayer(record.character->GetInnerBodyID(),
+		enabled ? NOCLIP_LAYER : MOVING_LAYER);
+	teleport_character_controller(id, get_ecs().get_position(id));
+}
+
+bool PhysicsSystem::is_character_noclip(EntityID id) const
+{
+	return impl->controllers.at(id).noclip;
 }
 
 glm::vec3 PhysicsSystem::get_character_velocity(EntityID id) const
@@ -488,7 +515,7 @@ glm::vec3 PhysicsSystem::get_character_velocity(EntityID id) const
 bool ::PhysicsSystem::is_character_grounded(EntityID id) const
 {
 	const auto& record = impl->controllers.at(id);
-	return !record.launch_locked
+	return !record.noclip && !record.launch_locked
 		&& record.character->GetGroundState() == CharacterVirtual::EGroundState::OnGround;
 }
 
@@ -497,7 +524,7 @@ bool ::PhysicsSystem::launch_character(EntityID id, float upward_speed)
 	if (!std::isfinite(upward_speed) || upward_speed <= 0.0f)
 		throw std::invalid_argument("Character launch speed must be finite and positive");
 	auto& record = impl->controllers.at(id);
-	if (record.launch_locked || record.character->GetGroundState() != CharacterVirtual::EGroundState::OnGround)
+	if (record.noclip || record.launch_locked || record.character->GetGroundState() != CharacterVirtual::EGroundState::OnGround)
 		return false;
 	Vec3 velocity = record.character->GetLinearVelocity();
 	velocity.SetY(upward_speed);
@@ -520,7 +547,8 @@ void ::PhysicsSystem::teleport_character_controller(EntityID id, glm::vec3 posit
 	const SolidObjectLayerFilter object_layer(impl->layers);
 	const Impl::QueryBodyFilter body_filter(record.character->GetInnerBodyID(), impl->bodies);
 	const JPH::ShapeFilter shape_filter;
-	record.character->RefreshContacts(broad_phase, object_layer, body_filter, shape_filter, impl->allocator);
+	if (!record.noclip)
+		record.character->RefreshContacts(broad_phase, object_layer, body_filter, shape_filter, impl->allocator);
 }
 
 void ::PhysicsSystem::set_body_enabled(EntityID id, bool enabled)
@@ -780,8 +808,9 @@ void ::PhysicsSystem::serialize(Serializer& out) const
 		character.write("max_slope_angle", record.definition.max_slope_angle);
 		character.write("step_height", record.definition.step_height);
 		character.write("ground_snap_distance", record.definition.ground_snap_distance);
-		Serialization::write_vec3(character, "desired_velocity", record.desired_velocity);
-		Serialization::write_vec3(character, "linear_velocity", to_glm(record.character->GetLinearVelocity()));
+		// Debug movement mode is session-local; do not restore free-flight momentum.
+		Serialization::write_vec3(character, "desired_velocity", record.noclip ? glm::vec3(0.0f) : record.desired_velocity);
+		Serialization::write_vec3(character, "linear_velocity", record.noclip ? glm::vec3(0.0f) : to_glm(record.character->GetLinearVelocity()));
 	}
 	auto overrides = system.sequence("contact_restitution_overrides");
 	for (const auto& [pair, restitution] : impl->restitution_overrides) {
@@ -926,7 +955,8 @@ void ::PhysicsSystem::deserialize(const Deserializer& in)
 	for (const auto& [id, record] : impl->controllers) {
 		if (get_ecs().has_transformation(id) && !get_ecs().is_transient_transformation(id)) continue;
 		transient_controllers.push_back({id, record.definition, to_glm(Vec3(record.character->GetPosition())),
-			record.desired_velocity, to_glm(record.character->GetLinearVelocity())});
+			record.noclip ? glm::vec3(0.0f) : record.desired_velocity,
+			record.noclip ? glm::vec3(0.0f) : to_glm(record.character->GetLinearVelocity())});
 	}
 	auto install = [&](const Restored& state) {
 		replacement->add_body(state.id, state.definition, state.shape, state.position, state.rotation);

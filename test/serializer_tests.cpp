@@ -11,6 +11,8 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <thread>
+#include <unordered_set>
 #include <vector>
 
 TEST(Serialization, TraversesNestedMaterialDocument)
@@ -108,4 +110,31 @@ TEST(Serialization, GenericIdCounterCanBeSetExplicitly)
 	EXPECT_EQ(TestID::get_next_id(), 42);
 	EXPECT_EQ(TestID::generate_new_id().get_underlying(), 42);
 	EXPECT_EQ(TestID::generate_new_id().get_underlying(), 43);
+}
+
+TEST(Serialization, GenericIdConcurrentAllocationsAreUnique)
+{
+	using TestID = GenericID<class SerializationConcurrentCounterTestTag>;
+	constexpr size_t thread_count = 8;
+	constexpr size_t ids_per_thread = 4096;
+	std::vector<std::vector<uint64_t>> allocated(thread_count);
+	std::vector<std::thread> workers;
+	workers.reserve(thread_count);
+	for (size_t thread = 0; thread < thread_count; ++thread)
+	{
+		workers.emplace_back([thread, &allocated]
+		{
+			auto& ids = allocated[thread];
+			ids.reserve(ids_per_thread);
+			for (size_t index = 0; index < ids_per_thread; ++index)
+				ids.push_back(TestID::generate_new_id().get_underlying());
+		});
+	}
+	for (auto& worker : workers)
+		worker.join();
+
+	std::unordered_set<uint64_t> unique_ids;
+	for (const auto& ids : allocated)
+		unique_ids.insert(ids.begin(), ids.end());
+	EXPECT_EQ(unique_ids.size(), thread_count * ids_per_thread);
 }

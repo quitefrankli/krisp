@@ -48,6 +48,8 @@ GraphicsEngine::~GraphicsEngine()
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
 	renderables.clear();
+	loading_renderables.clear();
+	loading_frame.reset();
 	for (const auto& [id, frame_allocation_count] : graphics_skeleton_frame_counts)
 	{
 		for (uint32_t frame_index = 0;
@@ -144,6 +146,7 @@ void GraphicsEngine::run() {
 			retire_unused_resources();
 			if (!accepted_render_frame)
 			{
+				analytics.stop();
 				loop_sleeper();
 				continue;
 			}
@@ -152,6 +155,8 @@ void GraphicsEngine::run() {
 
 			// raytracing_component.process();
 			swap_chain.draw();
+			presented_frame_number.store(accepted_render_frame->frame_number, std::memory_order_release);
+			has_presented.store(true, std::memory_order_release);
 
 			analytics.stop();
 
@@ -180,13 +185,15 @@ void GraphicsEngine::accept_latest_render_frame()
 	for (const auto& pose : next_frame->skeletons)
 		if (!pose.definition)
 			throw std::runtime_error("GraphicsEngine: skeleton definition is empty");
+	if (get_gui_manager().is_loading() && !prepare_loading_frame(next_frame))
+		return;
 	bool topology_changed = !accepted_render_frame
 		|| accepted_render_frame->renderables.size() != next_frame->renderables.size()
 		|| accepted_render_frame->skeletons.size() != next_frame->skeletons.size();
 	if (!topology_changed)
 	{
 		for (const auto& state : next_frame->renderables)
-			if (!renderables.contains(state.definition->id))
+			if (!renderable_indices.contains(state.definition->id))
 			{
 				topology_changed = true;
 				break;
@@ -195,7 +202,7 @@ void GraphicsEngine::accept_latest_render_frame()
 	if (!topology_changed)
 	{
 		for (const auto& pose : next_frame->skeletons)
-			if (!graphics_skeleton_frame_counts.contains(pose.definition->id))
+			if (!render_skeleton_indices.contains(pose.definition->id))
 			{
 				topology_changed = true;
 				break;
@@ -275,6 +282,25 @@ void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 	}
 	enqueue_retirement(std::move(retired));
 
+	prepare_skeleton_buffers(frame);
+
+	for (const auto& state : frame.renderables)
+	{
+		if (renderables.contains(state.definition->id))
+			continue;
+
+		auto graphics_renderable =
+			std::make_unique<GraphicsRenderable>(*this, state.definition);
+		create_renderable_buffers(*graphics_renderable);
+		create_renderable_dsets(*graphics_renderable);
+		renderables.emplace(state.definition->id, std::move(graphics_renderable));
+	}
+
+	draw_lists.rebuild(renderables);
+}
+
+void GraphicsEngine::prepare_skeleton_buffers(const RenderFrame& frame)
+{
 	for (const auto& pose : frame.skeletons)
 	{
 		const SkeletonID id = pose.definition->id;
@@ -304,19 +330,38 @@ void GraphicsEngine::reconcile_topology(const RenderFrame& frame)
 		graphics_skeleton_frame_counts.emplace(id, frame_allocation_count);
 	}
 
-	for (const auto& state : frame.renderables)
-	{
-		if (renderables.contains(state.definition->id))
-			continue;
+}
 
-		auto graphics_renderable =
-			std::make_unique<GraphicsRenderable>(*this, state.definition);
+bool GraphicsEngine::prepare_loading_frame(const RenderFramePtr& frame)
+{
+	if (!loading_frame)
+	{
+		loading_frame = frame;
+		loading_renderable_index = 0;
+		configure_environment_lighting(*frame);
+		prepare_skeleton_buffers(*frame);
+	}
+	if (loading_frame != frame)
+		throw std::logic_error("GraphicsEngine: startup frame changed during preparation");
+
+	// Each draw prepares at most eight renderables or four milliseconds of
+	// cooperative upload work. A single Vulkan upload cannot be preempted.
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(4);
+	size_t prepared = 0;
+	while (loading_renderable_index < frame->renderables.size())
+	{
+		const auto& state = frame->renderables[loading_renderable_index++];
+		if (renderables.contains(state.definition->id)) continue;
+		auto graphics_renderable = std::make_unique<GraphicsRenderable>(*this, state.definition);
 		create_renderable_buffers(*graphics_renderable);
 		create_renderable_dsets(*graphics_renderable);
-		renderables.emplace(state.definition->id, std::move(graphics_renderable));
+		loading_renderables.emplace(state.definition->id, std::move(graphics_renderable));
+		if (++prepared >= 8 || std::chrono::steady_clock::now() >= deadline) break;
 	}
-
-	draw_lists.rebuild(renderables);
+	if (loading_renderable_index < frame->renderables.size()) return false;
+	renderables.merge(loading_renderables);
+	loading_frame.reset();
+	return true;
 }
 
 void GraphicsEngine::configure_environment_lighting(const RenderFrame& frame)

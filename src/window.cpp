@@ -157,6 +157,7 @@ App::Window::Window(bool create_window)
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 	window = glfwCreateWindow(
 		INITIAL_WINDOW_WIDTH, 
 		INITIAL_WINDOW_HEIGHT, 
@@ -234,6 +235,11 @@ void App::Window::set_cursor_captured(const bool captured)
 	cursor_captured = captured;
 	if (window)
 		glfwSetInputMode(window, GLFW_CURSOR, captured ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+}
+
+void App::Window::show()
+{
+	if (window) glfwShowWindow(window);
 }
 
 void App::Window::poll_events()

@@ -12,7 +12,13 @@ closed. Tab completes the common prefix of matching command names (or the whole
 name for a single match).
 
 `help` lists all registered commands. `exit` requests orderly engine shutdown.
-These commands accept no arguments.
+`noclip` toggles noclip for the active player and accepts no arguments. It
+reports `No active player.` when no player is active, and `Usage: noclip` for
+unexpected arguments. Noclip affects only the selected player; other physics
+objects keep normal gravity and collision behavior. While enabled, the player
+moves freely in camera-relative three-dimensional space: WASD moves, Space
+moves up, and either Control key moves down. Noclip state belongs to the current
+scene session and resets when a scene is loaded.
 
 Consumers register commands through `GameEngine::get_commands().add`, in
 `IApplication::create_ui` or `on_begin`, before interactive use:

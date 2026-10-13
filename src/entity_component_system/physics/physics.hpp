@@ -110,7 +110,10 @@ public:
 	void add_character_controller(EntityID id, const CharacterControllerDefinition& definition = {});
 	void remove_character_controller(EntityID id);
 	bool has_character_controller(EntityID id) const;
-	// Sets planar world-space locomotion; velocity.y is ignored. World up is +Y.
+	// Session-local free movement without gravity or collision response.
+	void set_character_noclip(EntityID id, bool enabled);
+	bool is_character_noclip(EntityID id) const;
+	// Sets world-space locomotion; Y is ignored unless noclip is enabled. World up is +Y.
 	void set_character_desired_velocity(EntityID id, glm::vec3 velocity);
 	glm::vec3 get_character_velocity(EntityID id) const;
 	bool is_character_grounded(EntityID id) const;
