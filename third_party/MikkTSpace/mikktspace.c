@@ -728,7 +728,7 @@ static void MergeVertsSlow(int piTriList_in_and_out[], const SMikkTSpaceContext 
 
 static void GenerateSharedVerticesIndexListSlow(int piTriList_in_and_out[], const SMikkTSpaceContext * pContext, const int iNrTrianglesIn)
 {
-	int iNumUniqueVerts = 0, t=0, i=0;
+	int t=0, i=0;
 	for (t=0; t<iNrTrianglesIn; t++)
 	{
 		for (i=0; i<3; i++)
@@ -761,8 +761,6 @@ static void GenerateSharedVerticesIndexListSlow(int piTriList_in_and_out[], cons
 			}
 
 			assert(bFound);
-			// if we found our own
-			if (index2rec == index) { ++iNumUniqueVerts; }
 
 			piTriList_in_and_out[offs] = index2rec;
 		}
@@ -1202,7 +1200,7 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 	STSpace * pSubGroupTspace = NULL;
 	SSubGroup * pUniSubGroups = NULL;
 	int * pTmpMembers = NULL;
-	int iMaxNrFaces=0, iUniqueTspaces=0, g=0, i=0;
+	int iMaxNrFaces=0, g=0, i=0;
 	for (g=0; g<iNrActiveGroups; g++)
 		if (iMaxNrFaces < pGroups[g].iNrFaces)
 			iMaxNrFaces = pGroups[g].iNrFaces;
@@ -1222,7 +1220,6 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 	}
 
 
-	iUniqueTspaces = 0;
 	for (g=0; g<iNrActiveGroups; g++)
 	{
 		const SGroup * pGroup = &pGroups[g];
@@ -1301,7 +1298,6 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 			
 			// assign tangent space index
 			assert(bFound || l==iUniqueSubGroups);
-			//piTempTangIndices[f*3+index] = iUniqueTspaces+l;
 
 			// if no match was found we allocate a new subgroup
 			if (!bFound)
@@ -1350,10 +1346,9 @@ static tbool GenerateTSpaces(STSpace psTspace[], const STriInfo pTriInfos[], con
 			}
 		}
 
-		// clean up and offset iUniqueTspaces
+		// clean up
 		for (s=0; s<iUniqueSubGroups; s++)
 			free(pUniSubGroups[s].pTriMembers);
-		iUniqueTspaces += iUniqueSubGroups;
 	}
 
 	// clean up
