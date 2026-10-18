@@ -136,10 +136,12 @@ TEST(RenderFrame, renderable_state_is_already_composed)
 			.model_transform = translation({ 3.0f, 2.0f, 1.0f }),
 			.visible = false,
 		}},
-		.active_light = RenderLightState{
+		.lights = {{
 			.object_id = ObjectID(3),
 			.position = { 4.0f, 5.0f, 6.0f },
-		},
+			.enabled = false,
+			.casts_shadow = false,
+		}},
 	};
 
 	EXPECT_EQ(frame.renderables[0].definition->id, RenderableID(4));
@@ -147,8 +149,11 @@ TEST(RenderFrame, renderable_state_is_already_composed)
 		frame.renderables[0].model_transform,
 		translation({ 3.0f, 2.0f, 1.0f })));
 	EXPECT_FALSE(frame.renderables[0].visible);
-	EXPECT_EQ(frame.active_light->object_id, ObjectID(3));
-	EXPECT_EQ(frame.active_light->position, glm::vec3(4.0f, 5.0f, 6.0f));
+	ASSERT_EQ(frame.lights.size(), 1);
+	EXPECT_EQ(frame.lights[0].object_id, ObjectID(3));
+	EXPECT_EQ(frame.lights[0].position, glm::vec3(4.0f, 5.0f, 6.0f));
+	EXPECT_FALSE(frame.lights[0].enabled);
+	EXPECT_FALSE(frame.lights[0].casts_shadow);
 }
 
 TEST(RenderFrameMailbox, publishes_immutable_latest_completed_frame_pair)

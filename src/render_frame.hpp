@@ -122,6 +122,8 @@ struct RenderLightState
 	glm::vec3 position{ 0.0f };
 	float intensity = 1.0f;
 	glm::vec3 color{ 1.0f };
+	bool enabled = true;
+	bool casts_shadow = true;
 };
 
 // Complete presentation state for a frame. This is state rather than an event
@@ -143,7 +145,7 @@ struct RenderFrame
 	std::vector<RenderableState> renderables;
 	std::vector<RenderSkeletonPose> skeletons;
 	std::vector<SDS::ParticleInstanceData> particles;
-	std::optional<RenderLightState> active_light;
+	std::vector<RenderLightState> lights;
 };
 
 using RenderFramePtr = std::shared_ptr<const RenderFrame>;

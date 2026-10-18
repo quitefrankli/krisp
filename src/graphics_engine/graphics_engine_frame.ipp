@@ -6,6 +6,7 @@
 #include "graphics_engine_swap_chain.hpp"
 #include "shared_data_structures.hpp"
 #include "pipeline/pipeline.hpp"
+#include "renderers/renderers.hpp"
 #include "renderable/render_types.hpp"
 
 #include <glm/gtx/string_cast.hpp>
@@ -115,8 +116,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	// Ray tracing is unsupported:
 	// if (get_graphics_engine().get_render_mode() == ERenderMode::RAYTRACING)
 	//     submit_draw_commands(ERendererType::RAYTRACING);
-	if (get_graphics_engine().get_render_mode() != ERenderMode::UNLIT_BASE_COLOR)
-		submit_draw_commands(ERendererType::SHADOW_MAP);
+	submit_draw_commands(ERendererType::SHADOW_MAP);
 	submit_draw_commands(ERendererType::RASTERIZATION);
 	submit_draw_commands(ERendererType::PRESENTATION);
 	// Note: Particle rendering is now done within the RasterizationRenderer
@@ -154,6 +154,10 @@ void GraphicsEngineFrame::draw()
 		submission_serial.reset();
 	}
 
+	auto& shadows = static_cast<ShadowMapRenderer&>(
+		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP));
+	shadows.prepare_frame(image_index, prepare_point_lighting(
+		get_graphics_engine().get_render_frame().lights));
 	update_command_buffer();
 
 	uint32_t swap_chain_image_index;
@@ -261,52 +265,12 @@ void GraphicsEngineFrame::update_uniform_buffer()
 	gubo.proj = render_frame.camera.projection;
 	gubo.view_pos = render_frame.camera.position;
 
-	// currently uses a single active light source
-	if (render_frame.active_light)
-	{
-		const auto& light = *render_frame.active_light;
-		gubo.light_pos = light.position;
-		gubo.light_color = light.color;
-		gubo.light_intensity = light.intensity;
-	}
-	else
-	{
-		gubo.light_pos = glm::vec3(0.0f, 5.0f, 0.0f);
-		gubo.light_color = glm::vec3(0.0f);
-		gubo.light_intensity = 0.0f;
-	}
-	gubo.shadow_far_plane = 256.0f;
-
-	const std::array<glm::vec3, 6> SHADOW_DIRECTIONS = {
-		Maths::right_vec,
-		-Maths::right_vec,
-		Maths::up_vec,
-		-Maths::up_vec,
-		Maths::forward_vec,
-		-Maths::forward_vec
-	};
-	const std::array<glm::vec3, 6> SHADOW_UPS = {
-		Maths::up_vec,
-		Maths::up_vec,
-		-Maths::forward_vec,
-		Maths::forward_vec,
-		Maths::up_vec,
-		Maths::up_vec
-	};
-
-	const glm::mat4 shadow_proj = glm::perspectiveLH(
-		Maths::deg2rad(90.0f),
-		1.0f,
-		0.1f,
-		gubo.shadow_far_plane);
-	for (int face_idx = 0; face_idx < 6; ++face_idx)
-	{
-		const glm::mat4 shadow_view = glm::lookAtLH(
-			gubo.light_pos,
-			gubo.light_pos + SHADOW_DIRECTIONS[face_idx],
-			SHADOW_UPS[face_idx]);
-		gubo.shadow_view_proj_mats[face_idx] = shadow_proj * shadow_view;
-	}
+	const auto& lighting = static_cast<ShadowMapRenderer&>(
+		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP))
+		.get_lighting_data(image_index);
+	gubo.light_count = lighting.light_count;
+	gubo.shadow_far_plane = POINT_SHADOW_FAR_PLANE;
+	std::ranges::copy(lighting.lights, gubo.lights);
 
 	get_rsrc_mgr().write_to_global_uniform_buffer(image_index, gubo);
 

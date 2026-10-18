@@ -11,8 +11,14 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 	GlobalData data;
 } global_data;
 
+layout(push_constant) uniform RasterizationPushConstantBuffer
+{
+	RasterizationPushConstant data;
+} push_constant;
+
 void main()
 {
-	const float light_distance = length(world_pos - global_data.data.light_pos);
+	const PointLightData light = global_data.data.lights[push_constant.data.light_index];
+	const float light_distance = length(world_pos - light.position);
 	gl_FragDepth = light_distance / global_data.data.shadow_far_plane;
 }

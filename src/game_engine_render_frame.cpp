@@ -166,20 +166,23 @@ RenderFrame GameEngine::build_render_frame()
 	}
 
 	ecs.prepare_render_data(frame.particles);
-	if (ecs.has_light_source())
+	const auto light_ids = ecs.get_light_source_ids();
+	frame.lights.reserve(light_ids.size());
+	for (const ObjectID light_id : light_ids)
 	{
-		const ObjectID light_id = ecs.get_global_light_source();
 		if (!ecs.has_object(light_id))
 			throw std::runtime_error(
-				"GameEngine::build_render_frame: active light object is missing");
+				"GameEngine::build_render_frame: light object is missing");
 		const LightComponent* component = ecs.get_light_component(light_id);
 		validate_light_component(*component);
-		frame.active_light = RenderLightState{
+		frame.lights.push_back(RenderLightState{
 			.object_id = light_id,
 			.position = glm::vec3(ecs.get_transform(light_id)[3]),
 			.intensity = component->intensity,
 			.color = component->color,
-		};
+			.enabled = component->enabled,
+			.casts_shadow = component->casts_shadow,
+		});
 	}
 
 	std::erase_if(renderable_definitions, [this](const auto& entry) {

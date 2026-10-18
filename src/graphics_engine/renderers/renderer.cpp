@@ -48,7 +48,8 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 							   const VkDescriptorSet& renderable_dset,
 							   EPipelineModifier pipeline_modifier,
 							   ERenderType primary_pipeline_override,
-							   const std::optional<EShadingMode> shading_override)
+							   const std::optional<EShadingMode> shading_override,
+							   const uint32_t light_index)
 {
 	const ERenderType primary_pipeline_type = primary_pipeline_override == ERenderType::UNASSIGNED ?
 		renderable.pipeline_render_type : primary_pipeline_override;
@@ -129,15 +130,19 @@ void Renderer::draw_renderable(VkCommandBuffer command_buffer,
 				&materials.texture_owner(*pbr->textures.base_color)->get());
 			premultiplied_base_color = sampled && sampled->is_premultiplied();
 		}
-		const SDS::AlphaMaterialData alpha_data{
-			.alpha_cutoff = renderable_alpha_cutoff(renderable),
-			.opacity = renderable.opacity,
-			.premultiplied_base_color = premultiplied_base_color,
-			.alpha_mode = static_cast<int>(alpha_mode),
-			.double_sided = renderable_double_sided(renderable),
+		const SDS::RasterizationPushConstant push_data{
+			.material = {
+				.alpha_cutoff = renderable_alpha_cutoff(renderable),
+				.opacity = renderable.opacity,
+				.premultiplied_base_color = premultiplied_base_color,
+				.alpha_mode = static_cast<int>(alpha_mode),
+				.double_sided = renderable_double_sided(renderable),
+			},
+			.light_index = light_index,
 		};
-		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT,
-			0, sizeof(alpha_data), &alpha_data);
+		vkCmdPushConstants(command_buffer, pipeline->pipeline_layout,
+			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT,
+			0, sizeof(push_data), &push_data);
 	}
 
 	vkCmdDrawIndexed(command_buffer,

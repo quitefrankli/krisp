@@ -499,30 +499,76 @@ TEST_F(GameEngineTests, snapshots_skeleton_pose_with_immutable_definitions)
 	EXPECT_EQ(replacement_object_definition->skeleton_id, replacement_skeleton);
 }
 
-TEST_F(GameEngineTests, snapshots_particles_and_active_light)
+TEST_F(GameEngineTests, snapshots_particles_and_all_lights_immutably)
 {
 	ParticleEmitterConfig particle_config;
 	particle_config.emission_rate = 1.0f;
 	particle_config.max_particles = 1;
 	engine.spawn_particle_emitter(particle_config);
-	auto& light = engine.spawn_object<Object>();
-	const LightComponent light_component{
+	auto& first_light = engine.spawn_object<Object>();
+	const LightComponent first_component{
 		.intensity = 2.0f,
 		.color = { 0.2f, 0.4f, 0.8f },
+		.enabled = false,
+		.casts_shadow = true,
 	};
-	engine.get_ecs().add_light_source(light.get_id(), light_component);
+	engine.get_ecs().add_light_source(first_light.get_id(), first_component);
+	auto& parent = engine.spawn_object<Object>();
+	engine.get_ecs().get_transformation(parent.get_id()).set_position({10.0f, 0.0f, 0.0f});
+	auto& first_transform = engine.get_ecs().get_transformation(first_light.get_id());
+	ASSERT_TRUE(first_transform.attach_to(parent.get_id()));
+	first_transform.set_relative_position({1.0f, 2.0f, 3.0f});
+	auto& second_light = engine.spawn_object<Object>();
+	const LightComponent second_component{
+		.intensity = 3.0f,
+		.color = { 0.8f, 0.4f, 0.2f },
+		.enabled = true,
+		.casts_shadow = false,
+	};
+	engine.get_ecs().add_light_source(second_light.get_id(), second_component);
+	engine.get_ecs().get_transformation(second_light.get_id()).set_position({-4.0f, 5.0f, 6.0f});
 
 	engine.main_loop(1.0f);
 
 	const auto frame =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	ASSERT_EQ(frame->particles.size(), 1);
-	ASSERT_TRUE(frame->active_light.has_value());
-	EXPECT_EQ(frame->active_light->object_id, light.get_id());
-	EXPECT_TRUE(glm_equal(
-		frame->active_light->position, engine.get_ecs().get_position(light.get_id())));
-	EXPECT_FLOAT_EQ(frame->active_light->intensity, light_component.intensity);
-	EXPECT_EQ(frame->active_light->color, light_component.color);
+	ASSERT_EQ(frame->lights.size(), 2);
+	ASSERT_LT(frame->lights[0].object_id, frame->lights[1].object_id);
+	const auto first = std::ranges::find(frame->lights, first_light.get_id(),
+		&RenderLightState::object_id);
+	const auto second = std::ranges::find(frame->lights, second_light.get_id(),
+		&RenderLightState::object_id);
+	ASSERT_NE(first, frame->lights.end());
+	ASSERT_NE(second, frame->lights.end());
+	EXPECT_TRUE(glm_equal(first->position, glm::vec3(11.0f, 2.0f, 3.0f)));
+	EXPECT_FLOAT_EQ(first->intensity, first_component.intensity);
+	EXPECT_EQ(first->color, first_component.color);
+	EXPECT_FALSE(first->enabled);
+	EXPECT_TRUE(first->casts_shadow);
+	EXPECT_FLOAT_EQ(second->intensity, second_component.intensity);
+	EXPECT_EQ(second->color, second_component.color);
+	EXPECT_TRUE(second->enabled);
+	EXPECT_FALSE(second->casts_shadow);
+	EXPECT_TRUE(glm_equal(second->position, glm::vec3(-4.0f, 5.0f, 6.0f)));
+
+	engine.get_ecs().get_transformation(parent.get_id()).set_position({20.0f, 0.0f, 0.0f});
+	auto* changed = engine.get_ecs().get_light_component(first_light.get_id());
+	changed->intensity = 4.0f;
+	changed->enabled = true;
+	engine.get_ecs().remove_object(second_light.get_id());
+	engine.main_loop(0.1f);
+	const auto after_removal =
+		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	ASSERT_EQ(after_removal->lights.size(), 1);
+	EXPECT_EQ(after_removal->lights[0].object_id, first_light.get_id());
+	EXPECT_TRUE(glm_equal(after_removal->lights[0].position, glm::vec3(21.0f, 2.0f, 3.0f)));
+	EXPECT_FLOAT_EQ(after_removal->lights[0].intensity, 4.0f);
+	EXPECT_TRUE(after_removal->lights[0].enabled);
+	EXPECT_EQ(frame->lights.size(), 2);
+	EXPECT_TRUE(glm_equal(first->position, glm::vec3(11.0f, 2.0f, 3.0f)));
+	EXPECT_FLOAT_EQ(first->intensity, first_component.intensity);
+	EXPECT_FALSE(first->enabled);
 }
 
 TEST_F(GameEngineTests, acknowledged_deletion_updates_latest_frame_without_mutating_history)

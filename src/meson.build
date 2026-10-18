@@ -1,4 +1,5 @@
 graphics_sources = files('graphics_engine/video_recorder.cpp',
+						 'graphics_engine/point_lighting.cpp',
 						 'graphics_engine/environment_map_asset.cpp',
 						 'graphics_engine/environment_map_processor.cpp',
 						 'graphics_engine/texture_compositor.cpp',
@@ -159,6 +160,7 @@ engine_header_files = files(
 	'graphics_engine/pipeline/pipelines.hpp',
 	'graphics_engine/pipeline/pipelines.ipp',
 	'graphics_engine/queues.hpp',
+	'graphics_engine/point_lighting.hpp',
 	'graphics_engine/raytracing.hpp',
 	'graphics_engine/render_draw_list.hpp',
 	'graphics_engine/renderers/gui_renderer.ipp',

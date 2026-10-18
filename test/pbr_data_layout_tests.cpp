@@ -18,9 +18,21 @@ static_assert(sizeof(SDS::AlphaMaterialData) == 20);
 
 static_assert(std::is_standard_layout_v<SDS::GlobalData>);
 static_assert(alignof(SDS::GlobalData) == 16);
-static_assert(offsetof(SDS::GlobalData, view_pos) == 512);
-static_assert(offsetof(SDS::GlobalData, light_pos) == 528);
-static_assert(offsetof(SDS::GlobalData, light_color) == 544);
-static_assert(offsetof(SDS::GlobalData, light_intensity) == 556);
-static_assert(offsetof(SDS::GlobalData, shadow_far_plane) == 560);
-static_assert(sizeof(SDS::GlobalData) == 576);
+static_assert(offsetof(SDS::GlobalData, view_pos) == 128);
+static_assert(offsetof(SDS::GlobalData, light_count) == 140);
+static_assert(offsetof(SDS::GlobalData, shadow_far_plane) == 144);
+static_assert(offsetof(SDS::GlobalData, lights) == 160);
+static_assert(sizeof(SDS::GlobalData) == 3488);
+
+static_assert(std::is_standard_layout_v<SDS::PointLightData>);
+static_assert(alignof(SDS::PointLightData) == 16);
+static_assert(offsetof(SDS::PointLightData, shadow_view_proj_mats) == 0);
+static_assert(offsetof(SDS::PointLightData, position) == 384);
+static_assert(offsetof(SDS::PointLightData, intensity) == 396);
+static_assert(offsetof(SDS::PointLightData, color) == 400);
+static_assert(offsetof(SDS::PointLightData, shadow_slot) == 412);
+static_assert(sizeof(SDS::PointLightData) == 416);
+
+static_assert(std::is_standard_layout_v<SDS::RasterizationPushConstant>);
+static_assert(offsetof(SDS::RasterizationPushConstant, light_index) == 20);
+static_assert(sizeof(SDS::RasterizationPushConstant) == 24);

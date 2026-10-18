@@ -13,14 +13,12 @@ QuadRenderer::QuadRenderer(GraphicsEngine& engine) :
 	binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	binding.pImmutableSamplers = nullptr; // Optional
 
-	VkDescriptorSetLayout layout = this->get_rsrc_mgr().request_dset_layout({binding});
-
-	texture = this->get_rsrc_mgr().reserve_dset(layout);
+	texture_layout = this->get_rsrc_mgr().request_dset_layout({binding});
 }
 
 QuadRenderer::~QuadRenderer()
 {
-	this->get_rsrc_mgr().free_dset(texture);
+	this->get_rsrc_mgr().free_dsets(textures);
 	for (auto& attachment : color_attachments)
 	{
 		attachment.destroy(get_logical_device());
@@ -28,7 +26,8 @@ QuadRenderer::~QuadRenderer()
 }
 
 void QuadRenderer::allocate_per_frame_resources(VkImage, VkImageView)
-{	
+{
+	textures.push_back(get_rsrc_mgr().reserve_dset(texture_layout));
 	//
 	// Generate attachments
 	//
@@ -84,35 +83,20 @@ void QuadRenderer::submit_draw_commands(
 		return;
 	}
 
-	if (texture_to_render)
-	{
-		if (texture_to_render.value().render_frames_remaining-- > 0)
-		{
-			return;
-		}
-
-		VkDescriptorImageInfo image_info{};
-		image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		image_info.imageView = texture_to_render.value().texture_view;
-		image_info.sampler = texture_to_render.value().texture_sampler;
-
-		VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-		combined_image_sampler_descriptor_set.dstSet = texture;
-		combined_image_sampler_descriptor_set.dstBinding = 0;
-		combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-		combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		combined_image_sampler_descriptor_set.descriptorCount = 1;
-		combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-
-		vkUpdateDescriptorSets(
-			get_logical_device(),
-			1,
-			&combined_image_sampler_descriptor_set,
-			0,
-			nullptr);
-
-		texture_to_render = std::nullopt;
-	}
+	const auto view = renderer_source
+		? get_graphics_engine().get_renderer_mgr().get_renderer(*renderer_source)
+			.get_output_image_view(frame_index)
+		: texture_view;
+	// This frame's fence has completed; update only its own descriptor.
+	VkDescriptorImageInfo image_info{texture_sampler, view,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+	VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	write.dstSet = textures.at(frame_index);
+	write.dstBinding = 0;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	write.descriptorCount = 1;
+	write.pImageInfo = &image_info;
+	vkUpdateDescriptorSets(get_logical_device(), 1, &write, 0, nullptr);
 
 	// starting a render pass
 	VkRenderPassBeginInfo render_pass_begin_info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
@@ -146,7 +130,7 @@ void QuadRenderer::submit_draw_commands(
 			{ ERenderType::QUAD, EPipelineModifier::NONE })->pipeline_layout,
 		0,
 		1,
-		&texture,
+		&textures.at(frame_index),
 		0,
 		nullptr);
 
@@ -161,18 +145,19 @@ void QuadRenderer::submit_draw_commands(
 	vkCmdEndRenderPass(command_buffer);
 }
 
-void QuadRenderer::set_texture(VkImageView texture_view, VkSampler texture_sampler)
+void QuadRenderer::set_texture(VkImageView view, VkSampler sampler)
 {
-	should_render = texture_view && texture_sampler;
-	if (!should_render)
-	{
-		return;
-	}
+	renderer_source.reset();
+	texture_view = view;
+	texture_sampler = sampler;
+	should_render = view && sampler;
+}
 
-	texture_to_render->texture_view = texture_view;
-	texture_to_render->texture_sampler = texture_sampler;
-	// this avoids the issue of updating a dset while it's being used
-	texture_to_render->render_frames_remaining = get_graphics_engine().get_num_swapchain_images();
+void QuadRenderer::set_renderer_source(const ERendererType source, const VkSampler sampler)
+{
+	renderer_source = source;
+	texture_sampler = sampler;
+	should_render = source != ERendererType::NONE && sampler;
 }
 
 void QuadRenderer::create_render_pass()

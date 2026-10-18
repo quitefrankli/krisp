@@ -16,15 +16,30 @@ have not been measured.
 ## Point-light shadow filtering
 
 Rasterized point-light shadows use 16-tap Poisson-disc PCF in
-`shaders/library/library.glsl`, shared by the static-color and skinned-color lit
-pipelines.
+`shaders/library/library.glsl`, shared by all four lit material paths. Each
+fragment accumulates direct illumination across up to eight snapshot lights.
+Disabled lights and lights with zero intensity or black colour are skipped.
+For contributing lights, back-facing contributions skip shadow sampling. Each
+contributing shadowed light performs 16 cube-array depth samples. Unshadowed
+lights do not perform PCF.
 
-- Each lit fragment performs 16 cubemap depth samples; these are expected to
-  dominate the filter cost. Moving from 9 to 16 taps increased sample count and
-  per-tap work by 78% (modeled, not measured).
+- Shadow filtering can therefore require up to 128 depth samples per fragment
+  when all eight lights contribute and cast shadows. This is a modeled upper
+  bound, not a measurement. Moving from 9 to 16 taps increased sample count and
+  per-tap work by 78% for each shadowed contribution (modeled, not measured).
 - Each tap normalizes its lookup direction and applies receiver-plane depth
   correction. This costs additional arithmetic but avoids concentric
   self-shadowing on large flat receivers.
+- Shadow command recording scales with the number of shadowed lights and the
+  visible shadow-caster draw list. Each shadowed light renders eligible casters
+  to six faces; there is no spatial culling by light range. This CPU and GPU
+  work has not been measured.
+- Each shadow cube uses six 1024-by-1024 `D32_SFLOAT` array layers, or about
+  24 MiB per cube per swap-chain frame. Per-frame cube-array capacity grows to
+  the next power of two and does not shrink before shutdown. For example, a
+  capacity of four cubes reserves about 96 MiB per frame, subject to device
+  allocation behavior. Actual peak memory and allocation costs have not been
+  measured.
 
 Reducing the sample count is the primary quality/performance control. Keep the
 loop bound and visibility divisor synchronized with the kernel size. Increasing
@@ -34,21 +49,21 @@ normalization can be reduced without restoring artifacts.
 
 Potential optimizations, in priority order after GPU profiling:
 
-- Skip shadow-map sampling when `N dot L <= 0` or the active light intensity is
-  zero. Direct illumination is already zero in those cases, so the current 16
-  cubemap samples cannot affect the result. The branch should be coherent over
-  broad unlit surface regions, but its practical benefit has not been measured.
 - Reduce the PCF sample count only if timestamp or shader-profiler evidence
   identifies shadow filtering as a material bottleneck. Revalidate shadow
   stability and edge quality whenever changing the kernel.
+- Add light-volume or other spatial culling only if profiling shows the
+  eight-light fragment loop or repeated shadow draws materially affect
+  performance. There is no range culling today.
 
 ## Metallic-roughness shading
 
 The static-color and skinned-color lit pipelines evaluate the glTF
 metallic-roughness BRDF per fragment. Compared with their former Blinn-Phong
 shading, this adds GGX distribution and correlated Smith visibility arithmetic,
-including several square roots, while retaining the existing 16-tap point-light
-shadow filter. This is a modeled cost and has not been measured.
+including several square roots, alongside the per-contributing-light direct
+lighting loop and 16-tap filter for shadowed lights. These are modeled costs
+and have not been measured.
 
 Point-light radiance now uses inverse-square attenuation. Static and skinned
 lit vertices also compute an inverse-transpose normal matrix so non-uniformly

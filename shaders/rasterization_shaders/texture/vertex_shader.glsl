@@ -23,11 +23,6 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 	GlobalData data;
 } global_data;
 
-vec3 get_light_normal()
-{
-	return normalize(global_data.data.light_pos - object_data.data.rot_mat * in_position);
-}
-
 void main()
 {
 	gl_Position = object_data.data.mvp * vec4(in_position, 1.0);

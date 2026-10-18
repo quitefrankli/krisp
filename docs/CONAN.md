@@ -17,7 +17,7 @@ conan install . -pr conan_clang_profile --build=missing --no-remote
 meson setup build/debug --reconfigure \
   --native-file build/conan/conan_meson_native.ini \
   --buildtype=debug -Db_ndebug=false
-meson compile -C build/debug -j 6 krisp
+meson compile -C build/debug -j 6 sandbox
 ```
 
 The editable runtime directory is `build/debug/runtime`; packaged runtime data

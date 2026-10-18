@@ -7,6 +7,7 @@ sources = [
 	'ecs/transformation_system_tests.cpp',
 	'common_tests.cpp',
 	'pbr_data_layout_tests.cpp',
+	'point_lighting_tests.cpp',
 	'light_source_tests.cpp',
 	'gui_panel_tests.cpp',
 	'scene_resources_tests.cpp',

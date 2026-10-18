@@ -27,7 +27,7 @@ implemented. Remaining core and production material work includes:
 - additional texture-coordinate sets and per-texture `texCoord` selection;
 - nearest texel filtering, mirrored or mixed-axis addressing, and generated mip
   chains;
-- glTF punctual lights and multiple active lights;
+- glTF punctual-light import and mapping to engine point-light components;
 - alpha-to-coverage for masked edges;
 - advanced glTF material and texture extensions; and
 - improved transparent sorting for intersecting meshes and other ordering

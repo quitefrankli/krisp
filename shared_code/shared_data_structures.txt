@@ -34,6 +34,13 @@ struct AlphaMaterialData
 	ALIGN(4) int double_sided;
 };
 
+// Shared by all scene pipelines so descriptor bindings remain compatible.
+struct RasterizationPushConstant
+{
+	AlphaMaterialData material;
+	UINT light_index;
+};
+
 // Inputs for one layer's one-time composition-generation draw. These are not
 // pushed every frame; later frames sample the cached composited GPU texture.
 struct TextureCompositorPushConstant
@@ -51,16 +58,25 @@ struct ObjectData
     CPP_MAT4_GLSL_MAT3 rot_mat; // glsl matrix specific alignment issue workaround
 };
 
+const int MAX_POINT_LIGHTS = 8;
+
+struct PointLightData
+{
+	MAT4 shadow_view_proj_mats[6];
+	ALIGN(16) VEC3 position;
+	ALIGN(4) float intensity;
+	ALIGN(16) VEC3 color;
+	ALIGN(4) int shadow_slot;
+};
+
 struct GlobalData
 {
-    MAT4 view; // camera
-    MAT4 proj;
-	MAT4 shadow_view_proj_mats[6]; // point light cubemap faces
-    ALIGN(16) VEC3 view_pos; // camera eye
-    ALIGN(16) VEC3 light_pos;
-	ALIGN(16) VEC3 light_color;
-	ALIGN(4) float light_intensity;
+	MAT4 view;
+	MAT4 proj;
+	ALIGN(16) VEC3 view_pos;
+	ALIGN(4) UINT light_count;
 	ALIGN(4) float shadow_far_plane;
+	PointLightData lights[MAX_POINT_LIGHTS];
 };
 
 // in glsl this refers to the set index in the layout, in c++ this refers to the descriptor set offset

@@ -24,9 +24,9 @@ GraphicsEnginePipelineManager::GraphicsEnginePipelineManager(GraphicsEngine& eng
 	pipeline_layout_create_info.setLayoutCount = descriptor_set_layouts.size();
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 	VkPushConstantRange alpha_push_constant_range{};
-	alpha_push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	alpha_push_constant_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
 	alpha_push_constant_range.offset = 0;
-	alpha_push_constant_range.size = sizeof(SDS::AlphaMaterialData);
+	alpha_push_constant_range.size = sizeof(SDS::RasterizationPushConstant);
 	pipeline_layout_create_info.pushConstantRangeCount = 1;
 	pipeline_layout_create_info.pPushConstantRanges = &alpha_push_constant_range;
 

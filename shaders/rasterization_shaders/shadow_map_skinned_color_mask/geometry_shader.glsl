@@ -11,17 +11,23 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 	GlobalData data;
 } global_data;
 
+layout(push_constant) uniform RasterizationPushConstantBuffer
+{
+	RasterizationPushConstant data;
+} push_constant;
+
 layout(location=0) out vec3 out_world_pos;
 
 void main()
 {
+	const PointLightData light = global_data.data.lights[push_constant.data.light_index];
 	for (int face_idx = 0; face_idx < 6; ++face_idx)
 	{
-		gl_Layer = face_idx;
+		gl_Layer = 6 * light.shadow_slot + face_idx;
 		for (int vertex_idx = 0; vertex_idx < 3; ++vertex_idx)
 		{
 			out_world_pos = in_world_pos[vertex_idx];
-			gl_Position = global_data.data.shadow_view_proj_mats[face_idx]
+			gl_Position = light.shadow_view_proj_mats[face_idx]
 				* vec4(in_world_pos[vertex_idx], 1.0);
 			EmitVertex();
 		}

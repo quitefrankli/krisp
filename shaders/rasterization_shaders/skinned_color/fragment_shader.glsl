@@ -26,35 +26,25 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
 layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET,
 	binding=RASTERIZATION_BRDF_LUT_DATA_BINDING) uniform sampler2D brdf_lut;
 
-layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform samplerCube shadow_map;
+layout(set=RASTERIZATION_SHADOW_MAP_SET_OFFSET, binding=RASTERIZATION_SHADOW_MAP_DATA_BINDING) uniform samplerCubeArray shadow_map;
 
 layout(push_constant) uniform AlphaMaterialBuffer
 {
 	AlphaMaterialData data;
 } alpha_material;
 
-float compute_shadow_factor(vec3 normal, vec3 light_dir)
-{
-	const vec3 frag_to_light = frag_pos - global_data.data.light_pos;
-	return get_point_shadow_factor(
-		shadow_map, frag_to_light, normal, light_dir, global_data.data.shadow_far_plane);
-}
-
 void main()
 {
 	const vec3 normal = orient_pbr_normal(
 		normalize(surface_normal), alpha_material.data.double_sided, gl_FrontFacing);
 	const vec3 view_dir = normalize(global_data.data.view_pos - frag_pos);
-	vec3 light_dir;
-	const vec3 direct_light = evaluate_gltf_point_light(
+	const vec3 direct_light = evaluate_gltf_point_lights(
 		mat_data.data,
 		normal,
 		view_dir,
 		frag_pos,
-		global_data.data.light_pos,
-		global_data.data.light_color,
-		global_data.data.light_intensity,
-		light_dir);
+		global_data.data,
+		shadow_map);
 	const float effective_alpha = get_pbr_effective_alpha(
 		mat_data.data.base_color_factor.a, alpha_material.data);
 	if (is_pbr_alpha_discarded(effective_alpha, alpha_material.data))
@@ -68,7 +58,6 @@ void main()
 		prefiltered_environment_map,
 		brdf_lut);
 	out_color = vec4(
-		direct_light * compute_shadow_factor(normal, light_dir)
-			+ environment_light + mat_data.data.emissive_factor,
+		direct_light + environment_light + mat_data.data.emissive_factor,
 		alpha);
 }

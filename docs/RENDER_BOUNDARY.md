@@ -21,9 +21,16 @@ immutable bone hierarchy and inverse-bind layout, while its pose remains
 mutable. The mailbox rejects changed definitions and retired-ID
 reintroduction. `ObjectID`
 is not a graphics ownership key: graphics uses it only to group renderables for
-object-level controls such as stencil selection and active-light
+object-level controls such as stencil selection and per-light
 shadow suppression. Effective object visibility is composed before publication.
 Standalone renderables have no group and are unaffected by object-level state.
+
+Point lights are published as a vector ordered by ascending `ObjectID`, with a
+limit of eight entries per frame. Disabled lights remain in the vector and
+consume one entry. The graphics side prepares the GPU light records from this
+snapshot and assigns dense shadow slots only to enabled lights with nonzero
+intensity, nonblack colour, and shadow casting enabled. A light's shadow slot
+is renderer-owned frame data; it does not alter the published snapshot.
 
 The graphics thread loads at most one completed publication at the start of a
 graphics-loop iteration. It retains that same `shared_ptr<const RenderFrame>`

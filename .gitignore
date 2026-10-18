@@ -2,10 +2,10 @@ resources/*
 !resources/textures/
 resources/textures/*
 !resources/textures/skybox/
-!resources/krisp/
-resources/krisp/*
-!resources/krisp/textures/
-!resources/krisp/textures/*.png
+!resources/sandbox/
+resources/sandbox/*
+!resources/sandbox/textures/
+!resources/sandbox/textures/*.png
 
 .vscode/*
 # !.vscode/launch.json

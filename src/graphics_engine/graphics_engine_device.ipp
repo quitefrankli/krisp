@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics_engine.hpp"
+#include "point_lighting.hpp"
 #include "queues.hpp"
 #include "utility.hpp"
 
@@ -72,6 +73,36 @@ void GraphicsEngineDevice::pick_physical_device()
 		}
 		if (!deviceFeatures.geometryShader)
 		{
+			return false;
+		}
+		if (!deviceFeatures.imageCubeArray
+			|| deviceProperties.limits.maxImageArrayLayers < 6 * SDS::MAX_POINT_LIGHTS
+			|| deviceProperties.limits.maxFramebufferLayers < 6 * SDS::MAX_POINT_LIGHTS
+			|| deviceProperties.limits.maxImageDimensionCube < POINT_SHADOW_RESOLUTION
+			|| deviceProperties.limits.maxUniformBufferRange < sizeof(SDS::GlobalData))
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks point-light cube-array capacity",
+				deviceProperties.deviceName);
+			return false;
+		}
+		VkImageFormatProperties shadow_properties{};
+		VkFormatProperties shadow_format{};
+		vkGetPhysicalDeviceFormatProperties(device, VK_FORMAT_D32_SFLOAT, &shadow_format);
+		constexpr auto required_shadow_features = VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+			| VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT | VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
+		if ((shadow_format.optimalTilingFeatures & required_shadow_features) != required_shadow_features
+			|| vkGetPhysicalDeviceImageFormatProperties(device, VK_FORMAT_D32_SFLOAT,
+				VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
+				VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+				VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, &shadow_properties) != VK_SUCCESS
+			|| shadow_properties.maxArrayLayers < 6 * SDS::MAX_POINT_LIGHTS
+			|| shadow_properties.maxExtent.width < POINT_SHADOW_RESOLUTION
+			|| shadow_properties.maxExtent.height < POINT_SHADOW_RESOLUTION)
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks D32 sampled shadow-array support",
+				deviceProperties.deviceName);
 			return false;
 		}
 		if (!deviceFeatures.textureCompressionBC)
@@ -307,6 +338,7 @@ VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 	device_features2.features.samplerAnisotropy = true;
 	device_features2.features.fillModeNonSolid = true;
 	device_features2.features.geometryShader = true;
+	device_features2.features.imageCubeArray = true;
 	device_features2.features.textureCompressionBC = true;
 	device_features2.pNext = nullptr;
 

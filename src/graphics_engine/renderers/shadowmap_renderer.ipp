@@ -1,5 +1,6 @@
 #include "renderers.hpp"
-#include "entity_component_system/ecs.hpp"
+#include <algorithm>
+#include <bit>
 #include "shared_data_structures.hpp"
 
 
@@ -14,135 +15,139 @@ ShadowMapRenderer::ShadowMapRenderer(GraphicsEngine& engine) :
 
 ShadowMapRenderer::~ShadowMapRenderer()
 {
+	for (auto& frame : frames)
+	{
+		get_rsrc_mgr().free_dset(frame.descriptor);
+		destroy_frame_images(frame);
+	}
 	vkDestroySampler(get_logical_device(), shadow_map_sampler, nullptr);
-	for (auto view : shadow_map_cube_views)
-	{
-		vkDestroyImageView(get_logical_device(), view, nullptr);
-	}
-	for (auto& attachment : shadow_map_attachments)
-	{
-		attachment.destroy(get_logical_device());
-	}
-	get_rsrc_mgr().free_dsets(shadow_map_dsets);
+}
+
+void ShadowMapRenderer::destroy_frame_images(FrameResources& frame)
+{
+	vkDestroyImageView(get_logical_device(), frame.preview_view, nullptr);
+	vkDestroyImageView(get_logical_device(), frame.cube_array_view, nullptr);
+	frame.attachment.destroy(get_logical_device());
+	frame.preview_view = VK_NULL_HANDLE;
+	frame.cube_array_view = VK_NULL_HANDLE;
+	frame.attachment = {};
 }
 
 void ShadowMapRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
-	//
-	// Generate attachments
-	//
-	RenderingAttachment shadow_map_attachment;
-	const auto extent = this->get_extent();
-	const VkFormat depth_format = get_image_format();
-	get_graphics_engine().create_image(
-		extent.width,
-		extent.height,
-		depth_format,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		shadow_map_attachment.image,
-		shadow_map_attachment.image_memory,
-		get_msaa_sample_count(),
-		SHADOW_MAP_LAYER_COUNT,
-		VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
-	shadow_map_attachment.image_view = get_graphics_engine().create_image_view(
-		shadow_map_attachment.image, 
-		depth_format, 
-		VK_IMAGE_ASPECT_DEPTH_BIT,
-		VK_IMAGE_VIEW_TYPE_2D_ARRAY,
-		SHADOW_MAP_LAYER_COUNT);
-
-	VkImageView shadow_map_cube_view = get_graphics_engine().create_image_view(
-		shadow_map_attachment.image,
-		depth_format,
-		VK_IMAGE_ASPECT_DEPTH_BIT,
-		VK_IMAGE_VIEW_TYPE_CUBE,
-		SHADOW_MAP_LAYER_COUNT);
-
-	create_shadow_map_dset(shadow_map_cube_view);
-	shadow_map_attachments.push_back(shadow_map_attachment);
-	shadow_map_cube_views.push_back(shadow_map_cube_view);
-
-	//
-	// Create framebuffer
-	//
-	std::vector<VkImageView> attachments { 
-		shadow_map_attachment.image_view,
-	};
-
-	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-	frame_buffer_create_info.renderPass = this->render_pass;
-	frame_buffer_create_info.attachmentCount = attachments.size();
-	frame_buffer_create_info.pAttachments = attachments.data();
-	frame_buffer_create_info.width = extent.width;
-	frame_buffer_create_info.height = extent.height;
-	frame_buffer_create_info.layers = SHADOW_MAP_LAYER_COUNT;
-
-	VkFramebuffer new_frame_buffer;
-	if (vkCreateFramebuffer(get_logical_device(), &frame_buffer_create_info, nullptr, &new_frame_buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create framebuffer!");
-	}
-	this->frame_buffers.push_back(new_frame_buffer);
+	FrameResources frame;
+	frame.descriptor = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_shadow_map_dset_layout());
+	frames.push_back(frame);
+	frame_buffers.push_back(VK_NULL_HANDLE);
+	// A tiny cube array remains bindable when the scene has no shadowed lights.
+	grow_frame_resources(static_cast<uint32_t>(frames.size() - 1), 0);
 }
 
-void ShadowMapRenderer::submit_draw_commands(VkCommandBuffer command_buffer,
-                                                                     VkImageView,
-                                                                     uint32_t frame_index)
+void ShadowMapRenderer::prepare_frame(const uint32_t frame_idx, PointLightingData lighting)
 {
-	if (get_graphics_engine().get_render_mode() == ERenderMode::WIREFRAME)
+	auto& frame = frames.at(frame_idx);
+	if (lighting.shadow_count > frame.capacity)
+		grow_frame_resources(frame_idx, std::bit_ceil(lighting.shadow_count));
+	frame.lighting = std::move(lighting);
+}
+
+void ShadowMapRenderer::grow_frame_resources(const uint32_t frame_idx, const uint32_t capacity)
+{
+	const uint32_t layer_count = SHADOW_MAP_LAYER_COUNT * std::max(capacity, 1u);
+	const auto extent = capacity ? get_extent() : VkExtent2D{1, 1};
+	FrameResources replacement;
+	VkFramebuffer framebuffer = VK_NULL_HANDLE;
+	try
 	{
-		return;
+		get_graphics_engine().create_image(
+			extent.width, extent.height, get_image_format(), VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			replacement.attachment.image, replacement.attachment.image_memory,
+			get_msaa_sample_count(), layer_count, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
+		replacement.attachment.image_view = get_graphics_engine().create_image_view(
+			replacement.attachment.image, get_image_format(), VK_IMAGE_ASPECT_DEPTH_BIT,
+			VK_IMAGE_VIEW_TYPE_2D_ARRAY, layer_count);
+		replacement.cube_array_view = get_graphics_engine().create_image_view(
+			replacement.attachment.image, get_image_format(), VK_IMAGE_ASPECT_DEPTH_BIT,
+			VK_IMAGE_VIEW_TYPE_CUBE_ARRAY, layer_count);
+		replacement.preview_view = get_graphics_engine().create_image_view(
+			replacement.attachment.image, get_image_format(), VK_IMAGE_ASPECT_DEPTH_BIT);
+
+		VkFramebufferCreateInfo info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+		info.renderPass = render_pass;
+		info.attachmentCount = 1;
+		info.pAttachments = &replacement.attachment.image_view;
+		info.width = extent.width;
+		info.height = extent.height;
+		info.layers = layer_count;
+		if (vkCreateFramebuffer(get_logical_device(), &info, nullptr, &framebuffer) != VK_SUCCESS)
+			throw std::runtime_error("Failed to create point-light shadow framebuffer");
+	}
+	catch (...)
+	{
+		destroy_frame_images(replacement);
+		throw;
 	}
 
-	// starting a render pass
-	VkRenderPassBeginInfo render_pass_begin_info{};
-	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = this->render_pass;
-	render_pass_begin_info.framebuffer = this->frame_buffers[frame_index];
-	render_pass_begin_info.renderArea.offset = { 0, 0 };
-	render_pass_begin_info.renderArea.extent = this->get_extent();
-	
-	VkClearValue clear_value = { 1.0f, 0 };
-	render_pass_begin_info.clearValueCount = 1;
-	render_pass_begin_info.pClearValues = &clear_value;
-	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	// The caller has waited for this slot's fence. No other slot references it.
+	auto& frame = frames.at(frame_idx);
+	VkDescriptorImageInfo image_info{shadow_map_sampler, replacement.cube_array_view,
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+	VkWriteDescriptorSet write{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+	write.dstSet = frame.descriptor;
+	write.dstBinding = SDS::RASTERIZATION_SHADOW_MAP_DATA_BINDING;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	write.descriptorCount = 1;
+	write.pImageInfo = &image_info;
+	vkUpdateDescriptorSets(get_logical_device(), 1, &write, 0, nullptr);
+	vkDestroyFramebuffer(get_logical_device(), frame_buffers.at(frame_idx), nullptr);
+	destroy_frame_images(frame);
+	frame.attachment = replacement.attachment;
+	frame.cube_array_view = replacement.cube_array_view;
+	frame.preview_view = replacement.preview_view;
+	frame.capacity = capacity;
+	frame_buffers[frame_idx] = framebuffer;
+}
+
+void ShadowMapRenderer::submit_draw_commands(
+	VkCommandBuffer command_buffer, VkImageView, const uint32_t frame_index)
+{
+	const auto& resources = frames.at(frame_index);
+	VkRenderPassBeginInfo begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+	begin.renderPass = render_pass;
+	begin.framebuffer = frame_buffers.at(frame_index);
+	begin.renderArea.extent = resources.capacity ? get_extent() : VkExtent2D{1, 1};
+	VkClearValue clear{};
+	clear.depthStencil = {1.0f, 0};
+	begin.clearValueCount = 1;
+	begin.pClearValues = &clear;
+	vkCmdBeginRenderPass(command_buffer, &begin, VK_SUBPASS_CONTENTS_INLINE);
 	reset_draw_state();
 
-	std::vector<VkDescriptorSet> per_frame_dsets = { 
-		get_rsrc_mgr().get_global_dset(frame_index)
-	};
-	vkCmdBindDescriptorSets(command_buffer,
-							VK_PIPELINE_BIND_POINT_GRAPHICS,
-							// lets assume that global descriptor objects only use the STANDARD pipeline
-							// this is a little dodgy but it seems to be working?
-							get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
-							SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET,
-							per_frame_dsets.size(),
-							per_frame_dsets.data(),
-							0,
-							nullptr);
-
-
-	const auto& frame = get_graphics_engine().get_render_frame();
-	for (const GraphicsDrawItem* item : get_graphics_engine().get_draw_lists().shadow())
+	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)
 	{
-		if (!item->graphics_renderable->get_visibility())
-			continue;
-		if (frame.active_light
-			&& item->graphics_renderable->get_object_id() == frame.active_light->object_id)
+		const auto global_set = get_rsrc_mgr().get_global_dset(frame_index);
+		vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+			get_graphics_engine().get_pipeline_mgr().get_generic_pipeline_layout(),
+			SDS::RASTERIZATION_LOW_FREQ_SET_OFFSET, 1, &global_set, 0, nullptr);
+		const auto& frame = get_graphics_engine().get_render_frame();
+		for (uint32_t index = 0; index < resources.lighting.light_count; ++index)
 		{
-			continue;
+			if (resources.lighting.lights[index].shadow_slot < 0)
+				continue;
+			for (const auto* item : get_graphics_engine().get_draw_lists().shadow())
+			{
+				if (!item->graphics_renderable->get_visibility()
+					|| item->graphics_renderable->get_object_id() == frame.lights[index].object_id)
+					continue;
+				draw_renderable(command_buffer, *item->renderable,
+					item->graphics_renderable->get_frame_dset(frame_index),
+					item->graphics_renderable->get_dset(), EPipelineModifier::SHADOW_MAP,
+					ERenderType::UNASSIGNED, std::nullopt, index);
+			}
 		}
-		draw_renderable(
-			command_buffer,
-			*item->renderable,
-			item->graphics_renderable->get_frame_dset(frame_index),
-			item->graphics_renderable->get_dset(),
-			EPipelineModifier::SHADOW_MAP);
 	}
-	
 	vkCmdEndRenderPass(command_buffer);
 }
 
@@ -236,24 +241,4 @@ void ShadowMapRenderer::create_sampler()
 	{
 		throw std::runtime_error("ShadowMapRenderer: failed to create texture sampler!");
 	}	
-}
-
-void ShadowMapRenderer::create_shadow_map_dset(VkImageView shadow_map_view)
-{
-	shadow_map_dsets.push_back(get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_shadow_map_dset_layout()));
-
-	VkDescriptorImageInfo image_info{};
-	image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	image_info.imageView = shadow_map_view;
-	image_info.sampler = shadow_map_sampler;
-
-	VkWriteDescriptorSet combined_image_sampler_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
-	combined_image_sampler_descriptor_set.dstSet = shadow_map_dsets.back();
-	combined_image_sampler_descriptor_set.dstBinding = SDS::RASTERIZATION_SHADOW_MAP_DATA_BINDING;
-	combined_image_sampler_descriptor_set.dstArrayElement = 0; // offset
-	combined_image_sampler_descriptor_set.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	combined_image_sampler_descriptor_set.descriptorCount = 1;
-	combined_image_sampler_descriptor_set.pImageInfo = &image_info;
-	
-	vkUpdateDescriptorSets(get_logical_device(), 1, &combined_image_sampler_descriptor_set, 0, nullptr);
 }

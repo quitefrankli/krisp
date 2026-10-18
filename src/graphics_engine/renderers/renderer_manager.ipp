@@ -13,19 +13,6 @@ RendererManager::RendererManager(GraphicsEngine& engine) :
 	renderers[ERendererType::PARTICLE] = std::make_unique<ParticleRenderer>(engine);
 }
 
-void RendererManager::linkup_renderers()
-{
-	// link output of shadowmap renderer to input of rasterization renderer
-	auto& shadow_map_renderer = get_renderer(ERendererType::SHADOW_MAP);
-	std::vector<VkImageView> shadow_map_inputs;
-	for (int frame_idx = 0; frame_idx < get_graphics_engine().get_num_swapchain_images(); ++frame_idx)
-	{
-		shadow_map_inputs.push_back(get_renderer(ERendererType::SHADOW_MAP).get_output_image_view(frame_idx));
-	}	
-	auto& rasterization_renderer = static_cast<RasterizationRenderer&>(get_renderer(ERendererType::RASTERIZATION));
-	rasterization_renderer.set_shadow_map_inputs(shadow_map_inputs);
-}
-
 void RendererManager::pipe_output_to_quad_renderer(ERendererType src_renderer)
 {
 	if (src_renderer == ERendererType::QUAD)
@@ -41,10 +28,8 @@ void RendererManager::pipe_output_to_quad_renderer(ERendererType src_renderer)
 		return;
 	}
 
-	auto& src = get_renderer(src_renderer);
-
-	quad_renderer.set_texture(
-		src.get_output_image_view(0),
+	quad_renderer.set_renderer_source(
+		src_renderer,
 		get_graphics_engine().get_texture_mgr().fetch_sampler(
 			PbrMaterial::TextureSampler::clamp_to_edge()));
 	quad_renderer.set_texture_sampling_flags(1);

@@ -22,24 +22,33 @@ void LightSystem::add_light_source(
 	const LightComponent& new_light)
 {
 	validate_light_component(new_light);
+	if (!lights.contains(id)
+		&& lights.size() >= static_cast<std::size_t>(SDS::MAX_POINT_LIGHTS))
+		throw std::invalid_argument("Maximum number of light sources reached");
 	lights.emplace(id, new_light);
 }
 
-void LightSystem::serialize(Serializer& out) const
+std::vector<ObjectID> LightSystem::get_light_source_ids() const
 {
 	std::vector<ObjectID> ids;
 	ids.reserve(lights.size());
 	for (const auto& [id, _] : lights)
 		ids.push_back(id);
 	std::ranges::sort(ids);
+	return ids;
+}
 
+void LightSystem::serialize(Serializer& out) const
+{
 	auto entries = out.sequence("light_system");
-	for (const auto id : ids) {
+	for (const auto id : get_light_source_ids()) {
 		auto entry = entries.append_map();
 		const auto& light = lights.at(id);
 		entry.write("entity_id", id.get_underlying());
 		entry.write("intensity", light.intensity);
 		Serialization::write_vec3(entry, "color", light.color);
+		entry.write("enabled", light.enabled);
+		entry.write("casts_shadow", light.casts_shadow);
 	}
 }
 
@@ -47,12 +56,16 @@ void LightSystem::deserialize(const Deserializer& in)
 {
 	std::unordered_map<ObjectID, LightComponent> restored;
 	const auto entries = in.child("light_system").elements();
+	if (entries.size() > static_cast<std::size_t>(SDS::MAX_POINT_LIGHTS))
+		throw SerializationError("Too many light sources at $.light_system");
 	for (std::size_t index = 0; index < entries.size(); ++index) {
 		const auto& entry = entries[index];
 		const ObjectID id(entry.read<std::uint64_t>("entity_id"));
 		LightComponent light;
 		light.intensity = entry.read<float>("intensity");
 		light.color = Serialization::read_vec3(entry, "color");
+		light.enabled = entry.read<bool>("enabled");
+		light.casts_shadow = entry.read<bool>("casts_shadow");
 		try {
 			validate_light_component(light);
 		} catch (const std::invalid_argument& error) {

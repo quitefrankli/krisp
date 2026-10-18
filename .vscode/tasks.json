@@ -2,18 +2,18 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
-			"label": "build krisp (debug)",
+			"label": "build sandbox (debug)",
 			"type": "shell",
-			"command": "meson compile -C build/debug -j 6 krisp",
+			"command": "meson compile -C build/debug -j 6 sandbox",
 			"group": {
 				"kind": "build",
 				"isDefault": true
 			}
 		},
 		{
-			"label": "build krisp (release)",
+			"label": "build sandbox (release)",
 			"type": "shell",
-			"command": "meson compile -C build/release -j 6 krisp",
+			"command": "meson compile -C build/release -j 6 sandbox",
 			"group": {
 				"kind": "build",
 				"isDefault": false

@@ -2,6 +2,7 @@
 
 #include "renderer.hpp"
 #include "constants.hpp"
+#include "graphics_engine/point_lighting.hpp"
 
 #include <optional>
 
@@ -18,7 +19,6 @@ public:
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return resolve_attachments.at(frame_idx).image_view; };
-	void set_shadow_map_inputs(const std::vector<VkImageView>& shadow_map_inputs);
 
 	// Allow particle renderer to draw within our render pass
 	friend class ParticleRenderer;
@@ -36,9 +36,6 @@ private:
 	std::vector<RenderingAttachment> depth_attachments;
 	// The multisampled scene is resolved to resolve_attachments for presentation sampling.
 
-	std::vector<VkDescriptorSet> shadow_map_dsets;
-
-	VkSampler shadow_map_sampler;
 };
 
 class PresentationRenderer : public Renderer
@@ -120,22 +117,32 @@ public:
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::SHADOW_MAP; }
-	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return shadow_map_cube_views[frame_idx]; };
-	virtual VkExtent2D get_extent() override { return { 2048, 2048 }; } // resolution of each face of the shadow map
+	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return frames.at(frame_idx).preview_view; }
+	virtual VkExtent2D get_extent() override { return { POINT_SHADOW_RESOLUTION, POINT_SHADOW_RESOLUTION }; }
+	// Called only after this frame's fence completes, before recording commands.
+	void prepare_frame(uint32_t frame_idx, PointLightingData lighting);
+	const PointLightingData& get_lighting_data(uint32_t frame_idx) const { return frames.at(frame_idx).lighting; }
 
-	VkDescriptorSet get_shadow_map_dset(uint32_t frame_idx) { return shadow_map_dsets[frame_idx]; }
+	VkDescriptorSet get_shadow_map_dset(uint32_t frame_idx) const { return frames.at(frame_idx).descriptor; }
 
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_D32_SFLOAT; }
 	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
 	void create_render_pass();
 	void create_sampler();
-	void create_shadow_map_dset(VkImageView shadow_map_view);
-
-	std::vector<RenderingAttachment> shadow_map_attachments;
-	std::vector<VkImageView> shadow_map_cube_views;
-	std::vector<VkDescriptorSet> shadow_map_dsets;
-	VkSampler shadow_map_sampler;
+	struct FrameResources
+	{
+		RenderingAttachment attachment;
+		VkImageView cube_array_view = VK_NULL_HANDLE;
+		VkImageView preview_view = VK_NULL_HANDLE;
+		VkDescriptorSet descriptor = VK_NULL_HANDLE;
+		uint32_t capacity = 0;
+		PointLightingData lighting;
+	};
+	void grow_frame_resources(uint32_t frame_idx, uint32_t capacity);
+	void destroy_frame_images(FrameResources& frame);
+	std::vector<FrameResources> frames;
+	VkSampler shadow_map_sampler = VK_NULL_HANDLE;
 
 	using Renderer::get_graphics_engine;
 	using Renderer::get_rsrc_mgr;
@@ -155,6 +162,7 @@ public:
 	virtual VkExtent2D get_extent() override { return { 512, 512 }; }
 
 	void set_texture(VkImageView texture_view, VkSampler texture_sampler);
+	void set_renderer_source(ERendererType source, VkSampler sampler);
 	void set_texture_sampling_flags(int flags) { sampling_flags = flags; }
 
 private:
@@ -162,16 +170,11 @@ private:
 	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
 	void create_render_pass();
 
-	VkDescriptorSet texture;
-	struct TextureToRender
-	{
-		VkImageView texture_view;
-		VkSampler texture_sampler;
-		// dset is only updated when this hits 0
-		int render_frames_remaining;
-	};
-
-	std::optional<TextureToRender> texture_to_render;
+	std::vector<VkDescriptorSet> textures;
+	VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;
+	VkImageView texture_view = VK_NULL_HANDLE;
+	VkSampler texture_sampler = VK_NULL_HANDLE;
+	std::optional<ERendererType> renderer_source;
 	bool should_render = false;
 
 	int sampling_flags = 0;

@@ -11,17 +11,18 @@ layout(set=RASTERIZATION_LOW_FREQ_SET_OFFSET, binding=RASTERIZATION_GLOBAL_DATA_
 {
 	GlobalData data;
 } global_data;
-layout(push_constant) uniform AlphaMaterialBuffer
+layout(push_constant) uniform RasterizationPushConstantBuffer
 {
-	AlphaMaterialData data;
-} alpha_material;
+	RasterizationPushConstant data;
+} push_constant;
 
 void main()
 {
 	const float effective_alpha = get_pbr_effective_alpha(
-		mat_data.data.base_color_factor.a, alpha_material.data);
-	if (is_pbr_alpha_discarded(effective_alpha, alpha_material.data))
+		mat_data.data.base_color_factor.a, push_constant.data.material);
+	if (is_pbr_alpha_discarded(effective_alpha, push_constant.data.material))
 		discard;
-	gl_FragDepth = length(world_pos - global_data.data.light_pos)
+	const PointLightData light = global_data.data.lights[push_constant.data.light_index];
+	gl_FragDepth = length(world_pos - light.position)
 		/ global_data.data.shadow_far_plane;
 }

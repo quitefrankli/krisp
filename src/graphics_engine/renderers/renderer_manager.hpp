@@ -25,7 +25,6 @@ public:
 	std::map<ERendererType, std::unique_ptr<Renderer>>& get_renderers() { return renderers; }
 
 	// links the inputs and outputs of specific renderers
-	void linkup_renderers();
 	void pipe_output_to_quad_renderer(ERendererType src_renderer);
 
 private:

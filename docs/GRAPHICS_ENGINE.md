@@ -50,8 +50,8 @@ GraphicsEngine::run
 ```
 
 Normal command recording generates pending utility texture compositions first,
-then runs the point-light shadow-map pass when lighting is enabled. Scene
-geometry, overlays, and particles render into the linear RGBA16F raster target.
+then runs the point-light shadow-map pass. Scene geometry, overlays, and
+particles render into the linear RGBA16F raster target.
 The presentation pass applies exposure and ACES-inspired tone mapping into the
 sRGB swap-chain image, followed by the diagnostic quad and ImGui. Screenshot
 copy occurs after presentation and before ImGui; recording copy occurs after
@@ -72,10 +72,26 @@ metallic-roughness, normal, and emissive maps. Missing slots bind shared neutral
 images and flags skip their samples. All lit paths share the metallic-roughness
 BRDF and globally bound IBL resources derived from the active skybox. Direct
 point-light radiance uses the published light colour and intensity with
-inverse-square attenuation; the shadow map supplies visibility and full
-occlusion contributes no direct light. Environment light remains unshadowed.
+inverse-square attenuation. Up to eight point lights are copied into each
+render snapshot in ascending object-ID order; disabled lights still occupy a
+slot. Shared fragment shading sums every enabled light, skips lights with zero
+intensity or black colour, and skips shadow sampling on back-facing contributions. Each enabled
+shadow-casting light with nonzero radiance receives a dense cube-array slot.
+The shadow pass renders each eligible shadow caster into six faces per such
+light, excluding the light's own object. Lit fragments apply 16-tap PCF to
+shadowed contributions; full occlusion removes that light's direct
+contribution. Environment light remains unshadowed.
 Material shaders produce unclamped scene-linear output and leave exposure, tone
 mapping, and display encoding to the presentation pass.
+
+Shadow cube arrays are owned per swap-chain frame. Their capacity grows to the
+next power of two when that frame needs more shadow slots and remains at its
+high-water capacity until shutdown. Resource replacement updates only the
+descriptor for the frame whose fence has completed. Before a frame first needs
+shadows, it uses a bindable 1-by-1 cube array. Grown arrays remain allocated
+when lights are subsequently disabled or removed. Growth needs no device-wide idle wait.
+The renderer exposes the first cube's first face through a 2D preview view;
+each frame updates its own quad descriptor after its fence completes.
 
 Renderable shading policy (`Lit` or `Unlit`) is independent of pass modifiers
 such as selection stencil and wireframe. Pipeline identity carries both

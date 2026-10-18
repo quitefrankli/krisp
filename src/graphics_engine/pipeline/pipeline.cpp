@@ -144,9 +144,9 @@ std::vector<VkDescriptorSetLayout> GraphicsEnginePipeline::get_expected_dset_lay
 std::vector<VkPushConstantRange> GraphicsEnginePipeline::get_push_constant_ranges() const
 {
 	VkPushConstantRange range{};
-	range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
 	range.offset = 0;
-	range.size = sizeof(SDS::AlphaMaterialData);
+	range.size = sizeof(SDS::RasterizationPushConstant);
 	return { range };
 }
 

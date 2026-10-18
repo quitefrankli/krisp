@@ -38,7 +38,7 @@
 
 # Building
 
-* Build with `meson compile -C build/debug -j 6 krisp`.
+* Build with `meson compile -C build/debug -j 6 sandbox`.
 * Run tests with `meson test -C build/debug -j 6`.
 * Agents must use only `build/debug`; `build/release` is reserved for the user's
   concurrent Release workflow.
@@ -50,7 +50,7 @@
 ```
 conan install . -pr=conan_clang_profile --build=missing
 meson setup build/debug --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false
-meson compile -C build/debug -j 6 krisp
+meson compile -C build/debug -j 6 sandbox
 ```
 
 * When `build/debug` does not exist yet, use the setup command without

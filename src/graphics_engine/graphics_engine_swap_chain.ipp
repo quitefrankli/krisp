@@ -78,7 +78,6 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : Graph
 
 	destroy_and_recreate_frames();
 
-	get_graphics_engine().get_renderer_mgr().linkup_renderers();
 }
 
 GraphicsEngineSwapChain::~GraphicsEngineSwapChain()

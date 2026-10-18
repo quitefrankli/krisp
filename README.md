@@ -36,27 +36,15 @@ meson setup build/release --native-file build/conan/conan_meson_native.ini --bui
 ```
 
 Conan's native file supplies compilers and dependency paths but deliberately
-does not set Krisp's build type. Build and run either configuration with:
+does not set Krisp's build type. The engine's demonstration application is
+Sandbox. Build and run either configuration with:
 
 ```bash
-meson compile -C build/debug -j 6 krisp
-build/debug/applications/krisp/krisp
+meson compile -C build/debug -j 6 sandbox
+build/debug/applications/sandbox/sandbox
 
-meson compile -C build/release -j 6 krisp
-build/release/applications/krisp/krisp
-```
-
-Alternatively, source the repository's shell helpers once from `.bashrc`:
-
-```bash
-source /path/to/krisp/aliases.sh
-```
-
-The `krisp` command configures a missing build tree, then builds and runs it:
-
-```bash
-krisp --debug
-krisp --release
+meson compile -C build/release -j 6 sandbox
+build/release/applications/sandbox/sandbox
 ```
 
 After changing dependencies or build configuration, rerun `conan install` when

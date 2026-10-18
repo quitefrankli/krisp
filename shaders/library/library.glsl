@@ -127,18 +127,69 @@ vec3 evaluate_gltf_point_light(
 	const vec3 fragment_position,
 	const vec3 light_position,
 	const vec3 light_color,
-	const float light_intensity,
-	out vec3 light_dir)
+	const float light_intensity)
 {
 	const vec3 to_light = light_position - fragment_position;
 	const float distance_squared = max(
 		dot(to_light, to_light), MIN_LIGHT_DISTANCE_SQUARED);
-	light_dir = get_direction_to_point_light(
+	const vec3 light_dir = get_direction_to_point_light(
 		fragment_position, light_position);
 	const vec3 incident_radiance = light_color
 		* max(light_intensity, 0.0) / distance_squared;
 	return evaluate_gltf_metallic_roughness_brdf(
 		material, normal, view_dir, light_dir) * incident_radiance;
+}
+
+float get_point_shadow_factor(
+	samplerCubeArray shadow_map,
+	const vec3 frag_to_light,
+	const vec3 normal,
+	const vec3 light_dir,
+	const float shadow_far_plane,
+	const int shadow_slot);
+
+vec3 evaluate_gltf_point_lights(
+	const MaterialData material,
+	const vec3 normal,
+	const vec3 view_dir,
+	const vec3 fragment_position,
+	const GlobalData global_data,
+	samplerCubeArray shadow_map)
+{
+	vec3 direct_light = vec3(0.0);
+	const int light_count = int(min(global_data.light_count, uint(MAX_POINT_LIGHTS)));
+	for (int light_idx = 0; light_idx < light_count; ++light_idx)
+	{
+		const PointLightData light = global_data.lights[light_idx];
+		if (light.intensity <= 0.0 || all(equal(light.color, vec3(0.0))))
+			continue;
+
+		const vec3 light_dir = get_direction_to_point_light(
+			fragment_position, light.position);
+		if (dot(normal, light_dir) <= 0.0)
+			continue;
+
+		float visibility = 1.0;
+		if (light.shadow_slot >= 0)
+		{
+			visibility = get_point_shadow_factor(
+				shadow_map,
+				fragment_position - light.position,
+				normal,
+				light_dir,
+				global_data.shadow_far_plane,
+				light.shadow_slot);
+		}
+		direct_light += evaluate_gltf_point_light(
+			material,
+			normal,
+			view_dir,
+			fragment_position,
+			light.position,
+			light.color,
+			light.intensity) * visibility;
+	}
+	return direct_light;
 }
 
 vec3 evaluate_gltf_image_based_lighting(
@@ -191,11 +242,12 @@ float get_bling_phong_spec(vec3 lightDir, vec3 norm, vec3 viewDir, float shinine
 }
 
 float get_point_shadow_factor(
-	samplerCube shadow_map,
+	samplerCubeArray shadow_map,
 	const vec3 frag_to_light,
 	const vec3 normal,
 	const vec3 light_dir,
-	const float shadow_far_plane)
+	const float shadow_far_plane,
+	const int shadow_slot)
 {
 	const float current_depth = length(frag_to_light);
 	if (current_depth <= 0.000001)
@@ -247,7 +299,8 @@ float get_point_shadow_factor(
 		const float sample_depth = abs(sample_plane_angle) > 0.0001
 			? receiver_plane_distance / sample_plane_angle
 			: current_depth;
-		const float closest_depth = texture(shadow_map, sample_dir).r * shadow_far_plane;
+		const float closest_depth = texture(
+			shadow_map, vec4(sample_dir, float(shadow_slot))).r * shadow_far_plane;
 		visibility += (sample_depth - bias) > closest_depth ? 0.0 : 1.0;
 	}
 
