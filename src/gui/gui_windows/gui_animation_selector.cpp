@@ -1,4 +1,5 @@
 #include "gui_animation_selector.hpp"
+#include "resource_paths.hpp"
 
 #include "gui_window_helpers.hpp"
 
@@ -31,7 +32,7 @@ GuiAnimationSelector::GuiAnimationSelector() :
 
 void GuiAnimationSelector::refresh_animation_files()
 {
-	animation_paths = Utility::get_all_animations();
+	animation_paths = ResourcePaths::get_all_animations();
 	std::ranges::sort(animation_paths);
 	animation_tree = GuiWindowDetail::build_resource_tree(animation_paths);
 }

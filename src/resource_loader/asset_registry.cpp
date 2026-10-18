@@ -2,6 +2,7 @@
 #include "kasset.hpp"
 #include "entity_component_system/ecs.hpp"
 #include "utility.hpp"
+#include "resource_paths.hpp"
 
 #include <tiny_gltf.h>
 #include <fstream>
@@ -615,7 +616,7 @@ AssetRegistry::describe_source(std::string_view source,
 	Json metadata;
 	try
 	{
-		metadata = read_metadata(Utility::get_resource(source));
+		metadata = read_metadata(ResourcePaths::get_resource(source));
 	} catch (const Json::exception &error)
 	{
 		throw ResourceLoadError("Invalid asset metadata: " + std::string(error.what()));
@@ -717,7 +718,7 @@ std::vector<Asset> AssetRegistry::load_asset_impl(std::string_view path, const A
 		}
 		auto source = std::make_shared<AssetSource>();
 		source->path = std::string(path);
-		source->resolved = Utility::get_resource(path);
+		source->resolved = ResourcePaths::get_resource(path);
 		source->options = options;
 		auto exports = options.exports;
 		if (source->resolved.extension() == ".kasset")

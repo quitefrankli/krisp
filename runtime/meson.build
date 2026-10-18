@@ -1,17 +1,18 @@
-python = import('python').find_installation('python3')
-krisp_runtime = custom_target(
-    'krisp_runtime',
-    input: [shader_artifacts, default_environment_lighting, skybox_faces,
-        files('../resources/default/textures/checkerboard.png', '../configs/default.yaml')],
-    output: 'runtime.stamp',
-    command: [python, files('../scripts/stage_runtime.py'),
-        meson.project_source_root(), meson.project_build_root(), '@OUTPUT@'],
-    depend_files: files('../scripts/stage_runtime.py'),
-    build_by_default: true)
+# Development reads source assets and generated files directly. This target
+# builds generated runtime data without staging a second directory tree.
+krisp_runtime = [shader_artifacts, default_environment_lighting]
+alias_target('krisp_runtime', krisp_runtime)
 
-# Install the assembled runtime without build bookkeeping files.
-install_subdir(meson.current_build_dir(),
-    install_dir: get_option('datadir') / 'krisp',
+# Only installation assembles a self-contained runtime for packaged consumers.
+install_subdir('../resources/default',
+    install_dir: get_option('datadir') / 'krisp' / 'resources',
     strip_directory: true,
-    exclude_files: ['runtime.stamp'],
+    install_tag: 'engine')
+install_data('../configs/default.yaml',
+    install_dir: get_option('datadir') / 'krisp' / 'configs',
+    install_tag: 'engine')
+install_subdir(meson.project_build_root() / 'shaders',
+    install_dir: get_option('datadir') / 'krisp' / 'shaders',
+    strip_directory: true,
+    exclude_files: ['shader_artifacts.stamp'],
     install_tag: 'engine')

@@ -16,8 +16,21 @@ if get_option('buildtype') == 'debug'
 endif
 
 additional_include_directories = [
-	include_directories('shared_code')
+	include_directories('shared_code'),
+	include_directories('.')
 ]
+
+engine_path_config = configuration_data()
+engine_path_values = {
+    'KRISP_ENGINE_RESOURCES': meson.project_source_root() / 'resources/default',
+    'KRISP_ENGINE_SHADERS': meson.project_build_root() / 'shaders',
+    'KRISP_ENGINE_DEFAULT_CONFIG': meson.project_source_root() / 'configs/default.yaml',
+    'KRISP_ENGINE_ENVIRONMENT_LIGHTING': meson.project_build_root() / 'tools/default_environment.krisp-ibl',
+}
+foreach name, path : engine_path_values
+    engine_path_config.set_quoted(name, get_option('development_paths') ? path : '')
+endforeach
+configure_file(output: 'krisp_engine_paths.hpp', configuration: engine_path_config)
 
 conan_dependencies = [
     dependency('glm', required: true),

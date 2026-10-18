@@ -1,6 +1,7 @@
 #include <resource_loader/asset_registry.hpp>
 #include <entity_component_system/ecs.hpp>
 #include <serialization/resource_provenance.hpp>
+#include <resource_paths.hpp>
 #include <utility.hpp>
 
 #include <gtest/gtest.h>
@@ -57,7 +58,7 @@ public:
 	                const PackageExportMutation mutation = PackageExportMutation::None)
 	{
 		static unsigned sequence = 0;
-		const auto directory = Utility::get_test_data_path() / "kassets";
+		const auto directory = ResourcePaths::get_test_data_path() / "kassets";
 		std::filesystem::create_directories(directory);
 		path = directory / ("asset_package_test_" + std::to_string(sequence++) + ".kasset");
 
@@ -140,7 +141,7 @@ struct PackageModelFixture
 		const bool external_image = false,
 		const PackageExportMutation mutation = PackageExportMutation::None)
 	{
-		const auto model_path = Utility::get_test_data_path() / "simple_test_model.gltf";
+		const auto model_path = ResourcePaths::get_test_data_path() / "simple_test_model.gltf";
 		const auto original = read_file(model_path);
 		auto document = nlohmann::json::parse(original);
 		document["images"][0].erase("bufferView");
@@ -165,7 +166,7 @@ struct PackageModelFixture
 		exports.push_back({{"name", "texture/broken"}, {"kind", "texture"},
 		                  {"file", "textures/broken.jpg"}, {"selector", selector_json({})}});
 
-		const auto texture = read_file(Utility::get_texture("texture.jpg"));
+		const auto texture = read_file(ResourcePaths::get_texture("texture.jpg"));
 		std::map<std::string, std::vector<unsigned char>> files{
 			{"models/character.gltf", std::move(model)},
 			{"textures/broken.jpg", {'n', 'o', 't', ' ', 'a', 'n', ' ', 'i', 'm', 'a', 'g', 'e'}},

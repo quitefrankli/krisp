@@ -17,6 +17,7 @@
 #include "entity_component_system/material_system.hpp"
 #include "serialization/serializer.hpp"
 #include "serialization/resource_provenance.hpp"
+#include <resource_paths.hpp>
 #include "utility.hpp"
 
 #include <gtest/gtest.h>
@@ -78,9 +79,9 @@ public:
 		const std::function<void(nlohmann::json&)>& mutate)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_test_data_path()
+		path = ResourcePaths::get_test_data_path()
 			/ fmt::format("krisp_game_engine_test_{}.gltf", sequence++);
-		std::ifstream input(Utility::get_model(source));
+		std::ifstream input(ResourcePaths::get_model(source));
 		nlohmann::json document;
 		input >> document;
 		mutate(document);
@@ -1158,8 +1159,8 @@ TEST_F(GameEngineTests, model_spawner_imports_each_mesh_node_as_clickable)
 TEST_F(GameEngineTests, object_spawner_creates_a_clickable_textured_pbr_cube)
 {
 	// The default texture must be shipped, not just available in local asset collections.
-	const auto shipped_texture = Utility::get_engine_runtime_path()
-		/ "resources/textures/checkerboard.png";
+	const auto shipped_texture = ResourcePaths::get_engine_paths().resources
+		/ "textures/checkerboard.png";
 	ASSERT_TRUE(std::filesystem::is_regular_file(shipped_texture));
 
 	auto& spawner = engine.get_gui_manager().object_spawner;

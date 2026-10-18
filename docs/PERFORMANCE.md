@@ -130,6 +130,10 @@ selects it automatically when all six faces resolve from engine defaults, so
 external apps avoid repeating the CPU convolution at startup. App overrides
 retain synchronous processing unless the caller supplies a matching asset.
 
+Engine resources resolve through compiled `EnginePaths`; development builds no longer
+stages, copies, or symlinks them into a runtime directory. This removes those
+filesystem operations, but their performance effect has not been measured.
+
 The three linear RGBA8 outputs use about 600 KiB of GPU image data before image
 and allocator overhead: 24 KiB for irradiance, approximately 512 KiB for the
 specular mip chain, and 64 KiB for the lookup texture. Generated environments

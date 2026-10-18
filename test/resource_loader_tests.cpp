@@ -2,6 +2,7 @@
 #include "asset_test_helper.hpp"
 
 #include <resource_loader/resource_loader.hpp>
+#include <resource_paths.hpp>
 #include <utility.hpp>
 #include <entity_component_system/ecs.hpp>
 #include <entity_component_system/material_system.hpp>
@@ -115,7 +116,7 @@ public:
 		const std::optional<size_t> payload_size = std::nullopt)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_test_data_path()
+		path = ResourcePaths::get_test_data_path()
 			/ fmt::format("krisp_test_{}.dds", sequence++);
 		contents.resize(128, 0);
 		const auto write_u32 = [this](const size_t offset, const uint32_t value)
@@ -184,7 +185,7 @@ public:
 	explicit GeneratedGlbDDS(const GeneratedDDS& dds)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_test_data_path()
+		path = ResourcePaths::get_test_data_path()
 			/ fmt::format("krisp_test_dds_{}.glb", sequence++);
 
 		tinygltf::TinyGLTF io;
@@ -192,7 +193,7 @@ public:
 		std::string error;
 		std::string warning;
 		if (!io.LoadASCIIFromFile(
-				&model, &error, &warning, Utility::get_model("static_mesh_textured.gltf").string()))
+				&model, &error, &warning, ResourcePaths::get_model("static_mesh_textured.gltf").string()))
 			throw std::runtime_error("Unable to load glTF test template: " + error);
 
 		auto& buffer = model.buffers.at(0);
@@ -238,9 +239,9 @@ public:
 		const bool strip_textures = true)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_test_data_path()
+		path = ResourcePaths::get_test_data_path()
 			/ fmt::format("krisp_test_accessor_{}.gltf", sequence++);
-		std::ifstream input(Utility::get_model(template_filename));
+		std::ifstream input(ResourcePaths::get_model(template_filename));
 		nlohmann::json document;
 		input >> document;
 		if (strip_textures && template_filename == "static_mesh_textured.gltf")
@@ -266,7 +267,7 @@ public:
 	GeneratedTangentFrame(const glm::vec3& normal, const glm::vec3& tangent)
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_test_data_path()
+		path = ResourcePaths::get_test_data_path()
 			/ fmt::format("krisp_test_tangent_frame_{}.glb", sequence++);
 
 		tinygltf::TinyGLTF io;
@@ -275,7 +276,7 @@ public:
 		std::string warning;
 		if (!io.LoadASCIIFromFile(
 				&model, &error, &warning,
-				Utility::get_model("normal_mapped_authored_tangents.gltf").string()))
+				ResourcePaths::get_model("normal_mapped_authored_tangents.gltf").string()))
 			throw std::runtime_error("Unable to load tangent-frame test template: " + error);
 
 		const auto write_accessor = [&model](const int accessor_index, const float* values,
@@ -315,7 +316,7 @@ public:
 	TemporaryExternalJpeg()
 	{
 		static uint32_t sequence = 0;
-		path = Utility::get_test_data_path()
+		path = ResourcePaths::get_test_data_path()
 			/ fmt::format("krisp_test_external_{}.jpg", sequence++);
 		std::filesystem::copy_file(
 			std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg",

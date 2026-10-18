@@ -20,10 +20,20 @@ meson setup build/debug --reconfigure \
 meson compile -C build/debug -j 6 sandbox
 ```
 
-The editable runtime directory is `build/debug/runtime`; packaged runtime data
-lives under `share/krisp`. Reinstall and reconfigure the engine when dependency
-metadata changes. Editable registration applies to this package reference in
-the active Conan home.
+Editable builds use the engine's compiled source/build paths directly; they do
+not stage resources into a runtime directory. The default engine paths point to
+`resources/default`, `build/debug/shaders`, `configs/default.yaml`, and
+`build/debug/tools/default_environment.krisp-ibl` in the checkout. Reinstall
+and reconfigure the engine when dependency metadata changes. Editable
+registration applies to this package reference in the active Conan home.
+
+The package exports the pkg-config variables `krisp_resources`,
+`krisp_shaders`, `krisp_default_config`, and `krisp_environment_lighting`.
+They expose the engine resource locations for inspection and explicit path
+overrides. In a packaged install, they point into `share/krisp`; editable
+installs point into the checkout's source/build tree. With development paths
+disabled, a packaged library's default runtime lookup is `krisp-runtime` beside
+the executable. Set explicit engine paths when a consumer uses another layout.
 
 Remove the editable mapping with
 `conan editable remove --refs=krisp/0.1.0` when a cached package is required.

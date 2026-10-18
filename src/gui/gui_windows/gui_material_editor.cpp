@@ -8,6 +8,7 @@
 #include "renderable/material.hpp"
 #include "renderable/material_group.hpp"
 #include "utility.hpp"
+#include "resource_paths.hpp"
 
 #include <fmt/core.h>
 #include <imgui.h>
@@ -62,7 +63,7 @@ void GuiMaterialEditor::process(GameEngine& engine)
 	if (should_refresh_textures)
 	{
 		should_refresh_textures = false;
-		texture_paths = Utility::get_all_textures();
+		texture_paths = ResourcePaths::get_all_textures();
 		std::ranges::sort(texture_paths);
 		texture_tree = GuiWindowDetail::build_resource_tree(texture_paths);
 	}

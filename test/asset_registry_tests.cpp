@@ -1,5 +1,6 @@
 #include <resource_loader/asset_registry.hpp>
 #include <entity_component_system/ecs.hpp>
+#include <resource_paths.hpp>
 #include <utility.hpp>
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -26,7 +27,7 @@ public:
 	{
 		static std::atomic<unsigned> sequence = 0;
 		name = "registry_invalid_" + std::to_string(sequence++) + ".png";
-		path = Utility::get_test_data_path() / name;
+		path = ResourcePaths::get_test_data_path() / name;
 		std::ofstream(path, std::ios::binary) << "invalid image bytes";
 	}
 	~InvalidImage()

@@ -23,4 +23,7 @@ default_environment_lighting = custom_target(
     'default_environment_lighting',
     input: skybox_faces,
     output: 'default_environment.krisp-ibl',
+    install: true,
+    install_dir: get_option('datadir') / 'krisp',
+    install_tag: 'engine',
     command: [environment_map_precompute, '@OUTPUT@', '@INPUT@'])

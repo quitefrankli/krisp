@@ -1,4 +1,5 @@
 #include "gui_model_spawner.hpp"
+#include "resource_paths.hpp"
 
 #include "gui_window_helpers.hpp"
 
@@ -66,7 +67,7 @@ void GuiModelSpawner::refresh_models()
 	if (selected_model.value >= 0 && selected_model.value < static_cast<int>(model_paths.size()))
 		selected_path = model_paths[selected_model.value];
 
-	model_paths = Utility::get_all_models();
+	model_paths = ResourcePaths::get_all_models();
 	std::ranges::sort(model_paths);
 
 	model_tree = GuiWindowDetail::build_resource_tree(model_paths);

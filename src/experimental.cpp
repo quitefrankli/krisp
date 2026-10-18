@@ -1,5 +1,6 @@
 #include "experimental.hpp"
 #include "utility.hpp"
+#include "resource_paths.hpp"
 #include "entity_component_system/particle_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
 #include "entity_component_system/material_system.hpp"
@@ -396,7 +397,7 @@ void Experimental::process()
              terrain_transform.get_position().z);
 
     auto audio_source = engine.get_audio_engine().create_source();
-    auto audio_file = Utility::get_audio("wav2.wav");
+    auto audio_file = ResourcePaths::get_audio("wav2.wav");
     audio_source.set_audio(audio_file.string());
     audio_source.play();
     spawn_test_particles(this->engine);

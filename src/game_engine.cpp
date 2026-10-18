@@ -24,6 +24,7 @@
 #include "serialization/scene_resources.hpp"
 #include "save_file_store.hpp"
 #include "constants.hpp"
+#include "resource_paths.hpp"
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -504,14 +505,14 @@ void GameEngine::spawn_cubemap(
 	constexpr std::array skybox_faces{ "right", "left", "top", "bottom", "front", "back" };
 	if (!environment_lighting_asset)
 	{
-		const auto engine_resources = (Utility::get_engine_runtime_path() / "resources").lexically_normal();
+		const auto engine_resources = ResourcePaths::get_engine_paths().resources.lexically_normal();
 		const bool uses_engine_defaults = std::ranges::all_of(skybox_faces, [&](const char* face) {
-			const auto texture = Utility::get_texture(fmt::format("skybox/{}.jpg", face)).lexically_normal();
+			const auto texture = ResourcePaths::get_texture(fmt::format("skybox/{}.jpg", face)).lexically_normal();
 			const auto relative = texture.lexically_relative(engine_resources);
 			return !relative.empty() && !relative.is_absolute()
 				&& *relative.begin() != std::filesystem::path("..");
 		});
-		const auto default_environment = Utility::get_engine_runtime_path() / "default_environment.krisp-ibl";
+		const auto default_environment = ResourcePaths::get_engine_paths().environment_lighting;
 		if (uses_engine_defaults && std::filesystem::is_regular_file(default_environment))
 			environment_lighting_asset = default_environment;
 	}

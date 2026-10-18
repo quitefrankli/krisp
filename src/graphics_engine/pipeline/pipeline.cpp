@@ -6,6 +6,7 @@
 
 #include "game_engine.hpp"
 #include "utility.hpp"
+#include "resource_paths.hpp"
 
 #include <fmt/core.h>
 
@@ -152,7 +153,7 @@ std::vector<VkPushConstantRange> GraphicsEnginePipeline::get_push_constant_range
 
 void GraphicsEnginePipeline::initialise()
 {
-	const std::filesystem::path shader_path = Utility::get_shader(get_shader_name());
+	const std::filesystem::path shader_path = ResourcePaths::get_shader(get_shader_name());
 	VkPolygonMode polygon_mode = get_polygon_mode();
 	// culling is determined by either clockerwise or counter clockwise vertex order
 	// RHS uses counter clockwise while LHS (which is our current system) uses clockwise

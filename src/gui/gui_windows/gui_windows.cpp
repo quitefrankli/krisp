@@ -1,4 +1,5 @@
 #include "gui_windows.hpp"
+#include "resource_paths.hpp"
 
 #include "gui_window_helpers.hpp"
 
@@ -392,7 +393,7 @@ GuiMusic::GuiMusic(AudioSource&& audio_source) :
 	EngineUiWindow({ "audio", "Audio", GuiPanelDock::RIGHT, false }),
 	audio_source(std::make_unique<AudioSource>(std::move(audio_source)))
 {
-	songs_paths = sort_paths(Utility::get_all_audio());
+	songs_paths = sort_paths(ResourcePaths::get_all_audio());
 	songs_tree = GuiWindowDetail::build_resource_tree(songs_paths);
 }
 
@@ -446,7 +447,7 @@ void GuiMusic::process(GameEngine&)
 		if (requested_audio)
 		{
 			audio_source->set_audio(
-				Utility::get_audio(*requested_audio).string(), AudioLoadMode::STREAM);
+				ResourcePaths::get_audio(*requested_audio).string(), AudioLoadMode::STREAM);
 			audio_source->play();
 			load_error.reset();
 		}
@@ -559,7 +560,7 @@ void GuiPhoto::refresh_textures()
 	if (selected_image.value >= 0 && selected_image.value < static_cast<int>(photo_paths.size()))
 		selected_path = photo_paths[selected_image.value];
 
-	photo_paths = Utility::get_all_textures();
+	photo_paths = ResourcePaths::get_all_textures();
 	std::ranges::sort(photo_paths);
 
 	photo_tree = GuiWindowDetail::build_resource_tree(photo_paths);

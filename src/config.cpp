@@ -13,7 +13,7 @@ static YAML::Node config_node;
 
 void Config::init(std::string_view app_name)
 {
-	init(app_name, Utility::paths_for_executable(app_name));
+	init(app_name, ResourcePaths::paths_for_executable(app_name));
 }
 
 void Config::init(std::string_view project_name, RuntimePaths paths)
@@ -30,8 +30,9 @@ void Config::init(std::string_view project_name, RuntimePaths paths)
 	#endif
 
 	_project_name = project_name;
-	Utility::initialize(std::move(paths));
-	config_node = YAML::LoadFile(Utility::get_config_path("default.yaml").string());
+	ResourcePaths::initialize(std::move(paths));
+	Utility::initialize(ResourcePaths::get_writable_data_path());
+	config_node = YAML::LoadFile(ResourcePaths::get_config_path("default.yaml").string());
 
 	if (enable_logging())
 	{

@@ -2,6 +2,7 @@
 
 #include <resource_loader/asset_registry.hpp>
 #include <entity_component_system/ecs.hpp>
+#include <resource_paths.hpp>
 #include <utility.hpp>
 
 #include <tiny_gltf.h>
@@ -141,7 +142,7 @@ inline ResourceLoader::LoadedModel load_model_document(
 	const ResourceLoader::LoadOptions& options)
 {
 	return resource_errors_as_load_errors([&] {
-		const auto document = ResourceLoader::read_document(Utility::get_resource(source));
+		const auto document = ResourceLoader::read_document(ResourcePaths::get_resource(source));
 		return ResourceLoader::load_model_document(ecs, document, source, options);
 	});
 }

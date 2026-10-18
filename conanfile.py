@@ -28,7 +28,6 @@ class KrispConan(ConanFile):
         "meson.build",
         "meson.options",
         "scripts/shader_compiler.sh",
-        "scripts/stage_runtime.py",
         "configs/default.yaml",
         "src/*",
         "src/**/*",
@@ -84,13 +83,18 @@ class KrispConan(ConanFile):
         self.folders.build = "build/debug"
         self.folders.generators = "build/conan"
 
+        self.cpp.source.set_property("pkg_config_custom_content", {
+            "krisp_resources": "${prefix}/resources/default",
+            "krisp_shaders": "${prefix}/" + self.folders.build + "/shaders",
+            "krisp_default_config": "${prefix}/configs/default.yaml",
+            "krisp_environment_lighting": "${prefix}/" + self.folders.build + "/tools/default_environment.krisp-ibl",
+        })
         self.cpp.source.includedirs = [
             "src",
             "shared_code",
             "third_party",
         ]
         self.cpp.build.libdirs = ["src", "third_party"]
-        self.cpp.build.builddirs = ["runtime"]
         self.cpp.package.includedirs = ["include/krisp"]
         self.cpp.package.libdirs = ["lib"]
         self.cpp.package.builddirs = ["share/krisp"]
@@ -114,14 +118,14 @@ class KrispConan(ConanFile):
             "meson setup"
             f"{reconfigure}"
             f' --native-file "{self.generators_folder}/conan_meson_native.ini"'
-            " --buildtype=debug -Db_ndebug=false --prefix=/ --libdir=lib"
+            " --buildtype=debug -Db_ndebug=false -Ddevelopment_paths=false --prefix=/ --libdir=lib"
             f" -Dbuild_applications={str(self.options.build_applications).lower()}"
             f" -Dbuild_tests={str(self.options.build_tests).lower()}"
             f' "{self.build_folder}" "{self.source_folder}"'
         )
         targets = ["krisp_libs", "third_party_libs", "krisp_runtime"]
         if self.options.build_applications:
-            targets.append("krisp")
+            targets.append("sandbox")
         if self.options.build_tests:
             targets.append("krisp_tests")
         self.run(f'meson compile -C "{self.build_folder}" -j 6 ' + " ".join(targets))
@@ -165,3 +169,10 @@ class KrispConan(ConanFile):
             "pthread",
         ]
         self.cpp_info.set_property("pkg_config_name", "krisp")
+        runtime = "${prefix}/share/krisp"
+        self.cpp_info.set_property("pkg_config_custom_content", {
+            "krisp_resources": runtime + "/resources",
+            "krisp_shaders": runtime + "/shaders",
+            "krisp_default_config": runtime + "/configs/default.yaml",
+            "krisp_environment_lighting": runtime + "/default_environment.krisp-ibl",
+        })

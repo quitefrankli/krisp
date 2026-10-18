@@ -4,6 +4,7 @@
 #include "graphics_engine.hpp"
 #include "renderers/renderers.hpp"
 #include "utility.hpp"
+#include "resource_paths.hpp"
 #include "entity_component_system/material_system.hpp"
 
 #include <ImGui/imgui_impl_glfw.h>
@@ -317,7 +318,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 	panel_settings_handler.WriteAllFn = panel_settings_write_all;
 	panel_settings_handler.UserData = &engine_ui_manager;
 	ImGui::AddSettingsHandler(&panel_settings_handler);
-	const auto config_path = Utility::get_user_config_path("imgui.ini");
+	const auto config_path = ResourcePaths::get_user_config_path("imgui.ini");
 	std::filesystem::create_directories(config_path.parent_path());
 	imgui_ini_path = config_path.string();
 	io.IniFilename = imgui_ini_path.c_str();

@@ -280,7 +280,7 @@ std::vector<VkVertexInputAttributeDescription> WireframePipeline<SkinnedPipeline
 // For ray tracing:
 // void RaytracingPipeline::initialise()
 // {
-// 	const auto shader_path = Utility::get_shader(get_shader_name()).string();
+// 	const auto shader_path = ResourcePaths::get_shader(get_shader_name()).string();
 // 	VkShaderModule raygen_shader = create_shader_module(shader_path + "/raygen_shader.spv");
 // 	VkShaderModule rayhit_shader = create_shader_module(shader_path + "/rayhit_shader.spv");
 // 	VkShaderModule raymiss_shader = create_shader_module(shader_path + "/raymiss_shader.spv");

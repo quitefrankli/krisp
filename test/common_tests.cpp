@@ -6,6 +6,7 @@
 #include <renderable/render_types.hpp>
 #include <entity_component_system/material_system.hpp>
 #include <analytics.hpp>
+#include <resource_paths.hpp>
 #include <utility.hpp>
 
 #include <gtest/gtest.h>
@@ -28,8 +29,8 @@ class RuntimeResourceFixture
 {
 public:
 	RuntimeResourceFixture()
-		: path(Utility::get_engine_runtime_path() / "resources/meshes/utility_runtime_fallback_test.gltf")
-		, package_path(Utility::get_engine_runtime_path() / "resources/kassets/weapons/utility_runtime_fallback_test.kasset")
+		: path(ResourcePaths::get_engine_paths().resources / "meshes/utility_runtime_fallback_test.gltf")
+		, package_path(ResourcePaths::get_engine_paths().resources / "kassets/weapons/utility_runtime_fallback_test.kasset")
 	{
 		std::filesystem::create_directories(path.parent_path());
 		std::ofstream(path) << "runtime fallback fixture";
@@ -73,76 +74,97 @@ TEST(UtilityLoopSleeper, elapsed_work_counts_towards_loop_period)
 	EXPECT_LT(sleep_time, std::chrono::milliseconds(20));
 }
 
-TEST(UtilityResources, test_mode_resolves_test_data_before_project_resources)
+TEST(ResourcePaths, test_mode_resolves_test_data_before_project_resources)
 {
 	EXPECT_EQ(
-		Utility::get_model("simple_test_model.gltf"),
-		Utility::get_test_data_path()/"simple_test_model.gltf");
+		ResourcePaths::get_model("simple_test_model.gltf"),
+		ResourcePaths::get_test_data_path()/"simple_test_model.gltf");
+	const auto app_texture = std::filesystem::path(TEST_SOURCE_DIR)
+		/ "resources/default/textures/texture.jpg";
+	const auto engine_texture = ResourcePaths::get_engine_paths().resources
+		/ "textures/texture.jpg";
+	ASSERT_TRUE(std::filesystem::is_regular_file(engine_texture));
+	EXPECT_NE(app_texture, engine_texture);
 	EXPECT_EQ(
-		Utility::get_texture("texture.jpg"),
-		std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg");
+		ResourcePaths::get_texture("texture.jpg"),
+		app_texture);
 }
 
-TEST(UtilityResources, resource_names_reject_absolute_paths_and_parent_traversal)
+TEST(ResourcePaths, resource_names_reject_absolute_paths_and_parent_traversal)
 {
-	EXPECT_THROW(Utility::get_model("/tmp/model.glb"), std::runtime_error);
-	EXPECT_THROW(Utility::get_model("../model.glb"), std::runtime_error);
-	EXPECT_THROW(Utility::get_shader("../shader.vert"), std::runtime_error);
+	EXPECT_THROW(ResourcePaths::get_model("/tmp/model.glb"), std::runtime_error);
+	EXPECT_THROW(ResourcePaths::get_model("../model.glb"), std::runtime_error);
+	EXPECT_THROW(ResourcePaths::get_shader("../shader.vert"), std::runtime_error);
 }
 
-TEST(UtilityPaths, default_app_data_is_grouped_under_krisp)
+TEST(ResourcePaths, default_app_data_is_grouped_under_krisp)
 {
-	const auto sample_a = Utility::paths_for_executable("sample_a");
-	const auto sample_b = Utility::paths_for_executable("sample_b");
+	const auto sample_a = ResourcePaths::paths_for_executable("sample_a");
+	const auto sample_b = ResourcePaths::paths_for_executable("sample_b");
 	EXPECT_EQ(sample_a.writable_data.filename(), "sample_a");
 	EXPECT_EQ(sample_a.writable_data.parent_path().filename(), "krisp");
 	EXPECT_EQ(sample_b.writable_data.parent_path(), sample_a.writable_data.parent_path());
 	EXPECT_NE(sample_b.writable_data, sample_a.writable_data);
 }
 
-TEST(UtilityPaths, config_and_saves_use_app_specific_locations)
+TEST(ResourcePaths, default_engine_paths_point_to_source_and_build_outputs)
+{
+	const auto engine = ResourcePaths::paths_for_executable("sample").engine;
+	EXPECT_EQ(engine.resources, std::filesystem::path(TEST_SOURCE_DIR) / "resources/default");
+	EXPECT_EQ(engine.shaders, std::filesystem::path(TEST_BUILD_DIR) / "shaders");
+	EXPECT_EQ(engine.default_config, std::filesystem::path(TEST_SOURCE_DIR) / "configs/default.yaml");
+	EXPECT_EQ(engine.environment_lighting,
+		std::filesystem::path(TEST_BUILD_DIR) / "tools/default_environment.krisp-ibl");
+	EXPECT_TRUE(std::filesystem::is_directory(engine.resources));
+	EXPECT_TRUE(std::filesystem::is_directory(engine.shaders));
+	EXPECT_TRUE(std::filesystem::is_regular_file(engine.default_config));
+	EXPECT_TRUE(std::filesystem::is_regular_file(engine.environment_lighting));
+}
+
+TEST(ResourcePaths, config_and_saves_use_app_specific_locations)
 {
 	EXPECT_EQ(
-		Utility::get_config_path("default.yaml"),
+		ResourcePaths::get_config_path("default.yaml"),
 		std::filesystem::path(TEST_SOURCE_DIR)/"configs/default.yaml");
 	EXPECT_EQ(
 		Utility::get_saves_path(),
 		std::filesystem::path(TEST_BUILD_DIR)/"test-data/krisp_tests/saves");
 }
 
-TEST(UtilityResources, collected_resources_are_filenames)
+TEST(ResourcePaths, collected_resources_are_filenames)
 {
-	const auto textures = Utility::get_all_textures();
+	const auto textures = ResourcePaths::get_all_textures();
 	EXPECT_NE(std::ranges::find(textures, "texture.jpg"), textures.end());
 	EXPECT_NE(std::ranges::find(textures, "skybox/front.jpg"), textures.end());
+	EXPECT_NE(std::ranges::find(textures, "checkerboard.png"), textures.end());
 	EXPECT_TRUE(std::ranges::all_of(textures, [](const std::string& filename)
 	{
 		return !std::filesystem::path(filename).is_absolute();
 	}));
 }
 
-TEST(UtilityResources, resolves_engine_runtime_fallback_after_app_resources)
+TEST(ResourcePaths, resolves_engine_fallback_after_app_resources)
 {
 	RuntimeResourceFixture fallback;
 	EXPECT_EQ(
-		Utility::get_model("utility_runtime_fallback_test.gltf"),
+		ResourcePaths::get_model("utility_runtime_fallback_test.gltf"),
 		fallback.path);
 	EXPECT_EQ(
-		Utility::get_resource("utility_runtime_fallback_test.gltf"),
+		ResourcePaths::get_resource("utility_runtime_fallback_test.gltf"),
 		fallback.path);
 	EXPECT_EQ(
-		Utility::get_resource("meshes/utility_runtime_fallback_test.gltf"),
+		ResourcePaths::get_resource("meshes/utility_runtime_fallback_test.gltf"),
 		fallback.path);
 	EXPECT_EQ(
-		Utility::get_resource("weapons/utility_runtime_fallback_test.kasset"),
+		ResourcePaths::get_resource("weapons/utility_runtime_fallback_test.kasset"),
 		fallback.package_path);
 	EXPECT_EQ(
-		Utility::get_resource("kassets/weapons/utility_runtime_fallback_test.kasset"),
+		ResourcePaths::get_resource("kassets/weapons/utility_runtime_fallback_test.kasset"),
 		fallback.package_path);
 	EXPECT_EQ(
-		Utility::get_texture("texture.jpg"),
+		ResourcePaths::get_texture("texture.jpg"),
 		std::filesystem::path(TEST_SOURCE_DIR)/"resources/default/textures/texture.jpg");
-	EXPECT_THROW(Utility::get_model("resource_that_does_not_exist.gltf"), std::runtime_error);
+	EXPECT_THROW(ResourcePaths::get_model("resource_that_does_not_exist.gltf"), std::runtime_error);
 }
 
 

@@ -5,30 +5,40 @@ registration, a bare filename uses the split layout: model/document files
 resolve under `meshes/`, images under `textures/`, and `.kasset` packages under
 `kassets/`. A prefixed resource-relative path such as
 `animations/motion.glb` or `kassets/collection.kasset` selects its category
-explicitly. Krisp searches `RuntimePaths::app_resources` before
-`RuntimePaths::engine_runtime/resources`. App configuration similarly
-overrides engine configuration; app shaders override engine shaders.
+explicitly. `ResourcePaths` is the static facade for resolving engine and app
+resources and configuration. App resources, configuration, and shaders take
+precedence over engine defaults. Precomputed default environment lighting has
+its own engine path.
 
-Call `Config::init(app_name)` before creating the engine to use Linux defaults,
-or `Config::init(app_name, paths)` for a custom layout. The default overload uses
-`Utility::paths_for_executable(app_name)` to locate engine data
-in `krisp-runtime/` beside the executable, app assets in
-`resources/<app_name>/` beside it, and app-specific XDG config/data directories.
-Writable app data is grouped under `$XDG_DATA_HOME/krisp/<app_name>/`,
-defaulting to `~/.local/share/krisp/<app_name>/`. Saves, logs, recordings, and
-screenshots use subdirectories there. Configuration remains app-specific under
-`$XDG_CONFIG_HOME/<app_name>/`.
-These paths are independent of the process's working directory.
+`EnginePaths` groups the engine's default resources, shaders, configuration,
+and precomputed environment lighting. In local and editable builds, the
+compiled library points these fields at the engine checkout's
+`resources/default`, `build/debug/shaders`, `configs/default.yaml`, and
+`build/debug/tools/default_environment.krisp-ibl`. The paths are compiled into
+the engine centrally, so a consumer does not need engine build macros. A
+packaged build uses `share/krisp` paths when explicitly configured for package
+data; with development paths disabled, its default is the executable-relative
+`krisp-runtime` directory.
 
-Consumers can override `app_resources` through `RuntimePaths` to use
-`resources/` directly beside the executable. Configuration and writable data
-remain app-specific.
+`RuntimePaths` combines `app_resources`, `app_config`, `EnginePaths engine`, and
+`writable_data`. Call `Config::init(app_name)` before creating the engine to use
+default paths, or pass custom `RuntimePaths` to `Config::init` for a custom
+layout. App resources default beside the executable; internal bundled apps set
+`app_resources` to their source `resources/<app_name>` directory. External
+consumers of an editable engine package need only set their own
+`app_resources`; the engine supplies its compiled defaults. App-specific
+configuration and writable data use the XDG directories. Writable data is
+grouped under `$XDG_DATA_HOME/krisp/<app_name>/`, defaulting to
+`~/.local/share/krisp/<app_name>/`. Saves, logs, recordings, and screenshots
+use subdirectories there. Configuration remains under
+`$XDG_CONFIG_HOME/<app_name>/`. `ResourcePaths::paths_for_executable` provides
+these defaults independently of the process working directory.
 
-Bundled development targets use their source tree's
-`resources/<app_name>/` as the app resource directory and `build/debug/runtime`
-as the engine runtime. Meson supplies these paths consistently. Locally managed
-asset collections remain in their respective app directories and are ignored
-by Git.
+The engine no longer stages, copies, or symlinks engine resources into a
+runtime directory. Locally managed asset collections remain in their
+respective app directories and are ignored by Git. `Utility` continues to
+provide logging, timing, and writable-save helpers; resource and configuration
+lookup belongs to `ResourcePaths`.
 
 The Conan package includes default skybox textures, a neutral `checkerboard.png`
 texture, configuration, compiled

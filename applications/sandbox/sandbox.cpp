@@ -6,6 +6,7 @@
 #include <gui/gui_manager.hpp>
 #include <iapplication.hpp>
 #include <objects/object.hpp>
+#include <resource_paths.hpp>
 #include <renderable/material.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <utility.hpp>
@@ -356,9 +357,8 @@ private:
 
 int main()
 {
-	auto runtime_paths = Utility::paths_for_executable(PROJECT_NAME);
+	auto runtime_paths = ResourcePaths::paths_for_executable(PROJECT_NAME);
 	runtime_paths.app_resources = std::filesystem::path(KRISP_SOURCE_DIR) / "resources/sandbox";
-	runtime_paths.engine_runtime = KRISP_RUNTIME_DIR;
 	Config::init(PROJECT_NAME, std::move(runtime_paths));
 	auto engine = GameEngine::create<SandboxApplication>();
 	engine.spawn_cubemap();

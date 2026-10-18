@@ -9,6 +9,7 @@
 #include <utility.hpp>
 #include <camera.hpp>
 #include <config.hpp>
+#include <resource_paths.hpp>
 
 #include <fmt/core.h>
 #include <fmt/color.h>
@@ -441,9 +442,8 @@ private:
 
 int main()
 {
-	auto runtime_paths = Utility::paths_for_executable(PROJECT_NAME);
+	auto runtime_paths = ResourcePaths::paths_for_executable(PROJECT_NAME);
 	runtime_paths.app_resources = std::filesystem::path(KRISP_SOURCE_DIR) / "resources/tetris";
-	runtime_paths.engine_runtime = KRISP_RUNTIME_DIR;
 	Config::init(PROJECT_NAME, std::move(runtime_paths));
 	auto engine = GameEngine::create<Application>();
 	// Add skybox
