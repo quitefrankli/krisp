@@ -154,6 +154,15 @@ single-level RGBA8 textures, so expected GPU storage is approximately
 `width * height * 4` bytes before allocator overhead. Missing mip chains can
 alias during minification.
 
+The `optimize_resource_loader` Meson option defaults to `true`. It compiles
+`resource_loader.cpp` and its included mesh, animation, and material
+implementation files with optimization level 3, independent of the rest of the
+build. Debug symbols and the build's assertion policy remain unchanged. Set
+`-Doptimize_resource_loader=false` (for example, with
+`meson configure build/debug -Doptimize_resource_loader=false`) to step through
+the loader without this optimization. Calls into code compiled in other units
+are unaffected, and no speedup has been measured.
+
 Standalone and `MSFT_texture_dds` DXT5/BC3 textures stay block-compressed during
 upload and sampling. Each mip uses roughly one byte per pixel, rounded to 4-by-4
 blocks; a complete chain adds about one third over the base level. This reduces

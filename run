@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+    echo "Usage: ./run [application] [--debug|--release]"
+    echo "Defaults: sandbox, --debug"
+}
+
+application=sandbox
+build_type=debug
+if [[ ${1:-} != -* && $# -gt 0 ]]; then
+    application=$1
+    shift
+fi
+if [[ $# -gt 0 ]]; then
+    case "$1" in
+        --debug) build_type=debug ;;
+        --release) build_type=release ;;
+        -h|--help) usage; exit 0 ;;
+        *) usage >&2; exit 2 ;;
+    esac
+    shift
+fi
+if [[ $# -gt 0 ]]; then
+    usage >&2
+    exit 2
+fi
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+if [[ ! $application =~ ^[a-zA-Z0-9_][a-zA-Z0-9_-]*$ || ! -f applications/$application/meson.build ]]; then
+    echo "Unknown application: $application" >&2
+    exit 2
+fi
+
+native_file=build/conan/conan_meson_native.ini
+build_dir=build/$build_type
+if [[ ! -f $build_dir/meson-private/coredata.dat ]]; then
+    if [[ ! -f $native_file ]]; then
+        echo "Install dependencies first: conan install . -pr=conan_clang_profile --build=missing" >&2
+        exit 1
+    fi
+    ndebug=false
+    if [[ $build_type == release ]]; then
+        ndebug=true
+    fi
+    meson setup "$build_dir" --native-file "$native_file" \
+        --buildtype="$build_type" -Db_ndebug="$ndebug"
+fi
+meson compile -C "$build_dir" -j 6 "$application"
+exec "$build_dir/applications/$application/$application"

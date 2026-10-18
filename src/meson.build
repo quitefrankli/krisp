@@ -73,15 +73,28 @@ sources = files('recording_session.cpp',
 				'renderable/renderable.cpp',
 				'renderable/mesh_factory.cpp',
 				'experimental.cpp',
-				'resource_loader/resource_loader.cpp',
 				'resource_loader/asset_registry.cpp',
 				'resource_loader/kasset.cpp')
 
 all_sources = sources + graphics_sources + ecs_sources + audio_sources
 
+resource_loader_options = []
+if get_option('optimize_resource_loader')
+	resource_loader_options += ['optimization=3']
+endif
+
+resource_loader_objects = static_library(
+	'resource_loader_objects',
+	'resource_loader/resource_loader.cpp',
+	build_by_default: false,
+	include_directories: additional_include_directories,
+	dependencies: conan_dependencies + [third_party_libs_dep, shader_artifacts_dep],
+	override_options: resource_loader_options)
+
 krisp_libs = static_library(
 	'krisp_libs', 
 	all_sources,
+	objects: resource_loader_objects.extract_all_objects(recursive: false),
 	install: true,
 	install_tag: 'engine',
 	include_directories: additional_include_directories,

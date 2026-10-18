@@ -21,35 +21,35 @@ Video recording additionally requires an FFmpeg installation with the
 
 ## Building
 
-Conan dependencies are always built in Release mode and shared by the separate
-Debug and Release Krisp build trees. Install or update them with:
+Install Conan dependencies before using the run helper. They are built in
+Release mode and shared by the separate Debug and Release Krisp build trees:
 
 ```bash
 conan install . -pr=conan_clang_profile --build=missing
 ```
 
-Configure each Krisp build tree once:
+From the repository root, `./run [application] [--debug|--release]` configures
+the selected build tree only when it has not been configured yet, builds the
+selected application with six jobs, then launches it from the repository root.
+The defaults are `sandbox` and Debug:
+
+```bash
+./run
+./run sandbox --release
+./run chess --debug
+```
+
+Conan's native file supplies compilers and dependency paths but deliberately
+does not set Krisp's build type. To configure build trees manually, use:
 
 ```bash
 meson setup build/debug --native-file build/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false
 meson setup build/release --native-file build/conan/conan_meson_native.ini --buildtype=release -Db_ndebug=true
 ```
 
-Conan's native file supplies compilers and dependency paths but deliberately
-does not set Krisp's build type. The engine's demonstration application is
-Sandbox. Build and run either configuration with:
-
-```bash
-meson compile -C build/debug -j 6 sandbox
-build/debug/applications/sandbox/sandbox
-
-meson compile -C build/release -j 6 sandbox
-build/release/applications/sandbox/sandbox
-```
-
 After changing dependencies or build configuration, rerun `conan install` when
-needed and reconfigure the affected tree by adding `--reconfigure` to its
-`meson setup` command.
+needed and reconfigure the affected tree by adding `--reconfigure` to the
+corresponding `meson setup` command.
 
 If Conan must install missing system packages during initial setup, use:
 

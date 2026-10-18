@@ -1,2 +1,4 @@
 option('build_applications', type: 'boolean', value: true)
 option('build_tests', type: 'boolean', value: true)
+option('optimize_resource_loader', type: 'boolean', value: true,
+    description: 'Compile ResourceLoader at optimization level 3 while retaining the build debug settings')
