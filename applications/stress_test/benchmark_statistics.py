@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import random
+from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from statistics import median
@@ -145,21 +146,32 @@ def _interval(record: Mapping[str, Any]) -> tuple[int, int] | None:
 	return None
 
 
-def _overlap_union_ns(parent: tuple[int, int], children: Iterable[tuple[int, int]]) -> int:
-	"""Measure child interval union clipped to a parent (avoid double subtraction)."""
-	start, end = parent
-	clipped = sorted((max(start, a), min(end, b)) for a, b in children if a < end and b > start)
-	if not clipped:
-		return 0
-	total = 0
-	left, right = clipped[0]
-	for next_left, next_right in clipped[1:]:
-		if next_left <= right:
-			right = max(right, next_right)
-		else:
-			total += right - left
-			left, right = next_left, next_right
-	return total + right - left
+class _IntervalUnion:
+	"""Index union coverage once so arbitrary parent intervals cost O(log n)."""
+
+	def __init__(self, intervals: Iterable[tuple[int, int]]) -> None:
+		self.starts: list[int] = []
+		self.ends: list[int] = []
+		for start, end in sorted(intervals):
+			if end <= start:
+				continue
+			if self.ends and start <= self.ends[-1]:
+				self.ends[-1] = max(self.ends[-1], end)
+			else:
+				self.starts.append(start)
+				self.ends.append(end)
+		self.prefix_ns = [0]
+		for start, end in zip(self.starts, self.ends):
+			self.prefix_ns.append(self.prefix_ns[-1] + end - start)
+
+	def _coverage_before(self, timestamp: int) -> int:
+		index = bisect_right(self.starts, timestamp) - 1
+		if index < 0:
+			return 0
+		return self.prefix_ns[index] + min(timestamp, self.ends[index]) - self.starts[index]
+
+	def overlap_ns(self, parent: tuple[int, int]) -> int:
+		return self._coverage_before(parent[1]) - self._coverage_before(parent[0])
 
 
 def summarize_samples(
@@ -223,12 +235,12 @@ def summarize_samples(
 	active: dict[str, dict[str, Any]] = {}
 	for parent_kind, excluded_kinds in (("Simulation", {"GameSleep"}), ("Graphics", child_kinds)):
 		children = [_interval(record) for kind in excluded_kinds for record in in_window[kind]]
-		children = [child for child in children if child is not None]
+		child_union = _IntervalUnion(child for child in children if child is not None)
 		active_values = []
 		for record in in_window[parent_kind]:
 			parent = _interval(record)
 			if parent is not None:
-				active_values.append(max(0, parent[1] - parent[0] - _overlap_union_ns(parent, children)))
+				active_values.append(max(0, parent[1] - parent[0] - child_union.overlap_ns(parent)))
 		active[parent_kind] = distribution(active_values, reason="no_fully_contained_samples")
 
 	present_endpoints = sorted(record["end_ns"] for record in in_window["Present"] if record.get("success") is True)

@@ -1,4 +1,5 @@
 import unittest
+import random
 
 from applications.stress_test.benchmark_statistics import (
 	compare_compatibility,
@@ -105,6 +106,77 @@ class BenchmarkStatisticsTests(unittest.TestCase):
 		self.assertEqual(result["deadlines"]["GameDeadline"]["skipped_schedule_slots"], 2)
 		self.assertEqual(result["deadlines"]["GameDeadline"]["positive_lateness_count"], 2)
 		self.assertEqual(result["deadlines"]["GameDeadline"]["tolerance_ns"], 1_000_000)
+
+	def test_active_work_matches_clipped_interval_union_for_randomized_intervals(self):
+		rng = random.Random(0xA17E)
+		window_start, window_end = 100, 1_100
+		graphics_child_kinds = (
+			"FrameFenceWait", "ImageFenceWait", "Acquire", "Submit", "Present", "GraphicsSleep",
+		)
+		samples = [
+			{"kind": "Graphics", "begin_ns": 200, "end_ns": 500},
+			{"kind": "Graphics", "begin_ns": 600, "end_ns": 600},
+			{"kind": "Simulation", "begin_ns": 200, "end_ns": 500},
+			{"kind": "Simulation", "begin_ns": 600, "end_ns": 600},
+		]
+
+		# Fixed intervals guarantee overlap, nesting, touching endpoints, and zero lengths.
+		for kind in ("FrameFenceWait", "GameSleep"):
+			samples.extend([
+				{"kind": kind, "begin_ns": 220, "end_ns": 280},
+				{"kind": kind, "begin_ns": 250, "end_ns": 310},
+				{"kind": kind, "begin_ns": 230, "end_ns": 240},
+				{"kind": kind, "begin_ns": 310, "end_ns": 330},
+				{"kind": kind, "begin_ns": 330, "end_ns": 330},
+			])
+		for kind in graphics_child_kinds[1:]:
+			samples.append({"kind": kind, "begin_ns": 270, "end_ns": 290})
+
+		for kind, count in (("Graphics", 18), ("Simulation", 18)):
+			for _ in range(count):
+				start = rng.randrange(window_start, window_end + 1)
+				end = rng.randrange(start, window_end + 1)
+				samples.append({"kind": kind, "begin_ns": start, "end_ns": end})
+		for kind in (*graphics_child_kinds, "GameSleep"):
+			for _ in range(7):
+				start = rng.randrange(window_start, window_end + 1)
+				end = rng.randrange(start, window_end + 1)
+				samples.append({"kind": kind, "begin_ns": start, "end_ns": end})
+
+		# Out-of-window children must not affect the active-work calculation.
+		samples.extend([
+			{"kind": "Graphics", "begin_ns": 90, "end_ns": 210},
+			{"kind": "Simulation", "begin_ns": 1_090, "end_ns": 1_110},
+			{"kind": "Acquire", "begin_ns": 90, "end_ns": 210},
+			{"kind": "GameSleep", "begin_ns": 1_090, "end_ns": 1_110},
+		])
+		rng.shuffle(samples)
+
+		def brute_force_active(parent_kind, child_kinds):
+			values = []
+			for parent in samples:
+				if parent["kind"] != parent_kind:
+					continue
+				start, end = parent["begin_ns"], parent["end_ns"]
+				if start < window_start or end > window_end:
+					continue
+				covered = set()
+				for child in samples:
+					if child["kind"] not in child_kinds:
+						continue
+					if child["begin_ns"] < window_start or child["end_ns"] > window_end:
+						continue
+					left = max(start, child["begin_ns"])
+					right = min(end, child["end_ns"])
+					covered.update(range(left, right))
+				values.append(max(0, end - start - len(covered)))
+			return distribution(values)
+
+		result = summarize_samples(samples, window_start, window_end, gpu_supported=False)
+		self.assertEqual(result["active_work_ns"]["Graphics"],
+			brute_force_active("Graphics", set(graphics_child_kinds)))
+		self.assertEqual(result["active_work_ns"]["Simulation"],
+			brute_force_active("Simulation", {"GameSleep"}))
 
 	def test_snapshot_repeat_skip_and_present_cadence_are_cpu_events(self):
 		samples = []

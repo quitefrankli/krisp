@@ -489,6 +489,19 @@ completion wait. Query storage and pending submission identity belong to the
 in-flight frame. Unsupported timestamps and lost results remain explicit.
 For the standard and smoke suites, startup, loading, GPU upload, warm-up, final
 collection and shutdown are excluded from measured distributions.
+
+Benchmark active-work aggregation merges child timing intervals once and indexes
+cumulative union coverage. Each parent interval uses two binary searches rather
+than scanning every child interval, preserving clipped-overlap and nested-wait
+semantics with O(C log C + P log C) work for C child and P parent intervals.
+The previous quadratic scan caused roughly 499 seconds of between-worker gaps
+in the eight-launch run `run-20261021T094736Z-4fe3b367` (615 seconds overall).
+Replaying its first moving-transforms summary took 165.1 seconds before this
+change; after indexing it took 1.48 seconds including trace reading. All eight
+saved summaries replayed in 5.92 seconds and exactly matched their original
+metrics. These replay timings are separate from an end-to-end engine run.
+This is coordinator post-processing cost outside measured engine work.
+
 Debug/validation-enabled results remain labelled and cannot be compared with an
 optimised validation-disabled baseline.
 
