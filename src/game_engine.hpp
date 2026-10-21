@@ -14,10 +14,12 @@
 #include "entity_component_system/ecs.hpp"
 #include "graphics_engine/engine_base.hpp"
 #include "render_frame.hpp"
+#include "runtime_performance.hpp"
 #include "renderable/render_types.hpp"
 #include "renderable/composited_texture_material.hpp"
 
 #include <atomic>
+#include <exception>
 #include <thread>
 #include <unordered_map>
 #include <unordered_set>
@@ -107,14 +109,23 @@ public:
 	{
 		return GameEngine(std::make_unique<AppT>(std::forward<Args>(args)...));
 	}
+	template<typename AppT, typename... Args>
+	static GameEngine create_with_options(RuntimeOptions options, Args&&... args)
+	{
+		return GameEngine(std::make_unique<AppT>(std::forward<Args>(args)...), std::move(options));
+	}
+	const RuntimeOptions& get_runtime_options() const { return runtime_options; }
+	uint64_t get_simulation_tick() const { return simulation_tick; }
+	bool is_ready() const { return ready; }
+	std::exception_ptr get_run_failure() const { return run_failure; }
 
 	~GameEngine();
 
 protected:
-	GameEngine(std::unique_ptr<IApplication> application);
+	GameEngine(std::unique_ptr<IApplication> application, RuntimeOptions options = {});
 	GameEngine(std::unique_ptr<App::Window> window,
 			   std::unique_ptr<IApplication> application,
-			   std::unique_ptr<GraphicsEngineBase> graphics_engine);
+			   std::unique_ptr<GraphicsEngineBase> graphics_engine, RuntimeOptions options = {});
 
 public:
 	// Startup scene construction and on_begin run with responsive resource loading.
@@ -186,6 +197,11 @@ public:
 	const std::unordered_map<ObjectID, std::shared_ptr<Object>>& get_objects() const { return objects; }
 
 private:
+	RuntimeOptions runtime_options;
+	uint64_t simulation_tick = 0;
+	uint64_t last_publication_ns = 0;
+	bool ready = false;
+	std::exception_ptr run_failure;
 	std::unique_ptr<App::Window> window;
 	AudioEnginePimpl audio_engine;
 	ECS ecs;

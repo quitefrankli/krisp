@@ -140,6 +140,8 @@ struct RenderViewState
 struct RenderFrame
 {
 	uint64_t frame_number = 0;
+	uint64_t simulation_tick = 0;
+	uint64_t publication_ns = 0;
 	RenderViewState view;
 	RenderCameraState camera;
 	std::vector<RenderableState> renderables;

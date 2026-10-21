@@ -57,7 +57,12 @@ class GraphicsEngine : public GraphicsEngineBase
 {
 public:
 	GraphicsEngine() = delete;
-	explicit GraphicsEngine(App::Window& window);
+	explicit GraphicsEngine(App::Window& window, RuntimeOptions options = {});
+	const RuntimeOptions& get_runtime_options() const { return runtime_options; }
+	RuntimeGraphicsInfo get_runtime_graphics_info() override;
+	uint32_t get_timestamp_valid_bits();
+	float get_timestamp_period();
+	uint64_t next_observation_submission() { return ++observation_submission; }
 	virtual ~GraphicsEngine() override;
 
 	void run() final;
@@ -195,6 +200,8 @@ public: // other
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 private: // core components
+	RuntimeOptions runtime_options;
+	uint64_t observation_submission = 0;
 	App::Window& window;
 	RenderFramePtr accepted_render_frame;
 	std::unordered_map<RenderableID, uint32_t> renderable_indices;

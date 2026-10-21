@@ -129,7 +129,11 @@ App::Window::Window() :
 {
 }
 
-App::Window::Window(bool create_window)
+App::Window::Window(bool create_window) : Window(create_window, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT) {}
+
+App::Window::Window(int width, int height) : Window(true, width, height) {}
+
+App::Window::Window(bool create_window, int width, int height)
 {
 	if (!create_window)
 	{
@@ -154,20 +158,24 @@ App::Window::Window(bool create_window)
 		}
 	});
 	
-	glfwInit();
+	if (width <= 0 || height <= 0)
+		throw std::invalid_argument("Window dimensions must be positive");
+	if (!glfwInit())
+		throw std::runtime_error("Failed to initialise the window system");
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
 	window = glfwCreateWindow(
-		INITIAL_WINDOW_WIDTH, 
-		INITIAL_WINDOW_HEIGHT, 
+		width,
+		height,
 		Config::get_project_name().data(), 
 		nullptr, 
 		nullptr);
-	assert(window);
+	if (!window)
+		throw std::runtime_error("Failed to create the engine window");
 
 	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
-	glfwSetWindowPos(window, x0 == -1 ? (monitor->width - INITIAL_WINDOW_WIDTH)/2 : x0, y0 == -1 ? 50 : y0);
+	glfwSetWindowPos(window, x0 == -1 && monitor ? (monitor->width - width)/2 : x0, y0 == -1 ? 50 : y0);
 	// glfwSetFramebufferSizeCallback(window, GameEngine::handle_window_resize_callback);
 	// glfwCreateWindow(WIDTH, HEIGHT, "GUI", nullptr, nullptr); // it's possible to have multiple windows
 }

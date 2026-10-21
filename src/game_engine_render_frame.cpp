@@ -130,6 +130,7 @@ RenderFrame GameEngine::build_render_frame()
 {
 	RenderFrame frame;
 	frame.frame_number = next_render_frame_number;
+	frame.simulation_tick = simulation_tick;
 	frame.view = render_view_state;
 	frame.camera = {
 		.view = camera->get_view(),
@@ -201,6 +202,9 @@ RenderFrame GameEngine::build_render_frame()
 
 void GameEngine::publish_completed_render_frame()
 {
+	auto frame = build_render_frame();
+	frame.publication_ns = runtime_options.observation ? runtime_now_ns() : 0;
+	last_publication_ns = frame.publication_ns;
 	graphics_engine->publish_completed_render_frame(
-		std::make_shared<const RenderFrame>(build_render_frame()));
+		std::make_shared<const RenderFrame>(std::move(frame)));
 }

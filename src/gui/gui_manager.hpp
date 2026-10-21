@@ -170,6 +170,7 @@ public: // for GameEngine
 		manager.process(engine);
 	}
 	void process_persistent(GameEngine& engine);
+	void process_performance_overlay(GameEngine& engine);
 
 private:
 	// GLFW callbacks can re-enter UI methods while GameEngine holds this lock

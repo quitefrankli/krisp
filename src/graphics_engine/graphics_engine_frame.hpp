@@ -5,6 +5,7 @@
 #include "analytics.hpp"
 #include "recording_session.hpp"
 #include "submission_retirement_queue.hpp"
+#include "runtime_performance.hpp"
 
 #include <vulkan/vulkan.hpp>
 
@@ -26,6 +27,7 @@ public:
 public:
 	void update_command_buffer();
 	void draw();
+	void collect_gpu_observation();
 
 private:
 	void update_uniform_buffer();
@@ -34,6 +36,7 @@ private:
 	void flush_screenshot_capture();
 	void maybe_prepare_recording_capture();
 	void flush_recording_capture();
+	void prepare_gpu_observation_queries();
 	
 public:
 	// Interprets a VkImage and describes how to access it
@@ -63,6 +66,12 @@ private:
 	VkFence fence_frame_inflight = VK_NULL_HANDLE; // signals when the command buffer finishes executing or when an inflight frame is finished
 	VkFence fence_image_inflight = VK_NULL_HANDLE; // check if a frame in flight is already using a swapchain image 
 	std::optional<SubmissionSerial> submission_serial;
+	VkQueryPool observation_query_pool = VK_NULL_HANDLE;
+	bool current_gpu_query_recorded = false;
+	bool gpu_query_pending = false;
+	RuntimeSample pending_gpu_sample{};
+	std::uint32_t timestamp_valid_bits = 0;
+	double timestamp_period_ns = 0.0;
 
 	static int global_image_index;
 

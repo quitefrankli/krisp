@@ -90,6 +90,7 @@ void GraphicsEngineGuiManager::draw()
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
+	const bool performance_overlay = get_graphics_engine().get_runtime_options().performance_overlay;
 	if (engine_ui_manager.is_loading())
 	{
 		const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -120,26 +121,31 @@ void GraphicsEngineGuiManager::draw()
 		ImGui::End();
 		ImGui::PopStyleVar(3);
 		ImGui::PopStyleColor();
-		ImGui::Render();
-		return;
 	}
-	const bool exclusive = application_ui_manager && application_ui_manager->get_exclusive_window();
-	if (!exclusive && engine_ui_active.load(std::memory_order_acquire))
+	else if (get_graphics_engine().get_runtime_options().ui)
 	{
-		draw_workspace();
-		for (auto& gui_window : engine_ui_manager.get_gui_windows())
+		const bool exclusive = application_ui_manager && application_ui_manager->get_exclusive_window();
+		if (!exclusive && engine_ui_active.load(std::memory_order_acquire))
 		{
-			if (gui_window->is_visible())
+			draw_workspace();
+			for (auto& gui_window : engine_ui_manager.get_gui_windows())
+			{
+				if (gui_window->is_visible())
+					gui_window->draw();
+			}
+		}
+		if (application_ui_manager && (exclusive || application_ui_active.load(std::memory_order_acquire)))
+			draw_application_ui();
+		for (auto& gui_window : engine_ui_manager.get_persistent_windows())
+		{
+			if (performance_overlay && gui_window.get() == &engine_ui_manager.fps_counter)
+				continue;
+			if (gui_window->is_visible() && (!exclusive || gui_window.get() == &engine_ui_manager.command_prompt))
 				gui_window->draw();
 		}
 	}
-	if (application_ui_manager && (exclusive || application_ui_active.load(std::memory_order_acquire)))
-		draw_application_ui();
-	for (auto& gui_window : engine_ui_manager.get_persistent_windows())
-	{
-		if (gui_window->is_visible() && (!exclusive || gui_window.get() == &engine_ui_manager.command_prompt))
-			gui_window->draw();
-	}
+	if (performance_overlay)
+		engine_ui_manager.fps_counter.draw();
 
 	ImGui::Render();
 }

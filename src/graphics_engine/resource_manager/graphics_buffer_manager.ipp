@@ -8,13 +8,13 @@
 GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
 	GraphicsEngineBaseModule(engine),
 	vertex_buffer(create_buffer(
-		VERTEX_BUFFER_CAPACITY, 
+		engine.get_runtime_options().vertex_buffer_bytes.value_or(VERTEX_BUFFER_CAPACITY),
 		VERTEX_BUFFER_USAGE_FLAGS, 
 		VERTEX_BUFFER_MEMORY_FLAGS, 
 		4, 
 		"vertex_buffer")),
 	index_buffer(create_buffer(
-		INDEX_BUFFER_CAPACITY, 
+		engine.get_runtime_options().index_buffer_bytes.value_or(INDEX_BUFFER_CAPACITY),
 		INDEX_BUFFER_USAGE_FLAGS, 
 		INDEX_BUFFER_MEMORY_FLAGS, 
 		4, 

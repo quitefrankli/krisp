@@ -42,10 +42,11 @@
 #include <chrono>
 #include <future>
 
-GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
-	window(std::make_unique<App::Window>()),
+GameEngine::GameEngine(std::unique_ptr<IApplication> app, RuntimeOptions options) :
+	runtime_options([&] { validate_runtime_options(options); return std::move(options); }()),
+	window(std::make_unique<App::Window>(runtime_options.width.value_or(1400), runtime_options.height.value_or(800))),
 	mouse(std::make_unique<Mouse>(*window)),
-	graphics_engine(std::make_unique<GraphicsEngine>(*window)),
+	graphics_engine(std::make_unique<GraphicsEngine>(*window, runtime_options)),
 	application(std::move(app))
 {
 	init();
@@ -53,7 +54,8 @@ GameEngine::GameEngine(std::unique_ptr<IApplication> app) :
 
 GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 					   std::unique_ptr<IApplication> app,
-					   std::unique_ptr<GraphicsEngineBase> gfx_engine) :
+					   std::unique_ptr<GraphicsEngineBase> gfx_engine, RuntimeOptions options) :
+	runtime_options([&] { validate_runtime_options(options); return std::move(options); }()),
 	window(std::move(win)),
 	mouse(std::make_unique<Mouse>(*window)),
 	graphics_engine(std::move(gfx_engine)),
@@ -67,7 +69,7 @@ void GameEngine::init()
 	graphics_engine->bind_resource_systems(
 		ecs.get_mesh_system(), ecs.get_material_system());
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
-	graphics_engine->set_ui_layers_active(true, false);
+	graphics_engine->set_ui_layers_active(runtime_options.ui, false);
 	auto camera_focus_object = std::make_shared<Object>();
 	camera_focus_object->set_transient(true);
 	auto& camera_focus = spawn_object(std::move(camera_focus_object));
@@ -75,12 +77,12 @@ void GameEngine::init()
 		ecs, ecs.get_mesh_system().add(MeshFactory::sphere()));
 	camera_focus_renderable.shading_mode = EShadingMode::UNLIT;
 	camera_focus_renderable.casts_shadow = false;
-	attach_renderable(camera_focus.get_id(), std::move(camera_focus_renderable));
+	if (runtime_options.ui) attach_renderable(camera_focus.get_id(), std::move(camera_focus_renderable));
 	auto camera_upvector_object = std::make_shared<Arrow>();
 	camera_upvector_object->set_transient(true);
 	auto& camera_upvector = static_cast<Arrow&>(spawn_object(
 		std::shared_ptr<Object>(std::move(camera_upvector_object))));
-	attach_renderable(camera_upvector.get_id(), Arrow::make_renderable(ecs));
+	if (runtime_options.ui) attach_renderable(camera_upvector.get_id(), Arrow::make_renderable(ecs));
 	camera = std::make_unique<Camera>(
 		ecs,
 		Listener(audio_engine),
@@ -161,14 +163,25 @@ void GameEngine::poll_window_events()
 void GameEngine::service_loading()
 {
 	poll_window_events();
+	if (runtime_options.performance_overlay)
+		get_gui_manager().process_performance_overlay(*this);
 	if (window->should_close()) shutdown();
 }
 
 void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 {
+	run_failure = {};
+	ready = false;
 	get_gui_manager().set_loading(true);
 	window->show();
-	graphics_engine_thread = std::thread(&GraphicsEngineBase::run, graphics_engine.get());
+	std::exception_ptr graphics_failure;
+	graphics_engine_thread = std::thread([this, &graphics_failure] {
+		try { graphics_engine->run(); }
+		catch (...) {
+			graphics_failure = std::current_exception();
+			should_shutdown.store(true);
+		}
+	});
 
 	try
 	{
@@ -194,7 +207,7 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 		if (initialize_scene) initialize_scene(*this);
 		if (should_shutdown) throw LoadingCancelled{};
 		application->on_begin(*this);
-		gizmo->init();
+		if (runtime_options.ui) gizmo->init();
 		assets().set_loading_callbacks({}, {});
 		clear_input_state();
 		publish_completed_render_frame();
@@ -206,6 +219,7 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 		if (should_shutdown) throw LoadingCancelled{};
 		get_gui_manager().set_loading(false);
 		LOG_INFO(Utility::get_logger(), "GameEngine: startup loading complete");
+		ready = true;
 
 		Analytics analytics(
 			"GameEngine: avg loop processing period (excluding sleep)",
@@ -215,6 +229,9 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 
 		TPS_counter->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
+		std::optional<RuntimePacer> pacer;
+		if (runtime_options.simulation_hz && *runtime_options.simulation_hz > 0.0)
+			pacer.emplace(*runtime_options.simulation_hz);
 		while (!should_shutdown && !window->should_close())
 		{
 			const auto recording_frame =
@@ -226,17 +243,42 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 			}
 			else
 			{
-				loop_sleeper();
+				if (pacer)
+				{
+					const auto pacing = pacer->wait();
+					if (runtime_options.observation)
+					{
+						runtime_options.observation->record_game(RuntimeSample{
+							.kind = RuntimeSampleKind::GameSleep,
+							.begin_ns = pacing.begin_ns, .end_ns = pacing.end_ns });
+						runtime_options.observation->record_game(RuntimeSample{
+							.kind = RuntimeSampleKind::GameDeadline,
+							.begin_ns = pacing.deadline_ns, .end_ns = pacing.end_ns,
+							.missed_slots = pacing.missed_slots });
+					}
+				}
+				else if (!runtime_options.simulation_hz)
+					loop_sleeper();
 				const auto new_time = std::chrono::steady_clock::now();
 				time_delta = std::chrono::duration<float>(new_time - time).count();
 				time = new_time;
+				if (runtime_options.fixed_simulation_timestep && runtime_options.simulation_hz)
+					time_delta = static_cast<float>(1.0 / *runtime_options.simulation_hz);
 			}
 			analytics.start();
 
 			// for ticks per second
 			TPS_counter->stop();
 			TPS_counter->start();
+			const auto work_start = runtime_options.observation ? runtime_now_ns() : 0;
+			++simulation_tick;
 			main_loop(time_delta);
+			if (runtime_options.observation)
+				runtime_options.observation->record_game(RuntimeSample{
+					.kind = RuntimeSampleKind::Simulation,
+					.begin_ns = work_start, .end_ns = runtime_now_ns(),
+					.frame_number = next_render_frame_number - 1, .tick_index = simulation_tick,
+					.publication_ns = last_publication_ns });
 			if (recording_frame)
 			{
 				graphics_engine->get_recording_session().await_capture(
@@ -251,8 +293,10 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
     } catch (const LoadingCancelled&) {
 		// Close requests are serviced throughout CPU preparation.
     } catch (const std::exception& e) { // if an exception occurs in the game engine we need to cleanly shutdown graphics_engine first
+		run_failure = std::current_exception();
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: {}\n", e.what());
 	} catch (...) {
+		run_failure = std::current_exception();
 		fmt::print(fg(fmt::color::red), "Exception Thrown!: UNKNOWN\n");
 	}
 
@@ -260,6 +304,7 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 	get_gui_manager().set_loading(false);
 	shutdown();
 	graphics_engine_thread.join();
+	if (!run_failure) run_failure = graphics_failure;
 }
 
 void GameEngine::close_command_prompt()
@@ -288,13 +333,18 @@ void GameEngine::main_loop(const float time_delta)
 
 	process_objs_to_delete();
 
-	get_gui_manager().process_persistent(*this);
-	if (game_mode == EGameMode::EDITOR)
-		get_gui_manager().process(*this);
-	else
-		get_gui_manager().process_application(application_ui_manager, *this);
+	if (runtime_options.ui)
+	{
+		get_gui_manager().process_persistent(*this);
+		if (game_mode == EGameMode::EDITOR)
+			get_gui_manager().process(*this);
+		else
+			get_gui_manager().process_application(application_ui_manager, *this);
+	}
+	else if (runtime_options.performance_overlay)
+		get_gui_manager().process_performance_overlay(*this);
 
-	if (!command_prompt_active)
+	if (runtime_options.interactive && !command_prompt_active)
 	{
 		if ((game_mode == EGameMode::NORMAL && !free_camera_movement && window->is_cursor_captured())
 			|| mouse->mmb_down || (camera_orbit_with_right_mouse && mouse->rmb_down))
@@ -414,7 +464,8 @@ void GameEngine::set_game_mode(const EGameMode mode)
 		}
 	}
 	game_mode = mode;
-	graphics_engine->set_ui_layers_active(game_mode == EGameMode::EDITOR, game_mode == EGameMode::NORMAL);
+	graphics_engine->set_ui_layers_active(runtime_options.ui && game_mode == EGameMode::EDITOR,
+		runtime_options.ui && game_mode == EGameMode::NORMAL);
 	if (game_mode == EGameMode::EDITOR)
 	{
 		camera->stop_follow();

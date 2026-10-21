@@ -30,6 +30,12 @@ int ApplicationUiOverlay::window_flags() const
 		ImGuiWindowFlags_NoInputs;
 }
 
+void EngineUiManager::process_performance_overlay(GameEngine& engine)
+{
+	const std::lock_guard lock(state_mutex);
+	fps_counter.process(engine);
+}
+
 void EngineUiManager::process_persistent(GameEngine& engine)
 {
 	std::optional<std::string> submission;

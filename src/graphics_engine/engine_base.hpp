@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render_frame.hpp"
+#include "runtime_performance.hpp"
 #include "recording_session.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
@@ -23,6 +24,7 @@ public:
 	virtual void set_application_ui_manager(ApplicationUiManager*) {}
 	virtual void set_ui_layers_active(bool, bool) {}
 	virtual void run() = 0;
+	virtual RuntimeGraphicsInfo get_runtime_graphics_info() { return {}; }
 	// Renderless backends are immediately ready. Graphics backends acknowledge
 	// a completed presentation so startup can keep servicing window events.
 	virtual bool has_presented_frame(uint64_t) const { return true; }

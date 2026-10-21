@@ -21,7 +21,7 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : Graph
 {
 	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), get_graphics_engine().get_window_surface());
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
-	VkPresentModeKHR present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
+	present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	const auto extent = get_extent();
 	get_graphics_engine().create_image(
 		extent.width, 
@@ -138,6 +138,11 @@ VkSurfaceFormatKHR GraphicsEngineSwapChain::choose_swap_surface_format(const std
 
 VkPresentModeKHR GraphicsEngineSwapChain::choose_swap_present_mode(const std::vector<VkPresentModeKHR> &available_present_modes)
 {
+	if (get_graphics_engine().get_runtime_options().presentation == PresentationPreference::Uncapped
+		&& std::find(available_present_modes.begin(), available_present_modes.end(),
+			VK_PRESENT_MODE_IMMEDIATE_KHR) != available_present_modes.end())
+		return VK_PRESENT_MODE_IMMEDIATE_KHR;
+
 	for (const auto &mode : available_present_modes)
 	{
 		if (mode == VK_PRESENT_MODE_MAILBOX_KHR)

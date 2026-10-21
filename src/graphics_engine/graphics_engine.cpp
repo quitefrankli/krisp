@@ -22,7 +22,8 @@
 #include <vector>
 #include <iostream>
 
-GraphicsEngine::GraphicsEngine(App::Window& window_) :
+GraphicsEngine::GraphicsEngine(App::Window& window_, RuntimeOptions options) :
+	runtime_options(std::move(options)),
 	window(window_),
 	instance(*this),
 	validation_layer(*this),
@@ -127,6 +128,55 @@ QueueFamilyIndices GraphicsEngine::findQueueFamilies(VkPhysicalDevice device) {
 	return indices;
 }
 
+uint32_t GraphicsEngine::get_timestamp_valid_bits()
+{
+	const auto family = findQueueFamilies(get_physical_device()).graphicsFamily.value();
+	uint32_t count = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(get_physical_device(), &count, nullptr);
+	std::vector<VkQueueFamilyProperties> properties(count);
+	vkGetPhysicalDeviceQueueFamilyProperties(get_physical_device(), &count, properties.data());
+	return properties.at(family).timestampValidBits;
+}
+
+float GraphicsEngine::get_timestamp_period()
+{
+	return device.get_physical_device_properties().properties.limits.timestampPeriod;
+}
+
+RuntimeGraphicsInfo GraphicsEngine::get_runtime_graphics_info()
+{
+	RuntimeGraphicsInfo info;
+	const auto& properties = device.get_physical_device_properties().properties;
+	const auto extent = swap_chain.get_extent();
+	info.width = extent.width;
+	info.height = extent.height;
+	info.requested_width = runtime_options.width.value_or(1400);
+	info.requested_height = runtime_options.height.value_or(800);
+	info.vendor_id = properties.vendorID;
+	info.device_id = properties.deviceID;
+	info.device_name = properties.deviceName;
+	info.driver_version = properties.driverVersion;
+	info.api_version = properties.apiVersion;
+	info.validation_enabled = GraphicsEngineValidationLayer::is_enabled();
+	info.timestamp_valid_bits = get_timestamp_valid_bits();
+	info.timestamp_period_ns = get_timestamp_period();
+	info.swapchain_images = swap_chain.get_num_images();
+	info.vertex_buffer_bytes = runtime_options.vertex_buffer_bytes.value_or(GraphicsBufferManager::VERTEX_BUFFER_CAPACITY);
+	info.index_buffer_bytes = runtime_options.index_buffer_bytes.value_or(GraphicsBufferManager::INDEX_BUFFER_CAPACITY);
+	const auto mode = swap_chain.get_present_mode();
+	info.presentation_mode = mode == VK_PRESENT_MODE_IMMEDIATE_KHR ? "immediate"
+		: mode == VK_PRESENT_MODE_MAILBOX_KHR ? "mailbox" : "fifo";
+	info.requested_presentation_mode = runtime_options.presentation == PresentationPreference::Uncapped
+		? "immediate" : "mailbox";
+	if (info.presentation_mode != info.requested_presentation_mode)
+		info.configuration_note = "Requested presentation mode unavailable; using supported fallback";
+	if (!info.timestamp_valid_bits || !(info.timestamp_period_ns > 0.0))
+		info.gpu_unavailable_reason = "Selected graphics queue has no usable timestamps";
+	if (info.width != info.requested_width || info.height != info.requested_height)
+		info.configuration_note += "; effective framebuffer extent differs from request";
+	return info;
+}
+
 void GraphicsEngine::run() {
 	try {
 		Analytics analytics(
@@ -134,6 +184,26 @@ void GraphicsEngine::run() {
 			CSTS::TRACKER_LOG_PERIOD_SECONDS);
 		FPS_tracker->start();
 		Utility::LoopSleeper loop_sleeper(std::chrono::milliseconds(17));
+		std::optional<RuntimePacer> pacer;
+		if (runtime_options.render_hz && *runtime_options.render_hz > 0.0)
+			pacer.emplace(*runtime_options.render_hz);
+		const auto pace = [&] {
+			if (pacer)
+			{
+				const auto pacing = pacer->wait();
+				if (runtime_options.observation)
+				{
+					runtime_options.observation->record_graphics(RuntimeSample{
+						.kind = RuntimeSampleKind::GraphicsSleep,
+						.begin_ns = pacing.begin_ns, .end_ns = pacing.end_ns });
+					runtime_options.observation->record_graphics(RuntimeSample{
+						.kind = RuntimeSampleKind::GraphicsDeadline,
+						.begin_ns = pacing.deadline_ns, .end_ns = pacing.end_ns,
+						.missed_slots = pacing.missed_slots });
+				}
+			}
+			else if (!runtime_options.render_hz) loop_sleeper();
+		};
 		while (!should_shutdown.load(std::memory_order_acquire))
 		{
 			// for FPS
@@ -141,13 +211,14 @@ void GraphicsEngine::run() {
 			FPS_tracker->start();
 
 			analytics.start();
+			const auto work_start = runtime_options.observation ? runtime_now_ns() : 0;
 
 			accept_latest_render_frame();
 			retire_unused_resources();
 			if (!accepted_render_frame)
 			{
 				analytics.stop();
-				loop_sleeper();
+				pace();
 				continue;
 			}
 
@@ -159,16 +230,23 @@ void GraphicsEngine::run() {
 			has_presented.store(true, std::memory_order_release);
 
 			analytics.stop();
+			if (runtime_options.observation)
+				runtime_options.observation->record_graphics(RuntimeSample{
+					.kind = RuntimeSampleKind::Graphics,
+					.begin_ns = work_start, .end_ns = runtime_now_ns(),
+					.frame_number = accepted_render_frame->frame_number,
+					.tick_index = accepted_render_frame->simulation_tick,
+					.publication_ns = accepted_render_frame->publication_ns });
 
-			loop_sleeper();
+			pace();
 
 		}
     } catch (const std::exception& e) {
 		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: {}\n", e.what());
-        throw e;
+        throw;
 	} catch (...) {
 		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: UNKNOWN\n");
-        throw std::runtime_error("");
+        throw;
 	}
 }
 

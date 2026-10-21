@@ -32,7 +32,8 @@ audio_sources = files('audio_engine/audio_engine.cpp',
 					  'audio_engine/audio_source.cpp',
 					  'audio_engine/listener.cpp')
 
-sources = files('recording_session.cpp',
+sources = files('runtime_performance.cpp',
+				'recording_session.cpp',
 				'resource_paths.cpp',
 				'collision/collider.cpp',
 				'save_file_store.cpp',

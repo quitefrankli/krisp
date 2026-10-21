@@ -39,6 +39,7 @@ public: // getters
 
 	uint32_t get_num_images() const { return frames.size(); }
 	VkSwapchainKHR& get_swap_chain() { return swap_chain; }
+	VkPresentModeKHR get_present_mode() const { return present_mode; }
 	// assuming swapchain draw call is last in the main graphics execution loop
 	// this will reflect the frame TO BE drawn
 	GraphicsEngineFrame& get_curr_frame() { return frames[current_frame]; }
@@ -47,6 +48,7 @@ public: // getters
 private:
 		
 	VkSwapchainKHR swap_chain;
+	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	static std::optional<VkExtent2D> swap_chain_extent;
 	std::vector<GraphicsEngineFrame> frames;
 

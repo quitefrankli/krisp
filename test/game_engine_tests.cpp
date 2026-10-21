@@ -48,13 +48,18 @@ public:
 	{
 		TestAssets::register_texture(assets(), "texture.jpg");
 	}
-	explicit TestableGameEngine(std::unique_ptr<IApplication> application) :
+	explicit TestableGameEngine(std::unique_ptr<IApplication> application, RuntimeOptions options = {}) :
 		GameEngine(std::make_unique<MockWindow>(),
 				   std::move(application),
-				   std::make_unique<GameEngineTestsMockGraphicsEngine>())
+				   std::make_unique<GameEngineTestsMockGraphicsEngine>(), std::move(options))
 	{
 		TestAssets::register_texture(assets(), "texture.jpg");
 	}
+
+	explicit TestableGameEngine(RuntimeOptions options) :
+		GameEngine(std::make_unique<MockWindow>(),
+			std::make_unique<DummyApplication>(),
+			std::make_unique<GameEngineTestsMockGraphicsEngine>(), std::move(options)) {}
 
 	MockWindow& get_mock_window()
 	{
@@ -2377,4 +2382,100 @@ TEST_F(GameEngineTests, clearing_input_releases_held_movement)
 	EXPECT_TRUE(engine.get_keyboard().w_pressed());
 	engine.clear_input_state();
 	EXPECT_FALSE(engine.get_keyboard().w_pressed());
+}
+
+TEST(GameEngineRuntime, preserves_defaults_and_can_disable_interaction_and_ui)
+{
+	TestableGameEngine legacy;
+	EXPECT_FALSE(legacy.get_runtime_options().simulation_hz.has_value());
+	EXPECT_FALSE(legacy.get_runtime_options().performance_overlay);
+	EXPECT_TRUE(static_cast<MockGraphicsEngine&>(legacy.get_graphics_engine()).engine_ui_active);
+
+	RuntimeOptions options;
+	options.interactive = false;
+	options.ui = false;
+	options.performance_overlay = true;
+	options.simulation_hz = 60.0;
+	options.fixed_simulation_timestep = true;
+	TestableGameEngine controlled(options);
+	EXPECT_TRUE(controlled.get_runtime_options().performance_overlay);
+	EXPECT_FALSE(static_cast<MockGraphicsEngine&>(controlled.get_graphics_engine()).engine_ui_active);
+	EXPECT_DOUBLE_EQ(*controlled.get_runtime_options().simulation_hz, 60.0);
+	controlled.key_callback(KeyInput{GLFW_KEY_TAB, EKeyModifier::NONE, EInputAction::PRESS});
+	EXPECT_EQ(controlled.get_game_mode(), EGameMode::EDITOR);
+}
+
+TEST(GameEngineRuntime, publishes_tick_and_publication_time_with_observed_work)
+{
+	class FiniteApplication final : public DummyApplication
+	{
+	public:
+		void on_tick(GameEngine& engine, float delta) override
+		{
+			EXPECT_FLOAT_EQ(delta, 1.0f / 60.0f);
+			if (engine.get_simulation_tick() == 2) engine.shutdown();
+		}
+	};
+	auto observation = std::make_shared<RuntimeObservation>();
+	RuntimeOptions options;
+	options.simulation_hz = 60.0;
+	options.fixed_simulation_timestep = true;
+	options.ui = false;
+	options.interactive = false;
+	options.observation = observation;
+	TestableGameEngine engine(std::make_unique<FiniteApplication>(), options);
+	observation->start();
+	engine.run();
+	observation->stop();
+	const auto frames = engine.get_graphics_engine().load_latest_completed_render_frames();
+	ASSERT_TRUE(frames && frames->current && frames->previous);
+	EXPECT_EQ(frames->current->simulation_tick, 2);
+	EXPECT_EQ(frames->previous->simulation_tick, 1);
+	EXPECT_GT(frames->current->publication_ns, frames->previous->publication_ns);
+	const auto samples = observation->drain();
+	const auto last = std::ranges::find_if(samples, [&](const auto& sample) {
+		return sample.kind == RuntimeSampleKind::Simulation && sample.frame_number == frames->current->frame_number;
+	});
+	ASSERT_NE(last, samples.end());
+	EXPECT_EQ(last->publication_ns, frames->current->publication_ns);
+	EXPECT_EQ(last->tick_index, frames->current->simulation_tick);
+	EXPECT_LE(last->begin_ns, last->publication_ns);
+	EXPECT_GE(last->end_ns, last->publication_ns);
+}
+
+TEST(GameEngineRuntime, retains_application_startup_error_after_orderly_shutdown)
+{
+	class FailingApplication final : public DummyApplication
+	{
+	public:
+		void on_begin(GameEngine&) override { throw std::runtime_error("fixture startup failure"); }
+	};
+	RuntimeOptions options;
+	options.ui = false;
+	TestableGameEngine engine(std::make_unique<FailingApplication>(), options);
+	engine.run();
+	ASSERT_TRUE(engine.get_run_failure());
+	EXPECT_FALSE(engine.is_ready());
+	try { std::rethrow_exception(engine.get_run_failure()); }
+	catch (const std::runtime_error& error) { EXPECT_STREQ(error.what(), "fixture startup failure"); }
+}
+
+TEST(GameEngineRuntime, retains_graphics_thread_error_after_orderly_shutdown)
+{
+	class FailingGraphics final : public MockGraphicsEngine
+	{
+	public:
+		void run() override { throw std::runtime_error("fixture graphics failure"); }
+	};
+	class Engine final : public GameEngine
+	{
+	public:
+		Engine() : GameEngine(std::make_unique<MockWindow>(), std::make_unique<DummyApplication>(),
+			std::make_unique<FailingGraphics>()) {}
+	};
+	Engine engine;
+	engine.run();
+	ASSERT_TRUE(engine.get_run_failure());
+	try { std::rethrow_exception(engine.get_run_failure()); }
+	catch (const std::runtime_error& error) { EXPECT_STREQ(error.what(), "fixture graphics failure"); }
 }

@@ -14,6 +14,8 @@
 #include <array>
 #include <iostream>
 #include <algorithm>
+#include <cmath>
+#include <utility>
 
 
 int GraphicsEngineFrame::global_image_index = 0;
@@ -39,6 +41,7 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 
 	create_synchronisation_objects();
 	command_buffer = get_rsrc_mgr().create_command_buffer();
+	prepare_gpu_observation_queries();
 }
 
 GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
@@ -53,6 +56,12 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
 	fence_image_inflight(std::move(frame.fence_image_inflight)),
 	submission_serial(std::move(frame.submission_serial)),
+	observation_query_pool(std::exchange(frame.observation_query_pool, VK_NULL_HANDLE)),
+	current_gpu_query_recorded(frame.current_gpu_query_recorded),
+	gpu_query_pending(frame.gpu_query_pending),
+	pending_gpu_sample(std::move(frame.pending_gpu_sample)),
+	timestamp_valid_bits(frame.timestamp_valid_bits),
+	timestamp_period_ns(frame.timestamp_period_ns),
 	analytics(std::move(frame.analytics)),
 	screenshot_staging_buffer(std::move(frame.screenshot_staging_buffer)),
 	screenshot_path(std::move(frame.screenshot_path)),
@@ -63,6 +72,8 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	recording_capture_target(std::move(frame.recording_capture_target))
 {
 	frame.should_destroy = false;
+	frame.current_gpu_query_recorded = false;
+	frame.gpu_query_pending = false;
 }
 
 GraphicsEngineFrame::~GraphicsEngineFrame()
@@ -74,6 +85,8 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 
 	global_image_index--;
 	vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
+	if (observation_query_pool != VK_NULL_HANDLE)
+		vkDestroyQueryPool(get_logical_device(), observation_query_pool, nullptr);
 
 	// cleanup synchronisation objects
 	vkDestroySemaphore(get_logical_device(), image_available_semaphore, nullptr);
@@ -91,8 +104,72 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	}
 }
 
+void GraphicsEngineFrame::prepare_gpu_observation_queries()
+{
+	if (!get_graphics_engine().get_runtime_options().observation)
+		return;
+
+	timestamp_valid_bits = get_graphics_engine().get_timestamp_valid_bits();
+	timestamp_period_ns = get_graphics_engine().get_timestamp_period();
+	if (timestamp_valid_bits == 0 || !std::isfinite(timestamp_period_ns) || timestamp_period_ns <= 0.0)
+		return;
+
+	VkQueryPoolCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+	create_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+	create_info.queryCount = 2;
+	if (vkCreateQueryPool(get_logical_device(), &create_info, nullptr, &observation_query_pool) != VK_SUCCESS)
+		observation_query_pool = VK_NULL_HANDLE;
+}
+
+void GraphicsEngineFrame::collect_gpu_observation()
+{
+	if (!gpu_query_pending || observation_query_pool == VK_NULL_HANDLE)
+		return;
+	const auto fence_status = vkGetFenceStatus(get_logical_device(), fence_frame_inflight);
+	if (fence_status == VK_NOT_READY)
+		return;
+
+	std::array<std::uint64_t, 4> results{};
+	const auto result = fence_status == VK_SUCCESS
+		? vkGetQueryPoolResults(
+			get_logical_device(), observation_query_pool, 0, 2, sizeof(results), results.data(),
+			sizeof(std::uint64_t) * 2,
+			VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT)
+		: fence_status;
+
+	auto sample = pending_gpu_sample;
+	sample.kind = RuntimeSampleKind::Gpu;
+	sample.end_ns = runtime_now_ns();
+	if (result == VK_SUCCESS && results[1] != 0 && results[3] != 0)
+	{
+		auto duration = timestamp_duration_ns(
+			results[0], results[2], timestamp_valid_bits, timestamp_period_ns);
+		if (duration && timestamp_valid_bits < 64)
+		{
+			const long double wrap_period_ns = std::ldexp(
+				static_cast<long double>(timestamp_period_ns), timestamp_valid_bits);
+			const long double enclosing_cpu_ns = sample.end_ns >= sample.begin_ns
+				? static_cast<long double>(sample.end_ns - sample.begin_ns)
+				: wrap_period_ns;
+			if (enclosing_cpu_ns >= wrap_period_ns)
+				duration.reset();
+		}
+		sample.success = duration.has_value();
+		if (duration)
+			sample.duration_ns = *duration;
+	}
+	else
+		sample.success = false;
+
+	if (const auto& observation = get_graphics_engine().get_runtime_options().observation)
+		observation->record_graphics(sample);
+	gpu_query_pending = false;
+}
+
 void GraphicsEngineFrame::update_command_buffer()
 {
+	current_gpu_query_recorded = false;
 	VkCommandBufferResetFlags reset_flags = 0;
 	vkResetCommandBuffer(command_buffer, reset_flags);
 
@@ -105,6 +182,14 @@ void GraphicsEngineFrame::update_command_buffer()
 	if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to begin recording command buffer!");
+	}
+	const auto& observation = get_graphics_engine().get_runtime_options().observation;
+	const bool measure_gpu = observation && observation->active()
+		&& observation_query_pool != VK_NULL_HANDLE;
+	if (measure_gpu)
+	{
+		vkCmdResetQueryPool(command_buffer, observation_query_pool, 0, 2);
+		vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, observation_query_pool, 0);
 	}
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
@@ -126,6 +211,11 @@ void GraphicsEngineFrame::update_command_buffer()
 	submit_draw_commands(ERendererType::GUI); // ImGui is composed after the SDR screenshot copy.
 
 	maybe_prepare_recording_capture();
+	if (measure_gpu)
+	{
+		vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, observation_query_pool, 1);
+		current_gpu_query_recorded = true;
+	}
 	
 	if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
 	{
@@ -139,15 +229,43 @@ void GraphicsEngineFrame::draw()
 	// 2. execute command buffer with image as attachment in the frame buffer
 	// 3. return the image to swap chain for presentation
 
+	const auto& observation = get_graphics_engine().get_runtime_options().observation;
+	const bool collect_cpu = observation && observation->active();
+	const auto observation_submission = observation
+		? get_graphics_engine().next_observation_submission()
+		: 0;
+	const auto& render_frame = get_graphics_engine().get_render_frame();
+	const auto record_cpu_sample = [&](const RuntimeSampleKind kind, const std::uint64_t begin_ns,
+		const std::uint64_t end_ns, const bool success = true)
+	{
+		if (!collect_cpu)
+			return;
+		observation->record_graphics(RuntimeSample{
+			.kind = kind,
+			.begin_ns = begin_ns,
+			.end_ns = end_ns,
+			.submission_id = observation_submission,
+			.frame_number = render_frame.frame_number,
+			.tick_index = render_frame.simulation_tick,
+			.publication_ns = render_frame.publication_ns,
+			.success = success });
+	};
+
 	analytics.start();
 	// CPU-GPU synchronisation for in flight images
-	if (vkWaitForFences(
+	const auto frame_fence_begin_ns = collect_cpu ? runtime_now_ns() : 0;
+	const auto frame_fence_result = vkWaitForFences(
 			get_logical_device(), 1, &fence_frame_inflight, VK_TRUE,
-			std::numeric_limits<uint64_t>::max()) != VK_SUCCESS)
+			std::numeric_limits<uint64_t>::max());
+	const auto frame_fence_end_ns = collect_cpu ? runtime_now_ns() : 0;
+	analytics.stop();
+	record_cpu_sample(RuntimeSampleKind::FrameFenceWait,
+		frame_fence_begin_ns, frame_fence_end_ns, frame_fence_result == VK_SUCCESS);
+	if (frame_fence_result != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to wait for in-flight frame!");
 	}
-	analytics.stop();
+	collect_gpu_observation();
 	if (submission_serial)
 	{
 		get_graphics_engine().complete_graphics_submission(*submission_serial);
@@ -160,21 +278,25 @@ void GraphicsEngineFrame::draw()
 		get_graphics_engine().get_render_frame().lights));
 	update_command_buffer();
 
-	uint32_t swap_chain_image_index;
+	uint32_t swap_chain_image_index = 0;
 	// waits until there's an image available to use in the swap chain
+	const auto acquire_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	VkResult result = vkAcquireNextImageKHR(get_logical_device(), 
 											swap_chain.get_swap_chain(), 
 											std::numeric_limits<uint64_t>::max(), // wait time (ns)
 											image_available_semaphore, 
 											VK_NULL_HANDLE, 
 											&swap_chain_image_index); // image index of the available image
-	if (image_index != swap_chain_image_index)
-	{
-		throw std::runtime_error("image_index and swap_chain_image_index mismatch!");
-	}											
+	const auto acquire_end_ns = collect_cpu ? runtime_now_ns() : 0;
+	const bool acquire_success = result == VK_SUCCESS;
+	record_cpu_sample(RuntimeSampleKind::Acquire, acquire_begin_ns, acquire_end_ns, acquire_success);
 	if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to acquire swapchain image!");
+	}
+	if (image_index != swap_chain_image_index)
+	{
+		throw std::runtime_error("image_index and swap_chain_image_index mismatch!");
 	}
 	// if (result == VK_ERROR_OUT_OF_DATE_KHR) {
 	// 	reset();
@@ -188,7 +310,15 @@ void GraphicsEngineFrame::draw()
 	// check if a previous frame is using this image (i.e. there is a fence to wait on)
 	if (fence_image_inflight != VK_NULL_HANDLE)
 	{
-		vkWaitForFences(get_logical_device(), 1, &fence_image_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
+		const auto image_fence_begin_ns = collect_cpu ? runtime_now_ns() : 0;
+		const auto image_fence_result = vkWaitForFences(
+			get_logical_device(), 1, &fence_image_inflight, VK_TRUE,
+			std::numeric_limits<uint64_t>::max());
+		const auto image_fence_end_ns = collect_cpu ? runtime_now_ns() : 0;
+		record_cpu_sample(RuntimeSampleKind::ImageFenceWait,
+			image_fence_begin_ns, image_fence_end_ns, image_fence_result == VK_SUCCESS);
+		if (image_fence_result != VK_SUCCESS)
+			throw std::runtime_error("failed to wait for in-flight image!");
 	}
 	// mark the image as now being in use by this frame
 	fence_image_inflight = fence_frame_inflight;
@@ -219,9 +349,26 @@ void GraphicsEngineFrame::draw()
 	submitInfo.pSignalSemaphores = signal_semaphores;
 
 	vkResetFences(get_logical_device(), 1, &fence_frame_inflight);
-	if (vkQueueSubmit(get_graphics_engine().get_graphics_queue(), 1, &submitInfo, fence_frame_inflight) != VK_SUCCESS)
+	const auto submit_begin_ns = collect_cpu ? runtime_now_ns() : 0;
+	const auto submit_result = vkQueueSubmit(
+		get_graphics_engine().get_graphics_queue(), 1, &submitInfo, fence_frame_inflight);
+	const auto submit_end_ns = collect_cpu ? runtime_now_ns() : 0;
+	record_cpu_sample(RuntimeSampleKind::Submit, submit_begin_ns, submit_end_ns,
+		submit_result == VK_SUCCESS);
+	if (submit_result != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
+	}
+	if (current_gpu_query_recorded)
+	{
+		pending_gpu_sample = RuntimeSample{
+			.kind = RuntimeSampleKind::Gpu,
+			.begin_ns = submit_begin_ns,
+			.submission_id = observation_submission,
+			.frame_number = render_frame.frame_number,
+			.tick_index = render_frame.simulation_tick,
+			.publication_ns = render_frame.publication_ns };
+		gpu_query_pending = true;
 	}
 	submission_serial = get_graphics_engine().register_graphics_submission();
 
@@ -240,7 +387,11 @@ void GraphicsEngineFrame::draw()
 	present_info.pImageIndices = &image_index;
 	present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
 
+	const auto present_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	result = vkQueuePresentKHR(get_graphics_engine().get_present_queue(), &present_info);
+	const auto present_end_ns = collect_cpu ? runtime_now_ns() : 0;
+	record_cpu_sample(RuntimeSampleKind::Present, present_begin_ns, present_end_ns,
+		result == VK_SUCCESS);
 	if (result != VK_SUCCESS) {
 		throw std::runtime_error("failed to present swap chain image!");
 	}

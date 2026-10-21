@@ -1,4 +1,5 @@
 sources = [
+	'runtime_performance_tests.cpp',
 	'test_main.cpp',
 	'mesh_tests.cpp',
 	'game_engine_tests.cpp',
@@ -52,3 +53,14 @@ exec = executable(
 test('krisp_tests', exec, args: ['--gtest_brief=1'])
 test('pack_kasset', find_program('python3'),
 	args: [files('test_pack_kasset.py'), '-q'])
+
+test('benchmark_statistics', find_program('python3'),
+    workdir: meson.project_source_root(),
+    args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', 'test_benchmark_statistics.py', '-q'])
+test('benchmark_runner', find_program('python3'),
+    workdir: meson.project_source_root(),
+    args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', 'test_benchmark_runner.py', '-q'])
+
+test('benchmark_assets', find_program('python3'),
+    workdir: meson.project_source_root(),
+    args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', 'test_benchmark_assets.py', '-q'])

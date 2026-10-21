@@ -415,3 +415,79 @@ commits only new source/name map nodes; re-registering an identical source does
 not copy the registry maps or reread its file. These are structural cost
 expectations only; no asset loading-time, decode-memory, or GPU-upload
 measurements have been recorded.
+
+## Stress test application
+
+The benchmark harness runs independent simulation and graphics loops using
+explicit runtime overrides. Simulation targets 60 Hz with a fixed 1/60-second
+step. The throughput mode removes engine rendering sleep and requests IMMEDIATE
+presentation, while the pacing mode targets 60 Hz and prefers MAILBOX. Unsupported
+presentation preferences fall back to available modes and are recorded. Driver
+and compositor throttling can still limit throughput; submission rate is not
+isolated GPU capacity or measured display scanout cadence.
+
+Prepare assets before a routine run with `stress_test prepare-assets`, then run
+`stress_test` (the default `standard` suite). It contains four workloads in both
+scheduling modes, with two fresh workers per case: `static-objects-500`,
+`moving-transforms-500`, `point-shadows-500`, and `textured-objects-16`. Two seconds
+of warm-up and five seconds of measurement per worker give 112 seconds of
+timed work. The target end-to-end runtime is under five minutes with prepared
+assets; fresh worker startup and final collection add hardware-dependent time.
+First-time asset preparation is outside that routine-run budget.
+
+`--suite smoke` runs a diagnostic case, a Flight Helmet case and a fixed Sponza
+atrium view in both modes as a short correctness-only protocol. Asset loading
+is excluded from current benchmark metrics; a separate asset-loading benchmark
+is future work. See
+[STRESS_TEST.md](STRESS_TEST.md) for commands, protocol overrides, saved
+evidence and explicit baseline selection.
+
+Benchmark workers explicitly reserve 128 MiB of vertex-buffer capacity and
+64 MiB of index-buffer capacity for every scenario. These fixed per-run limits
+accommodate the prepared large-scene workload without reducing its geometry.
+They increase reserved GPU memory relative to ordinary engine defaults; the
+engine exposes generic startup capacity overrides and retains its existing
+limits for consumers that do not request them. Actual imported counts and
+memory estimates remain part of the prepared-asset audit.
+
+Optional runtime observation allocates two fixed-capacity producer buffers and
+copies fixed-size records on game and graphics threads. The consumer drains and
+serializes records outside measured frame work. Overflow is observable and
+invalidates benchmark results; no unbounded queue or per-frame file output is
+introduced on the frame producers. Enabled collection adds monotonic clock
+reads, buffer copies and GPU timestamp writes; its overhead has not been
+quantified. Ordinary consumers retain their scheduling and do not allocate
+observation/query resources unless they opt in.
+
+CPU observations separate simulation work (including snapshot publication),
+graphics loop duration, fence waits, image acquisition, submit and present calls,
+and pacing sleep. Enclosing graphics intervals include their child calls;
+reports subtract their interval union for active CPU work rather than summing
+nested durations. CPU elapsed work is not CPU utilisation. Snapshot identifiers
+and publication times distinguish simulation progress from repeated or skipped
+snapshots without replacing the latest-wins mailbox with lockstep rendering.
+
+GPU samples bracket the complete graphics command span with timestamp queries,
+including shadow and presentation rendering and any device-side stalls in that
+span. Query readback follows the existing frame fence; it adds no per-frame
+completion wait. Query storage and pending submission identity belong to the
+in-flight frame. Unsupported timestamps and lost results remain explicit.
+Startup, loading, GPU upload, warm-up, final collection and shutdown are excluded
+from measured distributions. Debug/validation-enabled results remain labelled
+and cannot be compared with an optimised validation-disabled baseline.
+
+Repeated worker summaries, raw records and effective settings support
+same-machine comparisons. Variation and compatibility limits remain visible;
+the tool produces neither an overall score nor automatic baseline promotion.
+No benchmark throughput, frame-pacing improvement or instrumentation overhead
+measurement is claimed here. See [RUNTIME_OBSERVATION.md](RUNTIME_OBSERVATION.md)
+for the engine-owned observation boundaries and threading contract.
+
+Standard benchmark runs require optimized Release builds with assertions disabled; Debug smoke runs validate correctness only and do not provide performance evidence.
+
+Benchmark workers enable the FPS/TPS performance overlay for loading where
+available, warm-up, and measurement. Overlay updates and drawing remain inside
+the measured CPU and GPU work; reported timings do not subtract their cost.
+Displayed FPS/TPS are live diagnostics, while benchmark reports use the raw
+observation records. The overlay adds work to each run, and its overhead has
+not been measured.

@@ -15,6 +15,7 @@ namespace App {
 	{
 	public:
 		Window();
+		Window(int width, int height);
 		virtual ~Window();
 
 		virtual void setup_callbacks(IWindowCallbacks& callbacks);
@@ -37,6 +38,7 @@ namespace App {
 		explicit Window(bool create_window);
 
 	private:
+		Window(bool create_window, int width, int height);
 		static constexpr int INITIAL_WINDOW_WIDTH = 1400;
 		static constexpr int INITIAL_WINDOW_HEIGHT = 800;
 		GLFWwindow* window = nullptr;

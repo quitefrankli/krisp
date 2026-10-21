@@ -28,8 +28,7 @@ Release mode and shared by the separate Debug and Release Krisp build trees:
 conan install . -pr=conan_clang_profile --build=missing
 ```
 
-From the repository root, `./run [application] [--debug|--release]` configures
-the selected build tree only when it has not been configured yet, builds the
+From the repository root, `./run [application] [--debug|--release] [-- application arguments...]` configures the selected build tree when needed (first use, changed build settings, or a missing application target), builds the
 selected application with six jobs, then launches it from the repository root.
 The defaults are `sandbox` and Debug:
 
@@ -38,6 +37,8 @@ The defaults are `sandbox` and Debug:
 ./run sandbox --release
 ./run chess --debug
 ```
+
+Arguments after `--` are passed unchanged to the application, including flags and quoted values.
 
 Conan's native file supplies compilers and dependency paths but deliberately
 does not set Krisp's build type. To configure build trees manually, use:

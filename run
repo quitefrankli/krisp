@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: ./run [application] [--debug|--release]"
+    echo "Usage: ./run [application] [--debug|--release] [-- application arguments...]"
     echo "Defaults: sandbox, --debug"
 }
 
@@ -12,19 +12,16 @@ if [[ ${1:-} != -* && $# -gt 0 ]]; then
     application=$1
     shift
 fi
-if [[ $# -gt 0 ]]; then
+while [[ $# -gt 0 ]]; do
     case "$1" in
         --debug) build_type=debug ;;
         --release) build_type=release ;;
+        --) shift; break ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
     shift
-fi
-if [[ $# -gt 0 ]]; then
-    usage >&2
-    exit 2
-fi
+done
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ ! $application =~ ^[a-zA-Z0-9_][a-zA-Z0-9_-]*$ || ! -f applications/$application/meson.build ]]; then
@@ -34,17 +31,45 @@ fi
 
 native_file=build/conan/conan_meson_native.ini
 build_dir=build/$build_type
-if [[ ! -f $build_dir/meson-private/coredata.dat ]]; then
+setup_args=()
+needs_setup=true
+if [[ -f $build_dir/meson-private/coredata.dat ]]; then
+    setup_args+=(--reconfigure)
+    if python3 - "$build_dir" "$build_type" "$application" <<'PYTHON'
+import json
+import pathlib
+import sys
+
+build, mode, application = sys.argv[1:]
+info = pathlib.Path(build) / "meson-info"
+try:
+    options = {item["name"]: item["value"] for item in json.loads((info / "intro-buildoptions.json").read_text())}
+    targets = json.loads((info / "intro-targets.json").read_text())
+    matches = (options.get("buildtype") == mode
+               and str(options.get("b_ndebug")).lower() == str(mode == "release").lower()
+               and options.get("build_applications") is True
+               and any(target["name"] == application for target in targets))
+except (OSError, ValueError, KeyError):
+    matches = False
+sys.exit(0 if matches else 1)
+PYTHON
+    then
+        needs_setup=false
+    fi
+else
     if [[ ! -f $native_file ]]; then
         echo "Install dependencies first: conan install . -pr=conan_clang_profile --build=missing" >&2
         exit 1
     fi
-    ndebug=false
-    if [[ $build_type == release ]]; then
-        ndebug=true
-    fi
-    meson setup "$build_dir" --native-file "$native_file" \
-        --buildtype="$build_type" -Db_ndebug="$ndebug"
+    setup_args+=(--native-file "$native_file")
+fi
+ndebug=false
+if [[ $build_type == release ]]; then
+    ndebug=true
+fi
+if [[ $needs_setup == true ]]; then
+    meson setup "$build_dir" "${setup_args[@]}" \
+        --buildtype="$build_type" -Db_ndebug="$ndebug" -Dbuild_applications=true
 fi
 meson compile -C "$build_dir" -j 6 "$application"
-exec "$build_dir/applications/$application/$application"
+exec "$build_dir/applications/$application/$application" "$@"
