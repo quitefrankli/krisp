@@ -38,7 +38,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
 				args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 					"--environment-lighting", "lighting", "--shader-directory", "shaders", "run", "--workload", workload])
 				self.assertEqual(args.suite, "standard")
-		self.assertEqual(len(runner.suite_cases("standard")), 5)
+		self.assertEqual(len(runner.suite_cases("standard")), 3)
 
 	def test_public_cli_rejects_removed_path_overrides(self):
 		base = ["--executable", "fixture", "--build-manifest", "build.json",
@@ -76,16 +76,16 @@ class BenchmarkRunnerTests(unittest.TestCase):
 
 	def test_suites_have_expected_coverage_duration_and_repeatable_order(self):
 		for suite, case_count, worker_count, timed_seconds in [
-			("standard", 5, 20, 140), ("smoke", 3, 6, 4.2)]:
+			("standard", 3, 8, 96), ("smoke", 3, 6, 4.2)]:
 			with self.subTest(suite=suite):
 				warmup, measure, repetitions = runner.suite_defaults(suite)
 				schedule = runner.make_schedule(suite, repetitions)
-				self.assertEqual(len(schedule) * 2, worker_count)
+				self.assertEqual(sum(len(runner.case_modes(suite, case)) for case in schedule), worker_count)
 				self.assertEqual(len({case["case_id"] for case in schedule}), case_count)
 				self.assertAlmostEqual(worker_count * (warmup + measure), timed_seconds)
 				self.assertEqual(schedule, runner.make_schedule(suite, repetitions))
 		self.assertEqual({case["case_id"] for case in runner.standard_cases()}, {
-			"static-objects-500", "moving-transforms-500", "point-shadows-500", "textured-objects-16", "textured-environment-atrium"})
+			"moving-transforms-500", "point-shadows-500", "textured-environment-atrium"})
 		args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 			"--environment-lighting", "lighting", "--shader-directory", "shaders", "run"])
 		self.assertEqual(args.suite, "standard")
@@ -93,6 +93,14 @@ class BenchmarkRunnerTests(unittest.TestCase):
 			runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 				"--environment-lighting", "lighting", "--shader-directory", "shaders", "run", "--suite", "extended"])
 		self.assertEqual(error.exception.code, 2)
+
+	def test_standard_modes_keep_pacing_only_for_environment_workloads(self):
+		for case in runner.standard_cases(include_optional_views=True):
+			expected = ("throughput", "paced") if case["scenario"] == "textured-environment" else ("throughput",)
+			self.assertEqual(runner.case_modes("standard", case), expected)
+		for workload in ("static-objects-500", "textured-objects-16"):
+			with self.assertRaisesRegex(ValueError, "not in suite"):
+				runner.suite_cases("standard", workload)
 
 	def test_asset_loading_suite_has_only_two_fresh_process_cases(self):
 		cases = runner.suite_cases("asset-loading")

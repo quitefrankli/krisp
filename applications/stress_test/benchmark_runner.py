@@ -46,10 +46,8 @@ SHUTDOWN_MARGIN_SECONDS = 10
 
 def standard_cases(*, include_optional_views: bool = False) -> list[dict[str, Any]]:
 	cases = [
-		{"scenario": "static-objects", "count": 500, "view": None},
 		{"scenario": "moving-transforms", "count": 500, "view": None},
 		{"scenario": "point-shadows", "count": 500, "view": None},
-		{"scenario": "textured-objects", "count": 16, "view": None},
 		{"scenario": "textured-environment", "count": 1, "view": "atrium"},
 	]
 	if include_optional_views:
@@ -94,7 +92,15 @@ def suite_cases(suite: str, workload: str | None = None) -> list[dict[str, Any]]
 
 
 def suite_defaults(suite: str) -> tuple[float, float, int]:
-	return {"standard": (2.0, 5.0, 2), "smoke": (0.2, 0.5, 1), "asset-loading": (0.0, 0.0, 2)}[suite]
+	return {"standard": (2.0, 10.0, 2), "smoke": (0.2, 0.5, 1), "asset-loading": (0.0, 0.0, 2)}[suite]
+
+
+def case_modes(suite: str, case: Mapping[str, Any]) -> tuple[str, ...]:
+	if suite == "asset-loading":
+		return ("asset-loading",)
+	if suite == "standard" and case["scenario"] != "textured-environment":
+		return ("throughput",)
+	return ("throughput", "paced")
 
 
 def make_schedule(suite: str, repetitions: int, seed: int = ORDER_SEED, *, workload: str | None = None) -> list[dict[str, Any]]:
@@ -940,13 +946,12 @@ def run(args: argparse.Namespace) -> int:
 			"readiness_boundary": "first-scene-presentation-observed",
 		})
 	manifest["protocol"] = protocol
-	modes = ("asset-loading",) if args.suite == "asset-loading" else ("throughput", "paced")
-	manifest["scheduled_workers"] = len(schedule) * len(modes)
+	manifest["scheduled_workers"] = sum(len(case_modes(args.suite, entry)) for entry in schedule)
 	manifest["estimated_measurement_seconds"] = manifest["scheduled_workers"] * (warmup + measurement)
 	manifest["cases"] = [
 		{
 			"case_id": case["case_id"], "scenario": case["scenario"], "count": case["count"], "view": case.get("view"),
-			"repetitions_by_mode": {mode: [] for mode in modes},
+			"repetitions_by_mode": {mode: [] for mode in case_modes(args.suite, case)},
 			"comparisons": {},
 		}
 		for case in cases
@@ -959,7 +964,7 @@ def run(args: argparse.Namespace) -> int:
 		print(f"Scheduled {manifest['scheduled_workers']} workers; measured time estimate {manifest['estimated_measurement_seconds'] / 60:.1f} minutes plus startup and collection.", flush=True)
 	operational_failure = False
 	for index, entry in enumerate(schedule, 1):
-		for mode in modes:
+		for mode in case_modes(args.suite, entry):
 			case_manifest = by_id[entry["case_id"]]
 			worker_dir = output / "workers" / entry["case_id"] / mode / f"rep-{entry['repetition']:02d}"
 			worker_dir.parent.mkdir(parents=True, exist_ok=True)

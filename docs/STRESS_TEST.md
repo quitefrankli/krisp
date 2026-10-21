@@ -45,7 +45,7 @@ diagnostic; persisted benchmark records remain the source for reported metrics.
 
 ## Suites
 
-The default `standard` suite runs five workloads in both throughput and paced modes, with two fresh processes per workload and mode: `static-objects-500`, `moving-transforms-500`, `point-shadows-500`, `textured-objects-16`, and `textured-environment-atrium`. It warms up each worker for 2 seconds and measures for 5 seconds, for 20 workers and 140 seconds of configured timed work. FPS/TPS overlay updates and drawing run during warm-up and measurement and are included in the measured costs. The full-resolution Sponza scene has longer, hardware-dependent startup, so the standard suite has no under-five-minute completion guarantee. First-time asset preparation is also outside the configured timed-work total and can take substantially longer.
+The default `standard` suite runs `moving-transforms-500` and `point-shadows-500` in throughput mode, and `textured-environment-atrium` (Sponza) in both throughput and paced modes. Each workload and mode has two fresh processes, for eight launches total. It warms up each worker for 2 seconds and measures for 10 seconds, for 96 seconds of configured timed work. FPS/TPS overlay updates and drawing run during warm-up and measurement and are included in the measured costs. The full-resolution Sponza scene has longer, hardware-dependent startup, so the standard suite has no under-five-minute completion guarantee. First-time asset preparation is also outside the configured timed-work total and can take substantially longer.
 
 Smoke runs the `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium` cases in both modes. It uses one repetition, 0.2 seconds of warm-up, and 0.5 seconds of measurement. Smoke confirms correctness and the automated lifecycle; its short measurements are not performance results. The suite name, timings, repetitions, workload, effective settings, build class, machine, selected GPU, and driver participate in compatibility, so smoke cannot be compared with `standard`.
 
@@ -96,21 +96,21 @@ Run the standard protocol with:
 stress_test run
 ```
 
-Use `--workload CASE_ID` to run one existing case from the selected suite. By default, every case runs. For example, this selects only `point-shadows-500` while retaining its throughput and paced modes, two repetitions, 2-second warm-up, and 5-second measurement (four worker launches):
+Use `--workload CASE_ID` to run one existing case from the selected suite. By default, every case runs. For example, this selects only `point-shadows-500` in throughput mode, with two repetitions and a 2-second warm-up plus 10-second measurement (two worker launches):
 
 ```sh
 ./run stress_test --release -- run --workload point-shadows-500
 ```
 
-Standard accepts `static-objects-500`, `moving-transforms-500`, `point-shadows-500`, `textured-objects-16`, `textured-environment-atrium`, `textured-environment-corridor`, and `textured-environment-material-closeup`. Smoke accepts `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium`. The Sponza views use the pinned full-resolution assets and fixed view definitions; each selected view retains normal per-view metadata, raw records, reports, and baseline identity. The atrium view is part of standard's default schedule and is also valid in smoke. The filter selects cases only; it does not change case metrics, effective settings, or per-case baseline compatibility. Unknown cases and valid cases that belong only to the other suite are rejected during preflight before workers start or assets are downloaded/prepared.
+Standard accepts `moving-transforms-500`, `point-shadows-500`, `textured-environment-atrium`, `textured-environment-corridor`, and `textured-environment-material-closeup`. Smoke accepts `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium`. The Sponza views use the pinned full-resolution assets and fixed view definitions; each selected view retains normal per-view metadata, raw records, reports, and baseline identity. The atrium view is part of standard's default schedule and is also valid in smoke. The filter selects cases only; it does not change case metrics, effective settings, or per-case baseline compatibility. Unknown cases and valid cases that belong only to the other suite are rejected during preflight before workers start or assets are downloaded/prepared.
 
-The atrium Sponza view is part of the default standard schedule; the corridor and material-closeup views are available as optional standard workloads. A focused atrium run uses the usual standard settings:
+The atrium Sponza view is part of the default standard schedule; the corridor and material-closeup views are optional standard workloads, each available in throughput and paced modes. A focused atrium run uses the standard settings:
 
 ```sh
 ./run stress_test --release -- run --workload textured-environment-atrium
 ```
 
-Each standard Sponza view runs in both modes with two repetitions, 2 seconds of warm-up, and 5 seconds of measurement (four fresh processes per view). The default suite therefore has five workloads, 20 workers, and 140 seconds of configured timed work. Sponza startup is longer while the full-resolution scene loads, so the default suite has no under-five-minute completion guarantee. To use one repetition and two worker launches for a focused view, pass `--repetitions 1`; this is faster but provides less evidence for comparison and cannot support a directional comparison under the minimum two repetitions per side.
+Each standard Sponza view runs in both modes with two repetitions, 2 seconds of warm-up, and 10 seconds of measurement (four fresh processes per view). The default suite therefore has three workloads, eight workers, and 96 seconds of configured timed work. Sponza startup is longer while the full-resolution scene loads, so the default suite has no under-five-minute completion guarantee. To use one repetition and two worker launches for a focused view, pass `--repetitions 1`; this is faster but provides less evidence for comparison and cannot support a directional comparison under the minimum two repetitions per side.
 
 The coordinator prints the estimated timed-work duration and progress. Cases run sequentially in a deterministic shuffled order for each repetition round. Every repetition starts a fresh worker. A supported graphics session is required. When the default asset cache is absent, the runner prepares it before workers or warm-up; first-time preparation is outside the configured timed-work estimate. Existing caches must pass integrity checks; altered or incompatible caches fail preflight rather than removing textured workloads. Startup and final collection vary with hardware and workload.
 

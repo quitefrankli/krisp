@@ -428,11 +428,11 @@ presentation preferences fall back to available modes and are recorded. Driver
 and compositor throttling can still limit throughput; submission rate is not
 isolated GPU capacity or measured display scanout cadence.
 
-`stress_test` defaults to the `standard` suite. It contains five workloads in
-both scheduling modes, with two fresh workers per case: `static-objects-500`,
-`moving-transforms-500`, `point-shadows-500`, `textured-objects-16`, and
-`textured-environment-atrium`. Two seconds of warm-up and five seconds of
-measurement per worker give 140 seconds of timed work. Sponza startup makes the
+`stress_test` defaults to the `standard` suite. It runs `moving-transforms-500`
+and `point-shadows-500` in throughput mode, plus the Sponza atrium in both
+throughput and paced modes. Each case/mode combination has two fresh workers;
+two seconds of warm-up and ten seconds of measurement per worker give eight
+launches and 96 seconds of configured timed work. Sponza startup makes the
 end-to-end duration hardware-dependent, and first-time asset preparation is
 outside the configured timed-work total. The shared cache can be prepared
 manually with `stress_test prepare-assets`; `run` prepares it automatically
