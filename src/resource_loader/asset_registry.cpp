@@ -78,6 +78,7 @@ Json metadata_from_bytes(std::span<const unsigned char> bytes, std::string_view 
 
 Json read_metadata(const std::filesystem::path &path)
 {
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::Document);
 	// Read only the GLB JSON chunk; registration does not read its geometry blob.
 	if (path.extension() != ".glb")
 		return metadata_from_bytes(read_bytes(path), path.string());
@@ -97,6 +98,7 @@ Json read_metadata(const std::filesystem::path &path)
 
 Json read_metadata(const KassetContainer &package, const std::string &member)
 {
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::Document);
 	if (std::filesystem::path(member).extension() != ".glb")
 		return metadata_from_bytes(package.read_prefix(member, maximum_metadata_size + 1), member);
 	auto header = package.read_prefix(member, 20);
@@ -184,12 +186,14 @@ struct AssetSource
 		auto &data = documents.at(member);
 		if (!data.document)
 		{
+			ResourceLoadObservation::Stage stage(ResourceLoadStage::Document);
 			if (!package)
 				data.document = ResourceLoader::read_document(resolved);
 			else
 			{
 				auto contents = bytes(member);
 				data.document = ResourceLoader::read_document(contents, member, [this, member](std::string_view uri) {
+					ResourceLoadObservation::Stage dependency(ResourceLoadStage::DependencyRead);
 					return package->read(KassetContainer::resolve(member, uri));
 				});
 			}
@@ -214,6 +218,7 @@ struct AssetRegistry::State
 	std::vector<std::shared_ptr<AssetEntry>> entries;
 	std::function<void(std::function<void()>)> execute_cpu;
 	std::function<void()> checkpoint;
+	ResourceLoadObservation::Observer load_observer;
 };
 
 namespace
@@ -248,6 +253,7 @@ ResourceLoader::DecodedModel &decoded_model(const std::shared_ptr<AssetEntry> &e
 	auto &cached = source.documents.at(member).models[scene];
 	if (!cached)
 	{
+		ResourceLoadObservation::Stage stage(ResourceLoadStage::MeshConversion);
 		auto options = source.options.import;
 		options.scene_index = scene;
 		cached = std::make_shared<ResourceLoader::DecodedModel>(
@@ -267,6 +273,7 @@ MaterialHandle texture_data(const std::shared_ptr<AssetEntry> &entry, ETextureSe
 	auto &cache = data.images[{image, semantic}];
 	if (!cache)
 	{
+		ResourceLoadObservation::Stage stage(ResourceLoadStage::MaterialConstruction);
 		if (is_document(source.package ? entry->definition.member : source.path))
 			cache = ResourceLoader::decode_image(
 				source.document(entry->definition.member), image, source.materials, semantic,
@@ -288,9 +295,12 @@ std::vector<MaterialHandle> &material_data(const std::shared_ptr<AssetEntry> &en
 	auto &data = source.documents.at(entry->definition.member);
 	auto &result = data.materials[entry->definition.selector.material];
 	if (result.empty())
+	{
+		ResourceLoadObservation::Stage stage(ResourceLoadStage::MaterialConstruction);
 		result = ResourceLoader::decode_material(source.document(entry->definition.member),
 		                                         entry->definition.selector.material, source.materials,
 		                                         &data.material_decoder);
+	}
 	return result;
 }
 
@@ -637,10 +647,26 @@ void AssetRegistry::set_loading_callbacks(std::function<void(std::function<void(
 	state->checkpoint = std::move(checkpoint);
 }
 
+void AssetRegistry::set_load_observer(std::function<void(const ResourceLoadSample &)> observer)
+{
+	state->load_observer = std::move(observer);
+}
+
 void AssetRegistry::execute_cpu(std::function<void()> work)
 {
-	if (state->execute_cpu) state->execute_cpu(std::move(work));
-	else work();
+	if (!state->load_observer)
+	{
+		if (state->execute_cpu) state->execute_cpu(std::move(work));
+		else work();
+		return;
+	}
+	auto observer = state->load_observer;
+	auto observed_work = [observer = std::move(observer), work = std::move(work)]() mutable {
+		ResourceLoadObservation::Scope scope(observer);
+		work();
+	};
+	if (state->execute_cpu) state->execute_cpu(std::move(observed_work));
+	else observed_work();
 }
 
 void AssetRegistry::prepare_entry(const std::shared_ptr<AssetEntry>& entry, ETextureSemantic semantic)
@@ -781,7 +807,10 @@ std::vector<Asset> AssetRegistry::load_asset_impl(std::string_view path, const A
 						{
 							const auto uri = dependency.at("uri").get<std::string>();
 							if (!uri.starts_with("data:"))
+							{
+								ResourceLoadObservation::Stage stage(ResourceLoadStage::DependencyRead);
 								source->package->read_prefix(KassetContainer::resolve(e.member, uri), 0);
+							}
 						}
 			const auto count = validate_export(e, it->second.metadata, is_document(file));
 			entries.push_back(std::make_shared<AssetEntry>(AssetEntry{e, count, source}));
@@ -940,6 +969,8 @@ AnimationID AssetRegistry::bind_animation(ECS &ecs, const AnimationAssetHandle &
 ResourceLoader::LoadedModel AssetRegistry::instantiate_model(ECS &ecs, const AssemblyAssetHandle &handle,
                                                              std::optional<SkeletonID> target)
 {
+	auto observer = state->load_observer;
+	ResourceLoadObservation::Scope observation_scope(observer);
 	if (!handle)
 		throw ResourceLoadError("Empty assembly asset handle");
 	prepare_entry(handle.entry);
@@ -966,6 +997,7 @@ ResourceLoader::LoadedModel AssetRegistry::instantiate_model(ECS &ecs, const Ass
 			lock.unlock();
 			execute_cpu([&] {
 				const std::lock_guard source_lock(handle.entry->source->mutex);
+				ResourceLoadObservation::Stage stage(ResourceLoadStage::MeshConversion);
 				remapped = ResourceLoader::decode_model(
 					handle.entry->source->document(handle.entry->definition.member), handle.entry->source->path, options,
 					handle.entry->source->meshes, handle.entry->source->materials, &target_bones,
@@ -976,6 +1008,7 @@ ResourceLoader::LoadedModel AssetRegistry::instantiate_model(ECS &ecs, const Ass
 		}
 	}
 	const auto &actual = remapped ? *remapped : decoded;
+	ResourceLoadObservation::Stage adoption(ResourceLoadStage::EcsAdoption);
 	for (auto &mesh : result.meshes)
 	{
 		if (state->checkpoint) state->checkpoint();

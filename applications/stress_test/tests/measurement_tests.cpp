@@ -1,4 +1,5 @@
 #include "../benchmark_measurement.hpp"
+#include "../benchmark_loading.hpp"
 
 #include <gtest/gtest.h>
 
@@ -35,4 +36,18 @@ TEST(MeasurementMembership, includes_deadline_lateness_but_not_unstarted_measure
 	sample.kind = RuntimeSampleKind::GraphicsSleep;
 	sample.end_ns = 190;
 	EXPECT_TRUE(BenchmarkMeasurement::classify(sample, 100, 200).included);
+}
+
+TEST(AssetLoadingTimeline, separates_phases_and_preserves_initialization_gap)
+{
+	BenchmarkLoading::Timeline timeline{10, 20, 30, 50, 80, 90, 120};
+	const auto spans = timeline.spans();
+	EXPECT_EQ(spans[0].duration_ns(), 10);
+	EXPECT_EQ(spans[5].duration_ns(), 90);
+	EXPECT_EQ(spans[6].duration_ns(), 110);
+	EXPECT_EQ(spans[5].duration_ns(), spans[1].duration_ns() + spans[2].duration_ns()
+		+ spans[3].duration_ns() + spans[4].duration_ns());
+	timeline.scene_end_ns = 121;
+	EXPECT_THROW(timeline.spans(), std::invalid_argument);
+	EXPECT_THROW(BenchmarkLoading::Timeline{}.spans(), std::invalid_argument);
 }

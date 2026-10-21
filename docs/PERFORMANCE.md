@@ -413,8 +413,10 @@ defers decoding until acquisition, while eager registration shifts that work to
 registration and retains the same decoded data. Successful registration
 commits only new source/name map nodes; re-registering an identical source does
 not copy the registry maps or reread its file. These are structural cost
-expectations only; no asset loading-time, decode-memory, or GPU-upload
-measurements have been recorded.
+expectations; no decode-memory or isolated GPU-upload measurements have been
+recorded. The asset-loading suite records end-to-end CPU wall-clock timings for
+registration, instantiation, scene setup, and presentation readiness, as
+described below.
 
 ## Stress test application
 
@@ -426,21 +428,34 @@ presentation preferences fall back to available modes and are recorded. Driver
 and compositor throttling can still limit throughput; submission rate is not
 isolated GPU capacity or measured display scanout cadence.
 
-Prepare assets before a routine run with `stress_test prepare-assets`, then run
-`stress_test` (the default `standard` suite). It contains four workloads in both
-scheduling modes, with two fresh workers per case: `static-objects-500`,
-`moving-transforms-500`, `point-shadows-500`, and `textured-objects-16`. Two seconds
-of warm-up and five seconds of measurement per worker give 112 seconds of
-timed work. The target end-to-end runtime is under five minutes with prepared
-assets; fresh worker startup and final collection add hardware-dependent time.
-First-time asset preparation is outside that routine-run budget.
+`stress_test` defaults to the `standard` suite. It contains five workloads in
+both scheduling modes, with two fresh workers per case: `static-objects-500`,
+`moving-transforms-500`, `point-shadows-500`, `textured-objects-16`, and
+`textured-environment-atrium`. Two seconds of warm-up and five seconds of
+measurement per worker give 140 seconds of timed work. Sponza startup makes the
+end-to-end duration hardware-dependent, and first-time asset preparation is
+outside the configured timed-work total. The shared cache can be prepared
+manually with `stress_test prepare-assets`; `run` prepares it automatically
+when missing.
 
 `--suite smoke` runs a diagnostic case, a Flight Helmet case and a fixed Sponza
-atrium view in both modes as a short correctness-only protocol. Asset loading
-is excluded from current benchmark metrics; a separate asset-loading benchmark
-is future work. See
-[STRESS_TEST.md](STRESS_TEST.md) for commands, protocol overrides, saved
-evidence and explicit baseline selection.
+atrium view in both modes as a short correctness-only protocol. A separate
+`--suite asset-loading` measures the Flight Helmet and Sponza atrium from fresh
+worker processes through application-observed first presentation. Loading
+results report stage timings and end-to-end readiness; they do not replace the
+standard suite's warmed rendering metrics. See [STRESS_TEST.md](STRESS_TEST.md)
+for commands, protocol overrides, saved evidence and explicit baseline
+selection.
+
+The benchmark's `engine-pbr-opaque-bc3-v1` asset profile derives base-level
+BC3/DXT5 DDS textures from the pinned source PNGs during preparation. This is a
+lossy conversion, including for normal maps; source images remain available in
+the cache, while runtime glTF references the DDS files without PNG fallbacks.
+Profile, converter version, and exact runtime-file hashes identify the prepared
+inputs, so PNG-profile results do not compare as the same asset set. The
+conversion is an approved benchmark preparation choice, not a measured loading
+improvement. See [STRESS_TEST_ASSETS.md](STRESS_TEST_ASSETS.md) for cache
+migration and offline preparation details.
 
 Benchmark workers explicitly reserve 128 MiB of vertex-buffer capacity and
 64 MiB of index-buffer capacity for every scenario. These fixed per-run limits
@@ -472,18 +487,34 @@ including shadow and presentation rendering and any device-side stalls in that
 span. Query readback follows the existing frame fence; it adds no per-frame
 completion wait. Query storage and pending submission identity belong to the
 in-flight frame. Unsupported timestamps and lost results remain explicit.
-Startup, loading, GPU upload, warm-up, final collection and shutdown are excluded
-from measured distributions. Debug/validation-enabled results remain labelled
-and cannot be compared with an optimised validation-disabled baseline.
+For the standard and smoke suites, startup, loading, GPU upload, warm-up, final
+collection and shutdown are excluded from measured distributions.
+Debug/validation-enabled results remain labelled and cannot be compared with an
+optimised validation-disabled baseline.
+
+The asset-loading suite reports monotonic CPU wall-clock durations for engine
+construction, asset registration, model instantiation, scene setup, presentation
+readiness, asset-to-ready, and engine-to-ready. Asset-to-ready sums registration
+through presentation readiness; engine-to-ready begins before construction and
+includes the pre-asset-loading frame. Presentation readiness covers scene-end
+through immutable publication, incremental GPU upload, first presentation, and
+game-thread observation. This boundary measures end-to-end startup; it does not
+isolate GPU upload or physical scanout. Asset preparation and checksum
+verification occur before timing. Each worker is a fresh process, but OS file
+cache state is uncontrolled, so the results do not represent a cold-cache
+protocol. No GPU queries or frame telemetry run in loading workers.
 
 Repeated worker summaries, raw records and effective settings support
 same-machine comparisons. Variation and compatibility limits remain visible;
 the tool produces neither an overall score nor automatic baseline promotion.
-No benchmark throughput, frame-pacing improvement or instrumentation overhead
-measurement is claimed here. See [RUNTIME_OBSERVATION.md](RUNTIME_OBSERVATION.md)
-for the engine-owned observation boundaries and threading contract.
+No benchmark throughput, frame-pacing improvement, loading-stage attribution
+beyond the named boundaries, or instrumentation-overhead measurement is claimed
+here. See [RUNTIME_OBSERVATION.md](RUNTIME_OBSERVATION.md) for the engine-owned
+observation boundaries and threading contract.
 
-Standard benchmark runs require optimized Release builds with assertions disabled; Debug smoke runs validate correctness only and do not provide performance evidence.
+Standard and asset-loading benchmark runs require optimized Release builds
+with assertions disabled; Debug smoke runs validate correctness only and do
+not provide performance evidence.
 
 Benchmark workers enable the FPS/TPS performance overlay for loading where
 available, warm-up, and measurement. Overlay updates and drawing remain inside
@@ -491,3 +522,12 @@ the measured CPU and GPU work; reported timings do not subtract their cost.
 Displayed FPS/TPS are live diagnostics, while benchmark reports use the raw
 observation records. The overlay adds work to each run, and its overhead has
 not been measured.
+
+Asset-loading instantiation attribution is opt-in and adds monotonic clock
+reads per observed stage plus collection overhead. Its exclusive spans separate
+dependency reads, image decoding, document processing, residual model/mesh
+conversion, material construction, and ECS adoption; unattributed wall-clock
+time remains explicit. Nested spans do not double-count their child stages.
+The loading protocol records instrumentation version 2 so instrumented results
+are not compared with earlier uninstrumented loading runs. Debug attribution
+checks are diagnostic evidence, not Release performance measurements.

@@ -172,6 +172,7 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 {
 	run_failure = {};
 	ready = false;
+	ready_timestamp_ns = 0;
 	get_gui_manager().set_loading(true);
 	window->show();
 	std::exception_ptr graphics_failure;
@@ -219,6 +220,7 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 		if (should_shutdown) throw LoadingCancelled{};
 		get_gui_manager().set_loading(false);
 		LOG_INFO(Utility::get_logger(), "GameEngine: startup loading complete");
+		ready_timestamp_ns = runtime_now_ns();
 		ready = true;
 
 		Analytics analytics(

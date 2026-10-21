@@ -88,3 +88,23 @@ For GPU samples, `begin_ns` is the CPU timestamp taken at the start of the queue
 submit call, while `end_ns` is when the completed query is collected; only
 `duration_ns` represents GPU execution time. The sample keeps the submission
 attempt and render snapshot identifiers from the original submission.
+
+## Initial-scene presentation readiness
+
+`GameEngine::get_ready_timestamp_ns()` returns zero until the engine has
+observed a successful presentation containing its initial scene. It then
+returns the monotonic nanosecond timestamp recorded for that first observation;
+later presentations do not replace it. This timestamp uses the engine's
+monotonic clock domain and remains available to the consumer after readiness.
+It marks application observation of presentation, not physical display scanout
+or an application-specific readiness policy.
+
+## Resource loading stage observation
+
+`AssetRegistry::set_load_observer` enables optional resource loading spans for
+that registry. Callbacks may execute on the application thread or its loading
+worker and must be thread-safe. Each sample identifies a generic stage and
+monotonic begin/end timestamps; `self_ns` excludes nested observed stages and
+callback overhead. Scoped observer context propagates through CPU preparation
+and is restored when work ends. Consumers choose collection and reporting
+policy; the engine contains no benchmark asset or report policy.

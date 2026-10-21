@@ -18,18 +18,20 @@ from typing import Any, Mapping, Sequence
 
 try:
 	from . import benchmark_assets
-	from .benchmark_statistics import compare_compatibility, compare_repetitions, summarize_samples
+	from .benchmark_statistics import compare_compatibility, compare_repetitions, summarize_repetitions, summarize_samples
 	from .build_provenance import machine_identity
 except ImportError:  # direct script execution
 	import benchmark_assets
-	from benchmark_statistics import compare_compatibility, compare_repetitions, summarize_samples
+	from benchmark_statistics import compare_compatibility, compare_repetitions, summarize_repetitions, summarize_samples
 	from build_provenance import machine_identity
 
 
 RESULT_SCHEMA_VERSION = 1
 SCENARIO_VERSION = 1
 PROTOCOL_VERSION = 2
-PROFILE = "engine-pbr-opaque-v1"
+ASSET_LOADING_SCHEMA_VERSION = 2
+ASSET_LOADING_BREAKDOWN_SCHEMA_VERSION = 1
+PROFILE = benchmark_assets.PROFILE
 RUNTIME_TOOL_NAMES = (
 	"benchmark_runner.py", "benchmark_statistics.py", "benchmark_assets.py",
 	"build_provenance.py", "assets.lock.json",
@@ -79,7 +81,10 @@ def _case_id(case: Mapping[str, Any]) -> str:
 
 
 def suite_cases(suite: str, workload: str | None = None) -> list[dict[str, Any]]:
-	cases = standard_cases(include_optional_views=workload is not None) if suite == "standard" else smoke_cases()
+	if suite == "asset-loading":
+		cases = [case for case in smoke_cases() if case["scenario"] in {"textured-objects", "textured-environment"}]
+	else:
+		cases = standard_cases(include_optional_views=workload is not None) if suite == "standard" else smoke_cases()
 	if workload is None:
 		return cases
 	selected = [case for case in cases if case["case_id"] == workload]
@@ -89,7 +94,7 @@ def suite_cases(suite: str, workload: str | None = None) -> list[dict[str, Any]]
 
 
 def suite_defaults(suite: str) -> tuple[float, float, int]:
-	return {"standard": (2.0, 5.0, 2), "smoke": (0.2, 0.5, 1)}[suite]
+	return {"standard": (2.0, 5.0, 2), "smoke": (0.2, 0.5, 1), "asset-loading": (0.0, 0.0, 2)}[suite]
 
 
 def make_schedule(suite: str, repetitions: int, seed: int = ORDER_SEED, *, workload: str | None = None) -> list[dict[str, Any]]:
@@ -353,9 +358,12 @@ def _case_compatibility(
 		"mode": mode,
 		"protocol": {
 			"suite": protocol["suite"], "protocol_version": protocol["protocol_version"],
-			"instrumentation_version": 1,
+			"instrumentation_version": 2 if protocol["suite"] == "asset-loading" else 1,
 			"warmup_seconds": protocol["warmup_seconds"], "measurement_seconds": protocol["measurement_seconds"],
 			"repetitions": protocol["repetitions"], "deadline_tolerance_ns": protocol["deadline_tolerance_ns"],
+			**({"asset_loading_schema_version": ASSET_LOADING_SCHEMA_VERSION,
+				"cache_policy": "fresh-process-os-cache-uncontrolled-preverified",
+				"readiness_boundary": "first-scene-presentation-observed"} if protocol["suite"] == "asset-loading" else {}),
 		},
 		"effective_settings": effective_settings,
 	}
@@ -418,7 +426,8 @@ def _run_worker(
 		if ready.get("status") != "ready":
 			_terminate_group(process)
 			return {"status": "failed", "errors": ["ready.json status is not ready"]}, process.returncode, "invalid_readiness"
-		worker_deadline = time.monotonic() + warmup + measurement + DRAIN_TIMEOUT_SECONDS + SHUTDOWN_MARGIN_SECONDS
+		worker_timeout = SHUTDOWN_MARGIN_SECONDS if mode == "asset-loading" else warmup + measurement + DRAIN_TIMEOUT_SECONDS + SHUTDOWN_MARGIN_SECONDS
+		worker_deadline = time.monotonic() + worker_timeout
 		try:
 			process.wait(timeout=max(0.0, worker_deadline - time.monotonic()))
 		except subprocess.TimeoutExpired:
@@ -463,14 +472,105 @@ def _case_result(
 	}
 	try:
 		if worker.get("status") not in {"failed", "invalid"}:
-			result["summary"] = _summary_for_worker(worker_dir, worker, gpu_supported)
-			result["status"] = _status_for_worker(worker, result["summary"])
+			if mode == "asset-loading":
+				result["summary"] = _asset_loading_summary(worker)
+				result["status"] = "invalid" if worker.get("errors") or worker.get("lost_records", 0) else worker.get("status")
+				if result["status"] not in {"complete", "partial"}:
+					result["status"] = "failed"
+			else:
+				result["summary"] = _summary_for_worker(worker_dir, worker, gpu_supported)
+				result["status"] = _status_for_worker(worker, result["summary"])
 		else:
 			result["status"] = worker["status"]
 	except (OSError, ValueError, KeyError, TypeError) as exc:
 		result["status"] = "failed"
 		result["error"] = str(exc)
 	return result
+
+
+_ASSET_LOADING_DURATIONS = (
+	"engine_initialization_ns", "asset_registration_ns", "asset_instantiation_ns",
+	"scene_setup_ns", "presentation_ready_ns", "asset_to_ready_ns", "engine_to_ready_ns",
+)
+_ASSET_LOADING_TIMESTAMPS = (
+	"engine_begin_ns", "engine_end_ns", "asset_begin_ns", "registration_end_ns",
+	"instantiation_end_ns", "scene_end_ns", "ready_ns",
+)
+_ASSET_LOADING_INSTANTIATION_BREAKDOWN = (
+	"dependency_read_ns", "image_decode_ns", "document_processing_ns", "mesh_conversion_ns",
+	"material_construction_ns", "ecs_adoption_ns", "other_ns",
+)
+
+
+def _asset_loading_summary(worker: Mapping[str, Any]) -> dict[str, Any]:
+	loading = worker.get("asset_loading")
+	if not isinstance(loading, dict):
+		raise ValueError("worker completion is missing asset_loading timings")
+	if type(loading.get("schema_version")) is not int or loading["schema_version"] != ASSET_LOADING_SCHEMA_VERSION:
+		raise ValueError(f"asset_loading schema_version must be {ASSET_LOADING_SCHEMA_VERSION}")
+	if loading.get("units") != "nanoseconds":
+		raise ValueError("asset_loading units must be nanoseconds")
+	if loading.get("cache_policy") != "fresh-process-os-cache-uncontrolled-preverified":
+		raise ValueError("asset_loading cache_policy is missing or unsupported")
+	if loading.get("readiness_boundary") != "first-scene-presentation-observed":
+		raise ValueError("asset_loading readiness_boundary is missing or unsupported")
+	durations = loading.get("durations_ns")
+	timestamps = loading.get("timestamps_ns")
+	if not isinstance(durations, dict) or not isinstance(timestamps, dict):
+		raise ValueError("asset_loading must include durations_ns and timestamps_ns objects")
+	for key in _ASSET_LOADING_DURATIONS:
+		value = durations.get(key)
+		if type(value) is not int or value < 0:
+			raise ValueError(f"asset_loading duration {key} must be a non-negative integer")
+	for key in _ASSET_LOADING_TIMESTAMPS:
+		value = timestamps.get(key)
+		if type(value) is not int or value < 0:
+			raise ValueError(f"asset_loading timestamp {key} must be a non-negative integer")
+	values = [timestamps[key] for key in _ASSET_LOADING_TIMESTAMPS]
+	if any(right < left for left, right in zip(values, values[1:])):
+		raise ValueError("asset_loading timestamps must be ordered")
+	if durations["asset_to_ready_ns"] <= 0 or durations["engine_to_ready_ns"] <= 0:
+		raise ValueError("asset_loading aggregate durations must be positive")
+	phase_sum = sum(durations[key] for key in _ASSET_LOADING_DURATIONS[1:5])
+	if durations["asset_to_ready_ns"] != phase_sum:
+		raise ValueError("asset_loading asset_to_ready_ns must equal registration through presentation-ready durations")
+	phase_deltas = (
+		timestamps["engine_end_ns"] - timestamps["engine_begin_ns"],
+		timestamps["registration_end_ns"] - timestamps["asset_begin_ns"],
+		timestamps["instantiation_end_ns"] - timestamps["registration_end_ns"],
+		timestamps["scene_end_ns"] - timestamps["instantiation_end_ns"],
+		timestamps["ready_ns"] - timestamps["scene_end_ns"],
+	)
+	for key, actual in zip(_ASSET_LOADING_DURATIONS[:5], phase_deltas):
+		if durations[key] != actual:
+			raise ValueError(f"asset_loading duration {key} does not match timestamps_ns")
+	if durations["asset_to_ready_ns"] != timestamps["ready_ns"] - timestamps["asset_begin_ns"]:
+		raise ValueError("asset_loading asset_to_ready_ns does not match timestamps_ns")
+	if durations["engine_to_ready_ns"] != timestamps["ready_ns"] - timestamps["engine_begin_ns"]:
+		raise ValueError("asset_loading engine_to_ready_ns does not match timestamps_ns")
+	breakdown = loading.get("instantiation_breakdown")
+	if not isinstance(breakdown, dict):
+		raise ValueError("asset_loading is missing instantiation_breakdown")
+	if type(breakdown.get("schema_version")) is not int or breakdown["schema_version"] != ASSET_LOADING_BREAKDOWN_SCHEMA_VERSION:
+		raise ValueError("asset_loading instantiation_breakdown schema_version must be 1")
+	if breakdown.get("units") != "nanoseconds":
+		raise ValueError("asset_loading instantiation_breakdown units must be nanoseconds")
+	breakdown_durations = breakdown.get("durations_ns")
+	if not isinstance(breakdown_durations, dict) or set(breakdown_durations) != set(_ASSET_LOADING_INSTANTIATION_BREAKDOWN):
+		raise ValueError("asset_loading instantiation_breakdown durations_ns must contain the fixed phase keys")
+	for key in _ASSET_LOADING_INSTANTIATION_BREAKDOWN:
+		value = breakdown_durations[key]
+		if type(value) is not int or value < 0:
+			raise ValueError(f"asset_loading instantiation_breakdown duration {key} must be a non-negative integer")
+	if sum(breakdown_durations.values()) != durations["asset_instantiation_ns"]:
+		raise ValueError("asset_loading instantiation_breakdown durations must sum to asset_instantiation_ns")
+	return {
+		"asset_loading": {"durations_ns": {key: durations[key] for key in _ASSET_LOADING_DURATIONS},
+			"timestamps_ns": {key: timestamps[key] for key in _ASSET_LOADING_TIMESTAMPS},
+			"instantiation_breakdown": {"schema_version": ASSET_LOADING_BREAKDOWN_SCHEMA_VERSION,
+				"units": "nanoseconds", "durations_ns": {key: breakdown_durations[key]
+					for key in _ASSET_LOADING_INSTANTIATION_BREAKDOWN}}},
+	}
 
 
 def _primary_metrics(repetitions: Sequence[Mapping[str, Any]]) -> dict[str, list[float]]:
@@ -493,6 +593,15 @@ def _primary_metrics(repetitions: Sequence[Mapping[str, Any]]) -> dict[str, list
 			if isinstance(value, (int, float)):
 				values.append(value)
 		metrics[name] = values
+	for name in _ASSET_LOADING_DURATIONS:
+		values = []
+		for repetition in repetitions:
+			if repetition.get("status") not in {"complete", "partial"}:
+				continue
+			value = repetition.get("summary", {}).get("asset_loading", {}).get("durations_ns", {}).get(name)
+			if type(value) is int:
+				values.append(value)
+		metrics[name] = values
 	return metrics
 
 
@@ -511,13 +620,16 @@ def _compare_run(manifest: dict[str, Any], baseline: Mapping[str, Any]) -> None:
 					}
 				}
 			continue
-		for metric, lower_is_better in (
+		metrics = (
 			("simulation_ticks_per_second", False),
 			("successful_submissions_per_second", False),
 			("simulation_active_median_ns", True),
 			("graphics_active_median_ns", True),
 			("gpu_median_ns", True),
-		):
+		)
+		if manifest.get("protocol", {}).get("suite") == "asset-loading":
+			metrics = tuple((metric, True) for metric in _ASSET_LOADING_DURATIONS)
+		for metric, lower_is_better in metrics:
 			for mode, reps in case["repetitions_by_mode"].items():
 				baseline_reps = prior.get("repetitions_by_mode", {}).get(mode, [])
 				current_compat = next((r.get("compatibility") for r in reps if r.get("compatibility")), {})
@@ -558,12 +670,68 @@ def _report(manifest: Mapping[str, Any]) -> str:
 		f"validation enabled: `{validation_label}`; source `{manifest.get('build', {}).get('source_revision', 'unknown')}` "
 		f"(dirty: `{manifest.get('build', {}).get('dirty', 'unknown')}`)"
 	)
-	lines.extend(["", "Each duration is in nanoseconds. Present-call cadence is measured on the CPU and does not represent display scanout.", "", "## Cases", ""])
+	asset_loading_suite = manifest.get("protocol", {}).get("suite") == "asset-loading"
+	if asset_loading_suite:
+		lines.extend(["", "Asset loading durations are in milliseconds. Readiness means the first scene presentation was observed; OS cache state is uncontrolled.", "", "## Asset loading", ""])
+	else:
+		lines.extend(["", "Each duration is in nanoseconds. Present-call cadence is measured on the CPU and does not represent display scanout.", "", "## Cases", ""])
 	for case in manifest.get("cases", []):
 		lines.append(f"### {case['case_id']}")
 		lines.append("")
 		for mode, repetitions in case.get("repetitions_by_mode", {}).items():
 			lines.append(f"**{mode}**")
+			if asset_loading_suite:
+				for repetition in repetitions:
+					status = repetition.get("status", "failed")
+					loading = repetition.get("summary", {}).get("asset_loading", {})
+					if not loading:
+						lines.append(f"- repetition {repetition.get('repetition')}: **{status}** — {repetition.get('error') or '; '.join(repetition.get('worker', {}).get('errors', []))}")
+						continue
+					lines.append(f"- repetition {repetition['repetition']}: **{status}**")
+					for metric_name in _ASSET_LOADING_DURATIONS:
+						lines.append(f"  - {metric_name}: {loading['durations_ns'][metric_name] / 1_000_000:.3f} ms")
+					breakdown = loading["instantiation_breakdown"]["durations_ns"]
+					instantiation_ns = loading["durations_ns"]["asset_instantiation_ns"]
+					lines.append("  - Instantiation breakdown (exclusive spans):")
+					for metric_name in _ASSET_LOADING_INSTANTIATION_BREAKDOWN:
+						phase_name = metric_name.removesuffix("_ns").replace("_", " ")
+						percentage = f"{breakdown[metric_name] / instantiation_ns * 100:.1f}%" if instantiation_ns else "n/a"
+						lines.append(
+							f"    - {phase_name}: {breakdown[metric_name] / 1_000_000:.3f} ms "
+							f"({percentage} of asset instantiation)"
+						)
+				for metric_name in _ASSET_LOADING_DURATIONS:
+					values = _primary_metrics(repetitions)[metric_name]
+					distribution = summarize_repetitions(values)
+					if distribution["available"]:
+						low, high = distribution["range"]
+						lines.append(f"  - {metric_name} across repetitions: median {distribution['median'] / 1_000_000:.3f} ms; range {low / 1_000_000:.3f}–{high / 1_000_000:.3f} ms; MAD {distribution['mad'] / 1_000_000:.3f} ms")
+					else:
+						lines.append(f"  - {metric_name} across repetitions: unavailable ({distribution['reason']})")
+				breakdown_repetitions = [
+					repetition.get("summary", {}).get("asset_loading", {})
+					for repetition in repetitions
+					if repetition.get("status") in {"complete", "partial"}
+				]
+				for metric_name in _ASSET_LOADING_INSTANTIATION_BREAKDOWN:
+					phase_name = metric_name.removesuffix("_ns").replace("_", " ")
+					durations = [value["instantiation_breakdown"]["durations_ns"][metric_name] for value in breakdown_repetitions]
+					percentages = [
+						value["instantiation_breakdown"]["durations_ns"][metric_name]
+						/ value["durations_ns"]["asset_instantiation_ns"] * 100
+						for value in breakdown_repetitions if value["durations_ns"]["asset_instantiation_ns"]
+					]
+					distribution = summarize_repetitions(durations)
+					percentage_distribution = summarize_repetitions(percentages)
+					if distribution["available"]:
+						percentage = f"{percentage_distribution['median']:.1f}%" if percentage_distribution["available"] else "n/a"
+						lines.append(
+							f"  - {phase_name} across repetitions: median {distribution['median'] / 1_000_000:.3f} ms "
+							f"({percentage} of asset instantiation)"
+						)
+					else:
+						lines.append(f"  - {phase_name} across repetitions: unavailable ({distribution['reason']})")
+				continue
 			for repetition in repetitions:
 				status = repetition.get("status", "failed")
 				if status not in {"complete", "partial"} and "summary" not in repetition:
@@ -632,10 +800,16 @@ def _report(manifest: Mapping[str, Any]) -> str:
 							f"{value.get('reason') or 'directional evidence'}"
 						)
 			lines.append("")
-	lines.extend([
-		"## Interpretation", "",
-		"The report keeps simulation, graphics, GPU and CPU present-call measurements separate. A slowdown is advisory and does not change the command exit status. Repetition ranges and bootstrap intervals describe observed variation; they do not remove machine-load or thermal effects.", "",
-	])
+	if asset_loading_suite:
+		lines.extend([
+			"## Interpretation", "",
+			"Each repetition starts a fresh worker process. Asset files are verified before the run, while operating-system cache state is uncontrolled. Repetition ranges and baseline bootstrap intervals describe observed variation.", "",
+		])
+	else:
+		lines.extend([
+			"## Interpretation", "",
+			"The report keeps simulation, graphics, GPU and CPU present-call measurements separate. A slowdown is advisory and does not change the command exit status. Repetition ranges and bootstrap intervals describe observed variation; they do not remove machine-load or thermal effects.", "",
+		])
 	return "\n".join(lines)
 
 
@@ -656,6 +830,9 @@ def _preflight_failure(manifest: dict[str, Any], output: Path) -> int:
 
 def run(args: argparse.Namespace) -> int:
 	started = time.monotonic()
+	if args.suite == "asset-loading" and (args.warmup is not None or args.measure is not None):
+		print("--suite asset-loading fixes warmup and measurement at zero; do not pass --warmup or --measure", file=sys.stderr)
+		return 2
 	try:
 		output = _new_output_dir()
 	except OSError as exc:
@@ -718,13 +895,13 @@ def run(args: argparse.Namespace) -> int:
 	if runtime_tool_errors:
 		manifest["errors"].extend(runtime_tool_errors)
 		return _preflight_failure(manifest, output)
-	if not cache.exists():
-		print(f"Preparing missing asset cache: {cache} (downloads may take several minutes)", flush=True)
-		try:
+	try:
+		if benchmark_assets.needs_preparation(cache):
+			print(f"Preparing missing or outdated asset cache: {cache} (downloads may take several minutes)", flush=True)
 			benchmark_assets.prepare_assets(cache, source_directory=args.source_directory)
-		except (benchmark_assets.AssetPreparationError, OSError) as exc:
-			manifest["errors"].append(f"asset preparation failed: {exc}")
-			return _preflight_failure(manifest, output)
+	except (benchmark_assets.AssetPreparationError, OSError) as exc:
+		manifest["errors"].append(f"asset preparation failed: {exc}")
+		return _preflight_failure(manifest, output)
 	print(f"Verifying asset cache: {cache}", flush=True)
 	assets, asset_errors = verify_asset_cache(cache)
 	manifest["assets"] = assets
@@ -746,7 +923,7 @@ def run(args: argparse.Namespace) -> int:
 	warmup = default_warmup if args.warmup is None else args.warmup
 	measurement = default_measurement if args.measure is None else args.measure
 	repetitions = default_repetitions if args.repetitions is None else args.repetitions
-	if warmup < 0 or measurement <= 0 or repetitions < 1:
+	if warmup < 0 or (measurement <= 0 and args.suite != "asset-loading") or repetitions < 1:
 		manifest["errors"].append("warmup must be non-negative, measurement positive, and repetitions at least one")
 		return _preflight_failure(manifest, output)
 	schedule = make_schedule(args.suite, repetitions, workload=args.workload)
@@ -756,23 +933,33 @@ def run(args: argparse.Namespace) -> int:
 		"repetitions": repetitions, "deadline_tolerance_ns": DEADLINE_TOLERANCE_NS,
 		"order_seed": ORDER_SEED, "schedule": schedule, "selected_workload": args.workload,
 	}
+	if args.suite == "asset-loading":
+		protocol.update({
+			"asset_loading_schema_version": ASSET_LOADING_SCHEMA_VERSION,
+			"cache_policy": "fresh-process-os-cache-uncontrolled-preverified",
+			"readiness_boundary": "first-scene-presentation-observed",
+		})
 	manifest["protocol"] = protocol
-	manifest["scheduled_workers"] = len(schedule) * 2
+	modes = ("asset-loading",) if args.suite == "asset-loading" else ("throughput", "paced")
+	manifest["scheduled_workers"] = len(schedule) * len(modes)
 	manifest["estimated_measurement_seconds"] = manifest["scheduled_workers"] * (warmup + measurement)
 	manifest["cases"] = [
 		{
 			"case_id": case["case_id"], "scenario": case["scenario"], "count": case["count"], "view": case.get("view"),
-			"repetitions_by_mode": {"throughput": [], "paced": []},
+			"repetitions_by_mode": {mode: [] for mode in modes},
 			"comparisons": {},
 		}
 		for case in cases
 	]
 	by_id = {case["case_id"]: case for case in manifest["cases"]}
 	_save(manifest, output)
-	print(f"Scheduled {manifest['scheduled_workers']} workers; measured time estimate {manifest['estimated_measurement_seconds'] / 60:.1f} minutes plus startup and collection.", flush=True)
+	if args.suite == "asset-loading":
+		print(f"Scheduled {manifest['scheduled_workers']} loading workers; duration depends on asset loading, with no warm-up or steady-state measurement.", flush=True)
+	else:
+		print(f"Scheduled {manifest['scheduled_workers']} workers; measured time estimate {manifest['estimated_measurement_seconds'] / 60:.1f} minutes plus startup and collection.", flush=True)
 	operational_failure = False
 	for index, entry in enumerate(schedule, 1):
-		for mode in ("throughput", "paced"):
+		for mode in modes:
 			case_manifest = by_id[entry["case_id"]]
 			worker_dir = output / "workers" / entry["case_id"] / mode / f"rep-{entry['repetition']:02d}"
 			worker_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -819,9 +1006,9 @@ def _parser() -> argparse.ArgumentParser:
 	parser.add_argument("--shader-directory", required=True, help=argparse.SUPPRESS)
 	subparsers = parser.add_subparsers(dest="command", required=True)
 	run_parser = subparsers.add_parser("run", help="run the routine benchmark (default) or smoke checks")
-	run_parser.add_argument("--suite", choices=("standard", "smoke"), default="standard")
+	run_parser.add_argument("--suite", choices=("standard", "smoke", "asset-loading"), default="standard")
 	run_parser.add_argument("--workload", choices=sorted({case["case_id"] for case in standard_cases(include_optional_views=True) + smoke_cases()}),
-		help="run only this workload from the selected suite (both modes and configured repetitions)")
+		help="run only this workload from the selected suite and configured repetitions")
 	run_parser.add_argument("--baseline")
 	run_parser.add_argument("--source-directory", type=Path, help="use locally supplied pinned inputs when preparing a missing asset cache")
 	run_parser.add_argument("--warmup", type=float)

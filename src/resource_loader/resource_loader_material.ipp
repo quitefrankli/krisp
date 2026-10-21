@@ -163,6 +163,7 @@ bool load_gltf_image_data(
 	const int byte_count,
 	void* user_data)
 {
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::ImageDecode);
 	constexpr std::array<unsigned char, 4> DDS_MAGIC{ 'D', 'D', 'S', ' ' };
 	constexpr std::array<unsigned char, 8> PNG_MAGIC{
 		0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a };
@@ -531,6 +532,7 @@ ResourceLoader::LoadedMaterial ResourceLoader::load_material(
 	const tinygltf::Model& model,
 	std::vector<MaterialHandle>& owners)
 {
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::MaterialConstruction);
 	if (primitive.material >= 0)
 	{
 		if (primitive.material >= static_cast<int>(model.materials.size()))

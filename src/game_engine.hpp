@@ -117,6 +117,8 @@ public:
 	const RuntimeOptions& get_runtime_options() const { return runtime_options; }
 	uint64_t get_simulation_tick() const { return simulation_tick; }
 	bool is_ready() const { return ready; }
+	// Monotonic application-thread observation after initial scene presentation.
+	uint64_t get_ready_timestamp_ns() const { return ready_timestamp_ns; }
 	std::exception_ptr get_run_failure() const { return run_failure; }
 
 	~GameEngine();
@@ -201,6 +203,7 @@ private:
 	uint64_t simulation_tick = 0;
 	uint64_t last_publication_ns = 0;
 	bool ready = false;
+	uint64_t ready_timestamp_ns = 0;
 	std::exception_ptr run_failure;
 	std::unique_ptr<App::Window> window;
 	AudioEnginePimpl audio_engine;

@@ -1,0 +1,2 @@
+# Used only when preparing the pinned GPU-ready benchmark textures.
+Pillow==11.3.0

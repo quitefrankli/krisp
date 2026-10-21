@@ -23,6 +23,9 @@
 
 namespace
 {
+bool read_timed_plain_dependency(
+	std::vector<unsigned char>*, std::string*, const std::string&, void*);
+
 ResourceDocument load_gltf_document(const std::filesystem::path& file_path)
 {
 	const bool is_glb = file_path.extension() == ".glb";
@@ -34,6 +37,13 @@ ResourceDocument load_gltf_document(const std::filesystem::path& file_path)
 	std::string error;
 	tinygltf::TinyGLTF loader;
 	loader.SetImageLoader(load_gltf_image_data, nullptr);
+	loader.SetFsCallbacks({
+		.FileExists = &tinygltf::FileExists,
+		.ExpandFilePath = &tinygltf::ExpandFilePath,
+		.ReadWholeFile = read_timed_plain_dependency,
+		.WriteWholeFile = &tinygltf::WriteWholeFile,
+		.user_data = nullptr,
+	});
 	const bool loaded = is_glb
 		? loader.LoadBinaryFromFile(document.model.get(), &error, &document.warning, file_path.string())
 		: loader.LoadASCIIFromFile(document.model.get(), &error, &document.warning, file_path.string());
@@ -43,6 +53,15 @@ ResourceDocument load_gltf_document(const std::filesystem::path& file_path)
 	return document;
 }
 
+bool read_timed_plain_dependency(
+	std::vector<unsigned char>* output,
+	std::string* error,
+	const std::string& path,
+	void*)
+{
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::DependencyRead);
+	return tinygltf::ReadWholeFile(output, error, path, nullptr);
+}
 bool dependency_file_exists(const std::string&, void*) { return true; }
 std::string identity_expand_path(const std::string& path, void*) { return path; }
 bool unavailable_file_write(std::string* error, const std::string&, const std::vector<unsigned char>&, void*)
@@ -64,6 +83,7 @@ bool read_document_dependency(
 	}
 	try
 	{
+		ResourceLoadObservation::Stage stage(ResourceLoadStage::DependencyRead);
 		*output = (*dependency_reader)(path);
 		return true;
 	}
@@ -78,6 +98,7 @@ bool read_document_dependency(
 
 ResourceDocument ResourceLoader::read_document(const std::filesystem::path& file_path)
 {
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::Document);
 	return load_gltf_document(file_path);
 }
 
@@ -86,6 +107,7 @@ ResourceDocument ResourceLoader::read_document(
 	const std::string_view logical_name,
 	DependencyReader dependency_reader)
 {
+	ResourceLoadObservation::Stage stage(ResourceLoadStage::Document);
 	const std::filesystem::path source_path(logical_name);
 	const bool is_glb = source_path.extension() == ".glb";
 	if (!is_glb && source_path.extension() != ".gltf")

@@ -1,5 +1,6 @@
 #include "benchmark_worker.hpp"
 #include "benchmark_measurement.hpp"
+#include "benchmark_loading.hpp"
 #include "benchmark_scene.hpp"
 
 #include <camera.hpp>
@@ -13,12 +14,14 @@
 #include <renderable/material.hpp>
 #include <renderable/mesh_factory.hpp>
 #include <resource_paths.hpp>
+#include <resource_loader/resource_load_observation.hpp>
 
 #include <GLFW/glfw3.h>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <array>
@@ -114,6 +117,9 @@ struct WorkerState
 	std::atomic<bool> collector_failed{false};
 	Json graphics;
 	Json scenario;
+	BenchmarkLoading::Timeline loading;
+	std::mutex load_trace_mutex;
+	std::vector<ResourceLoadSample> load_trace;
 	std::vector<std::string> errors;
 	uint64_t ready_ns = 0;
 	uint64_t first_measured_tick = 0;
@@ -202,11 +208,24 @@ public:
 		state.scenario["count"] = options.count;
 		state.scenario["view"] = options.view;
 		state.scenario["mode"] = options.mode;
+		if (options.mode == "asset-loading") state.loading.scene_end_ns = runtime_now_ns();
 	}
 
 	void on_tick(GameEngine& engine, float) override
 	{
 		if (!engine.is_ready()) return;
+		if (options.mode == "asset-loading")
+		{
+			state.loading.ready_ns = engine.get_ready_timestamp_ns();
+			state.loading.spans(); // Reject incomplete or non-monotonic evidence.
+			state.ready_ns = state.loading.ready_ns;
+			state.completed_ns = runtime_now_ns();
+			state.completed = true;
+			write_json(options.output / "ready.json", {{"status", "ready"}, {"ready_ns", state.ready_ns}});
+			engine.shutdown();
+			return;
+		}
+
 		if (state.collector_failed.load() || engine.get_runtime_options().observation->lost_records())
 		{
 			invalidate("Observation collection failed or overflowed");
@@ -305,8 +324,27 @@ private:
 	{
 		const bool environment = options.scenario == "textured-environment";
 		const auto& asset = assets.at("assets").at(environment ? "sponza" : "flight_helmet");
+		if (options.mode == "asset-loading")
+		{
+			glfwFocusWindow(engine.get_window().get_glfw_window());
+			state.loading.asset_begin_ns = runtime_now_ns();
+		}
 		const auto registered = engine.assets().load_asset(asset.at("gltf").get<std::string>());
+		if (options.mode == "asset-loading") state.loading.registration_end_ns = runtime_now_ns();
+		if (options.mode == "asset-loading") engine.assets().set_load_observer([this](const ResourceLoadSample& sample) noexcept {
+			try
+			{
+				const std::lock_guard lock(state.load_trace_mutex);
+				state.load_trace.push_back(sample);
+			}
+			catch (...) { state.collector_failed.store(true); }
+		});
 		const auto model = engine.assets().instantiate_model(engine.get_ecs(), AssetRegistry::default_assembly(registered));
+		if (options.mode == "asset-loading")
+		{
+			state.loading.instantiation_end_ns = runtime_now_ns();
+			engine.assets().set_load_observer({});
+		}
 		if (!model.warnings.empty()) throw std::runtime_error("Imported workload produced unexpected warnings");
 		size_t renderables = 0;
 		for (const auto& part : model.meshes) renderables += part.renderables.size();
@@ -373,10 +411,14 @@ WorkerOptions parse_options(int argc, char** argv)
 		else throw std::invalid_argument("Unknown worker argument " + key);
 	}
 	const std::set<std::string> scenarios{"static-objects", "moving-transforms", "point-shadows", "textured-objects", "textured-environment"};
-	if (!scenarios.contains(options.scenario) || (options.mode != "throughput" && options.mode != "paced")
+	const bool loading = options.mode == "asset-loading";
+	if (loading && ((options.scenario != "textured-objects" && options.scenario != "textured-environment")
+		|| options.count != 1 || options.warmup != 0.0 || options.measure != 0.0))
+		throw std::invalid_argument("Asset loading requires one textured asset and no warm-up or steady-state measurement");
+	if (!scenarios.contains(options.scenario) || (options.mode != "throughput" && options.mode != "paced" && !loading)
 		|| options.count < 1 || options.count > 1000 || options.output.empty()
 		|| !std::isfinite(options.warmup) || options.warmup < 0.0 || options.warmup > 3600.0
-		|| !std::isfinite(options.measure) || options.measure <= 0.0 || options.measure > 3600.0)
+		|| !std::isfinite(options.measure) || (loading ? options.measure != 0.0 : options.measure <= 0.0) || options.measure > 3600.0)
 		throw std::invalid_argument("Invalid worker configuration");
 	return options;
 }
@@ -394,7 +436,8 @@ int run_benchmark_worker(int argc, char** argv)
 		auto paths = ResourcePaths::paths_for_executable(PROJECT_NAME);
 		paths.app_resources = options.cache;
 		Config::init(PROJECT_NAME, std::move(paths));
-		auto observation = std::make_shared<RuntimeObservation>(65536);
+		const bool loading = options.mode == "asset-loading";
+		auto observation = loading ? std::shared_ptr<RuntimeObservation>{} : std::make_shared<RuntimeObservation>(65536);
 		RuntimeOptions runtime;
 		runtime.vertex_buffer_bytes = 128ULL * 1024 * 1024;
 		runtime.index_buffer_bytes = 64ULL * 1024 * 1024;
@@ -402,16 +445,22 @@ int run_benchmark_worker(int argc, char** argv)
 		runtime.height = 720;
 		runtime.simulation_hz = 60.0;
 		runtime.fixed_simulation_timestep = true;
-		runtime.render_hz = options.mode == "paced" ? 60.0 : 0.0;
-		runtime.presentation = options.mode == "paced" ? PresentationPreference::Paced : PresentationPreference::Uncapped;
+		runtime.render_hz = options.mode == "throughput" ? 0.0 : 60.0;
+		runtime.presentation = options.mode == "throughput" ? PresentationPreference::Uncapped : PresentationPreference::Paced;
 		runtime.interactive = false;
 		runtime.ui = false;
 		runtime.performance_overlay = true;
 		runtime.observation = observation;
-		observation->start();
-		SampleWriter writer(observation, state, options.output / "raw.jsonl");
+		std::unique_ptr<SampleWriter> writer;
+		if (observation)
 		{
+			observation->start();
+			writer = std::make_unique<SampleWriter>(observation, state, options.output / "raw.jsonl");
+		}
+		{
+			if (loading) state.loading.engine_begin_ns = runtime_now_ns();
 			auto engine = GameEngine::create_with_options<Workload>(runtime, options, state, assets);
+			if (loading) state.loading.engine_end_ns = runtime_now_ns();
 			state.graphics = graphics_json(engine.get_graphics_engine().get_runtime_graphics_info(), runtime);
 			if (state.graphics.at("width") != 1280 || state.graphics.at("height") != 720)
 				throw std::runtime_error("The requested framebuffer extent is unavailable");
@@ -429,21 +478,76 @@ int run_benchmark_worker(int argc, char** argv)
 			}
 		}
 		state.scenario["first_measured_tick"] = state.first_measured_tick;
-		observation->stop();
-		writer.finish();
-		if (!state.completed) state.errors.push_back("Worker stopped before measurement completion");
+		if (observation) observation->stop();
+		if (writer) writer->finish();
+		if (!state.completed) state.errors.push_back(loading ? "Worker stopped before asset readiness" : "Worker stopped before measurement completion");
 		if (state.collector_failed.load()) state.errors.push_back("Raw sample writer failed");
-		if (observation->lost_records()) state.errors.push_back("Observation buffer overflow");
+		if (observation && observation->lost_records()) state.errors.push_back("Observation buffer overflow");
 		const bool gpu_supported = state.graphics.at("timestamp_valid_bits").get<uint32_t>() > 0;
 		if (gpu_supported && state.pending_gpu.load()) state.errors.push_back("GPU observations incomplete");
-		const std::string status = !state.errors.empty() ? "invalid" : gpu_supported ? "complete" : "partial";
-		write_json(options.output / "worker.json", {
+		const std::string status = !state.errors.empty() ? "invalid" : (loading || gpu_supported) ? "complete" : "partial";
+		Json completion = {
 			{"schema_version", 1}, {"status", status}, {"window_start_ns", state.start_ns.load()},
 			{"window_end_ns", state.end_ns.load()}, {"gpu_supported", gpu_supported},
-			{"lost_records", observation->lost_records()}, {"graphics", state.graphics}, {"scenario", state.scenario},
+			{"lost_records", observation ? observation->lost_records() : 0}, {"graphics", state.graphics}, {"scenario", state.scenario},
 			{"errors", state.errors}, {"phases", {{"ready_ns", state.ready_ns}, {"completed_ns", state.completed_ns},
 				{"warmup_seconds", options.warmup}, {"measure_seconds", options.measure}}}
-		});
+		};
+		if (loading && state.completed)
+		{
+			const auto& t = state.loading;
+			Json durations = Json::object();
+			std::ofstream raw(options.output / "raw.jsonl");
+			raw.exceptions(std::ios::badbit | std::ios::failbit);
+			for (const auto& span : t.spans())
+			{
+				durations[span.name] = span.duration_ns();
+				raw << Json{{"kind", span.name}, {"begin_ns", span.begin_ns}, {"end_ns", span.end_ns},
+					{"duration_ns", span.duration_ns()}, {"units", "nanoseconds"}}.dump() << '\n';
+			}
+			Json breakdown = {{"dependency_read_ns", 0ULL}, {"image_decode_ns", 0ULL},
+				{"document_processing_ns", 0ULL}, {"mesh_conversion_ns", 0ULL},
+				{"material_construction_ns", 0ULL}, {"ecs_adoption_ns", 0ULL}};
+			std::ofstream trace(options.output / "instantiation_trace.jsonl");
+			trace.exceptions(std::ios::badbit | std::ios::failbit);
+			uint64_t attributed_ns = 0;
+			for (const auto& sample : state.load_trace)
+			{
+				if (sample.begin_ns < t.registration_end_ns || sample.end_ns > t.instantiation_end_ns
+					|| sample.end_ns < sample.begin_ns || sample.self_ns > sample.end_ns - sample.begin_ns)
+					throw std::runtime_error("Invalid resource loading trace boundaries");
+				const char* name = nullptr;
+				switch (sample.stage)
+				{
+				case ResourceLoadStage::DependencyRead: name = "dependency_read_ns"; break;
+				case ResourceLoadStage::ImageDecode: name = "image_decode_ns"; break;
+				case ResourceLoadStage::Document: name = "document_processing_ns"; break;
+				case ResourceLoadStage::MeshConversion: name = "mesh_conversion_ns"; break;
+				case ResourceLoadStage::MaterialConstruction: name = "material_construction_ns"; break;
+				case ResourceLoadStage::EcsAdoption: name = "ecs_adoption_ns"; break;
+				}
+				if (!name) throw std::runtime_error("Unknown resource loading trace stage");
+				breakdown[name] = breakdown[name].get<uint64_t>() + sample.self_ns;
+				attributed_ns += sample.self_ns;
+				trace << Json{{"stage", name}, {"begin_ns", sample.begin_ns}, {"end_ns", sample.end_ns},
+					{"self_ns", sample.self_ns}, {"units", "nanoseconds"}}.dump() << '\n';
+			}
+			const auto elapsed_ns = t.instantiation_end_ns - t.registration_end_ns;
+			if (attributed_ns > elapsed_ns) throw std::runtime_error("Resource loading trace double-counted elapsed time");
+			breakdown["other_ns"] = elapsed_ns - attributed_ns;
+			trace.flush();
+			raw.flush();
+			completion["asset_loading"] = {
+				{"schema_version", 2}, {"units", "nanoseconds"},
+				{"cache_policy", "fresh-process-os-cache-uncontrolled-preverified"},
+				{"readiness_boundary", "first-scene-presentation-observed"}, {"durations_ns", durations},
+				{"instantiation_breakdown", {{"schema_version", 1}, {"units", "nanoseconds"}, {"durations_ns", breakdown}}},
+				{"timestamps_ns", {{"engine_begin_ns", t.engine_begin_ns}, {"engine_end_ns", t.engine_end_ns},
+					{"asset_begin_ns", t.asset_begin_ns}, {"registration_end_ns", t.registration_end_ns},
+					{"instantiation_end_ns", t.instantiation_end_ns}, {"scene_end_ns", t.scene_end_ns}, {"ready_ns", t.ready_ns}}}
+			};
+		}
+		write_json(options.output / "worker.json", completion);
 		return state.errors.empty() ? 0 : 1;
 	}
 	catch (const std::exception& error)

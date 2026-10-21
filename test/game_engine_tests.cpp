@@ -2424,6 +2424,7 @@ TEST(GameEngineRuntime, publishes_tick_and_publication_time_with_observed_work)
 	options.interactive = false;
 	options.observation = observation;
 	TestableGameEngine engine(std::make_unique<FiniteApplication>(), options);
+	EXPECT_EQ(engine.get_ready_timestamp_ns(), 0);
 	observation->start();
 	engine.run();
 	observation->stop();
@@ -2437,6 +2438,8 @@ TEST(GameEngineRuntime, publishes_tick_and_publication_time_with_observed_work)
 		return sample.kind == RuntimeSampleKind::Simulation && sample.frame_number == frames->current->frame_number;
 	});
 	ASSERT_NE(last, samples.end());
+	EXPECT_GT(engine.get_ready_timestamp_ns(), 0);
+	EXPECT_LE(engine.get_ready_timestamp_ns(), last->begin_ns);
 	EXPECT_EQ(last->publication_ns, frames->current->publication_ns);
 	EXPECT_EQ(last->tick_index, frames->current->simulation_tick);
 	EXPECT_LE(last->begin_ns, last->publication_ns);
@@ -2456,6 +2459,7 @@ TEST(GameEngineRuntime, retains_application_startup_error_after_orderly_shutdown
 	engine.run();
 	ASSERT_TRUE(engine.get_run_failure());
 	EXPECT_FALSE(engine.is_ready());
+	EXPECT_EQ(engine.get_ready_timestamp_ns(), 0);
 	try { std::rethrow_exception(engine.get_run_failure()); }
 	catch (const std::runtime_error& error) { EXPECT_STREQ(error.what(), "fixture startup failure"); }
 }

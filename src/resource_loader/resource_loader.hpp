@@ -4,6 +4,7 @@
 #include "entity_component_system/skeletal.hpp"
 #include "renderable/renderable.hpp"
 #include "serialization/resource_provenance.hpp"
+#include "resource_load_observation.hpp"
 
 #include <glm/mat4x4.hpp>
 

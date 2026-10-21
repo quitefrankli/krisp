@@ -6,6 +6,21 @@
 #include <algorithm>
 #include <fstream>
 #include <atomic>
+#include <future>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+class AssetRegistryTestAccess
+{
+public:
+	static void execute_cpu_on_worker(AssetRegistry &registry)
+	{
+		registry.set_loading_callbacks([](std::function<void()> work) {
+			std::async(std::launch::async, std::move(work)).get();
+		}, {});
+	}
+};
 
 namespace
 {
@@ -111,6 +126,101 @@ TEST(AssetRegistry, LooseSourcesReturnUsableDescriptorsAndDefaultAssembly)
 	EXPECT_TRUE(texture->handle.name().empty());
 	const auto material = registry.acquire_texture(ecs.get_material_system(), texture->handle);
 	EXPECT_TRUE(material);
+}
+
+TEST(AssetRegistry, LoadObserverReportsImportAndAdoptionStagesWhenInstalled)
+{
+	AssetRegistry registry;
+	AssetRegistryTestAccess::execute_cpu_on_worker(registry);
+	struct Event
+	{
+		ResourceLoadSample sample;
+		std::thread::id thread;
+	};
+	std::mutex events_mutex;
+	std::vector<Event> events;
+	registry.set_load_observer([&](const ResourceLoadSample &sample) {
+		const std::lock_guard lock(events_mutex);
+		events.push_back({sample, std::this_thread::get_id()});
+	});
+	const auto caller_thread = std::this_thread::get_id();
+
+	auto options = named_document("simple_test_model.gltf");
+	options.eager = true;
+	const auto assets = registry.load_asset("simple_test_model.gltf", options);
+	ASSERT_FALSE(events.empty());
+	EXPECT_TRUE(std::ranges::any_of(events, [](const Event &event) {
+		return event.sample.stage == ResourceLoadStage::Document;
+	}));
+	EXPECT_TRUE(std::ranges::any_of(events, [](const Event &event) {
+		return event.sample.stage == ResourceLoadStage::MeshConversion;
+	}));
+	EXPECT_TRUE(std::ranges::any_of(events, [&](const Event &event) {
+		return event.thread != caller_thread;
+	}));
+	for (const auto &event : events)
+	{
+		const auto &sample = event.sample;
+		EXPECT_GE(sample.end_ns, sample.begin_ns);
+		EXPECT_LE(sample.self_ns, sample.end_ns - sample.begin_ns);
+	}
+
+	events.clear();
+	const auto assembly = AssetRegistry::default_assembly(assets);
+	ASSERT_TRUE(assembly);
+	ECS ecs;
+	registry.instantiate_model(ecs, assembly);
+	EXPECT_TRUE(std::ranges::any_of(events, [&](const Event &event) {
+		return event.sample.stage == ResourceLoadStage::EcsAdoption && event.thread == caller_thread;
+	}));
+}
+
+TEST(ResourceLoadObservation, NestedSelfTimeAndObserverScopesRestoreAfterThrow)
+{
+	std::vector<ResourceLoadSample> outer_samples;
+	std::vector<ResourceLoadSample> inner_samples;
+	const ResourceLoadObservation::Observer outer_observer = [&](const ResourceLoadSample &sample) {
+		outer_samples.push_back(sample);
+		ResourceLoadObservation::Stage callback_work(ResourceLoadStage::MaterialConstruction);
+	};
+	const ResourceLoadObservation::Observer inner_observer = [&](const ResourceLoadSample &sample) {
+		inner_samples.push_back(sample);
+	};
+	{
+		ResourceLoadObservation::Scope outer_scope(outer_observer);
+		{
+			ResourceLoadObservation::Stage document(ResourceLoadStage::Document);
+			{
+				ResourceLoadObservation::Stage dependency(ResourceLoadStage::DependencyRead);
+			}
+			{
+				ResourceLoadObservation::Stage image(ResourceLoadStage::ImageDecode);
+			}
+		}
+		try
+		{
+			ResourceLoadObservation::Scope inner_scope(inner_observer);
+			ResourceLoadObservation::Stage dependency(ResourceLoadStage::DependencyRead);
+			throw std::runtime_error("scope restoration");
+		} catch (const std::runtime_error &)
+		{
+		}
+		ResourceLoadObservation::Stage restored(ResourceLoadStage::EcsAdoption);
+	}
+	ResourceLoadObservation::Stage disabled(ResourceLoadStage::Document);
+
+	ASSERT_EQ(inner_samples.size(), 1u);
+	ASSERT_EQ(outer_samples.size(), 4u);
+	const auto parent = std::ranges::find_if(outer_samples, [](const ResourceLoadSample &sample) {
+		return sample.stage == ResourceLoadStage::Document;
+	});
+	ASSERT_NE(parent, outer_samples.end());
+	uint64_t child_ns = 0;
+	for (const auto &sample : outer_samples)
+		if (sample.stage == ResourceLoadStage::DependencyRead || sample.stage == ResourceLoadStage::ImageDecode)
+			child_ns += sample.end_ns - sample.begin_ns;
+	EXPECT_LE(parent->self_ns, parent->end_ns - parent->begin_ns - child_ns);
+	EXPECT_EQ(outer_samples.back().stage, ResourceLoadStage::EcsAdoption);
 }
 
 TEST(AssetRegistry, AssemblyInstancesShareGeometryAndHaveIndependentPoses)

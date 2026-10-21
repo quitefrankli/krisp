@@ -1,6 +1,6 @@
 import hashlib
 import io
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 import json
 import os
 import tempfile
@@ -71,6 +71,8 @@ class BenchmarkRunnerTests(unittest.TestCase):
 				self.assertTrue(runner.benchmark_build_errors("standard", {**release, field: value}))
 		self.assertTrue(runner.benchmark_build_errors("standard", {}))
 		self.assertEqual(runner.benchmark_build_errors("smoke", {"build_type": "debug"}), [])
+		self.assertTrue(runner.benchmark_build_errors("asset-loading", {"build_type": "debug"}))
+		self.assertEqual(runner.benchmark_build_errors("asset-loading", release), [])
 
 	def test_suites_have_expected_coverage_duration_and_repeatable_order(self):
 		for suite, case_count, worker_count, timed_seconds in [
@@ -91,6 +93,217 @@ class BenchmarkRunnerTests(unittest.TestCase):
 			runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 				"--environment-lighting", "lighting", "--shader-directory", "shaders", "run", "--suite", "extended"])
 		self.assertEqual(error.exception.code, 2)
+
+	def test_asset_loading_suite_has_only_two_fresh_process_cases(self):
+		cases = runner.suite_cases("asset-loading")
+		self.assertEqual([case["case_id"] for case in cases], ["textured-objects-1", "textured-environment-atrium"])
+		self.assertEqual(runner.suite_defaults("asset-loading"), (0.0, 0.0, 2))
+		self.assertEqual(len(runner.make_schedule("asset-loading", 2)), 4)
+		for case in cases:
+			self.assertEqual(runner.suite_cases("asset-loading", case["case_id"]), [case])
+		args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
+			"--environment-lighting", "lighting", "--shader-directory", "shaders", "run",
+			"--suite", "asset-loading", "--workload", "textured-objects-1"])
+		self.assertEqual(args.suite, "asset-loading")
+
+	def test_asset_loading_rejects_explicit_timing_options_before_preflight(self):
+		for option in ("--warmup", "--measure"):
+			args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
+				"--environment-lighting", "lighting", "--shader-directory", "shaders", "run",
+				"--suite", "asset-loading", option, "0"])
+			with self.subTest(option=option), patch.object(runner, "_new_output_dir") as new_output, redirect_stderr(io.StringIO()):
+				self.assertEqual(runner.run(args), 2)
+				new_output.assert_not_called()
+
+	def test_asset_loading_result_validates_schema_timing_and_timestamp_consistency(self):
+		loading = {
+			"schema_version": runner.ASSET_LOADING_SCHEMA_VERSION,
+			"units": "nanoseconds",
+			"cache_policy": "fresh-process-os-cache-uncontrolled-preverified",
+			"readiness_boundary": "first-scene-presentation-observed",
+			"durations_ns": {
+				"engine_initialization_ns": 50, "asset_registration_ns": 20, "asset_instantiation_ns": 30,
+				"scene_setup_ns": 30, "presentation_ready_ns": 20, "asset_to_ready_ns": 100,
+				"engine_to_ready_ns": 160,
+			},
+			"timestamps_ns": {
+				"engine_begin_ns": 100, "engine_end_ns": 150, "asset_begin_ns": 160,
+				"registration_end_ns": 180, "instantiation_end_ns": 210,
+				"scene_end_ns": 240, "ready_ns": 260,
+			},
+			"instantiation_breakdown": {
+				"schema_version": 1, "units": "nanoseconds",
+				"durations_ns": {
+					"dependency_read_ns": 10, "image_decode_ns": 5, "document_processing_ns": 5,
+					"mesh_conversion_ns": 5, "material_construction_ns": 5,
+					"ecs_adoption_ns": 0, "other_ns": 0,
+				},
+			},
+		}
+		worker = {"status": "complete", "asset_loading": loading, "graphics": {}, "scenario": {}, "errors": []}
+		result = runner._case_result(worker, Path("unused"), {}, "asset-loading", 1, {}, False)
+		self.assertEqual(result["status"], "complete")
+		self.assertEqual(result["summary"]["asset_loading"]["durations_ns"]["asset_to_ready_ns"], 100)
+		self.assertEqual(result["summary"]["asset_loading"]["instantiation_breakdown"]["durations_ns"]["dependency_read_ns"], 10)
+		for invalid in (
+			{**loading, "durations_ns": {**loading["durations_ns"], "engine_initialization_ns": True}},
+			{**loading, "durations_ns": {**loading["durations_ns"], "asset_to_ready_ns": 0}},
+			{**loading, "timestamps_ns": {**loading["timestamps_ns"], "ready_ns": 90}},
+			{**loading, "schema_version": 1},
+			{**loading, "schema_version": 2.0},
+			{key: value for key, value in loading.items() if key != "instantiation_breakdown"},
+			{**loading, "instantiation_breakdown": {**loading["instantiation_breakdown"], "durations_ns": {
+				**loading["instantiation_breakdown"]["durations_ns"], "image_decode_ns": -1}}},
+			{**loading, "instantiation_breakdown": {**loading["instantiation_breakdown"], "durations_ns": {
+				**loading["instantiation_breakdown"]["durations_ns"], "image_decode_ns": 99}}},
+			{**loading, "instantiation_breakdown": {**loading["instantiation_breakdown"], "durations_ns": {
+				key: value for key, value in loading["instantiation_breakdown"]["durations_ns"].items()
+				if key != "other_ns"}}},
+		):
+			with self.subTest(invalid=invalid):
+				bad = runner._case_result({**worker, "asset_loading": invalid}, Path("unused"), {}, "asset-loading", 1, {}, False)
+				self.assertEqual(bad["status"], "failed")
+				self.assertIn("asset_loading", bad["error"])
+
+		missing = runner._case_result({"status": "complete"}, Path("unused"), {}, "asset-loading", 1, {}, False)
+		self.assertEqual(missing["status"], "failed")
+		self.assertIn("missing asset_loading", missing["error"])
+
+	def test_asset_loading_report_uses_milliseconds_and_repetition_distributions(self):
+		duration_names = (
+			"engine_initialization_ns", "asset_registration_ns", "asset_instantiation_ns",
+			"scene_setup_ns", "presentation_ready_ns", "asset_to_ready_ns", "engine_to_ready_ns",
+		)
+		repetitions = []
+		for repetition, offset in ((1, 0), (2, 2)):
+			durations = {name: (index + 1 + offset) * 1_000_000 for index, name in enumerate(duration_names)}
+			instantiation = durations["asset_instantiation_ns"]
+			repetitions.append({"repetition": repetition, "mode": "asset-loading", "status": "complete",
+				"summary": {"asset_loading": {"durations_ns": durations,
+					"instantiation_breakdown": {"durations_ns": {
+						"dependency_read_ns": instantiation, "image_decode_ns": 0, "document_processing_ns": 0,
+						"mesh_conversion_ns": 0, "material_construction_ns": 0, "ecs_adoption_ns": 0, "other_ns": 0,
+					}}}}})
+		report = runner._report({
+			"protocol": {"suite": "asset-loading"}, "status": "complete", "completed_workers": 2,
+			"scheduled_workers": 2, "cases": [{"case_id": "textured-objects-1",
+				"repetitions_by_mode": {"asset-loading": repetitions}}],
+		})
+		self.assertIn("Asset loading durations are in milliseconds", report)
+		self.assertIn("engine_initialization_ns: 1.000 ms", report)
+		self.assertIn("engine_initialization_ns across repetitions: median 2.000 ms; range 1.000–3.000 ms; MAD 1.000 ms", report)
+		self.assertIn("dependency read: 3.000 ms (100.0% of asset instantiation)", report)
+		self.assertIn("dependency read across repetitions: median 4.000 ms (100.0% of asset instantiation)", report)
+		for name in duration_names:
+			self.assertIn(name, report)
+		self.assertNotIn("Present-call cadence", report)
+		self.assertNotIn("ticks/s", report)
+		self.assertNotIn("Gpu", report)
+
+	def test_asset_loading_baseline_compares_all_metrics_and_rejects_policy_mismatch(self):
+		duration_names = (
+			"engine_initialization_ns", "asset_registration_ns", "asset_instantiation_ns",
+			"scene_setup_ns", "presentation_ready_ns", "asset_to_ready_ns", "engine_to_ready_ns",
+		)
+		compatibility = {"mode": "asset-loading", "protocol": {
+			"suite": "asset-loading", "asset_loading_schema_version": runner.ASSET_LOADING_SCHEMA_VERSION,
+			"cache_policy": "fresh-process-os-cache-uncontrolled-preverified",
+			"readiness_boundary": "first-scene-presentation-observed",
+		}}
+		def reps(offset):
+			return [{"status": "complete", "compatibility": compatibility,
+				"summary": {"asset_loading": {"durations_ns": {
+					name: (index + offset + repetition) * 1_000_000
+					for index, name in enumerate(duration_names)
+				}}}} for repetition in (0, 1)]
+		baseline_case = {"case_id": "textured-objects-1", "repetitions_by_mode": {"asset-loading": reps(1)}}
+		candidate_case = {"case_id": "textured-objects-1", "repetitions_by_mode": {"asset-loading": reps(3)}}
+		manifest = {"protocol": {"suite": "asset-loading"}, "cases": [candidate_case]}
+		runner._compare_run(manifest, {"cases": [baseline_case]})
+		comparisons = candidate_case["comparisons"]["asset-loading"]
+		self.assertTrue(comparisons["compatibility"]["compatible"])
+		self.assertEqual({name for name in comparisons if name != "compatibility"}, set(duration_names))
+		self.assertEqual(comparisons["asset_to_ready_ns"]["label"], "regressed")
+		self.assertEqual(comparisons["asset_to_ready_ns"]["difference"], 2_000_000)
+		self.assertEqual(comparisons["asset_to_ready_ns"]["candidate"]["range"], [8_000_000, 9_000_000])
+
+		changed_policy = {**baseline_case, "repetitions_by_mode": {"asset-loading": [
+			{**rep, "compatibility": {**compatibility, "protocol": {
+				**compatibility["protocol"], "cache_policy": "different-policy"}}}
+			for rep in baseline_case["repetitions_by_mode"]["asset-loading"]
+		]}}
+		incompatible_manifest = {"protocol": {"suite": "asset-loading"}, "cases": [candidate_case.copy()]}
+		runner._compare_run(incompatible_manifest, {"cases": [changed_policy]})
+		incompatible = incompatible_manifest["cases"][0]["comparisons"]["asset-loading"]
+		self.assertFalse(incompatible["compatibility"]["compatible"])
+		self.assertTrue(any(item["field"] == "protocol.cache_policy" for item in incompatible["compatibility"]["mismatches"]))
+		self.assertNotIn("asset_to_ready_ns", incompatible)
+
+	def test_asset_loading_run_uses_one_mode_and_accepts_zero_measurement(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			cache = root / "cache"
+			cache.mkdir()
+			lighting = root / "environment.krisp-ibl"
+			lighting.write_bytes(b"lighting")
+			shaders = root / "shaders"
+			shaders.mkdir()
+			(shaders / "test.spv").write_bytes(b"shader")
+			build = root / "build.json"
+			build.write_text(json.dumps({
+				"build_type": "release", "optimised": True, "debug_macro": False,
+				"assertions": False, "runtime_tools_sha256": build_provenance.runtime_tools_sha256(Path.cwd()),
+			}))
+			output = root / "run"
+			args = runner._parser().parse_args([
+				"--executable", os.fspath(Path(os.sys.executable)), "--build-manifest", os.fspath(build),
+				"--default-asset-cache", os.fspath(cache), "--environment-lighting", os.fspath(lighting),
+				"--shader-directory", os.fspath(shaders), "run", "--suite", "asset-loading", "--repetitions", "1",
+			])
+			loading = {
+				"schema_version": runner.ASSET_LOADING_SCHEMA_VERSION, "units": "nanoseconds",
+				"cache_policy": "fresh-process-os-cache-uncontrolled-preverified",
+				"readiness_boundary": "first-scene-presentation-observed",
+				"durations_ns": {
+					"engine_initialization_ns": 50, "asset_registration_ns": 20, "asset_instantiation_ns": 30,
+					"scene_setup_ns": 30, "presentation_ready_ns": 20, "asset_to_ready_ns": 100,
+					"engine_to_ready_ns": 160,
+				},
+				"timestamps_ns": {
+					"engine_begin_ns": 100, "engine_end_ns": 150, "asset_begin_ns": 160,
+					"registration_end_ns": 180, "instantiation_end_ns": 210,
+					"scene_end_ns": 240, "ready_ns": 260,
+				},
+				"instantiation_breakdown": {
+					"schema_version": 1, "units": "nanoseconds",
+					"durations_ns": {
+						"dependency_read_ns": 10, "image_decode_ns": 5, "document_processing_ns": 5,
+						"mesh_conversion_ns": 5, "material_construction_ns": 5,
+						"ecs_adoption_ns": 0, "other_ns": 0,
+					},
+				},
+			}
+			worker_result = {"status": "complete", "asset_loading": loading, "graphics": {},
+				"scenario": {"version": 1, "instances": 1, "renderables": 1}, "errors": []}
+			output.mkdir()
+			with patch.object(runner, "_new_output_dir", return_value=output), \
+				patch.object(benchmark_assets, "needs_preparation", return_value=False), \
+				patch.object(runner, "verify_asset_cache", return_value=({"profile": runner.PROFILE, "manifest_sha256": "assets", "files": {}}, [])), \
+				patch.object(runner, "_run_worker", return_value=(worker_result, 0, None)) as run_worker, \
+				redirect_stdout(io.StringIO()):
+				self.assertEqual(runner.run(args), 0)
+			self.assertEqual(run_worker.call_count, 2)
+			self.assertEqual({call.args[2] for call in run_worker.call_args_list}, {"asset-loading"})
+			manifest = json.loads((output / "run_manifest.json").read_text())
+			self.assertEqual(manifest["protocol"]["warmup_seconds"], 0.0)
+			self.assertEqual(manifest["protocol"]["measurement_seconds"], 0.0)
+			self.assertEqual(manifest["protocol"]["asset_loading_schema_version"], 2)
+			self.assertEqual(manifest["scheduled_workers"], 2)
+			self.assertEqual(manifest["status"], "complete")
+			compatibility = manifest["cases"][0]["repetitions_by_mode"]["asset-loading"][0]["compatibility"]["protocol"]
+			self.assertEqual(compatibility["instrumentation_version"], 2)
+			self.assertEqual(compatibility["asset_loading_schema_version"], 2)
+			self.assertEqual((output / "report.md").read_text().count("**asset-loading**"), 2)
 
 
 	def test_asset_cache_verifies_all_declared_files_and_profile(self):
@@ -254,6 +467,25 @@ time.sleep(5)
 			self.assertEqual(result["status"], "failed")
 			self.assertIsNotNone(exit_code)
 
+	def test_asset_loading_worker_has_a_bounded_ready_to_exit_timeout(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			worker = self._fake_executable(root, """
+import json, pathlib, sys, time
+out = pathlib.Path(sys.argv[sys.argv.index('--output') + 1])
+(out / 'ready.json').write_text(json.dumps({'status': 'ready'}))
+time.sleep(5)
+""")
+			with patch.object(runner, "SHUTDOWN_MARGIN_SECONDS", 0.05), patch.object(runner, "DRAIN_TIMEOUT_SECONDS", 30):
+				started = runner.time.monotonic()
+				result, exit_code, error = runner._run_worker(str(worker),
+					{"scenario": "textured-objects", "count": 1}, "asset-loading", 1,
+					0, 0, root, root / "loading-output")
+				self.assertLess(runner.time.monotonic() - started, 2)
+			self.assertEqual(error, "worker_timeout")
+			self.assertEqual(result["status"], "failed")
+			self.assertIsNotNone(exit_code)
+
 	def test_preflight_failure_writes_report_and_launches_no_workers(self):
 		with tempfile.TemporaryDirectory() as temporary:
 			root = Path(temporary)
@@ -300,7 +532,15 @@ time.sleep(5)
 				worker.assert_not_called()
 			manifest = json.loads((Path(output) / "run_manifest.json").read_text())
 			self.assertIn("Release build", " ".join(manifest["errors"]))
+			args.suite = "asset-loading"
+			output = root / "debug-asset-loading"
+			with patch.object(runner, "_run_worker") as worker:
+				self.assertEqual(invoke(), 2)
+				worker.assert_not_called()
+			manifest = json.loads((Path(output) / "run_manifest.json").read_text())
+			self.assertIn("Release build", " ".join(manifest["errors"]))
 			args.workload = "static-objects-100"
+			args.suite = "standard"
 			output = root / "wrong-suite"
 			with patch.object(benchmark_assets, "prepare_assets") as prepare, patch.object(runner, "_run_worker") as worker:
 				self.assertEqual(invoke(), 2)
@@ -311,23 +551,38 @@ time.sleep(5)
 			args.suite = "smoke"
 			args.default_asset_cache = root / "build" / "benchmark-assets"
 			args.source_directory = root / "pinned-inputs"
+			args.default_asset_cache.mkdir(parents=True)
+			prepared_path = args.default_asset_cache / "prepared.json"
+			prepared_path.write_text(json.dumps({
+				"profile": benchmark_assets.PREVIOUS_PROFILE,
+				"converter_version": benchmark_assets.PREVIOUS_CONVERTER_VERSION,
+			}))
 			def prepare_missing(cache, *, source_directory):
 				self.assertEqual(source_directory, args.source_directory)
-				cache.mkdir(parents=True)
+				prepared_path.write_text(json.dumps({
+					"profile": benchmark_assets.PROFILE,
+					"converter_version": benchmark_assets.CONVERTER_VERSION,
+				}))
 			def verify_existing(cache):
-				self.assertTrue(cache.is_dir(), "Preparation must finish before verification")
+				self.assertEqual(json.loads(prepared_path.read_text()), {
+					"profile": benchmark_assets.PROFILE,
+					"converter_version": benchmark_assets.CONVERTER_VERSION,
+				}, "Preparation must finish before verification")
 				return {"profile": "fixture"}, []
-			for first_run in (True, False):
-				output = root / ("automatic" if first_run else "reuse")
-				with patch.object(benchmark_assets, "prepare_assets", side_effect=prepare_missing) as prepare, \
-					patch.object(runner, "verify_asset_cache", side_effect=verify_existing) as verify, \
-					patch.object(runner, "make_schedule", return_value=[]):
-					self.assertEqual(invoke(), 0)
-					if first_run:
-						prepare.assert_called_once_with(args.default_asset_cache, source_directory=args.source_directory)
-					else:
-						prepare.assert_not_called()
-					verify.assert_called_once_with(args.default_asset_cache)
+			output = root / "automatic-outdated"
+			with patch.object(benchmark_assets, "prepare_assets", side_effect=prepare_missing) as prepare, \
+				patch.object(runner, "verify_asset_cache", side_effect=verify_existing) as verify, \
+				patch.object(runner, "make_schedule", return_value=[]):
+				self.assertEqual(invoke(), 0)
+				prepare.assert_called_once_with(args.default_asset_cache, source_directory=args.source_directory)
+				verify.assert_called_once_with(args.default_asset_cache)
+			output = root / "reuse-current"
+			with patch.object(benchmark_assets, "prepare_assets") as prepare, \
+				patch.object(runner, "verify_asset_cache", side_effect=verify_existing) as verify, \
+				patch.object(runner, "make_schedule", return_value=[]):
+				self.assertEqual(invoke(), 0)
+				prepare.assert_not_called()
+				verify.assert_called_once_with(args.default_asset_cache)
 			output = root / "corrupt-existing"
 			with patch.object(benchmark_assets, "prepare_assets") as prepare, \
 				patch.object(runner, "verify_asset_cache", return_value=({}, ["fixture checksum mismatch"])), \

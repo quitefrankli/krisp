@@ -1,6 +1,7 @@
 #pragma once
 
 #include "resource_loader.hpp"
+#include "resource_load_observation.hpp"
 #include "serialization/resource_provenance.hpp"
 
 #include <array>
@@ -8,6 +9,7 @@
 #include <variant>
 
 struct AssetEntry;
+class AssetRegistryTestAccess;
 enum class AssetKind
 {
 	Mesh,
@@ -101,6 +103,8 @@ public:
 	AssetRegistry(const AssetRegistry &) = delete;
 	AssetRegistry &operator=(const AssetRegistry &) = delete;
 	std::vector<Asset> load_asset(std::string_view source, const AssetLoadOptions &options = {});
+	// Install or clear between loading operations. Observer exceptions are ignored.
+	void set_load_observer(std::function<void(const ResourceLoadSample &)> observer);
 	static AssemblyAssetHandle default_assembly(std::span<const Asset> assets);
 	void unload_asset(std::string_view source);
 	bool contains(std::string_view name) const;
@@ -157,6 +161,7 @@ public:
 
 private:
 	friend class GameEngine;
+	friend class AssetRegistryTestAccess;
 	// Synchronous executor: prepares source-owned CPU caches only, then returns.
 	// The owning game thread can service loading while the worker is busy.
 	void set_loading_callbacks(std::function<void(std::function<void()>)> execute_cpu,
