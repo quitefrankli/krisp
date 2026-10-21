@@ -263,8 +263,22 @@ void GraphicsEngine::accept_latest_render_frame()
 	for (const auto& pose : next_frame->skeletons)
 		if (!pose.definition)
 			throw std::runtime_error("GraphicsEngine: skeleton definition is empty");
-	if (get_gui_manager().is_loading() && !prepare_loading_frame(next_frame))
-		return;
+	const auto& observation = runtime_options.observation;
+	const auto record_upload = [&](uint64_t begin_ns)
+	{
+		if (begin_ns)
+			observation->record_graphics(RuntimeSample{
+				.kind = RuntimeSampleKind::ResourceUpload,
+				.begin_ns = begin_ns, .end_ns = runtime_now_ns() });
+	};
+	if (get_gui_manager().is_loading())
+	{
+		const auto begin_ns = observation && observation->active() ? runtime_now_ns() : 0;
+		const bool prepared = prepare_loading_frame(next_frame);
+		record_upload(begin_ns);
+		if (!prepared)
+			return;
+	}
 	bool topology_changed = !accepted_render_frame
 		|| accepted_render_frame->renderables.size() != next_frame->renderables.size()
 		|| accepted_render_frame->skeletons.size() != next_frame->skeletons.size();
@@ -315,7 +329,9 @@ void GraphicsEngine::accept_latest_render_frame()
 	if (!topology_changed)
 		return;
 
+	const auto begin_ns = observation && observation->active() ? runtime_now_ns() : 0;
 	reconcile_topology(*accepted_render_frame);
+	record_upload(begin_ns);
 
 }
 

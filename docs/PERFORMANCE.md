@@ -429,23 +429,39 @@ and compositor throttling can still limit throughput; submission rate is not
 isolated GPU capacity or measured display scanout cadence.
 
 `stress_test` defaults to the `standard` suite. It runs `moving-transforms-500`
-and `point-shadows-500` in throughput mode, plus the Sponza atrium in both
-throughput and paced modes. Each case/mode combination has two fresh workers;
-two seconds of warm-up and ten seconds of measurement per worker give eight
-launches and 96 seconds of configured timed work. Sponza startup makes the
-end-to-end duration hardware-dependent, and first-time asset preparation is
-outside the configured timed-work total. The shared cache can be prepared
+and `point-shadows-500` in throughput mode, plus the shadowed Sponza atrium in
+both throughput and paced modes. Each case/mode combination has two fresh
+workers; two seconds of warm-up and ten seconds of measurement per worker give
+eight launches and 96 seconds of configured timed work. Sponza startup makes
+the end-to-end duration hardware-dependent, and first-time asset preparation
+is outside the configured timed-work total. The shared cache can be prepared
 manually with `stress_test prepare-assets`; `run` prepares it automatically
 when missing.
 
+The default shadowed atrium workload renders the existing fixed point light's
+1024-by-1024 shadow cubemap and samples it with the current 16-tap PCF filter.
+The unshadowed `textured-environment-atrium` workload remains selectable for a
+same-view comparison under matching Release settings; corridor and
+material-closeup workloads remain unshadowed. Prior Sponza GPU observations
+used the unshadowed atrium and therefore excluded point-light shadow-map
+rendering and shadow filtering. The new workload includes those costs in the
+full rasterization workload. It supplies coverage for future measurement;
+there are no measured benefit or regression claims from it yet. Shadowed and
+unshadowed runs are distinct workload baselines, with actual shadow-light
+count recorded as part of compatibility.
+
 `--suite smoke` runs a diagnostic case, a Flight Helmet case and a fixed Sponza
-atrium view in both modes as a short correctness-only protocol. A separate
+atrium view in both modes as a short Release lifecycle check; the shadowed
+atrium can be selected explicitly without changing smoke's default workload
+set. Smoke's short measurements are not performance evidence. All
+`stress_test` suites require optimized Release builds with assertions disabled.
+A separate
 `--suite asset-loading` measures the Flight Helmet and Sponza atrium from fresh
 worker processes through application-observed first presentation. Loading
 results report stage timings and end-to-end readiness; they do not replace the
-standard suite's warmed rendering metrics. See [STRESS_TEST.md](STRESS_TEST.md)
-for commands, protocol overrides, saved evidence and explicit baseline
-selection.
+standard suite's warmed rendering metrics. Asset loading continues to use the
+existing unshadowed atrium workload. See [STRESS_TEST.md](STRESS_TEST.md) for
+commands, protocol overrides, saved evidence and explicit baseline selection.
 
 The benchmark's `engine-pbr-opaque-bc3-v1` asset profile derives base-level
 BC3/DXT5 DDS textures from the pinned source PNGs during preparation. This is a
@@ -502,8 +518,39 @@ saved summaries replayed in 5.92 seconds and exactly matched their original
 metrics. These replay timings are separate from an end-to-end engine run.
 This is coordinator post-processing cost outside measured engine work.
 
-Debug/validation-enabled results remain labelled and cannot be compared with an
-optimised validation-disabled baseline.
+Validation-enabled results remain labelled and cannot be compared with a
+validation-disabled baseline.
+
+Rendering observation protocol 3 adds CPU distributions for `UniformUpload`
+(global/object/skeleton data preparation and writes), `CommandRecording`
+(command-buffer reset, recording and end), `SnapshotConstruction` (build and
+publication), and `ResourceUpload` (loading preparation or topology
+reconciliation, including resource creation and uploads). Resource-upload samples
+are event-driven and may be absent in a steady scene. They are not isolated DMA
+transfer times. These spans are useful work nested within existing CPU intervals;
+they are not subtracted from active-work totals or added to their parent times.
+
+GPU observation keeps the existing whole-command-span `Gpu` measurement and adds
+`GpuShadow`, `GpuMain` (rasterization including particles), and `GpuUi` (GUI).
+Pass spans use bottom-of-pipe timestamps immediately before and after their
+renderer commands, outside render passes. Query results retain submission IDs
+and are read after the existing frame fence, without a query wait flag or an
+extra fence wait. Queue boundary spans can reflect pipelining and device stalls;
+they are not isolated shader costs and do not partition all work in the total.
+For the shadowed Sponza workload, `GpuShadow` includes the fixed light's shadow
+cube rendering and `GpuMain` includes atrium rasterization with shadow
+filtering. The unshadowed atrium does not perform those point-light shadow
+operations.
+The observer creates eight timestamp queries per in-flight frame instead of two,
+and publishes four GPU records per observed submission. No timestamps or CPU
+phase timing records are generated without an active observer. Added observation
+changes instrumentation overhead, so rendering instrumentation version 2 and
+protocol 3 deliberately invalidate earlier rendering baselines. Use Release
+measurements to rank uniform-upload, command-recording and GPU-pass costs before
+optimizing them; instrumentation correctness checks provide no performance
+evidence. Every `stress_test` suite, including smoke, must run in optimized
+Release with assertions disabled.
+
 
 The asset-loading suite reports monotonic CPU wall-clock durations for engine
 construction, asset registration, model instantiation, scene setup, presentation
@@ -525,9 +572,9 @@ beyond the named boundaries, or instrumentation-overhead measurement is claimed
 here. See [RUNTIME_OBSERVATION.md](RUNTIME_OBSERVATION.md) for the engine-owned
 observation boundaries and threading contract.
 
-Standard and asset-loading benchmark runs require optimized Release builds
-with assertions disabled; Debug smoke runs validate correctness only and do
-not provide performance evidence.
+Every benchmark run, including smoke, requires an optimized Release build with
+assertions disabled. Smoke is a short lifecycle check and does not provide
+sufficient performance evidence.
 
 Benchmark workers enable the FPS/TPS performance overlay for loading where
 available, warm-up, and measurement. Overlay updates and drawing remain inside
@@ -542,5 +589,54 @@ dependency reads, image decoding, document processing, residual model/mesh
 conversion, material construction, and ECS adoption; unattributed wall-clock
 time remains explicit. Nested spans do not double-count their child stages.
 The loading protocol records instrumentation version 2 so instrumented results
-are not compared with earlier uninstrumented loading runs. Debug attribution
-checks are diagnostic evidence, not Release performance measurements.
+are not compared with earlier uninstrumented loading runs. Attribution
+correctness checks are diagnostic evidence, not performance measurements.
+
+A same-machine Release comparison on the RTX 2070 used the normal graphics
+session, 1280x720, 4x MSAA, validation disabled, two repetitions, 2 seconds of
+warm-up, and 10 seconds of measurement. Unshadowed atrium run
+`run-20261021T110342Z-da2398ca` achieved 279.6–281.4 uncapped presents/s with
+3.325–3.326 ms median GPU work. Shadowed atrium run
+`run-20261021T110450Z-146b7bfc` achieved 99.6–100.1 presents/s with 9.812–9.853 ms
+median GPU work; its shadow span was 6.135–6.162 ms and main span 3.334–3.346 ms.
+CPU command recording increased from 0.337–0.342 ms to 0.617–0.641 ms.
+Both variants averaged approximately 60 presents/s when paced, but paced p99
+present-call intervals reached about 28 ms in both and simulation deadline misses
+were observed. These runs establish substantial shadow-generation cost for this
+one-light scene; they do not establish consistent frame pacing or an eight-light
+worst case. An earlier isolated-display comparison was presentation-limited
+(about 29 ms per present call) and is not used for these throughput figures.
+
+Optional `textured-environment-atrium-shadows-4-lights` and
+`textured-environment-atrium-shadows-8-lights` workloads extend the one-light
+control without increasing the default standard schedule. All modes use a fixed
+nested prefix of eight distinct positions, with the original light first. The
+pinned total intensity parameter is divided equally among active lights; this
+controls aggregate intensity, not perceived scene brightness. Actual positions,
+colors, intensity, enabled state and shadow flags are recorded in scenario
+metadata and baseline compatibility alongside the requested and observed counts.
+
+A normal-display Release comparison used the same RTX 2070, 1280x720, 4x MSAA,
+1024-square shadow cubemap faces, existing 16-tap PCF, validation disabled, two
+repetitions, 2 seconds of warm-up and 10 seconds of measurement per launch.
+All twelve launches completed with no lost observation records. Throughput
+results below show repetition ranges for rates and the approximate mean of the
+two per-repetition medians for GPU spans; the spans are not additive partitions.
+
+| Shadow-casting lights | Uncapped presents/s | Total GPU ms | Shadow GPU ms | Main GPU ms |
+| --- | --- | --- | --- | --- |
+| 1 | 100.2–100.4 | 9.77 | 6.15 | 3.33 |
+| 4 | 32.9–33.5 | 29.07 | 22.96 | 6.06 |
+| 8 | 16.4–16.8 | 58.46 | 47.24 | 11.10 |
+
+The corresponding runs are `run-20261021T111211Z-837beefd` (one light),
+`run-20261021T111318Z-5deb16c3` (four), and
+`run-20261021T111425Z-595d5c0b` (eight). Shadow generation is the dominant measured
+scaling cost in these scenes, while the main pass also grows with light count.
+The paced four- and eight-light variants achieved only about 30 and 15–16
+presents/s, respectively, with substantial frame-time tails and simulation
+deadline misses. They do not meet the 60 Hz target. These measurements justify
+profiling and reducing shadow-generation work before prioritizing small uniform
+upload savings; they do not attribute the cost specifically to geometry-shader
+expansion versus absent spatial culling or establish the effect of any proposed
+optimization.

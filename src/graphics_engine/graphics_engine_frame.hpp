@@ -66,6 +66,7 @@ private:
 	VkFence fence_frame_inflight = VK_NULL_HANDLE; // signals when the command buffer finishes executing or when an inflight frame is finished
 	VkFence fence_image_inflight = VK_NULL_HANDLE; // check if a frame in flight is already using a swapchain image 
 	std::optional<SubmissionSerial> submission_serial;
+	static constexpr uint32_t observation_query_count = 8;
 	VkQueryPool observation_query_pool = VK_NULL_HANDLE;
 	bool current_gpu_query_recorded = false;
 	bool gpu_query_pending = false;

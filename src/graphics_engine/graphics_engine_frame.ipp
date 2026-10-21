@@ -117,7 +117,7 @@ void GraphicsEngineFrame::prepare_gpu_observation_queries()
 	VkQueryPoolCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
 	create_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
-	create_info.queryCount = 2;
+	create_info.queryCount = observation_query_count;
 	if (vkCreateQueryPool(get_logical_device(), &create_info, nullptr, &observation_query_pool) != VK_SUCCESS)
 		observation_query_pool = VK_NULL_HANDLE;
 }
@@ -130,40 +130,50 @@ void GraphicsEngineFrame::collect_gpu_observation()
 	if (fence_status == VK_NOT_READY)
 		return;
 
-	std::array<std::uint64_t, 4> results{};
+	std::array<std::uint64_t, observation_query_count * 2> results{};
 	const auto result = fence_status == VK_SUCCESS
 		? vkGetQueryPoolResults(
-			get_logical_device(), observation_query_pool, 0, 2, sizeof(results), results.data(),
+			get_logical_device(), observation_query_pool, 0, observation_query_count, sizeof(results), results.data(),
 			sizeof(std::uint64_t) * 2,
 			VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT)
 		: fence_status;
 
-	auto sample = pending_gpu_sample;
-	sample.kind = RuntimeSampleKind::Gpu;
-	sample.end_ns = runtime_now_ns();
-	if (result == VK_SUCCESS && results[1] != 0 && results[3] != 0)
+	const auto collected_ns = runtime_now_ns();
+	const auto record = [&](RuntimeSampleKind kind, uint32_t first_query)
 	{
-		auto duration = timestamp_duration_ns(
-			results[0], results[2], timestamp_valid_bits, timestamp_period_ns);
-		if (duration && timestamp_valid_bits < 64)
+		auto sample = pending_gpu_sample;
+		sample.kind = kind;
+		sample.end_ns = collected_ns;
+		const auto first = first_query * 2;
+		if (result == VK_SUCCESS && results[first + 1] != 0 && results[first + 3] != 0)
 		{
-			const long double wrap_period_ns = std::ldexp(
-				static_cast<long double>(timestamp_period_ns), timestamp_valid_bits);
-			const long double enclosing_cpu_ns = sample.end_ns >= sample.begin_ns
-				? static_cast<long double>(sample.end_ns - sample.begin_ns)
-				: wrap_period_ns;
-			if (enclosing_cpu_ns >= wrap_period_ns)
-				duration.reset();
+			auto duration = timestamp_duration_ns(
+				results[first], results[first + 2], timestamp_valid_bits, timestamp_period_ns);
+			if (duration && timestamp_valid_bits < 64)
+			{
+				const long double wrap_period_ns = std::ldexp(
+					static_cast<long double>(timestamp_period_ns), timestamp_valid_bits);
+				const long double enclosing_cpu_ns = sample.end_ns >= sample.begin_ns
+					? static_cast<long double>(sample.end_ns - sample.begin_ns)
+					: wrap_period_ns;
+				if (enclosing_cpu_ns >= wrap_period_ns)
+					duration.reset();
+			}
+			sample.success = duration.has_value();
+			if (duration)
+				sample.duration_ns = *duration;
 		}
-		sample.success = duration.has_value();
-		if (duration)
-			sample.duration_ns = *duration;
-	}
-	else
-		sample.success = false;
+		else
+			sample.success = false;
 
-	if (const auto& observation = get_graphics_engine().get_runtime_options().observation)
-		observation->record_graphics(sample);
+		if (const auto& observation = get_graphics_engine().get_runtime_options().observation)
+			observation->record_graphics(sample);
+	};
+	record(RuntimeSampleKind::GpuShadow, 2);
+	record(RuntimeSampleKind::GpuMain, 4);
+	record(RuntimeSampleKind::GpuUi, 6);
+	// The total closes the submission after all pass samples have been published.
+	record(RuntimeSampleKind::Gpu, 0);
 	gpu_query_pending = false;
 }
 
@@ -188,27 +198,34 @@ void GraphicsEngineFrame::update_command_buffer()
 		&& observation_query_pool != VK_NULL_HANDLE;
 	if (measure_gpu)
 	{
-		vkCmdResetQueryPool(command_buffer, observation_query_pool, 0, 2);
+		vkCmdResetQueryPool(command_buffer, observation_query_pool, 0, observation_query_count);
 		vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, observation_query_pool, 0);
 	}
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
-	const auto submit_draw_commands = [&](const ERendererType renderer_type)
+	const auto submit_draw_commands = [&](const ERendererType renderer_type,
+		const std::optional<uint32_t> first_query = std::nullopt)
 	{
+		if (measure_gpu && first_query)
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				observation_query_pool, *first_query);
 		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
+		if (measure_gpu && first_query)
+			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+				observation_query_pool, *first_query + 1);
 	};
 	get_graphics_engine().get_texture_compositor().record_pending(command_buffer);
 	// Ray tracing is unsupported:
 	// if (get_graphics_engine().get_render_mode() == ERenderMode::RAYTRACING)
 	//     submit_draw_commands(ERendererType::RAYTRACING);
-	submit_draw_commands(ERendererType::SHADOW_MAP);
-	submit_draw_commands(ERendererType::RASTERIZATION);
+	submit_draw_commands(ERendererType::SHADOW_MAP, 2);
+	submit_draw_commands(ERendererType::RASTERIZATION, 4);
 	submit_draw_commands(ERendererType::PRESENTATION);
 	// Note: Particle rendering is now done within the RasterizationRenderer
 	submit_draw_commands(ERendererType::QUAD);
 	maybe_prepare_screenshot_capture();
 
-	submit_draw_commands(ERendererType::GUI); // ImGui is composed after the SDR screenshot copy.
+	submit_draw_commands(ERendererType::GUI, 6); // ImGui is composed after the SDR screenshot copy.
 
 	maybe_prepare_recording_capture();
 	if (measure_gpu)
@@ -276,7 +293,9 @@ void GraphicsEngineFrame::draw()
 		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP));
 	shadows.prepare_frame(image_index, prepare_point_lighting(
 		get_graphics_engine().get_render_frame().lights));
+	const auto recording_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	update_command_buffer();
+	record_cpu_sample(RuntimeSampleKind::CommandRecording, recording_begin_ns, collect_cpu ? runtime_now_ns() : 0);
 
 	uint32_t swap_chain_image_index = 0;
 	// waits until there's an image available to use in the swap chain
@@ -323,7 +342,9 @@ void GraphicsEngineFrame::draw()
 	// mark the image as now being in use by this frame
 	fence_image_inflight = fence_frame_inflight;
 
+	const auto uniform_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	update_uniform_buffer();
+	record_cpu_sample(RuntimeSampleKind::UniformUpload, uniform_begin_ns, collect_cpu ? runtime_now_ns() : 0);
 
 	//
 	// submitting the command buffer

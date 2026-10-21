@@ -28,6 +28,36 @@ TEST(MeasurementMembership, attributes_late_gpu_results_to_original_submission)
 	EXPECT_FALSE(BenchmarkMeasurement::classify(sample, 100, 200, true).included);
 }
 
+TEST(MeasurementMembership, attributes_gpu_passes_to_the_original_submission)
+{
+	RuntimeSample sample{.kind = RuntimeSampleKind::GpuShadow, .begin_ns = 150, .end_ns = 250};
+	EXPECT_TRUE(BenchmarkMeasurement::classify(sample, 100, 200, true).included);
+	EXPECT_FALSE(BenchmarkMeasurement::classify(sample, 100, 200, false).included);
+	for (const auto kind : {RuntimeSampleKind::GpuMain, RuntimeSampleKind::GpuUi})
+	{
+		sample.kind = kind;
+		EXPECT_TRUE(BenchmarkMeasurement::classify(sample, 100, 200, true).included);
+	}
+}
+
+TEST(MeasurementMembership, filters_frame_work_by_snapshot_and_keeps_upload_scopes_time_only)
+{
+	RuntimeSample sample{.kind = RuntimeSampleKind::UniformUpload, .begin_ns = 120, .end_ns = 130, .publication_ns = 99};
+	EXPECT_FALSE(BenchmarkMeasurement::classify(sample, 100, 200).included);
+	sample.publication_ns = 100;
+	EXPECT_TRUE(BenchmarkMeasurement::classify(sample, 100, 200).included);
+	sample.kind = RuntimeSampleKind::CommandRecording;
+	sample.publication_ns = 200;
+	EXPECT_FALSE(BenchmarkMeasurement::classify(sample, 100, 200).included);
+
+	for (const auto kind : {RuntimeSampleKind::ResourceUpload, RuntimeSampleKind::SnapshotConstruction})
+	{
+		sample.kind = kind;
+		sample.publication_ns = 99;
+		EXPECT_TRUE(BenchmarkMeasurement::classify(sample, 100, 200).included);
+	}
+}
+
 TEST(MeasurementMembership, includes_deadline_lateness_but_not_unstarted_measurement)
 {
 	RuntimeSample sample{.kind = RuntimeSampleKind::GameDeadline, .begin_ns = 150, .end_ns = 250};

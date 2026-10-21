@@ -76,6 +76,39 @@ class BenchmarkStatisticsTests(unittest.TestCase):
 		self.assertEqual(missing["median"], None)
 		self.assertEqual(missing["reason"], "missing_gpu_samples_for_measured_submissions")
 
+	def test_new_cpu_phases_follow_their_publication_attribution_rules(self):
+		samples = [
+			{"kind": "UniformUpload", "begin_ns": 11, "end_ns": 12, "publication_ns": 9},
+			{"kind": "UniformUpload", "begin_ns": 13, "end_ns": 14, "publication_ns": 15},
+			{"kind": "CommandRecording", "begin_ns": 15, "end_ns": 16, "publication_ns": 25},
+			{"kind": "ResourceUpload", "begin_ns": 16, "end_ns": 18, "publication_ns": 9},
+			{"kind": "SnapshotConstruction", "begin_ns": 17, "end_ns": 19, "publication_ns": 25},
+		]
+		result = summarize_samples(samples, 10, 20, gpu_supported=False)
+		metrics = result["durations_ns"]
+		self.assertEqual(metrics["UniformUpload"]["median"], 1)
+		self.assertEqual(metrics["UniformUpload"]["count"], 1)
+		self.assertEqual(result["boundary_excluded"]["UniformUpload"]["warmup_snapshot"], 1)
+		self.assertEqual(result["boundary_excluded"]["CommandRecording"]["after_window_snapshot"], 1)
+		self.assertEqual(metrics["ResourceUpload"]["median"], 2)
+		self.assertEqual(metrics["SnapshotConstruction"]["median"], 2)
+		self.assertNotIn("UniformUpload", result["active_work_ns"])
+
+	def test_gpu_stage_distributions_match_submissions_and_fail_independently(self):
+		samples = [
+			{"kind": "Submit", "begin_ns": 10, "end_ns": 11, "success": True, "submission_id": 7, "publication_ns": 15},
+			{"kind": "Gpu", "submission_id": 7, "duration_ns": 500, "available": True, "collected_ns": 99},
+			{"kind": "GpuShadow", "submission_id": 7, "duration_ns": 100, "available": True, "collected_ns": 99},
+			{"kind": "GpuMain", "submission_id": 7, "duration_ns": 250, "available": True, "collected_ns": 99},
+		]
+		metrics = summarize_samples(samples, 10, 20, gpu_supported=True)["durations_ns"]
+		self.assertEqual(metrics["Gpu"]["median"], 500)
+		self.assertEqual(metrics["GpuShadow"]["median"], 100)
+		self.assertEqual(metrics["GpuMain"]["median"], 250)
+		self.assertEqual(metrics["GpuUi"]["reason"], "missing_gpu_samples_for_measured_submissions")
+		unsupported = summarize_samples(samples, 10, 20, gpu_supported=False)["durations_ns"]
+		self.assertEqual(unsupported["GpuShadow"]["reason"], "gpu_timestamps_unsupported")
+
 	def test_warmup_snapshot_is_excluded_from_graphics_metrics_even_inside_window(self):
 		samples = [
 			{"kind": "Graphics", "begin_ns": 11, "end_ns": 18, "publication_ns": 9},

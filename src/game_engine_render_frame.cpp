@@ -202,9 +202,15 @@ RenderFrame GameEngine::build_render_frame()
 
 void GameEngine::publish_completed_render_frame()
 {
+	const auto& observation = runtime_options.observation;
+	const auto begin_ns = observation && observation->active() ? runtime_now_ns() : 0;
 	auto frame = build_render_frame();
 	frame.publication_ns = runtime_options.observation ? runtime_now_ns() : 0;
 	last_publication_ns = frame.publication_ns;
 	graphics_engine->publish_completed_render_frame(
 		std::make_shared<const RenderFrame>(std::move(frame)));
+	if (begin_ns)
+		observation->record_game(RuntimeSample{
+			.kind = RuntimeSampleKind::SnapshotConstruction,
+			.begin_ns = begin_ns, .end_ns = runtime_now_ns() });
 }

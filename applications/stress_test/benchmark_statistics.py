@@ -16,13 +16,15 @@ from typing import Any
 
 
 _CPU_INTERVAL_KINDS = (
-	"Simulation", "Graphics", "FrameFenceWait", "ImageFenceWait", "Acquire",
-	"Submit", "Present", "GameSleep", "GraphicsSleep",
+	"Simulation", "Graphics", "UniformUpload", "CommandRecording", "ResourceUpload",
+	"SnapshotConstruction", "FrameFenceWait", "ImageFenceWait", "Acquire", "Submit",
+	"Present", "GameSleep", "GraphicsSleep",
 )
 _GRAPHICS_PHASE_KINDS = {
-	"Graphics", "FrameFenceWait", "ImageFenceWait", "Acquire", "Submit",
-	"Present", "GraphicsSleep",
+	"Graphics", "UniformUpload", "CommandRecording", "FrameFenceWait", "ImageFenceWait",
+	"Acquire", "Submit", "Present", "GraphicsSleep",
 }
+_GPU_KINDS = ("Gpu", "GpuShadow", "GpuMain", "GpuUi")
 
 
 def nearest_rank_percentile(values: Iterable[float], percentile: float) -> float | None:
@@ -229,7 +231,10 @@ def summarize_samples(
 		kind: distribution((record["end_ns"] - record["begin_ns"] for record in in_window[kind]), reason="no_fully_contained_samples")
 		for kind in _CPU_INTERVAL_KINDS
 	}
-	interval_metrics["Gpu"] = _gpu_distribution(records, in_window["Submit"], window_start_ns, window_end_ns, gpu_supported)
+	for kind in _GPU_KINDS:
+		interval_metrics[kind] = _gpu_distribution(
+			records, in_window["Submit"], window_start_ns, window_end_ns, gpu_supported, kind=kind,
+		)
 
 	child_kinds = {"FrameFenceWait", "ImageFenceWait", "Acquire", "Submit", "Present", "GraphicsSleep"}
 	active: dict[str, dict[str, Any]] = {}
@@ -312,7 +317,7 @@ def summarize_samples(
 
 def _gpu_distribution(
 	records: Sequence[Mapping[str, Any]], submissions: Sequence[Mapping[str, Any]],
-	window_start_ns: int, window_end_ns: int, gpu_supported: bool,
+	window_start_ns: int, window_end_ns: int, gpu_supported: bool, *, kind: str = "Gpu",
 ) -> dict[str, Any]:
 	if not gpu_supported:
 		return distribution((), reason="gpu_timestamps_unsupported")
@@ -325,7 +330,7 @@ def _gpu_distribution(
 	values = []
 	observed_ids = set()
 	for record in records:
-		if record.get("kind") != "Gpu" or record.get("submission_id") not in measured_ids:
+		if record.get("kind") != kind or record.get("submission_id") not in measured_ids:
 			continue
 		if record.get("success") is False or record.get("available") is False:
 			continue

@@ -28,7 +28,8 @@ except ImportError:  # direct script execution
 
 RESULT_SCHEMA_VERSION = 1
 SCENARIO_VERSION = 1
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
+_GPU_DURATION_KINDS = ("Gpu", "GpuShadow", "GpuMain", "GpuUi")
 ASSET_LOADING_SCHEMA_VERSION = 2
 ASSET_LOADING_BREAKDOWN_SCHEMA_VERSION = 1
 PROFILE = benchmark_assets.PROFILE
@@ -48,22 +49,30 @@ def standard_cases(*, include_optional_views: bool = False) -> list[dict[str, An
 	cases = [
 		{"scenario": "moving-transforms", "count": 500, "view": None},
 		{"scenario": "point-shadows", "count": 500, "view": None},
-		{"scenario": "textured-environment", "count": 1, "view": "atrium"},
+		{"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 1},
 	]
 	if include_optional_views:
-		cases.extend({"scenario": "textured-environment", "count": 1, "view": view}
-			for view in ("corridor", "material-closeup"))
+		cases.extend([
+			{"scenario": "textured-environment", "count": 1, "view": "atrium"},
+			{"scenario": "textured-environment", "count": 1, "view": "corridor"},
+			{"scenario": "textured-environment", "count": 1, "view": "material-closeup"},
+			{"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 4},
+			{"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 8},
+		])
 	for case in cases:
 		case["case_id"] = _case_id(case)
 	return cases
 
 
-def smoke_cases() -> list[dict[str, Any]]:
+def smoke_cases(*, include_optional_shadows: bool = False) -> list[dict[str, Any]]:
 	cases = [
 		{"scenario": "static-objects", "count": 100, "view": None},
 		{"scenario": "textured-objects", "count": 1, "view": None},
 		{"scenario": "textured-environment", "count": 1, "view": "atrium"},
 	]
+	if include_optional_shadows:
+		cases.extend({"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": count}
+			for count in (1, 4, 8))
 	for case in cases:
 		case["case_id"] = _case_id(case)
 	return cases
@@ -75,6 +84,9 @@ def _case_id(case: Mapping[str, Any]) -> str:
 		parts.append(str(case["view"]))
 	else:
 		parts.append(str(case["count"]))
+	shadow_lights = case.get("shadow_lights", 0)
+	if shadow_lights:
+		parts.append("shadows" if shadow_lights == 1 else f"shadows-{shadow_lights}-lights")
 	return "-".join(parts)
 
 
@@ -82,7 +94,7 @@ def suite_cases(suite: str, workload: str | None = None) -> list[dict[str, Any]]
 	if suite == "asset-loading":
 		cases = [case for case in smoke_cases() if case["scenario"] in {"textured-objects", "textured-environment"}]
 	else:
-		cases = standard_cases(include_optional_views=workload is not None) if suite == "standard" else smoke_cases()
+		cases = standard_cases(include_optional_views=workload is not None) if suite == "standard" else smoke_cases(include_optional_shadows=workload is not None)
 	if workload is None:
 		return cases
 	selected = [case for case in cases if case["case_id"] == workload]
@@ -141,14 +153,12 @@ def verify_asset_cache(cache_dir: Path) -> tuple[dict[str, Any], list[str]]:
 	return {"profile": PROFILE, "manifest_sha256": identity, "files": dict(files)}, []
 
 
-def benchmark_build_errors(suite: str, build: Mapping[str, Any]) -> list[str]:
-	if suite == "smoke":
-		return []
+def benchmark_build_errors(build: Mapping[str, Any]) -> list[str]:
 	if (build.get("build_type") == "release" and build.get("optimised") is True
 		and build.get("debug_macro") is False and build.get("assertions") is False):
 		return []
-	return ["Performance benchmarks require an optimized Release build with assertions disabled "
-		"(--buildtype=release -Db_ndebug=true). Debug builds support --suite smoke for correctness checks only."]
+	return ["All benchmark suites, including smoke, require an optimized Release build with assertions disabled "
+		"(--buildtype=release -Db_ndebug=true)."]
 
 
 def _sha256(path: Path) -> str:
@@ -274,6 +284,9 @@ def _worker_command(
 	]
 	if case.get("view"):
 		command.extend(("--view", str(case["view"])))
+	shadow_lights = case.get("shadow_lights", 0)
+	if shadow_lights > 0:
+		command.extend(("--shadow-lights", str(shadow_lights)))
 	return command
 
 
@@ -338,6 +351,10 @@ def _case_compatibility(
 	}
 	if case.get("view") is not None:
 		workload["view"] = case["view"]
+	if case["scenario"] == "textured-environment":
+		workload["shadow_lights"] = case.get("shadow_lights", 0)
+		workload["shadow_casting_lights"] = scenario.get("shadow_casting_lights")
+		workload["lighting"] = scenario.get("lighting")
 	if engine_resources is not None:
 		workload["engine_resources"] = {
 			"environment_lighting_sha256": engine_resources.get("environment_lighting_sha256"),
@@ -364,7 +381,7 @@ def _case_compatibility(
 		"mode": mode,
 		"protocol": {
 			"suite": protocol["suite"], "protocol_version": protocol["protocol_version"],
-			"instrumentation_version": 2 if protocol["suite"] == "asset-loading" else 1,
+			"instrumentation_version": 2,
 			"warmup_seconds": protocol["warmup_seconds"], "measurement_seconds": protocol["measurement_seconds"],
 			"repetitions": protocol["repetitions"], "deadline_tolerance_ns": protocol["deadline_tolerance_ns"],
 			**({"asset_loading_schema_version": ASSET_LOADING_SCHEMA_VERSION,
@@ -394,7 +411,9 @@ def _status_for_worker(worker: Mapping[str, Any], summary: Mapping[str, Any]) ->
 		return "invalid"
 	if status not in {"complete", "partial"}:
 		return "failed"
-	if worker.get("gpu_supported") is True and not summary["durations_ns"]["Gpu"]["available"]:
+	if worker.get("gpu_supported") is True and any(
+		not summary["durations_ns"][kind]["available"] for kind in _GPU_DURATION_KINDS
+	):
 		return "invalid"
 	if status == "partial" or worker.get("gpu_supported") is not True:
 		return "partial"
@@ -476,6 +495,17 @@ def _case_result(
 		"compatibility": compatibility, "worker_directory": str(worker_dir),
 		"worker": worker,
 	}
+	if (case.get("scenario") == "textured-environment" and mode != "asset-loading"
+		and worker.get("status") not in {"failed", "invalid"}):
+		observed_lights = worker.get("scenario", {}).get("shadow_casting_lights") if isinstance(worker.get("scenario"), dict) else None
+		expected_lights = case.get("shadow_lights", 0)
+		if type(observed_lights) is not int or observed_lights != expected_lights:
+			result["status"] = "invalid"
+			result["error"] = (
+				f"environment worker reported {observed_lights!r} shadow-casting lights; "
+				f"requested {expected_lights}"
+			)
+			return result
 	try:
 		if worker.get("status") not in {"failed", "invalid"}:
 			if mode == "asset-loading":
@@ -755,17 +785,19 @@ def _report(manifest: Mapping[str, Any]) -> str:
 					f"{rates.get('successful_presents_per_second', 0):.2f} presents/s"
 				)
 				for metric_name in (
-					"Simulation", "Graphics", "FrameFenceWait", "ImageFenceWait", "Acquire", "Submit", "Present",
-					"GameSleep", "GraphicsSleep", "Gpu", "PresentCadence", "SnapshotAge",
+					"Simulation", "Graphics", "UniformUpload", "CommandRecording", "ResourceUpload",
+					"SnapshotConstruction", "FrameFenceWait", "ImageFenceWait", "Acquire", "Submit", "Present",
+					"GameSleep", "GraphicsSleep", "Gpu", "GpuShadow", "GpuMain", "GpuUi",
+					"PresentCadence", "SnapshotAge",
 				):
 					metric = summary.get("durations_ns", {}).get(metric_name, {})
 					if metric.get("available"):
-						lines.append(f"  - {metric_name} ns (n={metric['count']}): median {metric['median']}, p95 {metric['p95']}, p99 {metric['p99']}")
+						lines.append(f"  - {metric_name} ns (n={metric['count']}): p50 {metric['median']}, p95 {metric['p95']}, p99 {metric['p99']}")
 					elif metric:
 						lines.append(f"  - {metric_name}: unavailable ({metric.get('reason')})")
 				for active_name, metric in summary.get("active_work_ns", {}).items():
 					if metric.get("available"):
-						lines.append(f"  - {active_name} active work ns (n={metric['count']}): median {metric['median']}, p95 {metric['p95']}, p99 {metric['p99']}")
+						lines.append(f"  - {active_name} active work ns (n={metric['count']}): p50 {metric['median']}, p95 {metric['p95']}, p99 {metric['p99']}")
 				for loop, deadline in summary.get("deadlines", {}).items():
 					lines.append(
 						f"  - {loop}: {deadline['missed_deadline_count']} missed deadlines, "
@@ -893,7 +925,7 @@ def run(args: argparse.Namespace) -> int:
 	except (OSError, ValueError, json.JSONDecodeError) as exc:
 		manifest["errors"].append(f"cannot load build manifest {build_path}: {exc}")
 		return _preflight_failure(manifest, output)
-	build_errors = benchmark_build_errors(args.suite, build)
+	build_errors = benchmark_build_errors(build)
 	if build_errors:
 		manifest["errors"].extend(build_errors)
 		return _preflight_failure(manifest, output)
@@ -951,6 +983,7 @@ def run(args: argparse.Namespace) -> int:
 	manifest["cases"] = [
 		{
 			"case_id": case["case_id"], "scenario": case["scenario"], "count": case["count"], "view": case.get("view"),
+			"shadow_lights": case.get("shadow_lights", 0),
 			"repetitions_by_mode": {mode: [] for mode in case_modes(args.suite, case)},
 			"comparisons": {},
 		}
@@ -1012,7 +1045,7 @@ def _parser() -> argparse.ArgumentParser:
 	subparsers = parser.add_subparsers(dest="command", required=True)
 	run_parser = subparsers.add_parser("run", help="run the routine benchmark (default) or smoke checks")
 	run_parser.add_argument("--suite", choices=("standard", "smoke", "asset-loading"), default="standard")
-	run_parser.add_argument("--workload", choices=sorted({case["case_id"] for case in standard_cases(include_optional_views=True) + smoke_cases()}),
+	run_parser.add_argument("--workload", choices=sorted({case["case_id"] for case in standard_cases(include_optional_views=True) + smoke_cases(include_optional_shadows=True)}),
 		help="run only this workload from the selected suite and configured repetitions")
 	run_parser.add_argument("--baseline")
 	run_parser.add_argument("--source-directory", type=Path, help="use locally supplied pinned inputs when preparing a missing asset cache")

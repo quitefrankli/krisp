@@ -60,6 +60,11 @@ The sample kinds identify these measurement boundaries:
 | `GameSleep`, `GraphicsSleep` | Time spent in the corresponding pacing sleep. |
 | `GameDeadline`, `GraphicsDeadline` | Pacing deadline and skipped-slot count. |
 | `Gpu` | Asynchronously collected GPU execution duration for `submission_id`. |
+| `ResourceUpload` | CPU time processing resource uploads while accepting a frame. |
+| `SnapshotConstruction` | CPU time building and publishing a render snapshot. |
+| `UniformUpload` | CPU time uploading frame uniform data for a render snapshot. |
+| `CommandRecording` | CPU time recording the frame's graphics commands. |
+| `GpuShadow`, `GpuMain`, `GpuUi` | Asynchronously collected GPU spans around the shadow, main, and UI work for a submission. |
 
 Intervals can be nested. For example, `Graphics` may contain `Acquire`,
 `Submit`, and `Present`; summing those records with the enclosing interval would
@@ -78,16 +83,23 @@ the raw timestamps alone cannot reveal multiple wraps. Frame collection also
 checks that the enclosing CPU interval is shorter than one wrap period before
 accepting a GPU duration.
 
-Graphics frames use two timestamp queries around command execution when the
+Graphics frames use timestamp queries around command execution when the
 observer is configured and the graphics queue reports timestamp support. The
 frame reads results only after its existing submission fence signals, using
 availability queries without a wait flag. It retains the query pool until the
 result is collected or explicitly marked unavailable, then reuses the pool for
-that frame's next submission. This adds no per-frame fence or device-idle wait.
-For GPU samples, `begin_ns` is the CPU timestamp taken at the start of the queue
-submit call, while `end_ns` is when the completed query is collected; only
-`duration_ns` represents GPU execution time. The sample keeps the submission
-attempt and render snapshot identifiers from the original submission.
+that frame's next submission. Enabling observation adds no new waits.
+
+The `GpuShadow`, `GpuMain`, and `GpuUi` spans are delimited by timestamp writes
+at `BOTTOM_OF_PIPE` before and after their respective work. They describe GPU
+queue boundary spans, not physical scanout. Work can overlap or be pipelined
+across these boundaries, so the phases are not guaranteed to be isolated costs
+or sum to the total `Gpu` duration. The total span also includes other graphics
+work such as compositing, presentation quads, and capture. For all GPU samples,
+`begin_ns` is the CPU timestamp taken at the start of the queue submit call,
+while `end_ns` is when the completed query is collected; only `duration_ns`
+represents GPU execution time. Each sample keeps the submission attempt and
+render snapshot identifiers from the original submission.
 
 ## Initial-scene presentation readiness
 

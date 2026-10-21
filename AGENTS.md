@@ -40,8 +40,8 @@
 
 * Build with `meson compile -C build/debug -j 6 sandbox`.
 * Run tests with `meson test -C build/debug -j 6`.
-* Agents must use only `build/debug`; `build/release` is reserved for the user's
-  concurrent Release workflow.
+* Run all `stress_test` benchmark suites in optimized Release mode with assertions
+  disabled (`build/release`, `--buildtype=release -Db_ndebug=true`).
 * If there are dependency or build-configuration changes, use the following
   sequence. Conan dependencies intentionally remain Release while Krisp is
   configured as Debug. Conan's generated native file deliberately omits

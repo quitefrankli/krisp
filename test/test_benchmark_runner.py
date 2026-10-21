@@ -13,6 +13,32 @@ from applications.stress_test import build_provenance
 
 
 class BenchmarkRunnerTests(unittest.TestCase):
+	def test_protocol_version_and_report_include_instrumented_phases(self):
+		self.assertEqual(runner.PROTOCOL_VERSION, 3)
+		phase_names = (
+			"UniformUpload", "CommandRecording", "ResourceUpload", "SnapshotConstruction",
+			"GpuShadow", "GpuMain", "GpuUi",
+		)
+		report = runner._report({
+			"protocol": {"suite": "smoke"}, "status": "complete", "completed_workers": 1,
+			"scheduled_workers": 1, "cases": [{"case_id": "fixture", "repetitions_by_mode": {
+				"throughput": [{"repetition": 1, "status": "complete", "summary": {
+					"durations_ns": {name: {"available": True, "count": 1, "median": 10, "p95": 10, "p99": 10}
+						for name in phase_names},
+				}}],
+			}}],
+		})
+		for name in phase_names:
+			self.assertIn(f"{name} ns (n=1): p50 10, p95 10, p99 10", report)
+
+	def test_supported_gpu_requires_every_gpu_metric(self):
+		worker = {"status": "complete", "gpu_supported": True, "errors": [], "lost_records": 0}
+		metrics = {kind: {"available": True} for kind in runner._GPU_DURATION_KINDS}
+		summary = {"durations_ns": metrics}
+		self.assertEqual(runner._status_for_worker(worker, summary), "complete")
+		metrics["GpuMain"] = {"available": False, "reason": "missing_gpu_samples_for_measured_submissions"}
+		self.assertEqual(runner._status_for_worker(worker, summary), "invalid")
+
 	def test_workload_filter_runs_only_selected_case_in_both_repetition_rounds(self):
 		for suite, workload, repetitions in [("standard", "point-shadows-500", 2), ("smoke", "static-objects-100", 1)]:
 			with self.subTest(suite=suite):
@@ -26,19 +52,57 @@ class BenchmarkRunnerTests(unittest.TestCase):
 			runner.suite_cases("standard", "static-objects-100")
 
 	def test_sponza_views_are_selectable_and_atrium_is_in_the_default_suite(self):
-		for view in ("atrium", "corridor", "material-closeup"):
-			workload = f"textured-environment-{view}"
+		for view, workload, shadow_lights in (
+			("atrium", "textured-environment-atrium", 0),
+			("corridor", "textured-environment-corridor", 0),
+			("material-closeup", "textured-environment-material-closeup", 0),
+			("atrium", "textured-environment-atrium-shadows", 1),
+			("atrium", "textured-environment-atrium-shadows-4-lights", 4),
+			("atrium", "textured-environment-atrium-shadows-8-lights", 8),
+		):
 			with self.subTest(view=view):
 				cases = runner.suite_cases("standard", workload)
 				self.assertEqual(len(cases), 1)
 				self.assertEqual(cases[0]["scenario"], "textured-environment")
 				self.assertEqual(cases[0]["view"], view)
 				self.assertEqual(cases[0]["count"], 1)
+				self.assertEqual(cases[0].get("shadow_lights", 0), shadow_lights)
 				self.assertEqual(len(runner.make_schedule("standard", 2, workload=workload)) * 2, 4)
 				args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 					"--environment-lighting", "lighting", "--shader-directory", "shaders", "run", "--workload", workload])
 				self.assertEqual(args.suite, "standard")
+		self.assertEqual([case["case_id"] for case in runner.standard_cases()], [
+			"moving-transforms-500", "point-shadows-500", "textured-environment-atrium-shadows",
+		])
+		optional = {case["case_id"]: case for case in runner.standard_cases(include_optional_views=True)}
+		self.assertEqual(optional["textured-environment-atrium"].get("shadow_lights", 0), 0)
+		self.assertEqual(len(optional), 8)
+		self.assertEqual(len({case["case_id"] for case in optional.values()}), len(optional))
 		self.assertEqual(len(runner.suite_cases("standard")), 3)
+
+	def test_shadow_variant_is_optional_in_smoke_and_worker_flag_is_explicit(self):
+		self.assertEqual(len(runner.smoke_cases()), 3)
+		self.assertEqual(len(runner.make_schedule("smoke", 1)), 3)
+		workload = "textured-environment-atrium-shadows"
+		case, = runner.suite_cases("smoke", workload)
+		self.assertEqual(case["shadow_lights"], 1)
+		self.assertEqual(len(runner.make_schedule("smoke", 1, workload=workload)), 1)
+		command = runner._worker_command("engine", case, "paced", 0.2, 0.5, Path("cache"), Path("out"))
+		self.assertEqual(command[command.index("--shadow-lights") + 1], "1")
+		plain = runner._worker_command("engine", runner.smoke_cases()[2], "paced", 0.2, 0.5, Path("cache"), Path("out"))
+		self.assertNotIn("--shadow-lights", plain)
+		for count in (4, 8):
+			variant = f"textured-environment-atrium-shadows-{count}-lights"
+			for suite in ("standard", "smoke"):
+				selected, = runner.suite_cases(suite, variant)
+				self.assertEqual(selected["shadow_lights"], count)
+				self.assertEqual(len(runner.make_schedule(suite, 2 if suite == "standard" else 1,
+					workload=variant)), 2 if suite == "standard" else 1)
+				command = runner._worker_command("engine", selected, "paced", 0.2, 0.5, Path("cache"), Path("out"))
+				self.assertEqual(command[command.index("--shadow-lights") + 1], str(count))
+		self.assertEqual([case["case_id"] for case in runner.suite_cases("asset-loading")], [
+			"textured-objects-1", "textured-environment-atrium",
+		])
 
 	def test_public_cli_rejects_removed_path_overrides(self):
 		base = ["--executable", "fixture", "--build-manifest", "build.json",
@@ -62,17 +126,24 @@ class BenchmarkRunnerTests(unittest.TestCase):
 			self.assertNotEqual(path.stat().st_mtime_ns, 1_000_000_000)
 			self.assertEqual(json.loads(path.read_text()), {"source_fingerprint": "changed"})
 
-	def test_standard_benchmarks_require_known_optimized_release_configuration(self):
+	def test_all_benchmark_suites_require_known_optimized_release_configuration(self):
 		release = {"build_type": "release", "optimised": True, "debug_macro": False, "assertions": False}
-		self.assertEqual(runner.benchmark_build_errors("standard", release), [])
-		for field, value in [("build_type", "debug"), ("build_type", "debugoptimized"),
-			("optimised", False), ("assertions", True), ("debug_macro", True), ("optimised", None)]:
-			with self.subTest(field=field, value=value):
-				self.assertTrue(runner.benchmark_build_errors("standard", {**release, field: value}))
-		self.assertTrue(runner.benchmark_build_errors("standard", {}))
-		self.assertEqual(runner.benchmark_build_errors("smoke", {"build_type": "debug"}), [])
-		self.assertTrue(runner.benchmark_build_errors("asset-loading", {"build_type": "debug"}))
-		self.assertEqual(runner.benchmark_build_errors("asset-loading", release), [])
+		invalid_builds = [
+			{**release, "build_type": "debug"},
+			{**release, "build_type": "debugoptimized"},
+			{**release, "build_type": "unknown"},
+			{**release, "optimised": False},
+			{**release, "optimised": None},
+			{**release, "assertions": True},
+			{**release, "debug_macro": True},
+			{},
+		]
+		for suite in ("standard", "smoke", "asset-loading"):
+			with self.subTest(suite=suite, build="release"):
+				self.assertEqual(runner.benchmark_build_errors(release), [])
+			for build in invalid_builds:
+				with self.subTest(suite=suite, build=build):
+					self.assertTrue(runner.benchmark_build_errors(build))
 
 	def test_suites_have_expected_coverage_duration_and_repeatable_order(self):
 		for suite, case_count, worker_count, timed_seconds in [
@@ -85,7 +156,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
 				self.assertAlmostEqual(worker_count * (warmup + measure), timed_seconds)
 				self.assertEqual(schedule, runner.make_schedule(suite, repetitions))
 		self.assertEqual({case["case_id"] for case in runner.standard_cases()}, {
-			"moving-transforms-500", "point-shadows-500", "textured-environment-atrium"})
+			"moving-transforms-500", "point-shadows-500", "textured-environment-atrium-shadows"})
 		args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 			"--environment-lighting", "lighting", "--shader-directory", "shaders", "run"])
 		self.assertEqual(args.suite, "standard")
@@ -498,8 +569,10 @@ time.sleep(5)
 		with tempfile.TemporaryDirectory() as temporary:
 			root = Path(temporary)
 			build = root / "build.json"
-			build.write_text(json.dumps({"schema_version": 1, "build_class": "debug", "validation": True,
-				"runtime_tools_sha256": build_provenance.runtime_tools_sha256(Path.cwd())}))
+			release_build = {"schema_version": 1, "build_class": "optimized", "build_type": "release",
+				"optimised": True, "debug_macro": False, "assertions": False, "validation": True,
+				"runtime_tools_sha256": build_provenance.runtime_tools_sha256(Path.cwd())}
+			build.write_text(json.dumps(release_build))
 			lighting = root / "default_environment.krisp-ibl"
 			lighting.write_bytes(b"synthetic lighting")
 			shaders = root / "shaders"
@@ -518,6 +591,23 @@ time.sleep(5)
 				output.mkdir()
 				with patch.object(runner, "_new_output_dir", return_value=output):
 					return runner.run(args)
+			for suite in ("standard", "smoke", "asset-loading"):
+				build.write_text(json.dumps({**release_build, "build_class": "debug", "build_type": "debug",
+					"optimised": False, "debug_macro": True, "assertions": True}))
+				args.suite = suite
+				output = root / f"debug-{suite}"
+				stderr = io.StringIO()
+				with redirect_stderr(stderr), patch.object(benchmark_assets, "prepare_assets") as prepare, \
+					patch.object(runner, "_run_worker") as worker:
+					self.assertEqual(invoke(), 2)
+					prepare.assert_not_called()
+					worker.assert_not_called()
+				self.assertIn("including smoke", stderr.getvalue())
+				manifest = json.loads((output / "run_manifest.json").read_text())
+				self.assertIn("including smoke", " ".join(manifest["errors"]))
+			build.write_text(json.dumps(release_build))
+			args.suite = "smoke"
+			output = root / "result"
 			stderr = io.StringIO()
 			with redirect_stderr(stderr), patch.object(benchmark_assets, "prepare_assets",
 				side_effect=benchmark_assets.AssetPreparationError("fixture prepared.json unavailable")) as prepare:
@@ -533,20 +623,6 @@ time.sleep(5)
 			self.assertEqual(manifest["runtime_shader_spirv_sha256"]["test.spv"],
 				hashlib.sha256(b"spirv").hexdigest())
 			self.assertTrue((output / "report.md").is_file())
-			args.suite = "standard"
-			output = root / "debug-standard"
-			with patch.object(runner, "_run_worker") as worker:
-				self.assertEqual(invoke(), 2)
-				worker.assert_not_called()
-			manifest = json.loads((Path(output) / "run_manifest.json").read_text())
-			self.assertIn("Release build", " ".join(manifest["errors"]))
-			args.suite = "asset-loading"
-			output = root / "debug-asset-loading"
-			with patch.object(runner, "_run_worker") as worker:
-				self.assertEqual(invoke(), 2)
-				worker.assert_not_called()
-			manifest = json.loads((Path(output) / "run_manifest.json").read_text())
-			self.assertIn("Release build", " ".join(manifest["errors"]))
 			args.workload = "static-objects-100"
 			args.suite = "standard"
 			output = root / "wrong-suite"
@@ -723,6 +799,7 @@ time.sleep(5)
 			{"environment_lighting_sha256": "lighting-hash", "shader_spirv_sha256": {"shader.spv": "provenance-only"}})
 		comparison = runner.compare_compatibility(compatibility, compatibility)
 		self.assertTrue(comparison["compatible"], comparison)
+		self.assertEqual(compatibility["protocol"]["instrumentation_version"], 2)
 		self.assertEqual(compatibility["machine"]["gpu"]["device_id"], 2)
 		self.assertEqual(compatibility["effective_settings"]["width"], 1280)
 		self.assertTrue(compatibility["effective_settings"]["performance_overlay"])
@@ -739,6 +816,42 @@ time.sleep(5)
 		self.assertEqual(compatibility["workload"]["engine_resources"]["environment_lighting_sha256"],
 			"lighting-hash")
 		self.assertEqual(compatibility["build"]["runtime_tools_sha256"], build["runtime_tools_sha256"])
+		lighting = [{"position": [0, 1, 2], "intensity": 3.0, "color": [1, 1, 1], "enabled": True, "casts_shadow": True}]
+		shadowed_case = {"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 1}
+		shadowed_worker = {**worker, "scenario": {**worker["scenario"], "shadow_casting_lights": 1, "lighting": lighting}}
+		shadowed = runner._case_compatibility(shadowed_case, "paced", protocol, {}, build, shadowed_worker)
+		self.assertEqual(shadowed["workload"]["shadow_lights"], 1)
+		self.assertEqual(shadowed["workload"]["shadow_casting_lights"], 1)
+		self.assertEqual(shadowed["workload"]["lighting"], lighting)
+		unshadowed_case = {**shadowed_case, "shadow_lights": 0}
+		unshadowed_worker = {**worker, "scenario": {**worker["scenario"], "shadow_casting_lights": 0, "lighting": []}}
+		unshadowed = runner._case_compatibility(unshadowed_case, "paced", protocol, {}, build, unshadowed_worker)
+		comparison = runner.compare_compatibility(shadowed, unshadowed)
+		self.assertFalse(comparison["compatible"])
+		mismatch_fields = {item["field"] for item in comparison["mismatches"]}
+		self.assertTrue({"workload.shadow_lights", "workload.shadow_casting_lights"}.issubset(mismatch_fields))
+		self.assertTrue(any(field.startswith("workload.lighting") for field in mismatch_fields))
+		multi_case = {**shadowed_case, "shadow_lights": 4}
+		multi_worker = {**worker, "scenario": {**worker["scenario"], "shadow_casting_lights": 4,
+			"lighting": lighting * 4}}
+		multi = runner._case_compatibility(multi_case, "paced", protocol, {}, build, multi_worker)
+		self.assertEqual(multi["workload"]["shadow_lights"], 4)
+		self.assertEqual(multi["workload"]["shadow_casting_lights"], 4)
+		self.assertEqual(multi["workload"]["lighting"], lighting * 4)
+		unknown = runner._case_compatibility(shadowed_case, "paced", protocol, {}, build,
+			{**worker, "scenario": {**worker["scenario"], "shadow_casting_lights": 1}})
+		comparison = runner.compare_compatibility(shadowed, unknown)
+		self.assertFalse(comparison["compatible"])
+		self.assertIn("workload.lighting", comparison["unknown_fields"])
+
+	def test_environment_rendering_requires_observed_shadow_light_count(self):
+		case = {"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 4}
+		for scenario in ({}, {"shadow_casting_lights": 0}, {"shadow_casting_lights": 1}):
+			with self.subTest(scenario=scenario):
+				result = runner._case_result({"status": "complete", "scenario": scenario}, Path("unused"),
+					case, "paced", 1, {}, False)
+				self.assertEqual(result["status"], "invalid")
+				self.assertIn("shadow-casting lights", result["error"])
 
 
 if __name__ == "__main__":

@@ -64,6 +64,10 @@ enum class RuntimeSampleKind
 {
 	Simulation,
 	Graphics,
+	UniformUpload,
+	CommandRecording,
+	ResourceUpload,
+	SnapshotConstruction,
 	FrameFenceWait,
 	ImageFenceWait,
 	Acquire,
@@ -73,8 +77,17 @@ enum class RuntimeSampleKind
 	GraphicsSleep,
 	GameDeadline,
 	GraphicsDeadline,
-	Gpu
+	Gpu,
+	GpuShadow,
+	GpuMain,
+	GpuUi
 };
+
+constexpr bool is_gpu_sample(RuntimeSampleKind kind) noexcept
+{
+	return kind == RuntimeSampleKind::Gpu || kind == RuntimeSampleKind::GpuShadow
+		|| kind == RuntimeSampleKind::GpuMain || kind == RuntimeSampleKind::GpuUi;
+}
 
 struct RuntimeSample
 {

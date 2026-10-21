@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     echo "Usage: ./run [application] [--debug|--release] [-- application arguments...]"
-    echo "Defaults: sandbox, --debug"
+    echo "Defaults: sandbox, --debug; stress_test always uses --release"
 }
 
 application=sandbox
@@ -11,6 +11,9 @@ build_type=debug
 if [[ ${1:-} != -* && $# -gt 0 ]]; then
     application=$1
     shift
+fi
+if [[ $application == stress_test ]]; then
+    build_type=release
 fi
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -22,6 +25,11 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+if [[ $application == stress_test && $build_type != release ]]; then
+    echo "stress_test requires Release mode; use --release or omit the build-mode flag." >&2
+    exit 2
+fi
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ ! $application =~ ^[a-zA-Z0-9_][a-zA-Z0-9_-]*$ || ! -f applications/$application/meson.build ]]; then

@@ -46,6 +46,7 @@ struct WorkerOptions
 	std::string view = "atrium";
 	std::string mode;
 	int count = 100;
+	int shadow_lights = 0;
 	double warmup = 10.0;
 	double measure = 30.0;
 	Path cache;
@@ -85,6 +86,8 @@ const char* kind_name(RuntimeSampleKind kind)
 		SAMPLE_NAME(ImageFenceWait); SAMPLE_NAME(Acquire); SAMPLE_NAME(Submit);
 		SAMPLE_NAME(Present); SAMPLE_NAME(GameSleep); SAMPLE_NAME(GraphicsSleep);
 		SAMPLE_NAME(GameDeadline); SAMPLE_NAME(GraphicsDeadline); SAMPLE_NAME(Gpu);
+		SAMPLE_NAME(UniformUpload); SAMPLE_NAME(CommandRecording); SAMPLE_NAME(ResourceUpload);
+		SAMPLE_NAME(SnapshotConstruction); SAMPLE_NAME(GpuShadow); SAMPLE_NAME(GpuMain); SAMPLE_NAME(GpuUi);
 #undef SAMPLE_NAME
 	}
 	throw std::logic_error("Unknown runtime sample kind");
@@ -161,7 +164,7 @@ private:
 						submitted.erase(sample.submission_id);
 					Json record{
 						{"kind", kind_name(sample.kind)}, {"begin_ns", sample.begin_ns}, {"end_ns", sample.end_ns},
-						{"duration_ns", sample.kind == RuntimeSampleKind::Gpu ? sample.duration_ns : sample.end_ns - sample.begin_ns}, {"submission_id", sample.submission_id},
+						{"duration_ns", is_gpu_sample(sample.kind) ? sample.duration_ns : sample.end_ns - sample.begin_ns}, {"submission_id", sample.submission_id},
 						{"frame_number", sample.frame_number}, {"tick_index", sample.tick_index},
 						{"publication_ns", sample.publication_ns}, {"missed_slots", sample.missed_slots},
 						{"success", sample.success}, {"phase", membership.phase}, {"included", membership.included},
@@ -203,6 +206,24 @@ public:
 		engine.set_game_mode(EGameMode::NORMAL);
 		if (engine.get_ecs().get_renderable_ids().size() != state.scenario.at("renderables").get<size_t>())
 			throw std::runtime_error("Scene renderable count differs from the workload definition");
+		size_t shadow_casting_lights = 0;
+		Json lighting = Json::array();
+		for (const auto id : engine.get_ecs().get_light_source_ids())
+		{
+			const auto& light = *engine.get_ecs().get_light_component(id);
+			const auto position = engine.get_ecs().get_transformation(id).get_position();
+			lighting.push_back({{"position", {position.x, position.y, position.z}},
+				{"intensity", light.intensity}, {"color", {light.color.r, light.color.g, light.color.b}},
+				{"enabled", light.enabled}, {"casts_shadow", light.casts_shadow}});
+			if (light.enabled && light.casts_shadow && light.intensity > 0.0f
+				&& (light.color.r > 0.0f || light.color.g > 0.0f || light.color.b > 0.0f))
+				++shadow_casting_lights;
+		}
+		const size_t expected_shadow_lights = options.scenario == "point-shadows" ? 1 : options.shadow_lights;
+		if (shadow_casting_lights != expected_shadow_lights)
+			throw std::runtime_error("Shadow-casting light count differs from the workload definition");
+		state.scenario["shadow_casting_lights"] = shadow_casting_lights;
+		state.scenario["lighting"] = std::move(lighting);
 		state.scenario["name"] = options.scenario;
 		state.scenario["version"] = 1;
 		state.scenario["count"] = options.count;
@@ -365,7 +386,18 @@ private:
 		{
 			const auto& view = asset.at("views").at(options.view);
 			engine.get_camera().look_at(vector3(view.at("focus")), vector3(view.at("from")));
-			light(engine, vector3(asset.at("light_position")), asset.at("light_intensity").get<float>(), false);
+			// Nested fixed prefixes retain the original light as the first source.
+			const std::array<glm::vec3, 8> offsets{{
+				{0.0f, 0.0f, 0.0f}, {-8.0f, -4.0f, -6.0f},
+				{8.0f, -4.0f, -6.0f}, {-8.0f, -4.0f, 6.0f},
+				{8.0f, -4.0f, 6.0f}, {0.0f, -8.0f, -6.0f},
+				{0.0f, -8.0f, 6.0f}, {0.0f, 2.0f, 0.0f},
+			}};
+			const auto primary_position = vector3(asset.at("light_position"));
+			const int light_count = std::max(1, options.shadow_lights);
+			const float intensity = asset.at("light_intensity").get<float>() / light_count;
+			for (int index = 0; index < light_count; ++index)
+				light(engine, primary_position + offsets.at(index), intensity, options.shadow_lights > 0);
 		}
 		else
 		{
@@ -403,6 +435,7 @@ WorkerOptions parse_options(int argc, char** argv)
 		if (key == "--scenario") options.scenario = value;
 		else if (key == "--view") options.view = value;
 		else if (key == "--mode") options.mode = value;
+		else if (key == "--shadow-lights") options.shadow_lights = parse_number<int>(value);
 		else if (key == "--count") options.count = parse_number<int>(value);
 		else if (key == "--warmup") options.warmup = parse_number<double>(value);
 		else if (key == "--measure") options.measure = parse_number<double>(value);
@@ -412,9 +445,13 @@ WorkerOptions parse_options(int argc, char** argv)
 	}
 	const std::set<std::string> scenarios{"static-objects", "moving-transforms", "point-shadows", "textured-objects", "textured-environment"};
 	const bool loading = options.mode == "asset-loading";
+	if (options.shadow_lights != 0 && (options.scenario != "textured-environment" || loading))
+		throw std::invalid_argument("Shadow variants require an environment rendering workload");
 	if (loading && ((options.scenario != "textured-objects" && options.scenario != "textured-environment")
 		|| options.count != 1 || options.warmup != 0.0 || options.measure != 0.0))
 		throw std::invalid_argument("Asset loading requires one textured asset and no warm-up or steady-state measurement");
+	if (options.shadow_lights < 0 || options.shadow_lights > 8)
+		throw std::invalid_argument("Shadow light count must be between zero and eight");
 	if (!scenarios.contains(options.scenario) || (options.mode != "throughput" && options.mode != "paced" && !loading)
 		|| options.count < 1 || options.count > 1000 || options.output.empty()
 		|| !std::isfinite(options.warmup) || options.warmup < 0.0 || options.warmup > 3600.0
@@ -430,6 +467,10 @@ int run_benchmark_worker(int argc, char** argv)
 	WorkerState state;
 	try
 	{
+
+#if !defined(NDEBUG) || defined(DEBUG) || !defined(__OPTIMIZE__)
+		throw std::runtime_error("stress_test workers require an optimized Release build with assertions disabled");
+#endif
 		options = parse_options(argc, argv);
 		std::filesystem::create_directories(options.output);
 		const auto assets = read_json(options.cache / "prepared.json");

@@ -3,12 +3,12 @@
 The stress-test application has two commands for benchmark setup and execution:
 
 ```sh
-stress_test prepare-assets
-stress_test run
-stress_test run --suite smoke
+./run stress_test -- prepare-assets
+./run stress_test -- run
+./run stress_test -- run --suite smoke
 ```
 
-`run` automatically prepares the pinned Flight Helmet and Sponza assets when its cache is missing, before starting workers or warm-up. Preparation downloads pinned sources unless local inputs are supplied with `--source-directory DIR`. A present cache is verified and reused; a corrupt or incompatible cache fails with a diagnostic. `prepare-assets` remains available for manual preparation and uses the same cache. Both Debug and Release builds share `build/benchmark-assets`.
+`run` automatically prepares the pinned Flight Helmet and Sponza assets when its cache is missing, before starting workers or warm-up. Preparation downloads pinned sources unless local inputs are supplied with `--source-directory DIR`. A present cache is verified and reused; a corrupt or incompatible cache fails with a diagnostic. `prepare-assets` remains available for manual preparation and uses the same cache. The asset cache is shared at `build/benchmark-assets`.
 
 Preparation profile `engine-pbr-opaque-bc3-v1` converts the 87 pinned source
 PNGs to lossy base-level BC3/DXT5 DDS runtime textures. A valid cache from the
@@ -19,7 +19,7 @@ new preparation.
 
 ## Build for benchmarking
 
-The `standard` performance suite requires an optimized Release build with assertions disabled. From the repository root, configure a new Release directory (omit `--reconfigure` on first setup):
+Every `stress_test run` suite, including `smoke`, requires an optimized Release build with assertions disabled. Debug execution is rejected before workers launch. From the repository root, configure a Release directory (omit `--reconfigure` on first setup):
 
 ```sh
 meson setup build/release --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=release -Db_ndebug=true
@@ -30,12 +30,12 @@ build/release/applications/stress_test/stress_test run
 The repository launcher can build and run it in one command:
 
 ```sh
-./run stress_test --release -- run
+./run stress_test -- run
 ```
 
 For offline automatic preparation, pass `--source-directory DIR` to `run` with the pinned source files in the layout described in [benchmark asset preparation](STRESS_TEST_ASSETS.md). If dependencies have not been installed, first run `conan install . -pr=conan_clang_profile --build=missing`; the dependencies remain Release while Meson selects the engine configuration.
 
-Debug builds may run `--suite smoke` to verify correctness, but the runner rejects `standard` and `asset-loading` before launching workers. Use Release for performance measurements. The recorded effective settings and display setup must match between compared runs.
+Use the repository launcher for all benchmark runs; it builds and selects the optimized Release configuration by default. The recorded effective settings and display setup must match between compared runs.
 
 Every benchmark worker enables the engine performance overlay. It displays live
 FPS and TPS during loading where the loading screen supports it, warm-up, and
@@ -45,9 +45,32 @@ diagnostic; persisted benchmark records remain the source for reported metrics.
 
 ## Suites
 
-The default `standard` suite runs `moving-transforms-500` and `point-shadows-500` in throughput mode, and `textured-environment-atrium` (Sponza) in both throughput and paced modes. Each workload and mode has two fresh processes, for eight launches total. It warms up each worker for 2 seconds and measures for 10 seconds, for 96 seconds of configured timed work. FPS/TPS overlay updates and drawing run during warm-up and measurement and are included in the measured costs. The full-resolution Sponza scene has longer, hardware-dependent startup, so the standard suite has no under-five-minute completion guarantee. First-time asset preparation is also outside the configured timed-work total and can take substantially longer.
+The default `standard` suite runs `moving-transforms-500` and `point-shadows-500` in throughput mode, and `textured-environment-atrium-shadows` (Sponza) in both throughput and paced modes. Each workload and mode has two fresh processes, for eight launches total. It warms up each worker for 2 seconds and measures for 10 seconds, for 96 seconds of configured timed work. FPS/TPS overlay updates and drawing run during warm-up and measurement and are included in the measured costs. The full-resolution Sponza scene has longer, hardware-dependent startup, so the standard suite has no under-five-minute completion guarantee. First-time asset preparation is also outside the configured timed-work total and can take substantially longer.
 
-Smoke runs the `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium` cases in both modes. It uses one repetition, 0.2 seconds of warm-up, and 0.5 seconds of measurement. Smoke confirms correctness and the automated lifecycle; its short measurements are not performance results. The suite name, timings, repetitions, workload, effective settings, build class, machine, selected GPU, and driver participate in compatibility, so smoke cannot be compared with `standard`.
+The optional `textured-environment-atrium-shadows-4-lights` and
+`textured-environment-atrium-shadows-8-lights` workloads are available in both
+`standard` and `smoke`. The default suite continues to use the original
+one-shadow-light atrium workload. In standard, each selected workload runs in
+both modes with two repetitions, 2 seconds of warm-up, and 10 seconds of
+measurement. All variants use fixed light definitions; the multi-light
+variants use prefixes of the same nested eight-position list, with the
+original light position first and deterministic offsets for the remaining
+positions. They split the existing total light intensity of 800 equally
+across the selected lights. This controls aggregate intensity as a parameter,
+but does not guarantee equal perceived brightness. Every light casts shadows
+using a 1024-by-1024 cubemap and the renderer's current 16-tap PCF filter.
+Workload identity records the actual per-light definitions and light count,
+so each variant has its own baseline identity. The unshadowed atrium remains
+the one-unshadowed-light reference, and asset loading is unchanged.
+
+For focused standard runs, use:
+
+```sh
+./run stress_test -- run --workload textured-environment-atrium-shadows-4-lights
+./run stress_test -- run --workload textured-environment-atrium-shadows-8-lights
+```
+
+Smoke runs the `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium` cases in both modes. It uses one repetition, 0.2 seconds of warm-up, and 0.5 seconds of measurement. The shadowed atrium and its four-light and eight-light variants can also be selected explicitly in smoke without changing the default workload set. Smoke is a short Release lifecycle check; its measurements are too brief to serve as performance evidence. The suite name, timings, repetitions, workload, effective settings, build class, machine, selected GPU, and driver participate in compatibility, so smoke cannot be compared with `standard`.
 
 The `asset-loading` suite measures `textured-objects-1` (Flight Helmet) and
 `textured-environment-atrium` (Sponza) in separate fresh processes. It defaults
@@ -58,8 +81,8 @@ assertions disabled. The suite rejects `--warmup` and `--measure`, while
 `--workload` and `--repetitions` select the requested workloads and repetitions.
 
 ```sh
-./run stress_test --release -- run --suite asset-loading
-./run stress_test --release -- run --suite asset-loading --workload textured-objects-1 --repetitions 1
+./run stress_test -- run --suite asset-loading
+./run stress_test -- run --suite asset-loading --workload textured-objects-1 --repetitions 1
 ```
 
 Preparation and checksum verification happen before workers start and before
@@ -99,18 +122,19 @@ stress_test run
 Use `--workload CASE_ID` to run one existing case from the selected suite. By default, every case runs. For example, this selects only `point-shadows-500` in throughput mode, with two repetitions and a 2-second warm-up plus 10-second measurement (two worker launches):
 
 ```sh
-./run stress_test --release -- run --workload point-shadows-500
+./run stress_test -- run --workload point-shadows-500
 ```
 
-Standard accepts `moving-transforms-500`, `point-shadows-500`, `textured-environment-atrium`, `textured-environment-corridor`, and `textured-environment-material-closeup`. Smoke accepts `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium`. The Sponza views use the pinned full-resolution assets and fixed view definitions; each selected view retains normal per-view metadata, raw records, reports, and baseline identity. The atrium view is part of standard's default schedule and is also valid in smoke. The filter selects cases only; it does not change case metrics, effective settings, or per-case baseline compatibility. Unknown cases and valid cases that belong only to the other suite are rejected during preflight before workers start or assets are downloaded/prepared.
+Standard accepts `moving-transforms-500`, `point-shadows-500`, `textured-environment-atrium`, `textured-environment-atrium-shadows`, `textured-environment-atrium-shadows-4-lights`, `textured-environment-atrium-shadows-8-lights`, `textured-environment-corridor`, and `textured-environment-material-closeup`. Smoke accepts `static-objects-100`, `textured-objects-1`, `textured-environment-atrium`, `textured-environment-atrium-shadows`, `textured-environment-atrium-shadows-4-lights`, and `textured-environment-atrium-shadows-8-lights`. The Sponza views use the pinned full-resolution assets and fixed view definitions; each selected view retains normal per-view metadata, raw records, reports, and baseline identity. The shadowed atrium workloads use fixed point-light definitions, 1024-by-1024 cubemaps, and the renderer's current 16-tap PCF filter. The unshadowed atrium view remains selectable in standard and smoke; the corridor and material-closeup views remain unshadowed optional standard workloads. Shadowed and unshadowed atrium runs have distinct workload identities, and the recorded actual light definitions and count also participate in baseline compatibility. The filter selects cases only; it does not change case metrics, effective settings, or per-case baseline compatibility. Unknown cases and valid cases that belong only to the other suite are rejected during preflight before workers start or assets are downloaded/prepared.
 
-The atrium Sponza view is part of the default standard schedule; the corridor and material-closeup views are optional standard workloads, each available in throughput and paced modes. A focused atrium run uses the standard settings:
+The shadowed atrium Sponza view is part of the default standard schedule. The unshadowed atrium, corridor, and material-closeup views are optional standard workloads, each available in throughput and paced modes. Focused shadowed and unshadowed atrium runs use the same standard settings for a controlled workload comparison:
 
 ```sh
-./run stress_test --release -- run --workload textured-environment-atrium
+./run stress_test -- run --workload textured-environment-atrium-shadows
+./run stress_test -- run --workload textured-environment-atrium
 ```
 
-Each standard Sponza view runs in both modes with two repetitions, 2 seconds of warm-up, and 10 seconds of measurement (four fresh processes per view). The default suite therefore has three workloads, eight workers, and 96 seconds of configured timed work. Sponza startup is longer while the full-resolution scene loads, so the default suite has no under-five-minute completion guarantee. To use one repetition and two worker launches for a focused view, pass `--repetitions 1`; this is faster but provides less evidence for comparison and cannot support a directional comparison under the minimum two repetitions per side.
+Each selected standard Sponza view runs in both modes with two repetitions, 2 seconds of warm-up, and 10 seconds of measurement (four fresh processes per view). The default suite has four workload/mode combinations, eight workers, and 96 seconds of configured timed work. To use one repetition and two worker launches for a focused view, pass `--repetitions 1`; this is faster but provides less evidence for comparison and cannot support a directional comparison under the minimum two repetitions per side. Keep machine, build, display setup, and timing settings the same across the two focused commands; their distinct workload identities mean they retain separate baselines rather than being a direct baseline comparison.
 
 The coordinator prints the estimated timed-work duration and progress. Cases run sequentially in a deterministic shuffled order for each repetition round. Every repetition starts a fresh worker. A supported graphics session is required. When the default asset cache is absent, the runner prepares it before workers or warm-up; first-time preparation is outside the configured timed-work estimate. Existing caches must pass integrity checks; altered or incompatible caches fail preflight rather than removing textured workloads. Startup and final collection vary with hardware and workload.
 
@@ -136,18 +160,20 @@ The coordinator waits up to 300 seconds for Sponza readiness and 120 seconds for
 
 ## Reading results
 
-Raw CPU timestamps and durations use monotonic nanoseconds. Per-repetition output reports successful simulation ticks, graphics submissions and present calls over the measurement window, plus nearest-rank median, p95 and p99 durations for available sample types. Work intervals that touch the measurement boundary are excluded and counted by reason. Graphics active work subtracts the union of its nested waits, API calls, and pacing sleep to avoid double-counting. GPU spans are joined to their original submission and snapshot publication phase, even when results arrive during collection.
+Raw CPU timestamps and durations use monotonic nanoseconds. Per-repetition output reports successful simulation ticks, graphics submissions and present calls over the measurement window, plus nearest-rank median, p95 and p99 durations for available sample types. Work intervals that touch the measurement boundary are excluded and counted by reason. Graphics active work subtracts the union of its nested waits, API calls, and pacing sleep to avoid double-counting. GPU spans are joined to their original submission and snapshot publication phase, even when results arrive during collection. `UniformUpload` and `CommandRecording` are associated with a frame snapshot, while `ResourceUpload` measures processing during frame acceptance and `SnapshotConstruction` measures building and publishing a snapshot; those latter CPU scopes use only their own time interval for measurement membership.
+
+The `GpuShadow`, `GpuMain`, and `GpuUi` records delimit GPU boundary spans with `BOTTOM_OF_PIPE` timestamps around the corresponding work. They are queue execution spans, not physical scanout measurements. GPU work may overlap or be pipelined across these boundaries, so phase durations are not pure isolated costs and are not guaranteed to add up to the total `Gpu` duration. The total includes other GPU work such as compositing, presentation quads, and capture. Observation remains opt-in and introduces no additional waits. The expanded sample records use protocol 3; baselines from earlier protocols are incompatible.
 
 Deadline output preserves strict positive lateness and separately counts missed deadlines using the default 1 ms tolerance. Skipped schedule slots count as missed opportunities even when a loop iteration did not occur. Repeated and skipped snapshots are counted from successful submissions. Present-call intervals are CPU-side API completion cadence; they are not display or scanout measurements.
 
 Baseline comparisons first compare compatibility fields exactly. Unknown machine, build, workload, protocol, or effective-setting values fail closed and produce field-level reasons. The build manifest fingerprints the Python coordinator, statistics, asset validator, provenance tool, and asset lock; the runner refuses to launch workers when those runtime files differ from the build-time fingerprints. Their hashes participate in baseline compatibility. The environment-lighting file hash and effective renderer settings also participate in compatibility. Compiled SPIR-V hashes are recorded as provenance, while engine source revision, dirty state, and source fingerprint do not need to match between builds. For each available primary metric, the report shows repetition values, median, range, median absolute deviation, absolute and relative difference, and a deterministic 10,000-resample independent-repetition bootstrap 95% interval. At least two repetitions per side are required; a direction is reported only when the interval excludes zero. Labels are advisory and there is no combined score or automatic regression gate.
 
-The report retains debug, validation, presentation-constraint, partial, invalid, and failed states. Results describe warmed steady-state runs on the recorded machine. Matching metadata and bootstrap intervals do not remove thermal, OS-load, driver-cache, or other environmental effects.
+The report retains debug, validation, presentation-constraint, partial, invalid, and failed states. Standard-suite results describe warmed steady-state runs on the recorded machine; smoke is a short Release lifecycle check. Matching metadata and bootstrap intervals do not remove thermal, OS-load, driver-cache, or other environmental effects.
 
 For unattended Linux correctness checks where the desktop window manager prevents focus, an isolated X11 session can be used:
 
 ```sh
-xvfb-run -a stress_test run --suite smoke
+xvfb-run -a ./run stress_test -- run --suite smoke
 ```
 
 Check the recorded device and presentation mode: a virtual display does not establish physical 60 Hz display pacing, and these results must not be interpreted as scanout measurements. Keep the same display setup for both runs being compared. Workers request focus once at readiness, before warm-up; focus loss during measurement remains an invalid result.
