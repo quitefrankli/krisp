@@ -161,8 +161,9 @@ Samplers use linear texel filtering and either repeat or clamp-to-edge
 addressing, with the same addressing on both axes. `LINEAR`,
 `LINEAR_MIPMAP_NEAREST`, and `LINEAR_MIPMAP_LINEAR` minification are supported;
 an omitted minification filter defaults to trilinear mip filtering. Authored DDS
-mip chains are uploaded and sampled. PNG/JPEG images remain single-level, so a
-mip filter samples their only available level. Nearest texel filtering, mirrored
+mip chains are uploaded and sampled. PNG/JPEG normal maps receive a complete
+mip chain during decoding, using linear vector filtering and renormalization;
+other PNG/JPEG images remain single-level. Nearest texel filtering, mirrored
 repeat, and mixed-axis addressing are rejected.
 
 Unsupported features reachable from the selected scene fail the import with a
@@ -175,8 +176,13 @@ per renderable, not per triangle, so intersecting or cyclic transparent
 geometry may not composite perfectly.
 
 Standalone textures resolve from the `textures` directories. PNG/JPEG images
-are decoded to single-level RGBA8; Krisp does not generate mipmaps. DXT5/BC3 DDS
-is also supported and retains a valid authored mip chain; other DDS formats,
+are decoded to RGBA8. Images loaded with the `NORMAL` semantic receive a complete
+mip chain down to 1-by-1; other semantics retain only the base level. Normal mip
+filtering averages vectors over each destination texel's source area, normalizes
+the result, and uses a positive-Z normal when vectors cancel. Alpha is averaged
+linearly. The original base level is preserved. DXT5/BC3 DDS
+is also supported and retains its supplied mip chain without regeneration,
+including single-level DDS files; other DDS formats,
 cubemaps, and volume textures are rejected.
 
 ### Base-color overlays
@@ -198,6 +204,12 @@ are unchanged. Overlay alpha contributes to masked and blended material alpha.
 `Apply Overlay` appends the draft overlay. Ordinary material edits preserve the
 stack; replacing or clearing the base-color texture removes it. Scene saves
 retain recipes and source references for both generated and imported meshes.
+
+Graphics Settings includes a `Shadows` checkbox. Turning it off preserves
+rasterized lighting and materials while disabling all point-light shadow
+rendering and sampling for the view. Per-light `casts_shadow` settings are
+preserved and take effect again when the checkbox is enabled. Consumers can
+control the same view setting with `GameEngine::set_shadows_enabled()`.
 
 ### Environment lighting
 

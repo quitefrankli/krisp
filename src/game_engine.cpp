@@ -669,6 +669,7 @@ void GameEngine::reset_scene_state()
 	pending_deletions.clear();
 	render_view_state.stenciled_objects.clear();
 	render_view_state.exposure_ev = 0.0f;
+	render_view_state.shadows_enabled = true;
 	ResourceProvenance::clear();
 	tile_renderable.reset();
 	configure_ecs();

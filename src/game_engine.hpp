@@ -91,6 +91,8 @@ public: // getters and setters
 	void set_game_mode(EGameMode mode);
 	void toggle_game_mode();
 	void set_render_mode(ERenderMode mode);
+	void set_shadows_enabled(bool enabled) { render_view_state.shadows_enabled = enabled; }
+	bool are_shadows_enabled() const { return render_view_state.shadows_enabled; }
 	void set_exposure_ev(float exposure_ev);
 	float get_exposure_ev() const { return render_view_state.exposure_ev; }
 	void set_camera_orbit_with_right_mouse(bool enabled) { camera_orbit_with_right_mouse = enabled; }

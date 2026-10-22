@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
+#include <numeric>
 
 namespace
 {
@@ -160,6 +161,64 @@ public:
 	std::vector<unsigned char> contents;
 	std::string filename() const { return path.filename().string(); }
 };
+
+class GeneratedPng
+{
+public:
+	explicit GeneratedPng(std::vector<unsigned char> contents) : contents(std::move(contents))
+	{
+		static uint32_t sequence = 0;
+		path = ResourcePaths::get_test_data_path()
+			/ fmt::format("krisp_test_normal_{}.png", sequence++);
+		std::ofstream output(path, std::ios::binary);
+		output.write(reinterpret_cast<const char*>(this->contents.data()),
+			static_cast<std::streamsize>(this->contents.size()));
+	}
+
+	~GeneratedPng()
+	{
+		std::error_code error;
+		std::filesystem::remove(path, error);
+	}
+
+	std::filesystem::path path;
+	std::vector<unsigned char> contents;
+	std::string filename() const { return path.filename().string(); }
+};
+
+std::vector<unsigned char> npot_normal_png()
+{
+	// A 5x3 image with +Z in the first fourteen texels and +X in the final corner.
+	return {
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x03,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x5b, 0x36, 0xc5,
+		0xf8, 0x00, 0x00, 0x00, 0x13, 0x49, 0x44, 0x41,
+		0x54, 0x78, 0x9c, 0x63, 0x68, 0x68, 0xf8, 0xff,
+		0x1f, 0x1d, 0x33, 0x10, 0x25, 0x08, 0x22, 0x00,
+		0x78, 0x75, 0x2c, 0xe3, 0xe7, 0xbc, 0xd0, 0xb2,
+		0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+		0xae, 0x42, 0x60, 0x82,
+	};
+}
+
+std::vector<unsigned char> cancelling_normal_png()
+{
+	// The 2x2 image alternates exactly opposite encoded vectors.
+	return {
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x72, 0xb6, 0x0d,
+		0x24, 0x00, 0x00, 0x00, 0x14, 0x49, 0x44, 0x41,
+		0x54, 0x78, 0x9c, 0x63, 0xf8, 0xdf, 0xc0, 0xf0,
+		0x9f, 0xa1, 0xfe, 0xff, 0x7f, 0x06, 0x18, 0x03,
+		0x00, 0x56, 0xbf, 0x09, 0xf7, 0x59, 0xe2, 0xdc,
+		0x95, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
+		0xae, 0x42, 0x60, 0x82,
+	};
+}
 
 void add_msft_texture_dds(
 	nlohmann::json& document,
@@ -1032,6 +1091,44 @@ TEST(ResourceLoaderTextures, loads_texture_variants_by_semantic)
 	EXPECT_EQ(reloaded.use_count(), 1);
 }
 
+TEST(ResourceLoaderTextures, generates_normal_mips_for_standalone_images)
+{
+	GeneratedPng image(npot_normal_png());
+	const auto material = TestAssets::fetch_texture(
+		general_loader_ecs.get_material_system(), image.filename(), ETextureSemantic::NORMAL);
+	const auto& loaded = static_cast<const TextureMaterial&>(
+		general_loader_ecs.get_material_system().get(material->get_id()));
+
+	EXPECT_EQ(loaded.width, 5);
+	EXPECT_EQ(loaded.height, 3);
+	ASSERT_EQ(loaded.mip_sizes, (std::vector<size_t>{ 60, 8, 4 }));
+	EXPECT_EQ(loaded.data_len,
+		std::accumulate(loaded.mip_sizes.begin(), loaded.mip_sizes.end(), size_t{ 0 }));
+	ASSERT_NE(loaded.data, nullptr);
+	const size_t final_mip_offset = loaded.data_len - loaded.mip_sizes.back();
+	const auto* final_pixel = reinterpret_cast<const unsigned char*>(loaded.data->get() + final_mip_offset);
+	EXPECT_GE(final_pixel[0], 131);
+	EXPECT_EQ(final_pixel[2], 255);
+}
+
+TEST(ResourceLoaderTextures, uses_positive_z_for_cancelling_normal_mips)
+{
+	GeneratedPng image(cancelling_normal_png());
+	const auto material = TestAssets::fetch_texture(
+		general_loader_ecs.get_material_system(), image.filename(), ETextureSemantic::NORMAL);
+	const auto& loaded = static_cast<const TextureMaterial&>(
+		general_loader_ecs.get_material_system().get(material->get_id()));
+	ASSERT_EQ(loaded.mip_sizes, (std::vector<size_t>{ 16, 4 }));
+	ASSERT_NE(loaded.data, nullptr);
+	const auto* final_pixel = reinterpret_cast<const unsigned char*>(
+		loaded.data->get() + loaded.data_len - loaded.mip_sizes.back());
+	EXPECT_GE(final_pixel[0], 127);
+	EXPECT_LE(final_pixel[0], 128);
+	EXPECT_GE(final_pixel[1], 127);
+	EXPECT_LE(final_pixel[1], 128);
+	EXPECT_EQ(final_pixel[2], 255);
+}
+
 TEST(ResourceLoaderTextures, loads_generated_bc3_dds_with_complete_mip_chain)
 {
 	constexpr uint32_t DXT5 = 0x35545844;
@@ -1336,6 +1433,45 @@ TEST(ResourceLoaderTexturedPbr, accepts_normal_map_without_base_color_map)
 	EXPECT_FALSE(pbr->textures.base_color.has_value());
 	ASSERT_TRUE(pbr->textures.normal.has_value());
 	EXPECT_EQ(pbr->textures.normal->texture, normal->get_id());
+}
+
+TEST(ResourceLoaderTexturedPbr, generates_normal_mips_for_decoded_gltf_images)
+{
+	const auto image = npot_normal_png();
+	MutatedGltf resource([&image](nlohmann::json& document)
+	{
+		document["materials"][0]["normalTexture"] = { { "index", 0 } };
+		document["images"][0] = {
+			{ "uri", "data:image/png;base64," + encode_base64(image) },
+		};
+	}, "static_mesh_textured.gltf", false);
+
+	ECS ecs;
+	const auto model = TestAssets::load_model(ecs, resource.filename());
+	const auto& renderable = model.meshes[0].renderables[0];
+	const auto* normal = find_texture_material(renderable, ETextureSemantic::NORMAL);
+	const auto* base_color = find_texture_material(renderable, ETextureSemantic::BASE_COLOR);
+	ASSERT_NE(normal, nullptr);
+	ASSERT_NE(base_color, nullptr);
+	EXPECT_EQ(base_color->mip_sizes, (std::vector<size_t>{ 60 }));
+	EXPECT_EQ(normal->width, 5);
+	EXPECT_EQ(normal->height, 3);
+	ASSERT_EQ(normal->mip_sizes, (std::vector<size_t>{ 60, 8, 4 }));
+	ASSERT_NE(normal->data, nullptr);
+	EXPECT_EQ(std::memcmp(base_color->data->get(), normal->data->get(), 60), 0);
+	const auto* final_pixel = reinterpret_cast<const unsigned char*>(
+		normal->data->get() + normal->data_len - normal->mip_sizes.back());
+	const auto decode_channel = [final_pixel](const size_t channel)
+	{
+		return static_cast<float>(final_pixel[channel]) / 127.5f - 1.0f;
+	};
+	const float normal_length = std::sqrt(
+		decode_channel(0) * decode_channel(0)
+		+ decode_channel(1) * decode_channel(1)
+		+ decode_channel(2) * decode_channel(2));
+	EXPECT_NEAR(normal_length, 1.0f, 0.015f);
+	EXPECT_GE(final_pixel[0], 131);
+	EXPECT_EQ(final_pixel[2], 255);
 }
 
 TEST(ResourceLoaderTexturedPbr, preserves_authored_tangents)

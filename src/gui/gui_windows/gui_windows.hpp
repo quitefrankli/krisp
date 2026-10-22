@@ -115,6 +115,7 @@ public:
 public:
 	GuiVar<int> selected_camera_projection = 0;
 	GuiVar<ERenderMode> render_mode = ERenderMode::RASTERIZED;
+	GuiVar<bool> shadows_enabled = true;
 	GuiVar<float> exposure_ev = 0.0f;
 
 	ERenderMode get_render_mode() const { return render_mode.value; }

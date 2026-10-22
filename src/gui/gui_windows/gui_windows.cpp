@@ -209,6 +209,7 @@ void GuiGraphicsSettings::draw()
 		if (ImGui::RadioButton(label, render_mode.value == mode))
 			select_render_mode(mode);
 	}
+	shadows_enabled.changed |= ImGui::Checkbox("Shadows", &shadows_enabled.value);
 	ImGui::SetNextItemWidth(combo_width);
 	selected_camera_projection.changed |= ImGui::Combo(
 		"projection",
@@ -251,6 +252,16 @@ void GuiGraphicsSettings::process(GameEngine& engine)
 	{
 		engine.set_render_mode(render_mode.value);
 		render_mode.changed = false;
+	}
+
+	if (shadows_enabled.changed)
+	{
+		engine.set_shadows_enabled(shadows_enabled.value);
+		shadows_enabled.changed = false;
+	}
+	else
+	{
+		shadows_enabled.value = engine.are_shadows_enabled();
 	}
 }
 

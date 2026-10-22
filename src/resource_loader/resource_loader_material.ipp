@@ -43,6 +43,123 @@ private:
 	std::vector<std::byte> data;
 };
 
+namespace
+{
+std::vector<std::byte> build_normal_mip_chain(
+	const uint32_t base_width,
+	const uint32_t base_height,
+	std::vector<std::byte> base_rgba,
+	std::vector<size_t>& mip_sizes)
+{
+	std::vector<std::byte> data = std::move(base_rgba);
+	mip_sizes = { data.size() };
+	uint32_t source_width = base_width;
+	uint32_t source_height = base_height;
+	size_t source_offset = 0;
+	while (source_width > 1 || source_height > 1)
+	{
+		const uint32_t destination_width = std::max(1u, source_width / 2);
+		const uint32_t destination_height = std::max(1u, source_height / 2);
+		const size_t destination_pixels = static_cast<size_t>(destination_width)
+			* static_cast<size_t>(destination_height);
+		if (destination_pixels > std::numeric_limits<size_t>::max() / 4
+			|| data.size() > std::numeric_limits<size_t>::max() - destination_pixels * 4)
+			throw ResourceLoadError("ResourceLoader: normal texture mip data overflows address space");
+		const size_t destination_offset = data.size();
+		const size_t destination_size = destination_pixels * 4;
+		data.resize(destination_offset + destination_size);
+		mip_sizes.push_back(destination_size);
+
+		const double scale_x = static_cast<double>(source_width) / destination_width;
+		const double scale_y = static_cast<double>(source_height) / destination_height;
+		const auto* source = data.data() + source_offset;
+		auto* destination = data.data() + destination_offset;
+		for (uint32_t y = 0; y < destination_height; ++y)
+		{
+			const double top = static_cast<double>(y) * scale_y;
+			const double bottom = static_cast<double>(y + 1) * scale_y;
+			const uint32_t first_source_y = static_cast<uint32_t>(std::floor(top));
+			const uint32_t last_source_y = std::min(source_height,
+				static_cast<uint32_t>(std::ceil(bottom)));
+			for (uint32_t x = 0; x < destination_width; ++x)
+			{
+				const double left = static_cast<double>(x) * scale_x;
+				const double right = static_cast<double>(x + 1) * scale_x;
+				const uint32_t first_source_x = static_cast<uint32_t>(std::floor(left));
+				const uint32_t last_source_x = std::min(source_width,
+					static_cast<uint32_t>(std::ceil(right)));
+				double normal_x = 0.0;
+				double normal_y = 0.0;
+				double normal_z = 0.0;
+				double alpha = 0.0;
+				double total_weight = 0.0;
+				for (uint32_t source_y = first_source_y; source_y < last_source_y; ++source_y)
+				{
+					const double weight_y = std::max(0.0,
+						std::min(bottom, static_cast<double>(source_y + 1))
+						- std::max(top, static_cast<double>(source_y)));
+					for (uint32_t source_x = first_source_x; source_x < last_source_x; ++source_x)
+					{
+						const double weight_x = std::max(0.0,
+							std::min(right, static_cast<double>(source_x + 1))
+							- std::max(left, static_cast<double>(source_x)));
+						const double weight = weight_x * weight_y;
+						const auto* pixel = source
+							+ (static_cast<size_t>(source_y) * source_width + source_x) * 4;
+						normal_x += (std::to_integer<unsigned char>(pixel[0]) / 127.5 - 1.0) * weight;
+						normal_y += (std::to_integer<unsigned char>(pixel[1]) / 127.5 - 1.0) * weight;
+						normal_z += (std::to_integer<unsigned char>(pixel[2]) / 127.5 - 1.0) * weight;
+						alpha += std::to_integer<unsigned char>(pixel[3]) * weight;
+						total_weight += weight;
+					}
+				}
+
+				const double length_squared = normal_x * normal_x
+					+ normal_y * normal_y + normal_z * normal_z;
+				if (length_squared <= 1e-12)
+				{
+					normal_x = 0.0;
+					normal_y = 0.0;
+					normal_z = 1.0;
+				}
+				else
+				{
+					const double inverse_length = 1.0 / std::sqrt(length_squared);
+					normal_x *= inverse_length;
+					normal_y *= inverse_length;
+					normal_z *= inverse_length;
+				}
+				const auto encode_normal_component = [](const double component)
+				{
+					return static_cast<unsigned char>(std::clamp(
+						std::lround((component + 1.0) * 127.5), 0l, 255l));
+				};
+				auto* pixel = destination + (static_cast<size_t>(y) * destination_width + x) * 4;
+				pixel[0] = static_cast<std::byte>(encode_normal_component(normal_x));
+				pixel[1] = static_cast<std::byte>(encode_normal_component(normal_y));
+				pixel[2] = static_cast<std::byte>(encode_normal_component(normal_z));
+				pixel[3] = static_cast<std::byte>(std::clamp(
+					std::lround(alpha / total_weight), 0l, 255l));
+			}
+		}
+		source_width = destination_width;
+		source_height = destination_height;
+		source_offset = destination_offset;
+	}
+	return data;
+}
+
+void store_rgba8_texture_data(TextureMaterial& material, std::vector<std::byte> rgba)
+{
+	if (material.semantic == ETextureSemantic::NORMAL)
+		rgba = build_normal_mip_chain(material.width, material.height, std::move(rgba), material.mip_sizes);
+	else
+		material.mip_sizes = { rgba.size() };
+	material.data_len = rgba.size();
+	material.data = std::make_unique<OwnedTextureData>(std::move(rgba));
+}
+}
+
 TextureMaterial load_dds_texture_data(
 	const unsigned char* bytes,
 	const size_t byte_count,
@@ -144,11 +261,9 @@ TextureMaterial make_gltf_image_texture(
 	material.width = static_cast<uint32_t>(image.width);
 	material.height = static_cast<uint32_t>(image.height);
 	material.channels = 4;
-	material.data_len = rgba.size();
-	material.mip_sizes = { rgba.size() };
 	material.semantic = semantic;
 	material.source = source;
-	material.data = std::make_unique<OwnedTextureData>(std::move(rgba));
+	store_rgba8_texture_data(material, std::move(rgba));
 	return material;
 }
 
@@ -659,13 +774,23 @@ MaterialHandle ResourceLoader::load_texture_bytes(
 	auto* decoded = stbi_load_from_memory(
 		bytes.data(), static_cast<int>(bytes.size()),
 		&width, &height, &channels, STBI_rgb_alpha);
-	material.data = std::make_unique<RawTextureDataSTB>(decoded);
 	if (!decoded)
 		throw ResourceLoadError(fmt::format("failed to load texture image! {}", logical_resource_name));
+	material.data = std::make_unique<RawTextureDataSTB>(decoded);
 	material.width = static_cast<uint32_t>(width);
 	material.height = static_cast<uint32_t>(height);
 	material.channels = 4;
-	material.data_len = static_cast<size_t>(material.width) * material.height * material.channels;
-	material.mip_sizes = { material.data_len };
+	const size_t rgba_size = static_cast<size_t>(material.width) * material.height * material.channels;
+	if (semantic == ETextureSemantic::NORMAL)
+	{
+		std::vector<std::byte> rgba(rgba_size);
+		std::memcpy(rgba.data(), decoded, rgba_size);
+		store_rgba8_texture_data(material, std::move(rgba));
+	}
+	else
+	{
+		material.data_len = rgba_size;
+		material.mip_sizes = { material.data_len };
+	}
 	return materials.add(std::make_unique<TextureMaterial>(std::move(material)));
 }

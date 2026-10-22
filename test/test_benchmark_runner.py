@@ -59,6 +59,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
 			("atrium", "textured-environment-atrium-shadows", 1),
 			("atrium", "textured-environment-atrium-shadows-4-lights", 4),
 			("atrium", "textured-environment-atrium-shadows-8-lights", 8),
+			("atrium", "textured-environment-atrium-shadows-environment", 1),
 		):
 			with self.subTest(view=view):
 				cases = runner.suite_cases("standard", workload)
@@ -67,6 +68,7 @@ class BenchmarkRunnerTests(unittest.TestCase):
 				self.assertEqual(cases[0]["view"], view)
 				self.assertEqual(cases[0]["count"], 1)
 				self.assertEqual(cases[0].get("shadow_lights", 0), shadow_lights)
+				self.assertEqual(cases[0].get("environment_lighting", False), workload.endswith("-environment"))
 				self.assertEqual(len(runner.make_schedule("standard", 2, workload=workload)) * 2, 4)
 				args = runner._parser().parse_args(["--executable", "fixture", "--build-manifest", "build.json",
 					"--environment-lighting", "lighting", "--shader-directory", "shaders", "run", "--workload", workload])
@@ -76,9 +78,32 @@ class BenchmarkRunnerTests(unittest.TestCase):
 		])
 		optional = {case["case_id"]: case for case in runner.standard_cases(include_optional_views=True)}
 		self.assertEqual(optional["textured-environment-atrium"].get("shadow_lights", 0), 0)
-		self.assertEqual(len(optional), 8)
+		self.assertEqual(len(optional), 9)
 		self.assertEqual(len({case["case_id"] for case in optional.values()}), len(optional))
+		self.assertEqual(optional["textured-environment-atrium-shadows-environment"]["environment_lighting"], True)
 		self.assertEqual(len(runner.suite_cases("standard")), 3)
+
+	def test_environment_lighting_workload_flag_and_comparison_metadata(self):
+		workload = "textured-environment-atrium-shadows-environment"
+		case, = runner.suite_cases("standard", workload)
+		command = runner._worker_command("engine", case, "paced", 0.2, 0.5, Path("cache"), Path("out"))
+		self.assertIn("--environment-lighting", command)
+		self.assertEqual(command[command.index("--shadow-lights") + 1], "1")
+		plain = runner._worker_command("engine", runner.standard_cases()[2], "paced", 0.2, 0.5,
+			Path("cache"), Path("out"))
+		self.assertNotIn("--environment-lighting", plain)
+
+		worker = {"scenario": {"shadow_casting_lights": 1, "lighting": []}}
+		protocol = {"protocol_version": 1, "suite": "standard", "warmup_seconds": 0.2,
+			"measurement_seconds": 0.5, "repetitions": 1, "deadline_tolerance_ns": 1_000_000}
+		baseline = runner._case_compatibility({**case, "environment_lighting": False}, "paced",
+			protocol, {}, {}, worker)
+		candidate = runner._case_compatibility(case, "paced", protocol, {}, {}, worker)
+		self.assertFalse(baseline["workload"]["environment_lighting"])
+		self.assertTrue(candidate["workload"]["environment_lighting"])
+		comparison = runner.compare_compatibility(baseline, candidate)
+		self.assertFalse(comparison["compatible"])
+		self.assertIn("workload.environment_lighting", [item["field"] for item in comparison["mismatches"]])
 
 	def test_shadow_variant_is_optional_in_smoke_and_worker_flag_is_explicit(self):
 		self.assertEqual(len(runner.smoke_cases()), 3)
@@ -496,6 +521,97 @@ raise SystemExit(4)
 			self.assertEqual(failed["status"], "failed")
 			self.assertIn("graphics initialization failed", failed["errors"])
 
+	def test_interactive_worker_waits_for_normal_exit_and_forwards_flag(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			worker = self._fake_executable(root, """
+import json, pathlib, sys, time
+args = sys.argv
+out = pathlib.Path(args[args.index('--output') + 1])
+assert '--interactive' in args
+(out / 'ready.json').write_text(json.dumps({'status': 'ready'}))
+time.sleep(0.2)
+(out / 'worker.json').write_text(json.dumps({'status':'complete','interactive':True}))
+""")
+			case = {"scenario": "textured-environment", "count": 1, "view": "closeup"}
+			command = runner._worker_command(str(worker), case, "paced", 0, 0, root, root / "command-output", interactive=True)
+			self.assertIn("--interactive", command)
+			with patch.object(runner, "DRAIN_TIMEOUT_SECONDS", 0.01), patch.object(runner, "SHUTDOWN_MARGIN_SECONDS", 0.01):
+				started = runner.time.monotonic()
+				result, code, error = runner._run_worker(
+					str(worker), case, "paced", 1, 0, 0, root, root / "interactive-output", interactive=True,
+				)
+			self.assertGreaterEqual(runner.time.monotonic() - started, 0.15)
+			self.assertEqual(code, 0)
+			self.assertIsNone(error)
+			self.assertEqual(result, {"status": "complete", "interactive": True})
+
+	def test_interactive_run_launches_one_paced_worker_without_benchmark_summary(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			build = root / "build.json"
+			build.write_text(json.dumps({
+				"build_type": "release", "optimised": True, "debug_macro": False,
+				"assertions": False, "runtime_tools_sha256": build_provenance.runtime_tools_sha256(Path.cwd()),
+			}))
+			lighting = root / "lighting.krisp-ibl"
+			lighting.write_bytes(b"lighting")
+			shaders = root / "shaders"
+			shaders.mkdir()
+			(shaders / "test.spv").write_bytes(b"spirv")
+			output = root / "interactive-run"
+			output.mkdir()
+			args = runner._parser().parse_args([
+				"--executable", os.fspath(Path(os.sys.executable)), "--build-manifest", os.fspath(build),
+				"--default-asset-cache", os.fspath(root / "cache"),
+				"--environment-lighting", os.fspath(lighting), "--shader-directory", os.fspath(shaders),
+				"run", "--suite", "standard", "--workload", "textured-environment-material-closeup",
+				"--interactive", "--warmup", "99", "--measure", "99", "--repetitions", "8",
+			])
+			worker_result = {"status": "complete", "interactive": True, "scenario": {}}
+			with patch.object(runner, "_new_output_dir", return_value=output), \
+				patch.object(benchmark_assets, "needs_preparation", return_value=False), \
+				patch.object(runner, "verify_asset_cache", return_value=({"profile": runner.PROFILE, "manifest_sha256": "assets", "files": {}}, [])), \
+				patch.object(runner, "_run_worker", return_value=(worker_result, 0, None)) as run_worker, \
+				redirect_stdout(io.StringIO()):
+				self.assertEqual(runner.run(args), 0)
+			self.assertEqual(run_worker.call_count, 1)
+			call = run_worker.call_args
+			self.assertEqual(call.args[2:6], ("paced", 1, 0, 0))
+			self.assertTrue(call.kwargs["interactive"])
+			manifest = json.loads((output / "run_manifest.json").read_text())
+			self.assertTrue(manifest["interactive"])
+			self.assertEqual(manifest["scheduled_workers"], 1)
+			self.assertEqual(manifest["completed_workers"], 1)
+			self.assertEqual(manifest["interactive_session"]["worker"]["status"], "complete")
+			self.assertEqual(manifest["status"], "complete")
+			self.assertNotIn("cases", manifest)
+			self.assertNotIn("summary", manifest["interactive_session"])
+
+			invalid_output = root / "invalid-interactive-run"
+			invalid_output.mkdir()
+			with patch.object(runner, "_new_output_dir", return_value=invalid_output), \
+				patch.object(benchmark_assets, "needs_preparation", return_value=False), \
+				patch.object(runner, "verify_asset_cache", return_value=({"profile": runner.PROFILE, "manifest_sha256": "assets", "files": {}}, [])), \
+				patch.object(runner, "_run_worker", return_value=({"status": "invalid", "errors": ["fixture invalid"]}, 0, None)), \
+				redirect_stdout(io.StringIO()):
+				self.assertEqual(runner.run(args), 1)
+			invalid_manifest = json.loads((invalid_output / "run_manifest.json").read_text())
+			self.assertEqual(invalid_manifest["status"], "failed")
+			self.assertEqual(invalid_manifest["interactive_session"]["worker_status"], "invalid")
+
+	def test_interactive_requires_a_workload(self):
+		args = runner._parser().parse_args([
+			"--executable", "worker", "--build-manifest", "build.json",
+			"--environment-lighting", "lighting", "--shader-directory", "shaders",
+			"run", "--interactive",
+		])
+		stderr = io.StringIO()
+		with redirect_stderr(stderr), patch.object(runner, "_new_output_dir") as new_output:
+			self.assertEqual(runner.run(args), 2)
+		new_output.assert_not_called()
+		self.assertIn("--interactive requires --workload", stderr.getvalue())
+
 	def test_invalid_worker_retains_validity_reason_with_expected_nonzero_exit(self):
 		with tempfile.TemporaryDirectory() as temporary:
 			root = Path(temporary)
@@ -638,8 +754,8 @@ time.sleep(5)
 			args.default_asset_cache.mkdir(parents=True)
 			prepared_path = args.default_asset_cache / "prepared.json"
 			prepared_path.write_text(json.dumps({
-				"profile": benchmark_assets.PREVIOUS_PROFILE,
-				"converter_version": benchmark_assets.PREVIOUS_CONVERTER_VERSION,
+				"profile": "engine-pbr-opaque-bc3-v1",
+				"converter_version": "krisp-benchmark-assets/3",
 			}))
 			def prepare_missing(cache, *, source_directory):
 				self.assertEqual(source_directory, args.source_directory)
@@ -821,6 +937,7 @@ time.sleep(5)
 		shadowed_worker = {**worker, "scenario": {**worker["scenario"], "shadow_casting_lights": 1, "lighting": lighting}}
 		shadowed = runner._case_compatibility(shadowed_case, "paced", protocol, {}, build, shadowed_worker)
 		self.assertEqual(shadowed["workload"]["shadow_lights"], 1)
+		self.assertFalse(shadowed["workload"]["environment_lighting"])
 		self.assertEqual(shadowed["workload"]["shadow_casting_lights"], 1)
 		self.assertEqual(shadowed["workload"]["lighting"], lighting)
 		unshadowed_case = {**shadowed_case, "shadow_lights": 0}
@@ -852,6 +969,17 @@ time.sleep(5)
 					case, "paced", 1, {}, False)
 				self.assertEqual(result["status"], "invalid")
 				self.assertIn("shadow-casting lights", result["error"])
+
+	def test_environment_lighting_worker_result_must_match_selected_mode(self):
+		case = {"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 1,
+			"environment_lighting": True}
+		for scenario in ({"shadow_casting_lights": 1},
+			{"shadow_casting_lights": 1, "environment_lighting": False}):
+			with self.subTest(scenario=scenario):
+				result = runner._case_result({"status": "complete", "scenario": scenario}, Path("unused"),
+					case, "paced", 1, {}, False)
+				self.assertEqual(result["status"], "invalid")
+				self.assertIn("environment_lighting", result["error"])
 
 
 if __name__ == "__main__":

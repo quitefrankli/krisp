@@ -137,6 +137,7 @@ private:
 		VkImageView preview_view = VK_NULL_HANDLE;
 		VkDescriptorSet descriptor = VK_NULL_HANDLE;
 		uint32_t capacity = 0;
+		bool image_initialized = false;
 		PointLightingData lighting;
 	};
 	void grow_frame_resources(uint32_t frame_idx, uint32_t capacity);

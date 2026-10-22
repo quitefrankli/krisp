@@ -107,13 +107,17 @@ void ShadowMapRenderer::grow_frame_resources(const uint32_t frame_idx, const uin
 	frame.cube_array_view = replacement.cube_array_view;
 	frame.preview_view = replacement.preview_view;
 	frame.capacity = capacity;
+	frame.image_initialized = false;
 	frame_buffers[frame_idx] = framebuffer;
 }
 
 void ShadowMapRenderer::submit_draw_commands(
 	VkCommandBuffer command_buffer, VkImageView, const uint32_t frame_index)
 {
-	const auto& resources = frames.at(frame_index);
+	auto& resources = frames.at(frame_index);
+	if (resources.lighting.shadow_count == 0 && resources.image_initialized)
+		return;
+
 	VkRenderPassBeginInfo begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
 	begin.renderPass = render_pass;
 	begin.framebuffer = frame_buffers.at(frame_index);
@@ -149,6 +153,7 @@ void ShadowMapRenderer::submit_draw_commands(
 		}
 	}
 	vkCmdEndRenderPass(command_buffer);
+	resources.image_initialized = true;
 }
 
 void ShadowMapRenderer::create_render_pass()

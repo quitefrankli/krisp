@@ -386,19 +386,24 @@ TEST_F(GameEngineTests, publishes_complete_render_view_state)
 	engine.highlight_object(first);
 	engine.highlight_object(second);
 	engine.set_render_mode(ERenderMode::WIREFRAME);
+	engine.set_shadows_enabled(false);
 	engine.main_loop(0.1f);
 
 	const auto highlighted =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
 	EXPECT_EQ(highlighted->view.render_mode, ERenderMode::WIREFRAME);
+	EXPECT_FALSE(highlighted->view.shadows_enabled);
 	EXPECT_EQ(highlighted->view.stenciled_objects,
 		(std::unordered_set<ObjectID>{ first.get_id(), second.get_id() }));
 
 	engine.unhighlight_object(first);
+	engine.set_shadows_enabled(true);
 	engine.main_loop(0.1f);
 
 	const auto updated =
 		engine.get_graphics_engine().load_latest_completed_render_frames()->current;
+	EXPECT_TRUE(updated->view.shadows_enabled);
+	EXPECT_FALSE(highlighted->view.shadows_enabled);
 	EXPECT_EQ(updated->view.stenciled_objects,
 		(std::unordered_set<ObjectID>{ second.get_id() }));
 }

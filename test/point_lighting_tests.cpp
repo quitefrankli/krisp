@@ -61,6 +61,37 @@ TEST(PointLighting, builds_shadow_projections_from_each_light_position)
 			prepared.lights[1].shadow_view_proj_mats[face]));
 }
 
+TEST(PointLighting, disabling_shadows_preserves_lighting_and_can_be_reenabled)
+{
+	const std::vector<RenderLightState> lights{
+		{ .object_id = ObjectID(1), .position = { 1.0f, 2.0f, 3.0f },
+			.color = { 0.25f, 0.5f, 0.75f }, .intensity = 2.0f },
+		{ .object_id = ObjectID(2), .position = { -2.0f, 4.0f, 1.0f },
+			.color = { 0.8f, 0.4f, 0.2f }, .intensity = 3.0f,
+			.casts_shadow = false },
+	};
+
+	const auto disabled = prepare_point_lighting(lights, false);
+	EXPECT_EQ(disabled.light_count, static_cast<uint32_t>(lights.size()));
+	EXPECT_EQ(disabled.shadow_count, 0);
+	for (std::size_t index = 0; index < lights.size(); ++index)
+	{
+		EXPECT_EQ(disabled.lights[index].position, lights[index].position);
+		EXPECT_EQ(disabled.lights[index].color, lights[index].color);
+		EXPECT_FLOAT_EQ(disabled.lights[index].intensity, lights[index].intensity);
+		EXPECT_EQ(disabled.lights[index].shadow_slot, -1);
+	}
+
+	const auto enabled = prepare_point_lighting(lights);
+	EXPECT_EQ(enabled.light_count, static_cast<uint32_t>(lights.size()));
+	EXPECT_EQ(enabled.shadow_count, 1);
+	EXPECT_EQ(enabled.lights[0].shadow_slot, 0);
+	EXPECT_EQ(enabled.lights[1].shadow_slot, -1);
+	EXPECT_EQ(lights[0].position, glm::vec3(1.0f, 2.0f, 3.0f));
+	EXPECT_EQ(lights[0].color, glm::vec3(0.25f, 0.5f, 0.75f));
+	EXPECT_FLOAT_EQ(lights[0].intensity, 2.0f);
+}
+
 TEST(PointLighting, rejects_capacity_overflow_and_invalid_light_data)
 {
 	std::vector<RenderLightState> too_many(SDS::MAX_POINT_LIGHTS + 1);

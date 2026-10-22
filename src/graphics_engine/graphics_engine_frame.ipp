@@ -292,7 +292,7 @@ void GraphicsEngineFrame::draw()
 	auto& shadows = static_cast<ShadowMapRenderer&>(
 		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP));
 	shadows.prepare_frame(image_index, prepare_point_lighting(
-		get_graphics_engine().get_render_frame().lights));
+		render_frame.lights, render_frame.view.shadows_enabled));
 	const auto recording_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	update_command_buffer();
 	record_cpu_sample(RuntimeSampleKind::CommandRecording, recording_begin_ns, collect_cpu ? runtime_now_ns() : 0);

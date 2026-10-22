@@ -72,6 +72,7 @@ void main()
 	const vec3 view_dir = normalize(global_data.data.view_pos - frag_pos);
 	const vec3 direct_light = evaluate_gltf_point_lights(
 		material,
+		geometric_normal,
 		shading_normal,
 		view_dir,
 		frag_pos,

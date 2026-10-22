@@ -10,10 +10,12 @@ The stress-test application has two commands for benchmark setup and execution:
 
 `run` automatically prepares the pinned Flight Helmet and Sponza assets when its cache is missing, before starting workers or warm-up. Preparation downloads pinned sources unless local inputs are supplied with `--source-directory DIR`. A present cache is verified and reused; a corrupt or incompatible cache fails with a diagnostic. `prepare-assets` remains available for manual preparation and uses the same cache. The asset cache is shared at `build/benchmark-assets`.
 
-Preparation profile `engine-pbr-opaque-bc3-v1` converts the 87 pinned source
-PNGs to lossy base-level BC3/DXT5 DDS runtime textures. A valid cache from the
-previous PNG profile is migrated from its verified sources before publication;
-the old cache is retained as a backup. See [benchmark asset preparation](STRESS_TEST_ASSETS.md)
+Preparation profile `engine-pbr-opaque-bc3-normal-mips-v1` converts the 87 pinned
+source PNGs to lossy BC3/DXT5 DDS runtime textures, with complete vector-filtered
+mip chains for normal maps and a base level for other maps. A valid cache from
+either previous PNG or base-only BC3 profile is migrated from its verified
+sources before publication; the old cache is retained as a backup.
+See [benchmark asset preparation](STRESS_TEST_ASSETS.md)
 for migration rules, cache identity, and the optional Pillow requirement for
 new preparation.
 
@@ -47,6 +49,20 @@ diagnostic; persisted benchmark records remain the source for reported metrics.
 
 The default `standard` suite runs `moving-transforms-500` and `point-shadows-500` in throughput mode, and `textured-environment-atrium-shadows` (Sponza) in both throughput and paced modes. Each workload and mode has two fresh processes, for eight launches total. It warms up each worker for 2 seconds and measures for 10 seconds, for 96 seconds of configured timed work. FPS/TPS overlay updates and drawing run during warm-up and measurement and are included in the measured costs. The full-resolution Sponza scene has longer, hardware-dependent startup, so the standard suite has no under-five-minute completion guarantee. First-time asset preparation is also outside the configured timed-work total and can take substantially longer.
 
+The optional standard workload `textured-environment-atrium-shadows-environment`
+adds the engine's default skybox and image-based environment lighting to the
+one-light shadowed atrium. It provides diffuse irradiance and environment
+reflections alongside point-light shadows. The environment is a global
+approximation: it does not compute interior visibility or bounced light.
+Open it with the full editor UI, camera controls, and normal user exit:
+
+```sh
+./run stress_test --release -- run --suite standard --workload textured-environment-atrium-shadows-environment --interactive
+```
+
+Omit `--interactive` for the normal throughput and paced measurements. This
+workload has its own baseline identity and does not change the default suite.
+
 The optional `textured-environment-atrium-shadows-4-lights` and
 `textured-environment-atrium-shadows-8-lights` workloads are available in both
 `standard` and `smoke`. The default suite continues to use the original
@@ -69,6 +85,21 @@ For focused standard runs, use:
 ./run stress_test -- run --workload textured-environment-atrium-shadows-4-lights
 ./run stress_test -- run --workload textured-environment-atrium-shadows-8-lights
 ```
+
+Add `--interactive` to inspect a selected scene manually:
+
+```sh
+./run stress_test --release -- run --suite standard --workload textured-environment-material-closeup --interactive
+```
+
+This launches the selected workload once in the regular editor mode, with the
+full editor UI for lighting, materials, and objects, and paces it at 60 Hz.
+Camera input uses the editor's existing controls; F1 toggles the regular FPS
+display. Escape or closing the window exits normally. There is no automatic
+measurement timeout or repetition;
+warm-up, measurement, and repetition arguments are ignored. The session records
+its completion without collecting benchmark samples or comparing baselines.
+Interactive mode requires `--workload` from the standard or smoke suite.
 
 Smoke runs the `static-objects-100`, `textured-objects-1`, and `textured-environment-atrium` cases in both modes. It uses one repetition, 0.2 seconds of warm-up, and 0.5 seconds of measurement. The shadowed atrium and its four-light and eight-light variants can also be selected explicitly in smoke without changing the default workload set. Smoke is a short Release lifecycle check; its measurements are too brief to serve as performance evidence. The suite name, timings, repetitions, workload, effective settings, build class, machine, selected GPU, and driver participate in compatibility, so smoke cannot be compared with `standard`.
 
@@ -125,7 +156,7 @@ Use `--workload CASE_ID` to run one existing case from the selected suite. By de
 ./run stress_test -- run --workload point-shadows-500
 ```
 
-Standard accepts `moving-transforms-500`, `point-shadows-500`, `textured-environment-atrium`, `textured-environment-atrium-shadows`, `textured-environment-atrium-shadows-4-lights`, `textured-environment-atrium-shadows-8-lights`, `textured-environment-corridor`, and `textured-environment-material-closeup`. Smoke accepts `static-objects-100`, `textured-objects-1`, `textured-environment-atrium`, `textured-environment-atrium-shadows`, `textured-environment-atrium-shadows-4-lights`, and `textured-environment-atrium-shadows-8-lights`. The Sponza views use the pinned full-resolution assets and fixed view definitions; each selected view retains normal per-view metadata, raw records, reports, and baseline identity. The shadowed atrium workloads use fixed point-light definitions, 1024-by-1024 cubemaps, and the renderer's current 16-tap PCF filter. The unshadowed atrium view remains selectable in standard and smoke; the corridor and material-closeup views remain unshadowed optional standard workloads. Shadowed and unshadowed atrium runs have distinct workload identities, and the recorded actual light definitions and count also participate in baseline compatibility. The filter selects cases only; it does not change case metrics, effective settings, or per-case baseline compatibility. Unknown cases and valid cases that belong only to the other suite are rejected during preflight before workers start or assets are downloaded/prepared.
+Standard accepts `moving-transforms-500`, `point-shadows-500`, `textured-environment-atrium`, `textured-environment-atrium-shadows`, `textured-environment-atrium-shadows-environment`, `textured-environment-atrium-shadows-4-lights`, `textured-environment-atrium-shadows-8-lights`, `textured-environment-corridor`, and `textured-environment-material-closeup`. Smoke accepts `static-objects-100`, `textured-objects-1`, `textured-environment-atrium`, `textured-environment-atrium-shadows`, `textured-environment-atrium-shadows-4-lights`, and `textured-environment-atrium-shadows-8-lights`. The Sponza views use the pinned full-resolution assets and fixed view definitions; each selected view retains normal per-view metadata, raw records, reports, and baseline identity. The shadowed atrium workloads use fixed point-light definitions, 1024-by-1024 cubemaps, and the renderer's current 16-tap PCF filter. The unshadowed atrium view remains selectable in standard and smoke; the corridor and material-closeup views remain unshadowed optional standard workloads. Shadowed and unshadowed atrium runs have distinct workload identities, and the recorded actual light definitions and count also participate in baseline compatibility. The filter selects cases only; it does not change case metrics, effective settings, or per-case baseline compatibility. Unknown cases and valid cases that belong only to the other suite are rejected during preflight before workers start or assets are downloaded/prepared.
 
 The shadowed atrium Sponza view is part of the default standard schedule. The unshadowed atrium, corridor, and material-closeup views are optional standard workloads, each available in throughput and paced modes. Focused shadowed and unshadowed atrium runs use the same standard settings for a controlled workload comparison:
 

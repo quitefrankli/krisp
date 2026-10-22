@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
+import io
 import json
 import math
 import os
@@ -21,12 +23,14 @@ from typing import Any, Iterable
 from urllib.parse import unquote
 
 
-PROFILE = "engine-pbr-opaque-bc3-v1"
-CONVERTER_VERSION = "krisp-benchmark-assets/3"
+PROFILE = "engine-pbr-opaque-bc3-normal-mips-v1"
+CONVERTER_VERSION = "krisp-benchmark-assets/4"
 PILLOW_VERSION = "11.3.0"
 PILLOW_PIXEL_FORMAT = "DXT5"
-PREVIOUS_PROFILE = "engine-pbr-opaque-v1"
-PREVIOUS_CONVERTER_VERSION = "krisp-benchmark-assets/2"
+PREVIOUS_PROFILES = {
+	("engine-pbr-opaque-v1", "krisp-benchmark-assets/2"),
+	("engine-pbr-opaque-bc3-v1", "krisp-benchmark-assets/3"),
+}
 LOCK_PATH = Path(__file__).with_name("assets.lock.json")
 GLTF_SCENE = "NewSponza_Main_glTF_003.gltf"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -600,7 +604,7 @@ def _require_pillow():
 	return Image
 
 
-def _dds_info(path: Path) -> tuple[int, int, int]:
+def _dds_chain_info(path: Path) -> dict[str, Any]:
 	try:
 		with path.open("rb") as source:
 			header = source.read(DDS_HEADER_SIZE)
@@ -612,27 +616,131 @@ def _dds_info(path: Path) -> tuple[int, int, int]:
 	if struct.unpack_from("<I", header, 4)[0] != 124:
 		raise AssetPreparationError(f"invalid DDS header size: {path}")
 	height, width = struct.unpack_from("<II", header, 12)
-	mip_count = struct.unpack_from("<I", header, 28)[0]
+	mip_count = struct.unpack_from("<I", header, 28)[0] or 1
+	flags = struct.unpack_from("<I", header, 8)[0]
 	pixel_format_size, pixel_flags = struct.unpack_from("<II", header, 76)
 	fourcc = header[84:88]
 	if width <= 0 or height <= 0:
 		raise AssetPreparationError(f"invalid DDS dimensions: {path}")
 	if pixel_format_size != 32 or not pixel_flags & 0x4 or fourcc != DDS_DXT5_FOURCC:
 		raise AssetPreparationError(f"DDS texture must use BC3/DXT5: {path}")
-	if mip_count not in {0, 1}:
-		raise AssetPreparationError(f"DDS texture must contain only a base level: {path}")
 	caps, caps2 = struct.unpack_from("<II", header, 108)
-	if caps & ~0x1000 or not caps & 0x1000 or caps2 != 0:
+	if caps & ~(0x1000 | 0x8 | 0x400000) or not caps & 0x1000 or caps2 != 0:
 		raise AssetPreparationError(f"DDS texture must be a plain 2D texture: {path}")
 	base_bytes = max(1, (width + 3) // 4) * max(1, (height + 3) // 4) * 16
 	if struct.unpack_from("<I", header, 20)[0] != base_bytes:
 		raise AssetPreparationError(f"DDS linear size does not match its BC3 base level: {path}")
-	if size != DDS_HEADER_SIZE + base_bytes:
+	maximum_levels = int(math.floor(math.log2(max(width, height)))) + 1
+	if mip_count > maximum_levels or bool(flags & 0x20000) != (mip_count > 1):
+		raise AssetPreparationError(f"DDS mip count or flags are invalid: {path}")
+	if mip_count > 1 and (caps & (0x8 | 0x400000)) != (0x8 | 0x400000):
+		raise AssetPreparationError(f"DDS mipmap caps are invalid: {path}")
+	level_dimensions = []
+	payload_bytes = 0
+	level_width, level_height = width, height
+	for _ in range(mip_count):
+		level_dimensions.append((level_width, level_height))
+		payload_bytes += max(1, (level_width + 3) // 4) * max(1, (level_height + 3) // 4) * 16
+		level_width, level_height = max(1, level_width // 2), max(1, level_height // 2)
+	if size != DDS_HEADER_SIZE + payload_bytes:
 		raise AssetPreparationError(f"DDS payload size or mip chain is invalid: {path}")
-	return width, height, base_bytes
+	return {"width": width, "height": height, "base_level_bytes": base_bytes,
+		"mip_levels": mip_count, "level_dimensions": level_dimensions,
+		"payload_bytes": payload_bytes, "runtime_file_bytes": size}
 
 
-def _convert_png_to_dds(source_path: Path, destination_path: Path) -> tuple[int, int, int]:
+def _dds_info(path: Path) -> tuple[int, int, int]:
+	info = _dds_chain_info(path)
+	return info["width"], info["height"], info["base_level_bytes"]
+
+
+def _normal_float_components(image):
+	"""Return float RGB normal components and alpha without changing source pixels."""
+	_require_pillow()
+	from PIL import ImageMath
+
+	red, green, blue, alpha = image.split()
+	channels = []
+	for channel in (red, green, blue):
+		channel_float = channel.convert("F")
+		channels.append(ImageMath.lambda_eval(
+			lambda args: args["channel"] / 127.5 - 1.0, channel=channel_float))
+		channel_float.close()
+	return channels, alpha
+
+
+def _normalize_normal_components(red, green, blue):
+	"""Normalize float normal planes, using +Z when averaged vectors cancel."""
+	from PIL import ImageMath
+
+	length_squared = ImageMath.lambda_eval(
+		lambda args: args["red"] ** 2 + args["green"] ** 2 + args["blue"] ** 2,
+		red=red, green=green, blue=blue)
+	length = ImageMath.lambda_eval(lambda args: args["length_squared"] ** 0.5,
+		length_squared=length_squared)
+	safe_length = ImageMath.lambda_eval(lambda args: args["max"](args["length"], 1e-6), length=length)
+	cancelled = ImageMath.lambda_eval(lambda args: args["length_squared"] <= 1e-12,
+		length_squared=length_squared)
+	components = [
+		ImageMath.lambda_eval(lambda args: args["component"] / args["length"],
+			component=component, length=safe_length)
+		for component in (red, green, blue)
+	]
+	active = ImageMath.lambda_eval(lambda args: 1.0 - args["cancelled"], cancelled=cancelled)
+	components = [ImageMath.lambda_eval(
+		lambda args: args["component"] * args["active"], component=component, active=active)
+		for component in components]
+	components[2] = ImageMath.lambda_eval(
+		lambda args: args["component"] + args["cancelled"],
+		component=components[2], cancelled=cancelled)
+	length_squared.close()
+	length.close()
+	safe_length.close()
+	cancelled.close()
+	active.close()
+	return components
+
+
+def _encode_normal_mip(red, green, blue, alpha):
+	"""Round float channels to RGBA8 with the same component mapping as the engine."""
+	Image = _require_pillow()
+	from PIL import ImageMath
+
+	def encode(channel):
+		return ImageMath.lambda_eval(
+			lambda args: args["convert"]((args["channel"] + 1.0) * 127.5 + 0.5, "L"),
+			channel=channel)
+
+	def encode_alpha(channel):
+		return ImageMath.lambda_eval(
+			lambda args: args["convert"](args["channel"] + 0.5, "L"),
+			channel=channel)
+
+	return Image.merge("RGBA", (encode(red), encode(green), encode(blue), encode_alpha(alpha)))
+
+
+def _normal_mip_chain(base):
+	"""Build a full NPOT chain with Pillow BOX filtering and vector normalization."""
+	Image = _require_pillow()
+	levels = [base]
+	source = base
+	while source.size != (1, 1):
+		width, height = source.size
+		destination_size = (max(1, width // 2), max(1, height // 2))
+		components, alpha = _normal_float_components(source)
+		# Pillow's BOX reducer is deterministic but differs from the runtime's exact odd-size area weights.
+		filtered = [component.resize(destination_size, Image.Resampling.BOX) for component in components]
+		filtered_alpha = alpha.convert("F").resize(destination_size, Image.Resampling.BOX)
+		normalized = _normalize_normal_components(*filtered)
+		mip = _encode_normal_mip(*normalized, filtered_alpha)
+		levels.append(mip)
+		for plane in components + filtered + normalized + [alpha, filtered_alpha]:
+			plane.close()
+		source = mip
+	return levels
+
+
+def _convert_png_to_dds(source_path: Path, destination_path: Path, *, normal_map: bool = False) -> tuple[int, int, int]:
 	Image = _require_pillow()
 	try:
 		expected_width, expected_height = _png_size(source_path)
@@ -644,8 +752,27 @@ def _convert_png_to_dds(source_path: Path, destination_path: Path) -> tuple[int,
 				raise AssetPreparationError(f"PNG dimensions disagree with the decoded image: {source_path}")
 			rgba = source_image.convert("RGBA")
 			destination_path.parent.mkdir(parents=True, exist_ok=True)
-			rgba.save(destination_path, format="DDS", pixel_format=PILLOW_PIXEL_FORMAT)
-			rgba.close()
+			if normal_map:
+				levels = _normal_mip_chain(rgba)
+				encoded = []
+				for level in levels:
+					buffer = io.BytesIO()
+					level.save(buffer, format="DDS", pixel_format=PILLOW_PIXEL_FORMAT)
+					encoded.append(buffer.getvalue())
+					buffer.close()
+				for level in levels[1:]:
+					level.close()
+				payload = b"".join(item[DDS_HEADER_SIZE:] for item in encoded)
+				header = bytearray(encoded[0][:DDS_HEADER_SIZE])
+				if len(encoded) > 1:
+					struct.pack_into("<I", header, 8, struct.unpack_from("<I", header, 8)[0] | 0x20000)
+					struct.pack_into("<I", header, 28, len(encoded))
+					struct.pack_into("<I", header, 108, struct.unpack_from("<I", header, 108)[0] | 0x8 | 0x400000)
+				destination_path.write_bytes(header + payload)
+				rgba.close()
+			else:
+				rgba.save(destination_path, format="DDS", pixel_format=PILLOW_PIXEL_FORMAT)
+				rgba.close()
 		# Pillow 11.3.0 writes a row-size value here despite setting DDSD_LINEARSIZE.
 		# Store the full BC3 base-level payload size required by the DDS header.
 		with destination_path.open("r+b") as destination:
@@ -667,14 +794,80 @@ def _convert_png_to_dds(source_path: Path, destination_path: Path) -> tuple[int,
 
 
 def _convert_model_images_to_dds(model: dict[str, Any], source_root: Path, output_root: Path) -> None:
-	for index, image in enumerate(model.get("images", [])):
+	"""Convert source PNGs, retaining distinct images when one serves different map semantics."""
+	normal_texture_indices = set()
+	non_normal_texture_indices = set()
+	for material in model.get("materials", []):
+		for slot, block_name in _MATERIAL_TEXTURE_SLOTS:
+			block = material.get(block_name, {}) if block_name else material
+			info = block.get(slot) if isinstance(block, dict) else None
+			if info is not None:
+				texture_index = info.get("index", -1)
+				if slot == "normalTexture":
+					normal_texture_indices.add(texture_index)
+				else:
+					non_normal_texture_indices.add(texture_index)
+	normal_image_indices = set()
+	textures = model.get("textures", [])
+	images = model.get("images", [])
+	shared_image_indices = {
+		textures[index].get("source", -1) for index in non_normal_texture_indices
+		if 0 <= index < len(textures)
+	}
+	normal_clones_by_source_image = {}
+	for texture_index in sorted(normal_texture_indices):
+		if texture_index < 0 or texture_index >= len(textures):
+			continue
+		texture = textures[texture_index]
+		image_index = texture.get("source", -1)
+		if image_index < 0 or image_index >= len(images):
+			continue
+		if image_index not in shared_image_indices and texture_index not in non_normal_texture_indices:
+			normal_image_indices.add(image_index)
+			continue
+		clone_image_index = normal_clones_by_source_image.get(image_index)
+		if clone_image_index is None:
+			clone_image_index = len(images)
+			images.append(copy.deepcopy(images[image_index]))
+			normal_clones_by_source_image[image_index] = clone_image_index
+		clone_texture = copy.deepcopy(texture)
+		clone_texture["source"] = clone_image_index
+		clone_texture_index = len(textures)
+		textures.append(clone_texture)
+		for material in model.get("materials", []):
+			normal_info = material.get("normalTexture")
+			if normal_info is not None and normal_info.get("index") == texture_index:
+				normal_info["index"] = clone_texture_index
+		normal_image_indices.add(clone_image_index)
+	source_relatives = []
+	for index, image in enumerate(images):
 		uri = image.get("uri")
 		if not isinstance(uri, str) or Path(uri).suffix.lower() != ".png":
 			raise AssetPreparationError(f"benchmark source image {index} must use a PNG file URI")
-		relative = _uri_path(uri, "image")
+		source_relatives.append(_uri_path(uri, "image"))
+	output_relatives = {}
+	reserved_output_paths = set()
+	for index in range(len(images)):
+		if index not in normal_image_indices:
+			relative = source_relatives[index]
+			output_relative = relative.with_suffix(".dds")
+			output_relatives[index] = output_relative
+			reserved_output_paths.add(output_relative)
+	for index in sorted(normal_image_indices):
+		relative = source_relatives[index]
+		base_name = f"{relative.stem}.normal-{index}.dds"
+		output_relative = relative.with_name(base_name)
+		variant = 1
+		while output_relative in reserved_output_paths:
+			output_relative = relative.with_name(f"{relative.stem}.normal-{index}-{variant}.dds")
+			variant += 1
+		output_relatives[index] = output_relative
+		reserved_output_paths.add(output_relative)
+	for index, image in enumerate(model.get("images", [])):
+		relative = source_relatives[index]
 		source_path = source_root / relative
-		output_relative = relative.with_suffix(".dds")
-		_convert_png_to_dds(source_path, output_root / output_relative)
+		output_relative = output_relatives[index]
+		_convert_png_to_dds(source_path, output_root / output_relative, normal_map=index in normal_image_indices)
 		image["uri"] = output_relative.as_posix()
 		image["mimeType"] = "image/vnd-ms.dds"
 	for texture in model.get("textures", []):
@@ -695,30 +888,45 @@ def _add_texture_memory(metadata: dict[str, Any], model: dict[str, Any], model_p
 		if not isinstance(uri, str) or Path(uri).suffix.lower() != ".dds":
 			raise AssetPreparationError("runtime benchmark images must use DDS file URIs")
 		path = model_path.parent / _uri_path(uri, "image")
-		width, height, bc3_base_bytes = _dds_info(path)
-		images[index] = {"path": path, "width": width, "height": height, "bc3_base_bytes": bc3_base_bytes}
+		info = _dds_chain_info(path)
+		images[index] = {"path": path, **info}
 	used = set()
+	normal_used = set()
 	for material in model.get("materials", []):
 		for slot, block_name in _MATERIAL_TEXTURE_SLOTS:
 			block = material.get(block_name, {}) if block_name else material
 			info = block.get(slot) if isinstance(block, dict) else None
 			if info is not None:
-				used.add(_validate_texture_sampler(model, info, f"texture memory {slot}"))
+				image_index = _validate_texture_sampler(model, info, f"texture memory {slot}")
+				used.add(image_index)
+				if slot == "normalTexture":
+					normal_used.add(image_index)
 	texture_records = []
 	decoded_rgba_bytes = 0
 	bc3_base_bytes = 0
+	bc3_runtime_bytes = 0
+	runtime_file_bytes = 0
+	runtime_mip_levels = 1
 	for image_index in sorted(used):
 		image = images[image_index]
+		expected_mips = int(math.floor(math.log2(max(image["width"], image["height"])))) + 1 if image_index in normal_used else 1
+		if image["mip_levels"] != expected_mips:
+			semantic = "normal" if image_index in normal_used else "non-normal"
+			raise AssetPreparationError(f"{semantic} image {image_index} has {image['mip_levels']} DDS mip levels; expected {expected_mips}")
 		bytes_per_image = image["width"] * image["height"] * 4
 		decoded_rgba_bytes += bytes_per_image
-		bc3_base_bytes += image["bc3_base_bytes"]
+		bc3_base_bytes += image["base_level_bytes"]
+		bc3_runtime_bytes += image["payload_bytes"]
+		runtime_file_bytes += image["runtime_file_bytes"]
+		runtime_mip_levels = max(runtime_mip_levels, image["mip_levels"])
 		texture_records.append({
 			"image_index": image_index,
 			"width": image["width"], "height": image["height"],
 			"format": "BC3/DXT5",
-			"mip_levels": 1,
-			"runtime_file_bytes": image["path"].stat().st_size,
-			"bc3_base_level_bytes": image["bc3_base_bytes"],
+			"mip_levels": image["mip_levels"],
+			"runtime_file_bytes": image["runtime_file_bytes"],
+			"bc3_base_level_bytes": image["base_level_bytes"],
+			"bc3_runtime_bytes": image["payload_bytes"],
 			"rgba8_base_level_bytes": bytes_per_image,
 			"rgba8_full_mipmap_estimate_bytes": (bytes_per_image * 4 + 2) // 3,
 		})
@@ -726,8 +934,10 @@ def _add_texture_memory(metadata: dict[str, Any], model: dict[str, Any], model_p
 		"unique_referenced_images": len(used),
 		"runtime_texture_format": "BC3/DXT5",
 		"compression_encoder": f"Pillow {PILLOW_VERSION} DDS pixel_format={PILLOW_PIXEL_FORMAT} default encoder",
-		"runtime_mip_levels": 1,
+		"runtime_mip_levels": runtime_mip_levels,
 		"bc3_base_level_bytes": bc3_base_bytes,
+		"bc3_runtime_bytes": bc3_runtime_bytes,
+		"runtime_file_bytes": runtime_file_bytes,
 		"rgba8_base_level_bytes": decoded_rgba_bytes,
 		"rgba8_full_mipmap_estimate_bytes": (decoded_rgba_bytes * 4 + 2) // 3,
 		"images": texture_records,
@@ -969,7 +1179,7 @@ def needs_preparation(cache_dir: Path) -> bool:
 	identity = manifest.get("profile"), manifest.get("converter_version")
 	if identity == (PROFILE, CONVERTER_VERSION):
 		return False
-	if identity == (PREVIOUS_PROFILE, PREVIOUS_CONVERTER_VERSION):
+	if identity in PREVIOUS_PROFILES:
 		return True
 	raise AssetPreparationError(
 		f"existing asset cache uses an unrecognized recipe {identity[0]!r}/{identity[1]!r}; refusing to replace it"

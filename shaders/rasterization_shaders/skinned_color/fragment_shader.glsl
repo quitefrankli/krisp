@@ -41,6 +41,7 @@ void main()
 	const vec3 direct_light = evaluate_gltf_point_lights(
 		mat_data.data,
 		normal,
+		normal,
 		view_dir,
 		frag_pos,
 		global_data.data,

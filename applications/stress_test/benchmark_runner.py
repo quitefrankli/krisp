@@ -58,6 +58,7 @@ def standard_cases(*, include_optional_views: bool = False) -> list[dict[str, An
 			{"scenario": "textured-environment", "count": 1, "view": "material-closeup"},
 			{"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 4},
 			{"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 8},
+			{"scenario": "textured-environment", "count": 1, "view": "atrium", "shadow_lights": 1, "environment_lighting": True},
 		])
 	for case in cases:
 		case["case_id"] = _case_id(case)
@@ -87,6 +88,8 @@ def _case_id(case: Mapping[str, Any]) -> str:
 	shadow_lights = case.get("shadow_lights", 0)
 	if shadow_lights:
 		parts.append("shadows" if shadow_lights == 1 else f"shadows-{shadow_lights}-lights")
+	if case.get("environment_lighting", False):
+		parts.append("environment")
 	return "-".join(parts)
 
 
@@ -274,7 +277,7 @@ def _early_worker_failure(completion_path: Path, reason: str) -> dict[str, Any]:
 
 def _worker_command(
 	executable: str, case: Mapping[str, Any], mode: str, warmup: float,
-	measurement: float, cache: Path, output: Path,
+	measurement: float, cache: Path, output: Path, *, interactive: bool = False,
 ) -> list[str]:
 	command = [
 		executable, "_worker", "--scenario", str(case["scenario"]),
@@ -282,11 +285,15 @@ def _worker_command(
 		"--warmup", str(warmup), "--measure", str(measurement),
 		"--asset-cache", str(cache), "--output", str(output),
 	]
+	if interactive:
+		command.append("--interactive")
 	if case.get("view"):
 		command.extend(("--view", str(case["view"])))
 	shadow_lights = case.get("shadow_lights", 0)
 	if shadow_lights > 0:
 		command.extend(("--shadow-lights", str(shadow_lights)))
+	if case.get("environment_lighting", False):
+		command.append("--environment-lighting")
 	return command
 
 
@@ -353,6 +360,7 @@ def _case_compatibility(
 		workload["view"] = case["view"]
 	if case["scenario"] == "textured-environment":
 		workload["shadow_lights"] = case.get("shadow_lights", 0)
+		workload["environment_lighting"] = case.get("environment_lighting", False)
 		workload["shadow_casting_lights"] = scenario.get("shadow_casting_lights")
 		workload["lighting"] = scenario.get("lighting")
 	if engine_resources is not None:
@@ -422,43 +430,46 @@ def _status_for_worker(worker: Mapping[str, Any], summary: Mapping[str, Any]) ->
 
 def _run_worker(
 	executable: str, case: Mapping[str, Any], mode: str, repetition: int,
-	warmup: float, measurement: float, cache: Path, worker_dir: Path,
+	warmup: float, measurement: float, cache: Path, worker_dir: Path, *, interactive: bool = False,
 ) -> tuple[dict[str, Any], int | None, str | None]:
 	worker_dir.mkdir(parents=True, exist_ok=False)
 	ready_path = worker_dir / "ready.json"
 	completion_path = worker_dir / "worker.json"
 	stdout_path = (worker_dir / "stdout.log").open("wb")
 	stderr_path = (worker_dir / "stderr.log").open("wb")
-	command = _worker_command(executable, case, mode, warmup, measurement, cache, worker_dir)
+	command = _worker_command(executable, case, mode, warmup, measurement, cache, worker_dir, interactive=interactive)
 	process = None
 	try:
 		process = subprocess.Popen(command, stdout=stdout_path, stderr=stderr_path, start_new_session=True)
-		ready_timeout = ENVIRONMENT_READY_TIMEOUT_SECONDS if case["scenario"] == "textured-environment" else READY_TIMEOUT_SECONDS
-		ready_deadline = time.monotonic() + ready_timeout
-		while not ready_path.is_file() and time.monotonic() < ready_deadline:
-			if process.poll() is not None:
-				break
-			time.sleep(0.05)
-		if not ready_path.is_file():
-			_terminate_group(process)
-			worker = _early_worker_failure(completion_path, "worker readiness timeout or early exit")
-			return worker, process.returncode, "readiness_timeout"
-		try:
-			ready = _load_json(ready_path)
-		except (OSError, ValueError, json.JSONDecodeError) as exc:
-			_terminate_group(process)
-			return {"status": "failed", "errors": [f"invalid ready.json: {exc}"]}, process.returncode, "invalid_readiness"
-		if ready.get("status") != "ready":
-			_terminate_group(process)
-			return {"status": "failed", "errors": ["ready.json status is not ready"]}, process.returncode, "invalid_readiness"
-		worker_timeout = SHUTDOWN_MARGIN_SECONDS if mode == "asset-loading" else warmup + measurement + DRAIN_TIMEOUT_SECONDS + SHUTDOWN_MARGIN_SECONDS
-		worker_deadline = time.monotonic() + worker_timeout
-		try:
-			process.wait(timeout=max(0.0, worker_deadline - time.monotonic()))
-		except subprocess.TimeoutExpired:
-			_terminate_group(process)
-			worker = _early_worker_failure(completion_path, "worker exceeded bounded run/drain timeout")
-			return worker, process.returncode, "worker_timeout"
+		if interactive:
+			process.wait()
+		else:
+			ready_timeout = ENVIRONMENT_READY_TIMEOUT_SECONDS if case["scenario"] == "textured-environment" else READY_TIMEOUT_SECONDS
+			ready_deadline = time.monotonic() + ready_timeout
+			while not ready_path.is_file() and time.monotonic() < ready_deadline:
+				if process.poll() is not None:
+					break
+				time.sleep(0.05)
+			if not ready_path.is_file():
+				_terminate_group(process)
+				worker = _early_worker_failure(completion_path, "worker readiness timeout or early exit")
+				return worker, process.returncode, "readiness_timeout"
+			try:
+				ready = _load_json(ready_path)
+			except (OSError, ValueError, json.JSONDecodeError) as exc:
+				_terminate_group(process)
+				return {"status": "failed", "errors": [f"invalid ready.json: {exc}"]}, process.returncode, "invalid_readiness"
+			if ready.get("status") != "ready":
+				_terminate_group(process)
+				return {"status": "failed", "errors": ["ready.json status is not ready"]}, process.returncode, "invalid_readiness"
+			worker_timeout = SHUTDOWN_MARGIN_SECONDS if mode == "asset-loading" else warmup + measurement + DRAIN_TIMEOUT_SECONDS + SHUTDOWN_MARGIN_SECONDS
+			worker_deadline = time.monotonic() + worker_timeout
+			try:
+				process.wait(timeout=max(0.0, worker_deadline - time.monotonic()))
+			except subprocess.TimeoutExpired:
+				_terminate_group(process)
+				worker = _early_worker_failure(completion_path, "worker exceeded bounded run/drain timeout")
+				return worker, process.returncode, "worker_timeout"
 		if not completion_path.is_file():
 			return {"status": "failed", "errors": ["worker exited without worker.json"]}, process.returncode, "missing_completion"
 		try:
@@ -497,13 +508,28 @@ def _case_result(
 	}
 	if (case.get("scenario") == "textured-environment" and mode != "asset-loading"
 		and worker.get("status") not in {"failed", "invalid"}):
-		observed_lights = worker.get("scenario", {}).get("shadow_casting_lights") if isinstance(worker.get("scenario"), dict) else None
+		scenario = worker.get("scenario")
+		if not isinstance(scenario, dict):
+			scenario = {}
+		observed_lights = scenario.get("shadow_casting_lights")
 		expected_lights = case.get("shadow_lights", 0)
 		if type(observed_lights) is not int or observed_lights != expected_lights:
 			result["status"] = "invalid"
 			result["error"] = (
 				f"environment worker reported {observed_lights!r} shadow-casting lights; "
 				f"requested {expected_lights}"
+			)
+			return result
+		observed_environment_lighting = scenario.get("environment_lighting")
+		expected_environment_lighting = case.get("environment_lighting", False)
+		if (expected_environment_lighting or "environment_lighting" in scenario) and (
+			type(observed_environment_lighting) is not bool
+			or observed_environment_lighting != expected_environment_lighting
+		):
+			result["status"] = "invalid"
+			result["error"] = (
+				f"environment worker reported environment_lighting={observed_environment_lighting!r}; "
+				f"requested {expected_environment_lighting}"
 			)
 			return result
 	try:
@@ -707,7 +733,11 @@ def _report(manifest: Mapping[str, Any]) -> str:
 		f"(dirty: `{manifest.get('build', {}).get('dirty', 'unknown')}`)"
 	)
 	asset_loading_suite = manifest.get("protocol", {}).get("suite") == "asset-loading"
-	if asset_loading_suite:
+	if manifest.get("interactive") is True:
+		session = manifest.get("interactive_session", {})
+		lines.extend(["", "## Interactive session", "", f"Workload: `{session.get('workload_id', 'unknown')}`  ",
+			f"Mode: `{session.get('mode', 'paced')}`  ", f"Worker status: **{session.get('worker_status', 'unknown')}**", ""])
+	elif asset_loading_suite:
 		lines.extend(["", "Asset loading durations are in milliseconds. Readiness means the first scene presentation was observed; OS cache state is uncontrolled.", "", "## Asset loading", ""])
 	else:
 		lines.extend(["", "Each duration is in nanoseconds. Present-call cadence is measured on the CPU and does not represent display scanout.", "", "## Cases", ""])
@@ -866,8 +896,59 @@ def _preflight_failure(manifest: dict[str, Any], output: Path) -> int:
 	return 2
 
 
+def _run_interactive(
+	args: argparse.Namespace, case: Mapping[str, Any], cache: Path,
+	manifest: dict[str, Any], output: Path, started: float,
+) -> int:
+	worker_dir = output / "workers" / case["case_id"] / "paced" / "interactive"
+	manifest["interactive"] = True
+	manifest.pop("cases", None)
+	manifest["protocol"] = {
+		"suite": args.suite, "protocol_version": PROTOCOL_VERSION,
+		"interactive": True, "selected_workload": case["case_id"],
+		"warmup_seconds": 0.0, "measurement_seconds": 0.0,
+	}
+	manifest["scheduled_workers"] = 1
+	manifest["interactive_session"] = {
+		"workload_id": case["case_id"], "mode": "paced", "worker_directory": str(worker_dir),
+		"status": "running", "worker_status": "running",
+	}
+	_save(manifest, output)
+	print(f"Interactive session: {case['case_id']} (close the window or exit normally to finish)", flush=True)
+	worker, return_code, error = _run_worker(
+		args.executable, case, "paced", 1, 0.0, 0.0, cache, worker_dir, interactive=True,
+	)
+	session = manifest["interactive_session"]
+	session["worker"] = worker
+	session["worker_status"] = worker.get("status", "failed")
+	session["status"] = "complete" if error is None and return_code == 0 and session["worker_status"] == "complete" else "failed"
+	manifest["completed_workers"] = 1
+	manifest["failed_or_invalid_workers"] = int(session["status"] == "failed")
+	if error:
+		session["error"] = error
+		manifest["errors"].extend(worker.get("errors", []))
+		if not worker.get("errors"):
+			manifest["errors"].append(error)
+	if return_code not in (None, 0):
+		manifest["errors"].append(f"interactive worker exited with status {return_code}")
+	manifest["status"] = session["status"]
+	manifest["wall_time_seconds"] = time.monotonic() - started
+	_save(manifest, output)
+	print(f"Wrote {output / 'report.md'}", flush=True)
+	return 1 if session["status"] == "failed" else 0
+
+
 def run(args: argparse.Namespace) -> int:
 	started = time.monotonic()
+	if args.interactive and args.workload is None:
+		print("--interactive requires --workload to select exactly one scene", file=sys.stderr)
+		return 2
+	if args.interactive and args.baseline:
+		print("--baseline cannot be used with --interactive", file=sys.stderr)
+		return 2
+	if args.interactive and args.suite == "asset-loading":
+		print("--interactive requires a scene suite (standard or smoke)", file=sys.stderr)
+		return 2
 	if args.suite == "asset-loading" and (args.warmup is not None or args.measure is not None):
 		print("--suite asset-loading fixes warmup and measurement at zero; do not pass --warmup or --measure", file=sys.stderr)
 		return 2
@@ -947,6 +1028,8 @@ def run(args: argparse.Namespace) -> int:
 		manifest["errors"].extend(asset_errors)
 		manifest["errors"].append(f"prepare or repair assets with: stress_test prepare-assets")
 		return _preflight_failure(manifest, output)
+	if args.interactive:
+		return _run_interactive(args, cases[0], cache, manifest, output, started)
 	if args.baseline:
 		try:
 			baseline_path = _resolve_baseline(args.baseline)
@@ -1048,6 +1131,7 @@ def _parser() -> argparse.ArgumentParser:
 	run_parser.add_argument("--workload", choices=sorted({case["case_id"] for case in standard_cases(include_optional_views=True) + smoke_cases(include_optional_shadows=True)}),
 		help="run only this workload from the selected suite and configured repetitions")
 	run_parser.add_argument("--baseline")
+	run_parser.add_argument("--interactive", action="store_true", help="run one selected scene until you exit")
 	run_parser.add_argument("--source-directory", type=Path, help="use locally supplied pinned inputs when preparing a missing asset cache")
 	run_parser.add_argument("--warmup", type=float)
 	run_parser.add_argument("--measure", type=float)

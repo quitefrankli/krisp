@@ -4,12 +4,18 @@ Date: 2026-10-22
 
 ## Finding
 
-The engine can upload and sample mip levels supplied in a texture asset. The
-general material texture path does not generate spatial mip levels. PNG/JPEG
-decoding produces one level, while BC3/DXT5 DDS assets may carry a complete or
-partial authored chain. Several ordinary runtime image paths also create one
-level, though lower-level callers can provide multi-level `TextureMaterial`
-data. This is authored chain support, not generic mipmap generation.
+The engine uploads and samples supplied mip chains. Following this investigation,
+PNG/JPEG textures loaded with the `NORMAL` semantic also receive a complete mip
+chain during decoding. Normal vectors are filtered and renormalized, with positive
+Z as the fallback for cancellation; the original base pixels remain unchanged.
+Other PNG/JPEG semantics remain single-level. BC3/DXT5 DDS assets preserve their
+supplied complete or partial chains without runtime generation.
+
+The benchmark converter now produces normal-map mip chains before BC3
+compression, using the `engine-pbr-opaque-bc3-normal-mips-v1` profile. It uses
+Pillow BOX filtering; the CPU loader uses exact fractional source-area weights
+for odd dimensions. Both normalize filtered vectors and average alpha linearly.
+These reducers need not produce identical bytes for non-power-of-two images.
 
 ## Asset and upload path
 
@@ -18,9 +24,9 @@ format, payload, and a byte size for each mip level in `mip_sizes`. The DDS
 loader accepts DXT5/BC3 2D textures, checks dimensions and the maximum legal
 level count, computes each level's BC3 block size, and rejects truncated data.
 It retains the number of levels present in the file, so chains may be partial.
-See [`load_dds_texture_data`](../../src/resource_loader/resource_loader_material.ipp#L46).
-PNG/JPEG decode paths set a single mip size ([glTF image decode](../../src/resource_loader/resource_loader_material.ipp#L148),
-[standalone image decode](../../src/resource_loader/resource_loader_material.ipp#L669)).
+See [`load_dds_texture_data`](../../src/resource_loader/resource_loader_material.ipp).
+Both glTF and standalone decoded-image paths share the normal-mip generator
+and RGBA8 storage helper in that file.
 
 The texture manager creates the sampled image view across every supplied level
 ([`create_texture`](../../src/graphics_engine/graphics_engine_texture_manager.ipp#L269)).
@@ -76,30 +82,47 @@ default) to linear mip interpolation, `LINEAR_MIPMAP_NEAREST` to nearest mip,
 and `LINEAR` to no mip filtering. It accepts only linear texel filtering,
 matching S/T axes, and repeat or clamp-to-edge addressing; unsupported settings
 on used samplers fail import. See
-[`resolve_gltf_sampler`](../../src/resource_loader/resource_loader_material.ipp#L212).
-The resource guide documents that authored DDS chains are sampled while
-PNG/JPEG stay single-level ([`RESOURCES.md`](../RESOURCES.md#L160)).
+[`resolve_gltf_sampler`](../../src/resource_loader/resource_loader_material.ipp#L327).
+The resource guide documents authored DDS chains and generated PNG/JPEG normal
+chains ([`RESOURCES.md`](../RESOURCES.md#L160)). Explicit no-mip samplers still
+limit sampling to level zero.
 
 ## Coverage and limits
 
 CPU/resource tests verify DDS mip-size decoding and imported sampler metadata,
 including authored chains, each supported mip-filter interpretation, and
 rejection of unsupported sampler modes
-([DDS tests](../../test/resource_loader_tests.cpp#L1035),
-[import tests](../../test/resource_loader_tests.cpp#L1086),
-[sampler rejection tests](../../test/resource_loader_tests.cpp#L1300)).
-The focused debug binary run passed 28 tests across four suites; it used the
-existing binary without rebuilding. There is no GPU render validation in that
-result, and the current tests do not prove visible LOD selection or filtering.
+([resource-loader tests](../../test/resource_loader_tests.cpp)).
+Loader regression tests also cover normal-map mip generation through standalone
+and glTF image paths, odd-size edge contribution, and cancellation fallback.
+These CPU tests do not prove visible GPU LOD selection or filtering.
 
-Benchmark asset preparation currently requires one-level DDS files and records
-one runtime mip level ([validation/conversion](../../applications/stress_test/benchmark_assets.py#L603),
-[metadata](../../applications/stress_test/benchmark_assets.py#L714)). This is a
-constraint of that asset preparation path, not the engine DDS loader.
+Benchmark preparation requires complete normal chains and single-level images
+for other slots. Images shared by normal and other slots receive separate
+variants. Validation checks DDS chain sizes and records mip counts and total
+BC3 payload bytes ([validation/conversion and metadata](../../applications/stress_test/benchmark_assets.py)).
+Recognized old caches migrate from verified sources on the next preparation;
+old prepared textures are not modified merely by rebuilding the engine.
 
-Proposed follow-up: if general material mip generation is needed, an offline
-asset path is a simple extension. Filtering should account for texture meaning:
-color data should be filtered in linear light, while normal maps need
-vector-aware filtering and renormalization. An engine-side generator would
-need equivalent semantic-aware behavior plus validation of format features
-and supplied level dimensions.
+General color and material-data mip generation remains a separate follow-up.
+Normal-map generation adds load/preparation work and texture memory; see
+[`PERFORMANCE.md`](../PERFORMANCE.md) for the cost model and measurement limits.
+
+## Fix validation
+
+The Debug engine suite passed 433 tests with one display-dependent test skipped.
+The asset-preparation suite passed 24 tests, and the benchmark-runner suite
+passed 32. Both Debug and Release targets build successfully. Regenerating the
+production cache validated all 91 pinned files: 28 normal DDS paths and the two
+glTF files changed; all other runtime-file hashes stayed unchanged.
+
+The existing Release render probe, `python3 build/investigate-grain.py baseline
+--check-clean`, passes on the regenerated cache. On the RTX 2070, high-contrast
+pixels in the fixed arch patch decreased from 26.038% in the restored original
+cache to 7.954%. The wall patch decreased from 3.880% to 1.286%. This checks the
+identified minification artifact in one view; it does not establish final
+rendering quality or a performance improvement. Evidence:
+
+- Original cache: `build/grain-investigation/20261022T131332-2b0802/results.json`
+- New recipe: `build/grain-investigation/20261022T135806-3fab12/results.json`
+- New capture: `build/grain-investigation/20261022T135806-3fab12/baseline/capture.png`

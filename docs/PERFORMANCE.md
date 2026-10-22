@@ -19,9 +19,22 @@ Rasterized point-light shadows use 16-tap Poisson-disc PCF in
 `shaders/library/library.glsl`, shared by all four lit material paths. Each
 fragment accumulates direct illumination across up to eight snapshot lights.
 Disabled lights and lights with zero intensity or black colour are skipped.
-For contributing lights, back-facing contributions skip shadow sampling. Each
+For contributing lights, both the base surface normal and the normal-map shading
+normal must face the light; otherwise the contribution skips shadow sampling
+and BRDF evaluation. This prevents normal maps from admitting direct light
+through the back of an opaque surface. Shadow bias and receiver-plane depth
+use the base surface normal, while the BRDF retains the shading normal. Each
 contributing shadowed light performs 16 cube-array depth samples. Unshadowed
 lights do not perform PCF.
+
+Graphics Settings exposes a global `Shadows` switch. Disabling it preserves
+direct lighting and material shading while preparing every light with shadow
+slot `-1`. No shadow matrices, caster draws, or fragment shadow samples are
+needed. Each swap-chain slot still initializes its bindable shadow image once;
+later zero-shadow frames skip the pass, including its framebuffer clear.
+Allocated cube-array capacity is retained for re-enabling shadows. The switch
+travels in the immutable render-view snapshot and does not add pipeline variants.
+Its performance benefit has not been measured.
 
 - Shadow filtering can therefore require up to 128 depth samples per fragment
   when all eight lights contribute and cast shadows. This is a modeled upper
@@ -29,7 +42,9 @@ lights do not perform PCF.
   per-tap work by 78% for each shadowed contribution (modeled, not measured).
 - Each tap normalizes its lookup direction and applies receiver-plane depth
   correction. This costs additional arithmetic but avoids concentric
-  self-shadowing on large flat receivers.
+  self-shadowing on large flat receivers. Normal maps do not perturb that
+  receiver plane or its bias. No performance change from separating the
+  surface and shading normals has been measured.
 - Shadow command recording scales with the number of shadowed lights and the
   visible shadow-caster draw list. Each shadowed light renders eligible casters
   to six faces; there is no spatial culling by light range. This CPU and GPU
@@ -153,10 +168,17 @@ validate any quality reduction against rough metals and broad highlights.
 
 PNG/JPEG decoding and MikkTSpace tangent generation are model-load costs.
 MikkTSpace may split vertices at tangent discontinuities, increasing vertex and
-index storage for affected normal-mapped meshes. Decoded images are uploaded as
-single-level RGBA8 textures, so expected GPU storage is approximately
+index storage for affected normal-mapped meshes. Decoded PNG/JPEG normal maps
+now build a complete RGBA8 mip chain on the CPU during loading. Area filtering
+and vector renormalization add work proportional to the image's texel count;
+this cost has not been benchmarked. The mip payload is retained on the CPU and
+uploaded to the GPU. Texel payload is the sum of `4 * mip_width * mip_height`
+over supplied levels, about one third more than the base for large square
+textures, and can approach twice the base for long, thin images. Other decoded
+texture semantics remain single-level RGBA8, approximately
 `width * height * 4` bytes before allocator overhead. Missing mip chains can
-alias during minification.
+alias during minification. Supplied DDS chains are preserved without runtime
+generation.
 
 The `optimize_resource_loader` Meson option defaults to `true`. It compiles
 `resource_loader.cpp` and its included mesh, animation, and material
@@ -438,6 +460,15 @@ is outside the configured timed-work total. The shared cache can be prepared
 manually with `stress_test prepare-assets`; `run` prepares it automatically
 when missing.
 
+The optional standard `textured-environment-atrium-shadows-environment`
+workload combines the one-light shadowed atrium with the default engine
+skybox and precomputed environment lighting. It adds a skybox renderable and
+diffuse/specular image-based lighting evaluation to the scene. Environment
+resources are loaded before steady-state measurement; the environment asset
+fingerprint and enabled state participate in baseline identity. Existing
+workloads retain their lighting setup. This adds measurement coverage without
+a measured performance claim; interactive runs produce no benchmark samples.
+
 The default shadowed atrium workload renders the existing fixed point light's
 1024-by-1024 shadow cubemap and samples it with the current 16-tap PCF filter.
 The unshadowed `textured-environment-atrium` workload remains selectable for a
@@ -463,8 +494,11 @@ standard suite's warmed rendering metrics. Asset loading continues to use the
 existing unshadowed atrium workload. See [STRESS_TEST.md](STRESS_TEST.md) for
 commands, protocol overrides, saved evidence and explicit baseline selection.
 
-The benchmark's `engine-pbr-opaque-bc3-v1` asset profile derives base-level
-BC3/DXT5 DDS textures from the pinned source PNGs during preparation. This is a
+The benchmark's `engine-pbr-opaque-bc3-normal-mips-v1` asset profile derives
+BC3/DXT5 DDS textures from the pinned source PNGs during preparation. Normal
+maps receive full chains filtered as vectors and renormalized before BC3
+compression; other images remain base-level only. This adds offline filtering
+and compression work and increases runtime normal-map payloads. This is a
 lossy conversion, including for normal maps; source images remain available in
 the cache, while runtime glTF references the DDS files without PNG fallbacks.
 Profile, converter version, and exact runtime-file hashes identify the prepared
@@ -472,6 +506,13 @@ inputs, so PNG-profile results do not compare as the same asset set. The
 conversion is an approved benchmark preparation choice, not a measured loading
 improvement. See [STRESS_TEST_ASSETS.md](STRESS_TEST_ASSETS.md) for cache
 migration and offline preparation details.
+
+The regenerated pinned cache contains 28 normal maps with complete chains.
+Only those DDS outputs and the two glTF image references differ from the prior
+recipe; the other runtime-file hashes are unchanged. Extra compressed mip
+payload is 5,942,064 bytes for the smaller asset set and 128,625,936 bytes for
+the larger environment, totaling 134,568,000 bytes (about 128.3 MiB). These
+are file-payload counts, not measured GPU allocations or performance results.
 
 Benchmark workers explicitly reserve 128 MiB of vertex-buffer capacity and
 64 MiB of index-buffer capacity for every scenario. These fixed per-run limits
@@ -734,8 +775,9 @@ The grainy benchmark image was subsequently traced primarily to normal-map
 minification without mipmaps. Original PNG normal maps remain grainy, whereas
 adding DDS normal-map mip chains substantially reduces the artifact. This is
 a visual-correctness finding; the diagnostic captures provide no performance
-claim. The engine already supports loading and sampling multi-level BC3 DDS,
-while the current preparation recipe emits and validates only a base level.
+claim. The engine already supports loading and sampling multi-level BC3 DDS.
+The preparation recipe used for those captures emitted and validated only a
+base level; the normal-mip profile now generates full normal-map chains.
 The diagnostic normal-map mip chains add 128,625,936 compressed bytes (about
 123 MiB, or 33% over those base levels), so adopting them changes texture memory
 and sampling work and requires new pinned asset metadata and compatible

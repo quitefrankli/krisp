@@ -163,7 +163,8 @@ float get_point_shadow_factor(
 
 vec3 evaluate_gltf_point_lights(
 	const MaterialData material,
-	const vec3 normal,
+	const vec3 geometric_normal,
+	const vec3 shading_normal,
 	const vec3 view_dir,
 	const vec3 fragment_position,
 	const GlobalData global_data,
@@ -179,7 +180,10 @@ vec3 evaluate_gltf_point_lights(
 
 		const vec3 light_dir = get_direction_to_point_light(
 			fragment_position, light.position);
-		if (dot(normal, light_dir) <= 0.0)
+		// Normal maps change the local BRDF, not which side of the surface
+		// can receive direct light.
+		if (dot(geometric_normal, light_dir) <= 0.0
+			|| dot(shading_normal, light_dir) <= 0.0)
 			continue;
 
 		float visibility = 1.0;
@@ -188,14 +192,14 @@ vec3 evaluate_gltf_point_lights(
 			visibility = get_point_shadow_factor(
 				shadow_map,
 				fragment_position - light.position,
-				normal,
+				geometric_normal,
 				light_dir,
 				global_data.shadow_far_plane,
 				light.shadow_slot);
 		}
 		direct_light += evaluate_gltf_point_light(
 			material,
-			normal,
+			shading_normal,
 			view_dir,
 			fragment_position,
 			light.position,

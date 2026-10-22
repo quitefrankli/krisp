@@ -49,6 +49,8 @@ struct WorkerOptions
 	int shadow_lights = 0;
 	double warmup = 10.0;
 	double measure = 30.0;
+	bool interactive = false;
+	bool environment_lighting = false;
 	Path cache;
 	Path output;
 };
@@ -108,7 +110,7 @@ Json graphics_json(const RuntimeGraphicsInfo& info, const RuntimeOptions& option
 		{"simulation_hz", 60}, {"fixed_simulation_timestep", true},
 		{"render_hz", options.render_hz.value_or(0.0)}, {"msaa_samples", CSTS::MSAA_SAMPLE_COUNT},
 		{"shadow_resolution", POINT_SHADOW_RESOLUTION},
-		{"render_path", "rasterized-pbr"}, {"exposure_ev", 0.0}, {"ui", false}, {"performance_overlay", true}, {"interactive", false}
+		{"render_path", "rasterized-pbr"}, {"exposure_ev", 0.0}, {"ui", options.ui}, {"performance_overlay", options.performance_overlay}, {"interactive", options.interactive}
 	};
 }
 
@@ -198,13 +200,14 @@ public:
 	void on_begin(GameEngine& engine) override
 	{
 		engine.set_exposure_ev(0.0f);
-		engine.set_normal_mode_cursor_captured(false);
+		if (!options.interactive) engine.set_normal_mode_cursor_captured(false);
 		if (options.scenario == "textured-objects" || options.scenario == "textured-environment")
 			spawn_imported(engine);
 		else
 			spawn_cubes(engine);
-		engine.set_game_mode(EGameMode::NORMAL);
-		if (engine.get_ecs().get_renderable_ids().size() != state.scenario.at("renderables").get<size_t>())
+		engine.set_game_mode(options.interactive ? EGameMode::EDITOR : EGameMode::NORMAL);
+		if (!options.interactive
+			&& engine.get_ecs().get_renderable_ids().size() != state.scenario.at("renderables").get<size_t>())
 			throw std::runtime_error("Scene renderable count differs from the workload definition");
 		size_t shadow_casting_lights = 0;
 		Json lighting = Json::array();
@@ -224,6 +227,7 @@ public:
 			throw std::runtime_error("Shadow-casting light count differs from the workload definition");
 		state.scenario["shadow_casting_lights"] = shadow_casting_lights;
 		state.scenario["lighting"] = std::move(lighting);
+		state.scenario["environment_lighting"] = options.environment_lighting;
 		state.scenario["name"] = options.scenario;
 		state.scenario["version"] = 1;
 		state.scenario["count"] = options.count;
@@ -235,6 +239,20 @@ public:
 	void on_tick(GameEngine& engine, float) override
 	{
 		if (!engine.is_ready()) return;
+		if (options.interactive)
+		{
+			if (!state.ready_ns)
+			{
+				state.ready_ns = engine.get_ready_timestamp_ns();
+				write_json(options.output / "ready.json", {{"status", "ready"}, {"ready_ns", state.ready_ns}});
+			}
+			if (options.scenario == "moving-transforms")
+			{
+				const auto rotation = BenchmarkScene::rotation_for_tick(engine.get_simulation_tick());
+				for (const auto id : moving) engine.get_ecs().get_transformation(id).set_rotation(rotation);
+			}
+			return;
+		}
 		if (options.mode == "asset-loading")
 		{
 			state.loading.ready_ns = engine.get_ready_timestamp_ns();
@@ -398,13 +416,14 @@ private:
 			const float intensity = asset.at("light_intensity").get<float>() / light_count;
 			for (int index = 0; index < light_count; ++index)
 				light(engine, primary_position + offsets.at(index), intensity, options.shadow_lights > 0);
+			if (options.environment_lighting) engine.spawn_cubemap();
 		}
 		else
 		{
 			engine.get_camera().look_at({0.0f, 1.0f, 0.0f}, {0.0f, 9.0f, -12.0f});
 			light(engine, {0.0f, 10.0f, -3.0f}, 800.0f, false);
 		}
-		state.scenario = {{"instances", instances}, {"renderables", renderables * instances}, {"asset", asset}, {"profile", assets.at("profile")}};
+		state.scenario = {{"instances", instances}, {"renderables", renderables * instances + (options.environment_lighting ? 1 : 0)}, {"asset", asset}, {"profile", assets.at("profile")}};
 	}
 
 	WorkerOptions options;
@@ -427,10 +446,22 @@ T parse_number(const std::string& value)
 WorkerOptions parse_options(int argc, char** argv)
 {
 	WorkerOptions options;
-	for (int i = 2; i < argc; i += 2)
+	for (int i = 2; i < argc;)
 	{
-		if (i + 1 >= argc) throw std::invalid_argument("Worker option needs a value");
 		const std::string key(argv[i]);
+		if (key == "--interactive")
+		{
+			options.interactive = true;
+			++i;
+			continue;
+		}
+		if (key == "--environment-lighting")
+		{
+			options.environment_lighting = true;
+			++i;
+			continue;
+		}
+		if (i + 1 >= argc) throw std::invalid_argument("Worker option needs a value");
 		const std::string value(argv[i + 1]);
 		if (key == "--scenario") options.scenario = value;
 		else if (key == "--view") options.view = value;
@@ -442,11 +473,16 @@ WorkerOptions parse_options(int argc, char** argv)
 		else if (key == "--asset-cache") options.cache = value;
 		else if (key == "--output") options.output = value;
 		else throw std::invalid_argument("Unknown worker argument " + key);
+		i += 2;
 	}
 	const std::set<std::string> scenarios{"static-objects", "moving-transforms", "point-shadows", "textured-objects", "textured-environment"};
 	const bool loading = options.mode == "asset-loading";
+	if (options.interactive && (options.mode != "paced" || options.warmup != 0.0 || options.measure != 0.0 || loading))
+		throw std::invalid_argument("Interactive mode requires paced rendering with no warm-up or measurement");
 	if (options.shadow_lights != 0 && (options.scenario != "textured-environment" || loading))
 		throw std::invalid_argument("Shadow variants require an environment rendering workload");
+	if (options.environment_lighting && (options.scenario != "textured-environment" || loading))
+		throw std::invalid_argument("Environment lighting requires an environment rendering workload");
 	if (loading && ((options.scenario != "textured-objects" && options.scenario != "textured-environment")
 		|| options.count != 1 || options.warmup != 0.0 || options.measure != 0.0))
 		throw std::invalid_argument("Asset loading requires one textured asset and no warm-up or steady-state measurement");
@@ -455,7 +491,7 @@ WorkerOptions parse_options(int argc, char** argv)
 	if (!scenarios.contains(options.scenario) || (options.mode != "throughput" && options.mode != "paced" && !loading)
 		|| options.count < 1 || options.count > 1000 || options.output.empty()
 		|| !std::isfinite(options.warmup) || options.warmup < 0.0 || options.warmup > 3600.0
-		|| !std::isfinite(options.measure) || (loading ? options.measure != 0.0 : options.measure <= 0.0) || options.measure > 3600.0)
+		|| !std::isfinite(options.measure) || (loading || options.interactive ? options.measure != 0.0 : options.measure <= 0.0) || options.measure > 3600.0)
 		throw std::invalid_argument("Invalid worker configuration");
 	return options;
 }
@@ -478,7 +514,7 @@ int run_benchmark_worker(int argc, char** argv)
 		paths.app_resources = options.cache;
 		Config::init(PROJECT_NAME, std::move(paths));
 		const bool loading = options.mode == "asset-loading";
-		auto observation = loading ? std::shared_ptr<RuntimeObservation>{} : std::make_shared<RuntimeObservation>(65536);
+		auto observation = loading || options.interactive ? std::shared_ptr<RuntimeObservation>{} : std::make_shared<RuntimeObservation>(65536);
 		RuntimeOptions runtime;
 		runtime.vertex_buffer_bytes = 128ULL * 1024 * 1024;
 		runtime.index_buffer_bytes = 64ULL * 1024 * 1024;
@@ -488,9 +524,9 @@ int run_benchmark_worker(int argc, char** argv)
 		runtime.fixed_simulation_timestep = true;
 		runtime.render_hz = options.mode == "throughput" ? 0.0 : 60.0;
 		runtime.presentation = options.mode == "throughput" ? PresentationPreference::Uncapped : PresentationPreference::Paced;
-		runtime.interactive = false;
-		runtime.ui = false;
-		runtime.performance_overlay = true;
+		runtime.interactive = options.interactive;
+		runtime.ui = options.interactive;
+		runtime.performance_overlay = !options.interactive;
 		runtime.observation = observation;
 		std::unique_ptr<SampleWriter> writer;
 		if (observation)
@@ -506,31 +542,41 @@ int run_benchmark_worker(int argc, char** argv)
 			if (state.graphics.at("width") != 1280 || state.graphics.at("height") != 720)
 				throw std::runtime_error("The requested framebuffer extent is unavailable");
 			engine.run();
-			engine.get_window().poll_events();
-			int width, height;
-			glfwGetFramebufferSize(engine.get_window().get_glfw_window(), &width, &height);
-			const bool resized = width != 1280 || height != 720;
-			if (resized) state.errors.push_back("Framebuffer extent changed");
-			if (engine.get_run_failure())
+			if (options.interactive)
 			{
-				if (!resized) std::rethrow_exception(engine.get_run_failure());
-				try { std::rethrow_exception(engine.get_run_failure()); }
-				catch (const std::exception& error) { state.errors.push_back(std::string("Graphics stopped after resize: ") + error.what()); }
+				if (engine.get_run_failure()) std::rethrow_exception(engine.get_run_failure());
+				state.completed = true;
+				state.completed_ns = runtime_now_ns();
+			}
+			else
+			{
+				engine.get_window().poll_events();
+				int width, height;
+				glfwGetFramebufferSize(engine.get_window().get_glfw_window(), &width, &height);
+				const bool resized = width != 1280 || height != 720;
+				if (resized) state.errors.push_back("Framebuffer extent changed");
+				if (engine.get_run_failure())
+				{
+					if (!resized) std::rethrow_exception(engine.get_run_failure());
+					try { std::rethrow_exception(engine.get_run_failure()); }
+					catch (const std::exception& error) { state.errors.push_back(std::string("Graphics stopped after resize: ") + error.what()); }
+				}
 			}
 		}
-		state.scenario["first_measured_tick"] = state.first_measured_tick;
+		if (!options.interactive) state.scenario["first_measured_tick"] = state.first_measured_tick;
 		if (observation) observation->stop();
 		if (writer) writer->finish();
 		if (!state.completed) state.errors.push_back(loading ? "Worker stopped before asset readiness" : "Worker stopped before measurement completion");
 		if (state.collector_failed.load()) state.errors.push_back("Raw sample writer failed");
 		if (observation && observation->lost_records()) state.errors.push_back("Observation buffer overflow");
 		const bool gpu_supported = state.graphics.at("timestamp_valid_bits").get<uint32_t>() > 0;
-		if (gpu_supported && state.pending_gpu.load()) state.errors.push_back("GPU observations incomplete");
-		const std::string status = !state.errors.empty() ? "invalid" : (loading || gpu_supported) ? "complete" : "partial";
+		if (!options.interactive && gpu_supported && state.pending_gpu.load()) state.errors.push_back("GPU observations incomplete");
+		const std::string status = !state.errors.empty() ? "invalid" : (options.interactive || loading || gpu_supported) ? "complete" : "partial";
 		Json completion = {
 			{"schema_version", 1}, {"status", status}, {"window_start_ns", state.start_ns.load()},
 			{"window_end_ns", state.end_ns.load()}, {"gpu_supported", gpu_supported},
 			{"lost_records", observation ? observation->lost_records() : 0}, {"graphics", state.graphics}, {"scenario", state.scenario},
+			{"interactive", options.interactive},
 			{"errors", state.errors}, {"phases", {{"ready_ns", state.ready_ns}, {"completed_ns", state.completed_ns},
 				{"warmup_seconds", options.warmup}, {"measure_seconds", options.measure}}}
 		};

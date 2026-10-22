@@ -71,6 +71,119 @@ class BenchmarkAssetPreparationTests(unittest.TestCase):
 			self.assertEqual(struct.unpack_from("<I", first.read_bytes(), 20)[0], 64)
 			self.assertEqual(assets._dds_info(first), (8, 8, 64))
 
+	def test_normal_png_conversion_writes_full_normalized_mip_chain(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			source = root / "normal.png"
+			Image.new("RGBA", (5, 3), (200, 128, 128, 255)).save(source)
+			output = root / "normal.dds"
+			assets._convert_png_to_dds(source, output, normal_map=True)
+			info = assets._dds_chain_info(output)
+			self.assertEqual((info["width"], info["height"], info["mip_levels"]), (5, 3, 3))
+			self.assertEqual(info["level_dimensions"], [(5, 3), (2, 1), (1, 1)])
+			self.assertEqual(info["payload_bytes"], output.stat().st_size - assets.DDS_HEADER_SIZE)
+			header = output.read_bytes()
+			self.assertNotEqual(struct.unpack_from("<I", header, 8)[0] & 0x20000, 0)
+			self.assertEqual(struct.unpack_from("<I", header, 108)[0] & 0x400008, 0x400008)
+			with Image.open(output) as decoded:
+				self.assertEqual(decoded.size, (5, 3))
+				self.assertEqual(decoded.mode, "RGBA")
+				red, _, blue, _ = decoded.getpixel((2, 1))
+				self.assertGreater(red, 190)
+				self.assertLess(abs(blue - 128), 10)
+
+	def test_one_pixel_normal_dds_has_no_mipmap_header_flags(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			source = root / "normal.png"
+			Image.new("RGBA", (1, 1), (128, 128, 255, 90)).save(source)
+			output = root / "normal.dds"
+			assets._convert_png_to_dds(source, output, normal_map=True)
+			info = assets._dds_chain_info(output)
+			header = output.read_bytes()
+			self.assertEqual(info["mip_levels"], 1)
+			self.assertEqual(struct.unpack_from("<I", header, 28)[0], 0)
+			self.assertEqual(struct.unpack_from("<I", header, 8)[0] & 0x20000, 0)
+			self.assertEqual(struct.unpack_from("<I", header, 108)[0] & 0x400008, 0)
+
+	def test_opposing_normal_vectors_cancel_to_positive_z(self):
+		base = Image.new("RGBA", (2, 1))
+		base.putdata([(255, 128, 128, 0), (0, 127, 127, 100)])
+		levels = assets._normal_mip_chain(base)
+		self.assertEqual(levels[-1].getpixel((0, 0)), (128, 128, 255, 50))
+		for level in levels:
+			level.close()
+
+	def test_odd_normal_mip_uses_pillow_box_filtering(self):
+		base = Image.new("RGBA", (5, 1))
+		base.putdata([
+			(128, 128, 255, 0), (128, 128, 255, 20), (255, 128, 128, 40),
+			(128, 128, 255, 60), (128, 128, 255, 80),
+		])
+		levels = assets._normal_mip_chain(base)
+		self.assertEqual(list(levels[1].getdata()), [(185, 128, 241, 20), (128, 128, 255, 70)])
+		for level in levels:
+			level.close()
+
+	def test_shared_normal_and_color_image_is_split_by_semantic_use(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			source_root = root / "source"
+			output_root = root / "runtime"
+			source_root.mkdir()
+			Image.new("RGBA", (4, 4), (128, 128, 255, 255)).save(source_root / "shared.png")
+			model = {
+				"materials": [
+					{
+						"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+						"normalTexture": {"index": 0},
+					},
+					{"normalTexture": {"index": 1}},
+				],
+				"textures": [{"source": 0}, {"source": 0}],
+				"images": [{"uri": "shared.png", "mimeType": "image/png"}],
+			}
+			assets._convert_model_images_to_dds(model, source_root, output_root)
+			base_info = assets._validate_texture_sampler(model, model["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"], "base")
+			normal_info = assets._validate_texture_sampler(model, model["materials"][0]["normalTexture"], "normal")
+			normal_info_2 = assets._validate_texture_sampler(model, model["materials"][1]["normalTexture"], "second normal")
+			self.assertNotEqual(base_info, normal_info)
+			self.assertEqual(normal_info, normal_info_2)
+			self.assertEqual(len(model["images"]), 2)
+			self.assertEqual(assets._dds_chain_info(output_root / model["images"][base_info]["uri"])["mip_levels"], 1)
+			self.assertEqual(assets._dds_chain_info(output_root / model["images"][normal_info]["uri"])["mip_levels"], 3)
+			metadata = {}
+			assets._add_texture_memory(metadata, model, output_root / "fixture.gltf")
+			memory = metadata["texture_memory"]
+			self.assertEqual(memory["runtime_mip_levels"], 3)
+			self.assertEqual(memory["bc3_runtime_bytes"], sum(item["bc3_runtime_bytes"] for item in memory["images"]))
+			self.assertEqual([item["mip_levels"] for item in memory["images"]], [1, 3])
+
+	def test_normal_output_names_avoid_existing_color_paths(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			source_root = root / "source"
+			output_root = root / "runtime"
+			source_root.mkdir()
+			for name in ("shared.png", "shared.normal-2.png"):
+				Image.new("RGBA", (4, 4), (128, 128, 255, 255)).save(source_root / name)
+			model = {
+				"materials": [{
+					"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}},
+					"normalTexture": {"index": 0},
+					"emissiveTexture": {"index": 1},
+				}],
+				"textures": [{"source": 0}, {"source": 1}],
+				"images": [
+					{"uri": "shared.png", "mimeType": "image/png"},
+					{"uri": "shared.normal-2.png", "mimeType": "image/png"},
+				],
+			}
+			assets._convert_model_images_to_dds(model, source_root, output_root)
+			uris = [image["uri"] for image in model["images"]]
+			self.assertEqual(len(uris), len(set(uris)))
+			self.assertTrue(all((output_root / uri).is_file() for uri in uris))
+
 	def test_gltf_conversion_uses_required_dds_extension_and_texture_metadata(self):
 		with tempfile.TemporaryDirectory() as temporary:
 			root = Path(temporary)
@@ -257,8 +370,8 @@ class BenchmarkAssetPreparationTests(unittest.TestCase):
 		(cache / "user-data.txt").write_text("preserve me")
 		(cache / "prepared.json").write_text(json.dumps({
 			"schema_version": 1,
-			"profile": assets.PREVIOUS_PROFILE,
-			"converter_version": assets.PREVIOUS_CONVERTER_VERSION,
+			"profile": "engine-pbr-opaque-bc3-v1",
+			"converter_version": "krisp-benchmark-assets/3",
 		}))
 		lock = root / "assets.lock.json"
 		lock.write_text(json.dumps({"schema_version": 1, "profile": assets.PROFILE,
@@ -313,7 +426,7 @@ class BenchmarkAssetPreparationTests(unittest.TestCase):
 				patch.object(assets.os, "replace", side_effect=fail_stage_publish):
 				with self.assertRaisesRegex(OSError, "fixture publish failure"):
 					assets.prepare_assets(cache, lock_path=lock)
-			self.assertEqual(json.loads((cache / "prepared.json").read_text())["profile"], assets.PREVIOUS_PROFILE)
+			self.assertEqual(json.loads((cache / "prepared.json").read_text())["profile"], "engine-pbr-opaque-bc3-v1")
 			self.assertEqual((cache / "user-data.txt").read_text(), "preserve me")
 			self.assertEqual(list(root.glob(".benchmark-assets.backup-*")), [])
 

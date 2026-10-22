@@ -131,6 +131,7 @@ struct RenderLightState
 struct RenderViewState
 {
 	ERenderMode render_mode = ERenderMode::RASTERIZED;
+	bool shadows_enabled = true;
 	float exposure_ev = 0.0f;
 	std::unordered_set<ObjectID> stenciled_objects;
 };
