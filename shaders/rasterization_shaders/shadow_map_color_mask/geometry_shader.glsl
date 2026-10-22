@@ -23,12 +23,22 @@ void main()
 	const PointLightData light = global_data.data.lights[push_constant.data.light_index];
 	for (int face_idx = 0; face_idx < 6; ++face_idx)
 	{
+		vec4 clip_positions[3];
+		for (int vertex_idx = 0; vertex_idx < 3; ++vertex_idx)
+		{
+			clip_positions[vertex_idx] = light.shadow_view_proj_mats[face_idx]
+				* vec4(in_world_pos[vertex_idx], 1.0);
+		}
+		if (triangle_outside_clip_volume(clip_positions[0], clip_positions[1], clip_positions[2]))
+		{
+			continue;
+		}
+
 		gl_Layer = 6 * light.shadow_slot + face_idx;
 		for (int vertex_idx = 0; vertex_idx < 3; ++vertex_idx)
 		{
 			out_world_pos = in_world_pos[vertex_idx];
-			gl_Position = light.shadow_view_proj_mats[face_idx]
-				* vec4(in_world_pos[vertex_idx], 1.0);
+			gl_Position = clip_positions[vertex_idx];
 			EmitVertex();
 		}
 		EndPrimitive();

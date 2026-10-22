@@ -17,7 +17,7 @@ enum class PresentationPreference
 	Paced
 };
 
-struct RuntimeObservation;
+class RuntimeObservation;
 
 struct RuntimeOptions
 {

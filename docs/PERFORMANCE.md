@@ -640,3 +640,105 @@ profiling and reducing shadow-generation work before prioritizing small uniform
 upload savings; they do not attribute the cost specifically to geometry-shader
 expansion versus absent spatial culling or establish the effect of any proposed
 optimization.
+
+Source inspection and published comparisons are recorded in
+[SPONZA_SHADOW_COMPARISONS.md](research/SPONZA_SHADOW_COMPARISONS.md).
+The eligible prepared scene contains 3,738,878 opaque caster triangles in 401
+draws per light (four blended primitives are excluded). The six-face geometry
+shader therefore emits about 179.5 million triangle copies at eight lights before
+clipping. The nearly linear measured generation time is plausible for this
+unculled, uncached path, but does not establish a normal expected cost for eight
+point lights in an optimized engine. Published legacy-Sponza measurements have
+different geometry, GPU, light type or shadow update policy; no matched Unity or
+UE5 number is claimed. The main-pass PCF loop is separate from shadow generation.
+Controlled resolution, face-culling and cached/static experiments should precede
+any quality reduction or renderer rewrite.
+
+One-light Release attribution probes subsequently reproduced about 6.05–6.23 ms
+of shadow generation. Changing only face resolution from 1024² to 256² left
+about 5.95–6.06 ms despite sixteen times fewer texels. Optimizing shadow SPIR-V
+with `glslc -O` gave 6.09 ms; a deliberately incorrect projective-depth diagnostic
+gave 6.07 ms. Conservative per-triangle cubemap-face rejection before geometry
+emission reduced the 1024² generation span to 2.84 ms and increased uncapped
+presents from roughly 100/s to 150/s. This rejects triangles that hardware would
+clip away, while retaining the six-face input-transform work. The measurements
+point to avoidable geometry output/clipping as a major cost and do not yet
+separate the remaining geometry-pipeline costs. Those diagnostic probes restored
+original SPIR-V and the 1024² configuration and rebuilt Release. Setup, controls,
+limitations and raw artifact
+paths are documented in the linked research note.
+A further six-invocation/one-face-per-invocation geometry-shader prototype was
+slower (6.92 ms without rejection, 3.28 ms with rejection) than the original
+loop plus rejection (2.84 ms). Its original-path controls were stable at
+6.17/6.15 ms. This supports implementing and validating conservative rejection
+first, rather than assuming a different geometry invocation layout will help.
+All 26 diagnostic Release launches completed and restored the original shaders
+and 1024² Release configuration before production integration.
+
+Production shadow geometry shaders now reject a triangle for a cubemap face
+only if all three clip-space vertices lie strictly outside a common Vulkan
+clip plane. One shared predicate covers all six opaque, masked and skinned
+shader variants. Touching and crossing triangles remain for hardware clipping;
+retained triangles reuse the calculated positions and preserve their varyings.
+This still processes every input triangle and calculates six sets of transforms.
+Shadow resolution, radial depth encoding, update frequency and PCF are unchanged.
+
+A shader-binary A/B comparison on the same normal-display RTX 2070 used Release,
+1280x720, 4x main-pass MSAA, one light with 1024² faces, two repetitions per mode,
+2 seconds of warm-up and 10 seconds of measurement, with validation disabled.
+The original geometry shaders were compiled from HEAD for the control; the
+remaining shader stages and executable were identical. All eight standard
+workload launches completed with no lost observation records. GPU columns are
+means of the two per-repetition medians, not additive partitions.
+
+| One-light atrium throughput | Before | After |
+| --- | --- | --- |
+| Uncapped presents/s | 99.0–100.5 | 138.2–140.2 |
+| Shadow GPU ms | 6.137 | 3.367 |
+| Total GPU ms | 9.823 | 6.963 |
+| Main GPU ms | 3.382 | 3.372 |
+
+This production implementation reduced the measured generation span by about
+45% and increased uncapped throughput by about 40%. Both paced variants averaged
+60 presents/s; this does not establish improved frame-time tails. The production
+shared-predicate result is slower than the earlier inline rejection prototype's
+2.84 ms, so that prototype number is not claimed for the integrated change.
+Before/after manifests and raw data are respectively
+`run-20261021T115104Z-0d65ec67` and `run-20261021T115212Z-a6c87253` under
+`build/shadow-face-rejection-verification/20261021T225104-1c0068/data/krisp-engine/stress-test/`.
+The parent directory retains shader hashes, compiled variants, image captures
+and a combined `results.json` identifying the binary A/B controls.
+
+Isolated-display captures of the atrium, corridor and material-closeup views
+were pixel-identical before/after outside the changing FPS/TPS overlay. These
+captures are correctness evidence only. A temporary Vulkan compute harness
+executed the actual production predicate on the RTX 2070 and llvmpipe: 5,016
+cases passed, including all six plane boundaries, crossings and mixed/negative
+homogeneous w, with 5,000 random triangles checked against independent
+double-precision polygon clipping. Harness and results are under
+`build/clip-rejection-validation/`. All 60 built shaders passed SPIR-V validation
+and all six existing Meson test suites passed. Runtime image coverage here is
+the static opaque scene; masked and skinned variants were compiled and share the
+verified predicate, but were not independently image-compared.
+
+An additional Release validation-layer check and its original-shader control
+both completed and reported only the same existing instance-creation error,
+`VUID-VkInstanceCreateInfo-pNext-04926`: a debug-messenger structure appears in
+the instance pNext chain without enabling `VK_EXT_debug_utils`. Externally
+enabling the validation layer exposed this unchanged setup issue; no additional
+VUID was reported by the optimized shader run. These diagnostic runs are not
+used for performance figures. Logs are
+`build/shadow-face-rejection-validation-layer{,-baseline}.log`.
+
+The grainy benchmark image was subsequently traced primarily to normal-map
+minification without mipmaps. Original PNG normal maps remain grainy, whereas
+adding DDS normal-map mip chains substantially reduces the artifact. This is
+a visual-correctness finding; the diagnostic captures provide no performance
+claim. The engine already supports loading and sampling multi-level BC3 DDS,
+while the current preparation recipe emits and validates only a base level.
+The diagnostic normal-map mip chains add 128,625,936 compressed bytes (about
+123 MiB, or 33% over those base levels), so adopting them changes texture memory
+and sampling work and requires new pinned asset metadata and compatible
+benchmark baselines. Production assets and shaders were restored; details and
+controlled evidence are in
+[SPONZA_GRAIN_INVESTIGATION.md](research/SPONZA_GRAIN_INVESTIGATION.md).

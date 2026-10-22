@@ -7,6 +7,19 @@ const int PBR_ALPHA_MODE_OPAQUE = 0;
 const int PBR_ALPHA_MODE_MASK = 1;
 const int PBR_ALPHA_MODE_BLEND = 2;
 
+// Reject only when all vertices are outside a common homogeneous clip plane.
+// Vulkan uses -w <= x,y <= w and 0 <= z <= w. Strict comparisons retain
+// triangles touching a plane; crossings (including w <= 0) need hardware clipping.
+bool triangle_outside_clip_volume(const vec4 a, const vec4 b, const vec4 c)
+{
+	return (a.x < -a.w && b.x < -b.w && c.x < -c.w)
+		|| (a.x > a.w && b.x > b.w && c.x > c.w)
+		|| (a.y < -a.w && b.y < -b.w && c.y < -c.w)
+		|| (a.y > a.w && b.y > b.w && c.y > c.w)
+		|| (a.z < 0.0 && b.z < 0.0 && c.z < 0.0)
+		|| (a.z > a.w && b.z > b.w && c.z > c.w);
+}
+
 vec4 sample_pbr_base_color(
 	const MaterialData material,
 	sampler2D base_color_sampler,
