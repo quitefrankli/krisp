@@ -18,6 +18,7 @@ enum class PresentationPreference
 };
 
 class RuntimeObservation;
+class FrameCaptureSession;
 
 struct RuntimeOptions
 {
@@ -33,6 +34,7 @@ struct RuntimeOptions
 	bool performance_overlay = false;
 	PresentationPreference presentation = PresentationPreference::Default;
 	std::shared_ptr<RuntimeObservation> observation;
+	std::shared_ptr<FrameCaptureSession> frame_capture;
 };
 
 struct RuntimeGraphicsInfo

@@ -75,6 +75,8 @@ public:
 	{
 		should_shutdown.store(true, std::memory_order_release);
 		get_recording_session().stop();
+		if (auto* capture = get_frame_capture_session())
+			capture->cancel_all();
 	}
 
 public: // getters and setters

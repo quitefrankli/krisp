@@ -243,9 +243,13 @@ void GraphicsEngine::run() {
 		}
     } catch (const std::exception& e) {
 		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: {}\n", e.what());
+		if (auto* capture = get_frame_capture_session())
+			capture->fail_all(e.what());
         throw;
 	} catch (...) {
 		fmt::print(fg(fmt::color::red), "GraphicsEngine Exception Thrown!: UNKNOWN\n");
+		if (auto* capture = get_frame_capture_session())
+			capture->fail_all("graphics submission failed with an unknown error");
         throw;
 	}
 }

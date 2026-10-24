@@ -66,6 +66,7 @@ GameEngine::GameEngine(std::unique_ptr<App::Window> win,
 
 void GameEngine::init()
 {
+	graphics_engine->set_frame_capture_session(runtime_options.frame_capture);
 	graphics_engine->bind_resource_systems(
 		ecs.get_mesh_system(), ecs.get_material_system());
 	graphics_engine->set_application_ui_manager(&application_ui_manager);
@@ -288,6 +289,17 @@ void GameEngine::run(std::function<void(GameEngine&)> initialize_scene)
 				// Exclude time spent waiting for graphics from the first real-time
 				// update after recording stops.
 				time = std::chrono::steady_clock::now();
+			}
+			if (runtime_options.frame_capture)
+			{
+				const auto target = runtime_options.frame_capture->bind_and_wait(
+					next_render_frame_number - 1);
+				if (target)
+				{
+					const auto capture = runtime_options.frame_capture->try_get_result(target->request_id);
+					if (capture && capture->status == FrameCaptureStatus::Failed)
+						throw std::runtime_error("frame capture failed: " + capture->error);
+				}
 			}
 
 			analytics.stop();
@@ -516,6 +528,8 @@ void GameEngine::shutdown_impl()
 	should_shutdown = true;
 	graphics_engine->get_recording_session().stop();
 	graphics_engine->request_shutdown();
+	if (runtime_options.frame_capture)
+		runtime_options.frame_capture->cancel_all();
 }
 
 GameEngine::~GameEngine() = default;

@@ -4,6 +4,7 @@
 #include "identifications.hpp"
 #include "analytics.hpp"
 #include "recording_session.hpp"
+#include "frame_capture_session.hpp"
 #include "submission_retirement_queue.hpp"
 #include "runtime_performance.hpp"
 
@@ -34,6 +35,8 @@ private:
 	void create_synchronisation_objects();
 	void maybe_prepare_screenshot_capture();
 	void flush_screenshot_capture();
+	void maybe_prepare_frame_capture();
+	void flush_frame_capture();
 	void maybe_prepare_recording_capture();
 	void flush_recording_capture();
 	void prepare_gpu_observation_queries();
@@ -81,6 +84,9 @@ private:
 	std::optional<GraphicsBuffer> screenshot_staging_buffer;
 	std::filesystem::path screenshot_path;
 	VkExtent2D screenshot_extent{};
+	std::optional<GraphicsBuffer> frame_capture_staging_buffer;
+	VkExtent2D frame_capture_extent{};
+	std::optional<FrameCaptureSession::Target> frame_capture_target;
 
 	std::optional<GraphicsBuffer> recording_staging_buffer;
 	VkExtent2D recording_extent{};

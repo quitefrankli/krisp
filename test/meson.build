@@ -1,4 +1,5 @@
 sources = [
+	'frame_capture_tests.cpp',
 	'runtime_performance_tests.cpp',
 	'test_main.cpp',
 	'mesh_tests.cpp',
@@ -64,3 +65,7 @@ test('benchmark_runner', find_program('python3'),
 test('benchmark_assets', find_program('python3'),
     workdir: meson.project_source_root(),
     args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', 'test_benchmark_assets.py', '-q'])
+
+test('rendering_fidelity_tools', find_program('python3'),
+    workdir: meson.project_source_root(),
+    args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', 'test_rendering_fidelity.py', '-q'])

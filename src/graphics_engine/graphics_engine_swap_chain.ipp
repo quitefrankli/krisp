@@ -21,6 +21,8 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : Graph
 {
 	SwapChainSupportDetails swap_chain_support = query_swap_chain_support(get_physical_device(), get_graphics_engine().get_window_surface());
 	VkSurfaceFormatKHR surface_format = choose_swap_surface_format(swap_chain_support.formats);
+	image_format = surface_format.format;
+	color_space = surface_format.colorSpace;
 	present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	const auto extent = get_extent();
 	get_graphics_engine().create_image(
@@ -125,15 +127,20 @@ void GraphicsEngineSwapChain::reset()
 
 VkSurfaceFormatKHR GraphicsEngineSwapChain::choose_swap_surface_format(const std::vector<VkSurfaceFormatKHR> &available_formats)
 {
+	constexpr VkFormat required_format = VK_FORMAT_B8G8R8A8_SRGB;
+	constexpr VkColorSpaceKHR required_color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	if (available_formats.size() == 1
+		&& available_formats.front().format == VK_FORMAT_UNDEFINED
+		&& available_formats.front().colorSpace == required_color_space)
+		return { required_format, required_color_space };
+
 	for (const auto &format : available_formats)
 	{
-		if (format.format == get_image_format() && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-		{
+		if (format.format == required_format && format.colorSpace == required_color_space)
 			return format;
-		}
 	}
-
-	return available_formats[0]; // the first format is usually good enough
+	throw std::runtime_error(
+		"GraphicsEngineSwapChain: surface must support B8G8R8A8_SRGB with SRGB_NONLINEAR color space");
 }
 
 VkPresentModeKHR GraphicsEngineSwapChain::choose_swap_present_mode(const std::vector<VkPresentModeKHR> &available_present_modes)

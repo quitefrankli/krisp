@@ -53,10 +53,11 @@ Normal command recording generates pending utility texture compositions first,
 then runs the point-light shadow-map pass. Scene geometry, overlays, and
 particles render into the linear RGBA16F raster target.
 The presentation pass applies exposure and ACES-inspired tone mapping into the
-sRGB swap-chain image, followed by the diagnostic quad and ImGui. Screenshot
-copy occurs after presentation and before ImGui; recording copy occurs after
-ImGui. Every scene pass reads the single snapshot retained for that graphics
-iteration.
+selected swap-chain image, followed by the diagnostic quad and ImGui. Fidelity
+capture copies immediately after presentation, before diagnostic quads and UI.
+The debug screenshot copies after the diagnostic quad and before ImGui;
+recording copy occurs after ImGui. Every scene pass reads the single snapshot
+retained for that graphics iteration.
 
 Recording uses a deterministic session rendezvous between the game and graphics
 threads. The game advances by exactly `1 / recording_fps`, publishes one
@@ -64,6 +65,20 @@ immutable frame, and waits until graphics has copied that exact frame. Encoder
 and rendering stalls therefore extend wall-clock capture time rather than the
 video timeline. Outside recording, publication remains non-blocking and
 latest-wins. F2 toggles recording globally; the debug panel selects 15–60 FPS.
+
+An optional `FrameCaptureSession` accepts one bounded request at a time. A
+request binds to the next completed immutable publication; the game thread
+waits after publishing it, while graphics copies only when the accepted frame
+identity matches. The result includes frame identity, extent, source Vulkan
+format and colour space, and canonical top-to-bottom RGBA8 bytes. Readback
+completes after the submission fence. Supported source formats are RGBA8 and
+BGRA8 in UNORM or sRGB variants; other formats resolve as failures. Cancellation
+and shutdown resolve a pending request. Fence, mapping, submission, and request
+deadline failures return explicit failed results; callers can also cancel
+independently of their finite wait deadline.
+The caller is responsible for making resource upload/composition readiness
+explicit before requesting capture and for holding fixed scene state while the
+request resolves.
 
 PBR uploads one glTF-native material record per lit renderable. Factor-only
 static and skinned meshes retain material-texture-free pipelines; textured
@@ -147,6 +162,9 @@ mechanism.
   normal rendering. A slow graphics loop drops intermediate publications
   rather than blocking updates. Deterministic recording temporarily gates the
   producer after publication until that frame has been copied.
+- An explicit frame-capture request gates publication at its selected immutable
+  frame until fence-complete RGBA8 readback is available. Normal rendering has
+  no capture staging allocation or extra image copy.
 - Each snapshot includes render mode and stencil-selection state, so dropping
   an intermediate publication cannot lose a state transition. Stencil entries
   are `ObjectID` grouping metadata, not graphics-resource ownership keys.

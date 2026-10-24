@@ -33,6 +33,9 @@ audio_sources = files('audio_engine/audio_engine.cpp',
 					  'audio_engine/listener.cpp')
 
 sources = files('runtime_performance.cpp',
+				'frame_capture_session.cpp',
+				'frame_capture_pixels.cpp',
+				'frame_capture_png.cpp',
 				'recording_session.cpp',
 				'resource_paths.cpp',
 				'collision/collider.cpp',
@@ -108,6 +111,9 @@ krisp_core = declare_dependency(
 	link_with: krisp_libs)
 
 engine_header_files = files(
+	'frame_capture_session.hpp',
+	'frame_capture_pixels.hpp',
+	'frame_capture_png.hpp',
 	'resource_paths.hpp',
 	'analytics.hpp',
 	'audio_engine/audio_engine.hpp',

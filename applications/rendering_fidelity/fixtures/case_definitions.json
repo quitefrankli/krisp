@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "resolution": [640, 480],
+  "clear_colour": [0, 0, 0, 1],
+  "cases": {
+    "colour-presentation": {
+      "version": 1,
+      "camera": {"pose": "presentation-patches", "focus": [0, 0, 0], "from": [0, 2, -8]},
+      "lighting": [{"position": [0, 3, -1], "intensity": 2400, "color": [1, 0.95, 0.85], "casts_shadow": false}],
+      "captures": {
+        "exposure_m1": {"exposure_ev": -1.0},
+        "exposure_0": {"exposure_ev": 0.0},
+        "exposure_p1": {"exposure_ev": 1.0}
+      },
+      "coverage": ["unlit base colour factors", "sRGB base-colour texture", "emissive factor region", "high-intensity lit HDR region", "presentation exposure"]
+    },
+    "pbr-factors": {
+      "version": 1,
+      "camera": {"pose": "sphere-factor-grid", "focus": [0, 0, 0], "from": [0, 0.5, -10]},
+      "lighting": [{"position": [-3, 5, -4], "intensity": 700, "color": [1, 0.92, 0.8], "casts_shadow": false}],
+      "captures": {"grid": {"exposure_ev": 0.0, "metallic": [0, 0.333333, 0.666667, 1], "roughness": [0.12, 0.32, 0.52, 0.72, 0.92]}}
+    },
+    "textured-normals": {
+      "version": 1,
+      "camera": {"pose": "textured-sphere", "focus": [0, 0, 0], "from": [0, 0, -7]},
+      "lighting": [{"position": [-2, 4, -4], "intensity": 900, "color": [1, 0.9, 0.75], "casts_shadow": false}],
+      "captures": {"all_maps": {"exposure_ev": 0.0, "maps": ["base-color.png", "metallic-roughness.png", "normal.png", "emissive.png"], "normal_scale": 1.0}}
+    },
+    "environment-lighting": {
+      "version": 1,
+      "camera": {"pose": "environment-roughness-row", "focus": [0, 0, 0], "from": [0, 1, -9]},
+      "lighting": [{"position": [-4, 5, -4], "intensity": 300, "color": [1, 1, 1], "casts_shadow": false}],
+      "captures": {"ibl_roughness": {"exposure_ev": 0.0, "environment": "engine default cubemap", "roughness": [0, 0.166667, 0.333333, 0.5, 0.666667, 0.833333, 1]}}
+    },
+    "point-shadows": {
+      "version": 1,
+      "camera": {"pose": "caster-receiver-multiple-lights", "focus": [0, -0.5, 0], "from": [0, 2.4, -9]},
+      "lighting": [
+        {"position": [-3, 4, -3], "intensity": 500, "color": [1, 0.15, 0.1], "casts_shadow": true},
+        {"position": [3, 4, -2], "intensity": 500, "color": [0.1, 0.25, 1], "casts_shadow": true},
+        {"position": [0, 3, 3], "intensity": 500, "color": [0.1, 1, 0.25], "casts_shadow": true}
+      ],
+      "captures": {"shadowed": {"exposure_ev": 0.0, "shadows_enabled": true}, "unshadowed": {"exposure_ev": 0.0, "shadows_enabled": false}}
+    },
+    "visibility-alpha": {
+      "version": 1,
+      "camera": {"pose": "overlap-depth-sides-alpha", "focus": [0, 0, 0], "from": [0, 1.2, -8]},
+      "lighting": [{"position": [-3, 4, -4], "intensity": 700, "color": [1, 1, 1], "casts_shadow": false}],
+      "captures": {"depth_sidedness_alpha": {"exposure_ev": 0.0, "features": ["depth overlap", "front and back faces on open single-sided surfaces", "checker alpha mask", "two overlapping blended surfaces"], "alpha_mask": "textures/alpha-mask.png", "alpha_cutoff": 0.5}}
+    },
+    "hierarchy-skinning": {
+      "version": 1,
+      "camera": {"pose": "nested-static-and-two-bone-skin", "focus": [0, 0.2, 0], "from": [0, 0.5, -7]},
+      "lighting": [{"position": [-3, 4, -4], "intensity": 600, "color": [1, 1, 1], "casts_shadow": false}],
+      "captures": {"bind_pose": {"exposure_ev": 0.0, "pose": "bind"}, "animated_pose": {"exposure_ev": 0.0, "pose": "one fixed 0.65-radian tip rotation"}}
+    },
+    "textured-environment": {
+      "version": 1,
+      "camera": {"pose": "prepared-sponza-atrium", "view": "prepared.json assets.sponza.views.atrium"},
+      "lighting": "three fixed coloured shadow-casting point lights derived from the prepared Sponza profile",
+      "captures": {"sponza_atrium": {"exposure_ev": 0.0, "asset": "pinned prepared Sponza", "shadows_enabled": true}}
+    }
+  }
+}

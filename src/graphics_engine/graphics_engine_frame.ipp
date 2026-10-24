@@ -66,6 +66,9 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	screenshot_staging_buffer(std::move(frame.screenshot_staging_buffer)),
 	screenshot_path(std::move(frame.screenshot_path)),
 	screenshot_extent(std::move(frame.screenshot_extent)),
+	frame_capture_staging_buffer(std::move(frame.frame_capture_staging_buffer)),
+	frame_capture_extent(std::move(frame.frame_capture_extent)),
+	frame_capture_target(std::move(frame.frame_capture_target)),
 	recording_staging_buffer(std::move(frame.recording_staging_buffer)),
 	recording_extent(std::move(frame.recording_extent)),
 	recording_has_pending_frame(frame.recording_has_pending_frame),
@@ -98,6 +101,8 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	{
 		screenshot_staging_buffer->destroy(get_logical_device());
 	}
+	if (frame_capture_staging_buffer.has_value())
+		frame_capture_staging_buffer->destroy(get_logical_device());
 	if (recording_staging_buffer.has_value())
 	{
 		recording_staging_buffer->destroy(get_logical_device());
@@ -221,6 +226,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	submit_draw_commands(ERendererType::SHADOW_MAP, 2);
 	submit_draw_commands(ERendererType::RASTERIZATION, 4);
 	submit_draw_commands(ERendererType::PRESENTATION);
+	maybe_prepare_frame_capture();
 	// Note: Particle rendering is now done within the RasterizationRenderer
 	submit_draw_commands(ERendererType::QUAD);
 	maybe_prepare_screenshot_capture();
@@ -418,6 +424,7 @@ void GraphicsEngineFrame::draw()
 	}
 
 	flush_screenshot_capture();
+	flush_frame_capture();
 	flush_recording_capture();
 
 	// if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window

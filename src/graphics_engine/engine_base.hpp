@@ -3,11 +3,13 @@
 #include "render_frame.hpp"
 #include "runtime_performance.hpp"
 #include "recording_session.hpp"
+#include "frame_capture_session.hpp"
 #include "entity_component_system/material_system.hpp"
 #include "entity_component_system/mesh_system.hpp"
 
 #include <utility>
 #include <stdexcept>
+#include <memory>
 
 
 class EngineUiManager;
@@ -57,10 +59,16 @@ public:
 	}
 	RecordingSession& get_recording_session() { return recording_session; }
 	const RecordingSession& get_recording_session() const { return recording_session; }
+	FrameCaptureSession* get_frame_capture_session() { return frame_capture.get(); }
+	void set_frame_capture_session(std::shared_ptr<FrameCaptureSession> session)
+	{
+		frame_capture = std::move(session);
+	}
 
 private:
 	RenderFrameMailbox render_frame_mailbox;
 	RecordingSession recording_session;
+	std::shared_ptr<FrameCaptureSession> frame_capture;
 	MeshSystem* mesh_system = nullptr;
 	MaterialSystem* material_system = nullptr;
 };

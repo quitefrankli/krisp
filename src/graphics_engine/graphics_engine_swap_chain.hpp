@@ -29,7 +29,8 @@ public:
 	void destroy_and_recreate_frames();
 
 public: // getters
-	VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
+	VkFormat get_image_format() const { return image_format; }
+	VkColorSpaceKHR get_color_space() const { return color_space; }
 	
 	// gets extent NOT resolution
 	VkExtent2D get_extent();
@@ -48,6 +49,8 @@ public: // getters
 private:
 		
 	VkSwapchainKHR swap_chain;
+	VkFormat image_format = VK_FORMAT_UNDEFINED;
+	VkColorSpaceKHR color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
 	static std::optional<VkExtent2D> swap_chain_extent;
 	std::vector<GraphicsEngineFrame> frames;
