@@ -69,3 +69,9 @@ test('benchmark_assets', find_program('python3'),
 test('rendering_fidelity_tools', find_program('python3'),
     workdir: meson.project_source_root(),
     args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', 'test_rendering_fidelity.py', '-q'])
+
+foreach fidelity_test : ['test_fidelity_assets.py', 'test_fidelity_references.py', 'test_fidelity_report_references.py']
+    test(fidelity_test, find_program('python3'),
+        workdir: meson.project_source_root(),
+        args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', fidelity_test, '-q'])
+endforeach

@@ -1,0 +1,80 @@
+{
+  "case_id": "reference-normal-tangent",
+  "version": 1,
+  "asset": "NormalTangentTest",
+  "captures": {
+    "default": {
+      "poses": [
+        {
+          "type": "rest"
+        }
+      ]
+    }
+  },
+  "reference_scene": {
+    "resolution": [
+      640,
+      480
+    ],
+    "environment": {
+      "type": "equirectangular",
+      "path": "../environments/horizon-equirect.png",
+      "encoding": "srgb",
+      "radiance_scale": 1.0,
+      "renderer_ibl_path": "../environments/reference-horizon.krisp-ibl"
+    },
+    "camera": {
+      "from": [
+        0.0,
+        -0.125,
+        4.285
+      ],
+      "target": [
+        0.0,
+        -0.125,
+        0.035
+      ],
+      "vertical_fov_degrees": 45.0
+    },
+    "point_lights": [
+      {
+        "position": [
+          0.0,
+          2.0,
+          3.0
+        ],
+        "intensity": 10,
+        "color": [
+          1.0,
+          0.95,
+          0.88
+        ],
+        "casts_shadow": false
+      }
+    ],
+    "shadows_enabled": false,
+    "instances": [
+      {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "pose": {
+          "type": "rest"
+        }
+      }
+    ]
+  }
+}

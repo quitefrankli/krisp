@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     echo "Usage: ./run [application] [--debug|--release] [-- application arguments...]"
-    echo "Defaults: sandbox, --debug; stress_test always uses --release"
+    echo "Defaults: sandbox uses --debug; benchmarks performance uses --release and fidelity uses --debug"
 }
 
 application=sandbox
@@ -12,23 +12,30 @@ if [[ ${1:-} != -* && $# -gt 0 ]]; then
     application=$1
     shift
 fi
-if [[ $application == stress_test ]]; then
-    build_type=release
-fi
+explicit_build_type=false
+forwarded=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --debug) build_type=debug ;;
-        --release) build_type=release ;;
-        --) shift; break ;;
+        --debug) build_type=debug; explicit_build_type=true ;;
+        --release) build_type=release; explicit_build_type=true ;;
+        --) shift; forwarded=("$@"); break ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
     shift
 done
 
-if [[ $application == stress_test && $build_type != release ]]; then
-    echo "stress_test requires Release mode; use --release or omit the build-mode flag." >&2
-    exit 2
+if [[ $application == benchmarks && ${forwarded[0]:-} == performance ]]; then
+    if [[ $explicit_build_type == false ]]; then
+        build_type=release
+    elif [[ $build_type != release ]]; then
+        echo "benchmarks performance requires Release mode; use --release or omit the build-mode flag." >&2
+        exit 2
+    fi
+fi
+
+if [[ $application == benchmarks && ${forwarded[0]:-} == fidelity && $explicit_build_type == false ]]; then
+    build_type=debug
 fi
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
@@ -80,4 +87,4 @@ if [[ $needs_setup == true ]]; then
         --buildtype="$build_type" -Db_ndebug="$ndebug" -Dbuild_applications=true
 fi
 meson compile -C "$build_dir" -j 6 "$application"
-exec "$build_dir/applications/$application/$application" "$@"
+exec "$build_dir/applications/$application/$application" "${forwarded[@]}"

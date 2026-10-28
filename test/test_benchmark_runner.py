@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from applications.stress_test import benchmark_assets, benchmark_runner as runner
-from applications.stress_test import build_provenance
+from applications.benchmarks.performance import benchmark_assets, benchmark_runner as runner
+from applications.benchmarks.performance import build_provenance
 
 
 class BenchmarkRunnerTests(unittest.TestCase):
@@ -808,7 +808,7 @@ time.sleep(5)
 			(first / "keep.txt").write_text("preserve")
 			second = runner._new_output_dir()
 			self.assertNotEqual(first, second)
-			self.assertEqual(first.parent, Path(temporary) / "krisp-engine" / "stress-test")
+			self.assertEqual(first.parent, Path(temporary) / "krisp-engine" / "benchmarks" / "performance")
 			self.assertEqual((first / "keep.txt").read_text(), "preserve")
 
 	def test_source_fingerprint_tracks_inputs_but_ignores_build_artifacts(self):
@@ -878,7 +878,7 @@ time.sleep(5)
 			manifest = build_provenance.create_build_manifest(Path.cwd(), Path("unused-build"))
 		self.assertEqual(set(manifest["runtime_tools_sha256"]), set(runner.RUNTIME_TOOL_NAMES))
 		for name, expected in manifest["runtime_tools_sha256"].items():
-			path = Path("applications/stress_test") / name
+			path = Path("applications/benchmarks/performance") / name
 			self.assertEqual(expected, hashlib.sha256(path.read_bytes()).hexdigest())
 
 	def test_worker_metadata_populates_fail_closed_compatibility_key(self):

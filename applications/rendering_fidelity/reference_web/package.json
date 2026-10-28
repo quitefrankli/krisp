@@ -1,0 +1,8 @@
+{
+  "name": "krisp-rendering-fidelity-reference-web",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@khronosgroup/gltf-viewer": "1.1.0"
+  }
+}

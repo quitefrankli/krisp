@@ -46,17 +46,31 @@ public:
 			LINEAR,
 		};
 
+		enum class FilterMode
+		{
+			NEAREST,
+			LINEAR,
+		};
+
 		AddressMode address_mode = AddressMode::REPEAT;
+		FilterMode mag_filter = FilterMode::LINEAR;
+		FilterMode min_filter = FilterMode::LINEAR;
 		MipmapMode mipmap_mode = MipmapMode::LINEAR;
 
 		static constexpr TextureSampler repeat(const MipmapMode mipmap_mode = MipmapMode::LINEAR)
 		{
-			return {AddressMode::REPEAT, mipmap_mode};
+			return {
+				.address_mode = AddressMode::REPEAT,
+				.mipmap_mode = mipmap_mode,
+			};
 		}
 
 		static constexpr TextureSampler clamp_to_edge(const MipmapMode mipmap_mode = MipmapMode::LINEAR)
 		{
-			return {AddressMode::CLAMP_TO_EDGE, mipmap_mode};
+			return {
+				.address_mode = AddressMode::CLAMP_TO_EDGE,
+				.mipmap_mode = mipmap_mode,
+			};
 		}
 
 		auto operator<=>(const TextureSampler &) const = default;

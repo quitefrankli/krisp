@@ -11,12 +11,12 @@ from unittest.mock import patch
 import PIL
 from PIL import Image
 
-from applications.stress_test import benchmark_assets as assets
+from applications.benchmarks.performance import benchmark_assets as assets
 
 
 class BenchmarkAssetPreparationTests(unittest.TestCase):
 	def test_default_cache_is_shared_under_checkout_build_directory(self):
-		expected = Path(assets.__file__).resolve().parents[2] / "build" / "benchmark-assets"
+		expected = Path(assets.__file__).resolve().parents[3] / "build" / "benchmark-assets"
 		self.assertEqual(assets.default_cache_path(), expected)
 		self.assertEqual(assets.build_parser().parse_args([]).default_asset_cache, expected)
 

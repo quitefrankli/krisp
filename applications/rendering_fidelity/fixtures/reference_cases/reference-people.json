@@ -1,0 +1,167 @@
+{
+  "case_id": "reference-people",
+  "version": 1,
+  "asset": "CesiumMan",
+  "captures": {
+    "bind": {
+      "poses": [
+        {
+          "type": "rest"
+        },
+        {
+          "type": "rest"
+        },
+        {
+          "type": "rest"
+        }
+      ]
+    },
+    "posed": {
+      "poses": [
+        {
+          "type": "clip",
+          "clip": 0,
+          "time": 0.25
+        },
+        {
+          "type": "clip",
+          "clip": 0,
+          "time": 0.5
+        },
+        {
+          "type": "clip",
+          "clip": 0,
+          "time": 0.75
+        }
+      ]
+    }
+  },
+  "reference_scene": {
+    "resolution": [
+      640,
+      480
+    ],
+    "environment": {
+      "type": "equirectangular",
+      "path": "../environments/horizon-equirect.png",
+      "encoding": "srgb",
+      "radiance_scale": 1.0,
+      "renderer_ibl_path": "../environments/reference-horizon.krisp-ibl"
+    },
+    "camera": {
+      "from": [
+        0.0,
+        0.75,
+        4.5
+      ],
+      "target": [
+        0.0,
+        0.75,
+        0.025
+      ],
+      "vertical_fov_degrees": 45.0
+    },
+    "point_lights": [
+      {
+        "position": [
+          -2.0,
+          4.0,
+          3.0
+        ],
+        "intensity": 20,
+        "color": [
+          1.0,
+          0.96,
+          0.9
+        ],
+        "casts_shadow": true
+      }
+    ],
+    "shadows_enabled": true,
+    "floor": {
+      "position": [
+        0.0,
+        -0.08,
+        0.0
+      ],
+      "size": [
+        9.0,
+        0.16,
+        8.0
+      ],
+      "base_color": [
+        0.22,
+        0.25,
+        0.28,
+        1.0
+      ],
+      "metallic": 0.0,
+      "roughness": 0.88
+    },
+    "instances": [
+      {
+        "translation": [
+          -1.45,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "pose": {
+          "type": "rest"
+        }
+      },
+      {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "pose": {
+          "type": "rest"
+        }
+      },
+      {
+        "translation": [
+          1.45,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "pose": {
+          "type": "rest"
+        }
+      }
+    ]
+  }
+}

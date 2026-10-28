@@ -440,7 +440,7 @@ recorded. The asset-loading suite records end-to-end CPU wall-clock timings for
 registration, instantiation, scene setup, and presentation readiness, as
 described below.
 
-## Stress test application
+## Performance benchmark mode
 
 The benchmark harness runs independent simulation and graphics loops using
 explicit runtime overrides. Simulation targets 60 Hz with a fixed 1/60-second
@@ -450,15 +450,15 @@ presentation preferences fall back to available modes and are recorded. Driver
 and compositor throttling can still limit throughput; submission rate is not
 isolated GPU capacity or measured display scanout cadence.
 
-`stress_test` defaults to the `standard` suite. It runs `moving-transforms-500`
-and `point-shadows-500` in throughput mode, plus the shadowed Sponza atrium in
+The `benchmarks -- performance` mode defaults to the `standard` suite. It runs
+`moving-transforms-500` and `point-shadows-500` in throughput mode, plus the shadowed Sponza atrium in
 both throughput and paced modes. Each case/mode combination has two fresh
 workers; two seconds of warm-up and ten seconds of measurement per worker give
 eight launches and 96 seconds of configured timed work. Sponza startup makes
 the end-to-end duration hardware-dependent, and first-time asset preparation
 is outside the configured timed-work total. The shared cache can be prepared
-manually with `stress_test prepare-assets`; `run` prepares it automatically
-when missing.
+manually with `benchmarks -- performance prepare-assets`; `run` prepares it
+automatically when missing.
 
 The optional standard `textured-environment-atrium-shadows-environment`
 workload combines the one-light shadowed atrium with the default engine
@@ -484,14 +484,14 @@ count recorded as part of compatibility.
 `--suite smoke` runs a diagnostic case, a Flight Helmet case and a fixed Sponza
 atrium view in both modes as a short Release lifecycle check; the shadowed
 atrium can be selected explicitly without changing smoke's default workload
-set. Smoke's short measurements are not performance evidence. All
-`stress_test` suites require optimized Release builds with assertions disabled.
+set. Smoke's short measurements are not performance evidence. All performance
+benchmark suites require optimized Release builds with assertions disabled.
 A separate
 `--suite asset-loading` measures the Flight Helmet and Sponza atrium from fresh
 worker processes through application-observed first presentation. Loading
 results report stage timings and end-to-end readiness; they do not replace the
 standard suite's warmed rendering metrics. Asset loading continues to use the
-existing unshadowed atrium workload. See [STRESS_TEST.md](STRESS_TEST.md) for
+existing unshadowed atrium workload. See [BENCHMARKS.md](benchmarks/BENCHMARKS.md) for
 commands, protocol overrides, saved evidence and explicit baseline selection.
 
 The benchmark's `engine-pbr-opaque-bc3-normal-mips-v1` asset profile derives
@@ -504,7 +504,7 @@ the cache, while runtime glTF references the DDS files without PNG fallbacks.
 Profile, converter version, and exact runtime-file hashes identify the prepared
 inputs, so PNG-profile results do not compare as the same asset set. The
 conversion is an approved benchmark preparation choice, not a measured loading
-improvement. See [STRESS_TEST_ASSETS.md](STRESS_TEST_ASSETS.md) for cache
+improvement. See [BENCHMARK_ASSETS.md](benchmarks/BENCHMARK_ASSETS.md) for cache
 migration and offline preparation details.
 
 The regenerated pinned cache contains 28 normal maps with complete chains.
@@ -589,8 +589,8 @@ changes instrumentation overhead, so rendering instrumentation version 2 and
 protocol 3 deliberately invalidate earlier rendering baselines. Use Release
 measurements to rank uniform-upload, command-recording and GPU-pass costs before
 optimizing them; instrumentation correctness checks provide no performance
-evidence. Every `stress_test` suite, including smoke, must run in optimized
-Release with assertions disabled.
+evidence. Every performance benchmark suite, including smoke, must run in
+optimized Release with assertions disabled.
 
 
 The asset-loading suite reports monotonic CPU wall-clock durations for engine
@@ -683,7 +683,7 @@ expansion versus absent spatial culling or establish the effect of any proposed
 optimization.
 
 Source inspection and published comparisons are recorded in
-[SPONZA_SHADOW_COMPARISONS.md](research/SPONZA_SHADOW_COMPARISONS.md).
+[SPONZA_SHADOW_COMPARISONS.md](benchmarks/research/SPONZA_SHADOW_COMPARISONS.md).
 The eligible prepared scene contains 3,738,878 opaque caster triangles in 401
 draws per light (four blended primitives are excluded). The six-face geometry
 shader therefore emits about 179.5 million triangle copies at eight lights before
@@ -746,7 +746,7 @@ shared-predicate result is slower than the earlier inline rejection prototype's
 2.84 ms, so that prototype number is not claimed for the integrated change.
 Before/after manifests and raw data are respectively
 `run-20261021T115104Z-0d65ec67` and `run-20261021T115212Z-a6c87253` under
-`build/shadow-face-rejection-verification/20261021T225104-1c0068/data/krisp-engine/stress-test/`.
+`build/shadow-face-rejection-verification/20261021T225104-1c0068/data/krisp-engine/stress-test/`. This recorded run predates the result-directory rename; new runs use `krisp-engine/benchmarks/performance/`.
 The parent directory retains shader hashes, compiled variants, image captures
 and a combined `results.json` identifying the binary A/B controls.
 
@@ -783,4 +783,4 @@ The diagnostic normal-map mip chains add 128,625,936 compressed bytes (about
 and sampling work and requires new pinned asset metadata and compatible
 benchmark baselines. Production assets and shaders were restored; details and
 controlled evidence are in
-[SPONZA_GRAIN_INVESTIGATION.md](research/SPONZA_GRAIN_INVESTIGATION.md).
+[SPONZA_GRAIN_INVESTIGATION.md](benchmarks/research/SPONZA_GRAIN_INVESTIGATION.md).

@@ -1,0 +1,270 @@
+{
+  "assets": {
+    "AlphaBlendModeTest": {
+      "files": [
+        {
+          "path": "Models/AlphaBlendModeTest/glTF/AlphaBlendLabels.png",
+          "sha256": "19c705f7e207384ca1ab01e0665601c051ca33c5848c03ce4fffad625b416b53",
+          "size_bytes": 58424
+        },
+        {
+          "path": "Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.bin",
+          "sha256": "bb89ab8d9ac0cfbc168e5d552e3ec2fe1285fd01bacb65c863d838b3db025c85",
+          "size_bytes": 6776
+        },
+        {
+          "path": "Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+          "sha256": "49e06672900df95593040d35bbc7a2ee5921ae8d46edc44b64ccf2df65e64849",
+          "size_bytes": 31620
+        },
+        {
+          "path": "Models/AlphaBlendModeTest/glTF/MatBed_baseColor.jpg",
+          "sha256": "71571cce0d86c7c5ed4ac73d852ec34e72e7234a2f905f2758e118519c950bcf",
+          "size_bytes": 688158
+        },
+        {
+          "path": "Models/AlphaBlendModeTest/glTF/MatBed_normal.jpg",
+          "sha256": "d8891a9c08e375507ac8f1fb260577bda5e90506e79db92ebbfb5caa9216be49",
+          "size_bytes": 1202979
+        },
+        {
+          "path": "Models/AlphaBlendModeTest/glTF/MatBed_occlusionRoughnessMetallic.jpg",
+          "sha256": "e1472454ad6be574c3a418985f06a8ba36877108a94f61590f01e118804379b4",
+          "size_bytes": 1010296
+        },
+        {
+          "path": "Models/AlphaBlendModeTest/README.md",
+          "sha256": "46fc7fc9379cf043985b3555d4d06e8383bdf2195c421ce2c494988c8bfe4bdc",
+          "size_bytes": 5355
+        }
+      ],
+      "gltf": "Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+      "license": "CC BY 4.0; \u00a9 2018 Analytical Graphics, Inc.; Ed Mackey for model and textures. Attribution required."
+    },
+    "Avocado": {
+      "files": [
+        {
+          "path": "Models/Avocado/glTF/Avocado.bin",
+          "sha256": "3bf7ce0ec994562eabf0cb72a52bbc7976818d630d62609a966b53a5ff9b9180",
+          "size_bytes": 23580
+        },
+        {
+          "path": "Models/Avocado/glTF/Avocado.gltf",
+          "sha256": "c9bde1d2f09514dad0a16971df2222beb582fad5dfc86203de1d56389d52feda",
+          "size_bytes": 2413
+        },
+        {
+          "path": "Models/Avocado/glTF/Avocado_baseColor.png",
+          "sha256": "385dce948c3b9e8bc93e1c930d796e72b02cbd474b121a160d577de95ebbb48f",
+          "size_bytes": 3158729
+        },
+        {
+          "path": "Models/Avocado/glTF/Avocado_normal.png",
+          "sha256": "25783c211761b7e32497fdd3e2490f3bac05b738e5e2bc62fc5b78a270bb4e50",
+          "size_bytes": 3271114
+        },
+        {
+          "path": "Models/Avocado/glTF/Avocado_roughnessMetallic.png",
+          "sha256": "33ee80f7ccfd36825acfbd5ef0a51326bea49e33efed852dca44798798bd6901",
+          "size_bytes": 1655059
+        },
+        {
+          "path": "Models/Avocado/README.md",
+          "sha256": "076b9fbb0bd7ccf39a3dcba838544331dfa71186014c24141929fbcb3e2a507e",
+          "size_bytes": 969
+        }
+      ],
+      "gltf": "Models/Avocado/glTF/Avocado.gltf",
+      "license": "CC0-1.0; upstream README credits Microsoft for the asset."
+    },
+    "CesiumMan": {
+      "files": [
+        {
+          "path": "Models/CesiumMan/glTF/CesiumMan.gltf",
+          "sha256": "bbb66a129c906e015620197b683edbc6e7a27510169ffa5adec2114046f14919",
+          "size_bytes": 51950
+        },
+        {
+          "path": "Models/CesiumMan/glTF/CesiumMan_data.bin",
+          "sha256": "2115d3c8df0519cea62f7def76d66d2346c5ac2216319859d3c79e3784dafd3f",
+          "size_bytes": 252664
+        },
+        {
+          "path": "Models/CesiumMan/glTF/CesiumMan_img0.jpg",
+          "sha256": "35d278c7b7b0b9e22881b2c435e41ce8659f230c776ef8780b4a5087abbefaa1",
+          "size_bytes": 157013
+        },
+        {
+          "path": "Models/CesiumMan/README.md",
+          "sha256": "1bf7fa794013d2e0de8c244518936b04d95cba780f4510c8cceee4c23dbc04a8",
+          "size_bytes": 1146
+        },
+        {
+          "path": "LICENSES/LicenseRef-LegalMark-Cesium.txt",
+          "sha256": "7bafc8dbff0b9d04297bced53a47809e3ab6721cb35b4a2d780533476b28ebd4",
+          "size_bytes": 625
+        }
+      ],
+      "gltf": "Models/CesiumMan/glTF/CesiumMan.gltf",
+      "license": "CC BY 4.0; \u00a9 2017 Cesium. Cesium logo also has the separate Cesium Trademark or Logo notice retained at notices/CesiumMan/LicenseRef-LegalMark-Cesium.txt."
+    },
+    "MetalRoughSpheres": {
+      "files": [
+        {
+          "path": "Models/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf",
+          "sha256": "a24fd6fd24b2baef80a5d56b465a55635f7ec79039414e25c341d1402cc28048",
+          "size_bytes": 11899
+        },
+        {
+          "path": "Models/MetalRoughSpheres/glTF/MetalRoughSpheres0.bin",
+          "sha256": "f35a1caf37837b2987e24859d812a23e40ca37e1f741782e2a754961250e8c36",
+          "size_bytes": 11199904
+        },
+        {
+          "path": "Models/MetalRoughSpheres/glTF/Spheres_BaseColor.png",
+          "sha256": "7327b8de2ce91d0ca4fdefcf28fdc58cb555e885a8e5f3b3cfab867c3f349efc",
+          "size_bytes": 8500
+        },
+        {
+          "path": "Models/MetalRoughSpheres/glTF/Spheres_MetalRough.png",
+          "sha256": "7b352787106705789df0e025a8ea2209074569cd87029369bc66080dfca78e5a",
+          "size_bytes": 8220
+        },
+        {
+          "path": "Models/MetalRoughSpheres/README.md",
+          "sha256": "eb08e8ff7319411de570831de9a0630d4a748312d12489bbc3667c81f6a72425",
+          "size_bytes": 1047
+        }
+      ],
+      "gltf": "Models/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf",
+      "license": "CC BY 4.0; \u00a9 2017 Analytical Graphics, Inc.; Ed Mackey for everything. Attribution required."
+    },
+    "MetalRoughSpheresNoTextures": {
+      "files": [
+        {
+          "path": "Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.bin",
+          "sha256": "1ce2d45aa5e99ec1a9d0018aa6cbd9cb3156f4fa9452c668525ddc63e9b31a66",
+          "size_bytes": 241588
+        },
+        {
+          "path": "Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+          "sha256": "fc5d59f4dcd674ef3de98bbe8d3f8cad569394aa07481c803c4449f8834bcada",
+          "size_bytes": 128886
+        },
+        {
+          "path": "Models/MetalRoughSpheresNoTextures/README.md",
+          "sha256": "098845806e1c120cbbdb7c05c0cf4d78d577a1eb62c8eb375cd1218d211bee79",
+          "size_bytes": 1218
+        }
+      ],
+      "gltf": "Models/MetalRoughSpheresNoTextures/glTF/MetalRoughSpheresNoTextures.gltf",
+      "license": "CC0-1.0; upstream README credits Krill Gavrilov and Open CASCADE Technology."
+    },
+    "NegativeScaleTest": {
+      "files": [
+        {
+          "path": "Models/NegativeScaleTest/glTF/CheckAndX.png",
+          "sha256": "19da9a7f987b9a64684500c1de49293c0922f1840f13ce5d38505b8b5fe1c001",
+          "size_bytes": 9775
+        },
+        {
+          "path": "Models/NegativeScaleTest/glTF/NegativeScaleLabels2.png",
+          "sha256": "71a79de243ebdd640fb90dba1ba250632de1343537ae86f7e95379fe2da50725",
+          "size_bytes": 18982
+        },
+        {
+          "path": "Models/NegativeScaleTest/glTF/NegativeScaleTest.bin",
+          "sha256": "671826651d22463a9d830dc1b9c0ff3d17b2812e06b43466861eac2a7c5211f1",
+          "size_bytes": 26664
+        },
+        {
+          "path": "Models/NegativeScaleTest/glTF/NegativeScaleTest.gltf",
+          "sha256": "b534c320b19f7b9a3ddaf12db4fa1da3182ca8ddf9bc61aa7b0a5a5f3b100f18",
+          "size_bytes": 17797
+        },
+        {
+          "path": "Models/NegativeScaleTest/README.md",
+          "sha256": "8263f649b088541b821d58e7fe97eb5924440d831f8706bfc5b799ed443d286f",
+          "size_bytes": 4035
+        }
+      ],
+      "gltf": "Models/NegativeScaleTest/glTF/NegativeScaleTest.gltf",
+      "license": "CC BY 4.0; \u00a9 2023 Analytical Graphics, Inc.; Ed Mackey for model and textures. Attribution required."
+    },
+    "NormalTangentMirrorTest": {
+      "files": [
+        {
+          "path": "Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.bin",
+          "sha256": "4cc94ba24a39bdf34f5db6c1b38a8423ff4bd33a5b2d6f52db7959c6021273b7",
+          "size_bytes": 164400
+        },
+        {
+          "path": "Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+          "sha256": "2da070d2036a51cf645c40a2ded94c1c72cc38de94039a321257610bfdd2e163",
+          "size_bytes": 4962
+        },
+        {
+          "path": "Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest_BaseColor.png",
+          "sha256": "879c6296d80189e4d1a871d8cbf788e087d2f6b1a822647b449348dc1734934f",
+          "size_bytes": 35542
+        },
+        {
+          "path": "Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest_Normal.png",
+          "sha256": "95b14c4a91309fc5834e30030dfb8898297b96754a05733d37e6c04f2e45a6fb",
+          "size_bytes": 179799
+        },
+        {
+          "path": "Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest_OcclusionRoughnessMetallic.png",
+          "sha256": "4edb5c336d3d7b2c131d6aee925b967c2ae15ca8c011823bb17551c75d060ee8",
+          "size_bytes": 1185050
+        },
+        {
+          "path": "Models/NormalTangentMirrorTest/README.md",
+          "sha256": "f7a39616f1e33b7b743dbac044a1fff1eb262c8488a718b1a2b7873b381997d8",
+          "size_bytes": 4436
+        }
+      ],
+      "gltf": "Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+      "license": "CC BY 4.0; \u00a9 2017-2018 Analytical Graphics, Inc.; Ed Mackey for mesh and textures. Attribution required."
+    },
+    "NormalTangentTest": {
+      "files": [
+        {
+          "path": "Models/NormalTangentTest/glTF/NormalTangentTest.gltf",
+          "sha256": "ef2b152063304ebb0314646d3d1610cdc680e131d2cbfef10972dc6120d4dd18",
+          "size_bytes": 4459
+        },
+        {
+          "path": "Models/NormalTangentTest/glTF/NormalTangentTest0.bin",
+          "sha256": "2d0fc6d43cb11b61a746bc80218b5e9e6c60dcc40f86d4a3f4fdbf11909cd990",
+          "size_bytes": 174100
+        },
+        {
+          "path": "Models/NormalTangentTest/glTF/NormalTangentTest_BaseColor.png",
+          "sha256": "4182902c6dc833b48c0325568c2c5bd3e2d5fc04e27a8dc1917ced2818e1fac1",
+          "size_bytes": 36384
+        },
+        {
+          "path": "Models/NormalTangentTest/glTF/NormalTangentTest_Normal.png",
+          "sha256": "9cebea6c513ddfb1f5f5c761c08bca1468d2283a3cd9772bba3a57e484862ead",
+          "size_bytes": 212495
+        },
+        {
+          "path": "Models/NormalTangentTest/glTF/NormalTangentTest_OcclusionRoughnessMetallic.png",
+          "sha256": "3fff511720bea1fd8590ddb7b62090700e812e39ca71dd3200493093ad704399",
+          "size_bytes": 1371840
+        },
+        {
+          "path": "Models/NormalTangentTest/README.md",
+          "sha256": "933df94257d7282e55491f3183634fe9c028773585698376f8abcd32bf3f0d1b",
+          "size_bytes": 3535
+        }
+      ],
+      "gltf": "Models/NormalTangentTest/glTF/NormalTangentTest.gltf",
+      "license": "CC0-1.0; \u00a9 2018 Analytical Graphics, Inc.; upstream README credits Ed Mackey for everything."
+    }
+  },
+  "repository": "https://github.com/KhronosGroup/glTF-Sample-Assets",
+  "schema_version": 1,
+  "source_commit": "8f492390ddc7a2ae221a1369ef560589cf8c70fb"
+}

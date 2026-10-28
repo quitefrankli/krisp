@@ -29,6 +29,7 @@ vulkanSDKMacOS
 
 __pycache__/
 *.py[cod]
+applications/rendering_fidelity/reference_web/node_modules/
 
 # Engine runtime defaults must travel with the library source package.
 !resources/default/

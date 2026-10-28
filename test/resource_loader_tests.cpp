@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <tiny_gltf.h>
 
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <fstream>
@@ -1344,6 +1345,46 @@ TEST(ResourceLoaderTexturedPbr, imports_all_optional_maps_factors_normal_scale_a
 	EXPECT_EQ(pbr->textures.normal->sampler, sampler);
 }
 
+TEST(ResourceLoaderTexturedPbr, imports_exact_gltf_minification_and_magnification_filters)
+{
+	using FilterMode = PbrMaterial::TextureSampler::FilterMode;
+	using MipmapMode = PbrMaterial::TextureSampler::MipmapMode;
+	struct FilterCase
+	{
+		int gltf_min_filter;
+		FilterMode min_filter;
+		MipmapMode mipmap_mode;
+	};
+	const std::array cases{
+		FilterCase{ 9728, FilterMode::NEAREST, MipmapMode::NONE },
+		FilterCase{ 9729, FilterMode::LINEAR, MipmapMode::NONE },
+		FilterCase{ 9984, FilterMode::NEAREST, MipmapMode::NEAREST },
+		FilterCase{ 9985, FilterMode::LINEAR, MipmapMode::NEAREST },
+		FilterCase{ 9986, FilterMode::NEAREST, MipmapMode::LINEAR },
+		FilterCase{ 9987, FilterMode::LINEAR, MipmapMode::LINEAR },
+	};
+	for (const auto& test_case : cases)
+	{
+		MutatedGltf resource([&](nlohmann::json& document)
+		{
+			document["samplers"] = nlohmann::json::array({ {
+				{ "magFilter", 9728 }, { "minFilter", test_case.gltf_min_filter },
+				{ "wrapS", 10497 }, { "wrapT", 10497 },
+			} });
+			document["textures"][0]["sampler"] = 0;
+		}, "static_mesh_textured.gltf", false);
+		ECS ecs;
+		const auto model = TestAssets::load_model(ecs, resource.filename());
+		const auto* pbr = find_pbr_material(model.meshes[0].renderables[0]);
+		ASSERT_NE(pbr, nullptr);
+		ASSERT_TRUE(pbr->textures.base_color.has_value());
+		const auto sampler = pbr->textures.base_color->sampler;
+		EXPECT_EQ(sampler.mag_filter, FilterMode::NEAREST);
+		EXPECT_EQ(sampler.min_filter, test_case.min_filter);
+		EXPECT_EQ(sampler.mipmap_mode, test_case.mipmap_mode);
+	}
+}
+
 TEST(ResourceLoaderTexturedPbr, imports_external_jpeg_uri)
 {
 	TemporaryExternalJpeg image;
@@ -1394,14 +1435,12 @@ TEST(ResourceLoaderTexturedPbr, rejects_invalid_texture_image_references)
 	}
 }
 
-TEST(ResourceLoaderTexturedPbr, rejects_sampler_modes_outside_linear_repeat_or_clamp)
+TEST(ResourceLoaderTexturedPbr, rejects_unsupported_sampler_wrap_modes)
 {
 	using Mutation = std::function<void(nlohmann::json&)>;
 	const std::vector<Mutation> cases{
-		[](auto& document) { document["samplers"][0]["magFilter"] = 9728; }, // NEAREST
-		[](auto& document) { document["samplers"][0]["minFilter"] = 9984; }, // NEAREST_MIPMAP_NEAREST
-		[](auto& document) { document["samplers"][0]["minFilter"] = 9986; }, // NEAREST_MIPMAP_LINEAR
 		[](auto& document) { document["samplers"][0]["wrapS"] = 33648; }, // MIRRORED_REPEAT
+		[](auto& document) { document["samplers"][0]["wrapS"] = 33071; }, // unequal S/T
 	};
 	for (const auto& mutate : cases)
 	{

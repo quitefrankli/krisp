@@ -148,10 +148,54 @@ class RenderingFidelityCoordinatorTests(unittest.TestCase):
 		root = Path(__file__).resolve().parents[1]
 		definition = json.loads((root / "applications/rendering_fidelity/fixtures/case_definitions.json").read_text())
 		expected = {case_id: tuple(case["captures"]) for case_id, case in definition["cases"].items()}
+		for path in (root / "applications/rendering_fidelity/fixtures/reference_cases").glob("*.json"):
+			case = json.loads(path.read_text())
+			self.assertNotIn(case["case_id"], expected)
+			expected[case["case_id"]] = tuple(case["captures"])
 		self.assertEqual(runner.CASES, expected)
 		selected = runner._selected_cases(None)
 		self.assertEqual(len(selected), len(set(selected)))
 		self.assertEqual(set(selected), {(case_id, capture_id) for case_id, captures in expected.items() for capture_id in captures})
+
+	def test_reference_changes_invalidate_baseline_review(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			run = make_run_evidence(root)
+			evidence = {"assets": str(root / "assets"), "directory": str(root / "references"), "manifest_sha256": "old"}
+			run["reference_evidence"] = evidence
+			runner.atomic_json(root / "run_manifest.json", run)
+			with patch.object(runner, "_reference_evidence", return_value={**evidence, "manifest_sha256": "new"}):
+				with self.assertRaisesRegex(ValueError, "reference evidence changed"):
+					runner._capture_candidates(root)
+
+	def test_invalid_optional_references_block_baseline_review(self):
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			run = make_run_evidence(root)
+			run["reference_errors"] = ["stale reference"]
+			runner.atomic_json(root / "run_manifest.json", run)
+			with self.assertRaisesRegex(ValueError, "reference evidence is invalid"):
+				runner._capture_candidates(root)
+
+	def test_missing_reference_assets_fail_before_starting_workers(self):
+		self.assertEqual(runner._aggregate_status([{"status": "error"}, {"status": "incompatible"}]), "error")
+		with tempfile.TemporaryDirectory() as temporary:
+			root = Path(temporary)
+			write_case_definitions(root, {})
+			case_dir = root / "applications/rendering_fidelity/fixtures/reference_cases"
+			case_dir.mkdir()
+			(case_dir / "reference-fixture.json").write_text(json.dumps({
+				"case_id": "reference-fixture", "version": 1, "captures": {"default": {}}}))
+			args = SimpleNamespace(executable="must-not-run", source_root=root, output_root=root / "runs",
+				baselines=root / "baselines", asset_cache=None, case=None, timeout=2, report=False)
+			tools = SimpleNamespace(verify_cache=lambda cache: ({}, ["missing pinned asset"]))
+			with patch.object(runner, "_asset_tools", return_value=tools), \
+				patch.object(runner, "_run_worker") as worker, redirect_stdout(io.StringIO()):
+				self.assertEqual(runner._run(args), 1)
+				worker.assert_not_called()
+			run = runner._read_json(next((root / "runs").iterdir()) / "run_manifest.json")
+			self.assertEqual(run["status"], "error")
+			self.assertIn("prepare-assets", run["cases"][0]["captures"][0]["repetitions"][0]["error"])
 
 	def test_timeout_and_missing_completion_are_recorded_without_losing_other_cases(self):
 		with tempfile.TemporaryDirectory() as temporary:

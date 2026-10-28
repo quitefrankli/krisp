@@ -17,10 +17,13 @@
 #include <resource_paths.hpp>
 
 #include <nlohmann/json.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -58,6 +61,7 @@ struct WorkerOptions
 	std::string capture_id;
 	Path output;
 	Path asset_cache;
+	Path reference_assets;
 };
 
 void write_json(const Path &path, const Json &value)
@@ -88,6 +92,8 @@ WorkerOptions parse_options(int argc, char **argv)
 			options.output = value;
 		else if (key == "--asset-cache")
 			options.asset_cache = value;
+		else if (key == "--reference-assets")
+			options.reference_assets = value;
 		else
 			throw std::invalid_argument("Unknown worker option " + key);
 		index += 2;
@@ -111,6 +117,28 @@ glm::vec3 vector3(const Json &value)
 	if (!value.is_array() || value.size() != 3)
 		throw std::runtime_error("Expected a three-component fixture vector");
 	return {value.at(0).get<float>(), value.at(1).get<float>(), value.at(2).get<float>()};
+}
+
+glm::vec3 gltf_vector3_to_krisp(const Json &value)
+{
+	auto result = vector3(value);
+	result.x = -result.x;
+	return result;
+}
+
+glm::vec4 vector4(const Json &value)
+{
+	if (!value.is_array() || value.size() != 4)
+		throw std::runtime_error("Expected a four-component fixture vector");
+	return {value.at(0).get<float>(), value.at(1).get<float>(), value.at(2).get<float>(), value.at(3).get<float>()};
+}
+
+glm::quat gltf_quaternion_to_krisp(const Json &value)
+{
+	if (!value.is_array() || value.size() != 4)
+		throw std::runtime_error("Expected a four-component glTF quaternion");
+	return {value.at(3).get<float>(), value.at(0).get<float>(), -value.at(1).get<float>(),
+	        -value.at(2).get<float>()};
 }
 
 Object &add_renderable(GameEngine &engine, const MeshHandle &mesh, const MaterialHandle &material,
@@ -156,11 +184,49 @@ std::vector<unsigned char> read_bytes(const Path &path)
 	return {std::istreambuf_iterator<char>(input), {}};
 }
 
-MaterialHandle texture(ECS &ecs, const std::string &filename, ETextureSemantic semantic)
+MaterialHandle texture_file(ECS &ecs, const Path &path, ETextureSemantic semantic)
 {
-	const auto path = fixture_root() / "textures" / filename;
 	const auto bytes = read_bytes(path);
 	return ResourceLoader::load_texture_bytes(ecs.get_material_system(), bytes, path.string(), semantic);
+}
+
+MaterialHandle texture(ECS &ecs, const std::string &filename, ETextureSemantic semantic)
+{
+	return texture_file(ecs, fixture_root() / "textures" / filename, semantic);
+}
+
+void add_reference_environment(GameEngine &engine, const Path &ibl_path, std::vector<std::string> &fixture_files)
+{
+	constexpr std::array<std::string_view, 6> faces{"posx", "negx", "posy", "negy", "posz", "negz"};
+	auto &ecs = engine.get_ecs();
+	Renderable skybox;
+	skybox.name = "reference horizon environment";
+	skybox.pipeline_render_type = ERenderType::CUBEMAP;
+	skybox.casts_shadow = false;
+	skybox.mesh_owner = ecs.get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::COLOR));
+	skybox.environment_lighting_asset = ibl_path;
+	for (const auto face : faces)
+	{
+		const auto repo_path = Path("applications/rendering_fidelity/fixtures/environments") /
+		                       (std::string(face) + ".png");
+		fixture_files.push_back(repo_path.generic_string());
+		skybox.material_owners.push_back(
+			texture_file(ecs, fixture_root() / "environments" / (std::string(face) + ".png"),
+			             ETextureSemantic::BASE_COLOR));
+	}
+	auto &object = engine.spawn_object<Object>();
+	engine.attach_renderable(object.get_id(), std::move(skybox));
+}
+
+void append_asset_files(const Path &cache, const Json &asset, std::vector<std::string> &fixture_files)
+{
+	for (auto it = asset.at("files").begin(); it != asset.at("files").end(); ++it)
+	{
+		const auto path = cache / it.key();
+		if (!std::filesystem::is_regular_file(path))
+			throw std::runtime_error("Verified reference asset dependency is missing: " + path.string());
+		fixture_files.push_back(path.string());
+	}
 }
 
 MeshPtr make_textured_sphere()
@@ -204,6 +270,8 @@ struct CaseSettings
 	std::string environment_lighting_source;
 	std::string fixed_pose = "static";
 	Json lights = Json::array();
+	Json reference_scene = nullptr;
+	Json import_warnings = Json::array();
 };
 
 class FidelityScene final : public DummyApplication
@@ -284,6 +352,8 @@ public:
 		               {"clear_colour", {0.0f, 0.0f, 0.0f, 1.0f}},
 		               {"fixed_pose", settings.fixed_pose},
 		               {"lights", settings.lights},
+		               {"reference_scene", settings.reference_scene},
+		               {"import_warnings", settings.import_warnings},
 		               {"ui", false},
 		               {"performance_overlay", false},
 		               {"diagnostic_overlay", false},
@@ -329,28 +399,239 @@ public:
 	}
 
 private:
+	CaseSettings build_reference_case(GameEngine &engine)
+	{
+		auto &ecs = engine.get_ecs();
+		if (options.reference_assets.empty())
+			throw std::runtime_error("Reference cases require --reference-assets pointing to a verified fidelity-assets cache");
+		const Path manifest_path = options.reference_assets / "manifest.json";
+		std::ifstream manifest_input(manifest_path);
+		if (!manifest_input)
+			throw std::runtime_error("Missing verified fidelity asset manifest: " + manifest_path.string());
+		const Json manifest = Json::parse(manifest_input);
+		const auto official_name = case_definition.at("asset").get<std::string>();
+		if (!manifest.at("assets").contains(official_name))
+			throw std::runtime_error("Verified asset cache does not contain official model " + official_name);
+		const auto &asset = manifest.at("assets").at(official_name);
+		const auto gltf_relative = asset.at("gltf").get<std::string>();
+		const Path gltf_path(gltf_relative);
+		if (gltf_path.is_absolute() || gltf_relative.empty() ||
+		    std::ranges::find(gltf_path, Path("..")) != gltf_path.end())
+			throw std::runtime_error("Reference manifest contains a non-relative glTF path");
+		fixture_files.push_back(manifest_path.string());
+		append_asset_files(options.reference_assets, asset, fixture_files);
+
+		CaseSettings result;
+		const auto &capture = case_definition.at("captures").at(options.capture_id);
+		result.exposure = capture.value("exposure_ev", 0.0f);
+		result.fixed_pose = options.capture_id;
+		auto reference_scene = case_definition.at("reference_scene");
+		const auto &resolution = reference_scene.at("resolution");
+		if (!resolution.is_array() || resolution.size() != 2 || resolution.at(0).get<int>() != 640 ||
+		    resolution.at(1).get<int>() != 480)
+			throw std::runtime_error("Reference scene must use the declared 640x480 extent");
+		const auto &camera = reference_scene.at("camera");
+		if (std::abs(camera.at("vertical_fov_degrees").get<float>() - 45.0f) > 0.0001f)
+			throw std::runtime_error("This runtime camera supports the fixed 45 degree reference vertical field of view");
+		camera_position = gltf_vector3_to_krisp(camera.at("from"));
+		camera_focus = gltf_vector3_to_krisp(camera.at("target"));
+		result.camera_pose = "reference-scene camera";
+		result.reference_scene = reference_scene;
+		result.reference_scene["resolved_krisp"] = {
+			{"camera", {{"from", {camera_position.x, camera_position.y, camera_position.z}},
+			            {"target", {camera_focus.x, camera_focus.y, camera_focus.z}},
+			            {"vertical_fov_degrees", camera.at("vertical_fov_degrees")}}},
+			{"point_lights", Json::array()},
+			{"instances", Json::array()}};
+
+		const auto &environment = reference_scene.at("environment");
+		if (environment.at("type") != "equirectangular" || environment.at("encoding") != "srgb")
+			throw std::runtime_error("Reference scene environment must be an sRGB equirectangular LDR image");
+		const Path scene_dir = fixture_root() / "reference_cases";
+		const auto panorama_path = (scene_dir / environment.at("path").get<std::string>()).lexically_normal();
+		const auto ibl_path = (scene_dir / environment.at("renderer_ibl_path").get<std::string>()).lexically_normal();
+		if (!std::filesystem::is_regular_file(panorama_path) || !std::filesystem::is_regular_file(ibl_path))
+			throw std::runtime_error("Reference scene environment input or renderer IBL file is missing");
+		fixture_files.push_back("applications/rendering_fidelity/fixtures/environments/horizon-equirect.png");
+		fixture_files.push_back("applications/rendering_fidelity/fixtures/environments/reference-horizon.krisp-ibl");
+		for (const auto face : {"posx.png", "negx.png", "posy.png", "negy.png", "posz.png", "negz.png"})
+			if (!std::filesystem::is_regular_file(fixture_root() / "environments" / face))
+				throw std::runtime_error("Reference cubemap source face is missing: " + std::string(face));
+		add_reference_environment(engine, ibl_path, fixture_files);
+		result.environment_lighting = true;
+		result.environment_lighting_source = ibl_path.string();
+		result.shadows = reference_scene.value("shadows_enabled", false);
+		result.reference_scene["environment"]["resolved_image_file"] = panorama_path.string();
+		result.reference_scene["environment"]["resolved_renderer_ibl_file"] = ibl_path.string();
+		result.reference_scene["environment"]["resolved_cubemap_faces"] = Json::array({
+			"applications/rendering_fidelity/fixtures/environments/posx.png",
+			"applications/rendering_fidelity/fixtures/environments/negx.png",
+			"applications/rendering_fidelity/fixtures/environments/posy.png",
+			"applications/rendering_fidelity/fixtures/environments/negy.png",
+			"applications/rendering_fidelity/fixtures/environments/posz.png",
+			"applications/rendering_fidelity/fixtures/environments/negz.png"});
+
+		for (const auto &light : reference_scene.at("point_lights"))
+		{
+			const auto position = gltf_vector3_to_krisp(light.at("position"));
+			const auto color = vector3(light.at("color"));
+			const bool casts_shadow = light.at("casts_shadow").get<bool>();
+			add_light(engine, position, light.at("intensity").get<float>(), color, casts_shadow);
+			result.lights.push_back({{"position", {position.x, position.y, position.z}},
+			                         {"intensity", light.at("intensity")},
+			                         {"color", {color.x, color.y, color.z}},
+			                         {"casts_shadow", casts_shadow}});
+		}
+		result.reference_scene["resolved_krisp"]["point_lights"] = result.lights;
+
+		const auto cube = ecs.get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
+		if (reference_scene.contains("floor"))
+		{
+			const auto &floor_config = reference_scene.at("floor");
+			const auto floor_material = pbr(ecs, vector4(floor_config.at("base_color")),
+			                               floor_config.at("metallic").get<float>(),
+			                               floor_config.at("roughness").get<float>());
+			const auto floor_position = gltf_vector3_to_krisp(floor_config.at("position"));
+			add_renderable(engine, cube, floor_material, floor_position,
+			               vector3(floor_config.at("size")), "reference scene floor");
+			result.reference_scene["resolved_krisp"]["floor"] = floor_config;
+			result.reference_scene["resolved_krisp"]["floor"]["position"] = {
+				floor_position.x, floor_position.y, floor_position.z};
+		}
+
+		const auto &instances = reference_scene.at("instances");
+		const auto &poses = capture.at("poses");
+		if (!poses.is_array() || poses.size() != instances.size())
+			throw std::runtime_error("Capture pose list must contain one fixed pose per reference scene instance");
+		if (official_name == "CesiumMan" && instances.size() < 3)
+			throw std::runtime_error("The reference people scene requires at least three independent actors");
+		result.reference_scene["resolved_capture_id"] = options.capture_id;
+		result.reference_scene["resolved_capture_poses"] = poses;
+		const auto registered = engine.assets().load_asset(gltf_relative);
+		const auto assembly = AssetRegistry::default_assembly(registered);
+		std::size_t skinned_actors = 0;
+		std::vector<SkeletonID> previous_actor_skeletons;
+		for (size_t instance_index = 0; instance_index < instances.size(); ++instance_index)
+		{
+			const auto &instance = instances.at(instance_index);
+			const auto &pose = poses.at(instance_index);
+			const auto model = engine.assets().instantiate_model(ecs, assembly);
+			for (const auto &warning : model.warnings)
+			{
+				if (warning.message.find("animations were ignored; bind a registered animation asset") !=
+				    std::string::npos)
+				{
+					result.import_warnings.push_back(warning.message);
+					continue;
+				}
+				throw std::runtime_error("Reference model import produced a warning: " + warning.message);
+			}
+			if (model.meshes.empty())
+				throw std::runtime_error("Reference asset contains no mesh instances: " + official_name);
+			auto &root = engine.spawn_object<Object>();
+			const auto translation = gltf_vector3_to_krisp(instance.at("translation"));
+			const auto scale = vector3(instance.at("scale"));
+			const auto rotation = gltf_quaternion_to_krisp(instance.at("rotation"));
+			result.reference_scene["resolved_krisp"]["instances"].push_back(
+				{{"translation", {translation.x, translation.y, translation.z}},
+				 {"rotation", {rotation.x, rotation.y, rotation.z, rotation.w}},
+				 {"scale", {scale.x, scale.y, scale.z}}});
+			const glm::mat4 instance_transform = glm::translate(glm::mat4(1.0f), translation) * glm::mat4_cast(rotation) *
+			                                     glm::scale(glm::mat4(1.0f), scale);
+			ecs.get_transformation(root.get_id()).set_transform(instance_transform * model.onload_transform.get_mat4());
+			bool instance_is_skinned = false;
+			std::vector<SkeletonID> actor_skeletons;
+			for (const auto &mesh : model.meshes)
+			{
+				if (mesh.renderables.empty())
+					throw std::runtime_error("Reference model mesh node has no renderables: " + mesh.name);
+				engine.attach_renderables(root.get_id(), mesh.renderables, mesh.skeleton_id);
+				if (!mesh.skeleton_id)
+					continue;
+				instance_is_skinned = true;
+				if (std::ranges::find(previous_actor_skeletons, *mesh.skeleton_id) != previous_actor_skeletons.end())
+					throw std::runtime_error("Reference human actors must use distinct skeleton instances");
+				actor_skeletons.push_back(*mesh.skeleton_id);
+				if (pose.at("type") == "rest")
+					continue;
+				if (pose.at("type") != "clip")
+					throw std::runtime_error("Unknown reference pose type: " + pose.at("type").get<std::string>());
+				const int clip_index = pose.at("clip").get<int>();
+				if (clip_index != 0)
+					throw std::runtime_error("Reference human capture currently requires source animation clip 0");
+				const auto clip = std::ranges::find_if(registered, [&](const Asset &entry) {
+					const auto *animation = std::get_if<AnimationAsset>(&entry);
+					return animation && animation->source.skin == mesh.source_skin && animation->source.animation == clip_index;
+				});
+				if (clip == registered.end())
+					throw std::runtime_error("Reference human source has no animation clip 0 for the rendered skin");
+				const auto animation_id = engine.assets().bind_animation(ecs, std::get<AnimationAsset>(*clip).handle,
+				                                                       *mesh.skeleton_id);
+				const auto &animation = ecs.get_skeletal_animations().at(animation_id);
+				auto &skeleton = ecs.get_skeletal_component(*mesh.skeleton_id);
+				const float time = pose.at("time").get<float>();
+				if (time < 0.0f || time > ecs.get_animation_duration(animation_id))
+					throw std::runtime_error("Reference pose time is outside source animation clip 0");
+				if (animation.bone_animations.size() != skeleton.get_bones().size())
+					throw std::runtime_error("Reference clip and source skeleton have different joint counts");
+				for (size_t bone = 0; bone < animation.bone_animations.size(); ++bone)
+				{
+					Maths::Transform local;
+					if (animation.bone_animations[bone].get_transform(time, local))
+						skeleton.get_bone_local_transform(bone) = local;
+				}
+			}
+			if (instance_is_skinned)
+				++skinned_actors;
+			previous_actor_skeletons.insert(previous_actor_skeletons.end(), actor_skeletons.begin(), actor_skeletons.end());
+			if (pose.at("type") == "clip" && !instance_is_skinned)
+				throw std::runtime_error("Reference clip pose was requested for an asset instance without a skin");
+		}
+		if (official_name == "CesiumMan" && skinned_actors != instances.size())
+			throw std::runtime_error("Every CesiumMan scene instance must have an independent skinned actor");
+		result.reference_scene["asset_cache_manifest"] = manifest_path.string();
+		result.reference_scene["asset_gltf"] = (options.reference_assets / gltf_relative).string();
+		result.reference_scene["asset_name"] = official_name;
+		return result;
+	}
+
 	CaseSettings build_scene(GameEngine &engine)
 	{
 		auto &ecs = engine.get_ecs();
 		{
-			const auto definitions_path = fixture_root() / "case_definitions.json";
-			std::ifstream definitions_input(definitions_path);
-			if (!definitions_input)
-				throw std::runtime_error("Missing case definitions: " + definitions_path.string());
-			const auto definitions = Json::parse(definitions_input);
-			const auto &cases = definitions.at("cases");
-			if (!cases.contains(options.case_id))
-				throw std::invalid_argument("Case is absent from the versioned fixture definitions: " +
-				                            options.case_id);
-			case_definition = cases.at(options.case_id);
+			if (options.case_id.starts_with("reference-"))
+			{
+				const auto definition_path = fixture_root() / "reference_cases" / (options.case_id + ".json");
+				std::ifstream definition_input(definition_path);
+				if (!definition_input)
+					throw std::runtime_error("Missing reference case definition: " + definition_path.string());
+				case_definition = Json::parse(definition_input);
+				if (case_definition.at("case_id").get<std::string>() != options.case_id)
+					throw std::runtime_error("Reference case definition identity does not match its filename");
+				fixture_files = {"applications/rendering_fidelity/fixtures/reference_cases/" + options.case_id +
+				                 ".json"};
+			}
+			else
+			{
+				const auto definitions_path = fixture_root() / "case_definitions.json";
+				std::ifstream definitions_input(definitions_path);
+				if (!definitions_input)
+					throw std::runtime_error("Missing case definitions: " + definitions_path.string());
+				const auto definitions = Json::parse(definitions_input);
+				const auto &cases = definitions.at("cases");
+				if (!cases.contains(options.case_id))
+					throw std::invalid_argument("Case is absent from the versioned fixture definitions: " +
+					                            options.case_id);
+				case_definition = cases.at(options.case_id);
+				fixture_files = {"applications/rendering_fidelity/fixtures/case_definitions.json",
+				                 "applications/rendering_fidelity/rendering_fidelity_worker.cpp"};
+			}
 			if (!case_definition.at("captures").contains(options.capture_id))
 				throw std::invalid_argument("Capture ID is absent from the versioned case definition: " +
 				                            options.capture_id);
-			fixture_files = {
-				"applications/rendering_fidelity/fixtures/case_definitions.json",
-				"applications/rendering_fidelity/rendering_fidelity_worker.cpp",
-			};
 		}
+		if (options.case_id.starts_with("reference-"))
+			return build_reference_case(engine);
 		const auto cube = ecs.get_mesh_system().add(MeshFactory::cube(MeshFactory::EVertexType::TEXTURE));
 		const auto sphere = ecs.get_mesh_system().add(make_textured_sphere());
 		CaseSettings result;
@@ -660,9 +941,13 @@ int run_rendering_fidelity_worker(int argc, char **argv)
 		if (options.case_id == "textured-environment" && options.asset_cache.empty())
 			throw std::runtime_error(
 				"textured-environment requires --asset-cache; prepare the pinned Sponza assets first");
+		if (options.case_id.starts_with("reference-") && options.reference_assets.empty())
+			throw std::runtime_error("Reference cases require --reference-assets; prepare the official fidelity assets first");
 		std::filesystem::create_directories(options.output);
 		auto paths = ResourcePaths::paths_for_executable(PROJECT_NAME);
-		paths.app_resources = options.case_id == "textured-environment" ? options.asset_cache : fixture_root();
+		paths.app_resources = options.case_id.starts_with("reference-") ? options.reference_assets
+		                      : options.case_id == "textured-environment" ? options.asset_cache
+	                      : fixture_root();
 		Config::init(PROJECT_NAME, std::move(paths));
 		RuntimeOptions runtime;
 		runtime.width = 640;

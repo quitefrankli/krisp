@@ -1,7 +1,6 @@
 internal_app_sources = {
-    'stress_test': ['stress_test.cpp', 'benchmark_worker.cpp'],
     'sandbox': ['sandbox.cpp'],
-    'rendering_fidelity': ['rendering_fidelity.cpp', 'rendering_fidelity_worker.cpp'],
+    'benchmarks': ['benchmarks.cpp'],
     'chess': ['src/chess.cpp', 'src/board.cpp', 'src/pieces.cpp'],
     'tetris': ['tetris.cpp'],
 }

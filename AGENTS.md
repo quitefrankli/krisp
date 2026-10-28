@@ -40,7 +40,7 @@
 
 * Build with `meson compile -C build/debug -j 6 sandbox`.
 * Run tests with `meson test -C build/debug -j 6`.
-* Run all `stress_test` benchmark suites in optimized Release mode with assertions
+* Run all performance benchmark suites in optimized Release mode with assertions
   disabled (`build/release`, `--buildtype=release -Db_ndebug=true`).
 * If there are dependency or build-configuration changes, use the following
   sequence. Conan dependencies intentionally remain Release while Krisp is

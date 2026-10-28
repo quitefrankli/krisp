@@ -100,7 +100,7 @@ These CPU tests do not prove visible GPU LOD selection or filtering.
 Benchmark preparation requires complete normal chains and single-level images
 for other slots. Images shared by normal and other slots receive separate
 variants. Validation checks DDS chain sizes and records mip counts and total
-BC3 payload bytes ([validation/conversion and metadata](../../applications/stress_test/benchmark_assets.py)).
+BC3 payload bytes ([validation/conversion and metadata](../../applications/benchmarks/performance/benchmark_assets.py)).
 Recognized old caches migrate from verified sources on the next preparation;
 old prepared textures are not modified merely by rebuilding the engine.
 

@@ -170,9 +170,34 @@ std::string sampler_mipmap_name(const PbrMaterial::TextureSampler::MipmapMode mo
 	throw SerializationError("Unsupported texture mipmap mode");
 }
 
+std::string sampler_filter_name(const PbrMaterial::TextureSampler::FilterMode mode)
+{
+	switch (mode)
+	{
+	case PbrMaterial::TextureSampler::FilterMode::NEAREST:
+		return "nearest";
+	case PbrMaterial::TextureSampler::FilterMode::LINEAR:
+		return "linear";
+	}
+	throw SerializationError("Unsupported texture filter mode");
+}
+
+PbrMaterial::TextureSampler::FilterMode read_sampler_filter(
+	const Deserializer &in, const std::string_view key)
+{
+	const auto filter = in.read<std::string>(key);
+	if (filter == "nearest")
+		return PbrMaterial::TextureSampler::FilterMode::NEAREST;
+	if (filter == "linear")
+		return PbrMaterial::TextureSampler::FilterMode::LINEAR;
+	throw SerializationError("Unsupported texture filter mode at " + in.path());
+}
+
 void write_sampler(Serializer out, const PbrMaterial::TextureSampler sampler)
 {
 	out.write("address_mode", sampler_address_name(sampler.address_mode));
+	out.write("mag_filter", sampler_filter_name(sampler.mag_filter));
+	out.write("min_filter", sampler_filter_name(sampler.min_filter));
 	out.write("mipmap_mode", sampler_mipmap_name(sampler.mipmap_mode));
 }
 
@@ -186,6 +211,8 @@ PbrMaterial::TextureSampler read_sampler(const Deserializer &in)
 		sampler.address_mode = PbrMaterial::TextureSampler::AddressMode::CLAMP_TO_EDGE;
 	else
 		throw SerializationError("Unsupported texture address mode at " + in.path());
+	sampler.mag_filter = read_sampler_filter(in, "mag_filter");
+	sampler.min_filter = read_sampler_filter(in, "min_filter");
 
 	const auto mipmap = in.read<std::string>("mipmap_mode");
 	if (mipmap == "none")

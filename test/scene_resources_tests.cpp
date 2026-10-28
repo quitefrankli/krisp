@@ -154,10 +154,13 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	texture->data = std::make_unique<OwnedTextureData>(pixels);
 	auto texture_owner = source.get_material_system().add(std::move(texture));
 	PbrMaterial::TextureSlots slots;
+	auto sampler = PbrMaterial::TextureSampler::clamp_to_edge(
+		PbrMaterial::TextureSampler::MipmapMode::LINEAR);
+	sampler.mag_filter = PbrMaterial::TextureSampler::FilterMode::NEAREST;
+	sampler.min_filter = PbrMaterial::TextureSampler::FilterMode::NEAREST;
 	slots.emissive = PbrMaterial::TextureBinding{
 		.texture = texture_owner->get_id(),
-		.sampler = PbrMaterial::TextureSampler::clamp_to_edge(
-			PbrMaterial::TextureSampler::MipmapMode::NEAREST),
+		.sampler = sampler,
 	};
 	auto pbr = std::make_unique<PbrMaterial>(
 		glm::vec4(0.1f, 0.2f, 0.3f, 0.4f), 0.6f, 0.7f, slots, 0.35f,
@@ -195,10 +198,7 @@ TEST_F(SceneResourcesTests, round_trips_pbr_material_and_raw_texture)
 	EXPECT_EQ(pbr_value.data.emissive_factor, pbr_value.properties.emissive_factor);
 	ASSERT_TRUE(pbr_value.textures.emissive.has_value());
 	EXPECT_EQ(pbr_value.textures.emissive->texture, restored_texture->get_id());
-	EXPECT_EQ(
-		pbr_value.textures.emissive->sampler,
-		PbrMaterial::TextureSampler::clamp_to_edge(
-			PbrMaterial::TextureSampler::MipmapMode::NEAREST));
+	EXPECT_EQ(pbr_value.textures.emissive->sampler, sampler);
 	EXPECT_EQ(texture_value.semantic, ETextureSemantic::EMISSIVE);
 	EXPECT_EQ(texture_value.source, "generated");
 	ASSERT_EQ(texture_value.data_len, pixels.size());

@@ -342,34 +342,56 @@ PbrMaterial::TextureSampler resolve_gltf_sampler(
 	const auto& sampler = model.samplers[texture.sampler];
 	if (!sampler.extensions.empty())
 		reject(fmt::format("sampler extension '{}'", sampler.extensions.begin()->first));
-	if (sampler.magFilter != -1 && sampler.magFilter != TINYGLTF_TEXTURE_FILTER_LINEAR)
+	auto resolved = PbrMaterial::TextureSampler::repeat();
+	if (sampler.magFilter == TINYGLTF_TEXTURE_FILTER_NEAREST)
+		resolved.mag_filter = PbrMaterial::TextureSampler::FilterMode::NEAREST;
+	else if (sampler.magFilter != -1 && sampler.magFilter != TINYGLTF_TEXTURE_FILTER_LINEAR)
 		reject(fmt::format("texture {} magnification filter {}", texture_index, sampler.magFilter));
-	PbrMaterial::TextureSampler::MipmapMode mipmap_mode;
 	switch (sampler.minFilter)
 	{
 	case -1:
 	case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR:
-		mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::LINEAR;
+		resolved.min_filter = PbrMaterial::TextureSampler::FilterMode::LINEAR;
+		resolved.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::LINEAR;
 		break;
 	case TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST:
-		mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NEAREST;
+		resolved.min_filter = PbrMaterial::TextureSampler::FilterMode::LINEAR;
+		resolved.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NEAREST;
+		break;
+	case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR:
+		resolved.min_filter = PbrMaterial::TextureSampler::FilterMode::NEAREST;
+		resolved.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::LINEAR;
+		break;
+	case TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST:
+		resolved.min_filter = PbrMaterial::TextureSampler::FilterMode::NEAREST;
+		resolved.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NEAREST;
 		break;
 	case TINYGLTF_TEXTURE_FILTER_LINEAR:
-		mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NONE;
+		resolved.min_filter = PbrMaterial::TextureSampler::FilterMode::LINEAR;
+		resolved.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NONE;
+		break;
+	case TINYGLTF_TEXTURE_FILTER_NEAREST:
+		resolved.min_filter = PbrMaterial::TextureSampler::FilterMode::NEAREST;
+		resolved.mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NONE;
 		break;
 	default:
 		reject(fmt::format(
 			"texture {} minification filter {}", texture_index, sampler.minFilter));
-		mipmap_mode = PbrMaterial::TextureSampler::MipmapMode::NONE;
 	}
 	if (sampler.wrapS != sampler.wrapT)
 		reject(fmt::format("texture {} with different S/T wrap modes", texture_index));
 	if (sampler.wrapS == TINYGLTF_TEXTURE_WRAP_REPEAT)
-		return PbrMaterial::TextureSampler::repeat(mipmap_mode);
+	{
+		resolved.address_mode = PbrMaterial::TextureSampler::AddressMode::REPEAT;
+		return resolved;
+	}
 	if (sampler.wrapS == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE)
-		return PbrMaterial::TextureSampler::clamp_to_edge(mipmap_mode);
+	{
+		resolved.address_mode = PbrMaterial::TextureSampler::AddressMode::CLAMP_TO_EDGE;
+		return resolved;
+	}
 	reject(fmt::format("texture {} wrap mode {}", texture_index, sampler.wrapS));
-	return PbrMaterial::TextureSampler::repeat(mipmap_mode);
+	return resolved;
 }
 
 struct ResolvedGltfTexture
@@ -624,10 +646,14 @@ void validate_gltf_materials(
 			continue;
 		const auto& sampler = model.samplers[index];
 		const bool supported_filter = (sampler.magFilter == -1
+			|| sampler.magFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
 			|| sampler.magFilter == TINYGLTF_TEXTURE_FILTER_LINEAR)
 			&& (sampler.minFilter == -1
+				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_NEAREST
 				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_LINEAR
+				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_NEAREST
 				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_NEAREST
+				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_NEAREST_MIPMAP_LINEAR
 				|| sampler.minFilter == TINYGLTF_TEXTURE_FILTER_LINEAR_MIPMAP_LINEAR);
 		const bool supported_wrap = sampler.wrapS == sampler.wrapT
 			&& (sampler.wrapS == TINYGLTF_TEXTURE_WRAP_REPEAT

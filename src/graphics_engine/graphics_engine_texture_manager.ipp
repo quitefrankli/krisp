@@ -565,15 +565,28 @@ VkSampler GraphicsEngineTextureManager::create_texture_sampler(PbrMaterial::Text
 	}
 
 	VkSamplerCreateInfo sampler_info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-	sampler_info.magFilter = VK_FILTER_LINEAR; // how to interpolate texels that are magnified, solves oversampling
-	sampler_info.minFilter = VK_FILTER_LINEAR; // how to interpolate texels that are minimised, solves undersampling
+	const auto vk_filter = [](const PbrMaterial::TextureSampler::FilterMode filter)
+	{
+		switch (filter)
+		{
+		case PbrMaterial::TextureSampler::FilterMode::NEAREST:
+			return VK_FILTER_NEAREST;
+		case PbrMaterial::TextureSampler::FilterMode::LINEAR:
+			return VK_FILTER_LINEAR;
+		}
+		throw std::invalid_argument("unsupported texture filter type!");
+	};
+	sampler_info.magFilter = vk_filter(sampler_type.mag_filter);
+	sampler_info.minFilter = vk_filter(sampler_type.min_filter);
 	// U,V,W is convention for texture space dimensions
 	sampler_info.addressModeU = address_mode;
 	sampler_info.addressModeV = address_mode;
 	sampler_info.addressModeW = address_mode;
-	sampler_info.anisotropyEnable = true; // small performance hiccup
-	sampler_info.maxAnisotropy = get_graphics_engine().get_device_module().
-		get_physical_device_properties().properties.limits.maxSamplerAnisotropy; // higher = slower
+	sampler_info.anisotropyEnable = sampler_type.min_filter == PbrMaterial::TextureSampler::FilterMode::LINEAR
+		&& sampler_type.mag_filter == PbrMaterial::TextureSampler::FilterMode::LINEAR;
+	sampler_info.maxAnisotropy = sampler_info.anisotropyEnable
+		? get_graphics_engine().get_device_module().get_physical_device_properties().properties.limits.maxSamplerAnisotropy
+		: 1.0f;
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = false; // specifies coordinate system to address texels, in real world this is always true
 										  // so that you can use textures of varying resolutions with same coordinates

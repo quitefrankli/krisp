@@ -227,13 +227,24 @@ def _read_file_tail(path: Path, maximum: int = 65536) -> str:
 		return ""
 
 
-def _case_inventory(source_root: Path) -> dict[str, tuple[str, ...]]:
+def _case_definitions(source_root: Path) -> dict[str, dict[str, Any]]:
 	path = source_root / "applications" / "rendering_fidelity" / "fixtures" / "case_definitions.json"
 	definition = _read_json(path)
 	if definition.get("schema_version") != 1 or not isinstance(definition.get("cases"), dict):
 		raise ValueError(f"unsupported case definition schema in {path}")
+	definitions = dict(definition["cases"])
+	for reference_path in sorted((path.parent / "reference_cases").glob("*.json")):
+		reference = _read_json(reference_path)
+		case_id = reference.get("case_id")
+		if case_id != reference_path.stem or case_id in definitions:
+			raise ValueError(f"duplicate or invalid reference case identity in {reference_path}")
+		definitions[case_id] = reference
+	return definitions
+
+
+def _case_inventory(source_root: Path) -> dict[str, tuple[str, ...]]:
 	cases: dict[str, tuple[str, ...]] = {}
-	for case_id, case in definition["cases"].items():
+	for case_id, case in _case_definitions(source_root).items():
 		captures = case.get("captures") if isinstance(case, dict) else None
 		if not isinstance(captures, dict) or not captures or not all(isinstance(capture, str) for capture in captures):
 			raise ValueError(f"case {case_id!r} must define capture IDs")
@@ -259,10 +270,13 @@ def _selected_cases(selection: str | None, cases: dict[str, tuple[str, ...]] | N
 	return [(case_id, capture) for case_id, captures in cases.items() for capture in captures]
 
 
-def _worker_command(executable: str, case_id: str, capture_id: str, output: Path, asset_cache: Path | None) -> list[str]:
-	command = [executable, "_worker", "--case", case_id, "--capture", capture_id, "--output", str(output)]
+def _worker_command(executable: str, case_id: str, capture_id: str, output: Path,
+		asset_cache: Path | None, reference_assets: Path | None = None) -> list[str]:
+	command = [executable, "_fidelity-worker", "--case", case_id, "--capture", capture_id, "--output", str(output)]
 	if asset_cache is not None:
 		command.extend(("--asset-cache", str(asset_cache)))
+	if reference_assets is not None:
+		command.extend(("--reference-assets", str(reference_assets)))
 	return command
 
 
@@ -500,7 +514,7 @@ def _capture_result(
 
 def _aggregate_status(captures: list[dict[str, Any]]) -> str:
 	statuses = {capture["status"] for capture in captures}
-	for status in ("nondeterministic", "incompatible", "mismatch", "error", "approval-required"):
+	for status in ("error", "nondeterministic", "incompatible", "mismatch", "approval-required"):
 		if status in statuses:
 			return status
 	return "pass"
@@ -516,12 +530,41 @@ def _source_provenance(source_root: Path) -> dict[str, Any]:
 	provenance: dict[str, Any] = {"revision": None, "dirty": None, "dirty_content_fingerprint": None}
 	try:
 		_ensure_source_root(source_root)
-		from applications.stress_test import build_provenance
+		from applications.benchmarks.performance import build_provenance
 		provenance["revision"], provenance["dirty"] = build_provenance.source_revision(source_root)
 		provenance["dirty_content_fingerprint"] = build_provenance.source_fingerprint(source_root)
 	except (ImportError, OSError, ValueError):
 		provenance["platform"] = platform.platform()
 	return provenance
+
+
+def _asset_tools() -> Any:
+	if __package__ in (None, ""):
+		import fidelity_assets
+	else:
+		from . import fidelity_assets
+	return fidelity_assets
+
+
+def _reference_tools() -> Any:
+	if __package__ in (None, ""):
+		import fidelity_references
+	else:
+		from . import fidelity_references
+	return fidelity_references
+
+
+def _reference_assets_path(args: argparse.Namespace) -> Path:
+	return getattr(args, "reference_assets", None) or args.source_root / "build" / "fidelity-assets"
+
+
+def _reference_evidence(assets: Path, references: Path, source_root: Path) -> dict[str, Any]:
+	manifest, errors = _reference_tools().verify_references(assets, references,
+		cases_dir=source_root / "applications/rendering_fidelity/fixtures/reference_cases")
+	if errors:
+		raise ValueError("; ".join(errors))
+	return {"directory": str(references.resolve()), "assets": str(assets.resolve()),
+		"manifest_sha256": sha256_file(references / "manifest.json"), "manifest": manifest}
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -554,9 +597,21 @@ def _run(args: argparse.Namespace) -> int:
 	baseline_root = args.baselines or args.source_root / "test" / "rendering_fidelity" / "baselines"
 	asset_cache = None
 	asset_preflight_error = None
+	reference_assets = _reference_assets_path(args)
+	reference_cases = {
+		path.stem for path in (args.source_root / "applications/rendering_fidelity/fixtures/reference_cases").glob("*.json")
+	}
+	reference_asset_error = None
+	if any(case_id in reference_cases for case_id, _ in selected):
+		try:
+			_, errors = _asset_tools().verify_cache(reference_assets)
+			if errors:
+				reference_asset_error = "; ".join(errors)
+		except (ImportError, OSError, ValueError) as error:
+			reference_asset_error = str(error)
 	if any(case_id == "textured-environment" for case_id, _ in selected):
 		try:
-			from applications.stress_test import benchmark_assets
+			from applications.benchmarks.performance import benchmark_assets
 			asset_cache = args.asset_cache or benchmark_assets.default_cache_path()
 			lock_hash = benchmark_assets.sha256_file(benchmark_assets.LOCK_PATH)
 			_, asset_errors = benchmark_assets.verify_prepared_cache(asset_cache, lock_hash, benchmark_assets.LOCK_PATH)
@@ -571,11 +626,15 @@ def _run(args: argparse.Namespace) -> int:
 		for repetition in range(1, REPETITIONS + 1):
 			worker_dir = output / "workers" / case_id / capture_id / f"process-{repetition}"
 			worker_dir.mkdir(parents=True, exist_ok=True)
-			command = _worker_command(args.executable, case_id, capture_id, worker_dir, asset_cache if case_id == "textured-environment" else None)
-			if case_id == "textured-environment" and asset_preflight_error:
+			command = _worker_command(args.executable, case_id, capture_id, worker_dir,
+				asset_cache if case_id == "textured-environment" else None,
+				reference_assets if case_id in reference_cases else None)
+			preflight_error = reference_asset_error if case_id in reference_cases else asset_preflight_error if case_id == "textured-environment" else None
+			if preflight_error:
 				worker = {"status": "preflight-error", "return_code": None,
-					"stderr_tail": asset_preflight_error, "duration_seconds": 0.0}
-				error = f"prepared Sponza assets are unavailable or invalid: {asset_preflight_error}; prepare them with `python3 applications/stress_test/benchmark_assets.py`"
+					"stderr_tail": preflight_error, "duration_seconds": 0.0}
+				prepare_command = "./run benchmarks -- fidelity prepare-assets" if case_id in reference_cases else "./run benchmarks -- performance prepare-assets"
+				error = f"prepared assets are unavailable or invalid: {preflight_error}; prepare them with `{prepare_command}`"
 				manifest, image_path = None, None
 			else:
 				worker = _run_worker(command, worker_dir, args.timeout)
@@ -603,10 +662,23 @@ def _run(args: argparse.Namespace) -> int:
 		baseline_error = baseline_error or str(error)
 	has_approved_profiles = any(baseline_root.glob("*/approved.json"))
 	results: list[dict[str, Any]] = []
+	reference_evidence = None
+	reference_errors: list[str] = []
+	if getattr(args, "references", None):
+		try:
+			reference_evidence = _reference_evidence(reference_assets, args.references, args.source_root)
+		except (OSError, ValueError, RuntimeError) as error:
+			reference_errors.append(str(error))
 	case_results: dict[str, list[dict[str, Any]]] = {}
 	for (case_id, capture_id), repetitions in case_runs.items():
 		capture_result = _compare_capture(case_id, capture_id, repetitions, baseline,
 			baseline_dir, baseline_error, profile_id, has_approved_profiles)
+		if reference_evidence:
+			capture_result["external_references"] = [
+				{"renderer": item["renderer"], "image_path": str(args.references.resolve() / item["image"]),
+				 "metadata": item, "limitations": item.get("limitations", [])}
+				for item in reference_evidence["manifest"]["references"]
+				if item["case_id"] == case_id and item["capture_id"] == capture_id]
 		results.append(capture_result)
 		case_results.setdefault(case_id, []).append(capture_result)
 	cases = [{"case_id": case_id, "captures": captures} for case_id, captures in case_results.items()]
@@ -620,6 +692,10 @@ def _run(args: argparse.Namespace) -> int:
 		"worker_timeout_seconds": args.timeout, "baseline_root": str(baseline_root.resolve()),
 		"cases": cases,
 	}
+	if reference_evidence:
+		manifest["reference_evidence"] = reference_evidence
+	if reference_errors:
+		manifest["reference_errors"] = reference_errors
 	manifest_path = output / "run_manifest.json"
 	atomic_json(manifest_path, manifest)
 	if args.report:
@@ -633,11 +709,18 @@ def _run(args: argparse.Namespace) -> int:
 	print(f"Evidence: {output}")
 	if args.report and "report_error" not in manifest:
 		print(f"Report: {output / 'report.html'}")
-	return 0 if manifest["status"] == "pass" and "report_error" not in manifest else 1
+	return 0 if manifest["status"] == "pass" and "report_error" not in manifest and not reference_errors else 1
 
 
 def _capture_candidates(run_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
 	run = _read_json(run_path / "run_manifest.json")
+	if run.get("reference_errors"):
+		raise ValueError("independent reference evidence is invalid; regenerate the report before baseline review")
+	if run.get("reference_evidence"):
+		evidence = run["reference_evidence"]
+		current = _reference_evidence(Path(evidence["assets"]), Path(evidence["directory"]), Path(run["source_root"]))
+		if current != evidence:
+			raise ValueError("independent reference evidence changed since the run completed")
 	profile_id = run.get("profile_id")
 	if run.get("schema_version") != SCHEMA_VERSION or not isinstance(profile_id, str):
 		raise ValueError("unsupported or incomplete run evidence")
@@ -861,10 +944,12 @@ def _parser() -> argparse.ArgumentParser:
 	parser.add_argument("--output-root", type=Path, help=argparse.SUPPRESS)
 	parser.add_argument("--baselines", type=Path, help=argparse.SUPPRESS)
 	parser.add_argument("--asset-cache", type=Path, help=argparse.SUPPRESS)
+	parser.add_argument("--reference-assets", type=Path, help=argparse.SUPPRESS)
 	subparsers = parser.add_subparsers(dest="command", required=True)
 	run_parser = subparsers.add_parser("run", help="run exact rendering comparisons")
 	run_parser.add_argument("--case", help="select one case ID or capture ID")
 	run_parser.add_argument("--report", action="store_true", help="write a self-contained offline HTML report")
+	run_parser.add_argument("--references", type=Path, help="include verified independent renderer references in the report")
 	run_parser.add_argument("--timeout", type=int, default=WORKER_TIMEOUT_SECONDS, help=argparse.SUPPRESS)
 	run_parser.add_argument(VIRTUAL_DISPLAY_FLAG, action="store_true", help=argparse.SUPPRESS)
 	proposal_parser = subparsers.add_parser("propose", help="prepare an exact-digest baseline proposal from run evidence")
@@ -872,12 +957,46 @@ def _parser() -> argparse.ArgumentParser:
 	proposal_parser.add_argument("--proposal", type=Path)
 	promote_parser = subparsers.add_parser("promote", help="interactively approve and publish one exact proposal")
 	promote_parser.add_argument("proposal", type=Path)
+	prepare_parser = subparsers.add_parser("prepare-assets", help="download and verify pinned external reference models")
+	prepare_parser.add_argument("--cache", type=Path, help=argparse.SUPPRESS)
+	reference_parser = subparsers.add_parser("render-references", help="generate independent renderer review images")
+	reference_parser.add_argument("--assets", type=Path)
+	reference_parser.add_argument("--output", type=Path)
+	reference_parser.add_argument("--case")
+	reference_parser.add_argument("--renderer", choices=("khronos", "cycles"), action="append")
 	return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
 	arguments = list(sys.argv[1:] if argv is None else argv)
 	args = _parser().parse_args(arguments)
+	if args.command == "prepare-assets":
+		try:
+			cache = args.cache or _reference_assets_path(args)
+			_asset_tools().prepare_assets(cache)
+			print(f"Prepared reference assets: {cache}")
+			return 0
+		except (OSError, ValueError, RuntimeError) as error:
+			print(f"Could not prepare reference assets: {error}", file=sys.stderr)
+			return 1
+	if args.command == "render-references":
+		try:
+			assets = args.assets or _reference_assets_path(args)
+			_, errors = _asset_tools().verify_cache(assets)
+			if errors:
+				raise ValueError("; ".join(errors))
+			output = args.output or _new_run_dir(_output_root() / "references")
+			return _reference_tools().main([
+				"render", "--assets", str(assets),
+				"--output", str(output),
+				"--cases-dir", str(args.source_root / "applications/rendering_fidelity/fixtures/reference_cases"),
+				"--khronos-renderer", str(args.source_root / "applications/rendering_fidelity/reference_web"),
+				*(["--case", args.case] if args.case else []),
+				*[part for renderer in args.renderer or ("khronos", "cycles") for part in ("--renderer", renderer)],
+			])
+		except (OSError, ValueError, RuntimeError) as error:
+			print(f"Could not render independent references: {error}", file=sys.stderr)
+			return 1
 	if args.command == "run":
 		if not args.executable:
 			print("the launcher must provide --executable", file=sys.stderr)

@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from applications.stress_test.benchmark_statistics import (
+from applications.benchmarks.performance.benchmark_statistics import (
 	compare_compatibility,
 	compare_repetitions,
 	distribution,
