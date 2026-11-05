@@ -49,9 +49,39 @@ completed. VMA handles allocation offsets and non-coherent cache alignment.
 Mapping does not replace submission synchronization or resource retirement.
 See the [VMA memory mapping documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/memory_mapping.html).
 
+## Vulkan synchronization
+
+The device requires and enables Vulkan 1.3 `synchronization2` alongside
+`dynamicRendering`. Image dependencies use `VkImageMemoryBarrier2` through the
+shared `command_image_barrier` helper, which records `vkCmdPipelineBarrier2`.
+Each barrier carries its own 64-bit stage and access masks, layer range, and
+mip range. Copy operations use the copy stage; texture sampling uses sampled
+read access. Empty scopes use `NONE` rather than top/bottom-of-pipe barriers.
+Discarding an attachment's contents does not remove dependencies on prior uses.
+
+Frame and one-time upload submissions use `vkQueueSubmit2`. Image acquisition
+waits at color attachment output, matching the first swap-chain image
+transition. The render-finished binary semaphore signals after all commands,
+including capture copies and timestamp writes, before presentation. Fences,
+resource retirement, and one-time upload queue-idle waits retain their existing
+roles. GPU observation uses `vkCmdWriteTimestamp2` at the same measurement
+stages as before; top/bottom-of-pipe stages remain intentional timestamp
+endpoints rather than synchronization barriers.
+
+See the [Khronos Synchronization2 guide](https://docs.vulkan.org/guide/latest/extensions/VK_KHR_synchronization2.html).
+
+With synchronization validation enabled, the installed 1.3.275 layer also
+reports `PRESENT_AFTER_WRITE` for the final present-layout transition followed
+by an `ALL_COMMANDS` semaphore signal. This sequence matches the documented
+[upstream validation false positive](https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/7479),
+fixed by [Vulkan-ValidationLayers #7480](https://github.com/KhronosGroup/Vulkan-ValidationLayers/pull/7480).
+Standard Vulkan validation and all 11 procedural pixel comparisons pass with
+the Synchronization2 paths.
+
 ## Dynamic rendering
 
-The renderer requires Vulkan 1.3 with the `dynamicRendering` feature enabled.
+The renderer requires Vulkan 1.3 with the `dynamicRendering` and
+`synchronization2` features enabled.
 Graphics pipelines declare color, depth, and stencil attachment formats through
 `VkPipelineRenderingCreateInfo`. Renderers bind image views directly with
 `vkCmdBeginRendering`; supported paths do not allocate `VkRenderPass` or

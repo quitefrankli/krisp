@@ -55,19 +55,17 @@ void GraphicsEngineDevice::pick_physical_device()
 	{
 		// basic properties
 		VkPhysicalDeviceProperties deviceProperties;
-		// more advanced properties
-		VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
-		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
-		VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{
-			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+		VkPhysicalDeviceVulkan13Features vulkan13{
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
 		VkPhysicalDeviceFeatures2 supported_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
-		supported_features.pNext = &dynamic_rendering;
+		supported_features.pNext = &vulkan13;
 		vkGetPhysicalDeviceFeatures2(device, &supported_features);
-		if (deviceProperties.apiVersion < VK_API_VERSION_1_3 || !dynamic_rendering.dynamicRendering)
+		if (deviceProperties.apiVersion < VK_API_VERSION_1_3
+			|| !vulkan13.dynamicRendering || !vulkan13.synchronization2)
 		{
 			LOG_WARNING(Utility::get_logger(),
-				"GraphicsEngineDevice: {} lacks Vulkan 1.3 dynamic rendering",
+				"GraphicsEngineDevice: {} lacks Vulkan 1.3 dynamic rendering or synchronization2",
 				deviceProperties.deviceName);
 			return false;
 		}
@@ -90,15 +88,15 @@ void GraphicsEngineDevice::pick_physical_device()
 			return false;
 		}
 
-		if (!deviceFeatures.samplerAnisotropy)
+		if (!supported_features.features.samplerAnisotropy)
 		{
 			return false;
 		}
-		if (!deviceFeatures.geometryShader)
+		if (!supported_features.features.geometryShader)
 		{
 			return false;
 		}
-		if (!deviceFeatures.imageCubeArray
+		if (!supported_features.features.imageCubeArray
 			|| deviceProperties.limits.maxImageArrayLayers < 6 * SDS::MAX_POINT_LIGHTS
 			|| deviceProperties.limits.maxFramebufferLayers < 6 * SDS::MAX_POINT_LIGHTS
 			|| deviceProperties.limits.maxImageDimensionCube < POINT_SHADOW_RESOLUTION
@@ -128,7 +126,7 @@ void GraphicsEngineDevice::pick_physical_device()
 				deviceProperties.deviceName);
 			return false;
 		}
-		if (!deviceFeatures.textureCompressionBC)
+		if (!supported_features.features.textureCompressionBC)
 		{
 			return false;
 		}
@@ -194,7 +192,7 @@ void GraphicsEngineDevice::pick_physical_device()
 
 	if (physicalDevice == VK_NULL_HANDLE) {
 		throw std::runtime_error(
-			"failed to find a suitable GPU (requires Vulkan 1.3 dynamic rendering and sampled RGBA16F color attachments)");
+			"failed to find a suitable GPU (requires Vulkan 1.3 dynamic rendering, synchronization2, and sampled RGBA16F color attachments)");
 	}
 }
 
@@ -363,10 +361,11 @@ VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 	device_features2.features.geometryShader = true;
 	device_features2.features.imageCubeArray = true;
 	device_features2.features.textureCompressionBC = true;
-	static VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{
-		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
-	dynamic_rendering.dynamicRendering = VK_TRUE;
-	device_features2.pNext = &dynamic_rendering;
+	static VkPhysicalDeviceVulkan13Features vulkan13{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+	vulkan13.dynamicRendering = VK_TRUE;
+	vulkan13.synchronization2 = VK_TRUE;
+	device_features2.pNext = &vulkan13;
 
 	// For ray tracing:
 	// device_features2.pNext = &device_features12;

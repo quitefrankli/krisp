@@ -27,6 +27,15 @@ host-coherent memory. Upload submission, fence waits, and resource retirement
 retain their existing synchronization costs. No frame-time or peak-memory
 improvement has been measured for this migration.
 
+## Synchronization2
+
+Engine barriers and queue submissions use Vulkan Synchronization2. Copy and
+sampled-image scopes are expressed explicitly while preserving frame ordering,
+attachment reuse dependencies, capture placement, and semaphore boundaries.
+The migration does not add queues, remove upload queue-idle waits, or change GPU
+work counts. Timestamp queries retain their prior measurement endpoints.
+No frame-time improvement has been measured from the API migration.
+
 ## Dynamic rendering
 
 Supported graphics passes and one-time texture composition use Vulkan dynamic

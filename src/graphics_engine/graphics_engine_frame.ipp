@@ -187,7 +187,8 @@ void GraphicsEngineFrame::update_command_buffer()
 	if (measure_gpu)
 	{
 		vkCmdResetQueryPool(command_buffer, observation_query_pool, 0, observation_query_count);
-		vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, observation_query_pool, 0);
+		// Timestamp endpoints retain their existing measurement stages.
+		vkCmdWriteTimestamp2(command_buffer, VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT, observation_query_pool, 0);
 	}
 
 	auto& renderer_mgr = get_graphics_engine().get_renderer_mgr();
@@ -195,11 +196,11 @@ void GraphicsEngineFrame::update_command_buffer()
 		const std::optional<uint32_t> first_query = std::nullopt)
 	{
 		if (measure_gpu && first_query)
-			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			vkCmdWriteTimestamp2(command_buffer, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
 				observation_query_pool, *first_query);
 		renderer_mgr.get_renderer(renderer_type).submit_draw_commands(command_buffer, presentation_image_view, image_index);
 		if (measure_gpu && first_query)
-			vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+			vkCmdWriteTimestamp2(command_buffer, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT,
 				observation_query_pool, *first_query + 1);
 	};
 	get_graphics_engine().get_texture_compositor().record_pending(command_buffer);
@@ -219,7 +220,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	maybe_prepare_recording_capture();
 	if (measure_gpu)
 	{
-		vkCmdWriteTimestamp(command_buffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, observation_query_pool, 1);
+		vkCmdWriteTimestamp2(command_buffer, VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT, observation_query_pool, 1);
 		current_gpu_query_recorded = true;
 	}
 	
@@ -285,33 +286,31 @@ void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint6
 	update_uniform_buffer();
 	record_cpu_sample(RuntimeSampleKind::UniformUpload, uniform_begin_ns, collect_cpu ? runtime_now_ns() : 0);
 
-	//
-	// submitting the command buffer
-	//
+	VkSemaphoreSubmitInfo image_available{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+	image_available.semaphore = image_available_semaphore;
+	// Match the swap-chain image's first attachment transition, allowing earlier
+	// offscreen work to execute without waiting for image acquisition.
+	image_available.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
 
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	VkSemaphoreSubmitInfo render_finished{VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+	render_finished.semaphore = render_finished_semaphore;
+	// Presentation must wait for every rendering, capture, and query command.
+	render_finished.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
 
-	VkSemaphore waitSemaphores[] = { image_available_semaphore };
-	VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	// here we specify which semaphore to wait on before execution begins and in which stage of the pipeline to wait
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = waitSemaphores;
-	submitInfo.pWaitDstStageMask = waitStages;
-
-	// here we specify which command buffers to actually submit for execution
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &command_buffer;
-
-	// here we specify the semaphores to signal once the command buffer has finished execution
-	VkSemaphore signal_semaphores[] = { render_finished_semaphore };
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = signal_semaphores;
+	VkCommandBufferSubmitInfo commands{VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+	commands.commandBuffer = command_buffer;
+	VkSubmitInfo2 submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+	submit_info.waitSemaphoreInfoCount = 1;
+	submit_info.pWaitSemaphoreInfos = &image_available;
+	submit_info.commandBufferInfoCount = 1;
+	submit_info.pCommandBufferInfos = &commands;
+	submit_info.signalSemaphoreInfoCount = 1;
+	submit_info.pSignalSemaphoreInfos = &render_finished;
 
 	vkResetFences(get_logical_device(), 1, &fence_frame_inflight);
 	const auto submit_begin_ns = collect_cpu ? runtime_now_ns() : 0;
-	const auto submit_result = vkQueueSubmit(
-		get_graphics_engine().get_graphics_queue(), 1, &submitInfo, fence_frame_inflight);
+	const auto submit_result = vkQueueSubmit2(
+		get_graphics_engine().get_graphics_queue(), 1, &submit_info, fence_frame_inflight);
 	const auto submit_end_ns = collect_cpu ? runtime_now_ns() : 0;
 	record_cpu_sample(RuntimeSampleKind::Submit, submit_begin_ns, submit_end_ns,
 		submit_result == VK_SUCCESS);
@@ -340,7 +339,7 @@ void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint6
 	VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
 	present_info.waitSemaphoreCount = 1;
 	// the semaphore to wait on before presentation
-	present_info.pWaitSemaphores = signal_semaphores;
+	present_info.pWaitSemaphores = &render_finished_semaphore;
 
 	present_info.swapchainCount = 1;
 	present_info.pSwapchains = &swap_chain.get_swap_chain();

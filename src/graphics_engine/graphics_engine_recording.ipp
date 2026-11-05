@@ -3,6 +3,7 @@
 #include "graphics_engine_frame.hpp"
 #include "graphics_engine.hpp"
 #include "graphics_engine_swap_chain.hpp"
+#include "dynamic_rendering.hpp"
 #include "video_recorder.hpp"
 #include "utility.hpp"
 
@@ -108,25 +109,12 @@ void GraphicsEngineFrame::maybe_prepare_recording_capture()
 		throw std::runtime_error("Recording resolution changed during capture");
 	}
 
-	VkImageMemoryBarrier to_transfer{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-	to_transfer.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	to_transfer.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	to_transfer.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	to_transfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	to_transfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	to_transfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	to_transfer.image = presentation_image;
-	to_transfer.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	to_transfer.subresourceRange.baseMipLevel = 0;
-	to_transfer.subresourceRange.levelCount = 1;
-	to_transfer.subresourceRange.baseArrayLayer = 0;
-	to_transfer.subresourceRange.layerCount = 1;
-
-	vkCmdPipelineBarrier(
-		command_buffer,
-		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &to_transfer);
+	command_image_barrier(
+		command_buffer, presentation_image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_READ_BIT);
 
 	VkBufferImageCopy region{};
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -140,21 +128,11 @@ void GraphicsEngineFrame::maybe_prepare_recording_capture()
 		1,
 		&region);
 
-	VkImageMemoryBarrier to_present{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-	to_present.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	to_present.dstAccessMask = 0;
-	to_present.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	to_present.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	to_present.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	to_present.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	to_present.image = presentation_image;
-	to_present.subresourceRange = to_transfer.subresourceRange;
-
-	vkCmdPipelineBarrier(
-		command_buffer,
-		VK_PIPELINE_STAGE_TRANSFER_BIT,
-		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-		0, 0, nullptr, 0, nullptr, 1, &to_present);
+	command_image_barrier(
+		command_buffer, presentation_image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		VK_PIPELINE_STAGE_2_COPY_BIT, VK_ACCESS_2_TRANSFER_READ_BIT,
+		VK_PIPELINE_STAGE_2_NONE, VK_ACCESS_2_NONE);
 
 	recording_has_pending_frame = true;
 	recording_capture_target = target;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics_engine.hpp"
+#include "dynamic_rendering.hpp"
 #include "video_recorder.hpp"
 
 #include "shared_data_structures.hpp"
@@ -597,13 +598,15 @@ void GraphicsEngine::end_single_time_commands(VkCommandBuffer command_buffer)
 {
     vkEndCommandBuffer(command_buffer);
 
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &command_buffer;
+    VkCommandBufferSubmitInfo command_buffer_info{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+	command_buffer_info.commandBuffer = command_buffer;
+	VkSubmitInfo2 submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
+	submit_info.commandBufferInfoCount = 1;
+	submit_info.pCommandBufferInfos = &command_buffer_info;
 
 	// note that unlike draw stage, we don't need to wait for anything here except for the queue to become idle
-    vkQueueSubmit(graphics_queue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueSubmit2(graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
     vkQueueWaitIdle(graphics_queue);
 
     vkFreeCommandBuffers(get_logical_device(), get_command_pool(), 1, &command_buffer);
@@ -697,28 +700,6 @@ void GraphicsEngine::transition_image_layout(
 	const uint32_t layer_count,
 	const uint32_t mip_levels)
 {
-	const bool is_external_command_buffer = command_buffer != nullptr;
-	if (!command_buffer)
-	{
-		command_buffer = begin_single_time_commands();
-	}
-
-	// pipeline barrier to synchronize access to resources
-	VkImageMemoryBarrier barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-	barrier.oldLayout = old_layout;
-	barrier.newLayout = new_layout;
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = image; // specifies image affeced
-	// subresourceRange specifies what part of the image is affected
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseMipLevel = 0; // image is an array with no mip mapping
-	barrier.subresourceRange.levelCount = mip_levels;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = layer_count;
-	barrier.srcAccessMask = 0;
-	barrier.dstAccessMask = 0;
-
 	// transition types:
 	//  * undefined -> transfer destination: transfer writes that don't need to wait on anything
 	//  * transfer destination -> shader reading: shader reads should wait on transfer writes
@@ -727,60 +708,33 @@ void GraphicsEngine::transition_image_layout(
 	{
 		return old_layout == x && new_layout == y;
 	};
-	VkPipelineStageFlags sourceStage, destinationStage;
+	VkPipelineStageFlags2 source_stage, destination_stage;
+	VkAccessFlags2 source_access, destination_access;
 	if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL))
 	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		source_access = VK_ACCESS_2_NONE;
+		destination_access = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+		source_stage = VK_PIPELINE_STAGE_2_NONE;
+		destination_stage = VK_PIPELINE_STAGE_2_COPY_BIT;
 	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL))
 	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	} else if (check_transition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL))
-	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = 0;
-		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	} else if (check_transition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL))
-	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR))
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = 0;
-		sourceStage = VK_ACCESS_TRANSFER_WRITE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	} else if (check_transition(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL))
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier.dstAccessMask = 0;
-		sourceStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-		destinationStage = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+		source_access = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+		destination_access = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+		source_stage = VK_PIPELINE_STAGE_2_COPY_BIT;
+		destination_stage = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
 	} else
 	{
 		throw std::runtime_error("unsupported image layout transition!");
 	}
 
-	vkCmdPipelineBarrier(
-		command_buffer,
-		sourceStage, // which pipeline stage the operation should occur before the barrier
-		destinationStage, // pipeline stage in which the operation will wait on the barrier
-		0, //
-		0,
-		nullptr,
-		0,
-		nullptr,
-		1,
-		&barrier
-	);
+	const bool is_external_command_buffer = command_buffer != nullptr;
+	if (!is_external_command_buffer)
+		command_buffer = begin_single_time_commands();
+
+	command_image_barrier(
+		command_buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
+		old_layout, new_layout, source_stage, source_access,
+		destination_stage, destination_access, layer_count, mip_levels);
 
 	if (!is_external_command_buffer)
 	{
