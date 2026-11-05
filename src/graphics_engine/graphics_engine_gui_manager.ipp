@@ -345,8 +345,12 @@ void GraphicsEngineGuiManager::setup_imgui()
 	init_info.MinImageCount = get_graphics_engine().get_num_swapchain_images();
 	init_info.ImageCount = init_info.MinImageCount;
 	// GUI uses a dedicated single-sample pipeline over the presentation image.
-	init_info.PipelineInfoMain.RenderPass =
-		get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::GUI).get_render_pass();
+	const VkFormat presentation_format = get_graphics_engine().get_swap_chain().get_image_format();
+	VkPipelineRenderingCreateInfo rendering_info{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+	rendering_info.colorAttachmentCount = 1;
+	rendering_info.pColorAttachmentFormats = &presentation_format;
+	init_info.UseDynamicRendering = true;
+	init_info.PipelineInfoMain.PipelineRenderingCreateInfo = rendering_info;
 	init_info.PipelineInfoMain.MSAASamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
 
 	ImGui_ImplVulkan_Init(&init_info);

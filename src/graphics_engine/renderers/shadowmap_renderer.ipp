@@ -1,4 +1,5 @@
 #include "renderers.hpp"
+#include "graphics_engine/dynamic_rendering.hpp"
 #include <algorithm>
 #include <bit>
 #include "shared_data_structures.hpp"
@@ -9,7 +10,6 @@ static constexpr uint32_t SHADOW_MAP_LAYER_COUNT = 6; // 6 sided cube
 ShadowMapRenderer::ShadowMapRenderer(GraphicsEngine& engine) :
 	Renderer(engine)
 {
-	create_render_pass();
 	create_sampler();
 }
 
@@ -38,7 +38,6 @@ void ShadowMapRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 	FrameResources frame;
 	frame.descriptor = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_shadow_map_dset_layout());
 	frames.push_back(frame);
-	frame_buffers.push_back(VK_NULL_HANDLE);
 	// A tiny cube array remains bindable when the scene has no shadowed lights.
 	grow_frame_resources(static_cast<uint32_t>(frames.size() - 1), 0);
 }
@@ -56,7 +55,6 @@ void ShadowMapRenderer::grow_frame_resources(const uint32_t frame_idx, const uin
 	const uint32_t layer_count = SHADOW_MAP_LAYER_COUNT * std::max(capacity, 1u);
 	const auto extent = capacity ? get_extent() : VkExtent2D{1, 1};
 	FrameResources replacement;
-	VkFramebuffer framebuffer = VK_NULL_HANDLE;
 	try
 	{
 		get_graphics_engine().create_image(
@@ -73,16 +71,6 @@ void ShadowMapRenderer::grow_frame_resources(const uint32_t frame_idx, const uin
 			VK_IMAGE_VIEW_TYPE_CUBE_ARRAY, layer_count);
 		replacement.preview_view = get_graphics_engine().create_image_view(
 			replacement.attachment.image, get_image_format(), VK_IMAGE_ASPECT_DEPTH_BIT);
-
-		VkFramebufferCreateInfo info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-		info.renderPass = render_pass;
-		info.attachmentCount = 1;
-		info.pAttachments = &replacement.attachment.image_view;
-		info.width = extent.width;
-		info.height = extent.height;
-		info.layers = layer_count;
-		if (vkCreateFramebuffer(get_logical_device(), &info, nullptr, &framebuffer) != VK_SUCCESS)
-			throw std::runtime_error("Failed to create point-light shadow framebuffer");
 	}
 	catch (...)
 	{
@@ -101,32 +89,42 @@ void ShadowMapRenderer::grow_frame_resources(const uint32_t frame_idx, const uin
 	write.descriptorCount = 1;
 	write.pImageInfo = &image_info;
 	vkUpdateDescriptorSets(get_logical_device(), 1, &write, 0, nullptr);
-	vkDestroyFramebuffer(get_logical_device(), frame_buffers.at(frame_idx), nullptr);
 	destroy_frame_images(frame);
 	frame.attachment = replacement.attachment;
 	frame.cube_array_view = replacement.cube_array_view;
 	frame.preview_view = replacement.preview_view;
 	frame.capacity = capacity;
 	frame.image_initialized = false;
-	frame_buffers[frame_idx] = framebuffer;
 }
 
 void ShadowMapRenderer::submit_draw_commands(
 	VkCommandBuffer command_buffer, VkImageView, const uint32_t frame_index)
 {
 	auto& resources = frames.at(frame_index);
+	const uint32_t layer_count = SHADOW_MAP_LAYER_COUNT * std::max(resources.capacity, 1u);
 	if (resources.lighting.shadow_count == 0 && resources.image_initialized)
 		return;
 
-	VkRenderPassBeginInfo begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-	begin.renderPass = render_pass;
-	begin.framebuffer = frame_buffers.at(frame_index);
-	begin.renderArea.extent = resources.capacity ? get_extent() : VkExtent2D{1, 1};
-	VkClearValue clear{};
-	clear.depthStencil = {1.0f, 0};
-	begin.clearValueCount = 1;
-	begin.pClearValues = &clear;
-	vkCmdBeginRenderPass(command_buffer, &begin, VK_SUBPASS_CONTENTS_INLINE);
+	const auto extent = resources.capacity ? get_extent() : VkExtent2D{1, 1};
+	command_image_barrier(command_buffer, resources.attachment.image, VK_IMAGE_ASPECT_DEPTH_BIT,
+		resources.image_initialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		resources.image_initialized ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		resources.image_initialized ? VK_ACCESS_SHADER_READ_BIT : 0,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		layer_count);
+	VkRenderingAttachmentInfo depth_info{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+	depth_info.imageView = resources.attachment.image_view;
+	depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depth_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depth_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	depth_info.clearValue.depthStencil = {1.0f, 0};
+	VkRenderingInfo rendering_info{VK_STRUCTURE_TYPE_RENDERING_INFO};
+	rendering_info.renderArea = {{0, 0}, extent};
+	rendering_info.layerCount = layer_count;
+	rendering_info.pDepthAttachment = &depth_info;
+	vkCmdBeginRendering(command_buffer, &rendering_info);
 	reset_draw_state();
 
 	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)
@@ -152,73 +150,13 @@ void ShadowMapRenderer::submit_draw_commands(
 			}
 		}
 	}
-	vkCmdEndRenderPass(command_buffer);
+	vkCmdEndRendering(command_buffer);
+	command_image_barrier(command_buffer, resources.attachment.image, VK_IMAGE_ASPECT_DEPTH_BIT,
+		VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT, layer_count);
 	resources.image_initialized = true;
-}
-
-void ShadowMapRenderer::create_render_pass()
-{
-	//
-	// Attachment
-	//
-	VkAttachmentDescription shadow_map_attachment{};
-	shadow_map_attachment.format = get_image_format();
-	shadow_map_attachment.samples = get_msaa_sample_count();
-	shadow_map_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	shadow_map_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	shadow_map_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	shadow_map_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	shadow_map_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	shadow_map_attachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	VkAttachmentReference shadow_map_attachment_ref{};
-	shadow_map_attachment_ref.attachment = 0;
-	shadow_map_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	//
-	// Subpass
-	//
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // as opposed to compute subpass
-	subpass.colorAttachmentCount = 0;
-	subpass.pDepthStencilAttachment = &shadow_map_attachment_ref;
-
-	// render pass
-	VkSubpassDependency dependency{};
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	// depth image is accessed early in the frament test pipeline stage
-	dependency.srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	dependency.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-	VkSubpassDependency dependency2
-	{
-		0, 
-		VK_SUBPASS_EXTERNAL, 
-		VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 
-		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
-		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, 
-		VK_ACCESS_SHADER_READ_BIT, 
-		VK_DEPENDENCY_BY_REGION_BIT 
-	};
-
-	std::vector<VkSubpassDependency> dependencies{ dependency, dependency2 };
-
-	std::vector<VkAttachmentDescription> attachments{ shadow_map_attachment };
-	VkRenderPassCreateInfo render_pass_create_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-	render_pass_create_info.attachmentCount = attachments.size();
-	render_pass_create_info.pAttachments = attachments.data();
-	render_pass_create_info.subpassCount = 1;
-	render_pass_create_info.pSubpasses = &subpass;
-	render_pass_create_info.dependencyCount = dependencies.size();
-	render_pass_create_info.pDependencies = dependencies.data();
-	
-	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &this->render_pass) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create render pass!");
-	}
 }
 
 void ShadowMapRenderer::create_sampler()

@@ -48,6 +48,18 @@ void GraphicsEngineDevice::pick_physical_device()
 		VkPhysicalDeviceFeatures deviceFeatures;
 		vkGetPhysicalDeviceProperties(device, &deviceProperties);
 		vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+		VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{
+			VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+		VkPhysicalDeviceFeatures2 supported_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+		supported_features.pNext = &dynamic_rendering;
+		vkGetPhysicalDeviceFeatures2(device, &supported_features);
+		if (deviceProperties.apiVersion < VK_API_VERSION_1_3 || !dynamic_rendering.dynamicRendering)
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks Vulkan 1.3 dynamic rendering",
+				deviceProperties.deviceName);
+			return false;
+		}
 
 		LOG_INFO(Utility::get_logger(), "GraphicsEngineDevice: checking device:={}", deviceProperties.deviceName);
 
@@ -171,7 +183,7 @@ void GraphicsEngineDevice::pick_physical_device()
 
 	if (physicalDevice == VK_NULL_HANDLE) {
 		throw std::runtime_error(
-			"failed to find a suitable GPU (HDR requires sampled RGBA16F color attachments)");
+			"failed to find a suitable GPU (requires Vulkan 1.3 dynamic rendering and sampled RGBA16F color attachments)");
 	}
 }
 
@@ -340,7 +352,10 @@ VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 	device_features2.features.geometryShader = true;
 	device_features2.features.imageCubeArray = true;
 	device_features2.features.textureCompressionBC = true;
-	device_features2.pNext = nullptr;
+	static VkPhysicalDeviceDynamicRenderingFeatures dynamic_rendering{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+	dynamic_rendering.dynamicRendering = VK_TRUE;
+	device_features2.pNext = &dynamic_rendering;
 
 	// For ray tracing:
 	// device_features2.pNext = &device_features12;

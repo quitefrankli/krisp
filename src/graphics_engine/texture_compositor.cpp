@@ -1,5 +1,6 @@
 #include "texture_compositor.hpp"
 
+#include "dynamic_rendering.hpp"
 #include "graphics_engine.hpp"
 #include "graphics_engine_texture_manager.hpp"
 #include "pipeline/pipeline.hpp"
@@ -26,10 +27,7 @@ protected:
 	std::string_view get_shader_name() const override { return "texture_compositor"; }
 	std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override { return {}; }
 	std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override { return {}; }
-	VkRenderPass get_render_pass() override
-	{
-		return get_graphics_engine().get_texture_compositor().get_render_pass();
-	}
+	RenderingFormats get_rendering_formats() override { return { .color = VK_FORMAT_R8G8B8A8_SRGB }; }
 	VkExtent2D get_extent() override { return extent; }
 	VkSampleCountFlagBits get_msaa_sample_count() override { return VK_SAMPLE_COUNT_1_BIT; }
 	VkCullModeFlags get_cull_mode() const override { return VK_CULL_MODE_NONE; }
@@ -83,7 +81,6 @@ TextureCompositor::TextureCompositor(GraphicsEngine& engine) :
 	binding.descriptorCount = 1;
 	binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	dset_layout = get_rsrc_mgr().request_dset_layout({ binding });
-	create_render_pass();
 }
 
 TextureCompositor::~TextureCompositor()
@@ -91,8 +88,6 @@ TextureCompositor::~TextureCompositor()
 	pipelines.clear();
 	for (auto& [_, resources] : compositions)
 		destroy_resources(resources);
-	if (render_pass != VK_NULL_HANDLE)
-		vkDestroyRenderPass(get_logical_device(), render_pass, nullptr);
 }
 
 GraphicsTextureSample TextureCompositor::resolve(
@@ -130,17 +125,6 @@ TextureCompositor::CompositionResources TextureCompositor::create_resources(
 			VK_SAMPLE_COUNT_1_BIT);
 		resources.image_view = get_graphics_engine().create_image_view(
 			resources.image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
-		VkFramebufferCreateInfo framebuffer_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-		framebuffer_info.renderPass = render_pass;
-		framebuffer_info.attachmentCount = 1;
-		framebuffer_info.pAttachments = &resources.image_view;
-		framebuffer_info.width = material.width;
-		framebuffer_info.height = material.height;
-		framebuffer_info.layers = 1;
-		if (vkCreateFramebuffer(get_logical_device(), &framebuffer_info, nullptr, &resources.framebuffer)
-			!= VK_SUCCESS)
-			throw std::runtime_error("TextureCompositor: failed to create framebuffer");
-
 		for (const auto& layer : material.layers)
 		{
 			const auto& source = get_graphics_engine().get_texture_mgr().fetch_texture(
@@ -171,8 +155,6 @@ TextureCompositor::CompositionResources TextureCompositor::create_resources(
 void TextureCompositor::destroy_resources(CompositionResources& resources)
 {
 	get_rsrc_mgr().free_dsets(resources.layer_dsets);
-	if (resources.framebuffer != VK_NULL_HANDLE)
-		vkDestroyFramebuffer(get_logical_device(), resources.framebuffer, nullptr);
 	if (resources.image_view != VK_NULL_HANDLE)
 		vkDestroyImageView(get_logical_device(), resources.image_view, nullptr);
 	if (resources.image != VK_NULL_HANDLE)
@@ -203,15 +185,25 @@ void TextureCompositor::record_pending(const VkCommandBuffer command_buffer)
 			continue;
 		auto& resources = found->second;
 		auto& pipeline = fetch_pipeline(resources.extent);
-		VkRenderPassBeginInfo begin{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
-		begin.renderPass = render_pass;
-		begin.framebuffer = resources.framebuffer;
-		begin.renderArea.extent = resources.extent;
-		VkClearValue clear{};
-		clear.color = { 0.0f, 0.0f, 0.0f, 0.0f };
-		begin.clearValueCount = 1;
-		begin.pClearValues = &clear;
-		vkCmdBeginRenderPass(command_buffer, &begin, VK_SUBPASS_CONTENTS_INLINE);
+		command_image_barrier(command_buffer, resources.image, VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, 0,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		VkRenderingAttachmentInfo color_attachment{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+		color_attachment.imageView = resources.image_view;
+		color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		color_attachment.clearValue.color.float32[0] = 0.0f;
+		color_attachment.clearValue.color.float32[1] = 0.0f;
+		color_attachment.clearValue.color.float32[2] = 0.0f;
+		color_attachment.clearValue.color.float32[3] = 0.0f;
+		VkRenderingInfo rendering_info{VK_STRUCTURE_TYPE_RENDERING_INFO};
+		rendering_info.renderArea = { { 0, 0 }, resources.extent };
+		rendering_info.layerCount = 1;
+		rendering_info.colorAttachmentCount = 1;
+		rendering_info.pColorAttachments = &color_attachment;
+		vkCmdBeginRendering(command_buffer, &rendering_info);
 		vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.graphics_pipeline);
 		for (size_t index = 0; index < resources.layers.size(); ++index)
 		{
@@ -228,7 +220,11 @@ void TextureCompositor::record_pending(const VkCommandBuffer command_buffer)
 				pipeline.pipeline_layout, 0, 1, &resources.layer_dsets[index], 0, nullptr);
 			vkCmdDraw(command_buffer, 3, 1, 0, 0);
 		}
-		vkCmdEndRenderPass(command_buffer);
+		vkCmdEndRendering(command_buffer);
+		command_image_barrier(command_buffer, resources.image, VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
 	}
 	pending.clear();
 }
@@ -240,49 +236,4 @@ void TextureCompositor::free_texture(const MaterialID id)
 		return;
 	destroy_resources(found->second);
 	compositions.erase(found);
-}
-
-void TextureCompositor::create_render_pass()
-{
-	VkAttachmentDescription attachment{};
-	attachment.format = VK_FORMAT_R8G8B8A8_SRGB;
-	attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-	attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	attachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	VkAttachmentReference attachment_ref{ 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &attachment_ref;
-	const VkSubpassDependency dependencies[]{
-		{
-			.srcSubpass = VK_SUBPASS_EXTERNAL,
-			.dstSubpass = 0,
-			.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.srcAccessMask = 0,
-			.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-		},
-		{
-			.srcSubpass = 0,
-			.dstSubpass = VK_SUBPASS_EXTERNAL,
-			.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-			.dstAccessMask = VK_ACCESS_SHADER_READ_BIT,
-		},
-	};
-	VkRenderPassCreateInfo info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-	info.attachmentCount = 1;
-	info.pAttachments = &attachment;
-	info.subpassCount = 1;
-	info.pSubpasses = &subpass;
-	info.dependencyCount = 2;
-	info.pDependencies = dependencies;
-	if (vkCreateRenderPass(get_logical_device(), &info, nullptr, &render_pass) != VK_SUCCESS)
-		throw std::runtime_error("TextureCompositor: failed to create render pass");
 }

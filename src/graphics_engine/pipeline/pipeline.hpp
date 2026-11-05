@@ -1,6 +1,7 @@
 #pragma once
 
 #include "graphics_engine/graphics_engine_base_module.hpp"
+#include "graphics_engine/dynamic_rendering.hpp"
 #include "renderable/render_types.hpp"
 #include "pipeline_id.hpp"
 
@@ -38,7 +39,7 @@ protected:
 
 	virtual VkExtent2D get_extent();
 	virtual VkSampleCountFlagBits get_msaa_sample_count();
-	virtual VkRenderPass get_render_pass();
+	virtual RenderingFormats get_rendering_formats();
 
 	virtual VkCullModeFlags get_cull_mode() const
 	{

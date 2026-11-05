@@ -20,7 +20,7 @@ public:
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return resolve_attachments.at(frame_idx).image_view; };
 
-	// Allow particle renderer to draw within our render pass
+	// Allow particle renderer to draw within our rendering scope
 	friend class ParticleRenderer;
 
 private:
@@ -29,7 +29,6 @@ private:
 	using Renderer::get_logical_device;
 
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_R16G16B16A16_SFLOAT; }
-	void create_render_pass();
 
 	std::vector<RenderingAttachment> color_attachments;
 	std::vector<RenderingAttachment> resolve_attachments;
@@ -51,9 +50,11 @@ public:
 	VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
 
 private:
+	std::vector<VkImage> presentation_images; // Owned by the swap chain.
+	std::vector<VkImageView> presentation_image_views;
+
 	// Converts the resolved linear HDR scene into the SDR sRGB swap-chain image.
-	// GUI composition happens in the following render pass and is not tone-mapped.
-	void create_render_pass();
+	// GUI composition happens in the following rendering scope and is not tone-mapped.
 	// One immutable scene input descriptor per in-flight swap-chain image avoids
 	// descriptor updates while a previous frame may still be using it.
 	std::vector<VkDescriptorSet> scene_inputs;
@@ -72,8 +73,10 @@ public:
 	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
 
 private:
+	std::vector<VkImage> presentation_images; // Owned by the swap chain.
+	std::vector<VkImageView> presentation_image_views;
+
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
-	void create_render_pass();
 
 	using Renderer::get_graphics_engine;
 	using Renderer::get_rsrc_mgr;
@@ -95,7 +98,6 @@ public:
 
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_R32G32B32A32_SFLOAT; }
-	void create_render_pass();
 	VkDescriptorSet create_rt_dset(VkImageView rt_image_view);
 
 	std::vector<RenderingAttachment> color_attachments;
@@ -128,7 +130,6 @@ public:
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_D32_SFLOAT; }
 	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
-	void create_render_pass();
 	void create_sampler();
 	struct FrameResources
 	{
@@ -169,7 +170,6 @@ public:
 private:
 	static constexpr VkFormat get_image_format() { return VK_FORMAT_B8G8R8A8_SRGB; }
 	virtual VkSampleCountFlagBits get_msaa_sample_count() const override { return VK_SAMPLE_COUNT_1_BIT; }
-	void create_render_pass();
 
 	std::vector<VkDescriptorSet> textures;
 	VkDescriptorSetLayout texture_layout = VK_NULL_HANDLE;

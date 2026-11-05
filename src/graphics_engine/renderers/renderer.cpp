@@ -18,18 +18,7 @@ Renderer::Renderer(GraphicsEngine& engine) :
 {
 }
 
-Renderer::~Renderer()
-{
-	auto logical_device = this->get_graphics_engine().get_logical_device();
-	if (render_pass)
-	{
-		vkDestroyRenderPass(logical_device, render_pass, nullptr);
-	}
-	for (auto frame_buffer : frame_buffers)
-	{
-		vkDestroyFramebuffer(logical_device, frame_buffer, nullptr);
-	}
-}
+Renderer::~Renderer() = default;
 
 VkExtent2D Renderer::get_extent()
 {

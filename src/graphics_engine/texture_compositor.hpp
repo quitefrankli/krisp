@@ -46,7 +46,6 @@ public:
 	// invoke this only after the last referencing submission has completed.
 	void free_texture(MaterialID id);
 
-	VkRenderPass get_render_pass() const { return render_pass; }
 	VkDescriptorSetLayout get_dset_layout() const { return dset_layout; }
 
 private:
@@ -58,21 +57,17 @@ private:
 		VkImage image = VK_NULL_HANDLE;
 		VkDeviceMemory memory = VK_NULL_HANDLE;
 		VkImageView image_view = VK_NULL_HANDLE;
-		VkFramebuffer framebuffer = VK_NULL_HANDLE;
 		VkExtent2D extent{};
 		std::vector<VkDescriptorSet> layer_dsets;
 		std::vector<TextureCompositionLayer> layers;
 	};
 
-	void create_render_pass();
 	CompositionResources create_resources(const CompositedTextureMaterial& material);
 	void destroy_resources(CompositionResources& resources);
 	GraphicsEnginePipeline& fetch_pipeline(VkExtent2D extent);
 
-	// All outputs share format and render-pass compatibility, while pipelines are
-	// cached by extent because the current pipeline abstraction uses static
-	// viewport/scissor state.
-	VkRenderPass render_pass = VK_NULL_HANDLE;
+	// Pipelines are cached by extent because the current pipeline abstraction uses
+	// static viewport/scissor state.
 	VkDescriptorSetLayout dset_layout = VK_NULL_HANDLE;
 	std::unordered_map<MaterialID, CompositionResources> compositions;
 	std::unordered_map<uint64_t, std::unique_ptr<GraphicsEnginePipeline>> pipelines;

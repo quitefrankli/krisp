@@ -6,6 +6,16 @@ as expectations until they have been measured.
 No CPU, GPU, frame-time, or peak-memory measurements have been recorded for
 the items below.
 
+## Dynamic rendering
+
+Supported graphics passes and one-time texture composition use Vulkan dynamic
+rendering. This removes render-pass and framebuffer object creation/destruction,
+including per-swap-chain framebuffer allocation and shadow-capacity framebuffer
+replacement. Attachment images, sample counts, resolve operations, draw order,
+and shadow layer counts retain their existing costs. Explicit image barriers
+provide the transitions and visibility formerly expressed by render passes.
+No frame-time or memory improvement has been measured for this migration.
+
 ## HDR presentation
 
 RGBA16F scene and resolve images use twice the pixel storage and bandwidth of
@@ -31,7 +41,7 @@ Graphics Settings exposes a global `Shadows` switch. Disabling it preserves
 direct lighting and material shading while preparing every light with shadow
 slot `-1`. No shadow matrices, caster draws, or fragment shadow samples are
 needed. Each swap-chain slot still initializes its bindable shadow image once;
-later zero-shadow frames skip the pass, including its framebuffer clear.
+later zero-shadow frames skip the pass, including its depth-attachment clear.
 Allocated cube-array capacity is retained for re-enabling shadows. The switch
 travels in the immutable render-view snapshot and does not add pipeline variants.
 Its performance benefit has not been measured.

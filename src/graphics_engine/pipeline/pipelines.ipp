@@ -449,9 +449,9 @@ std::vector<VkVertexInputAttributeDescription> SkinnedPipeline::get_attribute_de
 	return get_attribute_descriptions_();
 }
 
-VkRenderPass ShadowMapBasePipeline::get_render_pass()
+RenderingFormats ShadowMapBasePipeline::get_rendering_formats()
 {
-	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::SHADOW_MAP).get_render_pass();
+	return { .depth = VK_FORMAT_D32_SFLOAT };
 }
 
 std::string_view ShadowMapBasePipeline::get_shader_name() const
@@ -581,9 +581,9 @@ ShadowMapPipeline<SkinnedColorPipeline>::get_attribute_descriptions() const
 	return { attributes[0], attributes[3], attributes[4] };
 }
 
-VkRenderPass QuadPipeline::get_render_pass()
+RenderingFormats QuadPipeline::get_rendering_formats()
 {
-	return get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD).get_render_pass();
+	return { .color = VK_FORMAT_B8G8R8A8_SRGB };
 }
 
 VkExtent2D QuadPipeline::get_extent()
@@ -618,10 +618,9 @@ std::vector<VkPushConstantRange> QuadPipeline::get_push_constant_ranges() const
 	return { push_constant_range };
 }
 
-VkRenderPass PresentationPipeline::get_render_pass()
+RenderingFormats PresentationPipeline::get_rendering_formats()
 {
-	return get_graphics_engine().get_renderer_mgr()
-		.get_renderer(ERendererType::PRESENTATION).get_render_pass();
+	return { .color = VK_FORMAT_B8G8R8A8_SRGB };
 }
 
 VkExtent2D PresentationPipeline::get_extent()

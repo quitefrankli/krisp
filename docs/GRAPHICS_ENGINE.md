@@ -28,6 +28,28 @@ remain disabled.
 Most submodules inherit `GraphicsEngineBaseModule`, which provides controlled
 access to the owning `GraphicsEngine` and its shared Vulkan services.
 
+## Dynamic rendering
+
+The renderer requires Vulkan 1.3 with the `dynamicRendering` feature enabled.
+Graphics pipelines declare color, depth, and stencil attachment formats through
+`VkPipelineRenderingCreateInfo`. Renderers bind image views directly with
+`vkCmdBeginRendering`; supported paths do not allocate `VkRenderPass` or
+`VkFramebuffer` objects.
+
+Attachment layout transitions and producer/consumer visibility use explicit
+image barriers. The scene keeps its multisampled HDR color and depth/stencil
+attachments and resolves to a single-sample image for presentation. Shadow
+rendering binds the full depth array with a layer count covering its cube faces.
+Presentation and GUI return the swap-chain image to `PRESENT_SRC_KHR`, preserving
+the capture points between passes.
+
+Migration verification compared all 11 procedural fidelity captures exactly
+against the prior renderer. Standard Vulkan validation was clean. With
+synchronization validation enabled, the installed 1.3.275 validation layer
+reports a shadow-image read-after-layout-transition warning when initialized
+zero-shadow frames skip rendering. The same warning was reproduced with the
+prior render-pass implementation; its cause remains unresolved.
+
 ## Frame flow
 
 ```text

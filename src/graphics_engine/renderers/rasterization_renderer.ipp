@@ -4,18 +4,17 @@
 #include "graphics_engine/pipeline/pipeline_id.hpp"
 #include "graphics_engine/graphics_renderable.hpp"
 #include "graphics_engine/graphics_engine.hpp"
+#include "graphics_engine/dynamic_rendering.hpp"
 #include "camera.hpp"
 #include "objects/object.hpp"
 #include "particle_renderer.ipp"
 
 #include <algorithm>
-#include <array>
 
 
 RasterizationRenderer::RasterizationRenderer(GraphicsEngine& engine) :
 	Renderer(engine)
 {
-	create_render_pass();
 }
 
 RasterizationRenderer::~RasterizationRenderer()
@@ -87,35 +86,11 @@ void RasterizationRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 	depth_attachment.image_view = get_graphics_engine().create_image_view(
 		depth_attachment.image, 
 		depth_format, 
-		VK_IMAGE_ASPECT_DEPTH_BIT);
+		VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 	color_attachments.push_back(color_attachment);
 	resolve_attachments.push_back(resolve_attachment);
 	depth_attachments.push_back(depth_attachment);
-
-	//
-	// Create framebuffer
-	//
-	std::vector<VkImageView> attachments { 
-		color_attachment.image_view, // main attachment color image_view, that shaders write to
-		depth_attachment.image_view, // depth buffer image_view
-		resolve_attachment.image_view
-	};
-
-	VkFramebufferCreateInfo frame_buffer_create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
-	frame_buffer_create_info.renderPass = this->render_pass;
-	frame_buffer_create_info.attachmentCount = attachments.size();
-	frame_buffer_create_info.pAttachments = attachments.data();
-	frame_buffer_create_info.width = extent.width;
-	frame_buffer_create_info.height = extent.height;
-	frame_buffer_create_info.layers = 1;
-
-	VkFramebuffer new_frame_buffer;
-	if (vkCreateFramebuffer(get_logical_device(), &frame_buffer_create_info, nullptr, &new_frame_buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create framebuffer!");
-	}
-	this->frame_buffers.push_back(new_frame_buffer);
 }
 
 void RasterizationRenderer::submit_draw_commands(
@@ -123,20 +98,51 @@ void RasterizationRenderer::submit_draw_commands(
 	VkImageView presentation_image_view,
 	uint32_t frame_index)
 {
-	// starting a render pass
-	VkRenderPassBeginInfo render_pass_begin_info{};
-	render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	render_pass_begin_info.renderPass = this->render_pass;
-	render_pass_begin_info.framebuffer = this->frame_buffers[frame_index];
-	render_pass_begin_info.renderArea.offset = { 0, 0 };
-	render_pass_begin_info.renderArea.extent = this->get_extent();
-	
-	std::vector<VkClearValue> clear_values(2);
-	clear_values[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-	clear_values[1].depthStencil = { 1.0f, 0 };
-	render_pass_begin_info.clearValueCount = clear_values.size();
-	render_pass_begin_info.pClearValues = clear_values.data();
-	vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+	const auto extent = get_extent();
+	auto& color = color_attachments.at(frame_index);
+	auto& resolve = resolve_attachments.at(frame_index);
+	auto& depth = depth_attachments.at(frame_index);
+	const bool multisampled = get_msaa_sample_count() != VK_SAMPLE_COUNT_1_BIT;
+	if (multisampled)
+		command_image_barrier(command_buffer, color.image, VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+	command_image_barrier(command_buffer, depth.image,
+		VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+		VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+	command_image_barrier(command_buffer, resolve.image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+
+	VkRenderingAttachmentInfo color_info{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+	color_info.imageView = multisampled ? color.image_view : resolve.image_view;
+	color_info.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	color_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	color_info.storeOp = multisampled ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
+	color_info.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+	color_info.resolveMode = multisampled ? VK_RESOLVE_MODE_AVERAGE_BIT : VK_RESOLVE_MODE_NONE;
+	color_info.resolveImageView = multisampled ? resolve.image_view : VK_NULL_HANDLE;
+	color_info.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	VkRenderingAttachmentInfo depth_info{VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO};
+	depth_info.imageView = depth.image_view;
+	depth_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+	depth_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depth_info.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depth_info.clearValue.depthStencil = {1.0f, 0};
+	VkRenderingInfo rendering_info{VK_STRUCTURE_TYPE_RENDERING_INFO};
+	rendering_info.renderArea = {{0, 0}, extent};
+	rendering_info.layerCount = 1;
+	rendering_info.colorAttachmentCount = 1;
+	rendering_info.pColorAttachments = &color_info;
+	rendering_info.pDepthAttachment = &depth_info;
+	rendering_info.pStencilAttachment = &depth_info;
+	vkCmdBeginRendering(command_buffer, &rendering_info);
 	reset_draw_state();
 
 	std::vector<VkDescriptorSet> per_frame_dsets = { 
@@ -274,7 +280,7 @@ void RasterizationRenderer::submit_draw_commands(
 				draw_item(*item, regular_style(*item));
 	}
 
-	// Render particles within the same render pass (skip in wireframe mode)
+	// Render particles within the same rendering scope (skip in wireframe mode)
 	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)
 	{
 		auto& particle_renderer = static_cast<ParticleRenderer&>(
@@ -282,108 +288,9 @@ void RasterizationRenderer::submit_draw_commands(
 		particle_renderer.render_particles(command_buffer, frame_index);
 	}
 
-	vkCmdEndRenderPass(command_buffer);
-}
-
-void RasterizationRenderer::create_render_pass()
-{
-	//
-	// Color Attachment
-	//
-	VkAttachmentDescription color_attachment{}; // main attachment that our shaders write to
-	color_attachment.format = get_image_format();
-	color_attachment.samples = this->get_msaa_sample_count(); // >1 if we are doing multisampling	
-	color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; // determine what to do with the data in the attachment before rendering
-	color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE; // dtermine what to do with the data in the attachment after rendering
-	color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // specifies which layout the image will have before the render pass begins
-	// color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // specifies the layout to automatically transition to when the render pass finishes
-	// with multisampled images, we don't want to present them directly, first they have to be resolved
-	// to a single regular image
-	color_attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	// subpasses and attachment references
-	// a single render pass can consist of multiple subpasses
-	VkAttachmentReference color_attachment_ref{};
-	color_attachment_ref.attachment = 0; // only works since we only have 1 attachment description
-	color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	//
-	// Depth Attachment
-	//
-	VkAttachmentDescription depth_attachment{};
-	depth_attachment.format = get_graphics_engine().find_depth_format();
-	depth_attachment.samples = this->get_msaa_sample_count();
-	depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	VkAttachmentReference depthAttachmentRef{};
-	depthAttachmentRef.attachment = 1;
-	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	//
-	// Multi-sampling
-	//
-	VkAttachmentDescription color_attachment_resolve{}; // resolves the multisampled image to a regular image
-    color_attachment_resolve.format = get_image_format();
-    color_attachment_resolve.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment_resolve.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment_resolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment_resolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment_resolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment_resolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment_resolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	VkAttachmentReference color_attachment_resolve_ref{};
-	color_attachment_resolve_ref.attachment = 2;
-	color_attachment_resolve_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	//
-	// Subpass
-	//
-	VkSubpassDescription subpass{};
-	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // as opposed to compute subpass
-	subpass.colorAttachmentCount = 1;
-	subpass.pColorAttachments = &color_attachment_ref;
-	// subpass.pInputAttachments // attachments that read from a shader
-	subpass.pResolveAttachments = &color_attachment_resolve_ref;
-	subpass.pDepthStencilAttachment = &depthAttachmentRef;
-	// subpass.pPreserveAttachments // attachments that are not used by this subpass, but for which the data must be preserved
-
-	// render pass
-	std::array<VkSubpassDependency, 2> dependencies{};
-	auto& dependency = dependencies[0];
-	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dependency.dstSubpass = 0;
-	// depth image is accessed early in the frament test pipeline stage
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	auto& presentation_dependency = dependencies[1];
-	presentation_dependency.srcSubpass = 0;
-	presentation_dependency.dstSubpass = VK_SUBPASS_EXTERNAL;
-	presentation_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	presentation_dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	presentation_dependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	presentation_dependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-	std::vector<VkAttachmentDescription> attachments{ color_attachment, depth_attachment, color_attachment_resolve };
-	VkRenderPassCreateInfo render_pass_create_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-	render_pass_create_info.attachmentCount = attachments.size();
-	render_pass_create_info.pAttachments = attachments.data();
-	render_pass_create_info.subpassCount = 1;
-	render_pass_create_info.pSubpasses = &subpass;
-	render_pass_create_info.dependencyCount = dependencies.size();
-	render_pass_create_info.pDependencies = dependencies.data();
-	
-	if (vkCreateRenderPass(get_logical_device(), &render_pass_create_info, nullptr, &this->render_pass) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create render pass!");
-	}
+	vkCmdEndRendering(command_buffer);
+	command_image_barrier(command_buffer, resolve.image, VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT);
 }

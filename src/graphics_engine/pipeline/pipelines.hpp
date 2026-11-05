@@ -160,7 +160,7 @@ public:
 
 protected:
 	virtual std::string_view get_shader_name() const override;
-	virtual VkRenderPass get_render_pass() override;
+	virtual RenderingFormats get_rendering_formats() override;
 	virtual VkExtent2D get_extent() override;
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
 	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
@@ -212,7 +212,7 @@ protected:
 	virtual std::string_view get_shader_name() const override { return "quad"; }
 	virtual std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override { return {}; }
 	virtual std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override { return {}; }
-	virtual VkRenderPass get_render_pass() override;
+	virtual RenderingFormats get_rendering_formats() override;
 	virtual VkExtent2D get_extent() override;
 	virtual VkSampleCountFlagBits get_msaa_sample_count() override;
 	virtual std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;
@@ -230,7 +230,7 @@ protected:
 	std::string_view get_shader_name() const override { return "presentation"; }
 	std::vector<VkVertexInputBindingDescription> get_binding_descriptions() const override { return {}; }
 	std::vector<VkVertexInputAttributeDescription> get_attribute_descriptions() const override { return {}; }
-	VkRenderPass get_render_pass() override;
+	RenderingFormats get_rendering_formats() override;
 	VkExtent2D get_extent() override;
 	VkSampleCountFlagBits get_msaa_sample_count() override { return VK_SAMPLE_COUNT_1_BIT; }
 	std::vector<VkDescriptorSetLayout> get_expected_dset_layouts() override;

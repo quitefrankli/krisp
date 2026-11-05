@@ -14,9 +14,8 @@ public:
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::PARTICLE; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return nullptr; }
-	virtual VkRenderPass get_render_pass() override;
 
-	// Called by RasterizationRenderer to render particles within its render pass
+	// Called by RasterizationRenderer to render particles within its rendering scope
 	void render_particles(VkCommandBuffer command_buffer, uint32_t frame_index);
 
 private:
@@ -189,14 +188,8 @@ void ParticleRenderer::update_instance_buffer(uint32_t frame_index)
 	vkUnmapMemory(get_logical_device(), instance_buffer_memories[frame_index]);
 }
 
-void ParticleRenderer::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
+void ParticleRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
-	// Use the rasterization renderer's framebuffer
-	// We don't need to create our own framebuffer since we're using the same render pass
-	// The particles will be rendered in the same render pass as the main scene
-	
-	// Just add a null framebuffer entry to maintain the frame indexing
-	this->frame_buffers.push_back(VK_NULL_HANDLE);
 }
 
 void ParticleRenderer::submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index)
@@ -259,11 +252,4 @@ void ParticleRenderer::render_particles(VkCommandBuffer command_buffer, uint32_t
 	
 	// Draw particles as instanced
 	vkCmdDraw(command_buffer, QUAD_VERTICES, static_cast<uint32_t>(instance_data.size()), 0, 0);
-}
-
-VkRenderPass ParticleRenderer::get_render_pass()
-{
-	// Use the rasterization renderer's render pass
-	return get_graphics_engine().get_renderer_mgr().
-		get_renderer(ERendererType::RASTERIZATION).get_render_pass();
 }

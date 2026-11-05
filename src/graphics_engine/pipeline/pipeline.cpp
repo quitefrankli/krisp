@@ -92,10 +92,14 @@ VkSampleCountFlagBits GraphicsEnginePipeline::get_msaa_sample_count()
 	return this->get_graphics_engine().get_msaa_samples();
 }
 
-VkRenderPass GraphicsEnginePipeline::get_render_pass()
+RenderingFormats GraphicsEnginePipeline::get_rendering_formats()
 {
-	return this->get_graphics_engine().get_renderer_mgr().
-		get_renderer(ERendererType::RASTERIZATION).get_render_pass();
+	const VkFormat depth_format = get_graphics_engine().find_depth_format();
+	return {
+		.color = VK_FORMAT_R16G16B16A16_SFLOAT,
+		.depth = depth_format,
+		.stencil = depth_format,
+	};
 }
 
 GraphicsEnginePipeline::GraphicsEnginePipeline(GraphicsEngine& engine) :
@@ -284,12 +288,14 @@ void GraphicsEnginePipeline::initialise()
 		color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 	}
 	mod_color_blend_attachment(color_blend_attachment);
+	const RenderingFormats formats = get_rendering_formats();
+	const bool has_color_attachment = formats.color != VK_FORMAT_UNDEFINED;
 
 	VkPipelineColorBlendStateCreateInfo color_blending_create_info{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
 	color_blending_create_info.logicOpEnable = VK_FALSE;
 	color_blending_create_info.logicOp = VK_LOGIC_OP_COPY; // Optional
-	color_blending_create_info.attachmentCount = 1;
-	color_blending_create_info.pAttachments = &color_blend_attachment;
+	color_blending_create_info.attachmentCount = has_color_attachment ? 1 : 0;
+	color_blending_create_info.pAttachments = has_color_attachment ? &color_blend_attachment : nullptr;
 	color_blending_create_info.blendConstants[0] = 0.0f; // Optional
 	color_blending_create_info.blendConstants[1] = 0.0f; // Optional
 	color_blending_create_info.blendConstants[2] = 0.0f; // Optional
@@ -309,7 +315,14 @@ void GraphicsEnginePipeline::initialise()
 	auto depth_stencil_create_info = get_depth_stencil_create_info();
 	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_create_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;
-	graphics_pipeline_create_info.renderPass = get_render_pass();
+	VkPipelineRenderingCreateInfo rendering_create_info{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+	const VkFormat color_format = formats.color;
+	rendering_create_info.colorAttachmentCount = has_color_attachment ? 1 : 0;
+	rendering_create_info.pColorAttachmentFormats = has_color_attachment ? &color_format : nullptr;
+	rendering_create_info.depthAttachmentFormat = formats.depth;
+	rendering_create_info.stencilAttachmentFormat = formats.stencil;
+	graphics_pipeline_create_info.pNext = &rendering_create_info;
+	graphics_pipeline_create_info.renderPass = VK_NULL_HANDLE;
 	graphics_pipeline_create_info.subpass = 0;
 	// for derived pipelines can either use base handle OR base index for the
 	// index of the pipeline to refer to the base pipeline
