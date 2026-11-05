@@ -22,10 +22,21 @@ GraphicsEngineDevice::GraphicsEngineDevice(GraphicsEngine& engine) :
 	pick_physical_device();
 	print_physical_device_settings();
 	create_logical_device();
+	VmaAllocatorCreateInfo allocator_info{};
+	allocator_info.instance = get_instance();
+	allocator_info.physicalDevice = get_physical_device();
+	allocator_info.device = get_logical_device();
+	allocator_info.vulkanApiVersion = VK_API_VERSION_1_3;
+	if (vmaCreateAllocator(&allocator_info, &allocator) != VK_SUCCESS)
+	{
+		vkDestroyDevice(get_logical_device(), nullptr);
+		throw std::runtime_error("failed to create GPU memory allocator");
+	}
 }
 
 GraphicsEngineDevice::~GraphicsEngineDevice()
 {
+	vmaDestroyAllocator(allocator);
 	vkDestroyDevice(get_logical_device(), nullptr);
 	// note that physical device does not need to be destroyed
 }

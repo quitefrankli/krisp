@@ -20,33 +20,45 @@ QuadRenderer::~QuadRenderer()
 	this->get_rsrc_mgr().free_dsets(textures);
 	for (auto& attachment : color_attachments)
 	{
-		attachment.destroy(get_logical_device());
+		attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 	}
 }
 
 void QuadRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
-	textures.push_back(get_rsrc_mgr().reserve_dset(texture_layout));
+	textures.reserve(textures.size() + 1);
+	color_attachments.reserve(color_attachments.size() + 1);
+	const VkDescriptorSet texture = get_rsrc_mgr().reserve_dset(texture_layout);
 	//
 	// Generate attachments
 	//
 	RenderingAttachment color_attachment;
 	const auto extent = get_extent();
-	get_graphics_engine().create_image(
-		extent.width, 
-		extent.height,
-		get_image_format(),
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		color_attachment.image,
-		color_attachment.image_memory,
-		get_msaa_sample_count());
-	color_attachment.image_view = get_graphics_engine().create_image_view(
-		color_attachment.image, 
-		get_image_format(),
-		VK_IMAGE_ASPECT_COLOR_BIT);
+	try
+	{
+		get_graphics_engine().create_image(
+			extent.width,
+			extent.height,
+			get_image_format(),
+			VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			color_attachment.image,
+			color_attachment.allocation,
+			get_msaa_sample_count());
+		color_attachment.image_view = get_graphics_engine().create_image_view(
+			color_attachment.image,
+			get_image_format(),
+			VK_IMAGE_ASPECT_COLOR_BIT);
+	}
+	catch (...)
+	{
+		color_attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
+		get_rsrc_mgr().free_dset(texture);
+		throw;
+	}
 
+	textures.push_back(texture);
 	color_attachments.push_back(color_attachment);
 }
 

@@ -90,16 +90,6 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 	vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
 	vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
 	vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
-	if (screenshot_staging_buffer.has_value())
-	{
-		screenshot_staging_buffer->destroy(get_logical_device());
-	}
-	if (frame_capture_staging_buffer.has_value())
-		frame_capture_staging_buffer->destroy(get_logical_device());
-	if (recording_staging_buffer.has_value())
-	{
-		recording_staging_buffer->destroy(get_logical_device());
-	}
 }
 
 void GraphicsEngineFrame::prepare_gpu_observation_queries()

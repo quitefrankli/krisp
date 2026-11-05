@@ -49,11 +49,11 @@ private:
 	glm::uvec3 create_texture_image(
 		const TextureMaterial& material, 
 		VkImage& texture_image,
-		VkDeviceMemory& texture_image_memory);
+		VmaAllocation& allocation);
 	void create_cubemap_texture_image(
 		const CubeMapMatGroup& material_group,
 		VkImage& texture_image,
-		VkDeviceMemory& texture_image_memory);
+		VmaAllocation& allocation);
 	EnvironmentLightingTextures create_environment_lighting(
 		const ProcessedEnvironment& environment);
 	GraphicsEngineTexture create_environment_texture(

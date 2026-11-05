@@ -179,25 +179,20 @@ void GraphicsEngineFrame::flush_recording_capture()
 					std::numeric_limits<uint64_t>::max()) != VK_SUCCESS)
 				throw std::runtime_error("Failed to wait for recording capture");
 
-			const size_t pixel_bytes = static_cast<size_t>(recording_extent.width)
-				* recording_extent.height * 4;
-			void* mapped = nullptr;
-			if (vkMapMemory(
-					get_logical_device(), recording_staging_buffer->get_memory(),
-					0, pixel_bytes, 0, &mapped) != VK_SUCCESS || !mapped)
-				throw std::runtime_error("Failed to map recording capture");
+			void* mapped = recording_staging_buffer->map();
 			try
 			{
+				recording_staging_buffer->invalidate();
 				recorder.submit_frame(
 					static_cast<const uint8_t*>(mapped),
 					recording_extent.width, recording_extent.height);
 			}
 			catch (...)
 			{
-				vkUnmapMemory(get_logical_device(), recording_staging_buffer->get_memory());
+				recording_staging_buffer->unmap();
 				throw;
 			}
-			vkUnmapMemory(get_logical_device(), recording_staging_buffer->get_memory());
+			recording_staging_buffer->unmap();
 
 			if (recording_capture_target)
 				session.complete_capture(*recording_capture_target);
@@ -218,7 +213,6 @@ void GraphicsEngineFrame::flush_recording_capture()
 
 	if (!recorder.is_recording())
 	{
-		recording_staging_buffer->destroy(get_logical_device());
 		recording_staging_buffer.reset();
 	}
 }

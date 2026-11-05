@@ -6,6 +6,27 @@ as expectations until they have been measured.
 No CPU, GPU, frame-time, or peak-memory measurements have been recorded for
 the items below.
 
+## GPU memory allocation
+
+Engine-owned buffers and images use VMA to suballocate Vulkan device memory
+instead of issuing one `vkAllocateMemory` call per resource. This is expected
+to reduce driver allocation overhead and allocation-count pressure, particularly
+for textures and per-frame attachments; it has not been measured. VMA may retain
+partially used memory blocks, so its reserved device memory can exceed the sum
+of live resource sizes. Dedicated allocations remain available when required by
+the driver or selected by VMA.
+
+An unused swap-chain-sized multisampled color image was also removed. Scene
+and resolve attachments remain unchanged; VMA block retention determines how
+removing that live resource affects reserved device memory.
+
+The engine's existing buffer slot allocator and capacities remain unchanged.
+Readback allocations prefer host-cached memory; uploads request sequential host
+access. Flush and invalidate operations are delegated to VMA and are no-ops on
+host-coherent memory. Upload submission, fence waits, and resource retirement
+retain their existing synchronization costs. No frame-time or peak-memory
+improvement has been measured for this migration.
+
 ## Dynamic rendering
 
 Supported graphics passes and one-time texture composition use Vulkan dynamic

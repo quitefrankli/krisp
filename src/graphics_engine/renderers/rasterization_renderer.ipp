@@ -21,72 +21,64 @@ RasterizationRenderer::~RasterizationRenderer()
 {
 	for (auto& color_attachment : color_attachments)
 	{
-		color_attachment.destroy(get_graphics_engine().get_logical_device());
+		color_attachment.destroy(get_graphics_engine().get_logical_device(), get_graphics_engine().get_allocator());
 	}
 	for (auto& resolve_attachment : resolve_attachments)
 	{
-		resolve_attachment.destroy(get_graphics_engine().get_logical_device());
+		resolve_attachment.destroy(get_graphics_engine().get_logical_device(), get_graphics_engine().get_allocator());
 	}
 	for (auto& depth_attachment : depth_attachments)
 	{
-		depth_attachment.destroy(get_graphics_engine().get_logical_device());
+		depth_attachment.destroy(get_graphics_engine().get_logical_device(), get_graphics_engine().get_allocator());
 	}
 }
 
 void RasterizationRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
+	color_attachments.reserve(color_attachments.size() + 1);
+	resolve_attachments.reserve(resolve_attachments.size() + 1);
+	depth_attachments.reserve(depth_attachments.size() + 1);
 	//
 	// Generate attachments
 	//
 	RenderingAttachment color_attachment;
-	const auto extent = this->get_extent();
-	get_graphics_engine().create_image(
-		extent.width, 
-		extent.height,
-		get_image_format(),
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		color_attachment.image,
-		color_attachment.image_memory,
-		this->get_msaa_sample_count());
-	color_attachment.image_view = get_graphics_engine().create_image_view(
-		color_attachment.image, 
-		get_image_format(),
-		VK_IMAGE_ASPECT_COLOR_BIT);
-
 	RenderingAttachment resolve_attachment;
-	get_graphics_engine().create_image(
-		extent.width,
-		extent.height,
-		get_image_format(),
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		resolve_attachment.image,
-		resolve_attachment.image_memory,
-		VK_SAMPLE_COUNT_1_BIT);
-	resolve_attachment.image_view = get_graphics_engine().create_image_view(
-		resolve_attachment.image,
-		get_image_format(),
-		VK_IMAGE_ASPECT_COLOR_BIT);
-
 	RenderingAttachment depth_attachment;
-	const VkFormat depth_format = get_graphics_engine().find_depth_format();
-	get_graphics_engine().create_image(
-		extent.width,
-		extent.height,
-		depth_format,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		depth_attachment.image,
-		depth_attachment.image_memory,
-		this->get_msaa_sample_count());
-	depth_attachment.image_view = get_graphics_engine().create_image_view(
-		depth_attachment.image, 
-		depth_format, 
-		VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	const auto extent = this->get_extent();
+	try
+	{
+		get_graphics_engine().create_image(
+			extent.width, extent.height, get_image_format(), VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, color_attachment.image, color_attachment.allocation,
+			this->get_msaa_sample_count());
+		color_attachment.image_view = get_graphics_engine().create_image_view(
+			color_attachment.image, get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
+
+		get_graphics_engine().create_image(
+			extent.width, extent.height, get_image_format(), VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, resolve_attachment.image, resolve_attachment.allocation,
+			VK_SAMPLE_COUNT_1_BIT);
+		resolve_attachment.image_view = get_graphics_engine().create_image_view(
+			resolve_attachment.image, get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
+
+		const VkFormat depth_format = get_graphics_engine().find_depth_format();
+		get_graphics_engine().create_image(
+			extent.width, extent.height, depth_format, VK_IMAGE_TILING_OPTIMAL,
+			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			depth_attachment.image, depth_attachment.allocation, this->get_msaa_sample_count());
+		depth_attachment.image_view = get_graphics_engine().create_image_view(
+			depth_attachment.image, depth_format,
+			VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+	}
+	catch (...)
+	{
+		color_attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
+		resolve_attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
+		depth_attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
+		throw;
+	}
 
 	color_attachments.push_back(color_attachment);
 	resolve_attachments.push_back(resolve_attachment);

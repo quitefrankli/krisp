@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vulkan/vulkan.hpp>
+#include <vk_mem_alloc.h>
 #include <glm/ext/vector_uint3.hpp>
 
 
@@ -11,14 +12,14 @@ struct GraphicsEngineTexture
 public:
 	GraphicsEngineTexture(
 		VkImage texture_image,
-		VkDeviceMemory texture_image_memory,
+		VmaAllocation allocation,
 		VkImageView texture_image_view,
 		VkSampler texture_sampler,
 		const glm::uvec3& dimensions);
 	GraphicsEngineTexture(GraphicsEngineTexture&& other) noexcept;
 	~GraphicsEngineTexture();
 
-	void destroy(VkDevice device);
+	void destroy(VkDevice device, VmaAllocator allocator);
 
 	VkImageView get_texture_image_view() const { return texture_image_view; }
 	VkSampler get_texture_sampler() const { return texture_sampler; }
@@ -43,6 +44,6 @@ private:
 	*/
 	VkSampler texture_sampler = nullptr;
 	VkImageView texture_image_view = nullptr;
-	VkDeviceMemory texture_image_memory = nullptr;
+	VmaAllocation allocation = nullptr;
 	const glm::uvec3 dimensions;
 };

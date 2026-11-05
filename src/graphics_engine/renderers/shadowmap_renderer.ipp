@@ -27,7 +27,7 @@ void ShadowMapRenderer::destroy_frame_images(FrameResources& frame)
 {
 	vkDestroyImageView(get_logical_device(), frame.preview_view, nullptr);
 	vkDestroyImageView(get_logical_device(), frame.cube_array_view, nullptr);
-	frame.attachment.destroy(get_logical_device());
+	frame.attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 	frame.preview_view = VK_NULL_HANDLE;
 	frame.cube_array_view = VK_NULL_HANDLE;
 	frame.attachment = {};
@@ -61,7 +61,7 @@ void ShadowMapRenderer::grow_frame_resources(const uint32_t frame_idx, const uin
 			extent.width, extent.height, get_image_format(), VK_IMAGE_TILING_OPTIMAL,
 			VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			replacement.attachment.image, replacement.attachment.image_memory,
+			replacement.attachment.image, replacement.attachment.allocation,
 			get_msaa_sample_count(), layer_count, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 		replacement.attachment.image_view = get_graphics_engine().create_image_view(
 			replacement.attachment.image, get_image_format(), VK_IMAGE_ASPECT_DEPTH_BIT,

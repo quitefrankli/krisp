@@ -37,6 +37,7 @@ conan_dependencies = [
     dependency('glfw3', required: true), # from glfw
     dependency('tinygltf', required: true),
 	dependency('vulkan', required: true),
+	dependency('vulkan-memory-allocator', required: true),
     dependency('quill', required: true),
     dependency('fmt', required: true),
     dependency('imgui', required: true),

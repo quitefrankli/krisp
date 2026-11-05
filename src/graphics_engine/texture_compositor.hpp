@@ -4,6 +4,7 @@
 #include "renderable/composited_texture_material.hpp"
 
 #include <vulkan/vulkan.hpp>
+#include <vk_mem_alloc.h>
 
 #include <memory>
 #include <unordered_map>
@@ -55,7 +56,7 @@ private:
 	struct CompositionResources
 	{
 		VkImage image = VK_NULL_HANDLE;
-		VkDeviceMemory memory = VK_NULL_HANDLE;
+		VmaAllocation allocation = nullptr;
 		VkImageView image_view = VK_NULL_HANDLE;
 		VkExtent2D extent{};
 		std::vector<VkDescriptorSet> layer_dsets;

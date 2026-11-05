@@ -64,31 +64,20 @@ GraphicsBufferManager::GraphicsBufferManager(GraphicsEngine& engine) :
 	}
 }
 
-GraphicsBufferManager::~GraphicsBufferManager() 
-{
-	vertex_buffer.destroy(get_logical_device());
-	index_buffer.destroy(get_logical_device());
-	uniform_buffer.destroy(get_logical_device());
-	materials_buffer.destroy(get_logical_device());
-	global_uniform_buffer.destroy(get_logical_device());
-	// For ray tracing:
-	// mapping_buffer.destroy(get_logical_device());
-	bone_buffer.destroy(get_logical_device());
-	staging_buffer.destroy(get_logical_device());
-}
+GraphicsBufferManager::~GraphicsBufferManager() = default;
 
 void GraphicsBufferManager::write_to_buffer(RenderableFrameID id, const SDS::ObjectData& ubos)
 {
-	std::byte* mapped_memory = uniform_buffer.map_slot(id.get_underlying(), get_logical_device());
+	std::byte* mapped_memory = uniform_buffer.map_slot(id.get_underlying());
 	*reinterpret_cast<SDS::ObjectData*>(mapped_memory) = ubos;
-	uniform_buffer.unmap_slot(get_logical_device());
+	uniform_buffer.unmap_slot();
 }
 
 void GraphicsBufferManager::write_to_global_uniform_buffer(uint32_t id, const SDS::GlobalData& ubo)
 {
-	std::byte* mapped_memory = global_uniform_buffer.map_slot(id, get_logical_device());
+	std::byte* mapped_memory = global_uniform_buffer.map_slot(id);
 	*reinterpret_cast<SDS::GlobalData*>(mapped_memory) = ubo;
-	global_uniform_buffer.unmap_slot(get_logical_device());
+	global_uniform_buffer.unmap_slot();
 }
 
 // For ray tracing:
@@ -110,9 +99,9 @@ void GraphicsBufferManager::write_to_global_uniform_buffer(uint32_t id, const SD
 void GraphicsBufferManager::write_to_buffer(SkeletonFrameID id, const std::vector<SDS::Bone>& bones)
 {
 	assert(!bones.empty());
-	std::byte* mapped_memory = bone_buffer.map_slot(id.get_underlying(), get_logical_device());
+	std::byte* mapped_memory = bone_buffer.map_slot(id.get_underlying());
 	std::memcpy(mapped_memory, bones.data(), bones.size() * sizeof(bones[0]));
-	bone_buffer.unmap_slot(get_logical_device());
+	bone_buffer.unmap_slot();
 }
 
 void GraphicsBufferManager::write_to_buffer(MaterialID id, const SDS::MaterialData& material)
@@ -167,79 +156,42 @@ GraphicsBuffer GraphicsBufferManager::create_buffer(
 	uint32_t alignment,
 	std::string name)
 {
-	VkBuffer buffer;
-	VkDeviceMemory memory;
-
 	VkBufferCreateInfo buffer_create_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
 	buffer_create_info.size = size;
 	buffer_create_info.usage = usage_flags;
 	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
 
-	if (vkCreateBuffer(get_logical_device(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
+	VmaAllocationCreateInfo allocation_create_info{};
+	allocation_create_info.usage = VMA_MEMORY_USAGE_AUTO;
+	allocation_create_info.requiredFlags = memory_flags;
+	if ((memory_flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0)
 	{
-		throw std::runtime_error("GraphicsEngine::create_buffer: failed to create buffer!");
+		allocation_create_info.flags =
+			(usage_flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT) != 0
+				? VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+				: VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+		if ((usage_flags & VK_BUFFER_USAGE_TRANSFER_DST_BIT) != 0)
+		{
+			allocation_create_info.preferredFlags = VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+		}
 	}
 
-	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(get_logical_device(), buffer, &memory_requirements);
-	
-	VkMemoryAllocateInfo memory_allocate_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-	memory_allocate_info.allocationSize = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = 
-		get_graphics_engine().find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
-
-	// For ray tracing:
-	// VkMemoryAllocateFlagsInfo memory_allocate_flags_info{
-	// 	VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
-	// memory_allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-	// memory_allocate_info.pNext = &memory_allocate_flags_info;
-
-	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &memory) != VK_SUCCESS)
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation allocation = VK_NULL_HANDLE;
+	const VkResult result = vmaCreateBuffer(
+		get_graphics_engine().get_allocator(),
+		&buffer_create_info,
+		&allocation_create_info,
+		&buffer,
+		&allocation,
+		nullptr);
+	if (result != VK_SUCCESS)
 	{
-		throw std::runtime_error("failed to allocate device buffer memory!");
+		throw std::runtime_error("GraphicsBufferManager::create_buffer: failed to create buffer!");
 	}
 
-	vkBindBufferMemory(get_logical_device(), buffer, memory, 0);
-
-	return GraphicsBuffer(buffer, memory, size, alignment, std::move(name));
-}
-
-void GraphicsBufferManager::create_buffer_deprecated(size_t size,
-													 VkBufferUsageFlags usage_flags,
-													 VkMemoryPropertyFlags memory_flags,
-													 VkBuffer& buffer,
-													 VkDeviceMemory& buffer_memory)
-{
-	VkBufferCreateInfo buffer_create_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-	buffer_create_info.size = size;
-	buffer_create_info.usage = usage_flags;
-	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE; // will only be used in graphics queue
-
-	if (vkCreateBuffer(get_logical_device(), &buffer_create_info, nullptr, &buffer) != VK_SUCCESS)
-	{
-		throw std::runtime_error("GraphicsEngine::create_buffer: failed to create buffer!");
-	}
-
-	VkMemoryRequirements memory_requirements;
-	vkGetBufferMemoryRequirements(get_logical_device(), buffer, &memory_requirements);
-	
-	VkMemoryAllocateInfo memory_allocate_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-	memory_allocate_info.allocationSize = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = 
-		get_graphics_engine().find_memory_type(memory_requirements.memoryTypeBits, memory_flags);
-
-	// For ray tracing:
-	// VkMemoryAllocateFlagsInfo memory_allocate_flags_info{
-	// 	VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
-	// memory_allocate_flags_info.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
-	// memory_allocate_info.pNext = &memory_allocate_flags_info;
-
-	if (vkAllocateMemory(get_logical_device(), &memory_allocate_info, nullptr, &buffer_memory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate device buffer memory!");
-	}
-
-	vkBindBufferMemory(get_logical_device(), buffer, buffer_memory, 0);
+	return GraphicsBuffer(
+		buffer, allocation, get_graphics_engine().get_allocator(), size, alignment, std::move(name));
 }
 
 void GraphicsBufferManager::stage_data_to_buffer(VkBuffer destination_buffer,
@@ -252,20 +204,27 @@ void GraphicsBufferManager::stage_data_to_buffer(VkBuffer destination_buffer,
 	if (staging_buffer.get_capacity() < size)
 	{
 		// recreate the staging buffer if it is too small
-		staging_buffer.destroy(get_logical_device());
-		new (&staging_buffer) GraphicsBuffer(create_buffer(
+		staging_buffer = create_buffer(
 			size,
 			STAGING_BUFFER_USAGE_FLAGS,
 			STAGING_BUFFER_MEMORY_FLAGS,
 			1,
-			"staging_buffer"));
+			"staging_buffer");
 	}
 
 	// fill the staging buffer
-	void* mapped_data;
-	vkMapMemory(get_logical_device(), staging_buffer.get_memory(), 0, size, 0, &mapped_data);
-	write_function(reinterpret_cast<std::byte*>(mapped_data));
-	vkUnmapMemory(get_logical_device(), staging_buffer.get_memory());
+	void* mapped_data = staging_buffer.map();
+	try
+	{
+		write_function(reinterpret_cast<std::byte*>(mapped_data));
+		staging_buffer.flush(0, size);
+	}
+	catch (...)
+	{
+		staging_buffer.unmap();
+		throw;
+	}
+	staging_buffer.unmap();
 
 	// issue the command to copy from staging to device
 	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();
@@ -294,20 +253,27 @@ void GraphicsBufferManager::stage_data_to_image(
 	if (staging_buffer.get_capacity() < size)
 	{
 		// recreate the staging buffer if it is too small
-		staging_buffer.destroy(get_logical_device());
-		new (&staging_buffer) GraphicsBuffer(create_buffer(
+		staging_buffer = create_buffer(
 			size,
 			STAGING_BUFFER_USAGE_FLAGS,
 			STAGING_BUFFER_MEMORY_FLAGS,
 			1,
-			"staging_buffer"));
+			"staging_buffer");
 	}
 
 	// fill the staging buffer
-	void* mapped_data;
-	vkMapMemory(get_logical_device(), staging_buffer.get_memory(), 0, size, 0, &mapped_data);
-	write_function(reinterpret_cast<std::byte*>(mapped_data));
-	vkUnmapMemory(get_logical_device(), staging_buffer.get_memory());
+	void* mapped_data = staging_buffer.map();
+	try
+	{
+		write_function(reinterpret_cast<std::byte*>(mapped_data));
+		staging_buffer.flush(0, size);
+	}
+	catch (...)
+	{
+		staging_buffer.unmap();
+		throw;
+	}
+	staging_buffer.unmap();
 
 	// issue the command to copy from staging to device
 	VkCommandBuffer command_buffer = get_graphics_engine().begin_single_time_commands();

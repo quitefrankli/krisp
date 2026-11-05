@@ -11,7 +11,7 @@ remain disabled.
 | Area | Responsibility |
 | --- | --- |
 | `graphics_engine.*` | Top-level coordinator: owns the render loop, frame mailbox, graphics renderables, and submodules. |
-| `graphics_engine_instance/device/swap_chain.*` | Creates the Vulkan instance, surface, device, queues, swap chain, and per-swap-chain frames. |
+| `graphics_engine_instance/device/swap_chain.*` | Creates the Vulkan instance, surface, device, GPU allocator, queues, swap chain, and per-swap-chain frames. |
 | `graphics_engine_frame.*` | Records and submits one frame's command buffer; owns its fences, semaphores, and transient per-frame resources. |
 | `render_draw_list.*` | Caches renderable-level pass classification and state ordering for reconciled topology. |
 | `resource_manager/` | Allocates command buffers and GPU buffers, and manages descriptor sets. |
@@ -27,6 +27,27 @@ remain disabled.
 
 Most submodules inherit `GraphicsEngineBaseModule`, which provides controlled
 access to the owning `GraphicsEngine` and its shared Vulkan services.
+
+## GPU memory
+
+Engine-owned buffers and images use Vulkan Memory Allocator (VMA). The device
+module creates one allocator after the logical device and destroys it after all
+resource-owning modules, before destroying the device. Swap-chain images remain
+owned by Vulkan and are never freed through VMA.
+
+`GraphicsBuffer` owns its buffer and allocation, transfers ownership on move,
+and releases them on destruction. Slot allocation within the engine's large
+vertex, index, uniform, and storage buffers remains separate from VMA's device
+memory suballocation. Image owners retain a `VmaAllocation` alongside their
+image and release image views before destroying the image allocation.
+
+Allocation requests preserve required memory properties and use VMA's automatic
+memory selection. Upload mappings request sequential host writes; readback
+mappings request random host access and prefer cached memory. CPU writes are
+flushed before GPU use; CPU readbacks invalidate after the submission fence has
+completed. VMA handles allocation offsets and non-coherent cache alignment.
+Mapping does not replace submission synchronization or resource retirement.
+See the [VMA memory mapping documentation](https://gpuopen-librariesandsdks.github.io/VulkanMemoryAllocator/html/memory_mapping.html).
 
 ## Dynamic rendering
 

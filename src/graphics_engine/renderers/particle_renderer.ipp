@@ -3,6 +3,9 @@
 #include "renderers.hpp"
 #include "graphics_engine/graphics_engine.hpp"
 
+#include <cstring>
+#include <optional>
+
 
 class ParticleRenderer : public Renderer
 {
@@ -24,13 +27,10 @@ private:
 	void update_instance_buffer(uint32_t frame_index);
 
 	// Unit quad vertex buffer (shared across all particles)
-	VkBuffer unit_quad_buffer = VK_NULL_HANDLE;
-	VkDeviceMemory unit_quad_buffer_memory = VK_NULL_HANDLE;
+	std::optional<GraphicsBuffer> unit_quad_buffer;
 	
 	// Instance data buffers (per frame in flight)
-	std::vector<VkBuffer> instance_buffers;
-	std::vector<VkDeviceMemory> instance_buffer_memories;
-	std::vector<VkDeviceSize> instance_buffer_sizes;
+	std::vector<GraphicsBuffer> instance_buffers;
 	
 	static constexpr uint32_t MAX_PARTICLES = 10000;
 	static constexpr uint32_t QUAD_VERTICES = 6; // 2 triangles = 6 vertices
@@ -39,39 +39,10 @@ private:
 ParticleRenderer::ParticleRenderer(GraphicsEngine& engine) :
 	Renderer(engine)
 {
-	// Note: We don't create our own render pass, we use the rasterization renderer's
 	create_unit_quad_buffer();
-	create_instance_buffer();
 }
 
-ParticleRenderer::~ParticleRenderer()
-{
-	auto logical_device = get_logical_device();
-	
-	if (unit_quad_buffer != VK_NULL_HANDLE)
-	{
-		vkDestroyBuffer(logical_device, unit_quad_buffer, nullptr);
-	}
-	if (unit_quad_buffer_memory != VK_NULL_HANDLE)
-	{
-		vkFreeMemory(logical_device, unit_quad_buffer_memory, nullptr);
-	}
-	
-	for (size_t i = 0; i < instance_buffers.size(); ++i)
-	{
-		if (instance_buffers[i] != VK_NULL_HANDLE)
-		{
-			vkDestroyBuffer(logical_device, instance_buffers[i], nullptr);
-		}
-		if (instance_buffer_memories[i] != VK_NULL_HANDLE)
-		{
-			vkFreeMemory(logical_device, instance_buffer_memories[i], nullptr);
-		}
-	}
-	
-	// Note: We don't own the render pass (using rasterization renderer's)
-	// and we don't create framebuffers anymore
-}
+ParticleRenderer::~ParticleRenderer() = default;
 
 void ParticleRenderer::create_unit_quad_buffer()
 {
@@ -87,66 +58,30 @@ void ParticleRenderer::create_unit_quad_buffer()
 		-0.5f,  0.5f,    0.0f, 1.0f   // Top-left
 	};
 	
-	VkDeviceSize buffer_size = sizeof(quad_vertices);
-	
-	// Create staging buffer
-	VkBuffer staging_buffer;
-	VkDeviceMemory staging_buffer_memory;
-	get_rsrc_mgr().create_buffer_deprecated(
-		buffer_size,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		staging_buffer,
-		staging_buffer_memory);
-	
-	// Copy data to staging buffer
-	void* data;
-	vkMapMemory(get_logical_device(), staging_buffer_memory, 0, buffer_size, 0, &data);
-	memcpy(data, quad_vertices, (size_t)buffer_size);
-	vkUnmapMemory(get_logical_device(), staging_buffer_memory);
-	
-	// Create device local buffer
-	get_rsrc_mgr().create_buffer_deprecated(
+	const VkDeviceSize buffer_size = sizeof(quad_vertices);
+	unit_quad_buffer.emplace(create_buffer(
 		buffer_size,
 		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		unit_quad_buffer,
-		unit_quad_buffer_memory);
-	
-	// Copy from staging to device local
-	get_graphics_engine().copy_buffer(staging_buffer, unit_quad_buffer, buffer_size);
-	
-	// Cleanup staging buffer
-	vkDestroyBuffer(get_logical_device(), staging_buffer, nullptr);
-	vkFreeMemory(get_logical_device(), staging_buffer_memory, nullptr);
+		1,
+		"particle_unit_quad"));
+	get_rsrc_mgr().stage_data_to_buffer(
+		unit_quad_buffer->get_buffer(), 0, static_cast<uint32_t>(buffer_size),
+		[&quad_vertices](std::byte* destination)
+		{
+			std::memcpy(destination, quad_vertices, sizeof(quad_vertices));
+		});
 }
 
 void ParticleRenderer::create_instance_buffer()
 {
-	uint32_t frames_in_flight = get_graphics_engine().get_num_swapchain_images();
-	
-	// Safety check: ensure we have at least one frame
-	if (frames_in_flight == 0)
-	{
-		frames_in_flight = 3; // Default to triple buffering
-	}
-	
-	instance_buffers.resize(frames_in_flight);
-	instance_buffer_memories.resize(frames_in_flight);
-	instance_buffer_sizes.resize(frames_in_flight, 0);
-	
-	VkDeviceSize initial_size = sizeof(SDS::ParticleInstanceData) * 100; // Start small, will grow as needed
-	
-	for (uint32_t i = 0; i < frames_in_flight; ++i)
-	{
-		get_rsrc_mgr().create_buffer_deprecated(
-			initial_size,
-			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			instance_buffers[i],
-			instance_buffer_memories[i]);
-		instance_buffer_sizes[i] = initial_size;
-	}
+	const VkDeviceSize initial_size = sizeof(SDS::ParticleInstanceData) * 100;
+	instance_buffers.push_back(create_buffer(
+		initial_size,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		1,
+		"particle_instances"));
 }
 
 void ParticleRenderer::update_instance_buffer(uint32_t frame_index)
@@ -167,42 +102,44 @@ void ParticleRenderer::update_instance_buffer(uint32_t frame_index)
 	VkDeviceSize required_size = sizeof(SDS::ParticleInstanceData) * instance_data.size();
 	
 	// Resize buffer if needed
-	if (required_size > instance_buffer_sizes[frame_index])
+	if (required_size > instance_buffers[frame_index].get_capacity())
 	{
-		vkDestroyBuffer(get_logical_device(), instance_buffers[frame_index], nullptr);
-		vkFreeMemory(get_logical_device(), instance_buffer_memories[frame_index], nullptr);
-		
-		get_rsrc_mgr().create_buffer_deprecated(
+		instance_buffers[frame_index] = create_buffer(
 			required_size,
 			VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			instance_buffers[frame_index],
-			instance_buffer_memories[frame_index]);
-		instance_buffer_sizes[frame_index] = required_size;
+			1,
+			"particle_instances");
 	}
 	
 	// Copy data to buffer
-	void* data;
-	vkMapMemory(get_logical_device(), instance_buffer_memories[frame_index], 0, required_size, 0, &data);
-	memcpy(data, instance_data.data(), (size_t)required_size);
-	vkUnmapMemory(get_logical_device(), instance_buffer_memories[frame_index]);
+	void* data = instance_buffers[frame_index].map();
+	std::memcpy(data, instance_data.data(), static_cast<size_t>(required_size));
+	try
+	{
+		instance_buffers[frame_index].flush(0, required_size);
+	}
+	catch (...)
+	{
+		instance_buffers[frame_index].unmap();
+		throw;
+	}
+	instance_buffers[frame_index].unmap();
 }
 
 void ParticleRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
+	create_instance_buffer();
 }
 
 void ParticleRenderer::submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index)
 {
-	// Note: Particle rendering is now done within the RasterizationRenderer's render pass
-	// This function is kept for compatibility but doesn't do anything
-	// The actual rendering happens via render_particles() called by RasterizationRenderer
+	// The rasterization renderer invokes render_particles within its rendering scope.
 }
 
 void ParticleRenderer::render_particles(VkCommandBuffer command_buffer, uint32_t frame_index)
 {
-	// Note: This function is called within the rasterization render pass
-	// We don't begin/end a render pass here, just bind the pipeline and draw
+	// Called within the rasterization rendering scope.
 	
 	update_instance_buffer(frame_index);
 	
@@ -215,7 +152,7 @@ void ParticleRenderer::render_particles(VkCommandBuffer command_buffer, uint32_t
 	}
 	
 	// Safety check: ensure instance buffer is allocated
-	if (frame_index >= instance_buffers.size() || instance_buffers[frame_index] == VK_NULL_HANDLE)
+	if (frame_index >= instance_buffers.size())
 	{
 		return;
 	}
@@ -246,7 +183,7 @@ void ParticleRenderer::render_particles(VkCommandBuffer command_buffer, uint32_t
 		nullptr);
 	
 	// Bind vertex buffers
-	VkBuffer vertex_buffers[] = { unit_quad_buffer, instance_buffers[frame_index] };
+	VkBuffer vertex_buffers[] = { unit_quad_buffer->get_buffer(), instance_buffers[frame_index].get_buffer() };
 	VkDeviceSize offsets[] = { 0, 0 };
 	vkCmdBindVertexBuffers(command_buffer, 0, 2, vertex_buffers, offsets);
 	

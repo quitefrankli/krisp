@@ -116,25 +116,25 @@ void GraphicsEngineFrame::flush_screenshot_capture()
 	vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 	const size_t pixel_bytes = static_cast<size_t>(screenshot_extent.width) * screenshot_extent.height * 4;
-	const VkDeviceMemory memory = screenshot_staging_buffer->get_memory();
-	void* mapped = nullptr;
-	if (vkMapMemory(get_logical_device(), memory, 0, pixel_bytes, 0, &mapped) != VK_SUCCESS || !mapped)
+	void* mapped = screenshot_staging_buffer->map();
+	std::vector<uint8_t> rgba;
+	try
 	{
-		throw std::runtime_error("GraphicsEngineFrame::flush_screenshot_capture: failed to map screenshot buffer");
+		screenshot_staging_buffer->invalidate();
+		const auto channel_order = capture_channel_order(swap_chain.get_image_format());
+		if (!channel_order)
+			throw std::runtime_error("screenshot readback encountered an unsupported swapchain format");
+		rgba = convert_capture_pixels_to_rgba8(
+			std::span(static_cast<const uint8_t*>(mapped), pixel_bytes), *channel_order);
 	}
-
-	const auto channel_order = capture_channel_order(swap_chain.get_image_format());
-	if (!channel_order)
+	catch (...)
 	{
-		vkUnmapMemory(get_logical_device(), memory);
-		throw std::runtime_error("screenshot readback encountered an unsupported swapchain format");
+		screenshot_staging_buffer->unmap();
+		throw;
 	}
-	const auto rgba = convert_capture_pixels_to_rgba8(
-		std::span(static_cast<const uint8_t*>(mapped), pixel_bytes), *channel_order);
-	vkUnmapMemory(get_logical_device(), memory);
+	screenshot_staging_buffer->unmap();
 
 	write_rgba_png(screenshot_path, screenshot_extent.width, screenshot_extent.height, rgba);
-	screenshot_staging_buffer->destroy(get_logical_device());
 	screenshot_staging_buffer.reset();
 }
 
@@ -185,26 +185,29 @@ void GraphicsEngineFrame::flush_frame_capture()
 		fence_completed = true;
 		if (session->get_target() != target)
 		{
-			frame_capture_staging_buffer->destroy(get_logical_device());
 			frame_capture_staging_buffer.reset();
 			frame_capture_target.reset();
 			return;
 		}
 		const size_t pixel_bytes = static_cast<size_t>(frame_capture_extent.width)
 			* frame_capture_extent.height * 4;
-		void* mapped = nullptr;
-		if (vkMapMemory(get_logical_device(), frame_capture_staging_buffer->get_memory(),
-			0, pixel_bytes, 0, &mapped) != VK_SUCCESS || !mapped)
-			throw std::runtime_error("failed to map presentation capture buffer");
-		const auto channel_order = capture_channel_order(swap_chain.get_image_format());
-		if (!channel_order)
+		void* mapped = frame_capture_staging_buffer->map();
+		std::vector<uint8_t> pixels;
+		try
 		{
-			vkUnmapMemory(get_logical_device(), frame_capture_staging_buffer->get_memory());
-			throw std::runtime_error("unsupported presentation format for RGBA8 capture");
+			frame_capture_staging_buffer->invalidate();
+			const auto channel_order = capture_channel_order(swap_chain.get_image_format());
+			if (!channel_order)
+				throw std::runtime_error("unsupported presentation format for RGBA8 capture");
+			pixels = convert_capture_pixels_to_rgba8(
+				std::span(static_cast<const uint8_t*>(mapped), pixel_bytes), *channel_order);
 		}
-		auto pixels = convert_capture_pixels_to_rgba8(
-			std::span(static_cast<const uint8_t*>(mapped), pixel_bytes), *channel_order);
-		vkUnmapMemory(get_logical_device(), frame_capture_staging_buffer->get_memory());
+		catch (...)
+		{
+			frame_capture_staging_buffer->unmap();
+			throw;
+		}
+		frame_capture_staging_buffer->unmap();
 		session->complete(target, FrameCaptureResult{
 			.request_id = target.request_id,
 			.frame_number = target.frame_number,
@@ -222,13 +225,11 @@ void GraphicsEngineFrame::flush_frame_capture()
 		session->fail(target, error.what());
 		if (fence_completed)
 		{
-			frame_capture_staging_buffer->destroy(get_logical_device());
 			frame_capture_staging_buffer.reset();
 		}
 		frame_capture_target.reset();
 		throw;
 	}
-	frame_capture_staging_buffer->destroy(get_logical_device());
 	frame_capture_staging_buffer.reset();
 	frame_capture_target.reset();
 }

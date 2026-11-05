@@ -565,22 +565,6 @@ void GraphicsEngine::release_retired_resources(RetiredGraphicsResources resource
 		get_rsrc_mgr().free_buffer(id);
 }
 
-int GraphicsEngine::find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags)
-{
-	VkPhysicalDeviceMemoryProperties memory_properties;
-	vkGetPhysicalDeviceMemoryProperties(get_physical_device(), &memory_properties);
-
-	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
-	{
-		if ((type_filter & (1 << i)) && ((memory_properties.memoryTypes[i].propertyFlags & flags) == flags))
-		{
-			return i;
-		}
-	}
-
-	throw std::runtime_error("failed to find suitable memory type!");
-};
-
 void GraphicsEngine::recreate_swap_chain()
 {
 	// TODO:
@@ -637,7 +621,7 @@ void GraphicsEngine::create_image(uint32_t width,
 											   VkImageUsageFlags usage,
 											   VkMemoryPropertyFlags properties,
 											   VkImage &image,
-											   VkDeviceMemory &image_memory,
+											   VmaAllocation &allocation,
 											   VkSampleCountFlagBits sample_count_flag,
 											   const uint32_t layer_count,
 											   const VkImageCreateFlags flags,
@@ -667,27 +651,14 @@ void GraphicsEngine::create_image(uint32_t width,
 		assert(image_info.flags & VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 	}
 
-	if (vkCreateImage(get_logical_device(), &image_info, nullptr, &image) != VK_SUCCESS)
+	VmaAllocationCreateInfo allocation_info{};
+	allocation_info.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+	allocation_info.requiredFlags = properties;
+	if (vmaCreateImage(get_allocator(), &image_info, &allocation_info,
+			&image, &allocation, nullptr) != VK_SUCCESS)
 	{
-		throw std::runtime_error("failed to create image!");
+		throw std::runtime_error("failed to allocate GPU image");
 	}
-
-	//
-	// allocate memory for an image
-	//
-
-	VkMemoryRequirements mem_req;
-	vkGetImageMemoryRequirements(get_logical_device(), image, &mem_req);
-	VkMemoryAllocateInfo alloc_info{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
-	alloc_info.allocationSize = mem_req.size;
-	alloc_info.memoryTypeIndex = find_memory_type(mem_req.memoryTypeBits, properties);
-
-	if (vkAllocateMemory(get_logical_device(), &alloc_info, nullptr, &image_memory) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to allocate image memory!");
-	}
-
-	vkBindImageMemory(get_logical_device(), image, image_memory, 0);
 }
 
 VkImageView GraphicsEngine::create_image_view(

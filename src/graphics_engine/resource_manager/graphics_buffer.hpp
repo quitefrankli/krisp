@@ -1,11 +1,13 @@
 #pragma once
 
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
 
+#include <cstddef>
+#include <map>
 #include <string>
 #include <unordered_map>
-#include <map>
-
+#include <utility>
 
 class GraphicsBuffer
 {
@@ -15,55 +17,60 @@ public:
 
 	GraphicsBuffer(
 		VkBuffer buffer,
-		VkDeviceMemory memory,
+		VmaAllocation allocation,
+		VmaAllocator allocator,
 		uint32_t capacity,
 		uint32_t alignment = 1,
 		std::string name = "");
 	GraphicsBuffer(const GraphicsBuffer&) = delete;
+	GraphicsBuffer& operator=(const GraphicsBuffer&) = delete;
 	GraphicsBuffer(GraphicsBuffer&& other) noexcept;
+	GraphicsBuffer& operator=(GraphicsBuffer&& other) noexcept;
 	~GraphicsBuffer();
 
-	void destroy(VkDevice device);
+	void destroy();
 
-	// potential slots for different objects etc.
 	struct Slot
 	{
 		uint32_t offset;
 		uint32_t size;
-		uint32_t capacity; // this is only for alignment requirements, for real data size refer to above
+		uint32_t capacity;
 	};
 
 	void free_slot(SlotID slot_id);
 	offset_t reserve_slot(SlotID id, uint32_t size);
-	std::byte* map_slot(SlotID id, VkDevice device);
-	void unmap_slot(VkDevice device);
+	void* map();
+	void unmap();
+	void flush(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
+	void invalidate(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
+	std::byte* map_slot(SlotID id);
+	void unmap_slot();
 
 	size_t get_capacity() const { return capacity; }
 	size_t get_filled_capacity() const { return filled_capacity; }
 	offset_t get_offset(SlotID id) const;
 	VkBuffer get_buffer() const { return buffer; }
-	VkDeviceMemory get_memory() const { return memory; }
+	VmaAllocation get_allocation() const { return allocation; }
 	const std::string& get_name() const { return name; }
 	Slot get_slot(SlotID id) const;
 	bool has_slot(SlotID id) const { return filled_slots.contains(id); }
 
 private:
-	// map of id to slot, id is typically object-id
 	std::unordered_map<SlotID, Slot> filled_slots;
-
-	// map of offset to slot, offset is the offset in the buffer
-	// these slots are unused and to ready to be picked
 	std::map<uint32_t, Slot> free_slots;
 
-	VkBuffer buffer = nullptr;
-	VkDeviceMemory memory = nullptr;
+	VkBuffer buffer = VK_NULL_HANDLE;
+	VmaAllocation allocation = VK_NULL_HANDLE;
+	VmaAllocator allocator = VK_NULL_HANDLE;
+	void* mapped_data = nullptr;
+	VkDeviceSize mapped_slot_offset = 0;
+	VkDeviceSize mapped_slot_size = 0;
 	size_t filled_capacity = 0;
-	const size_t capacity;
-	const uint32_t alignment;
+	size_t capacity;
+	uint32_t alignment;
 	std::string name;
 };
 
-// This buffer version is append only, it can only grow and never shrink or modify contents
 class AppendOnlyGraphicsBuffer
 {
 public:
@@ -73,24 +80,16 @@ public:
 	{
 	}
 
-	void destroy(VkDevice device)
-	{
-		buffer.destroy(device);
-	}
-
+	void destroy() { buffer.destroy(); }
 	void decrease_free_capacity(size_t size) { filled_capacity += size; }
-
 	uint32_t get_slot_offset(uint32_t slot_num) const { return slot_num * slot_size; }
-
 	VkBuffer get_buffer() const { return buffer.get_buffer(); }
-	VkDeviceMemory get_memory() const { return buffer.get_memory(); }
-
+	VmaAllocation get_allocation() const { return buffer.get_allocation(); }
 	size_t get_capacity() const { return buffer.get_capacity(); }
 	size_t get_filled_capacity() const { return filled_capacity; }
 
 private:
 	const uint32_t slot_size;
 	size_t filled_capacity = 0;
-
 	GraphicsBuffer buffer;
 };

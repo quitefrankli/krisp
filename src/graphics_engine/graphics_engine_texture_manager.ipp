@@ -64,14 +64,14 @@ GraphicsEngineTextureManager::~GraphicsEngineTextureManager()
 {
 	for (auto& [texture_id, texture_unit] : texture_units)
 	{
-		texture_unit.destroy(get_logical_device());
+		texture_unit.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 	}
 	for (auto& [semantic, texture_unit] : neutral_textures)
-		texture_unit.destroy(get_logical_device());
+		texture_unit.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 	for (auto& entry : environment_lighting)
-		entry.second.destroy(get_logical_device());
+		entry.second.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 	if (neutral_environment_lighting)
-		neutral_environment_lighting->destroy(get_logical_device());
+		neutral_environment_lighting->destroy(get_logical_device(), get_graphics_engine().get_allocator());
 
 	for (auto& [sampler_type, sampler] : samplers)
 	{
@@ -171,25 +171,36 @@ GraphicsEngineTexture& GraphicsEngineTextureManager::fetch_cubemap_texture(
 				"GraphicsEngineTextureManager: cubemap textures do not have matching dimensions and channels");
 	}
 
-	VkImage texture_image;
-	VkDeviceMemory texture_image_memory;
-	create_cubemap_texture_image(material_group, texture_image, texture_image_memory);
+	VkImage texture_image = VK_NULL_HANDLE;
+	VmaAllocation allocation = nullptr;
+	create_cubemap_texture_image(material_group, texture_image, allocation);
+	VkImageView texture_image_view = VK_NULL_HANDLE;
+	try
+	{
+		texture_image_view = get_graphics_engine().create_image_view(
+			texture_image,
+			VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_VIEW_TYPE_CUBE,
+			material_group.size());
+		VkSampler texture_sampler = fetch_sampler(PbrMaterial::TextureSampler::repeat());
 
-	VkImageView texture_image_view = get_graphics_engine().create_image_view(
-		texture_image,
-		VK_FORMAT_R8G8B8A8_SRGB, // assume textures are gamma corrected
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_VIEW_TYPE_CUBE,
-		material_group.size());
-	VkSampler texture_sampler = fetch_sampler(PbrMaterial::TextureSampler::repeat());
-
-	GraphicsEngineTexture texture_object(
-		texture_image,
-		texture_image_memory,
-		texture_image_view,
-		texture_sampler,
-		glm::uvec3(width, height, channels));
-	return texture_units.emplace(representative_id, std::move(texture_object)).first->second;
+		return texture_units.try_emplace(
+			representative_id,
+			texture_image,
+			allocation,
+			texture_image_view,
+			texture_sampler,
+			glm::uvec3(width, height, channels)).first->second;
+	}
+	catch (...)
+	{
+		if (texture_image_view)
+			vkDestroyImageView(get_logical_device(), texture_image_view, nullptr);
+		if (texture_image && allocation)
+			vmaDestroyImage(get_graphics_engine().get_allocator(), texture_image, allocation);
+		throw;
+	}
 }
 
 const EnvironmentLightingTextures& GraphicsEngineTextureManager::fetch_environment_lighting(
@@ -262,7 +273,7 @@ void GraphicsEngineTextureManager::free_texture(MaterialID id)
 		return;
 	}
 
-	texture_units.at(id).destroy(get_logical_device());
+	texture_units.at(id).destroy(get_logical_device(), get_graphics_engine().get_allocator());
 	texture_units.erase(id);
 }
 
@@ -275,19 +286,30 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_texture(
 	vkGetPhysicalDeviceFormatProperties(get_physical_device(), format, &format_properties);
 	if (!(format_properties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT))
 		throw std::runtime_error("GraphicsEngineTextureManager: texture format is not supported by this device");
-	VkImage texture_image;
-	VkDeviceMemory texture_image_memory;
-	const auto dim = create_texture_image(material, texture_image, texture_image_memory);
-	VkImageView texture_image_view = get_graphics_engine().create_image_view(
-		texture_image,
-		format,
-		VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_IMAGE_VIEW_TYPE_2D,
-		1,
-		material.mip_sizes.empty() ? 1 : static_cast<uint32_t>(material.mip_sizes.size()));
-	VkSampler texture_sampler = fetch_sampler(sampler_type);
-
-	return GraphicsEngineTexture(texture_image, texture_image_memory, texture_image_view, texture_sampler, dim);
+	VkImage texture_image = VK_NULL_HANDLE;
+	VmaAllocation allocation = nullptr;
+	const auto dim = create_texture_image(material, texture_image, allocation);
+	VkImageView texture_image_view = VK_NULL_HANDLE;
+	try
+	{
+		texture_image_view = get_graphics_engine().create_image_view(
+			texture_image,
+			format,
+			VK_IMAGE_ASPECT_COLOR_BIT,
+			VK_IMAGE_VIEW_TYPE_2D,
+			1,
+			material.mip_sizes.empty() ? 1 : static_cast<uint32_t>(material.mip_sizes.size()));
+		VkSampler texture_sampler = fetch_sampler(sampler_type);
+		return GraphicsEngineTexture(texture_image, allocation, texture_image_view, texture_sampler, dim);
+	}
+	catch (...)
+	{
+		if (texture_image_view)
+			vkDestroyImageView(get_logical_device(), texture_image_view, nullptr);
+		if (texture_image && allocation)
+			vmaDestroyImage(get_graphics_engine().get_allocator(), texture_image, allocation);
+		throw;
+	}
 }
 
 EnvironmentLightingTextures GraphicsEngineTextureManager::create_environment_lighting(
@@ -319,13 +341,13 @@ EnvironmentLightingTextures GraphicsEngineTextureManager::create_environment_lig
 		}
 		catch (...)
 		{
-			prefiltered_specular.destroy(get_logical_device());
+			prefiltered_specular.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 			throw;
 		}
 	}
 	catch (...)
 	{
-		irradiance.destroy(get_logical_device());
+		irradiance.destroy(get_logical_device(), get_graphics_engine().get_allocator());
 		throw;
 	}
 }
@@ -346,7 +368,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_environment_texture(
 		throw std::invalid_argument("environment texture layer count does not match its view type");
 
 	VkImage texture_image = VK_NULL_HANDLE;
-	VkDeviceMemory texture_image_memory = VK_NULL_HANDLE;
+	VmaAllocation allocation = nullptr;
 	VkImageView texture_image_view = VK_NULL_HANDLE;
 	const uint32_t mip_levels = static_cast<uint32_t>(image.mip_sizes.size());
 	try
@@ -359,7 +381,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_environment_texture(
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 			texture_image,
-			texture_image_memory,
+			allocation,
 			VK_SAMPLE_COUNT_1_BIT,
 			image.layer_count,
 			view_type == VK_IMAGE_VIEW_TYPE_CUBE ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0,
@@ -398,7 +420,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_environment_texture(
 			mip_levels);
 		return GraphicsEngineTexture(
 			texture_image,
-			texture_image_memory,
+			allocation,
 			texture_image_view,
 			fetch_sampler(sampler_type),
 			glm::uvec3(image.width, image.height, image.layer_count));
@@ -407,10 +429,8 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_environment_texture(
 	{
 		if (texture_image_view)
 			vkDestroyImageView(get_logical_device(), texture_image_view, nullptr);
-		if (texture_image)
-			vkDestroyImage(get_logical_device(), texture_image, nullptr);
-		if (texture_image_memory)
-			vkFreeMemory(get_logical_device(), texture_image_memory, nullptr);
+		if (texture_image && allocation)
+			vmaDestroyImage(get_graphics_engine().get_allocator(), texture_image, allocation);
 		throw;
 	}
 }
@@ -418,7 +438,7 @@ GraphicsEngineTexture GraphicsEngineTextureManager::create_environment_texture(
 glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 	const TextureMaterial& material,
 	VkImage& texture_image,
-	VkDeviceMemory& texture_image_memory)
+	VmaAllocation& allocation)
 {
 	if (material.channels != 4)
 		throw std::runtime_error(fmt::format(
@@ -433,6 +453,8 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 		throw std::runtime_error("GraphicsEngineTextureManager::create_texture_image: supplied material texture is invalid, size=0!");
 	}
 
+	texture_image = VK_NULL_HANDLE;
+	allocation = nullptr;
 	get_graphics_engine().create_image(
 		material.width,
 		material.height,
@@ -441,34 +463,41 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		texture_image,
-		texture_image_memory,
+		allocation,
 		VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
 		1,
 		0,
 		mip_levels);
 
-	// copy the staging buffer to the texture image,
-	// undefined image layout works because we don't care about the contents before performing copy
-	get_graphics_engine().transition_image_layout(
-		texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		nullptr, 1, mip_levels);
-
-	get_rsrc_mgr().stage_data_to_image(
-		texture_image,
-		material.width,
-		material.height,
-		static_cast<size_t>(size),
-		[&material, &size](std::byte* destination)
-		{
-			std::memcpy(destination, material.data->get(), static_cast<size_t>(size));
-		},
-		1,
-		material.mip_sizes);
-
-	// transition one more time for shader access
-	get_graphics_engine().transition_image_layout(
-		texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		nullptr, 1, mip_levels);
+	try
+	{
+		// Copy the staging buffer to the texture image; its initial layout is undefined.
+		get_graphics_engine().transition_image_layout(
+			texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			nullptr, 1, mip_levels);
+		get_rsrc_mgr().stage_data_to_image(
+			texture_image,
+			material.width,
+			material.height,
+			static_cast<size_t>(size),
+			[&material, &size](std::byte* destination)
+			{
+				std::memcpy(destination, material.data->get(), static_cast<size_t>(size));
+			},
+			1,
+			material.mip_sizes);
+		get_graphics_engine().transition_image_layout(
+			texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			nullptr, 1, mip_levels);
+	}
+	catch (...)
+	{
+		if (texture_image && allocation)
+			vmaDestroyImage(get_graphics_engine().get_allocator(), texture_image, allocation);
+		texture_image = VK_NULL_HANDLE;
+		allocation = nullptr;
+		throw;
+	}
 
 	return glm::uvec3(material.width, material.height, material.channels);
 }
@@ -476,7 +505,7 @@ glm::uvec3 GraphicsEngineTextureManager::create_texture_image(
 void GraphicsEngineTextureManager::create_cubemap_texture_image(
 	const CubeMapMatGroup& material_group,
 	VkImage& texture_image,
-	VkDeviceMemory& texture_image_memory)
+	VmaAllocation& allocation)
 {
 	const auto* representative_material =
 		dynamic_cast<const TextureMaterial*>(&material_group.get_material(0));
@@ -496,6 +525,8 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		throw std::runtime_error("GraphicsEngineTextureManager::create_volume_texture: supplied material texture is invalid, size=0!");
 	}
 
+	texture_image = VK_NULL_HANDLE;
+	allocation = nullptr;
 	get_graphics_engine().create_image(
 		width,
 		height,
@@ -504,49 +535,47 @@ void GraphicsEngineTextureManager::create_cubemap_texture_image(
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, // we want to use it as dest and be able to access it from shader to colour the mesh
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		texture_image,
-		texture_image_memory,
+		allocation,
 		VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
 		num_textures,
 		VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT);
 
-	// copy the staging buffer to the texture image,
-	// undefined image layout works because we don't care about the contents before performing copy
-	get_graphics_engine().transition_image_layout(
-		texture_image,
-		VK_IMAGE_LAYOUT_UNDEFINED,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		nullptr,
-		num_textures);
-
-	get_rsrc_mgr().stage_data_to_image(
-		texture_image,
-		width,
-		height,
-		static_cast<size_t>(image_size),
-		[num_textures, &material_group, &layer_size](std::byte* destination)
-		{
-			for (auto i = 0; i < num_textures; i++)
+	try
+	{
+		get_graphics_engine().transition_image_layout(
+			texture_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			nullptr, num_textures);
+		get_rsrc_mgr().stage_data_to_image(
+			texture_image,
+			width,
+			height,
+			static_cast<size_t>(image_size),
+			[num_textures, &material_group, &layer_size](std::byte* destination)
 			{
-				const auto* material =
-					dynamic_cast<const TextureMaterial*>(&material_group.get_material(i));
-				if (!material)
-					throw std::runtime_error(
-						"GraphicsEngineTextureManager: cubemap material is not a texture");
-				std::memcpy(
-					destination + (layer_size * i),
-					material->data->get(),
-					static_cast<size_t>(layer_size));
-			}
-		},
-		num_textures);
-
-	// transition one more time for shader access
-	get_graphics_engine().transition_image_layout(
-		texture_image,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		nullptr,
-		num_textures);
+				for (auto i = 0; i < num_textures; i++)
+				{
+					const auto* material =
+						dynamic_cast<const TextureMaterial*>(&material_group.get_material(i));
+					if (!material)
+						throw std::runtime_error(
+							"GraphicsEngineTextureManager: cubemap material is not a texture");
+					std::memcpy(destination + (layer_size * i), material->data->get(),
+						static_cast<size_t>(layer_size));
+				}
+			},
+			num_textures);
+		get_graphics_engine().transition_image_layout(
+			texture_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, nullptr, num_textures);
+	}
+	catch (...)
+	{
+		if (texture_image && allocation)
+			vmaDestroyImage(get_graphics_engine().get_allocator(), texture_image, allocation);
+		texture_image = VK_NULL_HANDLE;
+		allocation = nullptr;
+		throw;
+	}
 }
 
 VkSampler GraphicsEngineTextureManager::create_texture_sampler(PbrMaterial::TextureSampler sampler_type)

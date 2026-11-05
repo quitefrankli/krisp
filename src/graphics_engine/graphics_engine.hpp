@@ -94,6 +94,7 @@ public: // getters and setters
 		return get_render_frame().view.stenciled_objects;
 	}
 	VkDevice& get_logical_device() { return device.get_logical_device(); }
+	VmaAllocator get_allocator() const { return device.get_allocator(); }
 	VkPhysicalDevice& get_physical_device() { return device.get_physical_device(); }
 	VkInstance& get_instance() { return instance.get(); }
 	VkQueue& get_present_queue() { return present_queue; }
@@ -170,7 +171,7 @@ public: // swap chain
 					  VkImageUsageFlags usage,
 					  VkMemoryPropertyFlags properties,
 					  VkImage& image,
-					  VkDeviceMemory& image_memory,
+					  VmaAllocation& allocation,
 					  VkSampleCountFlagBits num_samples=VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
 					  const uint32_t layer_count = 1, // for creating a cube map
 					  const VkImageCreateFlags flags = 0, // for creating a cube map
@@ -196,9 +197,6 @@ public: // swap chain
 	VkFormat find_depth_format();
 
 public: // other
-	// graphics cards offer different types of memory to allocate from, each type of memory varies
-	// in therms of allowed operations and performance characteristics
-	int find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags flags);
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
 private: // core components

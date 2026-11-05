@@ -2,13 +2,15 @@
 
 #include <gtest/gtest.h>
 
+#include <utility>
+
 
 class GraphicsBufferFixture : public testing::Test
 {
 public:
     GraphicsBufferFixture() :
-		buffer1(nullptr, nullptr, buffer_size_1),
-		buffer2(nullptr, nullptr, buffer_size_2, alignment)
+		buffer1(nullptr, nullptr, nullptr, buffer_size_1),
+		buffer2(nullptr, nullptr, nullptr, buffer_size_2, alignment)
     {
     }
 
@@ -60,6 +62,23 @@ TEST_F(GraphicsBufferFixture, preserves_64_bit_slot_ids)
 	EXPECT_EQ(buffer1.reserve_slot(high_id, 10), 10);
 	EXPECT_EQ(buffer1.get_offset(low_id), 0);
 	EXPECT_EQ(buffer1.get_offset(high_id), 10);
+}
+
+TEST_F(GraphicsBufferFixture, move_assignment_preserves_slot_accounting)
+{
+	GraphicsBuffer source(nullptr, nullptr, nullptr, 64, alignment);
+	source.reserve_slot(42, 9);
+	buffer1.reserve_slot(7, 20);
+
+	buffer1 = std::move(source);
+
+	EXPECT_EQ(buffer1.get_capacity(), 64);
+	EXPECT_EQ(buffer1.get_filled_capacity(), 12);
+	EXPECT_EQ(buffer1.get_offset(42), 0);
+	EXPECT_EQ(buffer1.reserve_slot(43, 4), 12);
+	EXPECT_EQ(buffer1.get_filled_capacity(), 16);
+	EXPECT_EQ(source.get_capacity(), 0);
+	EXPECT_EQ(source.get_filled_capacity(), 0);
 }
 
 TEST_F(GraphicsBufferFixture, buffer_simple_defragmentation)

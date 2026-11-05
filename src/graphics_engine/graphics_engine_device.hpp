@@ -3,6 +3,7 @@
 #include "graphics_engine_base_module.hpp"
 
 #include <vulkan/vulkan.hpp>
+#include <vk_mem_alloc.h>
 // For ray tracing:
 // #include <vulkan/vulkan_beta.h>
 
@@ -17,6 +18,8 @@ public:
 	
 	VkDevice& get_logical_device() override { return logical_device; }
 	VkPhysicalDevice& get_physical_device() override { return physicalDevice; }
+
+	VmaAllocator get_allocator() const { return allocator; }
 
 	void print_physical_device_settings();
 
@@ -34,6 +37,7 @@ private:
 	
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
+	VmaAllocator allocator = VK_NULL_HANDLE;
 
 	static std::vector<const char*> get_required_extensions();
 

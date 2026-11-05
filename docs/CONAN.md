@@ -71,7 +71,9 @@ that checkout.
 FFmpeg libraries (`avcodec`, `avformat`, `avutil`, and `swscale`) must be
 installed by the system. Linux `dl` and `pthread` are linked by the package.
 Vulkan headers, loader, and validation layers are Conan dependencies; a
-compatible Vulkan driver must be installed on the host.
+compatible Vulkan driver must be installed on the host. GPU allocations use
+`vulkan-memory-allocator/3.3.0`, with its implementation compiled once into the
+engine library.
 
 The examples use `--no-remote` to reuse cached dependencies. Omit it when setting
 up a machine that needs to download dependencies. Engine package builds currently

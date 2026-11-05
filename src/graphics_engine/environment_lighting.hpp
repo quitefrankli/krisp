@@ -21,11 +21,11 @@ struct EnvironmentLightingTextures
 	EnvironmentLightingTextures(const EnvironmentLightingTextures&) = delete;
 	EnvironmentLightingTextures& operator=(const EnvironmentLightingTextures&) = delete;
 
-	void destroy(const VkDevice device)
+	void destroy(const VkDevice device, VmaAllocator allocator)
 	{
-		irradiance.destroy(device);
-		prefiltered_specular.destroy(device);
-		brdf_lut.destroy(device);
+		irradiance.destroy(device, allocator);
+		prefiltered_specular.destroy(device, allocator);
+		brdf_lut.destroy(device, allocator);
 	}
 
 	GraphicsEngineTexture irradiance;

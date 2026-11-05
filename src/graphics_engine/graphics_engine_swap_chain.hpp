@@ -55,10 +55,6 @@ private:
 	VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
 	// void recreate_swap_chain(); // useful for when size of window is changing
 
-private:
-	VkImage presentation_image;
-	VkDeviceMemory presentation_image_memory;
-
 private: // synchronisation
 	struct AcquisitionSlot
 	{

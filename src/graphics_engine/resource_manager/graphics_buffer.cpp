@@ -1,17 +1,25 @@
 #include "graphics_buffer.hpp"
 
+#include <algorithm>
+#include <cassert>
 #include <cstddef>
+#include <stdexcept>
 #include <utility>
 
 
 GraphicsBuffer::GraphicsBuffer(
 	VkBuffer buffer,
-	VkDeviceMemory memory,
+	VmaAllocation allocation,
+	VmaAllocator allocator,
 	uint32_t capacity,
 	uint32_t alignment,
 	std::string name) :
+	filled_slots(),
+	free_slots(),
 	buffer(buffer),
-	memory(memory),
+	allocation(allocation),
+	allocator(allocator),
+	filled_capacity(0),
 	capacity(capacity),
 	alignment(alignment),
 	name(std::move(name))
@@ -24,36 +32,83 @@ GraphicsBuffer::GraphicsBuffer(
 }
 
 GraphicsBuffer::GraphicsBuffer(GraphicsBuffer&& other) noexcept :
+	filled_slots(std::move(other.filled_slots)),
+	free_slots(std::move(other.free_slots)),
 	buffer(other.buffer),
-	memory(other.memory),
+	allocation(other.allocation),
+	allocator(other.allocator),
+	mapped_data(other.mapped_data),
+	mapped_slot_offset(other.mapped_slot_offset),
+	mapped_slot_size(other.mapped_slot_size),
+	filled_capacity(other.filled_capacity),
 	capacity(other.capacity),
 	alignment(other.alignment),
-	name(std::move(other.name)),
-	filled_slots(std::move(other.filled_slots)),
-	free_slots(std::move(other.free_slots))
+	name(std::move(other.name))
 {
 	other.buffer = nullptr;
-	other.memory = nullptr;
+	other.allocation = nullptr;
+	other.allocator = nullptr;
+	other.mapped_data = nullptr;
+	other.mapped_slot_offset = 0;
+	other.mapped_slot_size = 0;
+	other.filled_capacity = 0;
+	other.capacity = 0;
+}
+
+GraphicsBuffer& GraphicsBuffer::operator=(GraphicsBuffer&& other) noexcept
+{
+	if (this == &other)
+	{
+		return *this;
+	}
+
+	destroy();
+	buffer = other.buffer;
+	allocation = other.allocation;
+	allocator = other.allocator;
+	mapped_data = other.mapped_data;
+	mapped_slot_offset = other.mapped_slot_offset;
+	mapped_slot_size = other.mapped_slot_size;
+	capacity = other.capacity;
+	filled_capacity = other.filled_capacity;
+	alignment = other.alignment;
+	name = std::move(other.name);
+	filled_slots = std::move(other.filled_slots);
+	free_slots = std::move(other.free_slots);
+
+	other.buffer = VK_NULL_HANDLE;
+	other.allocation = VK_NULL_HANDLE;
+	other.allocator = VK_NULL_HANDLE;
+	other.mapped_data = nullptr;
+	other.mapped_slot_offset = 0;
+	other.mapped_slot_size = 0;
+	other.filled_capacity = 0;
+	other.capacity = 0;
+	return *this;
 }
 
 GraphicsBuffer::~GraphicsBuffer()
 {
-	assert(!buffer && !memory);
+	destroy();
 }
 
-void GraphicsBuffer::destroy(VkDevice device)
+void GraphicsBuffer::destroy()
 {
-	if (buffer)
+	if (mapped_data && allocation && allocator)
 	{
-		vkDestroyBuffer(device, buffer, nullptr);
+		vmaUnmapMemory(allocator, allocation);
 	}
-	if (memory)
+	if (buffer && allocation && allocator)
 	{
-		vkFreeMemory(device, memory, nullptr);
+		vmaDestroyBuffer(allocator, buffer, allocation);
 	}
 
-	buffer = nullptr;
-	memory = nullptr;
+	buffer = VK_NULL_HANDLE;
+	allocation = VK_NULL_HANDLE;
+	allocator = VK_NULL_HANDLE;
+	mapped_data = nullptr;
+	mapped_slot_offset = 0;
+	mapped_slot_size = 0;
 }
 
 void GraphicsBuffer::free_slot(const SlotID slot_id)
@@ -177,7 +232,48 @@ GraphicsBuffer::Slot GraphicsBuffer::get_slot(const SlotID id) const
 	return it->second;
 }
 
-std::byte* GraphicsBuffer::map_slot(const SlotID id, VkDevice device)
+void* GraphicsBuffer::map()
+{
+	if (!allocation || !allocator)
+	{
+		throw std::runtime_error("GraphicsBuffer::map: buffer allocation is unavailable!");
+	}
+
+	if (!mapped_data && vmaMapMemory(allocator, allocation, &mapped_data) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsBuffer::map: failed to map memory!");
+	}
+	return mapped_data;
+}
+
+void GraphicsBuffer::unmap()
+{
+	if (mapped_data && allocation && allocator)
+	{
+		vmaUnmapMemory(allocator, allocation);
+		mapped_data = nullptr;
+		mapped_slot_offset = 0;
+		mapped_slot_size = 0;
+	}
+}
+
+void GraphicsBuffer::flush(const VkDeviceSize offset, const VkDeviceSize size)
+{
+	if (!allocation || !allocator || vmaFlushAllocation(allocator, allocation, offset, size) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsBuffer::flush: failed to flush allocation!");
+	}
+}
+
+void GraphicsBuffer::invalidate(const VkDeviceSize offset, const VkDeviceSize size)
+{
+	if (!allocation || !allocator || vmaInvalidateAllocation(allocator, allocation, offset, size) != VK_SUCCESS)
+	{
+		throw std::runtime_error("GraphicsBuffer::invalidate: failed to invalidate allocation!");
+	}
+}
+
+std::byte* GraphicsBuffer::map_slot(const SlotID id)
 {
 	auto it = filled_slots.find(id);
 	if (it == filled_slots.end())
@@ -185,22 +281,26 @@ std::byte* GraphicsBuffer::map_slot(const SlotID id, VkDevice device)
 		throw std::runtime_error("GraphicsBuffer::map_slot: Slot not found!");
 	}
 
-	std::byte* mapped_memory = nullptr;
-	if (vkMapMemory(
-		device, 
-		memory, 
-		it->second.offset, 
-		it->second.size, 
-		0, 
-		reinterpret_cast<void**>(&mapped_memory)) != VK_SUCCESS || !mapped_memory)
-	{
-		throw std::runtime_error("GraphicsBuffer::map_slot: failed to map memory!");
-	}
-
-	return mapped_memory;
+	auto* base = static_cast<std::byte*>(map());
+	mapped_slot_offset = it->second.offset;
+	mapped_slot_size = it->second.size;
+	return base + it->second.offset;
 }
 
-void GraphicsBuffer::unmap_slot(VkDevice device)
+void GraphicsBuffer::unmap_slot()
 {
-	vkUnmapMemory(device, memory);
+	if (!mapped_data)
+	{
+		return;
+	}
+	try
+	{
+		flush(mapped_slot_offset, mapped_slot_size);
+	}
+	catch (...)
+	{
+		unmap();
+		throw;
+	}
+	unmap();
 }

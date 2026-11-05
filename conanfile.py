@@ -55,6 +55,7 @@ class KrispConan(ConanFile):
         f"vulkan-headers/{VULKAN_VERSION}",
         f"vulkan-loader/{VULKAN_VERSION}",
         f"vulkan-validationlayers/{VULKAN_VERSION}",
+        "vulkan-memory-allocator/3.3.0",
         "tinygltf/2.5.0",
         "quill/10.0.1",
         "miniaudio/0.11.22",

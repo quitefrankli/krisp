@@ -26,16 +26,6 @@ GraphicsEngineSwapChain::GraphicsEngineSwapChain(GraphicsEngine& engine) : Graph
 	color_space = surface_format.colorSpace;
 	present_mode = choose_swap_present_mode(swap_chain_support.presentModes);
 	const auto extent = get_extent();
-	get_graphics_engine().create_image(
-		extent.width, 
-		extent.height,
-		get_image_format(),
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		presentation_image,
-		presentation_image_memory,
-		get_graphics_engine().get_msaa_samples());
 
 	VkSwapchainCreateInfoKHR create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -102,12 +92,6 @@ GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 	frames.clear();
 	vkDestroySwapchainKHR(get_logical_device(), swap_chain, nullptr);
 
-	// for (size_t i = 0; i < swap_chain_images.size(); i++)
-	// {
-	// 	vkDestroyBuffer(get_logical_device(), uniform_buffers[i], nullptr);
-	// 	vkFreeMemory(get_logical_device(), uniform_buffers_memory[i], nullptr);
-	// }
-
 	// vkDestroyDescriptorPool(get_logical_device(), descriptor_pool, nullptr);
 
 	// destroy synchronisation object
@@ -118,8 +102,6 @@ GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 	//	vkDestroyFence(get_logical_device(), in_flight_fences[i], nullptr);
 	//}
 
-	vkDestroyImage(get_logical_device(), presentation_image, nullptr);
-	vkFreeMemory(get_logical_device(), presentation_image_memory, nullptr);
 }
 
 void GraphicsEngineSwapChain::reset()

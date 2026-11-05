@@ -42,7 +42,6 @@ public:
 	VkBuffer get_global_uniform_buffer() const { return global_uniform_buffer.get_buffer(); }
 	VkBuffer get_bone_buffer() const { return bone_buffer.get_buffer(); }
 
-	VkDeviceMemory get_global_uniform_buffer_memory() const { return global_uniform_buffer.get_memory(); }
 
 	// does both vertex and index buffer writing
 	void write_to_buffer(MeshID id, const Mesh& mesh);
@@ -65,14 +64,6 @@ public:
 		VkMemoryPropertyFlags memory_flags,
 		uint32_t alignment = 1,
 		std::string name = "") override;
-
-	// Deprecated dont use this
-	void create_buffer_deprecated(
-		size_t size,
-		VkBufferUsageFlags usage_flags,
-		VkMemoryPropertyFlags memory_flags,
-		VkBuffer& buffer,
-		VkDeviceMemory& buffer_memory);
 
 	void stage_data_to_buffer(
 		VkBuffer destination_buffer,
