@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 
 
 std::optional<VkExtent2D> GraphicsEngineSwapChain::swap_chain_extent;
@@ -96,6 +97,9 @@ GraphicsEngineSwapChain::~GraphicsEngineSwapChain()
 	// 	vkDestroyImageView(get_logical_device(), swap_chain_image, nullptr);
 	// }
 
+	for (const auto& slot : acquisition_slots)
+		vkDestroySemaphore(get_logical_device(), slot.image_available, nullptr);
+	frames.clear();
 	vkDestroySwapchainKHR(get_logical_device(), swap_chain, nullptr);
 
 	// for (size_t i = 0; i < swap_chain_images.size(); i++)
@@ -178,9 +182,52 @@ VkPresentModeKHR GraphicsEngineSwapChain::choose_swap_present_mode(const std::ve
 
 void GraphicsEngineSwapChain::draw()
 {
-	get_curr_frame().draw();
+	auto& engine = get_graphics_engine();
+	const auto& observation = engine.get_runtime_options().observation;
+	const bool collect_cpu = observation && observation->active();
+	const auto observation_submission = observation ? engine.next_observation_submission() : 0;
+	const auto& render_frame = engine.get_render_frame();
+	const auto record_cpu_sample = [&](RuntimeSampleKind kind, std::uint64_t begin_ns,
+		std::uint64_t end_ns, bool success)
+	{
+		if (collect_cpu)
+			observation->record_graphics(RuntimeSample{
+				.kind = kind,
+				.begin_ns = begin_ns,
+				.end_ns = end_ns,
+				.submission_id = observation_submission,
+				.frame_number = render_frame.frame_number,
+				.tick_index = render_frame.simulation_tick,
+				.publication_ns = render_frame.publication_ns,
+				.success = success });
+	};
 
-	current_frame = (current_frame + 1) % frames.size();
+	auto& slot = acquisition_slots[current_acquisition_slot];
+	if (slot.last_submission != VK_NULL_HANDLE)
+	{
+		const auto begin_ns = collect_cpu ? runtime_now_ns() : 0;
+		const auto result = vkWaitForFences(get_logical_device(), 1, &slot.last_submission,
+			VK_TRUE, std::numeric_limits<std::uint64_t>::max());
+		record_cpu_sample(RuntimeSampleKind::FrameFenceWait, begin_ns,
+			collect_cpu ? runtime_now_ns() : 0, result == VK_SUCCESS);
+		if (result != VK_SUCCESS)
+			throw std::runtime_error("failed to wait for acquisition semaphore reuse!");
+	}
+
+	uint32_t image_index = 0;
+	const auto begin_ns = collect_cpu ? runtime_now_ns() : 0;
+	const auto result = vkAcquireNextImageKHR(get_logical_device(), swap_chain,
+		std::numeric_limits<std::uint64_t>::max(), slot.image_available, VK_NULL_HANDLE, &image_index);
+	const bool acquired = result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
+	record_cpu_sample(RuntimeSampleKind::Acquire, begin_ns,
+		collect_cpu ? runtime_now_ns() : 0, acquired);
+	if (!acquired)
+		throw std::runtime_error("failed to acquire swapchain image!");
+
+	auto& frame = frames.at(image_index);
+	frame.draw(slot.image_available, observation_submission);
+	slot.last_submission = frame.get_submission_fence();
+	current_acquisition_slot = (current_acquisition_slot + 1) % acquisition_slots.size();
 }
 
 void GraphicsEngineSwapChain::destroy_and_recreate_frames()
@@ -191,12 +238,29 @@ void GraphicsEngineSwapChain::destroy_and_recreate_frames()
 	std::vector<VkImage> swap_chain_images(image_count);
 	vkGetSwapchainImagesKHR(get_logical_device(), swap_chain, &image_count, swap_chain_images.data());
 
+	for (const auto& slot : acquisition_slots)
+		vkDestroySemaphore(get_logical_device(), slot.image_available, nullptr);
+	acquisition_slots.clear();
+	current_acquisition_slot = 0;
 	frames.clear();
 	frames.reserve(swap_chain_images.size());
-	for (auto &handle : swap_chain_images)
+	for (uint32_t image_index = 0; image_index < image_count; ++image_index)
+		frames.emplace_back(get_graphics_engine(), *this, swap_chain_images[image_index], image_index);
+
+	acquisition_slots.resize(image_count);
+	VkSemaphoreCreateInfo semaphore_info{};
+	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	for (auto& slot : acquisition_slots)
 	{
-		// create the frames
-		frames.emplace_back(get_graphics_engine(), *this, handle);
+		VkSemaphore semaphore = VK_NULL_HANDLE;
+		if (vkCreateSemaphore(get_logical_device(), &semaphore_info, nullptr, &semaphore) != VK_SUCCESS)
+		{
+			for (const auto& allocated : acquisition_slots)
+				vkDestroySemaphore(get_logical_device(), allocated.image_available, nullptr);
+			acquisition_slots.clear();
+			throw std::runtime_error("failed to create acquisition semaphore!");
+		}
+		slot.image_available = semaphore;
 	}
 
 	LOG_INFO(Utility::get_logger(), "GraphicsEngineSwapChain: created {} frames", frames.size());

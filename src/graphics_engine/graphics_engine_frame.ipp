@@ -18,16 +18,14 @@
 #include <utility>
 
 
-int GraphicsEngineFrame::global_image_index = 0;
-
 GraphicsEngineFrame::GraphicsEngineFrame(
 	GraphicsEngine& engine, 
 	GraphicsEngineSwapChain& parent_swapchain, 
-	VkImage presentation_image) :
+	VkImage presentation_image, uint32_t image_index) :
 	GraphicsEngineBaseModule(engine),
 	presentation_image(presentation_image),
 	swap_chain(parent_swapchain),
-	image_index(global_image_index++),
+	image_index(image_index),
 	analytics(std::string("Frame ") + std::to_string(image_index), 60)
 {
 	presentation_image_view = get_graphics_engine().create_image_view(
@@ -51,10 +49,8 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	command_buffer(std::move(frame.command_buffer)),
 	image_index(std::move(frame.image_index)),
 	swap_chain(frame.swap_chain),
-	image_available_semaphore(std::move(frame.image_available_semaphore)),
 	render_finished_semaphore(std::move(frame.render_finished_semaphore)),
 	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
-	fence_image_inflight(std::move(frame.fence_image_inflight)),
 	submission_serial(std::move(frame.submission_serial)),
 	observation_query_pool(std::exchange(frame.observation_query_pool, VK_NULL_HANDLE)),
 	current_gpu_query_recorded(frame.current_gpu_query_recorded),
@@ -86,16 +82,13 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 		return;
 	}
 
-	global_image_index--;
 	vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
 	if (observation_query_pool != VK_NULL_HANDLE)
 		vkDestroyQueryPool(get_logical_device(), observation_query_pool, nullptr);
 
 	// cleanup synchronisation objects
-	vkDestroySemaphore(get_logical_device(), image_available_semaphore, nullptr);
 	vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
 	vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
-	// vkDestroyFence(get_logical_device(), fence_image_inflight, nullptr); // this isn't an actual fence it's rather a reference to the inflight frame fence
 	vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
 	if (screenshot_staging_buffer.has_value())
 	{
@@ -246,17 +239,12 @@ void GraphicsEngineFrame::update_command_buffer()
 	}
 }
 
-void GraphicsEngineFrame::draw()
+void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint64_t observation_submission)
 {
-	// 1. acquire image from swap chain
-	// 2. execute command buffer with image as attachment in the frame buffer
-	// 3. return the image to swap chain for presentation
+	// The swapchain has already acquired this image. Wait before updating its resources.
 
 	const auto& observation = get_graphics_engine().get_runtime_options().observation;
 	const bool collect_cpu = observation && observation->active();
-	const auto observation_submission = observation
-		? get_graphics_engine().next_observation_submission()
-		: 0;
 	const auto& render_frame = get_graphics_engine().get_render_frame();
 	const auto record_cpu_sample = [&](const RuntimeSampleKind kind, const std::uint64_t begin_ns,
 		const std::uint64_t end_ns, const bool success = true)
@@ -282,7 +270,7 @@ void GraphicsEngineFrame::draw()
 			std::numeric_limits<uint64_t>::max());
 	const auto frame_fence_end_ns = collect_cpu ? runtime_now_ns() : 0;
 	analytics.stop();
-	record_cpu_sample(RuntimeSampleKind::FrameFenceWait,
+	record_cpu_sample(RuntimeSampleKind::ImageFenceWait,
 		frame_fence_begin_ns, frame_fence_end_ns, frame_fence_result == VK_SUCCESS);
 	if (frame_fence_result != VK_SUCCESS)
 	{
@@ -302,51 +290,6 @@ void GraphicsEngineFrame::draw()
 	const auto recording_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	update_command_buffer();
 	record_cpu_sample(RuntimeSampleKind::CommandRecording, recording_begin_ns, collect_cpu ? runtime_now_ns() : 0);
-
-	uint32_t swap_chain_image_index = 0;
-	// waits until there's an image available to use in the swap chain
-	const auto acquire_begin_ns = collect_cpu ? runtime_now_ns() : 0;
-	VkResult result = vkAcquireNextImageKHR(get_logical_device(), 
-											swap_chain.get_swap_chain(), 
-											std::numeric_limits<uint64_t>::max(), // wait time (ns)
-											image_available_semaphore, 
-											VK_NULL_HANDLE, 
-											&swap_chain_image_index); // image index of the available image
-	const auto acquire_end_ns = collect_cpu ? runtime_now_ns() : 0;
-	const bool acquire_success = result == VK_SUCCESS;
-	record_cpu_sample(RuntimeSampleKind::Acquire, acquire_begin_ns, acquire_end_ns, acquire_success);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to acquire swapchain image!");
-	}
-	if (image_index != swap_chain_image_index)
-	{
-		throw std::runtime_error("image_index and swap_chain_image_index mismatch!");
-	}
-	// if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-	// 	reset();
-	// 	return;
-	// } else if (image_index != swap_chain_image_index) {
-	// 	throw std::runtime_error("image_index and swap_chain_image_index mismatch!");
-	// } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-	// 	throw std::runtime_error("failed to acquire swap chain image!");
-	// }
-
-	// check if a previous frame is using this image (i.e. there is a fence to wait on)
-	if (fence_image_inflight != VK_NULL_HANDLE)
-	{
-		const auto image_fence_begin_ns = collect_cpu ? runtime_now_ns() : 0;
-		const auto image_fence_result = vkWaitForFences(
-			get_logical_device(), 1, &fence_image_inflight, VK_TRUE,
-			std::numeric_limits<uint64_t>::max());
-		const auto image_fence_end_ns = collect_cpu ? runtime_now_ns() : 0;
-		record_cpu_sample(RuntimeSampleKind::ImageFenceWait,
-			image_fence_begin_ns, image_fence_end_ns, image_fence_result == VK_SUCCESS);
-		if (image_fence_result != VK_SUCCESS)
-			throw std::runtime_error("failed to wait for in-flight image!");
-	}
-	// mark the image as now being in use by this frame
-	fence_image_inflight = fence_frame_inflight;
 
 	const auto uniform_begin_ns = collect_cpu ? runtime_now_ns() : 0;
 	update_uniform_buffer();
@@ -415,11 +358,11 @@ void GraphicsEngineFrame::draw()
 	present_info.pResults = nullptr; // allows you to specify array of VkResult values to check for every individual swap chain if presentation was successful
 
 	const auto present_begin_ns = collect_cpu ? runtime_now_ns() : 0;
-	result = vkQueuePresentKHR(get_graphics_engine().get_present_queue(), &present_info);
+	const auto result = vkQueuePresentKHR(get_graphics_engine().get_present_queue(), &present_info);
 	const auto present_end_ns = collect_cpu ? runtime_now_ns() : 0;
 	record_cpu_sample(RuntimeSampleKind::Present, present_begin_ns, present_end_ns,
-		result == VK_SUCCESS);
-	if (result != VK_SUCCESS) {
+		result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR);
+	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
 		throw std::runtime_error("failed to present swap chain image!");
 	}
 
@@ -485,8 +428,7 @@ void GraphicsEngineFrame::create_synchronisation_objects()
 	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if (vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &image_available_semaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &render_finished_semaphore) != VK_SUCCESS ||
+	if (vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &render_finished_semaphore) != VK_SUCCESS ||
 		vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &fence_frame_inflight) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create semaphores!");

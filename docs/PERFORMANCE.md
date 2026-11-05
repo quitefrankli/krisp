@@ -246,6 +246,13 @@ instead of queueing work or blocking the game thread. Graphics-owned topology
 is reconciled only when renderable or skeleton membership changes; transforms,
 visibility, camera state, particles, and poses reuse it.
 
+Swap-chain frame resources remain per image. Graphics acquires an image before
+choosing its `GraphicsEngineFrame` and recording commands. Rotating acquisition
+semaphore slots wait for their last submission fence before reuse; the acquired
+image's frame fence is also waited before updating its resources. Recording
+after acquisition can reduce CPU and window-system overlap, but this effect has
+not been measured. Draw submission does not wait for the queue to become idle.
+
 ## Frame-pacing investigation
 
 A diagnostic run reproduced visible motion stutter while game publication and

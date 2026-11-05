@@ -20,14 +20,15 @@ class GraphicsEngineSwapChain;
 class GraphicsEngineFrame : public GraphicsEngineBaseModule
 {
 public:
-	GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image);
+	GraphicsEngineFrame(GraphicsEngine& engine, GraphicsEngineSwapChain& parent_swapchain, VkImage image, uint32_t image_index);
 	GraphicsEngineFrame(const GraphicsEngineFrame&) = delete;
 	GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept;
 	~GraphicsEngineFrame();
 
 public:
 	void update_command_buffer();
-	void draw();
+	void draw(VkSemaphore image_available_semaphore, std::uint64_t observation_submission);
+	VkFence get_submission_fence() const { return fence_frame_inflight; }
 	void collect_gpu_observation();
 
 private:
@@ -53,21 +54,9 @@ private:
 	
 	GraphicsEngineSwapChain& swap_chain;
 
-	//
-	// Image refers to an image in a swap chain
-	// Frame refers to a "canvas" being processed (i.e. by GPU) we can think of frames as being in-flight
-	// We produce a frame from a swapchain image and return it back to the image for presentation oncec we
-	//  are done processing it.
-	//
-
-	// GPU-GPU synchronisation
-	VkSemaphore image_available_semaphore;
+	// Each frame owns the resources and presentation semaphore for one swapchain image.
 	VkSemaphore render_finished_semaphore;
-
-	// CPU-GPU synchronisation
-	// these track for each swap chain image and checks if an inflight frame is currently using it
-	VkFence fence_frame_inflight = VK_NULL_HANDLE; // signals when the command buffer finishes executing or when an inflight frame is finished
-	VkFence fence_image_inflight = VK_NULL_HANDLE; // check if a frame in flight is already using a swapchain image 
+	VkFence fence_frame_inflight = VK_NULL_HANDLE;
 	std::optional<SubmissionSerial> submission_serial;
 	static constexpr uint32_t observation_query_count = 8;
 	VkQueryPool observation_query_pool = VK_NULL_HANDLE;
@@ -76,8 +65,6 @@ private:
 	RuntimeSample pending_gpu_sample{};
 	std::uint32_t timestamp_valid_bits = 0;
 	double timestamp_period_ns = 0.0;
-
-	static int global_image_index;
 
 	Analytics analytics;
 
