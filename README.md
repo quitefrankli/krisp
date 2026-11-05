@@ -26,6 +26,8 @@ Release mode and shared by the separate Debug and Release Krisp build trees:
 
 ```bash
 conan install . -pr=conan_clang_profile --build=missing
+# Install once for the Release tree when needed:
+conan install . -pr=conan_clang_release_profile --build=missing
 ```
 
 From the repository root, `./run [application] [--debug|--release] [-- application arguments...]` configures the selected build tree when needed (first use, changed build settings, or a missing application target), builds the
@@ -44,8 +46,8 @@ Conan's native file supplies compilers and dependency paths but deliberately
 does not set Krisp's build type. To configure build trees manually, use:
 
 ```bash
-meson setup build/debug --native-file build/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false
-meson setup build/release --native-file build/conan/conan_meson_native.ini --buildtype=release -Db_ndebug=true
+meson setup build/debug --native-file build/debug/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false -Dpkg_config_path="$PWD/build/debug/conan"
+meson setup build/release --native-file build/release/conan/conan_meson_native.ini --buildtype=release -Db_ndebug=true -Dpkg_config_path="$PWD/build/release/conan"
 ```
 
 After changing dependencies or build configuration, rerun `conan install` when

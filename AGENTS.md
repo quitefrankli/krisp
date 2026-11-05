@@ -49,9 +49,14 @@
 
 ```
 conan install . -pr=conan_clang_profile --build=missing
-meson setup build/debug --reconfigure --native-file build/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false
+meson setup build/debug --reconfigure --native-file build/debug/conan/conan_meson_native.ini --buildtype=debug -Db_ndebug=false -Dpkg_config_path="$PWD/build/debug/conan"
 meson compile -C build/debug -j 6 sandbox
 ```
 
 * When `build/debug` does not exist yet, use the setup command without
   `--reconfigure`.
+
+* For Release dependency metadata use `conan_clang_release_profile`; generators
+  live in `build/release/conan`. Debug uses `build/debug/conan`. Both profiles
+  retain Release third-party dependencies. Resource loading is always optimized
+  at level 3, including Debug builds.

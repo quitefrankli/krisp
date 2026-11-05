@@ -15,15 +15,15 @@ conan editable add /path/to/krisp
 cd /path/to/krisp
 conan install . -pr conan_clang_profile --build=missing --no-remote
 meson setup build/debug --reconfigure \
-  --native-file build/conan/conan_meson_native.ini \
-  --buildtype=debug -Db_ndebug=false
+  --native-file build/debug/conan/conan_meson_native.ini \
+  --buildtype=debug -Db_ndebug=false -Dpkg_config_path="$PWD/build/debug/conan"
 meson compile -C build/debug -j 6 sandbox
 ```
 
 Editable builds use the engine's compiled source/build paths directly; they do
 not stage resources into a runtime directory. The default engine paths point to
-`resources/default`, `build/debug/shaders`, `configs/default.yaml`, and
-`build/debug/tools/default_environment.krisp-ibl` in the checkout. Reinstall
+`resources/default`, `build/<mode>/shaders`, `configs/default.yaml`, and
+`build/<mode>/tools/default_environment.krisp-ibl` in the checkout. Reinstall
 and reconfigure the engine when dependency metadata changes. Editable
 registration applies to this package reference in the active Conan home.
 
@@ -39,10 +39,35 @@ Remove the editable mapping with
 `conan editable remove --refs=krisp/0.1.0` when a cached package is required.
 Application setup and integration instructions belong in consumer repositories.
 
+## Select Release without changing the editable mapping
+
+Use `conan_clang_release_profile` for both the engine and its consumer when
+selecting Release. This profile includes the Debug profile and overrides the
+root and `krisp/*` build types; third-party dependencies remain Release:
+
+```sh
+conan install . -pr conan_clang_release_profile --build=missing --no-remote
+meson setup build/release --native-file build/release/conan/conan_meson_native.ini \
+  --buildtype=release -Db_ndebug=true -Dpkg_config_path="$PWD/build/release/conan"
+meson compile -C build/release -j 6 krisp_libs third_party_libs
+```
+
+Debug and Release reuse the checkout's existing `build/debug` and
+`build/release` directories respectively. Conan generators live in each tree's
+`conan` directory, so installing one mode cannot overwrite the other mode's
+metadata. Conan editable mode supplies paths only: build the selected engine
+targets explicitly before linking a consumer. No cached engine package or
+resource staging is needed. Source resources are shared directly; generated
+shaders and lighting currently belong to their respective build trees.
+
+For cached Release checkpoints, use the Release profile for the host in the
+`conan create` command below. Resource loading always uses optimization level 3
+in either mode, retaining Debug symbols and assertions in Debug builds.
+
 ## Create a checkpoint package
 
 Build an intentional checkpoint when another developer needs an immutable
-package. Package builds are Debug and exclude the bundled app and tests:
+package. Package builds default to Debug and exclude the bundled app and tests:
 
 ```sh
 conan create . -pr:h conan_clang_profile -pr:b conan_clang_profile \
@@ -61,7 +86,7 @@ working checkout instead.
 
 ## Dependencies and platform notes
 
-All Conan commands use the root `conan_clang_profile`. It selects Debug for
+Debug commands use the root `conan_clang_profile`. It selects Debug for
 the root project and `krisp/*`, and Release for other dependencies. In
 particular, Conan dependencies remain Release while Meson compiles the Krisp
 checkout as Debug using the explicit setup command above. Meson's
@@ -76,6 +101,24 @@ compatible Vulkan driver must be installed on the host. GPU allocations use
 engine library.
 
 The examples use `--no-remote` to reuse cached dependencies. Omit it when setting
-up a machine that needs to download dependencies. Engine package builds currently
-support Debug on Linux with the root profile; the AVX2/SSE feature flags
+up a machine that needs to download dependencies. Engine package builds
+support Debug and Release on Linux with their respective profiles; the AVX2/SSE feature flags
 match the existing Jolt build and are exported to consumers.
+
+When migrating an existing Meson tree, pass `--reconfigure --clearcache` and
+set `pkg_config_path` explicitly as above. Meson retains native-file settings
+from its initial setup; the explicit path switches dependency discovery to the
+mode-specific metadata without wiping compiled outputs.
+
+## Verify editable metadata
+
+After registering this checkout and caching the dependencies, run:
+
+```sh
+python3 test/test_conan_editable.py -q
+```
+
+This explicit integration check uses isolated temporary generator directories.
+It verifies both profiles, editable selection, Release third-party dependencies,
+library and resource paths, and the Debug macro. It never builds packages,
+downloads dependencies, or changes the editable registration.

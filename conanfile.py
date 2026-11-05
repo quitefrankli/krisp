@@ -81,8 +81,8 @@ class KrispConan(ConanFile):
     def layout(self):
         # The normal checkout and Conan editable builds share these directories.
         self.folders.source = "."
-        self.folders.build = "build/debug"
-        self.folders.generators = "build/conan"
+        self.folders.build = "build/" + str(self.settings.build_type).lower()
+        self.folders.generators = self.folders.build + "/conan"
 
         self.cpp.source.set_property("pkg_config_custom_content", {
             "krisp_resources": "${prefix}/resources/default",
@@ -109,9 +109,13 @@ class KrispConan(ConanFile):
         meson_toolchain.generate()
         PkgConfigDeps(self).generate()
 
+    def validate(self):
+        if str(self.settings.build_type) not in ("Debug", "Release"):
+            raise ConanInvalidConfiguration("Krisp supports Debug and Release builds")
+
     def build(self):
-        if str(self.settings.build_type) != "Debug":
-            raise ConanInvalidConfiguration("Krisp packages are Debug-only during the initial migration")
+        mode = str(self.settings.build_type).lower()
+        ndebug = str(mode == "release").lower()
 
         coredata = os.path.join(self.build_folder, "meson-private", "coredata.dat")
         reconfigure = " --reconfigure" if os.path.isfile(coredata) else ""
@@ -119,7 +123,8 @@ class KrispConan(ConanFile):
             "meson setup"
             f"{reconfigure}"
             f' --native-file "{self.generators_folder}/conan_meson_native.ini"'
-            " --buildtype=debug -Db_ndebug=false -Ddevelopment_paths=false --prefix=/ --libdir=lib"
+            f' -Dpkg_config_path="{self.generators_folder}"'
+            f" --buildtype={mode} -Db_ndebug={ndebug} -Ddevelopment_paths=false --prefix=/ --libdir=lib"
             f" -Dbuild_applications={str(self.options.build_applications).lower()}"
             f" -Dbuild_tests={str(self.options.build_tests).lower()}"
             f' "{self.build_folder}" "{self.source_folder}"'

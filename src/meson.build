@@ -78,24 +78,19 @@ sources = files('runtime_performance.cpp',
 				'renderable/material_factory.cpp',
 				'renderable/renderable.cpp',
 				'renderable/mesh_factory.cpp',
-				'experimental.cpp',
-				'resource_loader/asset_registry.cpp',
-				'resource_loader/kasset.cpp')
+				'experimental.cpp')
 
 all_sources = sources + graphics_sources + ecs_sources + audio_sources
-
-resource_loader_options = []
-if get_option('optimize_resource_loader')
-	resource_loader_options += ['optimization=3']
-endif
 
 resource_loader_objects = static_library(
 	'resource_loader_objects',
 	'resource_loader/resource_loader.cpp',
+	'resource_loader/asset_registry.cpp',
+	'resource_loader/kasset.cpp',
 	build_by_default: false,
 	include_directories: additional_include_directories,
 	dependencies: conan_dependencies + [third_party_libs_dep, shader_artifacts_dep],
-	override_options: resource_loader_options)
+	override_options: ['optimization=3'])
 
 krisp_libs = static_library(
 	'krisp_libs', 

@@ -1,0 +1,5 @@
+include(conan_clang_profile)
+
+[settings]
+build_type=Release
+krisp/*:build_type=Release
