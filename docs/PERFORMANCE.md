@@ -3,8 +3,47 @@
 Record only material performance-sensitive behavior here. Label modeled costs
 as expectations until they have been measured.
 
-No CPU, GPU, frame-time, or peak-memory measurements have been recorded for
-the items below.
+Unless a section cites measurements, its costs and benefits below remain
+unmeasured expectations.
+
+## Interactive Debug runs and Vulkan validation
+
+Debug builds enable `VK_LAYER_KHRONOS_validation` through `_DEBUG`. Vulkan
+validation checks add CPU work during command recording and submission; in
+scenes with many draws and shadow passes, this can substantially reduce FPS
+even when GPU rendering fits comfortably within the frame budget.
+
+For an interactive Debug run with validation checks disabled:
+
+```sh
+VK_LAYER_DISABLES=VK_VALIDATION_FEATURE_DISABLE_ALL_EXT ./run sandbox --debug
+```
+
+The validation layer remains loaded, but its checks are disabled for this
+invocation. Debug symbols, assertions, and compiler optimization settings are
+unchanged. Omit the environment variable on normal graphics correctness runs
+to restore validation checks. Do not use `VK_LOADER_LAYERS_DISABLE` to remove
+the layer: Debug explicitly requests it, so filtering it out can prevent Vulkan
+instance creation.
+
+Use optimized Release builds with assertions disabled for performance benchmarks.
+Disabling validation checks does not make Debug timings equivalent to Release.
+
+## GPU modernization measurements
+
+The 2026-11-05 Release comparison of `2cf29df` and `771cbdf` covers dynamic
+rendering, VMA, and Synchronization2 together. All 36 workers completed with
+three repetitions per workload/mode. Throughput submission rates showed no
+clear change. Synthetic GPU spans decreased by 11–13% (about 0.016–0.028 ms),
+while CPU graphics active work increased by roughly 6–13% in those scenes.
+Uniform-upload CPU time increased about fivefold, from roughly 0.04 to 0.20 ms.
+Flight Helmet engine-to-ready improved by 6.5%; Sponza loading was inconclusive.
+
+Present calls occupied about 24–26 ms in the shared Xvfb setup, limiting the
+interpretation of unchanged FPS. These aggregate results do not isolate any
+individual modernization, establish desktop throughput, or measure peak memory.
+See [the full comparison](benchmarks/research/GPU_MODERNIZATION_BENCHMARKS.md)
+for settings, compatibility differences, raw evidence, and uncertainty.
 
 ## GPU memory allocation
 
@@ -24,8 +63,8 @@ The engine's existing buffer slot allocator and capacities remain unchanged.
 Readback allocations prefer host-cached memory; uploads request sequential host
 access. Flush and invalidate operations are delegated to VMA and are no-ops on
 host-coherent memory. Upload submission, fence waits, and resource retirement
-retain their existing synchronization costs. No frame-time or peak-memory
-improvement has been measured for this migration.
+retain their existing synchronization costs. The combined comparison above
+does not isolate VMA or measure peak memory.
 
 ## Synchronization2
 
@@ -34,7 +73,8 @@ sampled-image scopes are expressed explicitly while preserving frame ordering,
 attachment reuse dependencies, capture placement, and semaphore boundaries.
 The migration does not add queues, remove upload queue-idle waits, or change GPU
 work counts. Timestamp queries retain their prior measurement endpoints.
-No frame-time improvement has been measured from the API migration.
+The combined comparison above does not isolate the effect of this API
+migration.
 
 ## Dynamic rendering
 
@@ -44,7 +84,8 @@ including per-swap-chain framebuffer allocation and shadow-capacity framebuffer
 replacement. Attachment images, sample counts, resolve operations, draw order,
 and shadow layer counts retain their existing costs. Explicit image barriers
 provide the transitions and visibility formerly expressed by render passes.
-No frame-time or memory improvement has been measured for this migration.
+The combined comparison above does not isolate dynamic rendering or measure
+memory.
 
 ## HDR presentation
 

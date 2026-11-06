@@ -22,8 +22,10 @@ class FrameCaptureSession;
 
 struct RuntimeOptions
 {
+	// Unset retains default pacing; zero means uncapped for that loop.
 	std::optional<double> simulation_hz;
 	std::optional<double> render_hz;
+	// Requires simulation_hz to be set to a positive rate.
 	bool fixed_simulation_timestep = false;
 	std::optional<std::uint32_t> width;
 	std::optional<std::uint32_t> height;

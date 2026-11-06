@@ -2,9 +2,23 @@
 
 `RuntimeOptions` provides optional, application-neutral controls for runtime
 scheduling and window setup. An unset rate leaves the existing scheduling path
-in effect. A render rate of zero means uncapped rendering. A fixed simulation
-timestep requires a positive simulation rate. `validate_runtime_options()`
-checks rates and positive window dimensions that fit the platform window API.
+and default pacing in effect. A rate of zero means uncapped scheduling for that
+loop, for both simulation and rendering. A fixed simulation timestep requires a
+positive simulation rate. `validate_runtime_options()` checks rates and positive
+window dimensions that fit the platform window API.
+
+For example, set both rates to zero to uncap simulation and rendering:
+
+```cpp
+RuntimeOptions options;
+options.simulation_hz = 0.0;
+options.render_hz = 0.0;
+options.presentation = PresentationPreference::Uncapped;
+```
+
+Immediate presentation is requested where supported; otherwise the available
+presentation mode can still limit throughput.
+
 Optional vertex and index buffer capacities are byte counts. Supplied values
 must be positive, four-byte aligned, and representable by the host allocation
 size. Effective capacities belong in `RuntimeGraphicsInfo` so a capture records

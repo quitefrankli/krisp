@@ -18,10 +18,23 @@ TEST(RuntimeOptions, accepts_legacy_defaults_and_uncapped_rendering)
 	EXPECT_NO_THROW(validate_runtime_options(uncapped));
 }
 
-TEST(RuntimeOptions, rejects_invalid_rates_fixed_step_without_rate_and_bad_dimensions)
+TEST(RuntimeOptions, accepts_uncapped_simulation_and_rendering)
 {
 	RuntimeOptions options;
 	options.simulation_hz = 0.0;
+	options.render_hz = 0.0;
+	EXPECT_NO_THROW(validate_runtime_options(options));
+
+	options.fixed_simulation_timestep = true;
+	EXPECT_THROW(validate_runtime_options(options), std::invalid_argument);
+	options.simulation_hz = 60.0;
+	EXPECT_NO_THROW(validate_runtime_options(options));
+}
+
+TEST(RuntimeOptions, rejects_invalid_rates_fixed_step_without_rate_and_bad_dimensions)
+{
+	RuntimeOptions options;
+	options.simulation_hz = -1.0;
 	EXPECT_THROW(validate_runtime_options(options), std::invalid_argument);
 	options.simulation_hz = std::numeric_limits<double>::infinity();
 	EXPECT_THROW(validate_runtime_options(options), std::invalid_argument);

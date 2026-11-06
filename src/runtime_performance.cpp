@@ -16,13 +16,14 @@ std::uint64_t runtime_now_ns() noexcept
 void validate_runtime_options(const RuntimeOptions &options)
 {
 	if (options.simulation_hz.has_value() &&
-		(!std::isfinite(*options.simulation_hz) || *options.simulation_hz <= 0.0))
-		throw std::invalid_argument("Simulation rate must be finite and greater than zero");
+		(!std::isfinite(*options.simulation_hz) || *options.simulation_hz < 0.0))
+		throw std::invalid_argument("Simulation rate must be finite and non-negative");
 	if (options.render_hz.has_value() &&
 		(!std::isfinite(*options.render_hz) || *options.render_hz < 0.0))
 		throw std::invalid_argument("Render rate must be finite and non-negative");
-	if (options.fixed_simulation_timestep && !options.simulation_hz.has_value())
-		throw std::invalid_argument("A fixed simulation timestep requires a simulation rate");
+	if (options.fixed_simulation_timestep &&
+		(!options.simulation_hz.has_value() || *options.simulation_hz <= 0.0))
+		throw std::invalid_argument("A fixed simulation timestep requires a positive simulation rate");
 	constexpr auto max_dimension = static_cast<std::uint32_t>(std::numeric_limits<int>::max());
 	if ((options.width.has_value() && (*options.width == 0 || *options.width > max_dimension)) ||
 		(options.height.has_value() && (*options.height == 0 || *options.height > max_dimension)))
