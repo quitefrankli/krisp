@@ -13,6 +13,16 @@ FrameCaptureSession::RequestId FrameCaptureSession::request_next(const std::chro
 	if (pending_target || result)
 		throw std::logic_error("FrameCaptureSession: a capture request is already pending");
 	const auto request_id = next_request_id++;
+	if (suspended)
+	{
+		result = FrameCaptureResult{
+			.request_id = request_id,
+			.status = FrameCaptureStatus::Failed,
+			.error = "capture unavailable while rendering is suspended",
+		};
+		changed.notify_all();
+		return request_id;
+	}
 	pending_target = Target{
 		.request_id = request_id,
 		.deadline = Clock::now() + timeout,
@@ -148,6 +158,25 @@ void FrameCaptureSession::fail_all(std::string error)
 	changed.notify_all();
 }
 
+void FrameCaptureSession::set_suspended(const bool should_suspend)
+{
+	const std::lock_guard lock(mutex);
+	if (suspended == should_suspend)
+		return;
+	suspended = should_suspend;
+	if (suspended && pending_target)
+	{
+		result = FrameCaptureResult{
+			.request_id = pending_target->request_id,
+			.frame_number = pending_target->frame_number,
+			.status = FrameCaptureStatus::Failed,
+			.error = "capture failed because rendering was suspended",
+		};
+		pending_target.reset();
+	}
+	changed.notify_all();
+}
+
 std::optional<FrameCaptureResult> FrameCaptureSession::wait(const RequestId request_id,
                                                             const std::chrono::milliseconds timeout)
 {
@@ -168,9 +197,11 @@ std::optional<FrameCaptureResult> FrameCaptureSession::try_get_result(const Requ
 std::optional<FrameCaptureResult> FrameCaptureSession::take_result(const RequestId request_id)
 {
 	const std::lock_guard lock(mutex);
-	if (!result || result->request_id != request_id)
-		return std::nullopt;
-	auto completed = std::move(result);
-	result.reset();
-	return completed;
+	if (result && result->request_id == request_id)
+	{
+		auto completed = std::move(result);
+		result.reset();
+		return completed;
+	}
+	return std::nullopt;
 }

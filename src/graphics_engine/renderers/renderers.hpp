@@ -16,6 +16,7 @@ public:
 	~RasterizationRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
+	void release_per_frame_resources(bool image_count_changed) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::RASTERIZATION; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return resolve_attachments.at(frame_idx).image_view; };
@@ -44,6 +45,7 @@ public:
 	~PresentationRenderer();
 
 	void allocate_per_frame_resources(VkImage, VkImageView presentation_image_view) override;
+	void release_per_frame_resources(bool image_count_changed) override;
 	void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
 	constexpr ERendererType get_renderer_type() const override { return ERendererType::PRESENTATION; }
 	VkImageView get_output_image_view(uint32_t) override { return nullptr; }
@@ -68,6 +70,7 @@ public:
 	~GuiRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
+	void release_per_frame_resources(bool image_count_changed) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::GUI; }
 	virtual VkImageView get_output_image_view(uint32_t) override { return nullptr; };
@@ -117,6 +120,7 @@ public:
 	~ShadowMapRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
+	void release_per_frame_resources(bool image_count_changed) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::SHADOW_MAP; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return frames.at(frame_idx).preview_view; }
@@ -158,6 +162,7 @@ public:
 	~QuadRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage, VkImageView) override;
+	void release_per_frame_resources(bool image_count_changed) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::QUAD; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return color_attachments[frame_idx].image_view; };

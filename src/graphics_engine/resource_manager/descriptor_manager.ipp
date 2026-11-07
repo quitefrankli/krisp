@@ -194,6 +194,7 @@ VkDescriptorSet GraphicsDescriptorManager::reserve_dset(const VkDescriptorSetLay
 
 std::vector<VkDescriptorSet> GraphicsDescriptorManager::reserve_dsets(const std::vector<VkDescriptorSetLayout>& layouts)
 {
+	if (layouts.empty()) return {};
 	VkDescriptorSetAllocateInfo alloc_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
 	alloc_info.descriptorPool = descriptor_pool;
 	alloc_info.descriptorSetCount = layouts.size();

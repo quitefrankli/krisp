@@ -38,11 +38,14 @@ private:
 	VkPhysicalDevice physicalDevice;
 	VkDevice logical_device;
 	VmaAllocator allocator = VK_NULL_HANDLE;
+	const char* swapchain_maintenance_extension = nullptr;
 
-	static std::vector<const char*> get_required_extensions();
+	static std::vector<const char*> get_required_extensions(const char* maintenance_extension);
+	static const char* get_swapchain_maintenance_extension(VkPhysicalDevice device);
 
 	// returns vulkan style linked list of features
 	static VkPhysicalDeviceFeatures2* get_required_features();
+	static bool supports_required_features(VkPhysicalDevice device);
 
 	void pick_physical_device();
 	void create_logical_device();

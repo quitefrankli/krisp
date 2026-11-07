@@ -869,3 +869,245 @@ and sampling work and requires new pinned asset metadata and compatible
 benchmark baselines. Production assets and shaders were restored; details and
 controlled evidence are in
 [SPONZA_GRAIN_INVESTIGATION.md](benchmarks/research/SPONZA_GRAIN_INVESTIGATION.md).
+
+## Window lifecycle baseline (2026-11-06)
+
+Before implementing window resize/minimise support, measurements were collected
+from clean revision `c4618d20b4b8269d975ebfa0c31db470ae9a1393`, in optimized
+Release with assertions and Vulkan validation disabled. The selected GPU was an
+NVIDIA GeForce RTX 5070 Ti. Workers used 1280 x 720, 4x MSAA, three swapchain
+images, and the existing performance overlay. Throughput requested immediate
+presentation; effective settings are preserved per worker.
+
+Results live under
+`build/window-lifecycle-benchmarks/krisp-engine/benchmarks/performance/`:
+
+| Evidence | Run directory | Valid workers |
+| --- | --- | --- |
+| Standard baseline | `run-20261106T121729Z-dfa52db1` | 20/20 |
+| Unchanged-code control | `run-20261106T122812Z-2ffa35d8` | 20/20 |
+| Asset-loading baseline | `run-20261106T123841Z-762751cd` | 10/10 |
+
+Each directory retains `run_manifest.json`, `report.md`, worker metadata, logs
+and raw JSONL records. These build artifacts must be retained independently if
+cleaning the build directory. The control explicitly compares with the first
+standard run; all workload/mode compatibility checks passed. Earlier failed
+sandbox and focus-loss attempts are retained for diagnostics, not baselines.
+
+Run from the repository root, with the same isolated X11 setup before and after
+the change:
+
+```sh
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" xvfb-run -a ./run benchmarks --release -- performance run --suite standard --repetitions 5 --warmup 5 --measure 20
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" xvfb-run -a ./run benchmarks --release -- performance run --suite standard --repetitions 5 --warmup 5 --measure 20 --baseline build/window-lifecycle-benchmarks/krisp-engine/benchmarks/performance/run-20261106T121729Z-dfa52db1
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" xvfb-run -a ./run benchmarks --release -- performance run --suite asset-loading --repetitions 5
+```
+
+After implementation, add `--baseline` pointing to the corresponding standard
+or asset-loading directory. Keep protocol, assets, driver, GPU, resolution and
+effective settings identical and inspect compatibility and validity in reports;
+regressions alone do not make the runner exit unsuccessfully. Isolated X11 was
+necessary because normal desktop workers lost focus. The isolated session used
+the hardware GPU, but does not establish physical display pacing.
+
+### Baseline variation limits
+
+The two standard runs completed in approximately 10.5 minutes each. Despite
+unchanged code, successful-submission rate medians varied as follows:
+
+| Workload | Mode | Baseline / control submissions per second | Change |
+| --- | --- | --- | --- |
+| Moving transforms (500) | Throughput | 27.05 / 36.35 | +34.38% |
+| Point shadows (500) | Throughput | 27.15 / 35.25 | +29.83% |
+| Shadowed atrium | Throughput | 24.50 / 24.70 | +0.82% |
+| Shadowed atrium | Paced | 21.20 / 24.30 | +14.62% |
+
+All primary metric comparisons were inconclusive under the harness's 95%
+bootstrap intervals. Several repetitions show substantial shifts within a run.
+An after-run host inspection found browser, desktop and monitoring activity;
+this is context, not proof of the cause. No processes or host power settings
+were changed. Asset-loading cache state is uncontrolled, as in the existing
+protocol; no cold-cache claim is made.
+
+These are preliminary baseline artifacts, not a sufficiently stable reference
+for a 3% regression claim. Before treating 3% as an acceptance threshold,
+repeat the baseline/control protocol in a quiet, consistent host environment
+and establish variation small enough to resolve that change. Merely adding
+repetitions does not remove systematic drift. Preserve these runs rather than
+silently replacing their evidence or claiming no degradation from overlapping
+intervals.
+
+For the eventual comparison inspect CPU active work, command recording,
+uniform upload, total/per-pass GPU timings, frame-time p95/p99, paced missed
+deadlines and startup readiness, alongside throughput. Investigate median
+slowdowns above 3% and worsening tails, accounting for measured variation.
+Measure resize stalls and minimised resource usage separately after the feature
+exists; these runs establish unchanged-window and startup behaviour only.
+
+### Repeat after unrelated simulations stopped (2026-11-07 Sydney)
+
+The user confirmed unrelated simulations were running during the earlier
+measurements and stopped them before this repeat. The same revision, Release
+configuration, isolated X11 setup and commands above were used, with fresh
+processes and the same timings/repetitions. No engine code changed. Results:
+
+| Evidence | Run directory | Valid workers |
+| --- | --- | --- |
+| Standard baseline | `run-20261106T155810Z-5b5ee753` | 20/20 |
+| Unchanged-code control | `run-20261106T160847Z-e64c88ae` | 20/20 |
+| Asset-loading baseline | `run-20261106T161914Z-4dacdf07` | 10/10 |
+
+Run directory timestamps are UTC. All paths remain relative to the results
+root above. Logs are `baseline-standard-quiet.log`,
+`control-standard-quiet.log` and `baseline-loading-quiet.log` under
+`build/window-lifecycle-benchmarks/`. The control command selected the new
+standard baseline with `--baseline`; compatibility passed for every case/mode.
+For future comparisons use these latest baseline directories rather than the
+earlier simulation-contended runs, retaining both sets of evidence.
+
+| Workload | Mode | Baseline / control submissions per second | Change |
+| --- | --- | --- | --- |
+| Moving transforms (500) | Throughput | 35.15 / 37.00 | +5.26% |
+| Point shadows (500) | Throughput | 37.35 / 33.55 | -10.17% |
+| Shadowed atrium | Throughput | 28.75 / 25.20 | -12.35% |
+| Shadowed atrium | Paced | 29.80 / 29.90 | +0.34% |
+
+All 20 primary comparisons remain inconclusive. CPU active-work medians also
+vary substantially: shadowed-atrium throughput graphics active work changed
+by +47.44% and simulation active work by +41.72%. This repeat still cannot
+resolve a 3% CPU/throughput regression reliably. In contrast, shadowed-atrium
+throughput GPU median changed from 2.708800 to 2.709824 ms (+0.04%), with the
+bootstrap difference interval equivalent to [-0.16%, +0.18%] of the baseline
+median. That stability applies to this specific GPU metric, not the entire
+suite; other GPU comparisons have wider intervals.
+
+A host inspection during the loading suite showed browser and desktop activity
+alongside the benchmark. This does not establish the source of remaining
+variation. No host processes, scheduling, or power settings were changed.
+These latest runs supply valid pre-change evidence, but the 3% CPU acceptance
+threshold remains unqualified. A controlled-host investigation is needed before
+using it as a regression gate; the inconclusive control is not evidence of
+performance equivalence. The startup suite is a fresh baseline only, without
+an additional startup control comparison.
+
+### Window lifecycle implementation foundations
+
+The initial implementation makes viewport/scissor dynamic and sets them per
+rendering pass, avoiding a future need to rebuild compatible pipelines solely
+for dimension changes. Window snapshots use a short mutex-protected read;
+camera projection matrices update only when the aspect ratio changes. No
+performance effect is claimed until the complete lifecycle is integrated and
+compared with the recorded baselines. Recreation drains outstanding graphics and presentation work and may cause a
+transient resize stall. Unchanged image counts preserve fixed-size shadow,
+particle and preview resources. While minimised, the graphics thread sleeps on
+window-state changes; simulation and audio remain active. Presentation fences
+are required for correct resource cleanup. Post-change measurements are recorded
+below when available.
+
+### Completed window lifecycle: verification and comparisons (2026-11-07)
+
+The engine now coalesces framebuffer changes, suspends rendering on a condition
+variable while minimised, and uses required KHR/EXT swapchain maintenance
+presentation fences for recreation and shutdown. Compatible pipelines and scene
+assets survive size changes. Fixed-size shadow, particle and preview resources
+survive unchanged image counts. Renderable/skeleton per-image resources and GUI
+render buffers are rebuilt on image-count changes. ImGui platform windows are
+preserved by updating backend image counts without backend shutdown.
+
+All results below use the existing baseline protocols and verified asset cache,
+optimized Release with assertions/validation disabled, and isolated X11 with the
+same hardware GPU. Result directories are relative to the results root above.
+
+| Evidence | Run directory | Valid workers |
+| --- | --- | --- |
+| Final standard comparison | `run-20261107T071357Z-fef45431` | 20/20 |
+| Final loading comparison | `run-20261107T072414Z-06a1e714` | 10/10 |
+| Focused atrium loading repeat | `run-20261107T072543Z-391d47b3` | 5/5 |
+| Fresh original-revision atrium loading | `run-20261107T073024Z-4e0c3669` | 5/5 |
+
+Each selected baseline is explicit: standard uses
+`run-20261106T155810Z-5b5ee753`, loading uses
+`run-20261106T161914Z-4dacdf07`. Every case/mode comparison is compatible.
+Final standard median changes versus the saved baseline were:
+
+| Workload / mode | Submissions per second | CPU graphics active time | GPU time |
+| --- | --- | --- | --- |
+| Moving transforms / throughput | +4.55% | -0.39% | -5.64% |
+| Point shadows / throughput | -1.20% | +7.59% | -12.09% |
+| Shadowed atrium / throughput | +18.09% | -2.97% | -0.08% |
+| Shadowed atrium / paced | +0.17% | -1.72% | +0.21% |
+
+All 20 primary standard comparisons have 95% intervals including zero. In
+particular, the point-shadow CPU increase must not be presented as proof of
+no overhead. CPU/GPU phase medians, p95/p99, scheduling deadlines and raw records
+remain in the reports; there is no aggregate score or validated 3% guarantee.
+
+Loading initially flagged atrium instantiation (+10.61%) and asset-to-ready
+(+5.20%) versus the saved baseline. The focused repeat retained increases of
++11.98% and +5.54%, with engine-to-ready +5.81%. To investigate attribution, the
+original revision `c4618d20b4b8269d975ebfa0c31db470ae9a1393` was exported using
+`git archive` into `/tmp/krisp-window-prechange`, built independently with the
+same Conan native file, Release flags and compiler, and run against the same
+verified cache. Its source fingerprint matches the original baseline. The
+export has no Git metadata, so its recorded revision is unknown; the export
+revision is supplied here rather than altering the recorded manifest.
+
+The fresh original build also regressed against the saved baseline:
+instantiation +14.73%, asset-to-ready +6.53%, engine-to-ready +7.48%. Comparing
+the focused current-build repeat with that fresh original build gives -2.39%,
+-0.94% and -1.55%, respectively, all inconclusive. This supports host-condition
+variation as the explanation for the loading flags, rather than attributing
+them to resize support. Derived comparison data is saved separately as
+`build/window-lifecycle-benchmarks/loading-fresh-prechange-comparison.json`;
+original manifests/reports are unchanged. An earlier export run lacking native
+file provenance is retained as incompatible and is not used as evidence.
+
+Earlier rendering investigation runs are retained too:
+`run-20261107T030135Z-cc4af456`, `run-20261107T031238Z-27e1668e` and loading
+`run-20261107T031152Z-7a27455f`. A small-scene GPU increase in the first rendering
+run reversed in its focused repeat, reinforcing the variance limitation. Release
+smoke `run-20261107T032359Z-0a104eaf` is correctness evidence only. Final edge-case
+fixes and event-only recreation logging do not change benchmark definitions or
+steady-state workload settings; no timings are invented for unavailable cases.
+
+#### Native lifecycle evidence
+
+Debug validation checks use the explicit graphics executable, outside the
+headless Meson test schedule:
+
+```sh
+meson compile -C build/debug -j 6 sandbox window_lifecycle_integration
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" timeout 30s build/debug/test/window_lifecycle_integration deferred
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" timeout 30s build/debug/test/window_lifecycle_integration loading
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" timeout 30s build/debug/test/window_lifecycle_integration close-minimised
+XDG_DATA_HOME="$PWD/build/window-lifecycle-benchmarks" timeout 30s build/debug/test/window_lifecycle_integration captures
+```
+
+These require a desktop window manager; isolated X11 without one cannot exercise
+native minimisation. The deferred fixture reports zero initial framebuffer pixels
+and then exposes the real window, exercising a zero-to-three image-count rebuild.
+Other modes cover native startup minimisation, resize/maximise/restore, closing
+while minimised, recording finalisation, a real 960x540 post-resize readback and
+immediate capture failure during suspension. The screenshot request mechanism was exercised during resize and while
+minimised for completion after restore; two written PNGs decoded successfully
+as RGBA at 1400x800 and 960x540. The standalone UI button itself was not driven.
+Different nonzero image counts and fractional display scaling were unavailable
+on this setup and are not claimed as native platform coverage.
+
+In the settled minimised interval, observations record zero successful graphics
+submissions while 23–24 simulation ticks continue. A resize-return cycle leaves
+VMA allocation count unchanged at 33. Whole-process CPU time in a roughly
+500 ms minimised interval was about 95–130 ms in Debug, including simulation,
+audio and encoder activity; this is not graphics-thread CPU time. A probed
+recording retained 960x540 dimensions, 50 frames and a valid 0.833333-second stream.
+
+`Presentation recreation` logs measure the complete synchronous recreation
+interval, including waits and allocations. One Debug/validation capture run
+recorded approximately 13–82 ms per recreation. Request-to-next-present-call
+latency also includes scheduling and may refer to an already-submitted frame;
+it is not a direct recreation or scanout metric. These Debug event measurements
+are separate from Release steady-state comparisons. The final native runs had
+no Vulkan validation warnings/errors. Earlier failed fixture diagnostics remain
+in logs, rather than being erased. Fixes included empty descriptor batches,
+ImGui platform-handle lifetime, capture draining before recorder destruction,
+and stopping recording against the actual surface extent when it races events.

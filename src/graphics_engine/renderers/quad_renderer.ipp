@@ -17,15 +17,14 @@ QuadRenderer::QuadRenderer(GraphicsEngine& engine) :
 
 QuadRenderer::~QuadRenderer()
 {
+	release_per_frame_resources(true);
 	this->get_rsrc_mgr().free_dsets(textures);
-	for (auto& attachment : color_attachments)
-	{
-		attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
-	}
 }
 
 void QuadRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
+	if (consume_retained_per_frame_resource())
+		return;
 	textures.reserve(textures.size() + 1);
 	color_attachments.reserve(color_attachments.size() + 1);
 	const VkDescriptorSet texture = get_rsrc_mgr().reserve_dset(texture_layout);
@@ -60,6 +59,21 @@ void QuadRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 
 	textures.push_back(texture);
 	color_attachments.push_back(color_attachment);
+}
+
+void QuadRenderer::release_per_frame_resources(const bool image_count_changed)
+{
+	if (!image_count_changed)
+	{
+		retain_per_frame_resources(static_cast<uint32_t>(color_attachments.size()));
+		return;
+	}
+	retain_per_frame_resources(0);
+	get_rsrc_mgr().free_dsets(textures);
+	textures.clear();
+	for (auto& attachment : color_attachments)
+		attachment.destroy(get_logical_device(), get_graphics_engine().get_allocator());
+	color_attachments.clear();
 }
 
 void QuadRenderer::submit_draw_commands(
@@ -104,6 +118,7 @@ void QuadRenderer::submit_draw_commands(
 	rendering_info.colorAttachmentCount = 1;
 	rendering_info.pColorAttachments = &color_info;
 	vkCmdBeginRendering(command_buffer, &rendering_info);
+	command_set_viewport_scissor(command_buffer, get_extent());
 
 	SDS::QuadRendererPushConstant push_constant{};
 	push_constant.flags = sampling_flags;

@@ -28,18 +28,33 @@ GraphicsEngineFrame::GraphicsEngineFrame(
 	image_index(image_index),
 	analytics(std::string("Frame ") + std::to_string(image_index), 60)
 {
-	presentation_image_view = get_graphics_engine().create_image_view(
-		presentation_image, 
-		swap_chain.get_image_format(), 
-		VK_IMAGE_ASPECT_COLOR_BIT);
-	for (auto& [_, renderer] : engine.get_renderer_mgr().get_renderers())
+	try
 	{
-		renderer->allocate_per_frame_resources(presentation_image, presentation_image_view);
-	}
+		presentation_image_view = get_graphics_engine().create_image_view(
+			presentation_image, swap_chain.get_image_format(), VK_IMAGE_ASPECT_COLOR_BIT);
+		for (auto& [_, renderer] : engine.get_renderer_mgr().get_renderers())
+			renderer->allocate_per_frame_resources(presentation_image, presentation_image_view);
 
-	create_synchronisation_objects();
-	command_buffer = get_rsrc_mgr().create_command_buffer();
-	prepare_gpu_observation_queries();
+		create_synchronisation_objects();
+		command_buffer = get_rsrc_mgr().create_command_buffer();
+		prepare_gpu_observation_queries();
+	}
+	catch (...)
+	{
+		if (command_buffer != VK_NULL_HANDLE)
+			vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
+		if (observation_query_pool != VK_NULL_HANDLE)
+			vkDestroyQueryPool(get_logical_device(), observation_query_pool, nullptr);
+		if (render_finished_semaphore != VK_NULL_HANDLE)
+			vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
+		if (fence_frame_inflight != VK_NULL_HANDLE)
+			vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
+		if (present_fence != VK_NULL_HANDLE)
+			vkDestroyFence(get_logical_device(), present_fence, nullptr);
+		if (presentation_image_view != VK_NULL_HANDLE)
+			vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
+		throw;
+	}
 }
 
 GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
@@ -51,6 +66,9 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	swap_chain(frame.swap_chain),
 	render_finished_semaphore(std::move(frame.render_finished_semaphore)),
 	fence_frame_inflight(std::move(frame.fence_frame_inflight)),
+	present_fence(std::move(frame.present_fence)),
+	present_pending(frame.present_pending),
+	submission_pending(frame.submission_pending),
 	submission_serial(std::move(frame.submission_serial)),
 	observation_query_pool(std::exchange(frame.observation_query_pool, VK_NULL_HANDLE)),
 	current_gpu_query_recorded(frame.current_gpu_query_recorded),
@@ -71,8 +89,15 @@ GraphicsEngineFrame::GraphicsEngineFrame(GraphicsEngineFrame&& frame) noexcept :
 	recording_capture_target(std::move(frame.recording_capture_target))
 {
 	frame.should_destroy = false;
+	frame.presentation_image_view = VK_NULL_HANDLE;
+	frame.command_buffer = VK_NULL_HANDLE;
+	frame.render_finished_semaphore = VK_NULL_HANDLE;
+	frame.fence_frame_inflight = VK_NULL_HANDLE;
+	frame.present_fence = VK_NULL_HANDLE;
 	frame.current_gpu_query_recorded = false;
 	frame.gpu_query_pending = false;
+	frame.present_pending = false;
+	frame.submission_pending = false;
 }
 
 GraphicsEngineFrame::~GraphicsEngineFrame()
@@ -82,14 +107,58 @@ GraphicsEngineFrame::~GraphicsEngineFrame()
 		return;
 	}
 
-	vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
+	if (command_buffer != VK_NULL_HANDLE)
+		vkFreeCommandBuffers(get_logical_device(), get_graphics_engine().get_command_pool(), 1, &command_buffer);
 	if (observation_query_pool != VK_NULL_HANDLE)
 		vkDestroyQueryPool(get_logical_device(), observation_query_pool, nullptr);
 
 	// cleanup synchronisation objects
-	vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
-	vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
-	vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
+	if (render_finished_semaphore != VK_NULL_HANDLE)
+		vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
+	if (fence_frame_inflight != VK_NULL_HANDLE)
+		vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
+	if (present_fence != VK_NULL_HANDLE)
+		vkDestroyFence(get_logical_device(), present_fence, nullptr);
+	if (presentation_image_view != VK_NULL_HANDLE)
+		vkDestroyImageView(get_logical_device(), presentation_image_view, nullptr);
+}
+
+void GraphicsEngineFrame::wait_for_completion()
+{
+	if (submission_pending && vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight,
+		VK_TRUE, std::numeric_limits<std::uint64_t>::max()) != VK_SUCCESS)
+		throw std::runtime_error("failed to wait for frame submission");
+	if (present_pending && vkWaitForFences(get_logical_device(), 1, &present_fence,
+		VK_TRUE, std::numeric_limits<std::uint64_t>::max()) != VK_SUCCESS)
+		throw std::runtime_error("failed to wait for presentation completion");
+	present_pending = false;
+}
+
+void GraphicsEngineFrame::drain()
+{
+	if (submission_pending)
+	{
+		if (vkWaitForFences(get_logical_device(), 1, &fence_frame_inflight, VK_TRUE,
+			std::numeric_limits<std::uint64_t>::max()) != VK_SUCCESS)
+			throw std::runtime_error("failed to drain frame submission");
+		submission_pending = false;
+		collect_gpu_observation();
+		if (submission_serial)
+		{
+			get_graphics_engine().complete_graphics_submission(*submission_serial);
+			submission_serial.reset();
+		}
+		flush_screenshot_capture();
+		flush_frame_capture();
+		flush_recording_capture();
+	}
+	if (present_pending)
+	{
+		if (vkWaitForFences(get_logical_device(), 1, &present_fence, VK_TRUE,
+			std::numeric_limits<std::uint64_t>::max()) != VK_SUCCESS)
+			throw std::runtime_error("failed to drain swap chain presentation");
+		present_pending = false;
+	}
 }
 
 void GraphicsEngineFrame::prepare_gpu_observation_queries()
@@ -230,7 +299,7 @@ void GraphicsEngineFrame::update_command_buffer()
 	}
 }
 
-void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint64_t observation_submission)
+VkResult GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint64_t observation_submission)
 {
 	// The swapchain has already acquired this image. Wait before updating its resources.
 
@@ -267,6 +336,7 @@ void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint6
 	{
 		throw std::runtime_error("failed to wait for in-flight frame!");
 	}
+	submission_pending = false;
 	collect_gpu_observation();
 	if (submission_serial)
 	{
@@ -318,6 +388,7 @@ void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint6
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
+	submission_pending = true;
 	if (current_gpu_query_recorded)
 	{
 		pending_gpu_sample = RuntimeSample{
@@ -336,7 +407,20 @@ void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint6
 	// this step submits the result of the swapchain to have it eventually show up on the screen
 	//
 
+	if (present_pending)
+	{
+		if (vkWaitForFences(get_logical_device(), 1, &present_fence, VK_TRUE,
+			std::numeric_limits<std::uint64_t>::max()) != VK_SUCCESS)
+			throw std::runtime_error("failed to wait for prior presentation");
+		present_pending = false;
+	}
+	if (vkResetFences(get_logical_device(), 1, &present_fence) != VK_SUCCESS)
+		throw std::runtime_error("failed to reset presentation fence");
+	VkSwapchainPresentFenceInfoEXT present_fence_info{VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT};
+	present_fence_info.swapchainCount = 1;
+	present_fence_info.pFences = &present_fence;
 	VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+	present_info.pNext = &present_fence_info;
 	present_info.waitSemaphoreCount = 1;
 	// the semaphore to wait on before presentation
 	present_info.pWaitSemaphores = &render_finished_semaphore;
@@ -351,20 +435,13 @@ void GraphicsEngineFrame::draw(VkSemaphore image_available_semaphore, std::uint6
 	const auto present_end_ns = collect_cpu ? runtime_now_ns() : 0;
 	record_cpu_sample(RuntimeSampleKind::Present, present_begin_ns, present_end_ns,
 		result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR);
-	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-		throw std::runtime_error("failed to present swap chain image!");
-	}
+	if (result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
+		present_pending = true;
 
 	flush_screenshot_capture();
 	flush_frame_capture();
 	flush_recording_capture();
-
-	// if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frame_buffer_resized) { // recreate if we resize window
-	// 	frame_buffer_resized = false;
-	// 	reset();
-	// } else if (result != VK_SUCCESS) {
-	// 	throw std::runtime_error("failed to present swap chain image!");
-	// }
+	return result;
 }
 
 void GraphicsEngineFrame::update_uniform_buffer()
@@ -417,9 +494,20 @@ void GraphicsEngineFrame::create_synchronisation_objects()
 	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if (vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &render_finished_semaphore) != VK_SUCCESS ||
-		vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &fence_frame_inflight) != VK_SUCCESS)
+	if (vkCreateSemaphore(get_logical_device(), &semaphore_create_info, nullptr, &render_finished_semaphore) != VK_SUCCESS)
+		throw std::runtime_error("failed to create render-finished semaphore");
+	if (vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &fence_frame_inflight) != VK_SUCCESS)
 	{
-		throw std::runtime_error("failed to create semaphores!");
+		vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
+		render_finished_semaphore = VK_NULL_HANDLE;
+		throw std::runtime_error("failed to create frame submission fence");
+	}
+	if (vkCreateFence(get_logical_device(), &fence_create_info, nullptr, &present_fence) != VK_SUCCESS)
+	{
+		vkDestroyFence(get_logical_device(), fence_frame_inflight, nullptr);
+		vkDestroySemaphore(get_logical_device(), render_finished_semaphore, nullptr);
+		fence_frame_inflight = VK_NULL_HANDLE;
+		render_finished_semaphore = VK_NULL_HANDLE;
+		throw std::runtime_error("failed to create presentation fence");
 	}
 }

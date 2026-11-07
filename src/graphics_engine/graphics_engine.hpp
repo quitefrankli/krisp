@@ -74,6 +74,7 @@ public:
 	void request_shutdown() final
 	{
 		should_shutdown.store(true, std::memory_order_release);
+		window.wake_presentation_waiters();
 		get_recording_session().stop();
 		if (auto* capture = get_frame_capture_session())
 			capture->cancel_all();
@@ -81,6 +82,7 @@ public:
 
 public: // getters and setters
 	VkExtent2D get_extent();
+	void set_extent(VkExtent2D extent) { active_extent = extent; }
 	App::Window& get_window();
 	std::unordered_map<RenderableID, std::unique_ptr<GraphicsRenderable>>& get_renderables()
 	{ 
@@ -215,6 +217,7 @@ private: // core components
 	GraphicsEngineInstance instance;
 	GraphicsEngineValidationLayer validation_layer;
 	GraphicsEngineDevice device;
+	VkExtent2D active_extent{};
 	GraphicsEngineTextureManager texture_mgr;
 	GraphicsResourceManager rsrc_mgr;
 	RendererManager renderer_mgr;
@@ -234,6 +237,7 @@ private:
 	void retire_unused_resources();
 	void enqueue_retirement(RetiredGraphicsResources resources);
 	void release_retired_resources(RetiredGraphicsResources resources);
+	void rebuild_per_image_resources();
 	void create_renderable_buffers(GraphicsRenderable& renderable);
 	void create_renderable_dsets(GraphicsRenderable& renderable);
 };

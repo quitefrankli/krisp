@@ -14,6 +14,7 @@ public:
 	~ParticleRenderer();
 
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) override;
+	void release_per_frame_resources(bool image_count_changed) override;
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index) override;
 	virtual constexpr ERendererType get_renderer_type() const override { return ERendererType::PARTICLE; }
 	virtual VkImageView get_output_image_view(uint32_t frame_idx) override { return nullptr; }
@@ -129,7 +130,20 @@ void ParticleRenderer::update_instance_buffer(uint32_t frame_index)
 
 void ParticleRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
+	if (consume_retained_per_frame_resource())
+		return;
 	create_instance_buffer();
+}
+
+void ParticleRenderer::release_per_frame_resources(const bool image_count_changed)
+{
+	if (!image_count_changed)
+	{
+		retain_per_frame_resources(static_cast<uint32_t>(instance_buffers.size()));
+		return;
+	}
+	retain_per_frame_resources(0);
+	instance_buffers.clear();
 }
 
 void ParticleRenderer::submit_draw_commands(VkCommandBuffer command_buffer, VkImageView presentation_image_view, uint32_t frame_index)

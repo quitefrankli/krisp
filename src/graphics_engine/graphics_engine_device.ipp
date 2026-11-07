@@ -13,6 +13,7 @@
 #include <iostream>
 #include <set>
 #include <string_view>
+#include <cstring>
 #include "graphics_engine_device.hpp"
 
 
@@ -74,6 +75,21 @@ void GraphicsEngineDevice::pick_physical_device()
 
 		if (!check_device_extension_support(device))
 		{
+			return false;
+		}
+		const char* maintenance_extension = get_swapchain_maintenance_extension(device);
+		if (maintenance_extension == nullptr)
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks a supported KHR/EXT swapchain maintenance extension and surface maintenance dependency",
+				deviceProperties.deviceName);
+			return false;
+		}
+		if (!supports_required_features(device))
+		{
+			LOG_WARNING(Utility::get_logger(),
+				"GraphicsEngineDevice: {} lacks the required swapchainMaintenance1 feature",
+				deviceProperties.deviceName);
 			return false;
 		}
 
@@ -186,13 +202,14 @@ void GraphicsEngineDevice::pick_physical_device()
 	for (const auto& device : devices) {
 		if (isDeviceSuitable(device)) {
 			physicalDevice = device;
+			swapchain_maintenance_extension = get_swapchain_maintenance_extension(device);
 			break;
 		}
 	}
 
 	if (physicalDevice == VK_NULL_HANDLE) {
 		throw std::runtime_error(
-			"failed to find a suitable GPU (requires Vulkan 1.3 dynamic rendering, synchronization2, and sampled RGBA16F color attachments)");
+		"failed to find a suitable GPU (requires Vulkan 1.3 dynamic rendering, synchronization2, sampled RGBA16F color attachments, and enabled KHR/EXT swapchain maintenance1 support)");
 	}
 }
 
@@ -217,7 +234,7 @@ bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice devic
 
 	auto required_extensions_set = [&]()
 	{
-		const auto required_device_extensions = get_required_extensions();
+		const auto required_device_extensions = get_required_extensions(nullptr);
 		std::set<std::string_view> required_extensions(required_device_extensions.begin(), required_device_extensions.end());
 		return required_extensions;
 	}();
@@ -232,6 +249,49 @@ bool GraphicsEngineDevice::check_device_extension_support(VkPhysicalDevice devic
 			 fmt::format("{}", fmt::join(available_extensions, ", ")));
 	
 	return required_extensions_set.empty();
+}
+
+const char* GraphicsEngineDevice::get_swapchain_maintenance_extension(VkPhysicalDevice device)
+{
+	uint32_t device_extension_count = 0;
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, nullptr);
+	std::vector<VkExtensionProperties> device_extensions(device_extension_count);
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &device_extension_count, device_extensions.data());
+	const auto has_device_extension = [&device_extensions](const char* name) {
+		return std::any_of(device_extensions.begin(), device_extensions.end(), [name](const auto& extension) {
+			return std::strcmp(extension.extensionName, name) == 0;
+		});
+	};
+
+	uint32_t instance_extension_count = 0;
+	vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr);
+	std::vector<VkExtensionProperties> instance_extensions(instance_extension_count);
+	vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, instance_extensions.data());
+	const auto has_instance_extension = [&instance_extensions](const char* name) {
+		return std::any_of(instance_extensions.begin(), instance_extensions.end(), [name](const auto& extension) {
+			return std::strcmp(extension.extensionName, name) == 0;
+		});
+	};
+
+	constexpr char khr_swapchain_maintenance[] = "VK_KHR_swapchain_maintenance1";
+	constexpr char ext_surface_maintenance[] = "VK_EXT_surface_maintenance1";
+	constexpr char khr_surface_maintenance[] = "VK_KHR_surface_maintenance1";
+	if (has_device_extension(khr_swapchain_maintenance) && has_instance_extension(khr_surface_maintenance))
+		return khr_swapchain_maintenance;
+	if (has_device_extension(VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME)
+		&& has_instance_extension(ext_surface_maintenance))
+		return VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME;
+	return nullptr;
+}
+
+bool GraphicsEngineDevice::supports_required_features(VkPhysicalDevice device)
+{
+	VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchain_maintenance1{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+	VkPhysicalDeviceFeatures2 supported_features{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
+	supported_features.pNext = &swapchain_maintenance1;
+	vkGetPhysicalDeviceFeatures2(device, &supported_features);
+	return swapchain_maintenance1.swapchainMaintenance1 == VK_TRUE;
 }
 
 void GraphicsEngineDevice::create_logical_device()
@@ -263,7 +323,7 @@ void GraphicsEngineDevice::create_logical_device()
 	VkDeviceCreateInfo create_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
 	create_info.pQueueCreateInfos = queue_create_infos.data();
 	create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
-	const auto required_device_extensions = get_required_extensions();
+	const auto required_device_extensions = get_required_extensions(swapchain_maintenance_extension);
 	create_info.enabledExtensionCount = static_cast<uint32_t>(required_device_extensions.size());
 	create_info.ppEnabledExtensionNames = required_device_extensions.data();
 	create_info.pNext = get_required_features();
@@ -320,11 +380,13 @@ const VkPhysicalDeviceProperties2& GraphicsEngineDevice::get_physical_device_pro
 // 	return vkGetBufferDeviceAddress(get_logical_device(), &info);
 // }
 
-std::vector<const char*> GraphicsEngineDevice::get_required_extensions()
+std::vector<const char*> GraphicsEngineDevice::get_required_extensions(const char* maintenance_extension)
 {
 	std::vector<const char*> required_device_extensions;
 
 	required_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+	if (maintenance_extension != nullptr)
+		required_device_extensions.push_back(maintenance_extension);
 	// Ray-tracing extensions are intentionally not requested while unsupported.
 	// For ray tracing:
 	// required_device_extensions.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
@@ -365,6 +427,10 @@ VkPhysicalDeviceFeatures2* GraphicsEngineDevice::get_required_features()
 		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
 	vulkan13.dynamicRendering = VK_TRUE;
 	vulkan13.synchronization2 = VK_TRUE;
+	static VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchain_maintenance1{
+		VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SWAPCHAIN_MAINTENANCE_1_FEATURES_EXT};
+	swapchain_maintenance1.swapchainMaintenance1 = VK_TRUE;
+	vulkan13.pNext = &swapchain_maintenance1;
 	device_features2.pNext = &vulkan13;
 
 	// For ray tracing:

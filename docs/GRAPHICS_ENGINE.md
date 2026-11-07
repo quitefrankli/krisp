@@ -261,3 +261,46 @@ The complete game-to-renderer contract is described in
   defines the installed renderer set and renderer wiring.
 - [`graphics_resource_manager.hpp`](../src/graphics_engine/resource_manager/graphics_resource_manager.hpp)
   is the entry point for command-buffer, buffer, and descriptor allocation.
+
+## Window presentation state
+
+The event thread publishes framebuffer pixel dimensions, iconification and a
+monotonic generation through `Window::get_presentation_state()`. GLFW input
+callbacks retain their engine callback target separately from the window user
+pointer. Logical window dimensions remain the coordinate basis for cursor
+normalisation; zero dimensions produce a neutral cursor position.
+
+Camera aspect updates run on the game thread before immutable scene publication.
+They preserve perspective vertical field of view and orthographic vertical span.
+Graphics pipelines use dynamic viewport/scissor state set once per pass, using
+that pass's extent (including separate shadow and preview extents).
+
+The graphics thread coalesces framebuffer generations and rebuilds presentation
+resources after draining graphics and presentation fences. KHR or EXT
+`swapchain_maintenance1` with its surface dependency is required; unsupported
+devices fail startup explicitly. Scene assets and compatible pipelines survive
+recreation; fixed-size shadow, particle and preview resources survive when the
+image count stays the same. Per-image renderable/skeleton resources are rebuilt
+if the actual image count changes.
+
+Iconification or a zero framebuffer suspends acquisition, drawing and presentation
+on a condition variable. Window events, simulation and audio continue; shutdown
+wakes the graphics thread. Recording output pauses during minimisation and resumes
+without synthesising frames. A framebuffer size change finalises and stops an
+active recording cleanly. Submitted captures drain at their original dimensions;
+unsubmitted captures fail explicitly on recreation or suspension. New frame
+capture requests while suspended fail immediately through the existing result
+slot. UI preview descriptors refresh after their image resources are replaced. The
+bundled ImGui Vulkan backend updates its render-buffer image count without
+shutting down the GLFW platform backend; unrelated texture descriptors remain
+valid. Empty descriptor batches are handled without a Vulkan allocation call.
+
+`GuiDebug::request_screenshot()` posts a thread-safe screenshot request through
+the same path as the debug UI. Pending screenshots carry their submitted extent
+through readback and PNG writing. Recording finalisation checks the actual new
+surface extent, which can race ahead of GLFW events. Shutdown drains captures
+while the recorder and UI still exist; late swapchain destruction only waits for
+Vulkan completion and does not call already-destroyed engine services.
+
+Native lifecycle checks are available as `window_lifecycle_integration`; see
+PERFORMANCE.md for build/run commands, fixture modes and measured limitations.

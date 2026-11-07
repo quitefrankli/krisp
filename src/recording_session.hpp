@@ -32,6 +32,7 @@ public:
 
 	void start(uint32_t frames_per_second);
 	void stop();
+	void set_suspended(bool suspended);
 	bool is_active() const;
 	uint32_t get_frames_per_second() const;
 
@@ -53,7 +54,9 @@ private:
 	mutable std::mutex mutex;
 	std::condition_variable state_changed;
 	bool active = false;
+	bool suspended = false;
 	uint64_t session_number = 0;
+	uint64_t suspension_generation = 0;
 	uint64_t next_sequence = 0;
 	uint32_t frames_per_second = 0;
 	Clock::time_point next_frame_not_before{};

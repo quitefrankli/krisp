@@ -26,6 +26,7 @@ public:
 
 	// links the inputs and outputs of specific renderers
 	void pipe_output_to_quad_renderer(ERendererType src_renderer);
+	void release_per_frame_resources(bool image_count_changed);
 
 private:
 	std::map<ERendererType, std::unique_ptr<Renderer>> renderers;

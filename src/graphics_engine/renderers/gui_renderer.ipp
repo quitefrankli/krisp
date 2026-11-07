@@ -10,6 +10,13 @@ GuiRenderer::GuiRenderer(GraphicsEngine& engine) :
 
 GuiRenderer::~GuiRenderer()
 {
+	release_per_frame_resources(true);
+}
+
+void GuiRenderer::release_per_frame_resources(bool)
+{
+	presentation_images.clear();
+	presentation_image_views.clear();
 }
 
 void GuiRenderer::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)

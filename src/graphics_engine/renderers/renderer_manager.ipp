@@ -34,3 +34,9 @@ void RendererManager::pipe_output_to_quad_renderer(ERendererType src_renderer)
 			PbrMaterial::TextureSampler::clamp_to_edge()));
 	quad_renderer.set_texture_sampling_flags(1);
 }
+
+void RendererManager::release_per_frame_resources(const bool image_count_changed)
+{
+	for (auto& [_, renderer] : renderers)
+		renderer->release_per_frame_resources(image_count_changed);
+}

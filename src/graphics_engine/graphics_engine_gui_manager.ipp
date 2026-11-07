@@ -15,6 +15,8 @@
 
 #include <cstdio>
 #include <utility>
+#include <algorithm>
+#include <iterator>
 
 
 namespace
@@ -70,7 +72,8 @@ GraphicsEngineGuiManager::~GraphicsEngineGuiManager()
 	// Persist immediately on orderly shutdown, including sessions shorter than
 	// ImGui's periodic settings-save interval.
 	ImGui::SaveIniSettingsToDisk(imgui_ini_path.c_str());
-	ImGui_ImplVulkan_Shutdown();
+	if (imgui_vulkan_initialized)
+		ImGui_ImplVulkan_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 }
@@ -331,6 +334,11 @@ void GraphicsEngineGuiManager::setup_imgui()
 	ImGui::LoadIniSettingsFromDisk(io.IniFilename);
 	ImGui_ImplGlfw_InitForVulkan(get_graphics_engine().get_window().get_glfw_window(), true);
 
+	initialize_imgui_vulkan();
+}
+
+void GraphicsEngineGuiManager::initialize_imgui_vulkan()
+{
 	ImGui_ImplVulkan_InitInfo init_info{};
 	init_info.ApiVersion = VK_API_VERSION_1_3;
 	init_info.Instance = get_graphics_engine().get_instance();
@@ -342,7 +350,7 @@ void GraphicsEngineGuiManager::setup_imgui()
 	// descriptor types for its dynamic font atlas.
 	init_info.DescriptorPool = VK_NULL_HANDLE;
 	init_info.DescriptorPoolSize = 64;
-	init_info.MinImageCount = get_graphics_engine().get_num_swapchain_images();
+	init_info.MinImageCount = std::max(2u, get_graphics_engine().get_num_swapchain_images());
 	init_info.ImageCount = init_info.MinImageCount;
 	// GUI uses a dedicated single-sample pipeline over the presentation image.
 	const VkFormat presentation_format = get_graphics_engine().get_swap_chain().get_image_format();
@@ -354,6 +362,27 @@ void GraphicsEngineGuiManager::setup_imgui()
 	init_info.PipelineInfoMain.MSAASamples = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
 
 	ImGui_ImplVulkan_Init(&init_info);
+	imgui_vulkan_initialized = true;
+}
+
+void GraphicsEngineGuiManager::release_per_frame_resources(const bool image_count_changed)
+{
+	const std::lock_guard lock(engine_ui_manager.state_mutex);
+	if (!image_count_changed || !imgui_vulkan_initialized || render_slicer_descriptor == VK_NULL_HANDLE)
+		return;
+	ImGui_ImplVulkan_RemoveTexture(render_slicer_descriptor);
+	render_slicer_descriptor = VK_NULL_HANDLE;
+}
+
+void GraphicsEngineGuiManager::rebuild_per_frame_resources(const bool image_count_changed)
+{
+	if (!image_count_changed)
+		return;
+	const std::lock_guard lock(engine_ui_manager.state_mutex);
+	const uint32_t image_count = get_graphics_engine().get_num_swapchain_images();
+	if (image_count > 0)
+		ImGui_ImplVulkan_SetImageCount(std::max(2u, image_count));
+	refresh_render_slicer_preview();
 }
 
 void GraphicsEngineGuiManager::setup_gui_windows()
@@ -363,15 +392,8 @@ void GraphicsEngineGuiManager::setup_gui_windows()
 		compose_texture_for_gui_window(std::move(texture_owner), engine_ui_manager.photo);
 	});
 
-	// RenderSlicer will always read from output of QuadRenderer
-	auto& quad_renderer = get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD);
-	VkDescriptorSet dset = ImGui_ImplVulkan_AddTexture(
-		get_graphics_engine().get_texture_mgr().fetch_sampler(
-			PbrMaterial::TextureSampler::clamp_to_edge()),
-		quad_renderer.get_output_image_view(0),
-		VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	engine_ui_manager.render_slicer.update(
-		dset, { quad_renderer.get_extent().width, quad_renderer.get_extent().height });
+	// RenderSlicer will always read from output of QuadRenderer.
+	refresh_render_slicer_preview();
 	engine_ui_manager.render_slicer.init([&](const std::string& slice)
 	{
 		if (slice == "none")
@@ -388,17 +410,45 @@ void GraphicsEngineGuiManager::compose_texture_for_gui_window(
 	MaterialHandle texture_owner,
 	GuiPhotoBase& gui_photo)
 {
-	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
-		texture_owner,
-		PbrMaterial::TextureSampler::clamp_to_edge());
-	gui_texture_owners.push_back(std::move(texture_owner));
+	auto binding = std::find_if(gui_texture_bindings.begin(), gui_texture_bindings.end(),
+		[&](const GuiTextureBinding& current) { return current.target == &gui_photo; });
+	if (binding == gui_texture_bindings.end())
+	{
+		gui_texture_bindings.push_back({ std::move(texture_owner), &gui_photo });
+		binding = std::prev(gui_texture_bindings.end());
+	}
+	else
+	{
+		if (imgui_vulkan_initialized && binding->descriptor != VK_NULL_HANDLE)
+			ImGui_ImplVulkan_RemoveTexture(binding->descriptor);
+		binding->owner = std::move(texture_owner);
+		binding->descriptor = VK_NULL_HANDLE;
+	}
+	refresh_gui_texture_binding(*binding);
+}
 
-	// TODO: figure out if we need to also do ImGui_ImplVulkan_RemoveTexture(tex_data->DS);
-	// https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
-	VkDescriptorSet dset = ImGui_ImplVulkan_AddTexture(
-		texture.get_texture_sampler(),
-		texture.get_texture_image_view(),
+void GraphicsEngineGuiManager::refresh_render_slicer_preview()
+{
+	if (get_graphics_engine().get_num_swapchain_images() == 0)
+		return;
+	auto& quad_renderer = get_graphics_engine().get_renderer_mgr().get_renderer(ERendererType::QUAD);
+	render_slicer_descriptor = ImGui_ImplVulkan_AddTexture(
+		get_graphics_engine().get_texture_mgr().fetch_sampler(
+			PbrMaterial::TextureSampler::clamp_to_edge()),
+		quad_renderer.get_output_image_view(0),
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	engine_ui_manager.render_slicer.update(
+		render_slicer_descriptor, { quad_renderer.get_extent().width, quad_renderer.get_extent().height });
+}
 
-	gui_photo.update(dset, { texture.get_width(), texture.get_height() });
+void GraphicsEngineGuiManager::refresh_gui_texture_binding(GuiTextureBinding& binding)
+{
+	if (!imgui_vulkan_initialized || binding.descriptor != VK_NULL_HANDLE)
+		return;
+	GraphicsEngineTexture& texture = get_graphics_engine().get_texture_mgr().fetch_texture(
+		binding.owner, PbrMaterial::TextureSampler::clamp_to_edge());
+	binding.descriptor = ImGui_ImplVulkan_AddTexture(
+		texture.get_texture_sampler(), texture.get_texture_image_view(),
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	binding.target->update(binding.descriptor, { texture.get_width(), texture.get_height() });
 }

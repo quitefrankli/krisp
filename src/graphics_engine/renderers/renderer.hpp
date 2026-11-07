@@ -36,6 +36,10 @@ public:
 
 	// Allocates attachments for one swap-chain image.
 	virtual void allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view) = 0;
+	// Releases swap-chain indexed resources before presentation recreation. A
+	// renderer may retain resources that are independent of the window extent
+	// when the actual image count is unchanged.
+	virtual void release_per_frame_resources(bool image_count_changed) { (void)image_count_changed; }
 	virtual void submit_draw_commands(VkCommandBuffer command_buffer, 
 									  VkImageView presentation_image_view, 
 									  uint32_t frame_index) = 0;
@@ -56,7 +60,19 @@ public:
 								 uint32_t light_index = 0);
 	void reset_draw_state();
 
+	// Retained renderers still receive one allocation callback for every newly
+	// constructed frame. Consume callbacks for slots whose resources survived.
+	void retain_per_frame_resources(uint32_t count) { retained_allocation_callbacks = count; }
+	bool consume_retained_per_frame_resource()
+	{
+		if (retained_allocation_callbacks == 0)
+			return false;
+		--retained_allocation_callbacks;
+		return true;
+	}
+
 private:
+	uint32_t retained_allocation_callbacks = 0;
 	VkPipeline bound_pipeline = VK_NULL_HANDLE;
 	std::optional<MeshID> bound_mesh;
 };

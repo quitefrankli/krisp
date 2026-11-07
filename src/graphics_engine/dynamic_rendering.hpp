@@ -33,3 +33,18 @@ inline void command_image_barrier(
 	dependency_info.pImageMemoryBarriers = &barrier;
 	vkCmdPipelineBarrier2(command_buffer, &dependency_info);
 }
+
+inline void command_set_viewport_scissor(VkCommandBuffer command_buffer, VkExtent2D extent)
+{
+	VkViewport viewport{};
+	viewport.x = 0.0f;
+	viewport.y = static_cast<float>(extent.height);
+	viewport.width = static_cast<float>(extent.width);
+	viewport.height = -static_cast<float>(extent.height);
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+
+	const VkRect2D scissor{{0, 0}, extent};
+	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
+}

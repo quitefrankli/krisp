@@ -46,7 +46,7 @@ const EInputAction get_input_action(int action)
 	}
 }
 
-static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+void App::Window::scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	const bool gui_wants_input = ImGui::GetIO().WantCaptureMouse;
 	if (gui_wants_input)
@@ -54,8 +54,8 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 
 	try
 	{
-		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->scroll_callback(yoffset, gui_wants_input);
+		auto* app_window = static_cast<App::Window*>(glfwGetWindowUserPointer(window));
+		app_window->callbacks->scroll_callback(yoffset, gui_wants_input);
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());
@@ -63,7 +63,7 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	}
 }
 
-static void key_callback(GLFWwindow* window, int key, int scan_code, int action, int mode)
+void App::Window::key_callback(GLFWwindow* window, int key, int scan_code, int action, int mode)
 {
 	// Keep ImGui key state current even after a text field releases capture.
 	ImGui_ImplGlfw_KeyCallback(window, key, scan_code, action, mode);
@@ -86,8 +86,8 @@ static void key_callback(GLFWwindow* window, int key, int scan_code, int action,
 		const EKeyModifier key_modifier = get_key_modifier(mode);
 		const EInputAction input_action = get_input_action(action);
 
-		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->key_callback({key, key_modifier, input_action});
+		auto* app_window = static_cast<App::Window*>(glfwGetWindowUserPointer(window));
+		app_window->callbacks->key_callback({key, key_modifier, input_action});
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());
@@ -95,7 +95,7 @@ static void key_callback(GLFWwindow* window, int key, int scan_code, int action,
 	}
 }
 
-static void mouse_button_callback(GLFWwindow* window, int button, int action, int mode)
+void App::Window::mouse_button_callback(GLFWwindow* window, int button, int action, int mode)
 {
 	if (ImGui::GetIO().WantCaptureMouse)
 	{
@@ -115,8 +115,8 @@ static void mouse_button_callback(GLFWwindow* window, int button, int action, in
 
 		const EInputAction input_action = get_input_action(action);
 
-		auto* window_callback = static_cast<IWindowCallbacks*>(glfwGetWindowUserPointer(window));
-		window_callback->mouse_button_callback({mouse_button, get_key_modifier(mode), input_action}, ImGui::GetIO().WantCaptureMouse);
+		auto* app_window = static_cast<App::Window*>(glfwGetWindowUserPointer(window));
+		app_window->callbacks->mouse_button_callback({mouse_button, get_key_modifier(mode), input_action}, ImGui::GetIO().WantCaptureMouse);
 	} catch (const std::exception& e)
 	{
 		fmt::print("Exception: {}\n", e.what());
@@ -173,6 +173,8 @@ App::Window::Window(bool create_window, int width, int height)
 		nullptr);
 	if (!window)
 		throw std::runtime_error("Failed to create the engine window");
+	glfwSetWindowUserPointer(window, this);
+	publish_presentation_state();
 
 	const auto* monitor = glfwGetVideoMode(glfwGetPrimaryMonitor());
 	glfwSetWindowPos(window, x0 == -1 && monitor ? (monitor->width - width)/2 : x0, y0 == -1 ? 50 : y0);
@@ -193,13 +195,63 @@ App::Window::~Window()
 
 void App::Window::setup_callbacks(IWindowCallbacks& callbacks)
 {
-	glfwSetWindowUserPointer(window, &callbacks);
+	this->callbacks = &callbacks;
+	glfwSetWindowUserPointer(window, this);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetWindowIconifyCallback(window, iconify_callback);
 	// glfwSetFramebufferSizeCallback(window, IWindowCallbacks::window_resize_callback);
 	// glfwSetWindowCloseCallback(window, window_close_callback);
 	// glfwSetCursorPosCallback(window, IWindowCallbacks::cursor_pos_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
+}
+
+void App::Window::framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	auto* app_window = static_cast<App::Window*>(glfwGetWindowUserPointer(window));
+	app_window->publish_presentation_state(width, height,
+		glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_TRUE);
+}
+
+void App::Window::iconify_callback(GLFWwindow* window, int iconified)
+{
+	auto* app_window = static_cast<App::Window*>(glfwGetWindowUserPointer(window));
+	int framebuffer_width = 0;
+	int framebuffer_height = 0;
+	glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+	app_window->publish_presentation_state(framebuffer_width, framebuffer_height, iconified == GLFW_TRUE);
+}
+
+void App::Window::publish_presentation_state()
+{
+	if (!window)
+		return;
+	int framebuffer_width = 0;
+	int framebuffer_height = 0;
+	glfwGetFramebufferSize(window, &framebuffer_width, &framebuffer_height);
+	publish_presentation_state(framebuffer_width, framebuffer_height,
+		glfwGetWindowAttrib(window, GLFW_ICONIFIED) == GLFW_TRUE);
+}
+
+void App::Window::publish_presentation_state(int framebuffer_width, int framebuffer_height, bool iconified)
+{
+	presentation_state.publish(framebuffer_width, framebuffer_height, iconified);
+}
+
+App::PresentationState App::Window::get_presentation_state() const
+{
+	return presentation_state.get();
+}
+
+bool App::Window::wait_for_presentation_change(std::uint64_t generation, const std::atomic<bool>& shutdown) const
+{
+	return presentation_state.wait_for_change(generation, shutdown);
+}
+
+void App::Window::wake_presentation_waiters() const
+{
+	presentation_state.wake_waiters();
 }
 
 int App::Window::get_width()
@@ -228,12 +280,18 @@ int App::Window::get_height()
 
 glm::vec2 App::Window::get_cursor_pos()
 {
+	if (!window)
+		return glm::vec2(0.0f);
 	double pixel_x, pixel_y;
 	glfwGetCursorPos(window, &pixel_x, &pixel_y);
+	const int logical_width = get_width();
+	const int logical_height = get_height();
+	if (logical_width <= 0 || logical_height <= 0)
+		return glm::vec2(0.0f);
 	const glm::vec2 position{
-		 2.0f * static_cast<float>(pixel_x) / static_cast<float>(get_width())  - 1.0f,
+		 2.0f * static_cast<float>(pixel_x) / static_cast<float>(logical_width)  - 1.0f,
 		// glfw has top->down as negative but our coordinate system is Y+ up
-		-2.0f * static_cast<float>(pixel_y) / static_cast<float>(get_height()) + 1.0f
+		-2.0f * static_cast<float>(pixel_y) / static_cast<float>(logical_height) + 1.0f
 	};
 	return cursor_captured ? position : glm::clamp(position, glm::vec2(-1.0f), glm::vec2(1.0f));
 }

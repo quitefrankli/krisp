@@ -32,6 +32,8 @@ public:
 		application_ui_active.store(application_active, std::memory_order_release);
 	}
 	void setup_imgui();
+	void release_per_frame_resources(bool image_count_changed);
+	void rebuild_per_frame_resources(bool image_count_changed);
 	void draw_workspace();
 	void draw_application_ui();
 	void build_default_layout(ImGuiID dockspace_id, const ImVec2& size);
@@ -48,6 +50,17 @@ public:
 	}
 
 private:
+	struct GuiTextureBinding
+	{
+		MaterialHandle owner;
+		GuiPhotoBase* target = nullptr;
+		VkDescriptorSet descriptor = VK_NULL_HANDLE;
+	};
+
+	void initialize_imgui_vulkan();
+	void refresh_render_slicer_preview();
+	void refresh_gui_texture_binding(GuiTextureBinding& binding);
+
 	bool reset_layout_requested = false;
 	std::atomic<bool> engine_ui_active = true;
 	std::atomic<bool> application_ui_active = false;
@@ -55,5 +68,7 @@ private:
 	ApplicationUiManager* application_ui_manager = nullptr;
 	std::string imgui_ini_path;
 	EngineUiManager engine_ui_manager;
-	std::vector<MaterialHandle> gui_texture_owners;
+	std::vector<GuiTextureBinding> gui_texture_bindings;
+	VkDescriptorSet render_slicer_descriptor = VK_NULL_HANDLE;
+	bool imgui_vulkan_initialized = false;
 };

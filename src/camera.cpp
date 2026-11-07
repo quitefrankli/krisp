@@ -206,6 +206,21 @@ void Camera::toggle_projection()
 	projection_is_perspective = !projection_is_perspective;
 }
 
+void Camera::set_aspect_ratio(const float new_aspect_ratio)
+{
+	if (!std::isfinite(new_aspect_ratio) || new_aspect_ratio <= 0.0f)
+		throw std::invalid_argument("Camera aspect ratio must be finite and positive");
+
+	if (new_aspect_ratio == aspect_ratio)
+		return;
+
+	const float horizontal_scale = new_aspect_ratio / aspect_ratio;
+	const glm::vec2 updated_horizontal_span = orthographic_horizontal_span * horizontal_scale;
+	aspect_ratio = new_aspect_ratio;
+	perspective_matrix = glm::perspectiveLH(fov, aspect_ratio, near_clipping, far_clipping);
+	set_orthographic_projection(updated_horizontal_span);
+}
+
 void Camera::set_orthographic_projection(const glm::vec2& horizontal_span)
 {
 	orthographic_horizontal_span = horizontal_span;

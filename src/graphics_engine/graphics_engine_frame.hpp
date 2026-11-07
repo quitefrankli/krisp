@@ -27,7 +27,9 @@ public:
 
 public:
 	void update_command_buffer();
-	void draw(VkSemaphore image_available_semaphore, std::uint64_t observation_submission);
+	VkResult draw(VkSemaphore image_available_semaphore, std::uint64_t observation_submission);
+	void drain();
+	void wait_for_completion();
 	VkFence get_submission_fence() const { return fence_frame_inflight; }
 	void collect_gpu_observation();
 
@@ -45,8 +47,8 @@ private:
 public:
 	// Interprets a VkImage and describes how to access it
 	VkImage presentation_image;
-	VkImageView presentation_image_view;
-	VkCommandBuffer command_buffer;
+	VkImageView presentation_image_view = VK_NULL_HANDLE;
+	VkCommandBuffer command_buffer = VK_NULL_HANDLE;
 
 	const uint32_t image_index;
 	
@@ -55,8 +57,11 @@ private:
 	GraphicsEngineSwapChain& swap_chain;
 
 	// Each frame owns the resources and presentation semaphore for one swapchain image.
-	VkSemaphore render_finished_semaphore;
+	VkSemaphore render_finished_semaphore = VK_NULL_HANDLE;
 	VkFence fence_frame_inflight = VK_NULL_HANDLE;
+	VkFence present_fence = VK_NULL_HANDLE;
+	bool present_pending = false;
+	bool submission_pending = false;
 	std::optional<SubmissionSerial> submission_serial;
 	static constexpr uint32_t observation_query_count = 8;
 	VkQueryPool observation_query_pool = VK_NULL_HANDLE;

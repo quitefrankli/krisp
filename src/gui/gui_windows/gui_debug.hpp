@@ -16,9 +16,11 @@ public:
 	void draw() override;
 	bool consume_screenshot_request()
 	{
-		const bool request = should_take_screenshot;
-		should_take_screenshot = false;
-		return request;
+		return should_take_screenshot.exchange(false, std::memory_order_acq_rel);
+	}
+	void request_screenshot()
+	{
+		should_take_screenshot.store(true, std::memory_order_release);
 	}
 
 	std::optional<uint32_t> consume_start_recording_request()
@@ -58,7 +60,7 @@ private:
 
 	bool should_refresh_objects_list = false;
 	bool should_toggle_pause = false;
-	bool should_take_screenshot = false;
+	std::atomic<bool> should_take_screenshot = false;
 	std::atomic<bool> should_start_recording = false;
 	std::atomic<bool> should_stop_recording = false;
 	std::atomic<bool> is_recording = false;

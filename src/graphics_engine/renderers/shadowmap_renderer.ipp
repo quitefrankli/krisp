@@ -15,11 +15,7 @@ ShadowMapRenderer::ShadowMapRenderer(GraphicsEngine& engine) :
 
 ShadowMapRenderer::~ShadowMapRenderer()
 {
-	for (auto& frame : frames)
-	{
-		get_rsrc_mgr().free_dset(frame.descriptor);
-		destroy_frame_images(frame);
-	}
+	release_per_frame_resources(true);
 	vkDestroySampler(get_logical_device(), shadow_map_sampler, nullptr);
 }
 
@@ -35,11 +31,29 @@ void ShadowMapRenderer::destroy_frame_images(FrameResources& frame)
 
 void ShadowMapRenderer::allocate_per_frame_resources(VkImage, VkImageView)
 {
+	if (consume_retained_per_frame_resource())
+		return;
 	FrameResources frame;
 	frame.descriptor = get_rsrc_mgr().reserve_dset(get_rsrc_mgr().get_shadow_map_dset_layout());
 	frames.push_back(frame);
 	// A tiny cube array remains bindable when the scene has no shadowed lights.
 	grow_frame_resources(static_cast<uint32_t>(frames.size() - 1), 0);
+}
+
+void ShadowMapRenderer::release_per_frame_resources(const bool image_count_changed)
+{
+	if (!image_count_changed)
+	{
+		retain_per_frame_resources(static_cast<uint32_t>(frames.size()));
+		return;
+	}
+	retain_per_frame_resources(0);
+	for (auto& frame : frames)
+	{
+		get_rsrc_mgr().free_dset(frame.descriptor);
+		destroy_frame_images(frame);
+	}
+	frames.clear();
 }
 
 void ShadowMapRenderer::prepare_frame(const uint32_t frame_idx, PointLightingData lighting)
@@ -125,6 +139,7 @@ void ShadowMapRenderer::submit_draw_commands(
 	rendering_info.layerCount = layer_count;
 	rendering_info.pDepthAttachment = &depth_info;
 	vkCmdBeginRendering(command_buffer, &rendering_info);
+	command_set_viewport_scissor(command_buffer, extent);
 	reset_draw_state();
 
 	if (get_graphics_engine().get_render_mode() == ERenderMode::RASTERIZED)

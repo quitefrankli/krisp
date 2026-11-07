@@ -1481,6 +1481,30 @@ void ImGui_ImplVulkan_SetMinImageCount(uint32_t min_image_count)
     bd->VulkanInitInfo.MinImageCount = min_image_count;
 }
 
+void ImGui_ImplVulkan_SetImageCount(uint32_t image_count)
+{
+    ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+    IM_ASSERT(bd != nullptr && "Context or backend not initialized!");
+    IM_ASSERT(image_count >= 2);
+    if (bd == nullptr || image_count < 2)
+        return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    IM_ASSERT((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) == 0 && "Image-count update supports only the main viewport");
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        return;
+
+    if (bd->VulkanInitInfo.ImageCount == image_count && bd->VulkanInitInfo.MinImageCount == image_count)
+        return;
+
+    // The caller guarantees the device is idle. Render buffers are safe to
+    // release, while the backend, platform window, and registered textures
+    // remain alive across the image-count change.
+    ImGui_ImplVulkanH_DestroyAllViewportsRenderBuffers(bd->VulkanInitInfo.Device, bd->VulkanInitInfo.Allocator);
+    bd->VulkanInitInfo.MinImageCount = image_count;
+    bd->VulkanInitInfo.ImageCount = image_count;
+}
+
 // Register a texture by creating a descriptor
 // FIXME: This is experimental in the sense that we are unsure how to best design/tackle this problem, please post to https://github.com/ocornut/imgui/pull/914 if you have suggestions.
 VkDescriptorSet ImGui_ImplVulkan_AddTexture(VkImageView image_view, VkImageLayout image_layout)

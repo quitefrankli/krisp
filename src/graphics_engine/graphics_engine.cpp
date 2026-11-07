@@ -15,6 +15,7 @@
 #include <glm/gtx/string_cast.hpp>
 #include <fmt/core.h>
 #include <fmt/color.h>
+#include <quill/LogMacros.h>
 
 #include <stdexcept>
 #include <array>
@@ -49,6 +50,8 @@ GraphicsEngine::~GraphicsEngine()
 {
 	fmt::print("GraphicsEngine: cleaning up\n");
 	vkDeviceWaitIdle(get_logical_device());
+	try { swap_chain.drain(); }
+	catch (const std::exception& error) { fmt::print("Presentation cleanup failed: {}\n", error.what()); }
 	renderables.clear();
 	loading_renderables.clear();
 	loading_frame.reset();
@@ -205,6 +208,8 @@ void GraphicsEngine::run() {
 			}
 			else if (!runtime_options.render_hz) loop_sleeper();
 		};
+		auto presentation_generation = window.get_presentation_state().generation;
+		bool recovery_required = false;
 		while (!should_shutdown.load(std::memory_order_acquire))
 		{
 			// for FPS
@@ -223,10 +228,34 @@ void GraphicsEngine::run() {
 				continue;
 			}
 
+			const auto presentation = window.get_presentation_state();
+			if (presentation.iconified || presentation.framebuffer_width <= 0 || presentation.framebuffer_height <= 0)
+			{
+				get_recording_session().set_suspended(true);
+				swap_chain.drain();
+				if (auto* capture = get_frame_capture_session())
+					capture->set_suspended(true);
+				analytics.stop();
+				window.wait_for_presentation_change(presentation.generation, should_shutdown);
+				if (pacer) pacer->reset(runtime_now_ns());
+				continue;
+			}
+			get_recording_session().set_suspended(false);
+			if (auto* capture = get_frame_capture_session()) capture->set_suspended(false);
+			if (recovery_required || presentation.generation != presentation_generation)
+			{
+				if (recovery_required || active_extent.width != static_cast<uint32_t>(presentation.framebuffer_width)
+					|| active_extent.height != static_cast<uint32_t>(presentation.framebuffer_height))
+					recreate_swap_chain();
+				presentation_generation = presentation.generation;
+				recovery_required = false;
+			}
 			gui_manager.draw();
 
 			// raytracing_component.process();
-			swap_chain.draw();
+			const auto outcome = swap_chain.draw();
+			recovery_required = outcome.recreate;
+			if (!outcome.presented) { analytics.stop(); pace(); continue; }
 			presented_frame_number.store(accepted_render_frame->frame_number, std::memory_order_release);
 			has_presented.store(true, std::memory_order_release);
 
@@ -568,17 +597,59 @@ void GraphicsEngine::release_retired_resources(RetiredGraphicsResources resource
 
 void GraphicsEngine::recreate_swap_chain()
 {
-	// TODO:
-	// Reimplement this, or don't since resizing window is very low priority
+	const auto state = window.get_presentation_state();
+	if (state.framebuffer_width <= 0 || state.framebuffer_height <= 0) return;
+	const auto recreation_begin = runtime_now_ns();
+	vkDeviceWaitIdle(get_logical_device());
+	swap_chain.drain();
+	if (auto* capture = get_frame_capture_session())
+		capture->fail_all("Presentation resources changed before capture submission");
+	const auto old_extent = get_extent();
+	const auto old_count = get_num_swapchain_images();
+	swap_chain.recreate({static_cast<uint32_t>(state.framebuffer_width),
+		static_cast<uint32_t>(state.framebuffer_height)});
+	// Surface capabilities may already reflect a newer native size than the
+	// event snapshot used above. Finalise recording before drawing that extent.
+	const auto actual_extent = get_extent();
+	if (actual_extent.width != old_extent.width || actual_extent.height != old_extent.height)
+	{
+		get_recording_session().stop();
+		if (video_recorder->is_recording()) video_recorder->stop();
+		get_gui_manager().debug.set_is_recording(false);
+	}
+	if (old_count != get_num_swapchain_images()) rebuild_per_image_resources();
+	LOG_INFO(Utility::get_logger(), "Presentation recreation: {}x{}, {} images, {} ms",
+		actual_extent.width, actual_extent.height, get_num_swapchain_images(),
+		static_cast<double>(runtime_now_ns() - recreation_begin) / 1e6);
+}
 
-	// // for when window is minimised
-	// int width = 0, height = 0;
-    // while (width == 0 || height == 0) {
-    //     glfwGetFramebufferSize(get_window(), &width, &height);
-    //     glfwWaitEvents();
-    // }
-
-	// swap_chain.reset();
+void GraphicsEngine::rebuild_per_image_resources()
+{
+	complete_graphics_submission(last_submitted_serial);
+	for (const auto& [id, count] : graphics_skeleton_frame_counts)
+		for (uint32_t i = 0; i < count; ++i)
+			get_rsrc_mgr().free_buffer(SkeletonFrameID{id, i});
+	graphics_skeleton_frame_counts.clear();
+	if (accepted_render_frame) prepare_skeleton_buffers(*accepted_render_frame);
+	if (loading_frame && loading_frame != accepted_render_frame) prepare_skeleton_buffers(*loading_frame);
+	const auto rebuild = [this](auto& collection)
+	{
+		for (auto& [id, renderable] : collection)
+		{
+			auto resources = renderable->take_graphics_resources();
+			RetiredGraphicsResources retired;
+			retired.renderables.push_back(std::move(resources));
+			release_retired_resources(std::move(retired));
+			for (uint32_t i = 0; i < get_num_swapchain_images(); ++i)
+			{
+				get_rsrc_mgr().reserve_buffer(RenderableFrameID{id, i}, sizeof(SDS::ObjectData));
+				renderable->record_frame_allocation();
+			}
+			create_renderable_dsets(*renderable);
+		}
+	};
+	rebuild(renderables);
+	rebuild(loading_renderables);
 }
 
 VkCommandBuffer GraphicsEngine::begin_single_time_commands()
@@ -614,7 +685,7 @@ void GraphicsEngine::end_single_time_commands(VkCommandBuffer command_buffer)
 
 VkExtent2D GraphicsEngine::get_extent()
 {
-	return GraphicsEngineSwapChain::get_extent(get_physical_device(), get_window_surface());
+	return active_extent;
 }
 
 void GraphicsEngine::create_image(uint32_t width,

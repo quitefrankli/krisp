@@ -63,6 +63,7 @@ public:
 	Mode get_mode() const { return mode; }
 
 	void toggle_projection();
+	void set_aspect_ratio(float aspect_ratio);
 
 	void set_orthographic_projection(const glm::vec2& horizontal_span);
 
@@ -109,7 +110,7 @@ private:
 	bool projection_is_perspective = true;
 	glm::vec2 orthographic_horizontal_span;
 	glm::vec2 zoom_limits{ 1.0f, 100.0f };
-	const float aspect_ratio;
+	float aspect_ratio;
 	const float fov = Maths::deg2rad(45.0f);
 	const float near_clipping = 0.1f;
 	const float far_clipping = 250.0f;

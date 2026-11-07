@@ -87,6 +87,48 @@ TEST(FrameCaptureSession, cancellationAndShutdownResolveBlockedPublication)
 	EXPECT_EQ(shutdown_session.wait(shutdown_id, std::chrono::milliseconds(1))->status, FrameCaptureStatus::Cancelled);
 }
 
+TEST(FrameCaptureSession, suspensionFailsPendingAndNewRequestsUntilResumed)
+{
+	FrameCaptureSession session;
+	const auto pending_id = session.request_next();
+	std::thread publisher([&] { session.bind_and_wait(21); });
+	while (!session.get_target())
+		std::this_thread::yield();
+
+	session.set_suspended(true);
+	publisher.join();
+	const auto pending_result = session.take_result(pending_id);
+	ASSERT_TRUE(pending_result);
+	EXPECT_EQ(pending_result->status, FrameCaptureStatus::Failed);
+	EXPECT_EQ(pending_result->frame_number, 21);
+
+	const auto suspended_id = session.request_next();
+	ASSERT_NE(suspended_id, 0u);
+	const auto suspended_result = session.take_result(suspended_id);
+	ASSERT_TRUE(suspended_result);
+	EXPECT_EQ(suspended_result->status, FrameCaptureStatus::Failed);
+
+	session.set_suspended(false);
+	const auto resumed_id = session.request_next();
+	std::thread resumed_publisher([&] { session.bind_and_wait(22); });
+	while (!session.get_target())
+		std::this_thread::yield();
+	const auto target = *session.get_target();
+	FrameCaptureResult completed{
+		.request_id = resumed_id,
+		.frame_number = 22,
+		.width = 1,
+		.height = 1,
+		.pixels = {1, 2, 3, 4},
+		.status = FrameCaptureStatus::Success,
+	};
+	EXPECT_TRUE(session.complete(target, std::move(completed)));
+	resumed_publisher.join();
+	const auto resumed_result = session.take_result(resumed_id);
+	ASSERT_TRUE(resumed_result);
+	EXPECT_EQ(resumed_result->status, FrameCaptureStatus::Success);
+}
+
 TEST(FrameCaptureSession, deadlineResolvesPendingRequestAsFailure)
 {
 	FrameCaptureSession session;

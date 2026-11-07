@@ -202,6 +202,10 @@ RenderFrame GameEngine::build_render_frame()
 
 void GameEngine::publish_completed_render_frame()
 {
+	const auto presentation = window->get_presentation_state();
+	if (presentation.framebuffer_width > 0 && presentation.framebuffer_height > 0)
+		camera->set_aspect_ratio(static_cast<float>(presentation.framebuffer_width)
+			/ static_cast<float>(presentation.framebuffer_height));
 	const auto& observation = runtime_options.observation;
 	const auto begin_ns = observation && observation->active() ? runtime_now_ns() : 0;
 	auto frame = build_render_frame();

@@ -19,6 +19,11 @@ RasterizationRenderer::RasterizationRenderer(GraphicsEngine& engine) :
 
 RasterizationRenderer::~RasterizationRenderer()
 {
+	release_per_frame_resources(true);
+}
+
+void RasterizationRenderer::release_per_frame_resources(bool)
+{
 	for (auto& color_attachment : color_attachments)
 	{
 		color_attachment.destroy(get_graphics_engine().get_logical_device(), get_graphics_engine().get_allocator());
@@ -31,6 +36,9 @@ RasterizationRenderer::~RasterizationRenderer()
 	{
 		depth_attachment.destroy(get_graphics_engine().get_logical_device(), get_graphics_engine().get_allocator());
 	}
+	color_attachments.clear();
+	resolve_attachments.clear();
+	depth_attachments.clear();
 }
 
 void RasterizationRenderer::allocate_per_frame_resources(VkImage, VkImageView)
@@ -136,6 +144,7 @@ void RasterizationRenderer::submit_draw_commands(
 	rendering_info.pDepthAttachment = &depth_info;
 	rendering_info.pStencilAttachment = &depth_info;
 	vkCmdBeginRendering(command_buffer, &rendering_info);
+	command_set_viewport_scissor(command_buffer, extent);
 	reset_draw_state();
 
 	std::vector<VkDescriptorSet> per_frame_dsets = { 

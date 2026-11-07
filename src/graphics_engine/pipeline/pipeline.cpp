@@ -223,27 +223,16 @@ void GraphicsEnginePipeline::initialise()
 	input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	input_assembly.primitiveRestartEnable = VK_FALSE;
 
-	const VkExtent2D extent = get_extent();
-	VkViewport view_port{}; // final output, it defines the transformation from image to framebuffer
-	// Vulkan uses right-hand coordinate system, so y is actually pointing down
-	// to fix this, we flip the view port upside down
-	// https://www.saschawillems.de/blog/2019/03/29/flipping-the-vulkan-viewport/
-	view_port.x = 0.0f;
-	view_port.y = (float)extent.height;
-	view_port.width = (float)extent.width;
-	view_port.height = -(float)extent.height;
-	view_port.minDepth = 0.0f;
-	view_port.maxDepth = 1.0f;
-
-	VkRect2D scissor{}; // any pixels outside scissor is omitted by rasterizer
-	scissor.offset = { 0, 0 };
-	scissor.extent = extent;
-
 	VkPipelineViewportStateCreateInfo view_port_state_create_info{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
 	view_port_state_create_info.viewportCount = 1;
-	view_port_state_create_info.pViewports = &view_port;
+	view_port_state_create_info.pViewports = nullptr;
 	view_port_state_create_info.scissorCount = 1;
-	view_port_state_create_info.pScissors = &scissor;
+	view_port_state_create_info.pScissors = nullptr;
+	const VkDynamicState dynamic_states[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	VkPipelineDynamicStateCreateInfo dynamic_state_create_info{
+		VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+	dynamic_state_create_info.dynamicStateCount = static_cast<uint32_t>(std::size(dynamic_states));
+	dynamic_state_create_info.pDynamicStates = dynamic_states;
 
 	// takes the geometry shaped by vertices and turns it into fragments to be colored by fragment shader
 	VkPipelineRasterizationStateCreateInfo rasterizer_create_info{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO}; 
@@ -311,7 +300,7 @@ void GraphicsEnginePipeline::initialise()
 	graphics_pipeline_create_info.pMultisampleState = &multisampling_create_info;
 	graphics_pipeline_create_info.pDepthStencilState = nullptr;
 	graphics_pipeline_create_info.pColorBlendState = &color_blending_create_info;
-	graphics_pipeline_create_info.pDynamicState = nullptr;
+	graphics_pipeline_create_info.pDynamicState = &dynamic_state_create_info;
 	auto depth_stencil_create_info = get_depth_stencil_create_info();
 	graphics_pipeline_create_info.pDepthStencilState = &depth_stencil_create_info;
 	graphics_pipeline_create_info.layout = pipeline_layout;

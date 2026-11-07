@@ -6,6 +6,7 @@
 #include <quill/LogMacros.h>
 #include <GLFW/glfw3.h>
 #include <fmt/ranges.h>
+#include <algorithm>
 
 
 GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
@@ -57,6 +58,23 @@ GraphicsEngineInstance::GraphicsEngineInstance(GraphicsEngine& engine) :
 
 	// vulkan is platform agnostic and therefore an extension is necessary 
 	std::vector<std::string> required_extensions = get_required_extensions();
+	for (const char* surface_maintenance_extension : {
+			"VK_KHR_surface_maintenance1", VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME})
+	{
+		if (std::find(available_instance_extensions.begin(), available_instance_extensions.end(),
+				surface_maintenance_extension) != available_instance_extensions.end())
+			required_extensions.emplace_back(surface_maintenance_extension);
+	}
+	for (const auto& required_extension : required_extensions)
+	{
+		if (std::find(available_instance_extensions.begin(), available_instance_extensions.end(),
+				required_extension) == available_instance_extensions.end())
+		{
+			throw std::runtime_error(fmt::format(
+				"GraphicsEngineInstance: required instance extension {} is unavailable",
+				required_extension));
+		}
+	}
 	LOG_DEBUG(Utility::get_logger(), 
 			  "GraphicsEngineInstance: required extensions:={}", 
 			  fmt::format("{}", fmt::join(required_extensions, ", ")));
@@ -107,6 +125,7 @@ std::vector<std::string> GraphicsEngineInstance::get_required_extensions() const
 	{
 		required_extensions.push_back(glfwExtensions[i]);
 	}
+	required_extensions.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
 
 	if (GraphicsEngineValidationLayer::is_enabled())
 	{

@@ -1,4 +1,6 @@
 sources = [
+	'swapchain_selection_tests.cpp',
+	'window_presentation_state_tests.cpp',
 	'frame_capture_tests.cpp',
 	'runtime_performance_tests.cpp',
 	'test_main.cpp',
@@ -75,3 +77,6 @@ foreach fidelity_test : ['test_fidelity_assets.py', 'test_fidelity_references.py
         workdir: meson.project_source_root(),
         args: ['-m', 'unittest', 'discover', '-s', meson.current_source_dir(), '-p', fidelity_test, '-q'])
 endforeach
+
+executable('window_lifecycle_integration', 'window_lifecycle_integration.cpp',
+    dependencies: krisp_core, link_depends: krisp_runtime)

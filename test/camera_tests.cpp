@@ -301,3 +301,49 @@ TEST_F(CameraTests, orthographic_camera_rays_start_on_the_corresponding_near_pla
 	ASSERT_TRUE(glm_equal(right_ray.origin, { 1.0f, 0.0f, -1.9f }));
 	ASSERT_TRUE(glm_equal(right_ray.direction, Maths::forward_vec));
 }
+
+TEST_F(CameraTests, changing_aspect_ratio_preserves_perspective_vertical_field_of_view_and_picking)
+{
+	const auto top_ray_before = camera.get_ray({ 0.0f, 1.0f });
+	const auto right_ray_before = camera.get_ray({ 1.0f, 0.0f });
+	const auto projection_before = camera.get_projection();
+
+	camera.set_aspect_ratio(2.0f);
+
+	const auto projection_after = camera.get_projection();
+	EXPECT_NEAR(projection_after[1][1], projection_before[1][1], 0.00001f);
+	EXPECT_NEAR(projection_after[0][0], projection_before[0][0] * 0.5f, 0.00001f);
+	EXPECT_TRUE(glm_equal(camera.get_ray({ 0.0f, 1.0f }).direction, top_ray_before.direction));
+	EXPECT_FALSE(glm_equal(camera.get_ray({ 1.0f, 0.0f }).direction, right_ray_before.direction));
+}
+
+TEST_F(CameraTests, changing_aspect_ratio_preserves_zoomed_orthographic_vertical_span_and_picking)
+{
+	camera.toggle_projection();
+	camera.zoom_in(1.0f);
+	const auto top_ray_before = camera.get_ray({ 0.0f, 1.0f });
+	const auto right_ray_before = camera.get_ray({ 1.0f, 0.0f });
+	const auto projection_before = camera.get_projection();
+
+	camera.set_aspect_ratio(2.0f);
+
+	const auto projection_after = camera.get_projection();
+	EXPECT_NEAR(projection_after[1][1], projection_before[1][1], 0.00001f);
+	EXPECT_NEAR(projection_after[0][0], projection_before[0][0] * 0.5f, 0.00001f);
+	EXPECT_TRUE(glm_equal(camera.get_ray({ 0.0f, 1.0f }).origin, top_ray_before.origin));
+	EXPECT_FALSE(glm_equal(camera.get_ray({ 1.0f, 0.0f }).origin, right_ray_before.origin));
+}
+
+TEST_F(CameraTests, aspect_ratio_must_be_finite_and_positive)
+{
+	const auto projection_before = camera.get_projection();
+	for (const float invalid_ratio : {
+		0.0f,
+		-1.0f,
+		std::numeric_limits<float>::infinity(),
+		std::numeric_limits<float>::quiet_NaN()})
+	{
+		EXPECT_THROW(camera.set_aspect_ratio(invalid_ratio), std::invalid_argument);
+		EXPECT_TRUE(glm_equal(camera.get_projection(), projection_before));
+	}
+}

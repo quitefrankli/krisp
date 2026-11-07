@@ -13,6 +13,8 @@ void RecordingSession::start(const uint32_t requested_frames_per_second)
 		throw std::logic_error("RecordingSession: recording is already active");
 
 	active = true;
+	suspended = false;
+	suspension_generation = 0;
 	++session_number;
 	next_sequence = 0;
 	frames_per_second = requested_frames_per_second;
@@ -26,7 +28,29 @@ void RecordingSession::stop()
 {
 	const std::lock_guard lock(mutex);
 	active = false;
+	suspended = false;
 	capture_target.reset();
+	completed_sequence.reset();
+	state_changed.notify_all();
+}
+
+void RecordingSession::set_suspended(const bool should_suspend)
+{
+	const std::lock_guard lock(mutex);
+	if (!active || suspended == should_suspend)
+		return;
+
+	suspended = should_suspend;
+	if (suspended)
+	{
+		++suspension_generation;
+		capture_target.reset();
+		completed_sequence.reset();
+	}
+	else
+	{
+		next_frame_not_before = Clock::now();
+	}
 	state_changed.notify_all();
 }
 
@@ -45,14 +69,17 @@ uint32_t RecordingSession::get_frames_per_second() const
 std::optional<RecordingSession::GameFrame> RecordingSession::begin_game_frame()
 {
 	std::unique_lock lock(mutex);
-	if (!active)
+	if (!active || suspended)
 		return std::nullopt;
 
 	const uint64_t expected_session = session_number;
-	state_changed.wait_until(lock, next_frame_not_before, [this, expected_session] {
-		return !active || session_number != expected_session;
+	const uint64_t expected_suspension_generation = suspension_generation;
+	state_changed.wait_until(lock, next_frame_not_before, [this, expected_session, expected_suspension_generation] {
+		return !active || suspended || session_number != expected_session
+			|| suspension_generation != expected_suspension_generation;
 	});
-	if (!active || session_number != expected_session)
+	if (!active || suspended || session_number != expected_session
+		|| suspension_generation != expected_suspension_generation)
 		return std::nullopt;
 
 	const auto now = Clock::now();
@@ -71,8 +98,9 @@ bool RecordingSession::await_capture(
 	const GameFrame& frame, const uint64_t render_frame_number)
 {
 	std::unique_lock lock(mutex);
-	if (!active || frame.session != session_number)
+	if (!active || suspended || frame.session != session_number)
 		return false;
+	const uint64_t expected_suspension_generation = suspension_generation;
 	if (capture_target)
 		throw std::logic_error("RecordingSession: a capture is already pending");
 
@@ -83,11 +111,13 @@ bool RecordingSession::await_capture(
 	};
 	state_changed.notify_all();
 
-	state_changed.wait(lock, [this, &frame] {
-		return !active || session_number != frame.session
+	state_changed.wait(lock, [this, &frame, expected_suspension_generation] {
+		return !active || suspended || session_number != frame.session
+			|| suspension_generation != expected_suspension_generation
 			|| (completed_sequence && *completed_sequence == frame.sequence);
 	});
-	return active && session_number == frame.session
+	return active && !suspended && session_number == frame.session
+		&& suspension_generation == expected_suspension_generation
 		&& completed_sequence && *completed_sequence == frame.sequence;
 }
 

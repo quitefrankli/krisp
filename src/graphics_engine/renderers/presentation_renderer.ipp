@@ -24,8 +24,16 @@ PresentationRenderer::PresentationRenderer(GraphicsEngine& engine) :
 
 PresentationRenderer::~PresentationRenderer()
 {
-	get_rsrc_mgr().free_dsets(scene_inputs);
+	release_per_frame_resources(true);
 	vkDestroySampler(get_logical_device(), scene_sampler, nullptr);
+}
+
+void PresentationRenderer::release_per_frame_resources(bool)
+{
+	get_rsrc_mgr().free_dsets(scene_inputs);
+	scene_inputs.clear();
+	presentation_images.clear();
+	presentation_image_views.clear();
 }
 
 void PresentationRenderer::allocate_per_frame_resources(VkImage presentation_image, VkImageView presentation_image_view)
@@ -81,6 +89,7 @@ void PresentationRenderer::submit_draw_commands(
 	rendering_info.colorAttachmentCount = 1;
 	rendering_info.pColorAttachments = &color_info;
 	vkCmdBeginRendering(command_buffer, &rendering_info);
+	command_set_viewport_scissor(command_buffer, get_extent());
 
 	auto* pipeline = get_graphics_engine().get_pipeline_mgr().fetch_pipeline(
 		{ERenderType::PRESENTATION, EPipelineModifier::NONE});

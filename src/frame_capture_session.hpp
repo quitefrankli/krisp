@@ -65,6 +65,7 @@ public:
 	bool cancel(RequestId request_id);
 	void cancel_all();
 	void fail_all(std::string error);
+	void set_suspended(bool suspended);
 	std::optional<FrameCaptureResult> wait(RequestId request_id, std::chrono::milliseconds timeout);
 	std::optional<FrameCaptureResult> try_get_result(RequestId request_id) const;
 	std::optional<FrameCaptureResult> take_result(RequestId request_id);
@@ -73,6 +74,7 @@ private:
 	mutable std::mutex mutex;
 	std::condition_variable changed;
 	RequestId next_request_id = 1;
+	bool suspended = false;
 	std::optional<Target> pending_target;
 	std::optional<FrameCaptureResult> result;
 };
